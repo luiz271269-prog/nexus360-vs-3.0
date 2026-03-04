@@ -35,6 +35,155 @@ const formatarHorario = (timestamp) => {
   } catch { return ""; }
 };
 
+// ── Layout de LISTA completo (igual ChatSidebar) — usado na coluna "Minhas Conversas" ──
+function ThreadRowMinhas({ thread, isAtiva, usuarioAtual, atendentes, integracoes, onSelecionarThread }) {
+  const contato = thread.contato;
+  const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
+  const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
+
+  let nomeExibicao = "";
+  if (contato?.empresa) nomeExibicao += contato.empresa;
+  if (contato?.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + contato.cargo;
+  if (contato?.nome && contato.nome !== contato?.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
+  if (!nomeExibicao) nomeExibicao = contato?.telefone || "Sem Nome";
+
+  const tiposConfig = {
+    'novo': { emoji: '?', label: 'Novo', bg: 'bg-slate-400' },
+    'lead': { emoji: 'L', label: 'Lead', bg: 'bg-amber-500' },
+    'cliente': { emoji: 'C', label: 'Cliente', bg: 'bg-emerald-500' },
+    'fornecedor': { emoji: 'F', label: 'Fornec.', bg: 'bg-blue-500' },
+    'parceiro': { emoji: 'P', label: 'Parceiro', bg: 'bg-purple-500' }
+  };
+  const tipoCfg = tiposConfig[contato?.tipo_contato || 'novo'] || tiposConfig['novo'];
+
+  // Número da integração (#últimos4)
+  const integracao = integracoes?.find(i => i.id === thread.whatsapp_integration_id);
+  const ultimos4 = integracao?.numero_telefone?.slice(-4);
+
+  const getAtendenteFidelizado = (c) => getAtendenteFidelizadoAtualizado(c, atendentes);
+
+  return (
+    <div
+      onClick={() => onSelecionarThread(thread)}
+      className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${isAtiva ? 'bg-blue-50 border-l-4 border-l-orange-500' : ''}`}
+    >
+      {/* Avatar */}
+      <div className="relative flex-shrink-0">
+        <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-base shadow-md overflow-hidden ${hasUnread ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'}`}>
+          {contato?.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ? (
+            <img src={contato.foto_perfil_url} alt={nomeExibicao} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+          ) : (
+            nomeExibicao.charAt(0).toUpperCase()
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 min-w-0">
+        {/* Linha 1: Nome + #canal + badge não lidas + horário */}
+        <div className="flex items-center justify-between mb-0.5">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            <h3 className={`font-semibold truncate text-sm ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
+              {nomeExibicao}
+            </h3>
+            {hasUnread && (
+              <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-[10px] font-bold border-0 shadow-lg flex-shrink-0">
+                {getUnreadCount(thread, usuarioAtual?.id)}
+              </Badge>
+            )}
+            {ultimos4 && (
+              <span className="text-[9px] text-slate-400 flex-shrink-0">#{ultimos4}</span>
+            )}
+          </div>
+          <span className={`text-[10px] flex-shrink-0 ml-2 ${hasUnread ? 'text-orange-600 font-medium' : 'text-slate-400'}`}>
+            {formatarHorario(thread.last_message_at)}
+          </span>
+        </div>
+
+        {/* Linha 2: Preview mensagem */}
+        <p className={`text-xs truncate flex items-center gap-1 ${hasUnread ? 'text-slate-800' : 'text-slate-500'}`}>
+          {thread.last_message_sender === 'user' && (() => {
+            const s = thread.last_message_status;
+            if (s === 'lida') return <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />;
+            if (s === 'entregue') return <CheckCheck className="w-3 h-3 text-slate-400 flex-shrink-0" />;
+            if (s === 'enviada') return <Check className="w-3 h-3 text-slate-400 flex-shrink-0" />;
+            if (s === 'falhou') return <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0" />;
+            return <CheckCheck className="w-3 h-3 text-slate-400 flex-shrink-0" />;
+          })()}
+          {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+          {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
+          {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
+          {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
+          <span className="truncate">{thread.last_message_content || 'Sem mensagens'}</span>
+          {thread.last_message_sender_name && (
+            <span className="text-[9px] text-slate-400 italic flex-shrink-0">~ {thread.last_message_sender_name.split(' ')[0]}</span>
+          )}
+        </p>
+
+        {/* Linha 3: Tipo + Tags + Atendente */}
+        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${tipoCfg.bg} shadow-sm`}>
+            {tipoCfg.emoji} {tipoCfg.label}
+          </span>
+
+          {/* Tags destaque */}
+          {contato?.tags?.length > 0 && (() => {
+            const destaques = etiquetasDB.filter(e => e.destaque === true);
+            const nomes = destaques.map(e => e.nome);
+            const tags = contato.tags
+              .filter(t => nomes.includes(t))
+              .sort((a, b) => (destaques.find(e => e.nome === a)?.ordem || 100) - (destaques.find(e => e.nome === b)?.ordem || 100))
+              .slice(0, 1);
+            return tags.map(etq => {
+              const cfg = getEtiquetaConfigDinamico(etq);
+              return (
+                <span key={etq} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.cor || 'bg-slate-500'} shadow-sm`}>
+                  {cfg.emoji || '🏷️'} {cfg.label?.substring(0, 6) || etq}
+                </span>
+              );
+            });
+          })()}
+
+          {/* Atendente */}
+          {thread.assigned_user_id ? (() => {
+            const nome = getUserDisplayName(thread.assigned_user_id, atendentes);
+            const vazio = nome === 'Carregando...' || nome === 'Usuário não encontrado';
+            return vazio ? (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm">
+                <UserCheck className="w-3 h-3" />Restrito
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm">
+                <UserCheck className="w-3 h-3" />{nome.split(' ')[0]}
+              </span>
+            );
+          })() : getAtendenteFidelizado(contato)?.id ? (() => {
+            const af = getAtendenteFidelizado(contato);
+            const nome = getUserDisplayName(af.id, atendentes);
+            const vazio = nome === 'Carregando...' || nome === 'Usuário não encontrado';
+            return vazio ? (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm">VIP Restrito</span>
+            ) : (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm">
+                VIP {nome.split(' ')[0]}
+              </span>
+            );
+          })() : thread.is_contact_only ? (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm">S/atend.</span>
+          ) : (
+            <AtribuidorAtendenteRapido
+              contato={contato}
+              thread={thread}
+              tipoContato={contato?.tipo_contato || 'novo'}
+              setorAtual={thread?.sector_id || 'geral'}
+              variant="mini"
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecionarThread, podeInteragir }) {
   const contato = thread.contato;
   const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
