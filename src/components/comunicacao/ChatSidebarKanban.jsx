@@ -1,10 +1,11 @@
 import React from "react";
 import { format } from "date-fns";
 import {
-  CheckCheck, Check, Clock, AlertCircle, Image, Video, Mic, FileText,
+  CheckCheck, Check, AlertCircle, Image, Video, Mic, FileText,
   UserCheck, Columns, Users, Send, ArrowRightLeft, Plus, CalendarCheck,
-  AlertTriangle, MessagesSquare, Pause
+  AlertTriangle, MessagesSquare, Pause, Zap
 } from "lucide-react";
+import ContatosRequerendoAtencaoKanban from "./ContatosRequerendoAtencaoKanban";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getUserDisplayName } from "../lib/userHelpers";
