@@ -442,12 +442,23 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           <Checkbox checked={estaSelecionado} onCheckedChange={() => toggleSelecaoContato(item)} />
         </div>
 
-        {/* Avatar compacto */}
+        {/* Avatar com foto */}
         <div className="relative flex-shrink-0">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
+          {item.foto_perfil_url ? (
+            <img
+              src={item.foto_perfil_url}
+              alt={item.nome}
+              className="w-10 h-10 rounded-full object-cover shadow-sm border-2 border-white"
+              onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+            />
+          ) : null}
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm bg-gradient-to-br from-amber-400 via-orange-500 to-red-500"
+            style={{ display: item.foto_perfil_url ? 'none' : 'flex' }}>
             {item.nome?.charAt(0)?.toUpperCase() || '?'}
           </div>
-          <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border border-white ${getBucketCor(item.bucket_inactive)}`} />
+          {/* Indicador de dias inativos */}
+          <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white flex items-center justify-center ${getBucketCor(item.bucket_inactive)}`} />
         </div>
 
         <div className="flex-1 min-w-0">
@@ -466,47 +477,68 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             </div>
           </div>
 
-          {/* Linha 2: Data + badges numa só linha */}
-          <div className="flex items-center gap-1 flex-wrap mt-0.5">
-            <span className="text-[9px] text-slate-400 flex items-center gap-0.5 shrink-0">
-              <Clock className="w-2.5 h-2.5" />
+          {/* Linha 2: Telefone */}
+          {item.telefone && (
+            <p className="text-[9px] text-slate-400 truncate leading-tight">
+              📱 {item.telefone}
+            </p>
+          )}
+
+          {/* Linha 3: Última mensagem recebida */}
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className={`text-[9px] flex items-center gap-0.5 font-medium ${
+              (item.days_inactive_inbound || 0) >= 90 ? 'text-red-500' :
+              (item.days_inactive_inbound || 0) >= 60 ? 'text-orange-500' :
+              (item.days_inactive_inbound || 0) >= 30 ? 'text-yellow-600' :
+              'text-slate-500'
+            }`}>
+              <MessageSquare className="w-2.5 h-2.5" />
               {formatarDataUltimaMensagem(item.last_inbound_at || item.ultima_interacao)}
             </span>
-
-            {/* Tipo */}
-            {(() => {
-              const cfg = { lead: ['L','bg-amber-500'], cliente: ['C','bg-emerald-500'], fornecedor: ['F','bg-blue-500'], parceiro: ['P','bg-purple-500'] }[item.tipo_contato] || ['?','bg-slate-400'];
-              return <span className={`text-[8px] font-bold text-white px-1 rounded-full ${cfg[1]}`}>{cfg[0]}</span>;
-            })()}
-
-            {/* Prioridade */}
-            <span className={`text-[8px] font-bold text-white px-1 rounded ${getPrioridadeCor(item.prioridadeLabel)}`}>
-              {item.prioridadeLabel}
-            </span>
-
-            {/* Classe ABC */}
-            {item.classe_abc && item.classe_abc !== 'none' && (() => {
-              const cfg = { A: 'bg-green-600', B: 'bg-yellow-500', C: 'bg-blue-500' }[item.classe_abc];
-              return cfg ? <span className={`text-[8px] font-black text-white px-1 rounded ${cfg}`}>{item.classe_abc}</span> : null;
-            })()}
-
-            {/* Atendente (inicial) */}
-            {assignedId && (
-              <span className="text-[8px] font-semibold text-white px-1 rounded-full bg-indigo-500 shrink-0">
-                {atendenteNome.split(' ')[0].substring(0, 8)}
+            {item.days_inactive_inbound > 0 && (
+              <span className={`text-[8px] font-bold px-1 rounded ${
+                (item.days_inactive_inbound || 0) >= 90 ? 'bg-red-100 text-red-700' :
+                (item.days_inactive_inbound || 0) >= 60 ? 'bg-orange-100 text-orange-700' :
+                (item.days_inactive_inbound || 0) >= 30 ? 'bg-yellow-100 text-yellow-700' :
+                'bg-slate-100 text-slate-600'
+              }`}>
+                {item.days_inactive_inbound}d
               </span>
             )}
           </div>
 
-          {/* Linha 3: Etiquetas (só se tiver) */}
+          {/* Linha 4: Badges tipo + prioridade + ABC + atendente */}
+          <div className="flex items-center gap-0.5 flex-wrap mt-0.5">
+            {(() => {
+              const cfg = { lead: ['Lead','bg-amber-500'], cliente: ['Cliente','bg-emerald-500'], fornecedor: ['Fornec.','bg-blue-500'], parceiro: ['Parceiro','bg-purple-500'] }[item.tipo_contato] || ['Novo','bg-slate-400'];
+              return <span className={`text-[8px] font-bold text-white px-1.5 py-0 rounded-full ${cfg[1]}`}>{cfg[0]}</span>;
+            })()}
+
+            <span className={`text-[8px] font-bold text-white px-1.5 py-0 rounded ${getPrioridadeCor(item.prioridadeLabel)}`}>
+              {item.prioridadeLabel}
+            </span>
+
+            {item.classe_abc && item.classe_abc !== 'none' && (() => {
+              const cfg = { A: 'bg-green-600', B: 'bg-yellow-500', C: 'bg-blue-500' }[item.classe_abc];
+              return cfg ? <span className={`text-[8px] font-black text-white px-1.5 py-0 rounded ${cfg}`}>{item.classe_abc}</span> : null;
+            })()}
+
+            {assignedId && (
+              <span className="text-[8px] font-semibold text-indigo-700 bg-indigo-100 px-1.5 py-0 rounded-full shrink-0">
+                👤 {atendenteNome.split(' ')[0].substring(0, 10)}
+              </span>
+            )}
+          </div>
+
+          {/* Linha 5: Etiquetas */}
           {item.tags && item.tags.length > 0 && (
             <div className="flex items-center gap-0.5 flex-wrap mt-0.5">
-              {item.tags.slice(0, 2).map((tag) => (
+              {item.tags.slice(0, 3).map((tag) => (
                 <span key={tag} className="text-[8px] font-medium text-purple-700 bg-purple-100 px-1 rounded">
                   {tag}
                 </span>
               ))}
-              {item.tags.length > 2 && <span className="text-[8px] text-slate-400">+{item.tags.length - 2}</span>}
+              {item.tags.length > 3 && <span className="text-[8px] text-slate-400">+{item.tags.length - 3}</span>}
             </div>
           )}
         </div>
