@@ -137,10 +137,16 @@ Deno.serve(async (req) => {
   if (contatoExistente) {
     try {
       const agora = new Date().toISOString();
-      const update = { ultima_interacao: agora };
+      const update = { 
+        ultima_interacao: agora,
+        // Garantir sempre que telefone_canonico está preenchido
+        telefone_canonico: telefoneNormalizado.replace(/\D/g, '')
+      };
       
-      // Atualizar nome se veio pushName e (não tem nome OU nome é o telefone)
-      if (pushName && (!contatoExistente.nome || contatoExistente.nome === contatoExistente.telefone)) {
+      // Atualizar nome se veio pushName e (não tem nome OU nome parece ser um número de telefone)
+      const nomeAtual = contatoExistente.nome || '';
+      const nomePareceTelefone = /^\+?[\d\s\-()]+$/.test(nomeAtual) || nomeAtual.length === 0;
+      if (pushName && nomePareceTelefone) {
         update.nome = pushName;
       }
       
@@ -150,8 +156,8 @@ Deno.serve(async (req) => {
         update.foto_perfil_atualizada_em = agora;
       }
       
-      // Atualizar conexão se veio
-      if (conexaoId && !contatoExistente.conexao_origem) {
+      // Atualizar conexão sempre (registra o canal mais recente)
+      if (conexaoId) {
         update.conexao_origem = conexaoId;
       }
       
@@ -181,6 +187,7 @@ Deno.serve(async (req) => {
     const novoContato = await base44.asServiceRole.entities.Contact.create({
       nome: pushName || telefoneNormalizado,
       telefone: telefoneNormalizado,
+      telefone_canonico: telefoneNormalizado.replace(/\D/g, ''), // ✅ Campo de deduplicação rápida
       tipo_contato: 'lead',
       whatsapp_status: 'verificado',
       conexao_origem: conexaoId || null,
