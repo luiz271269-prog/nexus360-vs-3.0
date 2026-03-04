@@ -178,8 +178,8 @@ const rows = [
   {
     categoria: "📡 Envio de Mensagens",
     aspecto: "Estrutura da URL de envio",
-    zapi: { node: <span className="font-mono text-xs bg-slate-100 px-1 rounded">/instances/{id}/token/{token}/send-text</span>, destaque: false },
-    wapi: { node: <span className="font-mono text-xs bg-slate-100 px-1 rounded">POST /v1/sendMessage/sendText?instanceId={id} (Bearer token)</span>, destaque: false },
+    zapi: { node: <span className="font-mono text-xs bg-slate-100 px-1 rounded">{"/instances/{id}/token/{token}/send-text"}</span>, destaque: false },
+    wapi: { node: <span className="font-mono text-xs bg-slate-100 px-1 rounded">{"POST /v1/sendMessage/sendText?instanceId={id} (Bearer token)"}</span>, destaque: false },
     diferenca: "Z-API embute token na URL. W-API usa Bearer header. Segurança diferente (W-API melhor nesse aspecto).",
     impacto: "médio"
   },
