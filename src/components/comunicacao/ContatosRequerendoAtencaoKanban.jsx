@@ -625,8 +625,52 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
       }
 
       <div className="flex h-full min-h-0 bg-slate-50">
+
+        {/* ✅ COLUNA FIXA: Lista de conversas (igual sidebar) */}
+        <div className="hidden md:flex w-72 xl:w-80 border-r border-slate-200 bg-white flex-col flex-shrink-0 overflow-hidden">
+          <div className="flex-shrink-0 bg-slate-800 px-3 py-2 border-b border-slate-700">
+            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wide">Conversas</h3>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <ChatSidebar
+              threads={threads}
+              threadAtiva={chatAberto?.thread || null}
+              onSelecionarThread={async (thread) => {
+                try {
+                  const contObj = thread.contato || {};
+                  setCarregandoMensagens(true);
+                  const mensagens = await base44.entities.Message.filter(
+                    { thread_id: thread.id }, '-sent_at', 200
+                  );
+                  setChatAberto({
+                    thread,
+                    contato: {
+                      id: thread.contact_id,
+                      nome: contObj.nome,
+                      empresa: contObj.empresa,
+                      telefone: contObj.telefone,
+                      tipo_contato: contObj.tipo_contato,
+                      vendedor_responsavel: contObj.vendedor_responsavel
+                    }
+                  });
+                  setMensagensChat(mensagens.reverse());
+                } catch (e) { toast.error(`❌ ${e.message}`); }
+                finally { setCarregandoMensagens(false); }
+              }}
+              loading={false}
+              usuarioAtual={usuario}
+              integracoes={integracoes}
+              atendentes={atendentes}
+              modoSelecaoMultipla={false}
+              contatosSelecionados={[]}
+              filterScope="all"
+              contatos={[]}
+            />
+          </div>
+        </div>
+
         {/* ✅ KANBAN COLUMNS */}
-        <div className={`flex flex-col h-full min-h-0 transition-all ${chatAberto ? 'w-1/2' : 'w-full'}`}>
+        <div className={`flex flex-col h-full min-h-0 transition-all ${chatAberto ? 'flex-1' : 'flex-1'}`}>
         {/* ✅ HEADER COM CONTROLES */}
         <div className="flex-shrink-0 bg-slate-800 border-b-2 border-slate-700 p-3 space-y-2">
           {/* Linha 1: Título + botões */}
