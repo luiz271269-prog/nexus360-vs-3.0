@@ -180,11 +180,11 @@ export default function SearchAndFilter({
   return (
     <div className="bg-slate-50 text-[#343979] px-3 py-1 rounded-lg border-b border-slate-200 flex-shrink-0 space-y-2 from-white to-slate-50">
       {/* Barra de busca */}
-      <div className="flex items-center gap-2">
-        {/* Filtros */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Botão de filtros */}
-          <Popover open={showFilters} onOpenChange={setShowFilters}>
+       <div className="flex items-center gap-2">
+         {/* Filtros + Vista + Seleção */}
+         <div className="flex items-center gap-1 flex-shrink-0">
+           {/* Botão de filtros */}
+           <Popover open={showFilters} onOpenChange={setShowFilters}>
             <PopoverTrigger asChild>
               <button
                 className={`relative p-1.5 rounded-lg transition-all ${
