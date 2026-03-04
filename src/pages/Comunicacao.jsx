@@ -451,7 +451,7 @@ export default function Comunicacao() {
         // ✅ Busca livre via backend (SEM bloqueio de RLS/integração)
         const response = await base44.functions.invoke('buscarContatosLivre', {
           searchTerm: debouncedSearchTerm,
-          limit: 500
+          limit: 100
         });
 
         let todosBD = [];
