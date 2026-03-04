@@ -394,9 +394,35 @@ export default function SearchAndFilter({
             </div>
           </PopoverContent>
           </Popover>
-        </div>{/* fim dos botões à esquerda */}
 
-        {/* Campo de busca */}
+          {/* Botão de Vista (Lista vs Kanban) */}
+          <Button
+            variant={sidebarViewMode === 'list' ? 'default' : 'outline'}
+            size="icon"
+            onClick={() => onSidebarViewModeChange?.(sidebarViewMode === 'list' ? 'kanban' : 'list')}
+            className="h-10 w-10 p-1.5"
+            title={sidebarViewMode === 'list' ? 'Mudar para Kanban' : 'Mudar para Lista'}
+          >
+            {sidebarViewMode === 'list' ? (
+              <Columns className="w-4 h-4" />
+            ) : (
+              <List className="w-4 h-4" />
+            )}
+          </Button>
+
+          {/* Botão Seleção Múltipla */}
+          <Button
+            variant={modoSelecaoMultipla ? 'default' : 'outline'}
+            size="icon"
+            onClick={() => onModoSelecaoMultiplaChange?.(!modoSelecaoMultipla)}
+            className="h-10 w-10 p-1.5"
+            title={modoSelecaoMultipla ? 'Desativar seleção' : 'Ativar seleção múltipla'}
+          >
+            <CheckSquare className="w-4 h-4" />
+          </Button>
+          </div>{/* fim dos botões à esquerda */}
+
+          {/* Campo de busca */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
           <Input
