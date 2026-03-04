@@ -181,42 +181,8 @@ export default function SearchAndFilter({
     <div className="bg-slate-50 text-[#343979] px-3 py-1 rounded-lg border-b border-slate-200 flex-shrink-0 space-y-2 from-white to-slate-50">
       {/* Barra de busca */}
       <div className="flex items-center gap-2">
-        {/* Ícones de visualização Kanban/Lista + Seleção Múltipla + Filtros */}
+        {/* Filtros */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          {sidebarViewMode && onSidebarViewModeChange && (
-            <>
-              <button
-                onClick={() => { onSidebarViewModeChange('list'); localStorage.setItem('sidebarViewMode', 'list'); }}
-                className={`p-1.5 rounded-md transition-colors ${sidebarViewMode === 'list' ? 'bg-orange-500 text-white' : 'text-slate-500 hover:bg-slate-200'}`}
-                title="Lista"
-              >
-                <LayoutList className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => { onSidebarViewModeChange('kanban'); localStorage.setItem('sidebarViewMode', 'kanban'); }}
-                className={`p-1.5 rounded-md transition-colors ${sidebarViewMode === 'kanban' ? 'bg-orange-500 text-white' : 'text-slate-500 hover:bg-slate-200'}`}
-                title="Kanban"
-              >
-                <Columns className="w-4 h-4" />
-              </button>
-            </>
-          )}
-
-          {/* Botão de Seleção Múltipla */}
-          {onModoSelecaoMultiplaChange && (
-            <button
-              onClick={() => onModoSelecaoMultiplaChange(!modoSelecaoMultipla)}
-              className={`p-1.5 rounded-lg transition-all ${
-                modoSelecaoMultipla
-                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md'
-                  : 'hover:bg-slate-200 text-slate-500'
-              }`}
-              title="Selecionar múltiplos contatos para envio em massa"
-            >
-              <CheckSquare className="w-4 h-4" />
-            </button>
-          )}
-
           {/* Botão de filtros */}
           <Popover open={showFilters} onOpenChange={setShowFilters}>
             <PopoverTrigger asChild>
