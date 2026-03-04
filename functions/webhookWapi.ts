@@ -261,14 +261,29 @@ function normalizarPayload(payload) {
       mediaType = 'audio';
       const audioMsg = msgContent.audioMessage || msgContent.pttMessage;
       conteudo = audioMsg?.ptt ? '🎤 [Áudio de voz]' : '🎤 [Áudio recebido]';
-      downloadSpec = {
+
+      const audioUrl    = audioMsg?.url || audioMsg?.link;
+      const audioMediaId = audioMsg?.mediaId || audioMsg?.id || payload.mediaId;
+      const temDados    = audioUrl || (audioMsg?.mediaKey && audioMsg?.directPath) || audioMediaId;
+
+      if (!temDados) {
+        console.warn('[WAPI_PTT_SEM_DADOS]', {
+          messageId: payload.messageId,
+          phone: payload.phone,
+          audioKeys: Object.keys(audioMsg || {}),
+          ts: new Date().toISOString()
+        });
+      }
+
+      downloadSpec = temDados ? {
         type: 'audio',
         mediaKey: audioMsg?.mediaKey,
         directPath: audioMsg?.directPath,
-        url: audioMsg?.url,
+        url: audioUrl,
         mimetype: audioMsg?.mimetype,
-        isPtt: audioMsg?.ptt || false
-      };
+        isPtt: audioMsg?.ptt || false,
+        mediaId: audioMediaId
+      } : null;
     } else if (msgContent.documentMessage || msgContent.documentWithCaptionMessage) {
       mediaType = 'document';
       const docMsg = msgContent.documentMessage || msgContent.documentWithCaptionMessage?.message?.documentMessage;
