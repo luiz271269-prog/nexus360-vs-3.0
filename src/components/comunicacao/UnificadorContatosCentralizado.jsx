@@ -239,14 +239,26 @@ export default function UnificadorContatosCentralizado({
     const limpo = tel.replace(/\D/g, '');
     const variacoes = new Set([tel]);
 
+    // Com dígito 9 (13 dígitos: 55 + DDD + 9 + 8 dígitos)
     if (limpo.length === 13 && limpo.startsWith('55')) {
       variacoes.add('+' + limpo);
       variacoes.add(limpo);
-      variacoes.add('+55' + limpo.substring(2));
+      // Sem o dígito 9 (12 dígitos)
+      const sem9 = limpo.substring(0, 4) + limpo.substring(5);
+      variacoes.add('+' + sem9);
+      variacoes.add(sem9);
     }
+    // Sem dígito 9 (12 dígitos: 55 + DDD + 8 dígitos)
     if (limpo.length === 12 && limpo.startsWith('55')) {
       variacoes.add('+' + limpo);
-      variacoes.add('+55' + limpo.substring(2));
+      variacoes.add(limpo);
+      // Com o dígito 9 (se for celular: primeiro dígito >= 6)
+      const ddd4 = limpo[4];
+      if (['6','7','8','9'].includes(ddd4)) {
+        const com9 = limpo.substring(0, 4) + '9' + limpo.substring(4);
+        variacoes.add('+' + com9);
+        variacoes.add(com9);
+      }
     }
 
     return Array.from(variacoes);

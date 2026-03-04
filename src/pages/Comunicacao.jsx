@@ -1942,12 +1942,12 @@ export default function Comunicacao() {
       clientes.forEach((cliente) => {
         if (!matchBuscaGoogle(cliente, debouncedSearchTerm)) return;
 
-        // Verificar se cliente já tem contato pelo telefone
-        const telefoneCliente = (cliente.telefone || '').replace(/\D/g, '');
-        if (telefoneCliente) {
+        // Verificar se cliente já tem contato pelo telefone (normalizado para suportar variações com/sem dígito 9)
+        const telefoneClienteNorm = normalizarTelefone(cliente.telefone || '');
+        if (telefoneClienteNorm) {
           const jaTemContato = contatos.some((c) => {
-            const tel = (c.telefone || '').replace(/\D/g, '');
-            return tel && tel === telefoneCliente;
+            const telNorm = normalizarTelefone(c.telefone || '');
+            return telNorm && telNorm === telefoneClienteNorm;
           });
           if (jaTemContato) return;
         }
