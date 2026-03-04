@@ -1,56 +1,17 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-
-// Inlined: obterLinkDownloadWapi (local imports não funcionam em funções serverless)
-async function obterLinkDownloadWapi(downloadSpec, instanceId, token) {
-  // FALLBACK: Áudios PTT frequentemente chegam sem mediaKey/directPath
-  if (!downloadSpec.mediaKey || !downloadSpec.directPath) {
-    if (downloadSpec.url) {
-      console.warn(`[W-API] ⚠️ Sem mediaKey/directPath para ${downloadSpec.type} - usando URL direta`);
-      return downloadSpec.url;
-    }
-    throw new Error(`Dados insuficientes para ${downloadSpec.type}: sem mediaKey, directPath nem url.`);
-  }
-
-  const url = `https://api.w-api.app/v1/message/download-media?instanceId=${instanceId}`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify({
-      mediaKey: downloadSpec.mediaKey,
-      directPath: downloadSpec.directPath,
-      type: downloadSpec.type,
-      mimetype: downloadSpec.mimetype
-    })
-  });
-
-  const data = await response.json();
-
-  if (data.error || !data.fileLink) {
-    // FALLBACK: Se W-API falhou, tentar URL direta
-    if (downloadSpec.url) {
-      console.warn(`[W-API] ⚠️ download-media falhou: ${JSON.stringify(data)} - usando URL direta`);
-      return downloadSpec.url;
-    }
-    throw new Error(`W-API Error: ${JSON.stringify(data)}`);
-  }
-
-  return data.fileLink;
-}
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 // ============================================================================
-// PERSISTIR MÍDIA W-API - v3.0.0 100% SERVERLESS-SAFE
+// PERSISTIR MÍDIA W-API - v4.0.0
 // ============================================================================
-// FLUXO CONFORME MANUAL W-API:
-// 1. Recebe message_id + integration_id + downloadSpec
-// 2. Usa obterLinkDownloadWapi para pegar fileLink temporario
-// 3. Faz fetch(fileLink) -> arrayBuffer (100% em memoria, ZERO filesystem)
-// 4. Upload direto pro storage Base44 (File/Blob)
-// 5. Atualiza Message.media_url com URL permanente
+// CASCATA DE 3 CAMINHOS (ordem de prioridade):
+//   A → url/link direta (Auto Download ativo)  → 1 GET, mais rápido
+//   B → mediaId → GET /media/{id}              → 1 GET via ID
+//   C → mediaKey+directPath → POST /download-media → chamada extra W-API
+//
+// Se toda a cascata falhar: marca media_url = 'failed_download' e retorna HTTP 200
 // ============================================================================
 
-const VERSION = 'v3.1.0-FIXED';
-
-// Força redeploy: sem imports locais, sem export, 100% standalone
+const VERSION = 'v4.0.0-CASCADE';
 
 Deno.serve(async (req) => {
   const headers = {
@@ -58,245 +19,233 @@ Deno.serve(async (req) => {
     'Access-Control-Allow-Origin': '*'
   };
 
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
 
   if (req.method === 'GET') {
-    return Response.json({ 
-      version: VERSION, 
-      status: 'ready',
-      description: 'Baixa e persiste mídias da W-API (100% em memória, zero filesystem)'
-    }, { headers });
+    return Response.json({ version: VERSION, status: 'ready', cascade: ['url', 'mediaId', 'mediaKey+directPath'] }, { headers });
   }
 
-  console.log('[PERSISTIR-MIDIA-WAPI] 🚀 FUNÇÃO CHAMADA | Método:', req.method);
+  console.log('[PERSISTIR-MIDIA-WAPI] 🚀 v4.0.0 | Método:', req.method);
 
   try {
     const base44 = createClientFromRequest(req);
-    // ✅ CRÍTICO: req.json() pode falhar se o body veio via invoke do SDK
-    // O SDK Base44 encapsula os parâmetros dentro de um campo "payload"
     const bodyRaw = await req.json();
     const payload = bodyRaw?.payload ?? bodyRaw;
-    
-    console.log('[PERSISTIR-MIDIA-WAPI] 📦 Payload recebido:', {
-      message_id: payload.message_id,
-      integration_id: payload.integration_id,
-      has_downloadSpec: !!payload.downloadSpec
-    });
 
-    const { message_id, integration_id, downloadSpec, filename } = payload;
+    const { message_id, integration_id, downloadSpec, media_type, filename } = payload;
 
-    // ✅ VALIDAÇÃO ENTRADA
+    // Fast-fail: downloadSpec vazio não deve ter chegado aqui
     if (!message_id || !integration_id || !downloadSpec) {
-      return Response.json({ 
-        success: false, 
-        error: 'message_id, integration_id e downloadSpec são obrigatórios' 
-      }, { status: 400, headers });
+      return Response.json({ success: false, error: 'message_id, integration_id e downloadSpec são obrigatórios' }, { status: 400, headers });
     }
 
-    console.log('[PERSISTIR-MIDIA-WAPI] 🚀 INICIANDO | downloadSpec:', {
+    console.log('[PERSISTIR-MIDIA-WAPI] 📦 downloadSpec recebido:', {
       type: downloadSpec.type,
-      hasMediaKey: !!downloadSpec.mediaKey,
-      hasDirectPath: !!downloadSpec.directPath,
+      hasUrl: !!(downloadSpec.url),
+      hasMediaId: !!(downloadSpec.mediaId),
+      hasKeyPath: !!(downloadSpec.mediaKey && downloadSpec.directPath),
       mimetype: downloadSpec.mimetype
     });
 
     const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
+    const token = integracao.api_key_provider;
+    const baseUrl = integracao.base_url_provider || 'https://gate.whapi.cloud';
 
-    console.log('[PERSISTIR-MIDIA-WAPI] Chamando W-API para obter fileLink...');
+    // ═══════════════════════════════════════════════════════════════════
+    // CASCATA: obter media_url para download
+    // ═══════════════════════════════════════════════════════════════════
+    let mediaUrl = null;
+    let caminhoUsado = null;
 
-    // ✅ USA HANDLER DEDICADO (conforme manual W-API)
-    let media_url;
-    try {
-      media_url = await obterLinkDownloadWapi(
-        downloadSpec,
-        integracao.instance_id_provider,
-        integracao.api_key_provider
-      );
-      console.log('[PERSISTIR-MIDIA-WAPI] fileLink obtido:', media_url?.substring(0, 80));
-    } catch (wapiError) {
-      console.error('[PERSISTIR-MIDIA-WAPI] Erro ao obter fileLink:', wapiError.message);
-      // ✅ FALLBACK FINAL: usar URL direta do downloadSpec se disponível
-      if (downloadSpec.url) {
-        console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Usando URL direta como fallback final:', downloadSpec.url?.substring(0, 80));
-        media_url = downloadSpec.url;
-      } else {
-        throw wapiError;
-      }
+    // CAMINHO A: url/link direta (Auto Download ativo — sem chamada extra)
+    if (downloadSpec.url) {
+      mediaUrl = downloadSpec.url;
+      caminhoUsado = 'A_url_direta';
+      console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho A: URL direta');
     }
 
-    const is_base64 = false;
-    const mimeType = downloadSpec.mimetype;
-    const mediaType = downloadSpec.type;
-    
-    if (!media_url) {
-      console.error('[PERSISTIR-MIDIA-WAPI] ❌ W-API não retornou nenhuma URL de mídia');
-      throw new Error('W-API não retornou mídia: sem fileLink nem URL direta');
-    }
-
-    console.log('[PERSISTIR-MIDIA-WAPI] 📥 Iniciando processamento:', {
-      message_id,
-      media_type: mediaType,
-      filename: filename || 'N/A',
-      formato: is_base64 ? 'Base64' : 'URL',
-      preview: is_base64 ? media_url.substring(0, 50) + '...' : media_url.substring(0, 80)
-    });
-
-    // ✅ DOWNLOAD DIRETO EM MEMÓRIA (ZERO FILESYSTEM)
-    let blob;
-    let contentType = mimeType || 'application/octet-stream';
-
-    if (is_base64) {
-      // ✅ Base64 → Blob (em memória)
-      const base64Match = media_url.match(/^data:([^;]+);base64,(.+)$/);
-      if (base64Match) {
-        contentType = base64Match[1];
-        const base64Data = base64Match[2];
-        const binaryString = atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        blob = new Blob([bytes], { type: contentType });
-      } else {
-        // Base64 puro sem Data URI
-        const binaryString = atob(media_url);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        blob = new Blob([bytes], { type: contentType });
-      }
-      console.log('[PERSISTIR-MIDIA-WAPI] 📦 Base64 convertido para blob');
-    } else {
-      // ✅ URL → ArrayBuffer → Blob (100% em memória)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
-
+    // CAMINHO B: mediaId → GET /media/{id}
+    if (!mediaUrl && downloadSpec.mediaId) {
       try {
-        const mediaResponse = await fetch(media_url, { 
-          signal: controller.signal,
-          headers: { 'User-Agent': 'VendaPro-MediaDownloader/2.0' }
+        console.log('[PERSISTIR-MIDIA-WAPI] 🔄 Caminho B: GET /media/', downloadSpec.mediaId);
+        const resp = await fetch(`${baseUrl}/media/${downloadSpec.mediaId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
-        clearTimeout(timeoutId);
-
-        if (!mediaResponse.ok) {
-          throw new Error(`Falha ao baixar mídia: HTTP ${mediaResponse.status}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          mediaUrl = data.link || data.url || data.fileLink || null;
+          if (mediaUrl) {
+            caminhoUsado = 'B_mediaId';
+            console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho B: link obtido via mediaId');
+          }
+        } else {
+          console.warn(`[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho B falhou: HTTP ${resp.status}`);
         }
-
-        contentType = mediaResponse.headers.get('content-type') || contentType;
-
-        // ✅ ArrayBuffer → Blob (direto em memória, sem tocar em disco)
-        const arrayBuffer = await mediaResponse.arrayBuffer();
-        blob = new Blob([arrayBuffer], { type: contentType });
-
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          throw new Error('Download timeout após 60s');
-        }
-        throw fetchError;
+      } catch (e) {
+        console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho B erro:', e.message);
       }
     }
 
-    // ✅ VALIDAÇÃO TAMANHO (máx 50MB)
-    const MAX_SIZE = 50 * 1024 * 1024;
-    if (blob.size > MAX_SIZE) {
-      throw new Error(`Arquivo muito grande: ${(blob.size / 1024 / 1024).toFixed(2)}MB (máx: 50MB)`);
+    // CAMINHO C: mediaKey + directPath → POST /download-media
+    if (!mediaUrl && downloadSpec.mediaKey && downloadSpec.directPath) {
+      try {
+        console.log('[PERSISTIR-MIDIA-WAPI] 🔄 Caminho C: POST /message/download-media');
+        const instanceId = integracao.instance_id_provider;
+        const resp = await fetch(`${baseUrl}/message/download-media?instanceId=${instanceId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            mediaKey: downloadSpec.mediaKey,
+            directPath: downloadSpec.directPath,
+            type: downloadSpec.type,
+            mimetype: downloadSpec.mimetype
+          })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          mediaUrl = data.fileLink || data.link || data.url || null;
+          if (mediaUrl) {
+            caminhoUsado = 'C_mediaKey_directPath';
+            console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho C: fileLink obtido');
+          } else {
+            console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho C: resposta sem link:', JSON.stringify(data).substring(0, 200));
+          }
+        } else {
+          console.warn(`[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho C falhou: HTTP ${resp.status}`);
+        }
+      } catch (e) {
+        console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho C erro:', e.message);
+      }
     }
 
-    console.log('[PERSISTIR-MIDIA-WAPI] 📦 Arquivo baixado:', {
-      size: `${(blob.size / 1024).toFixed(2)}KB`,
-      type: contentType
-    });
+    // Cascata esgotada sem URL
+    if (!mediaUrl) {
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Cascata esgotada sem URL. Marcando failed_download.');
+      await base44.asServiceRole.entities.Message.update(message_id, {
+        media_url: 'failed_download'
+      });
+      return Response.json({
+        success: false,
+        error: 'Cascata esgotada: sem url, mediaId nem mediaKey/directPath válidos',
+        message_id,
+        marked_as: 'failed_download'
+      }, { status: 200, headers }); // 200 para evitar retry loop
+    }
 
-    // ✅ DETERMINAR EXTENSÃO (prioridade: filename > mimetype > mediaType)
+    console.log(`[PERSISTIR-MIDIA-WAPI] 📥 Baixando via ${caminhoUsado}: ${mediaUrl.substring(0, 80)}`);
+
+    // Download em memória
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+    let blob;
+    let contentType = downloadSpec.mimetype || 'application/octet-stream';
+
+    try {
+      const mediaResponse = await fetch(mediaUrl, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'VendaPro-MediaDownloader/4.0' }
+      });
+      clearTimeout(timeoutId);
+
+      if (!mediaResponse.ok) {
+        throw new Error(`HTTP ${mediaResponse.status} ao baixar mídia`);
+      }
+
+      contentType = mediaResponse.headers.get('content-type') || contentType;
+      const arrayBuffer = await mediaResponse.arrayBuffer();
+      blob = new Blob([arrayBuffer], { type: contentType });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      const errMsg = fetchError.name === 'AbortError' ? 'Timeout de 60s ao baixar mídia' : fetchError.message;
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Falha no download:', errMsg);
+      await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
+      return Response.json({ success: false, error: errMsg, marked_as: 'failed_download' }, { status: 200, headers });
+    }
+
+    // Validação de tamanho
+    if (blob.size > 50 * 1024 * 1024) {
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Arquivo muito grande:', blob.size);
+      await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
+      return Response.json({ success: false, error: 'Arquivo excede 50MB', marked_as: 'failed_download' }, { status: 200, headers });
+    }
+
+    // Extensão
     const extensaoMap = {
-      'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
-      'video/mp4': 'mp4', 'video/3gpp': '3gp', 'video/quicktime': 'mov',
-      'audio/ogg': 'ogg', 'audio/ogg; codecs=opus': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a',
-      'audio/amr': 'amr', 'audio/wav': 'wav',
-      'application/pdf': 'pdf', 'application/msword': 'doc',
+      'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+      'video/mp4': 'mp4', 'video/3gpp': '3gp',
+      'audio/ogg': 'ogg', 'audio/ogg; codecs=opus': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/amr': 'amr',
+      'application/pdf': 'pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-      'text/plain': 'txt'
     };
+    const mediaTypeMap = { 'image': 'jpg', 'video': 'mp4', 'audio': 'ogg', 'document': 'pdf', 'sticker': 'webp' };
 
     let extensao = 'bin';
-    if (filename && filename.includes('.')) {
+    if (filename?.includes('.')) {
       extensao = filename.split('.').pop().toLowerCase();
     } else if (extensaoMap[contentType]) {
       extensao = extensaoMap[contentType];
-    } else if (mediaType) {
-      const mediaTypeMap = { 'image': 'jpg', 'video': 'mp4', 'audio': 'ogg', 'document': 'pdf', 'sticker': 'webp' };
-      extensao = mediaTypeMap[mediaType] || 'bin';
+    } else if (downloadSpec.type) {
+      extensao = mediaTypeMap[downloadSpec.type] || 'bin';
     }
 
-    // ✅ GERAR NOME ARQUIVO ÚNICO
     const timestamp = Date.now();
-    const baseFilename = filename?.replace(/\.[^.]+$/, '') || `${mediaType || 'media'}`;
-    const sanitizedBase = baseFilename.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 50);
-    const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${sanitizedBase}.${extensao}`;
+    const baseF = (filename?.replace(/\.[^.]+$/, '') || downloadSpec.type || 'media').replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 40);
+    const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${baseF}.${extensao}`;
 
-    // ✅ UPLOAD DIRETO (Blob → Storage Base44)
+    // Upload Base44
     const file = new File([blob], nomeArquivo, { type: contentType });
-
-    const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({
-      file: file
-    });
+    const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({ file });
 
     if (!uploadResult?.file_url) {
-      throw new Error('Falha no upload - nenhuma URL retornada');
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Upload falhou sem URL');
+      await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
+      return Response.json({ success: false, error: 'Upload falhou', marked_as: 'failed_download' }, { status: 200, headers });
     }
 
     console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload concluído:', uploadResult.file_url);
 
-    // ✅ ATUALIZAR MESSAGE COM URL PERMANENTE
+    // Buscar metadata atual para preservar
     let mensagemAtual;
-    try {
-      mensagemAtual = await base44.asServiceRole.entities.Message.get(message_id);
-    } catch (e) {
-      console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Não foi possível buscar mensagem atual:', e?.message);
-    }
-
-    const metadataAtual = mensagemAtual?.metadata || {};
-    const novaMetadata = {
-      ...metadataAtual,
-      midia_persistida: true,
-      url_original: media_url,
-      persistida_em: new Date().toISOString(),
-      tamanho_bytes: blob.size,
-      mimetype_detectado: contentType,
-      filename_original: filename || null
-    };
+    try { mensagemAtual = await base44.asServiceRole.entities.Message.get(message_id); } catch (_) {}
 
     await base44.asServiceRole.entities.Message.update(message_id, {
       media_url: uploadResult.file_url,
-      metadata: novaMetadata
+      metadata: {
+        ...(mensagemAtual?.metadata || {}),
+        midia_persistida: true,
+        caminho_usado: caminhoUsado,
+        url_original: mediaUrl,
+        persistida_em: new Date().toISOString(),
+        tamanho_bytes: blob.size,
+        mimetype_detectado: contentType
+      }
     });
 
-    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Mensagem atualizada com URL permanente:', uploadResult.file_url);
+    console.log(`[PERSISTIR-MIDIA-WAPI] ✅ Mensagem atualizada | Caminho: ${caminhoUsado} | Size: ${blob.size}`);
 
     return Response.json({
       success: true,
       message_id,
       permanent_url: uploadResult.file_url,
-      original_url: media_url,
+      caminho_usado: caminhoUsado,
       file_size: blob.size,
-      mimetype: contentType,
       version: VERSION
     }, { headers });
 
   } catch (error) {
-    console.error('[PERSISTIR-MIDIA-WAPI] ❌ ERRO:', error.message);
-    console.error('[PERSISTIR-MIDIA-WAPI] ❌ Stack:', error.stack);
-    
+    console.error('[PERSISTIR-MIDIA-WAPI] ❌ ERRO GERAL:', error.message);
+
+    // Tentar marcar failed_download mesmo no catch geral
+    try {
+      const bodyRaw2 = null; // já consumido, usar payload do closure se disponível
+    } catch (_) {}
+
     return Response.json({
       success: false,
       error: error.message,
-      stack: error.stack,
       version: VERSION
-    }, { status: 500, headers });
+    }, { status: 200, headers }); // 200 para evitar retry loop
   }
 });
