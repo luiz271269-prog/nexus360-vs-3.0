@@ -388,32 +388,17 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
         <div className="h-px bg-purple-300/30" />
 
-        {/* Não Atribuídos + Parados */}
-        <div className="grid grid-cols-2 gap-1">
-          {onOpenKanbanNaoAtribuidos && (() => {
-            const naoAtribuidos = threads?.filter(t => !t.assigned_user_id && t.contact_id && !t.is_contact_only).length || 0;
-            return (
-              <Button onClick={onOpenKanbanNaoAtribuidos}
-                className="w-full bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-9 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md">
-                <span className="flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /><span className="truncate">Não Atribuídos</span></span>
-                {naoAtribuidos > 0 && <Badge className="bg-white text-red-600 text-[9px] font-bold px-1 h-5 min-w-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">{naoAtribuidos}</Badge>}
-              </Button>
-            );
-          })()}
-          {onOpenKanbanRequerAtencao && (() => {
-            const threadsComProblema = threads?.filter(t => {
-              const c = t.contato;
-              return c && (c.days_inactive_inbound >= 2 || c.deal_risk > 0 || c.prioridadeLabel === 'CRITICO' || c.prioridadeLabel === 'ALTO');
-            }).length || 0;
-            return (
-              <Button onClick={onOpenKanbanRequerAtencao}
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border-0 h-9 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md">
-                <span className="flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /><span className="truncate">Parados</span></span>
-                {threadsComProblema > 0 && <Badge className="bg-white text-amber-700 text-[9px] font-bold px-1 h-5 min-w-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">{threadsComProblema}</Badge>}
-              </Button>
-            );
-          })()}
-        </div>
+        {/* Não Atribuídos */}
+        {onOpenKanbanNaoAtribuidos && (() => {
+          const naoAtribuidos = threads?.filter(t => !t.assigned_user_id && t.contact_id && !t.is_contact_only).length || 0;
+          return (
+            <Button onClick={onOpenKanbanNaoAtribuidos}
+              className="w-full bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-9 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md">
+              <span className="flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /><span className="truncate">Não Atribuídos</span></span>
+              {naoAtribuidos > 0 && <Badge className="bg-white text-red-600 text-[9px] font-bold px-1 h-5 min-w-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">{naoAtribuidos}</Badge>}
+            </Button>
+          );
+        })()}
 
         <div className="h-px bg-purple-300/30" />
 
