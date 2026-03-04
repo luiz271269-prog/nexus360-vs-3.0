@@ -417,7 +417,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
 
         <div className="h-px bg-purple-300/30" />
 
-        {/* Toggle Canal/Atendente */}
+        {/* Toggle Canal/Atendente + Urgentes */}
         <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-0.5 shadow-sm w-full justify-center">
           <button onClick={() => setKanbanMode('integracao')}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${kanbanMode === 'integracao' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}>
@@ -427,6 +427,12 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
             className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${kanbanMode === 'usuario' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800'}`}>
             <Users className="w-3 h-3" />Atendente
           </button>
+          {onOpenKanbanRequerAtencao && (
+            <button onClick={onOpenKanbanRequerAtencao}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all text-slate-500 hover:text-amber-700 hover:bg-amber-50">
+              <AlertTriangle className="w-3 h-3 text-amber-500" />Urgentes
+            </button>
+          )}
         </div>
       </div>
 
