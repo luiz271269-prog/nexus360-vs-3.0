@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import {
   CheckCheck, Check, AlertCircle, Image, Video, Mic, FileText,
   UserCheck, Columns, Users, Send, ArrowRightLeft, Plus, CalendarCheck,
-  AlertTriangle, MessagesSquare, Pause, Zap
+  AlertTriangle, MessagesSquare, Pause, Zap, LayoutList, CheckSquare
 } from "lucide-react";
 import ContatosRequerendoAtencaoKanban from "./ContatosRequerendoAtencaoKanban";
 import { Badge } from "@/components/ui/badge";
