@@ -53,7 +53,7 @@ export function useBuscaThreadsCanonicos(
   });
 
   // ✅ Processar threads + contatos
-  const listaBusca = React.useMemo(() => {
+  const listaBusca = useMemo(() => {
     if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) return [];
 
     const contatosMap = new Map([...contatos, ...contatosBuscados].map(c => [c.id, c]));
