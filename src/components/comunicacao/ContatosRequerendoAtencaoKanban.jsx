@@ -34,7 +34,7 @@ import ModalEnvioPromocoesAutomaticas from './ModalEnvioPromocoesAutomaticas';
 import DiagnosticoDiasInativos from './DiagnosticoDiasInativos';
 import ChatWindow from './ChatWindow';
 import TaggingRapidoContato from './TaggingRapidoContato';
-import ChatSidebar from './ChatSidebar';
+
 
 export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarContato, onClose, threads = [], integracoes = [], atendentes = [] }) {
   const [diasInatividade, setDiasInatividade] = useState(5);
