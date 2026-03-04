@@ -98,8 +98,8 @@ const rows = [
   {
     categoria: "🎵 Download de Mídia",
     aspecto: "Endpoint de download",
-    zapi: { node: <span className="font-mono text-xs bg-slate-100 px-1 rounded">/instances/{instance_id}/token/{token}/download/{file_id}</span>, destaque: false },
-    wapi: { node: <span className="font-mono text-xs bg-slate-100 px-1 rounded">POST /v1/message/download-media?instanceId={id} (Bearer token)</span>, destaque: false },
+    zapi: { node: <span className="font-mono text-xs bg-slate-100 px-1 rounded">{"/instances/{instance_id}/token/{token}/download/{file_id}"}</span>, destaque: false },
+    wapi: { node: <span className="font-mono text-xs bg-slate-100 px-1 rounded">{"POST /v1/message/download-media?instanceId={id} (Bearer token)"}</span>, destaque: false },
     diferenca: "Estruturas de URL completamente diferentes. Token Z-API na URL; W-API no header Bearer.",
     impacto: "médio"
   },
