@@ -401,7 +401,7 @@ export default function Comunicacao() {
         // ✅ Busca livre via backend (sem RLS - retorna TODOS os contatos COM _meta)
         const response = await base44.functions.invoke('buscarContatosLivre', {
           searchTerm: null,
-          limit: 500
+          limit: 1000
         });
 
         if (response?.data?.success) {
