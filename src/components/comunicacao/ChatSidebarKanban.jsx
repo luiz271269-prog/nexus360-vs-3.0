@@ -539,12 +539,10 @@ export default function ChatSidebarKanban({
           </div>
 
           {/* Urgentes */}
-          {onOpenKanbanRequerAtencao && (
-            <button onClick={onOpenKanbanRequerAtencao}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-all">
-              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />Urgentes
-            </button>
-          )}
+          <button onClick={() => setKanbanMode('urgentes')}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'urgentes' ? 'bg-purple-600 text-white shadow' : 'text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100'}`}>
+            <Zap className="w-3.5 h-3.5 flex-shrink-0" />Urgentes
+          </button>
         </div>
 
         {/* Colunas Kanban */}
