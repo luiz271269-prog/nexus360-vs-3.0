@@ -727,7 +727,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
                 </div>
 
                 {/* Cards */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-custom bg-white rounded-b-lg shadow-sm border border-slate-200 border-t-0">
+                <div className="flex-1 overflow-y-auto p-1.5 space-y-1 scrollbar-custom bg-white rounded-b-lg shadow-sm border border-slate-200 border-t-0">
                   {items.length === 0 ?
                 <div className="text-center py-8 text-slate-400 text-xs">
                       Sem contatos
