@@ -18,6 +18,11 @@ export function useBuscaThreadsCanonicos(
   matchBuscaGoogle,
   calcularScoreBusca
 ) {
+  // ✅ Retornar vazio se sem termo de busca
+  if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) {
+    return [];
+  }
+
   // ✅ Buscar threads canônicas no BD com searchTerm
   const { data: threadsCanonicosBusca = [] } = useQuery({
     queryKey: ['threads-busca', debouncedSearchTerm],
