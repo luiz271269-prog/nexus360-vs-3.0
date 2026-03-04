@@ -276,7 +276,12 @@ export default function ChatSidebarKanban({
   atendentes = [],
   onOpenKanbanNaoAtribuidos,
   onOpenKanbanRequerAtencao,
-  onSelectInternalDestinations
+  onSelectInternalDestinations,
+  // Props do modo lista (passadas de Comunicacao)
+  sidebarViewMode,
+  onSidebarViewModeChange,
+  modoSelecaoMultipla = false,
+  onModoSelecaoMultiplaChange,
 }) {
   // 'parados' | 'usuario' | 'integracao'
   const [kanbanMode, setKanbanMode] = React.useState('usuario');
