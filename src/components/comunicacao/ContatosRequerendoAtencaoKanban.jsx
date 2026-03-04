@@ -821,59 +821,70 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           }
       </div>
 
-      {/* ✅ CHAT LATERAL */}
-      {chatAberto &&
-        <div className="w-1/2 border-l border-slate-200 bg-white flex flex-col overflow-hidden">
-          {/* Botão de voltar sobreposto ao header do ChatWindow */}
-          <div className="flex-shrink-0 relative">
+    </div>
+
+      {/* ✅ CHAT FLUTUANTE */}
+      {chatAberto && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col w-[420px] h-[600px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+          {/* Header da bolha */}
+          <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-700">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-xs font-bold">
+                {chatAberto.contato?.nome?.charAt(0)?.toUpperCase() || '?'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-white truncate max-w-[240px]">
+                  {chatAberto.contato?.empresa || chatAberto.contato?.nome || 'Contato'}
+                </p>
+                {chatAberto.contato?.telefone && (
+                  <p className="text-[10px] text-slate-400 truncate">{chatAberto.contato.telefone}</p>
+                )}
+              </div>
+            </div>
             <button
               onClick={() => setChatAberto(null)}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 flex items-center justify-center rounded-full bg-black/30 hover:bg-black/50 text-white transition-all"
-              style={{ top: '20px' }}
-              title="Voltar">
-              <ArrowLeft className="w-4 h-4" />
+              className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/20 text-slate-300 hover:text-white transition-all flex-shrink-0"
+              title="Fechar">
+              <X className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Chat Window */}
-          {carregandoMensagens ?
-          <div className="flex-1 flex items-center justify-center">
+          {/* Conteúdo */}
+          {carregandoMensagens ? (
+            <div className="flex-1 flex items-center justify-center">
               <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-            </div> :
-
-          <ChatWindow
-            thread={chatAberto.thread}
-            mensagens={mensagensChat}
-            usuario={usuario}
-            contatoPreCarregado={chatAberto.contato}
-            onEnviarMensagem={async () => {}}
-            onSendMessageOptimistic={async () => {}}
-            onSendInternalMessageOptimistic={async () => {}}
-            onShowContactInfo={() => {}}
-            onAtualizarMensagens={async () => {
-              const mensagens = await base44.entities.Message.filter(
-                { thread_id: chatAberto.thread.id },
-                '-sent_at',
-                200
-              );
-              setMensagensChat(mensagens.reverse());
-            }}
-            integracoes={[]}
-            selectedCategoria="all"
-            modoSelecaoMultipla={false}
-            contatosSelecionados={[]}
-            broadcastInterno={null}
-            onCancelarSelecao={() => {}}
-            atendentes={[]}
-            filterScope="all"
-            selectedIntegrationId="all"
-            selectedAttendantId={null}
-            contatoAtivo={chatAberto.contato} />
-
-          }
+            </div>
+          ) : (
+            <ChatWindow
+              thread={chatAberto.thread}
+              mensagens={mensagensChat}
+              usuario={usuario}
+              contatoPreCarregado={chatAberto.contato}
+              onEnviarMensagem={async () => {}}
+              onSendMessageOptimistic={async () => {}}
+              onSendInternalMessageOptimistic={async () => {}}
+              onShowContactInfo={() => {}}
+              onAtualizarMensagens={async () => {
+                const msgs = await base44.entities.Message.filter(
+                  { thread_id: chatAberto.thread.id }, '-sent_at', 200
+                );
+                setMensagensChat(msgs.reverse());
+              }}
+              integracoes={[]}
+              selectedCategoria="all"
+              modoSelecaoMultipla={false}
+              contatosSelecionados={[]}
+              broadcastInterno={null}
+              onCancelarSelecao={() => {}}
+              atendentes={[]}
+              filterScope="all"
+              selectedIntegrationId="all"
+              selectedAttendantId={null}
+              contatoAtivo={chatAberto.contato}
+            />
+          )}
         </div>
-        }
-    </div>
+      )}
     </>);
 
 }
