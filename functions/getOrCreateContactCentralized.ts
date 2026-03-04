@@ -90,36 +90,43 @@ Deno.serve(async (req) => {
   const variacoes = gerarVariacoesTelefone(telefoneNormalizado);
   console.log(`[${VERSION}] 🔍 Buscando com ${variacoes.length} variações`);
 
-  // BUSCA RIGOROSA (apenas versão normalizada EXATA)
+  // BUSCA TOLERANTE: tenta todas as variações (com e sem dígito 9)
   let contatoExistente = null;
   
   try {
-    // ✅ FIX: Buscar APENAS pela versão normalizada exata (+55...)
-    // NÃO usar múltiplas variações pois pode encontrar contato errado!
-    console.log(`[${VERSION}] 🔍 Buscando pelo telefone NORMALIZADO exato: "${telefoneNormalizado}"`);
+    console.log(`[${VERSION}] 🔍 Buscando com ${variacoes.length} variações: ${variacoes.join(', ')}`);
     
-    try {
-      const resultado = await base44.asServiceRole.entities.Contact.filter(
-        { telefone: telefoneNormalizado },
-        '-created_date',
-        1
-      );
-      
-      console.log(`[${VERSION}] 📊 Query retornou: ${resultado?.length || 0} resultado(s)`);
-      
-      if (resultado && resultado.length > 0) {
-        contatoExistente = resultado[0];
-        console.log(`[${VERSION}] ✅ ENCONTRADO! ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome} | Tel DB: "${contatoExistente.telefone}"`);
-      } else {
-        console.log(`[${VERSION}] ⏭️ Nenhum contato com telefone "${telefoneNormalizado}"`);
+    // Busca sequencial pelas variações até encontrar um contato
+    for (const variacao of variacoes) {
+      try {
+        const resultado = await base44.asServiceRole.entities.Contact.filter(
+          { telefone: variacao },
+          '-created_date',
+          1
+        );
+        
+        if (resultado && resultado.length > 0) {
+          contatoExistente = resultado[0];
+          console.log(`[${VERSION}] ✅ ENCONTRADO pela variação "${variacao}"! ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome} | Tel DB: "${contatoExistente.telefone}"`);
+          
+          // Se o telefone no banco está desatualizado (sem o 9), corrige para o formato normalizado
+          if (contatoExistente.telefone !== telefoneNormalizado) {
+            console.log(`[${VERSION}] 🔧 Atualizando telefone do contato de "${contatoExistente.telefone}" para "${telefoneNormalizado}"`);
+            await base44.asServiceRole.entities.Contact.update(contatoExistente.id, { 
+              telefone: telefoneNormalizado,
+              telefone_canonico: telefoneNormalizado.replace(/\D/g, '')
+            });
+            contatoExistente.telefone = telefoneNormalizado;
+          }
+          break;
+        }
+      } catch (searchErr) {
+        console.error(`[${VERSION}] ❌ Erro ao buscar variação "${variacao}":`, searchErr.message);
       }
-    } catch (searchErr) {
-      console.error(`[${VERSION}] ❌ ERRO ao buscar "${telefoneNormalizado}":`, searchErr.message);
-      console.error(`[${VERSION}] ❌ Stack:`, searchErr.stack);
     }
     
     if (!contatoExistente) {
-      console.log(`[${VERSION}] 🆕 Criando NOVO contato com telefone: "${telefoneNormalizado}"`);
+      console.log(`[${VERSION}] 🆕 Nenhum contato encontrado. Criando NOVO com telefone: "${telefoneNormalizado}"`);
     }
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro geral na busca:`, e.message);
