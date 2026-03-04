@@ -442,23 +442,25 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           <Checkbox checked={estaSelecionado} onCheckedChange={() => toggleSelecaoContato(item)} />
         </div>
 
-        {/* Avatar com foto */}
+        {/* Avatar com foto - igual sidebar */}
         <div className="relative flex-shrink-0">
-          {item.foto_perfil_url ? (
-            <img
-              src={item.foto_perfil_url}
-              alt={item.nome}
-              className="w-10 h-10 rounded-full object-cover shadow-sm border-2 border-white"
-              onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-            />
-          ) : null}
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm bg-gradient-to-br from-amber-400 via-orange-500 to-red-500"
-            style={{ display: item.foto_perfil_url ? 'none' : 'flex' }}>
-            {item.nome?.charAt(0)?.toUpperCase() || '?'}
+          <div className={`relative w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md overflow-hidden bg-gradient-to-br from-amber-400 via-orange-500 to-red-500`}>
+            {item.foto_perfil_url && item.foto_perfil_url !== 'null' && item.foto_perfil_url !== 'undefined' ? (
+              <img
+                src={item.foto_perfil_url}
+                alt={item.nome}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.parentElement.textContent = item.nome?.charAt(0)?.toUpperCase() || '?';
+                }}
+              />
+            ) : (
+              item.nome?.charAt(0)?.toUpperCase() || '?'
+            )}
           </div>
           {/* Indicador de dias inativos */}
-          <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white flex items-center justify-center ${getBucketCor(item.bucket_inactive)}`} />
+          <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${getBucketCor(item.bucket_inactive)}`} />
         </div>
 
         <div className="flex-1 min-w-0">
