@@ -513,6 +513,40 @@ export default function ChatSidebarKanban({
 
         {/* Toolbar: toggle de visualização */}
         <div className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 flex items-center gap-2 flex-wrap">
+
+          {/* Toggle Lista / Kanban */}
+          {sidebarViewMode && onSidebarViewModeChange && (
+            <div className="flex items-center gap-0.5 bg-slate-100 border border-slate-200 rounded-lg p-0.5">
+              <button
+                onClick={() => { onSidebarViewModeChange('list'); localStorage.setItem('sidebarViewMode', 'list'); }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all ${sidebarViewMode === 'list' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}
+                title="Lista"
+              >
+                <LayoutList className="w-3.5 h-3.5" />Lista
+              </button>
+              <button
+                onClick={() => { onSidebarViewModeChange('kanban'); localStorage.setItem('sidebarViewMode', 'kanban'); }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all ${sidebarViewMode === 'kanban' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}
+                title="Kanban"
+              >
+                <Columns className="w-3.5 h-3.5" />Kanban
+              </button>
+            </div>
+          )}
+
+          {/* Seleção múltipla */}
+          {onModoSelecaoMultiplaChange && (
+            <button
+              onClick={() => onModoSelecaoMultiplaChange(!modoSelecaoMultipla)}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all border ${modoSelecaoMultipla ? 'bg-orange-500 text-white border-orange-500 shadow' : 'text-slate-500 bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
+              title="Selecionar múltiplos para envio em massa"
+            >
+              <CheckSquare className="w-3.5 h-3.5" />Selecionar
+            </button>
+          )}
+
+          <div className="h-5 w-px bg-slate-200" />
+
           {/* Não Atribuídos */}
           {onOpenKanbanNaoAtribuidos && (() => {
             const cnt = threads?.filter(t => !t.assigned_user_id && t.contact_id && !t.is_contact_only).length || 0;
