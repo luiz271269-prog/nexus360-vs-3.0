@@ -16,6 +16,7 @@ import { useEtiquetasContato } from "./SeletorEtiquetasContato";
 import AtribuidorAtendenteRapido from "./AtribuidorAtendenteRapido";
 import { getAtendenteFidelizadoAtualizado } from "../lib/userMatcher";
 import { toast } from "sonner";
+import KanbanNavBar from "./KanbanNavBar";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
