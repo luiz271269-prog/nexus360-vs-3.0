@@ -1,12 +1,15 @@
 import React from "react";
 import { format } from "date-fns";
-import { CheckCheck, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck, Badge as BadgeIcon, Columns, Users, Send, ArrowRightLeft, Plus, CalendarCheck, AlertTriangle, MessagesSquare } from "lucide-react";
+import { CheckCheck, Check, Clock, AlertCircle, Image, Video, Mic, FileText, MapPin, Phone as PhoneIcon, UserCheck, Badge as BadgeIcon, Columns, Users, Send, ArrowRightLeft, Plus, CalendarCheck, AlertTriangle, MessagesSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getUserDisplayName } from "../lib/userHelpers";
 import InternalMessageComposer from "./InternalMessageComposer";
 import CriarGrupoModal from "./CriarGrupoModal";
 import AgendaIAUnificada from "./AgendaIAUnificada";
+import { useEtiquetasContato } from "./SeletorEtiquetasContato";
+import AtribuidorAtendenteRapido from "./AtribuidorAtendenteRapido";
+import { getAtendenteFidelizadoAtualizado } from "../lib/userMatcher";
 import { toast } from "sonner";
 
 const getUnreadCount = (thread, currentUserId) => {
