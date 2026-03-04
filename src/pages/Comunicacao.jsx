@@ -2348,14 +2348,7 @@ export default function Comunicacao() {
                   onClose={() => setMostrarKanbanNaoAtribuidos(false)}
                 />
               ) : mostrarKanbanRequerAtencao ? (
-                <ContatosRequerendoAtencaoKanban
-                  usuario={usuario}
-                  onSelecionarContato={(t) => {
-                    handleSelecionarThread(t);
-                    setMostrarKanbanRequerAtencao(false);
-                  }}
-                  onClose={() => setMostrarKanbanRequerAtencao(false)}
-                />
+               <ContatosRequerendoAtencaoKanban usuario={usuario} onSelecionarContato={(t) => { handleSelecionarThread(t); setMostrarKanbanRequerAtencao(false); }} onClose={() => setMostrarKanbanRequerAtencao(false)} threads={threadsParaExibir} integracoes={integracoes} atendentes={atendentes} />
               ) : (
               <>
               {/* ── DESKTOP: layout lado a lado ── */}
