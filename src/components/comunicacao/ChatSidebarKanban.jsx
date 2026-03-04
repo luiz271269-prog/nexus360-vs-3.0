@@ -421,6 +421,7 @@ export default function ChatSidebarKanban({ threads, threadAtiva, onSelecionarTh
           </Button>
         )}
         </div>
+      </div>
 
       <div className="flex gap-2 flex-1 overflow-x-auto p-2 bg-slate-100 min-h-0">
         {/* Coluna fixa: "Minhas Conversas" - SEMPRE VISÍVEL */}
