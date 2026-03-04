@@ -36,7 +36,7 @@ import ChatWindow from './ChatWindow';
 import TaggingRapidoContato from './TaggingRapidoContato';
 import ChatSidebar from './ChatSidebar';
 
-export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarContato, onClose }) {
+export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarContato, onClose, threads = [], integracoes = [], atendentes = [] }) {
   const [diasInatividade, setDiasInatividade] = useState(5);
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
   const [usuariosMap, setUsuariosMap] = useState({});
