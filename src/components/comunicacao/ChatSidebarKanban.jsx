@@ -548,6 +548,20 @@ export default function ChatSidebarKanban({
         {/* Colunas Kanban */}
         <div className="flex gap-2 flex-1 overflow-x-auto p-2 min-h-0">
 
+          {/* ── VISUALIZAÇÃO: URGENTES (Contatos Requerendo Atenção) ── */}
+          {kanbanMode === 'urgentes' && (
+            <div className="flex-1 min-w-0 overflow-hidden rounded-xl">
+              <ContatosRequerendoAtencaoKanban
+                usuario={usuarioAtual}
+                onSelecionarContato={onSelecionarThread}
+                onClose={() => setKanbanMode('usuario')}
+                threads={threads}
+                integracoes={integracoes}
+                atendentes={atendentes}
+              />
+            </div>
+          )}
+
           {/* ── VISUALIZAÇÃO: PARADOS ── */}
           {kanbanMode === 'parados' && (
             <div className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 border-yellow-400 overflow-hidden shadow-md">
