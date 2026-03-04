@@ -928,7 +928,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       
       try {
         // Chamar função de download e persistência
-        const resultadoPersistencia = await base44.functions.invoke('downloadMediaZAPI', {
+        const resultadoPersistencia = await base44.asServiceRole.functions.invoke('downloadMediaZAPI', {
           media_url: dados.mediaUrl,
           media_type: dados.mediaType,
           integration_id: integracaoId,

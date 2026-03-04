@@ -237,15 +237,21 @@ export default function UnificadorContatosCentralizado({
   // ════════════════════════════════════════════════════════════════════════
   const gerarVariacoes = (tel) => {
     const limpo = tel.replace(/\D/g, '');
-    const variacoes = new Set([tel]);
+    const variacoes = new Set([tel, limpo, '+' + limpo]);
 
-    if (limpo.length === 13 && limpo.startsWith('55')) {
-      variacoes.add('+' + limpo);
-      variacoes.add(limpo);
-      variacoes.add('+55' + limpo.substring(2));
-    }
-    if (limpo.length === 12 && limpo.startsWith('55')) {
-      variacoes.add('+' + limpo);
+    if (limpo.startsWith('55')) {
+      if (limpo.length === 13) {
+        // Com 9: gerar versão SEM o 9
+        const sem9 = limpo.substring(0, 4) + limpo.substring(5);
+        variacoes.add('+' + sem9);
+        variacoes.add(sem9);
+      }
+      if (limpo.length === 12) {
+        // Sem 9: gerar versão COM o 9
+        const com9 = limpo.substring(0, 4) + '9' + limpo.substring(4);
+        variacoes.add('+' + com9);
+        variacoes.add(com9);
+      }
       variacoes.add('+55' + limpo.substring(2));
     }
 
