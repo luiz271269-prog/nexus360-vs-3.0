@@ -1,5 +1,41 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import { obterLinkDownloadWapi } from './wapiMediaHandler.js';
+
+// Inlined: obterLinkDownloadWapi (local imports não funcionam em funções serverless)
+async function obterLinkDownloadWapi(downloadSpec, instanceId, token) {
+  // FALLBACK: Áudios PTT frequentemente chegam sem mediaKey/directPath
+  if (!downloadSpec.mediaKey || !downloadSpec.directPath) {
+    if (downloadSpec.url) {
+      console.warn(`[W-API] ⚠️ Sem mediaKey/directPath para ${downloadSpec.type} - usando URL direta`);
+      return downloadSpec.url;
+    }
+    throw new Error(`Dados insuficientes para ${downloadSpec.type}: sem mediaKey, directPath nem url.`);
+  }
+
+  const url = `https://api.w-api.app/v1/message/download-media?instanceId=${instanceId}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({
+      mediaKey: downloadSpec.mediaKey,
+      directPath: downloadSpec.directPath,
+      type: downloadSpec.type,
+      mimetype: downloadSpec.mimetype
+    })
+  });
+
+  const data = await response.json();
+
+  if (data.error || !data.fileLink) {
+    // FALLBACK: Se W-API falhou, tentar URL direta
+    if (downloadSpec.url) {
+      console.warn(`[W-API] ⚠️ download-media falhou: ${JSON.stringify(data)} - usando URL direta`);
+      return downloadSpec.url;
+    }
+    throw new Error(`W-API Error: ${JSON.stringify(data)}`);
+  }
+
+  return data.fileLink;
+}
 
 // ============================================================================
 // PERSISTIR MÍDIA W-API - v3.0.0 100% SERVERLESS-SAFE
