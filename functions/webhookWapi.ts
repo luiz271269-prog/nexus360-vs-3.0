@@ -236,25 +236,6 @@ function normalizarPayload(payload) {
     let conteudo = '';
     let downloadSpec = null;
 
-    // ✅ REJEITAR: Mensagens de controle do WhatsApp (protocolMessage, messageContextInfo)
-    const ehMensagemDeControle = 
-      (Object.keys(msgContent).length <= 2 && 
-       (msgContent.protocolMessage || msgContent.messageContextInfo) && 
-       !msgContent.conversation && 
-       !msgContent.imageMessage && 
-       !msgContent.videoMessage &&
-       !msgContent.audioMessage &&
-       !msgContent.pttMessage &&
-       !msgContent.documentMessage &&
-       !msgContent.stickerMessage &&
-       !msgContent.contactMessage &&
-       !msgContent.locationMessage &&
-       !msgContent.extendedTextMessage);
-
-    if (ehMensagemDeControle) {
-      return { type: 'unknown', error: 'mensagem_controle_whatsapp' };
-    }
-
     // Processar TODOS os tipos de mídia (ordem de prioridade)
     if (msgContent.imageMessage) {
       mediaType = 'image';
@@ -1075,10 +1056,10 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ✅ AUTH: SDK Base44 0.8.20 - req.clone() OBRIGATÓRIO para asServiceRole
+  // ✅ AUTH: SDK Base44 0.8.20 - req direto (sem clone)
   let base44;
   try {
-    base44 = createClientFromRequest(req.clone());
+    base44 = createClientFromRequest(req);
     console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (asServiceRole habilitado)');
   } catch (e) {
     console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);

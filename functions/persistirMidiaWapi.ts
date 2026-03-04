@@ -28,7 +28,6 @@ Deno.serve(async (req) => {
   console.log('[PERSISTIR-MIDIA-WAPI] 🚀 v4.0.0 | Método:', req.method);
 
   try {
-    // ✅ FIX AUTH: Função invocada internamente (sem user token) → usar asServiceRole
     const base44 = createClientFromRequest(req);
     const bodyRaw = await req.json();
     const payload = bodyRaw?.payload ?? bodyRaw;
