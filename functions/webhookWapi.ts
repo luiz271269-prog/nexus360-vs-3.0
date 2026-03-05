@@ -352,6 +352,8 @@ function normalizarPayload(payload) {
 
     // Aceitar mensagem mesmo sem conteúdo se tiver mídia
     if (!conteudo && mediaType === 'none') {
+      // Log diagnóstico detalhado para ajudar a identificar o tipo exato
+      console.log(`[WAPI] ⚠️ mensagem_vazia | msgContent keys: ${Object.keys(msgContent).join(', ')} | tipo: ${tipo} | body: ${String(payload.body||'').substring(0,50)} | text: ${JSON.stringify(payload.text||'').substring(0,50)}`);
       return { type: 'unknown', error: 'mensagem_vazia' };
     }
 
