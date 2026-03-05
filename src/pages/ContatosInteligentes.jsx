@@ -292,7 +292,7 @@ export default function ContatosInteligentes() {
           )}
         </div>
 
-        {/* Lista de clientes */}
+        {/* Vista em Colunas por Prioridade */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-slate-400 mb-3" />
@@ -317,48 +317,180 @@ export default function ContatosInteligentes() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {clientesFiltrados.map(cliente => (
-              <div 
-                key={cliente.contact_id} 
-                className="relative"
-                onClick={() => modoSelecao && toggleSelecaoContato(cliente.contact_id)}
-              >
-                {modoSelecao && (
-                  <div className="absolute top-2 left-2 z-10">
-                    <input
-                      type="checkbox"
-                      checked={contatosSelecionados.some(c => (c.contact_id || c.id) === cliente.contact_id)}
-                      onChange={() => toggleSelecaoContato(cliente.contact_id)}
-                      className="w-5 h-5 rounded border-2 border-blue-500"
-                      onClick={(e) => e.stopPropagation()}
-                    />
+          <div className="overflow-x-auto pb-4">
+            <div className="flex gap-6 min-w-max">
+              {/* Coluna: Críticos */}
+              <div className="flex-shrink-0 w-80">
+                <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 mb-3 border border-red-200">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-red-700 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      Críticos
+                    </h3>
+                    <Badge className="bg-red-600 text-white">{criticos.length}</Badge>
                   </div>
-                )}
-                <ClienteCard 
-                  cliente={cliente}
-                  onAbrirConversa={async (clienteData) => {
-                    try {
-                      const threads = await base44.entities.MessageThread.filter({
-                        contact_id: clienteData.contact_id || clienteData.id,
-                        is_canonical: true
-                      }, '-last_message_at', 1);
-                      
-                      if (threads.length > 0) {
-                        navigate(createPageUrl('Comunicacao') + `?thread=${threads[0].id}`);
-                      } else {
-                        toast.info('💬 Contato sem conversa. Redirecionando...');
-                        navigate(createPageUrl('Comunicacao') + `?contact=${clienteData.contact_id || clienteData.id}`);
-                      }
-                    } catch (error) {
-                      console.error('[ContatosInteligentes] Erro ao abrir:', error);
-                      toast.error('❌ Erro ao abrir conversa');
-                    }
-                  }}
-                  className={modoSelecao && contatosSelecionados.some(c => (c.contact_id || c.id) === cliente.contact_id) ? 'ring-2 ring-blue-500' : ''}
-                />
+                </div>
+                <div className="flex flex-col gap-3">
+                  {criticos.map(cliente => (
+                    <div 
+                      key={cliente.contact_id} 
+                      className="relative"
+                      onClick={() => modoSelecao && toggleSelecaoContato(cliente.contact_id)}
+                    >
+                      {modoSelecao && (
+                        <div className="absolute top-2 left-2 z-10">
+                          <input
+                            type="checkbox"
+                            checked={contatosSelecionados.some(c => (c.contact_id || c.id) === cliente.contact_id)}
+                            onChange={() => toggleSelecaoContato(cliente.contact_id)}
+                            className="w-5 h-5 rounded border-2 border-blue-500"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      )}
+                      <ClienteCard 
+                        cliente={cliente}
+                        onAbrirConversa={async (clienteData) => {
+                          try {
+                            const threads = await base44.entities.MessageThread.filter({
+                              contact_id: clienteData.contact_id || clienteData.id,
+                              is_canonical: true
+                            }, '-last_message_at', 1);
+                            
+                            if (threads.length > 0) {
+                              navigate(createPageUrl('Comunicacao') + `?thread=${threads[0].id}`);
+                            } else {
+                              toast.info('💬 Contato sem conversa. Redirecionando...');
+                              navigate(createPageUrl('Comunicacao') + `?contact=${clienteData.contact_id || clienteData.id}`);
+                            }
+                          } catch (error) {
+                            console.error('[ContatosInteligentes] Erro ao abrir:', error);
+                            toast.error('❌ Erro ao abrir conversa');
+                          }
+                        }}
+                        className={modoSelecao && contatosSelecionados.some(c => (c.contact_id || c.id) === cliente.contact_id) ? 'ring-2 ring-blue-500' : ''}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+
+              {/* Coluna: Alta Prioridade */}
+              <div className="flex-shrink-0 w-80">
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 mb-3 border border-orange-200">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-orange-700 flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Alta Prioridade
+                    </h3>
+                    <Badge className="bg-orange-600 text-white">
+                      {altos.filter(a => a.prioridadeLabel === 'ALTO').length}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {altos.filter(a => a.prioridadeLabel === 'ALTO').map(cliente => (
+                    <div 
+                      key={cliente.contact_id} 
+                      className="relative"
+                      onClick={() => modoSelecao && toggleSelecaoContato(cliente.contact_id)}
+                    >
+                      {modoSelecao && (
+                        <div className="absolute top-2 left-2 z-10">
+                          <input
+                            type="checkbox"
+                            checked={contatosSelecionados.some(c => (c.contact_id || c.id) === cliente.contact_id)}
+                            onChange={() => toggleSelecaoContato(cliente.contact_id)}
+                            className="w-5 h-5 rounded border-2 border-blue-500"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      )}
+                      <ClienteCard 
+                        cliente={cliente}
+                        onAbrirConversa={async (clienteData) => {
+                          try {
+                            const threads = await base44.entities.MessageThread.filter({
+                              contact_id: clienteData.contact_id || clienteData.id,
+                              is_canonical: true
+                            }, '-last_message_at', 1);
+                            
+                            if (threads.length > 0) {
+                              navigate(createPageUrl('Comunicacao') + `?thread=${threads[0].id}`);
+                            } else {
+                              toast.info('💬 Contato sem conversa. Redirecionando...');
+                              navigate(createPageUrl('Comunicacao') + `?contact=${clienteData.contact_id || clienteData.id}`);
+                            }
+                          } catch (error) {
+                            console.error('[ContatosInteligentes] Erro ao abrir:', error);
+                            toast.error('❌ Erro ao abrir conversa');
+                          }
+                        }}
+                        className={modoSelecao && contatosSelecionados.some(c => (c.contact_id || c.id) === cliente.contact_id) ? 'ring-2 ring-blue-500' : ''}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Coluna: Monitorar */}
+              <div className="flex-shrink-0 w-80">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 mb-3 border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-blue-700 flex items-center gap-2">
+                      <Activity className="w-4 h-4" />
+                      Monitorar
+                    </h3>
+                    <Badge className="bg-blue-600 text-white">
+                      {clientes.filter(c => !criticos.includes(c) && !altos.includes(c)).length}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {clientes.filter(c => !criticos.includes(c) && !altos.includes(c)).map(cliente => (
+                    <div 
+                      key={cliente.contact_id} 
+                      className="relative"
+                      onClick={() => modoSelecao && toggleSelecaoContato(cliente.contact_id)}
+                    >
+                      {modoSelecao && (
+                        <div className="absolute top-2 left-2 z-10">
+                          <input
+                            type="checkbox"
+                            checked={contatosSelecionados.some(c => (c.contact_id || c.id) === cliente.contact_id)}
+                            onChange={() => toggleSelecaoContato(cliente.contact_id)}
+                            className="w-5 h-5 rounded border-2 border-blue-500"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      )}
+                      <ClienteCard 
+                        cliente={cliente}
+                        onAbrirConversa={async (clienteData) => {
+                          try {
+                            const threads = await base44.entities.MessageThread.filter({
+                              contact_id: clienteData.contact_id || clienteData.id,
+                              is_canonical: true
+                            }, '-last_message_at', 1);
+                            
+                            if (threads.length > 0) {
+                              navigate(createPageUrl('Comunicacao') + `?thread=${threads[0].id}`);
+                            } else {
+                              toast.info('💬 Contato sem conversa. Redirecionando...');
+                              navigate(createPageUrl('Comunicacao') + `?contact=${clienteData.contact_id || clienteData.id}`);
+                            }
+                          } catch (error) {
+                            console.error('[ContatosInteligentes] Erro ao abrir:', error);
+                            toast.error('❌ Erro ao abrir conversa');
+                          }
+                        }}
+                        className={modoSelecao && contatosSelecionados.some(c => (c.contact_id || c.id) === cliente.contact_id) ? 'ring-2 ring-blue-500' : ''}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
