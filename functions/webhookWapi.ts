@@ -317,15 +317,32 @@ function normalizarPayload(payload) {
       mediaType = 'location';
       const locMsg = msgContent.locationMessage || msgContent.liveLocationMessage;
       conteudo = `📍 [Localização: ${locMsg?.degreesLatitude || 0}, ${locMsg?.degreesLongitude || 0}]`;
+    } else if (msgContent.reactionMessage) {
+      // Reações a mensagens - ignorar silenciosamente (não é conteúdo visível)
+      console.log('[WAPI] 💬 reactionMessage recebida - ignorando silenciosamente');
+      return { type: 'unknown', error: 'reaction_message' };
+    } else if (msgContent.pollCreationMessage) {
+      conteudo = `📊 [Enquete: ${msgContent.pollCreationMessage.name || 'sem título'}]`;
+    } else if (msgContent.viewOnceMessage || msgContent.viewOnceMessageV2) {
+      conteudo = '👁️ [Mensagem de visualização única]';
     } else if (msgContent.extendedTextMessage) {
       conteudo = msgContent.extendedTextMessage.text || '';
     } else if (msgContent.conversation) {
       conteudo = msgContent.conversation;
     } else if (msgContent.messageContextInfo && !conteudo) {
-      // Casos raros onde só tem contexto mas sem conteúdo explícito
-      conteudo = conteudoRaw || '[Mensagem sem conteúdo]';
+      // Apenas messageContextInfo sem conteúdo real = mensagem de protocolo/sistema
+      // Usar conteudoRaw se disponível, senão string vazia (será ignorada pelo filtro abaixo)
+      conteudo = conteudoRaw || '';
+      if (!conteudo) {
+        const chavesMsgContent = Object.keys(msgContent).join(', ');
+        console.log(`[WAPI] ⚠️ msgContent só tem contexto, sem texto real. Chaves: ${chavesMsgContent} | Payload type: ${tipo}`);
+      }
     } else {
       conteudo = conteudoRaw;
+      if (!conteudo && Object.keys(msgContent).length > 0) {
+        // Log diagnóstico para tipos desconhecidos
+        console.log(`[WAPI] ⚠️ Tipo de msgContent não reconhecido. Chaves: ${Object.keys(msgContent).join(', ')}`);
+      }
     }
     
     // ✅ EMOJIS: Se não encontrou texto mas payload tem body/text, usar
