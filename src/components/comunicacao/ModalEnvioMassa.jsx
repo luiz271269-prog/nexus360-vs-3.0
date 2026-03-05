@@ -88,7 +88,9 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
       });
 
       const resultado = await base44.functions.invoke('enviarMensagemMassa', {
-       contact_ids: contatosSelecionados.map(c => c.contact_id || c.id),
+       contact_ids: contatosSelecionados
+         .map(c => c.contact_id) // ✅ SEMPRE contact_id (vem de thread)
+         .filter(id => id), // ✅ Remover nulls (threads órfãs ou internas)
        mensagem: mensagemTexto,
        personalizar: true,
        media_url: finalMediaUrl,
