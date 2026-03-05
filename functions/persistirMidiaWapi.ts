@@ -263,7 +263,9 @@ Deno.serve(async (req) => {
       }
     });
 
+    // ✅ LOG FINAL: confirmar URL salva
     console.log(`[PERSISTIR-MIDIA-WAPI] ✅ Mensagem atualizada | Caminho: ${caminhoUsado} | Size: ${blob.size}`);
+    console.log(`[PERSISTIR-MIDIA-WAPI] 🔗 URL FINAL SALVA: ${uploadResult.file_url}`);
 
     return Response.json({
       success: true,
