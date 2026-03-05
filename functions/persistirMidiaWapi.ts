@@ -243,27 +243,45 @@ Deno.serve(async (req) => {
     const baseF = (filename?.replace(/\.[^.]+$/, '') || downloadSpec.type || 'media').replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 40);
     const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${baseF}.${extensao}`;
 
-    // Upload público via service role
-    const file = new File([blob], nomeArquivo, { type: contentType });
+    // ✅ UPLOAD SUPABASE — mesmo padrão da Z-API que gera URL pública garantida
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    // Tenta UploadPublicFile primeiro (gera URL pública sem autenticação)
-    // Fallback para UploadFile se não disponível
-    let uploadResult;
-    try {
-      uploadResult = await base44.asServiceRole.integrations.Core.UploadPublicFile({ file });
-      console.log('[PERSISTIR-MIDIA-WAPI] 📤 Upload via UploadPublicFile');
-    } catch (_) {
-      uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({ file });
-      console.log('[PERSISTIR-MIDIA-WAPI] 📤 Upload via UploadFile (fallback)');
-    }
-
-    if (!uploadResult?.file_url) {
-      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Upload falhou sem URL');
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Credenciais Supabase não configuradas');
       await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
-      return Response.json({ success: false, error: 'Upload falhou', marked_as: 'failed_download' }, { status: 200, headers });
+      return Response.json({ success: false, error: 'Credenciais Supabase não configuradas', marked_as: 'failed_download' }, { status: 200, headers });
     }
 
-    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload concluído:', uploadResult.file_url);
+    const supabase = createSupabaseClient(supabaseUrl, supabaseServiceKey);
+    const arrayBuffer = await blob.arrayBuffer();
+
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const storagePath = `${integration_id}/${year}/${month}/${day}/${nomeArquivo}`;
+
+    console.log('[PERSISTIR-MIDIA-WAPI] 📤 Upload Supabase:', storagePath);
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('whatsapp-media')
+      .upload(storagePath, arrayBuffer, {
+        contentType,
+        upsert: false,
+        cacheControl: '31536000'
+      });
+
+    if (uploadError) {
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Upload Supabase falhou:', uploadError.message);
+      await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
+      return Response.json({ success: false, error: 'Upload falhou: ' + uploadError.message, marked_as: 'failed_download' }, { status: 200, headers });
+    }
+
+    const { data: publicUrlData } = supabase.storage.from('whatsapp-media').getPublicUrl(uploadData.path);
+    const permanentUrl = publicUrlData.publicUrl;
+
+    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload concluído (URL pública):', permanentUrl);
 
     // Buscar metadata atual para preservar
     let mensagemAtual;
