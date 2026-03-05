@@ -163,19 +163,19 @@ Deno.serve(async (req) => {
             }
           });
 
-          // ✅ Fix #2: Criar Message com status 'pendente' (muda para 'enviada' quando worker processar)
+          // ✅ Fix #2: Criar Message com status 'pendente' E MÍDIA (muda para 'enviada' quando worker processar)
           await base44.asServiceRole.entities.Message.create({
             thread_id: thread.id,
             sender_id: senderId,
             sender_type: 'user',
             recipient_id: contato.id,
             recipient_type: 'contact',
-            content: mensagemFinal,
+            content: media_url ? `[${media_type}]` : mensagemFinal, // ✅ Se tiver mídia, mostrar tipo
             channel: 'whatsapp',
             status: 'pendente',
             sent_at: now.toISOString(),
             visibility: 'public_to_customer',
-            media_url: media_url || null,
+            media_url: media_url || null, // ✅ SEMPRE passar media_url (não null se vazio)
             media_type: media_type || 'none',
             media_caption: media_caption || null,
             metadata: {
