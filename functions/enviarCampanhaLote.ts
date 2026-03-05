@@ -111,6 +111,33 @@ Deno.serve(async (req) => {
     // MODO BROADCAST → Enfileirar tudo (sem envio direto → sem timeout)
     // ══════════════════════════════════════════════════════════════════════════
     if (modo === 'broadcast') {
+      // ✅ OTIMIZAÇÃO: Buscar TODAS as threads de uma vez (não 1 por 1)
+      const threadsExistentes = await base44.asServiceRole.entities.MessageThread.filter({
+        contact_id: { $in: contatos.map(c => c.id) },
+        is_canonical: true
+      });
+      const threadMap = new Map(threadsExistentes.map(t => [t.contact_id, t]));
+
+      // ✅ OTIMIZAÇÃO: Criar threads faltantes em BATCH
+      const contatosSemThread = contatos.filter(c => !threadMap.has(c.id) && c.telefone);
+      const novasThreads = await Promise.all(
+        contatosSemThread.map(c =>
+          base44.asServiceRole.entities.MessageThread.create({
+            contact_id: c.id,
+            is_canonical: true,
+            channel: 'whatsapp',
+            whatsapp_integration_id: integration.id,
+            status: 'aberta'
+          })
+        )
+      );
+      novasThreads.forEach(t => threadMap.set(t.contact_id, t));
+
+      // ✅ Processar contatos
+      const workQueuePromises = [];
+      const messagePromises = [];
+      const threadUpdatePromises = [];
+
       for (const contato of contatos) {
         if (!contato.telefone) {
           resultados.push({ contact_id: contato.id, nome: contato.nome, status: 'erro', motivo: 'Sem telefone' });
@@ -119,21 +146,8 @@ Deno.serve(async (req) => {
         }
 
         try {
-          // ✅ Buscar/criar thread canônica (Fix #2: persistência)
-          let threads = await base44.asServiceRole.entities.MessageThread.filter({
-            contact_id: contato.id,
-            is_canonical: true
-          });
-          let thread = threads[0];
-          if (!thread) {
-            thread = await base44.asServiceRole.entities.MessageThread.create({
-              contact_id: contato.id,
-              is_canonical: true,
-              channel: 'whatsapp',
-              whatsapp_integration_id: integration.id,
-              status: 'aberta'
-            });
-          }
+          const thread = threadMap.get(contato.id);
+          if (!thread) throw new Error('Thread não encontrada nem criada');
 
           // ✅ Resolver placeholders com contexto do contato
           const atendenteFidelizado = contato.atendente_fidelizado_vendas || nomeAtendente;
@@ -146,64 +160,70 @@ Deno.serve(async (req) => {
                 .replace(/\{\{tipo_contato\}\}/gi, contato.tipo_contato || 'cliente')
             : mensagem;
 
-          // Enfileirar WorkQueueItem
-          await base44.asServiceRole.entities.WorkQueueItem.create({
-            tipo: 'enviar_broadcast_avulso',
-            contact_id: contato.id,
-            status: 'pendente',
-            scheduled_for: now.toISOString(),
-            payload: {
-              integration_id: integration.id,
-              mensagem: mensagemFinal,
+          // ✅ BATCH: Enfileirar WorkQueueItem
+          workQueuePromises.push(
+            base44.asServiceRole.entities.WorkQueueItem.create({
+              tipo: 'enviar_broadcast_avulso',
+              contact_id: contato.id,
+              status: 'pendente',
+              scheduled_for: now.toISOString(),
+              payload: {
+                integration_id: integration.id,
+                mensagem: mensagemFinal,
+                media_url: media_url || null,
+                media_type: media_type || 'none',
+                media_caption: media_caption || null,
+                sender_id: senderId,
+                broadcast_id: broadcastId
+              }
+            })
+          );
+
+          // ✅ BATCH: Criar Message com mídia
+          messagePromises.push(
+            base44.asServiceRole.entities.Message.create({
+              thread_id: thread.id,
+              sender_id: senderId,
+              sender_type: 'user',
+              recipient_id: contato.id,
+              recipient_type: 'contact',
+              content: media_url ? `[${media_type}]` : mensagemFinal,
+              channel: 'whatsapp',
+              status: 'pendente',
+              sent_at: now.toISOString(),
+              visibility: 'public_to_customer',
               media_url: media_url || null,
               media_type: media_type || 'none',
               media_caption: media_caption || null,
-              sender_id: senderId,
-              broadcast_id: broadcastId
-            }
-          });
-
-          // ✅ Fix #2: Criar Message com status 'pendente' E MÍDIA (muda para 'enviada' quando worker processar)
-          await base44.asServiceRole.entities.Message.create({
-            thread_id: thread.id,
-            sender_id: senderId,
-            sender_type: 'user',
-            recipient_id: contato.id,
-            recipient_type: 'contact',
-            content: media_url ? `[${media_type}]` : mensagemFinal, // ✅ Se tiver mídia, mostrar tipo
-            channel: 'whatsapp',
-            status: 'pendente',
-            sent_at: now.toISOString(),
-            visibility: 'public_to_customer',
-            media_url: media_url || null, // ✅ SEMPRE passar media_url (não null se vazio)
-            media_type: media_type || 'none',
-            media_caption: media_caption || null,
-            metadata: {
-              whatsapp_integration_id: integration.id,
-              origem_campanha: 'broadcast_massa',
-              broadcast_id: broadcastId,
-              aguardando_worker: true
-            }
-          });
-
-          // ✅ Fix #2: Atualizar thread com preview
-          await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-            last_message_content: `[Broadcast] ${(mensagemFinal || '').substring(0, 80)}`,
-            last_message_at: now.toISOString(),
-            last_outbound_at: now.toISOString(),
-            last_message_sender: 'user',
-            last_human_message_at: now.toISOString(),
-            last_media_type: media_url ? media_type : 'none',
-            whatsapp_integration_id: integration.id,
-            pre_atendimento_ativo: false,
-            metadata: {
-              ultima_mensagem_origem: 'broadcast_massa',
-              broadcast_data: {
-                sent_at: now.toISOString(),
-                broadcast_id: broadcastId
+              metadata: {
+                whatsapp_integration_id: integration.id,
+                origem_campanha: 'broadcast_massa',
+                broadcast_id: broadcastId,
+                aguardando_worker: true
               }
-            }
-          });
+            })
+          );
+
+          // ✅ BATCH: Atualizar thread
+          threadUpdatePromises.push(
+            base44.asServiceRole.entities.MessageThread.update(thread.id, {
+              last_message_content: `[Broadcast] ${(mensagemFinal || '').substring(0, 80)}`,
+              last_message_at: now.toISOString(),
+              last_outbound_at: now.toISOString(),
+              last_message_sender: 'user',
+              last_human_message_at: now.toISOString(),
+              last_media_type: media_url ? media_type : 'none',
+              whatsapp_integration_id: integration.id,
+              pre_atendimento_ativo: false,
+              metadata: {
+                ultima_mensagem_origem: 'broadcast_massa',
+                broadcast_data: {
+                  sent_at: now.toISOString(),
+                  broadcast_id: broadcastId
+                }
+              }
+            })
+          );
 
           resultados.push({ contact_id: contato.id, nome: contato.nome, status: 'enfileirado' });
           enfileirados++;
@@ -214,6 +234,9 @@ Deno.serve(async (req) => {
           erros++;
         }
       }
+
+      // ✅ Executar TODAS as operações em paralelo
+      await Promise.all([...workQueuePromises, ...messagePromises, ...threadUpdatePromises]);
 
       // Auditoria
       await base44.asServiceRole.entities.AutomationLog.create({
