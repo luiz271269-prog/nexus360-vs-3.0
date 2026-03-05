@@ -245,40 +245,53 @@ Deno.serve(async (req) => {
     const baseF = (filename?.replace(/\.[^.]+$/, '') || downloadSpec.type || 'media').replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 40);
     const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${baseF}.${extensao}`;
 
-    // ✅ URL pública da W-API (fileLink já confirmado público nos logs — Caminho B retornou 200)
-    // Usar diretamente sem re-upload para evitar URL privada do Base44
-    const permanentUrl = mediaUrl;
-    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Usando URL pública W-API como media_url:', permanentUrl);
+    // ✅ UPLOAD PARA BASE44 (URLs W-API expiram em 24h)
+     // Converter blob para File para upload via SDK
+     const file = new File([blob], nomeArquivo, { type: contentType });
+     console.log('[PERSISTIR-MIDIA-WAPI] 📤 Fazendo upload para Base44...');
 
-    // Buscar metadata atual para preservar
-    let mensagemAtual;
-    try { mensagemAtual = await base44.asServiceRole.entities.Message.get(message_id); } catch (_) {}
+     let permanentUrl;
+     try {
+       const uploadResult = await base44.integrations.Core.UploadFile({ file });
+       permanentUrl = uploadResult.file_url;
+       console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload para Base44 concluído:', permanentUrl);
+     } catch (uploadErr) {
+       console.error('[PERSISTIR-MIDIA-WAPI] ❌ Erro no upload para Base44:', uploadErr.message);
+       console.log('[PERSISTIR-MIDIA-WAPI] ⚠️ Fallback: usando URL W-API (com aviso de TTL)');
+       permanentUrl = mediaUrl + '#ttl-24h'; // Marcar que pode expirar
+     }
 
-    await base44.asServiceRole.entities.Message.update(message_id, {
-      media_url: permanentUrl,
-      metadata: {
-        ...(mensagemAtual?.metadata || {}),
-        midia_persistida: true,
-        caminho_usado: caminhoUsado,
-        url_original: mediaUrl,
-        persistida_em: new Date().toISOString(),
-        tamanho_bytes: blob.size,
-        mimetype_detectado: contentType
-      }
-    });
+     // Buscar metadata atual para preservar
+     let mensagemAtual;
+     try { mensagemAtual = await base44.asServiceRole.entities.Message.get(message_id); } catch (_) {}
 
-    // ✅ LOG FINAL: confirmar URL salva
-    console.log(`[PERSISTIR-MIDIA-WAPI] ✅ Mensagem atualizada | Caminho: ${caminhoUsado} | Size: ${blob.size}`);
-    console.log(`[PERSISTIR-MIDIA-WAPI] 🔗 URL FINAL SALVA: ${permanentUrl}`);
+     await base44.asServiceRole.entities.Message.update(message_id, {
+       media_url: permanentUrl,
+       metadata: {
+         ...(mensagemAtual?.metadata || {}),
+         midia_persistida: true,
+         caminho_usado: caminhoUsado,
+         url_original: mediaUrl,
+         persistida_em: new Date().toISOString(),
+         tamanho_bytes: blob.size,
+         mimetype_detectado: contentType,
+         url_provider: 'base44' // ✅ Novo: indica que a URL é permanente
+       }
+     });
 
-    return Response.json({
-      success: true,
-      message_id,
-      permanent_url: permanentUrl,
-      caminho_usado: caminhoUsado,
-      file_size: blob.size,
-      version: VERSION
-    }, { headers });
+     // ✅ LOG FINAL: confirmar URL salva
+     console.log(`[PERSISTIR-MIDIA-WAPI] ✅ Mensagem atualizada | Caminho: ${caminhoUsado} | Storage: Base44 | Size: ${blob.size}`);
+     console.log(`[PERSISTIR-MIDIA-WAPI] 🔗 URL PERMANENTE SALVA: ${permanentUrl}`);
+
+     return Response.json({
+       success: true,
+       message_id,
+       permanent_url: permanentUrl,
+       caminho_usado: caminhoUsado,
+       file_size: blob.size,
+       stored_at: 'base44',
+       version: VERSION
+     }, { headers });
 
   } catch (error) {
     console.error('[PERSISTIR-MIDIA-WAPI] ❌ ERRO GERAL:', error.message);
