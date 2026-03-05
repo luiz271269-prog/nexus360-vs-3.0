@@ -224,9 +224,19 @@ Deno.serve(async (req) => {
     const baseF = (filename?.replace(/\.[^.]+$/, '') || downloadSpec.type || 'media').replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 40);
     const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${baseF}.${extensao}`;
 
-    // Upload via service role (função invocada sem sessão de usuário)
+    // Upload público via service role
     const file = new File([blob], nomeArquivo, { type: contentType });
-    const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+
+    // Tenta UploadPublicFile primeiro (gera URL pública sem autenticação)
+    // Fallback para UploadFile se não disponível
+    let uploadResult;
+    try {
+      uploadResult = await base44.asServiceRole.integrations.Core.UploadPublicFile({ file });
+      console.log('[PERSISTIR-MIDIA-WAPI] 📤 Upload via UploadPublicFile');
+    } catch (_) {
+      uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+      console.log('[PERSISTIR-MIDIA-WAPI] 📤 Upload via UploadFile (fallback)');
+    }
 
     if (!uploadResult?.file_url) {
       console.error('[PERSISTIR-MIDIA-WAPI] ❌ Upload falhou sem URL');
