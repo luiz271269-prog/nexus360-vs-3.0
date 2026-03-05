@@ -28,7 +28,9 @@ Deno.serve(async (req) => {
   console.log('[PERSISTIR-MIDIA-WAPI] 🚀 v4.0.0 | Método:', req.method);
 
   try {
-    const base44 = createClientFromRequest(req.clone ? req.clone() : req);
+    // persistirMidiaWapi é invocado via asServiceRole.functions.invoke (sem sessão de usuário)
+    // createClientFromRequest falha com 403 nesse contexto — usar createClient com APP_ID
+    const base44 = createClient(Deno.env.get('BASE44_APP_ID'));
     const bodyRaw = await req.json();
     const payload = bodyRaw?.payload ?? bodyRaw;
 
