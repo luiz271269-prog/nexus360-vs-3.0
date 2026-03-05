@@ -1,14 +1,16 @@
-import { createClientFromRequest, createClient } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import { createClient as createSupabaseClient } from 'npm:@supabase/supabase-js@2.39.0';
 
 // ============================================================================
-// PERSISTIR MÍDIA W-API - v6.0.0-AUTH-FIX
+// PERSISTIR MÍDIA W-API - v7.0.0-SUPABASE-AUTH
 // ============================================================================
-// FIX v6: Upload usa createClient(APP_ID) com serviceRole explícito
-//         porque quando invocado via functions.invoke() o req não carrega token
+// FIX v7: Usa createClientFromRequest(req) igual à Z-API.
+//         Supabase Storage cuida do upload (sem depender de asServiceRole).
+//         Operações de entidade usam base44.asServiceRole que funciona
+//         corretamente quando o SDK é inicializado via createClientFromRequest.
 // ============================================================================
 
-const VERSION = 'v6.0.0-AUTH-FIX';
+const VERSION = 'v7.0.0-SUPABASE-AUTH';
 
 Deno.serve(async (req) => {
   const headers = {
