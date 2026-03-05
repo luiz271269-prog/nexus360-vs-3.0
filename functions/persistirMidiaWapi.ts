@@ -51,7 +51,8 @@ Deno.serve(async (req) => {
 
     const { message_id, integration_id, downloadSpec, media_type, filename } = payload;
 
-    // Fast-fail: downloadSpec vazio não deve ter chegado aqui
+    console.log('[PERSISTIR-MIDIA-WAPI] 📦 Parâmetros:', { message_id, integration_id, media_type, filename });
+
     if (!message_id || !integration_id || !downloadSpec) {
       return Response.json({ success: false, error: 'message_id, integration_id e downloadSpec são obrigatórios' }, { status: 400, headers });
     }
