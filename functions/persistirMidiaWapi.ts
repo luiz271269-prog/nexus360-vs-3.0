@@ -194,17 +194,41 @@ Deno.serve(async (req) => {
     const baseF = (filename?.replace(/\.[^.]+$/, '') || downloadSpec.type || 'media').replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 40);
     const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${baseF}.${extensao}`;
 
-    // Upload Base44
+    // ✅ Upload via FormData para garantir URL pública acessível sem autenticação
     const file = new File([blob], nomeArquivo, { type: contentType });
-    const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+    const formData = new FormData();
+    formData.append('file', file);
 
-    if (!uploadResult?.file_url) {
-      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Upload falhou sem URL');
-      await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
-      return Response.json({ success: false, error: 'Upload falhou', marked_as: 'failed_download' }, { status: 200, headers });
+    const appId = Deno.env.get('BASE44_APP_ID');
+    const uploadResp = await fetch(`https://api.base44.com/api/apps/${appId}/upload-file`, {
+      method: 'POST',
+      headers: { 'x-service-role': 'true' },
+      body: formData
+    });
+
+    if (!uploadResp.ok) {
+      const errText = await uploadResp.text();
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Upload HTTP falhou:', uploadResp.status, errText.substring(0, 200));
+      // Fallback: usar SDK original
+      const uploadResult2 = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+      if (!uploadResult2?.file_url) {
+        await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
+        return Response.json({ success: false, error: 'Upload falhou', marked_as: 'failed_download' }, { status: 200, headers });
+      }
+      var finalUrl = uploadResult2.file_url;
+    } else {
+      const uploadJson = await uploadResp.json();
+      var finalUrl = uploadJson.file_url || uploadJson.url || uploadJson.permanent_url;
     }
 
-    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload concluído:', uploadResult.file_url);
+    if (!finalUrl) {
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Upload falhou: sem URL na resposta');
+      await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
+      return Response.json({ success: false, error: 'Upload falhou sem URL', marked_as: 'failed_download' }, { status: 200, headers });
+    }
+
+    const uploadResult = { file_url: finalUrl };
+    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload concluído:', finalUrl);
 
     // Buscar metadata atual para preservar
     let mensagemAtual;
