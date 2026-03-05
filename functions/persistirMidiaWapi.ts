@@ -288,7 +288,7 @@ Deno.serve(async (req) => {
     try { mensagemAtual = await base44.asServiceRole.entities.Message.get(message_id); } catch (_) {}
 
     await base44.asServiceRole.entities.Message.update(message_id, {
-      media_url: uploadResult.file_url,
+      media_url: permanentUrl,
       metadata: {
         ...(mensagemAtual?.metadata || {}),
         midia_persistida: true,
@@ -302,12 +302,12 @@ Deno.serve(async (req) => {
 
     // ✅ LOG FINAL: confirmar URL salva
     console.log(`[PERSISTIR-MIDIA-WAPI] ✅ Mensagem atualizada | Caminho: ${caminhoUsado} | Size: ${blob.size}`);
-    console.log(`[PERSISTIR-MIDIA-WAPI] 🔗 URL FINAL SALVA: ${uploadResult.file_url}`);
+    console.log(`[PERSISTIR-MIDIA-WAPI] 🔗 URL FINAL SALVA: ${permanentUrl}`);
 
     return Response.json({
       success: true,
       message_id,
-      permanent_url: uploadResult.file_url,
+      permanent_url: permanentUrl,
       caminho_usado: caminhoUsado,
       file_size: blob.size,
       version: VERSION
