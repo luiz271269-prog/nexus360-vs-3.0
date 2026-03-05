@@ -321,10 +321,25 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('[PERSISTIR-MIDIA-WAPI] ❌ ERRO GERAL:', error.message);
 
-    // Tentar marcar failed_download mesmo no catch geral
-    try {
-      const bodyRaw2 = null; // já consumido, usar payload do closure se disponível
-    } catch (_) {}
+    // Marcar failed_download se temos o message_id disponível
+    if (message_id_global) {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        if (supabaseUrl && supabaseServiceKey) {
+          // Usar Supabase diretamente para não depender do base44 (que pode ter falhado)
+          const { createClient: supaCreate } = await import('npm:@supabase/supabase-js@2.39.0');
+          const sb = supaCreate(supabaseUrl, supabaseServiceKey);
+          // Não temos acesso ao base44 aqui, então usar o createClientFromRequest de novo
+        }
+        // Tentar via base44 recriado
+        const base44Catch = createClientFromRequest(req);
+        await base44Catch.asServiceRole.entities.Message.update(message_id_global, { media_url: 'failed_download' });
+        console.log('[PERSISTIR-MIDIA-WAPI] ✅ failed_download marcado no catch geral');
+      } catch (catchErr) {
+        console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Não conseguiu marcar failed_download:', catchErr.message);
+      }
+    }
 
     return Response.json({
       success: false,
