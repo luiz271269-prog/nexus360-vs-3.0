@@ -1,36 +1,31 @@
-// redeploy: 2026-03-03T15:30
+// redeploy: 2026-03-04T00:00
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
-// ║  WEBHOOK WHATSAPP W-API - v25.0.0-CLONE-FIX                           ║
-// ║  TIMESTAMP: 2026-01-07T14:30:00 - CORREÇÃO CRÍTICA req.clone()       ║
-// ║                                                                        ║
-// ║  ARQUITETURA: "PORTEIRO CEGO" vs "GERENTE"                            ║
-// ║  • Webhook (Porteiro): Só confere crachá (instanceId/connectedPhone) ║
-// ║  • Core/Workers (Gerente): Usa token do banco para ações             ║
-// ║  • Token NUNCA trafega no webhook de entrada                          ║
-// ║  • req.clone() OBRIGATÓRIO para asServiceRole funcionar              ║
+// ║  WEBHOOK WHATSAPP W-API - v26.0.0-MEDIA-FIX                           ║
+// ║  CORREÇÕES:                                                            ║
+// ║  1. downloadSpec só criado se temDados (url | mediaKey+directPath)    ║
+// ║  2. Captura url||link (Auto Download) e mediaId em TODOS os tipos     ║
+// ║  3. failed_download salvo imediatamente quando sem dados úteis        ║
+// ║  4. Log de telemetria para PTTs quebrados                             ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 
-const VERSION = 'v25.1.0-DELIVERY-FIX';
-const BUILD_DATE = '2026-01-07T14:30:00';
-const DEPLOYMENT_ID = 'WAPI_CLONE_FIX_2026_01_07';
+const VERSION = 'v26.0.0-MEDIA-FIX';
+const BUILD_DATE = '2026-03-04T00:00:00';
+const DEPLOYMENT_ID = 'WAPI_MEDIA_FIX_2026_03_04';
 const ARCHITECTURE = 'PORTEIRO-CEGO';
 
-// ╔════════════════════════════════════════════════════════════════════════╗
-// ║  LOG BOOT - CONFIRMA VERSÃO ATIVA                                      ║
-// ╚════════════════════════════════════════════════════════════════════════╝
 console.log('╔════════════════════════════════════════════════════════════════╗');
-console.log('║  🚀 W-API WEBHOOK v25 - req.clone() FIX                   ║');
-console.log('╠════════════════════════════════════════════════════════════╣');
-console.log(`║  📅 BUILD: ${BUILD_DATE}                     ║`);
-console.log(`║  🆔 DEPLOY: ${DEPLOYMENT_ID}         ║`);
-console.log('║  🏛️  ARQUITETURA: PORTEIRO CEGO vs GERENTE                ║');
-console.log('║  🔒 TOKEN: Nunca usado no webhook (apenas no Core)        ║');
-console.log('║  🎯 LOOKUP: instanceId ou connectedPhone -> Banco         ║');
-console.log('║  ✅ AUTH: req.clone() OBRIGATÓRIO                         ║');
-console.log('║  ⚠️  SDK 0.8.4 - WEBHOOK PATTERN (igual Z-API)            ║');
-console.log('╚════════════════════════════════════════════════════════════╝');
+console.log('║  🚀 W-API WEBHOOK v26 - MEDIA FIX                             ║');
+console.log('╠════════════════════════════════════════════════════════════════╣');
+console.log(`║  📅 BUILD: ${BUILD_DATE}                          ║`);
+console.log(`║  🆔 DEPLOY: ${DEPLOYMENT_ID}             ║`);
+console.log('║  🔧 FIX: downloadSpec vazio nunca chega ao worker             ║');
+console.log('║  🔧 FIX: url||link (Auto Download) como fast-path             ║');
+console.log('║  🔧 FIX: failed_download imediato quando sem dados            ║');
+console.log('║  🔧 FIX: messageContextInfo não salva mais msg sem conteúdo   ║');
+console.log('║  🔧 FIX: reactionMessage/protocolMessage/editedMessage ignored ║');
+console.log('╚════════════════════════════════════════════════════════════════╝');
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -39,16 +34,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// ============================================================================
-// HELPERS
-// ============================================================================
-const jsonOk = (data, extra = {}) => 
+const jsonOk = (data, extra = {}) =>
   Response.json({ success: true, ...data, ...extra }, { headers: corsHeaders });
 
-const jsonErr = (error, status = 500) => 
+const jsonErr = (error, status = 500) =>
   Response.json({ success: false, error }, { status, headers: corsHeaders });
 
-// Inline: normalizarTelefone (sem imports locais)
 function normalizarTelefone(telefone) {
   if (!telefone) return null;
   let apenasNumeros = String(telefone).split('@')[0].replace(/\D/g, '');
@@ -69,6 +60,38 @@ function normalizarTelefone(telefone) {
 }
 
 // ============================================================================
+// ✅ HELPER: construir downloadSpec seguro
+// Garante que só cria spec se houver pelo menos 1 dado utilizável para download.
+// Captura url||link (Auto Download da Whapi) e mediaId como fontes adicionais.
+// ============================================================================
+function buildDownloadSpec(type, msg, extra = {}) {
+  const url        = msg?.url || msg?.link || extra.url || null;
+  const mediaKey   = msg?.mediaKey   || null;
+  const directPath = msg?.directPath || null;
+  const mediaId    = msg?.mediaId || msg?.id || extra.mediaId || null;
+
+  const hasUrl     = !!url;
+  const hasKeyPath = !!(mediaKey && directPath);
+  const hasMediaId = !!mediaId;
+
+  // ✅ REGRA CENTRAL: sem nenhum dado útil → não criar spec
+  if (!hasUrl && !hasKeyPath && !hasMediaId) {
+    console.warn(`[WAPI-NORM] ⚠️ MEDIA_NO_DATA | type=${type} | keys=${Object.keys(msg || {}).join(',')}`);
+    return null;
+  }
+
+  return {
+    type,
+    url,
+    mediaKey,
+    directPath,
+    mediaId,
+    mimetype: msg?.mimetype || null,
+    ...extra
+  };
+}
+
+// ============================================================================
 // CLASSIFICADOR
 // ============================================================================
 function classifyWapiEvent(payload) {
@@ -76,23 +99,18 @@ function classifyWapiEvent(payload) {
 
   const evento = String(payload.event || payload.type || '').toLowerCase();
 
-  // ✅ EVENTOS DE CONEXÃO/DESCONEXÃO
   if (evento === 'webhookdisconnected' || evento === 'webhookconnected' || evento === 'instancedisconnected') {
     return 'connection-status';
   }
 
-  // webhookDelivery = evento de confirmação de entrega da W-API (fromMe: true)
-  // SEMPRE tratar como status update, NUNCA como mensagem recebida
   if (evento === 'webhookdelivery' || evento === 'webhookdelivered') {
     return 'system-status-delivery';
   }
 
-  // Qualquer evento com fromMe: true É uma confirmação de envio (nunca mensagem nova)
   if (payload.fromMe === true && payload.messageId) {
     return 'system-status-delivery';
   }
 
-  // Outros eventos de status/ack/delivery (sem ser o webhookDelivery da W-API)
   if (evento.includes('delivery') || evento.includes('ack') || evento.includes('messagestatuscallback')) {
     if (payload.messageId || (Array.isArray(payload.ids) && payload.ids.length > 0) || payload.id) {
       return 'system-status-delivery';
@@ -103,7 +121,7 @@ function classifyWapiEvent(payload) {
   if (payload.msgContent) {
     return 'user-message';
   }
-  
+
   if (evento === 'webhookreceived' || evento === 'receivedcallback' || evento.includes('received')) {
     if (payload.text?.message || payload.body || payload.message || payload.messageId) {
       return 'user-message';
@@ -121,19 +139,19 @@ function deveIgnorar(payload, classification) {
 
   if (classification === 'ignore') return 'evento_desconhecido';
   if (classification === 'system-status') return null;
-  if (classification === 'system-status-delivery') return null; // processar delivery events
+  if (classification === 'system-status-delivery') return null;
   if (classification === 'connection-status') return null;
 
   const tipo = String(payload.type ?? payload.event ?? '').toLowerCase();
-  
+
   const phone = String(
-    payload.phone ?? 
-    payload.from ?? 
-    payload.sender?.id ?? 
-    payload.chat?.id ?? 
+    payload.phone ??
+    payload.from ??
+    payload.sender?.id ??
+    payload.chat?.id ??
     ''
   ).toLowerCase();
-  
+
   const isGroup = payload.isGroup === true || phone.includes('@g.us');
 
   if (
@@ -163,8 +181,8 @@ function deveIgnorar(payload, classification) {
     return null;
   }
 
-  const hasMsgId = payload.messageId || payload.id;
-  const hasPhone = payload.phone || payload.from || payload.sender?.id || payload.chat?.id;
+  const hasMsgId  = payload.messageId || payload.id;
+  const hasPhone  = payload.phone || payload.from || payload.sender?.id || payload.chat?.id;
   const hasContent = payload.text || payload.body || payload.message || payload.msgContent;
 
   if (hasMsgId && hasPhone && (hasContent || payload.momment)) {
@@ -197,8 +215,6 @@ function normalizarPayload(payload) {
       return { type: 'connection', instanceId, status: payload.connected ? 'conectado' : 'desconectado' };
     }
 
-    // ⚠️ IMPORTANTE: Detectar se é MENSAGEM REAL antes de tratar como status update
-    // Mensagem real tem: messageId + phone + conteúdo + fromMe=false
     const temConteudoMensagem = payload.text || payload.body || payload.msgContent || payload.message;
     const temIndicadoresMensagem = payload.pushName || payload.senderName;
     const ehMensagemReal = payload.messageId &&
@@ -206,16 +222,12 @@ function normalizarPayload(payload) {
                            payload.fromMe === false &&
                            (temConteudoMensagem || temIndicadoresMensagem);
 
-    // Status de mensagem - APENAS se NÃO for mensagem real
-    // webhookDelivery/messagestatuscallback geralmente vem com fromMe=true ou array "ids" sem phone
     if (!ehMensagemReal && (tipo === 'webhookdelivery' || tipo === 'webhookdelivered' || tipo.includes('messagestatuscallback') || tipo.includes('delivery') || tipo.includes('ack') || payload.fromMe === true)) {
       const msgId = (Array.isArray(payload.ids) && payload.ids[0]) ||
                     payload.messageId ||
                     payload.id ||
                     payload.key?.id ||
                     null;
-      // status pode ser numérico (1=sent, 2=delivered, 3=read) ou string
-      // Para webhookDelivery sem campo status explícito, inferir como "entregue"
       const rawStatus = payload.status ?? payload.ack ?? payload.deliveryStatus ?? (tipo === 'webhookdelivery' ? 2 : null);
       return {
         type: 'message_update',
@@ -236,124 +248,125 @@ function normalizarPayload(payload) {
     let conteudo = '';
     let downloadSpec = null;
 
-    // Processar TODOS os tipos de mídia (ordem de prioridade)
+    // ════════════════════════════════════════════════════════
+    // ✅ PROCESSAMENTO DE MÍDIA — buildDownloadSpec em todos
+    //    Captura url||link (Auto Download) + mediaId + mediaKey+directPath
+    //    Só gera spec se houver pelo menos 1 dado utilizável
+    // ════════════════════════════════════════════════════════
+
     if (msgContent.imageMessage) {
       mediaType = 'image';
       conteudo = msgContent.imageMessage.caption || '📷 [Imagem recebida]';
-      downloadSpec = {
-        type: 'image',
-        mediaKey: msgContent.imageMessage.mediaKey,
-        directPath: msgContent.imageMessage.directPath,
-        url: msgContent.imageMessage.url,
-        mimetype: msgContent.imageMessage.mimetype
-      };
+      downloadSpec = buildDownloadSpec('image', msgContent.imageMessage);
+
     } else if (msgContent.videoMessage) {
       mediaType = 'video';
       conteudo = msgContent.videoMessage.caption || '🎥 [Vídeo recebido]';
-      downloadSpec = {
-        type: 'video',
-        mediaKey: msgContent.videoMessage.mediaKey,
-        directPath: msgContent.videoMessage.directPath,
-        url: msgContent.videoMessage.url,
-        mimetype: msgContent.videoMessage.mimetype
-      };
+      downloadSpec = buildDownloadSpec('video', msgContent.videoMessage);
+
     } else if (msgContent.audioMessage || msgContent.pttMessage) {
       mediaType = 'audio';
       const audioMsg = msgContent.audioMessage || msgContent.pttMessage;
       conteudo = audioMsg?.ptt ? '🎤 [Áudio de voz]' : '🎤 [Áudio recebido]';
 
-      const audioUrl    = audioMsg?.url || audioMsg?.link;
-      const audioMediaId = audioMsg?.mediaId || audioMsg?.id || payload.mediaId;
-      const temDados    = audioUrl || (audioMsg?.mediaKey && audioMsg?.directPath) || audioMediaId;
+      // ✅ PTT: tenta pegar mediaId do payload raiz também (W-API às vezes coloca lá)
+      downloadSpec = buildDownloadSpec('audio', audioMsg, {
+        isPtt: audioMsg?.ptt || false,
+        mediaId: audioMsg?.mediaId || audioMsg?.id || payload.mediaId || null
+      });
 
-      if (!temDados) {
-        console.warn('[WAPI_PTT_SEM_DADOS]', {
-          messageId: payload.messageId,
-          phone: payload.phone,
-          audioKeys: Object.keys(audioMsg || {}),
-          ts: new Date().toISOString()
-        });
+      // ✅ TELEMETRIA: logar PTTs que chegam sem dados
+      if (!downloadSpec) {
+        console.warn('[WAPI-NORM] 🔴 PTT_SEM_DADOS | messageId=' + (payload.messageId || 'N/A') +
+          ' | phone=' + telefone +
+          ' | audioKeys=' + Object.keys(audioMsg || {}).join(',') +
+          ' | ts=' + new Date().toISOString());
       }
 
-      downloadSpec = temDados ? {
-        type: 'audio',
-        mediaKey: audioMsg?.mediaKey,
-        directPath: audioMsg?.directPath,
-        url: audioUrl,
-        mimetype: audioMsg?.mimetype,
-        isPtt: audioMsg?.ptt || false,
-        mediaId: audioMediaId
-      } : null;
     } else if (msgContent.documentMessage || msgContent.documentWithCaptionMessage) {
       mediaType = 'document';
-      const docMsg = msgContent.documentMessage || msgContent.documentWithCaptionMessage?.message?.documentMessage;
+      const docMsg = msgContent.documentMessage ||
+                     msgContent.documentWithCaptionMessage?.message?.documentMessage;
       const fileName = docMsg?.fileName || docMsg?.title || 'arquivo';
       conteudo = docMsg?.caption ? `${docMsg.caption} (${fileName})` : `📄 [Documento: ${fileName}]`;
-      downloadSpec = {
-        type: 'document',
-        mediaKey: docMsg?.mediaKey,
-        directPath: docMsg?.directPath,
-        url: docMsg?.url,
-        mimetype: docMsg?.mimetype,
-        fileName: fileName,
+      downloadSpec = buildDownloadSpec('document', docMsg, {
+        fileName,
         fileLength: docMsg?.fileLength,
         pageCount: docMsg?.pageCount
-      };
+      });
+
     } else if (msgContent.stickerMessage) {
       mediaType = 'sticker';
       conteudo = '[Sticker]';
-      downloadSpec = {
-        type: 'sticker',
-        mediaKey: msgContent.stickerMessage.mediaKey,
-        directPath: msgContent.stickerMessage.directPath,
-        url: msgContent.stickerMessage.url
-      };
+      downloadSpec = buildDownloadSpec('sticker', msgContent.stickerMessage);
+
     } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
       mediaType = 'contact';
       const contacts = msgContent.contactsArrayMessage?.contacts || [msgContent.contactMessage];
       const nomes = contacts.map(c => c?.displayName || c?.vcard?.match(/FN:([^\n]+)/)?.[1]).filter(Boolean);
       conteudo = nomes.length > 0 ? `📇 [Contato: ${nomes.join(', ')}]` : '📇 [Contato compartilhado]';
+
     } else if (msgContent.locationMessage || msgContent.liveLocationMessage) {
       mediaType = 'location';
       const locMsg = msgContent.locationMessage || msgContent.liveLocationMessage;
       conteudo = `📍 [Localização: ${locMsg?.degreesLatitude || 0}, ${locMsg?.degreesLongitude || 0}]`;
-    } else if (msgContent.reactionMessage) {
-      // Reações a mensagens - ignorar silenciosamente (não é conteúdo visível)
-      console.log('[WAPI] 💬 reactionMessage recebida - ignorando silenciosamente');
-      return { type: 'unknown', error: 'reaction_message' };
-    } else if (msgContent.pollCreationMessage) {
-      conteudo = `📊 [Enquete: ${msgContent.pollCreationMessage.name || 'sem título'}]`;
-    } else if (msgContent.viewOnceMessage || msgContent.viewOnceMessageV2) {
-      conteudo = '👁️ [Mensagem de visualização única]';
+
     } else if (msgContent.extendedTextMessage) {
       conteudo = msgContent.extendedTextMessage.text || '';
+
     } else if (msgContent.conversation) {
       conteudo = msgContent.conversation;
+
+    // ✅ REAÇÃO: ignorar silenciosamente (não salvar como mensagem)
+    } else if (msgContent.reactionMessage) {
+      console.log('[WAPI-NORM] ⏭️ reactionMessage ignorada | msgId=' + (payload.messageId || 'N/A'));
+      return { type: 'unknown', error: 'reaction_message' };
+
+    // ✅ PROTOCOLO/DELEÇÃO: ignorar silenciosamente
+    } else if (msgContent.protocolMessage) {
+      console.log('[WAPI-NORM] ⏭️ protocolMessage ignorada | msgId=' + (payload.messageId || 'N/A'));
+      return { type: 'unknown', error: 'protocol_message' };
+
+    // ✅ ENQUETE: tratar como texto
+    } else if (msgContent.pollCreationMessage) {
+      conteudo = `📊 [Enquete: ${msgContent.pollCreationMessage.name || 'sem título'}]`;
+
+    // ✅ VISUALIZAÇÃO ÚNICA: indicar sem tentar baixar (mídia expira imediatamente)
+    } else if (msgContent.viewOnceMessage || msgContent.viewOnceMessageV2) {
+      mediaType = 'image';
+      conteudo = '🔒 [Foto/Vídeo de visualização única]';
+
+    // ✅ EDIÇÃO DE MENSAGEM: ignorar (não criar nova mensagem)
+    } else if (msgContent.editedMessage) {
+      console.log('[WAPI-NORM] ⏭️ editedMessage ignorada | msgId=' + (payload.messageId || 'N/A'));
+      return { type: 'unknown', error: 'edited_message' };
+
+    // ✅ messageContextInfo ISOLADO:
+    //    BUG ANTERIOR: salvava '[Mensagem sem conteúdo]' literalmente no banco.
+    //    CORREÇÃO: retorna '' → cai no filtro mensagem_vazia → NÃO salva.
+    //    messageContextInfo sozinho é metadado de contexto/reply, não é mensagem real.
     } else if (msgContent.messageContextInfo && !conteudo) {
-      // Apenas messageContextInfo sem conteúdo real = mensagem de protocolo/sistema
-      // Usar conteudoRaw se disponível, senão string vazia (será ignorada pelo filtro abaixo)
-      conteudo = conteudoRaw || '';
-      if (!conteudo) {
-        const chavesMsgContent = Object.keys(msgContent).join(', ');
-        console.log(`[WAPI] ⚠️ msgContent só tem contexto, sem texto real. Chaves: ${chavesMsgContent} | Payload type: ${tipo}`);
-      }
+      console.warn('[WAPI-NORM] ⚠️ messageContextInfo sem conteúdo | msgId=' + (payload.messageId || 'N/A') +
+        ' | msgContentKeys=' + Object.keys(msgContent).join(','));
+      conteudo = conteudoRaw; // usa body/text se tiver, senão '' → filtro abaixo rejeita
+
     } else {
-      conteudo = conteudoRaw;
-      if (!conteudo && Object.keys(msgContent).length > 0) {
-        // Log diagnóstico para tipos desconhecidos
-        console.log(`[WAPI] ⚠️ Tipo de msgContent não reconhecido. Chaves: ${Object.keys(msgContent).join(', ')}`);
+      // Tipo de msgContent desconhecido — logar para diagnóstico
+      const keysDesconhecidas = Object.keys(msgContent).filter(k => k !== 'messageContextInfo');
+      if (keysDesconhecidas.length > 0) {
+        console.warn('[WAPI-NORM] ⚠️ TIPO_DESCONHECIDO | msgId=' + (payload.messageId || 'N/A') +
+          ' | keys=' + keysDesconhecidas.join(','));
       }
+      conteudo = conteudoRaw;
     }
-    
-    // ✅ EMOJIS: Se não encontrou texto mas payload tem body/text, usar
+
     if (!conteudo && (payload.body || payload.text?.message)) {
       conteudo = payload.body || payload.text?.message || '';
     }
 
-    // Aceitar mensagem mesmo sem conteúdo se tiver mídia
     if (!conteudo && mediaType === 'none') {
-      // Log diagnóstico detalhado para ajudar a identificar o tipo exato
-      console.log(`[WAPI] ⚠️ mensagem_vazia | msgContent keys: ${Object.keys(msgContent).join(', ')} | tipo: ${tipo} | body: ${String(payload.body||'').substring(0,50)} | text: ${JSON.stringify(payload.text||'').substring(0,50)}`);
+      console.log('[WAPI-NORM] ⏭️ mensagem_vazia | msgId=' + (payload.messageId || 'N/A') +
+        ' | msgContentKeys=' + Object.keys(msgContent).join(','));
       return { type: 'unknown', error: 'mensagem_vazia' };
     }
 
@@ -364,10 +377,14 @@ function normalizarPayload(payload) {
       from: numeroLimpo,
       content: String(conteudo || '').trim(),
       mediaType,
-      downloadSpec,
-      mediaCaption: msgContent.imageMessage?.caption || msgContent.videoMessage?.caption || msgContent.documentMessage?.caption || msgContent.documentWithCaptionMessage?.message?.documentMessage?.caption,
-      pushName: payload.pushName || payload.senderName || payload.sender?.pushName || payload.text?.senderName || payload.sender?.verifiedBizName,
-      vcard: msgContent.contactMessage || msgContent.contactsArrayMessage,
+      downloadSpec,        // null se sem dados → media_url='failed_download'
+      mediaCaption: msgContent.imageMessage?.caption ||
+                    msgContent.videoMessage?.caption ||
+                    msgContent.documentMessage?.caption ||
+                    msgContent.documentWithCaptionMessage?.message?.documentMessage?.caption,
+      pushName: payload.pushName || payload.senderName || payload.sender?.pushName ||
+                payload.text?.senderName || payload.sender?.verifiedBizName,
+      vcard:    msgContent.contactMessage || msgContent.contactsArrayMessage,
       location: msgContent.locationMessage || msgContent.liveLocationMessage,
       quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage
     };
@@ -383,17 +400,14 @@ function normalizarPayload(payload) {
 }
 
 // ============================================================================
-// HANDLERS (SINTAXE SDK BASE44)
+// HANDLERS
 // ============================================================================
 async function handleQRCode(dados, base44) {
   if (!dados.instanceId) return jsonOk({});
   try {
     const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { instance_id_provider: dados.instanceId },
-      '-created_date',
-      1
+      { instance_id_provider: dados.instanceId }, '-created_date', 1
     );
-    
     if (integracoes && integracoes.length > 0) {
       await base44.asServiceRole.entities.WhatsAppIntegration.update(integracoes[0].id, {
         qr_code_url: dados.qrCodeUrl,
@@ -409,31 +423,22 @@ async function handleConnection(dados, base44, payloadBruto) {
   if (!dados.instanceId) return jsonOk({});
   try {
     const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { instance_id_provider: dados.instanceId },
-      '-created_date',
-      1
+      { instance_id_provider: dados.instanceId }, '-created_date', 1
     );
-    
     if (integracoes && integracoes.length > 0) {
-      const connectedPhone = payloadBruto.connectedPhone || 
-                            payloadBruto.phone || 
-                            payloadBruto.phoneNumber ||
-                            payloadBruto.sender?.id?.replace(/@.*$/, '');
-      
+      const connectedPhone = payloadBruto.connectedPhone ||
+                             payloadBruto.phone ||
+                             payloadBruto.phoneNumber ||
+                             payloadBruto.sender?.id?.replace(/@.*$/, '');
       const updateData = {
         status: dados.status,
         ultima_atividade: new Date().toISOString(),
         token_status: dados.status === 'conectado' ? 'valido' : 'nao_verificado'
       };
-      
       if (connectedPhone && dados.status === 'conectado') {
         updateData.numero_telefone = connectedPhone;
-        console.log('[WAPI] ✅ Número de telefone associado:', connectedPhone);
       }
-      
       await base44.asServiceRole.entities.WhatsAppIntegration.update(integracoes[0].id, updateData);
-      
-      console.log('[WAPI] ✅ Status de conexão atualizado:', dados.status);
     }
   } catch (e) {
     console.error('[WAPI] ❌ Erro ao atualizar conexão:', e.message);
@@ -441,41 +446,32 @@ async function handleConnection(dados, base44, payloadBruto) {
   return jsonOk({ processed: 'connection', status: dados.status, provider: 'w_api' });
 }
 
-// ============================================================================
-// HANDLE DISCONNECTION/CONNECTION STATUS
-// ============================================================================
 async function handleConnectionStatus(payload, base44) {
   const evento = String(payload.event || '').toLowerCase();
   const instanceId = payload.instanceId;
-  const moment = payload.moment; // epoch seconds
-  
+  const moment = payload.moment;
+
   if (!instanceId) {
     console.warn('[WAPI] ⚠️ Evento de status sem instanceId');
     return jsonOk({ ignored: true, reason: 'no_instance_id' });
   }
 
   try {
-    // Buscar integração
     const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { instance_id_provider: instanceId },
-      '-created_date',
-      1
+      { instance_id_provider: instanceId }, '-created_date', 1
     );
 
     if (!integracoes || integracoes.length === 0) {
-      console.warn('[WAPI] ⚠️ Instância não mapeada:', instanceId);
       return jsonOk({ ignored: true, reason: 'unmapped_instance' });
     }
 
     const integracao = integracoes[0];
     const timestamp = moment ? new Date(moment * 1000).toISOString() : new Date().toISOString();
-    
+
     if (evento === 'webhookdisconnected') {
-      // Anti-spam: não processar se já está desconectado há menos de 2 minutos
       if (integracao.status === 'desconectado' && integracao.last_disconnected_at) {
         const diffMs = Date.now() - new Date(integracao.last_disconnected_at).getTime();
-        if (diffMs < 120000) { // 2 minutos
-          console.log('[WAPI] ⏭️ Desconexão já registrada recentemente');
+        if (diffMs < 120000) {
           return jsonOk({ ignored: true, reason: 'already_disconnected' });
         }
       }
@@ -487,9 +483,6 @@ async function handleConnectionStatus(payload, base44) {
         ultima_atividade: timestamp
       });
 
-      console.log(`[WAPI] 🔴 DESCONEXÃO REGISTRADA: ${integracao.nome_instancia} às ${timestamp}`);
-
-      // Criar notificação para usuários com acesso
       try {
         await base44.asServiceRole.entities.NotificationEvent.create({
           tipo: 'integration_disconnected',
@@ -518,9 +511,6 @@ async function handleConnectionStatus(payload, base44) {
         ultima_atividade: timestamp,
         token_status: 'valido'
       });
-
-      console.log(`[WAPI] 🟢 RECONEXÃO REGISTRADA: ${integracao.nome_instancia} às ${timestamp}`);
-
       return jsonOk({ processed: 'reconnection', integration_id: integracao.id });
     }
 
@@ -528,51 +518,37 @@ async function handleConnectionStatus(payload, base44) {
 
   } catch (error) {
     console.error('[WAPI] ❌ Erro ao processar status de conexão:', error.message);
-    // ✅ NUNCA derrubar webhook - sempre retornar 200
     return jsonOk({ error: 'processing_failed', details: error.message });
   }
 }
 
 async function handleMessageUpdate(dados, base44) {
   if (!dados.messageId) return jsonOk({ skipped: 'no_message_id' });
-  
-  const statusMap = { 
+
+  const statusMap = {
     'READ': 'lida', 'read': 'lida', '3': 'lida', 3: 'lida',
     'DELIVERED': 'entregue', 'delivered': 'entregue', '2': 'entregue', 2: 'entregue',
     'SENT': 'enviada', 'sent': 'enviada', '1': 'enviada', 1: 'enviada',
     'FAILED': 'falhou', 'failed': 'falhou', 'ERROR': 'falhou', 'error': 'falhou'
   };
-  
+
   const novoStatus = statusMap[dados.status] ?? statusMap[String(dados.status)] ?? null;
-  
-  console.log(`[WAPI] 📬 Status update: msgId=${dados.messageId} status=${dados.status} → ${novoStatus || 'ignorado'}`);
-  
+
   if (!novoStatus) {
     return jsonOk({ processed: 'status_update', skipped: 'unknown_status', raw_status: dados.status });
   }
-  
+
   try {
     const mensagens = await base44.asServiceRole.entities.Message.filter(
-      { whatsapp_message_id: dados.messageId },
-      '-created_date',
-      1
+      { whatsapp_message_id: dados.messageId }, '-created_date', 1
     );
-    
+
     if (mensagens && mensagens.length > 0) {
-      // Apenas atualizar se for um status "mais avançado" (evitar regressão)
       const ordemStatus = { 'enviando': 0, 'enviada': 1, 'entregue': 2, 'lida': 3 };
       const statusAtual = mensagens[0].status;
-      const ordemAtual = ordemStatus[statusAtual] ?? 0;
-      const ordemNova = ordemStatus[novoStatus] ?? 0;
-      
-      if (ordemNova >= ordemAtual) {
+      if ((ordemStatus[novoStatus] ?? 0) >= (ordemStatus[statusAtual] ?? 0)) {
         await base44.asServiceRole.entities.Message.update(mensagens[0].id, { status: novoStatus });
-        console.log(`[WAPI] ✅ Status atualizado: ${statusAtual} → ${novoStatus} (msg: ${mensagens[0].id})`);
-      } else {
-        console.log(`[WAPI] ⏭️ Status não regredido: ${statusAtual} ≥ ${novoStatus}`);
       }
-    } else {
-      console.log(`[WAPI] ⚠️ Mensagem não encontrada para messageId: ${dados.messageId}`);
     }
   } catch (e) {
     console.error('[WAPI] ❌ Erro ao atualizar status:', e.message);
@@ -585,95 +561,56 @@ async function handleMessageUpdate(dados, base44) {
 // ============================================================================
 async function handleMessage(dados, payloadBruto, base44) {
   console.log('[WAPI] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('[WAPI] INICIO handleMessage | De:', dados.from, '| Tipo:', dados.mediaType);
+  console.log('[WAPI] INICIO handleMessage | De:', dados.from, '| Tipo:', dados.mediaType,
+              '| downloadSpec:', dados.downloadSpec ? '✅ com dados' : '❌ sem dados');
 
-  // 🗓️ DETECÇÃO IMEDIATA - AGENDA NEXUS IA
   if (dados.from === '+559999999999') {
-    console.log('╔════════════════════════════════════════════════════════════════╗');
-    console.log('║  🗓️ AGENDA NEXUS IA DETECTADA - NÚMERO VIRTUAL +559999999999   ║');
-    console.log('║  📱 Roteamento automático para processScheduleIntent           ║');
-    console.log('║  ✅ DDD 99 não existe - Número exclusivo do sistema            ║');
-    console.log('╚════════════════════════════════════════════════════════════════╝');
+    console.log('[WAPI] 🗓️ AGENDA NEXUS IA DETECTADA');
   }
 
   const inicio = Date.now();
 
-  // ✅ DEDUPLICAÇÃO INTELIGENTE - Se duplicata, ignora (simples)
+  // DEDUPLICAÇÃO por messageId
   if (dados.messageId) {
     try {
       const dup = await base44.asServiceRole.entities.Message.filter(
-        { whatsapp_message_id: dados.messageId },
-        '-created_date',
-        1
+        { whatsapp_message_id: dados.messageId }, '-created_date', 1
       );
-      
       if (dup && dup.length > 0) {
-        const mensagemExistente = dup[0];
-        console.log(`[WAPI] ⏭️ DUPLICADA por messageId: ${dados.messageId} (já processada antes)`);
-        
-        const duracao = Date.now() - inicio;
-        return jsonOk({
-          message_id: mensagemExistente.id,
-          ignored: true,
-          reason: 'duplicata_message_id',
-          duration_ms: duracao
-        });
+        console.log(`[WAPI] ⏭️ DUPLICADA por messageId: ${dados.messageId}`);
+        return jsonOk({ message_id: dup[0].id, ignored: true, reason: 'duplicata_message_id', duration_ms: Date.now() - inicio });
       }
     } catch (e) {
       console.warn(`[WAPI] ⚠️ Erro ao verificar duplicata por messageId:`, e.message);
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // 🏛️ ARQUITETURA "PORTEIRO CEGO" - ETAPA 1: IDENTIFICAÇÃO
-  // ═══════════════════════════════════════════════════════════════════
-  // O Webhook é o "Porteiro Cego": ele NUNCA usa o Token.
-  // Ele apenas confere o "crachá" (instanceId ou connectedPhone) e busca
-  // a integração no banco de dados usando APENAS essas chaves públicas.
-  //
-  // ESTRATÉGIA DE LOOKUP (prioridades):
-  // 1. connectedPhone → filter({numero_telefone}) [PRIORIDADE 1]
-  // 2. instanceId → filter({instance_id_provider}) [FALLBACK]
-  //
-  // O Token (api_key_provider) fica SEGURO no banco e será lido apenas
-  // pelo "Gerente" (processInboundEvent, persistirMidiaWapi) quando
-  // precisar realizar ações (enviar mensagens, baixar mídia).
-  // ═══════════════════════════════════════════════════════════════════
-
+  // PORTEIRO CEGO — busca integração
   const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
   let integracaoId = null;
   let integracaoInfo = null;
 
-  // PRIORIDADE 1: Buscar por instanceId (Mais direto para W-API)
   if (dados.instanceId) {
     try {
       const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-        { instance_id_provider: dados.instanceId, api_provider: 'w_api' },
-        '-created_date',
-        1
+        { instance_id_provider: dados.instanceId, api_provider: 'w_api' }, '-created_date', 1
       );
-
       if (int && int.length > 0) {
         integracaoId = int[0].id;
         integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
         console.log(`[WAPI] 🔑 PORTEIRO: Integração encontrada por instanceId: ${dados.instanceId}`);
       }
     } catch (err) {
-        console.error('[WAPI] ❌ Erro ao buscar por instanceId:', err.message);
+      console.error('[WAPI] ❌ Erro ao buscar por instanceId:', err.message);
     }
   }
 
-  // FALLBACK: Buscar por connectedPhone (se instanceId falhar ou não existir)
   if (!integracaoId && connectedPhone) {
     try {
       const todasWAPI = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-        { api_provider: 'w_api' },
-        '-created_date',
-        50
+        { api_provider: 'w_api' }, '-created_date', 50
       );
-      
       const phoneLimpo = connectedPhone.replace(/\D/g, '');
-
       for (const int of (todasWAPI || [])) {
         const numeroInt = (int.numero_telefone || '').replace(/\D/g, '');
         if (numeroInt && phoneLimpo && numeroInt === phoneLimpo) {
@@ -690,95 +627,67 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[WAPI] 🏛️ PORTEIRO RESULTADO: ${integracaoId ? '✅ Integração encontrada' : '❌ Não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // ✅ BUSCAR/CRIAR CONTATO - FUNÇÃO CENTRALIZADA ÚNICA
+  // CONTATO
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
   let contato;
   try {
-    console.log(`[WAPI] 🎯 Chamando função CENTRALIZADA para contato: ${dados.from}`);
-    
     const resultado = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
       telefone: dados.from,
       pushName: dados.pushName || null,
-      profilePicUrl: profilePicUrl,
+      profilePicUrl,
       conexaoId: integracaoId
     });
-    
     if (!resultado?.data?.success || !resultado?.data?.contact) {
       console.error(`[WAPI] ❌ Função centralizada falhou:`, resultado?.data);
       return jsonErr('erro_contato_centralizado', 500);
     }
-    
     contato = resultado.data.contact;
-    console.log(`[WAPI] ✅ Contato obtido via função centralizada: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
-    
+    console.log(`[WAPI] ✅ Contatos recebidos via função centralizada: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
   } catch (e) {
     console.error(`[WAPI] ❌ Erro ao chamar função centralizada:`, e?.message);
     return jsonErr('erro_contato', 500);
   }
 
-  // 🔧 AUTO-MERGE: Unificar todas as threads antigas deste contato (ANTES de criar/usar)
+  // AUTO-MERGE DE THREADS
   let threadCanonica = null;
   try {
     const todasThreadsContato = await base44.asServiceRole.entities.MessageThread.filter(
-      { contact_id: contato.id },
-      '-primeira_mensagem_at',
-      20
+      { contact_id: contato.id }, '-primeira_mensagem_at', 20
     );
-    
+
     if (todasThreadsContato && todasThreadsContato.length > 1) {
-      console.log(`[WAPI] 🔀 AUTO-MERGE: ${todasThreadsContato.length} threads encontradas para contact ${contato.id}`);
-      
-      // Eleger a mais antiga como canônica (preserva histórico)
+      console.log(`[WAPI] 🔀 AUTO-MERGE: ${todasThreadsContato.length} threads para contact ${contato.id}`);
       threadCanonica = todasThreadsContato[todasThreadsContato.length - 1];
-      
-      // ✅ COLETAR HISTÓRICO: Todas integrações usadas nas threads antigas
       const integracoesHistoricas = new Set();
-      if (integracaoId) integracoesHistoricas.add(integracaoId); // Integração atual
-      
+      if (integracaoId) integracoesHistoricas.add(integracaoId);
       todasThreadsContato.forEach(t => {
         if (t.whatsapp_integration_id) integracoesHistoricas.add(t.whatsapp_integration_id);
-        if (t.origin_integration_ids?.length > 0) {
-          t.origin_integration_ids.forEach(id => integracoesHistoricas.add(id));
-        }
+        if (t.origin_integration_ids?.length > 0) t.origin_integration_ids.forEach(id => integracoesHistoricas.add(id));
       });
-      
-      // Marcar canônica COM propagação de integrações
       await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, {
         is_canonical: true,
         status: 'aberta',
-        whatsapp_integration_id: integracaoId || threadCanonica.whatsapp_integration_id, // ✅ Atualizar se possível
-        origin_integration_ids: Array.from(integracoesHistoricas), // ✅ HISTÓRICO COMPLETO
+        whatsapp_integration_id: integracaoId || threadCanonica.whatsapp_integration_id,
+        origin_integration_ids: Array.from(integracoesHistoricas),
         ultima_atividade: new Date().toISOString()
       });
       console.log(`[WAPI] ✅ Thread canônica eleita: ${threadCanonica.id} (${integracoesHistoricas.size} integrações no histórico)`);
-
-      // Marcar demais como merged
       for (const threadAntiga of todasThreadsContato) {
         if (threadAntiga.id !== threadCanonica.id) {
           try {
             await base44.asServiceRole.entities.MessageThread.update(threadAntiga.id, {
-              status: 'merged',
-              merged_into: threadCanonica.id,
-              is_canonical: false
+              status: 'merged', merged_into: threadCanonica.id, is_canonical: false
             });
             console.log(`[WAPI] 🔀 Thread merged: ${threadAntiga.id} → ${threadCanonica.id}`);
-          } catch (e) {
-            console.error(`[WAPI] ⚠️ Erro ao marcar thread merged:`, e.message);
-          }
+          } catch (e) {}
         }
       }
     } else if (todasThreadsContato && todasThreadsContato.length === 1) {
       threadCanonica = todasThreadsContato[0];
-      // Garantir que está marcada como canônica E atualizar integração
-      const needsUpdate = !threadCanonica.is_canonical || 
+      const needsUpdate = !threadCanonica.is_canonical ||
                           (integracaoId && threadCanonica.whatsapp_integration_id !== integracaoId);
-      
       if (needsUpdate) {
-        const updateData = {
-          is_canonical: true,
-          status: 'aberta'
-        };
-        
+        const updateData = { is_canonical: true, status: 'aberta' };
         if (integracaoId && threadCanonica.whatsapp_integration_id !== integracaoId) {
           updateData.whatsapp_integration_id = integracaoId;
           const historicoAtual = threadCanonica.origin_integration_ids || [];
@@ -786,7 +695,6 @@ async function handleMessage(dados, payloadBruto, base44) {
             updateData.origin_integration_ids = [...historicoAtual, integracaoId];
           }
         }
-        
         await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, updateData);
       }
     }
@@ -794,56 +702,46 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.warn(`[WAPI] ⚠️ Erro ao fazer auto-merge:`, err.message);
   }
 
-  // ✅ BUSCAR/CRIAR THREAD - LÓGICA ATÔMICA (CANONICAL THREAD)
-  // 🎯 Usar threadCanonica se auto-merge encontrou, senão buscar/criar
+  // BUSCAR/CRIAR THREAD
   let thread = threadCanonica;
-  
   if (!thread) {
     try {
       console.log(`[WAPI] 🔍 Buscando thread canônica para contact_id: "${contato.id}"`);
       const threads = await base44.asServiceRole.entities.MessageThread.filter(
-          { 
-              contact_id: contato.id,
-              is_canonical: true,
-              status: 'aberta'
-          },
-          '-last_message_at',
-          1
+        { contact_id: contato.id, is_canonical: true, status: 'aberta' }, '-last_message_at', 1
       );
-
       if (threads && threads.length > 0) {
         thread = threads[0];
-        console.log(`[WAPI] ✅ canonical-thread-found: ${thread.id} | Unificada para todas as integrações`);
+        console.log(`[WAPI] ✅ canonical-thread-found: ${thread.id}`);
       } else {
-        console.log(`[WAPI] 🆕 canonical-thread-not-found: Criando thread ÚNICA para este contato.`);
+        console.log(`[WAPI] 🆕 Criando thread ÚNICA para este contato.`);
         const agora = new Date().toISOString();
         thread = await base44.asServiceRole.entities.MessageThread.create({
-            contact_id: contato.id,
-            whatsapp_integration_id: integracaoId,
-            conexao_id: integracaoId, // Compatibilidade
-            origin_integration_ids: integracaoId ? [integracaoId] : [], // ✅ INICIALIZAR histórico
-            thread_type: 'contact_external',
-            channel: 'whatsapp',
-            is_canonical: true,
-            status: 'aberta',
-            primeira_mensagem_at: agora,
-            last_message_at: agora,
-            last_inbound_at: agora,
-            last_message_sender: 'contact',
-            last_message_content: String(dados.content || '').substring(0, 100),
-            last_media_type: dados.mediaType || 'none',
-            total_mensagens: 1,
-            unread_count: 1,
+          contact_id: contato.id,
+          whatsapp_integration_id: integracaoId,
+          conexao_id: integracaoId,
+          origin_integration_ids: integracaoId ? [integracaoId] : [],
+          thread_type: 'contact_external',
+          channel: 'whatsapp',
+          is_canonical: true,
+          status: 'aberta',
+          primeira_mensagem_at: agora,
+          last_message_at: agora,
+          last_inbound_at: agora,
+          last_message_sender: 'contact',
+          last_message_content: String(dados.content || '').substring(0, 100),
+          last_media_type: dados.mediaType || 'none',
+          total_mensagens: 1,
+          unread_count: 1,
         });
-        console.log(`[WAPI] ✅ new-canonical-thread-created: ${thread.id} | Thread UNIFICADA criada`);
+        console.log(`[WAPI] ✅ new-canonical-thread-created: ${thread.id}`);
       }
     } catch (e) {
       console.error(`[WAPI] ❌ Erro thread:`, e?.message);
       return jsonErr('erro_thread', 500);
     }
   }
-  
-  // Validação final
+
   if (!thread || !thread.id) {
     console.error(`[WAPI] ❌ ERRO CRÍTICO: Thread não foi criada/encontrada!`);
     return jsonErr('thread_not_found', 500);
@@ -851,45 +749,41 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // DEDUPLICAÇÃO POR CONTEÚDO
   try {
-    const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
     const msgRecentes = await base44.asServiceRole.entities.Message.filter(
-      { 
-        thread_id: thread.id, 
-        sender_type: 'contact'
-      },
-      '-created_date',
-      10
+      { thread_id: thread.id, sender_type: 'contact' }, '-created_date', 10
     );
-    
     if (msgRecentes) {
-      const duplicadaPorConteudo = msgRecentes.find(m => 
+      const duplicadaPorConteudo = msgRecentes.find(m =>
         m.media_type === dados.mediaType &&
         m.content === dados.content &&
         Math.abs(new Date(m.created_date) - Date.now()) < 2000
       );
-      
       if (duplicadaPorConteudo) {
         console.log(`[WAPI] ⏭️ DUPLICATA POR CONTEÚDO: ${duplicadaPorConteudo.id}`);
-        
-        const agora = new Date().toISOString();
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-          last_message_at: agora,
-          last_inbound_at: agora,
+          last_message_at: new Date().toISOString(),
+          last_inbound_at: new Date().toISOString(),
           status: 'aberta',
         });
-        
-        return jsonOk({ 
-          ignored: true, 
-          reason: 'duplicata_conteudo',
-          thread_updated: true
-        });
+        return jsonOk({ ignored: true, reason: 'duplicata_conteudo', thread_updated: true });
       }
     }
   } catch (err) {
     console.warn(`[WAPI] ⚠️ Erro ao verificar duplicata:`, err.message);
   }
 
-  // SALVAR MENSAGEM (apenas se não for duplicata)
+  // ════════════════════════════════════════════════════════════
+  // ✅ DETERMINAR STATUS DA MÍDIA
+  //    downloadSpec !== null → pending_download (worker vai baixar)
+  //    downloadSpec === null mas tem mídia → failed_download (sem dados)
+  //    sem mídia → null
+  // ════════════════════════════════════════════════════════════
+  let mediaUrlInicial = null;
+  if (dados.mediaType !== 'none' && dados.mediaType !== 'contact' && dados.mediaType !== 'location') {
+    mediaUrlInicial = dados.downloadSpec ? 'pending_download' : 'failed_download';
+  }
+
+  // SALVAR MENSAGEM
   let mensagem;
   try {
     mensagem = await base44.asServiceRole.entities.Message.create({
@@ -897,8 +791,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       sender_id: contato.id,
       sender_type: 'contact',
       content: dados.content,
-      media_url: dados.downloadSpec ? 'pending_download'
-               : (dados.mediaType !== 'none' ? 'failed_download' : null),
+      media_url: mediaUrlInicial,
       media_type: dados.mediaType,
       media_caption: dados.mediaCaption ?? null,
       channel: 'whatsapp',
@@ -918,18 +811,19 @@ async function handleMessage(dados, payloadBruto, base44) {
         location: dados.location ?? null,
         quoted_message: dados.quotedMessage ?? null,
         downloadSpec: dados.downloadSpec ?? null,
+        media_url_status: mediaUrlInicial,
         processed_by: VERSION,
         provider: 'w_api'
       },
     });
-    
-    console.log(`[WAPI] ✅ Mensagem salva: ${mensagem.id} | Mídia: ${dados.downloadSpec ? 'pending_download' : 'nenhuma'}`);
+
+    console.log(`[WAPI] ✅ Mensagem salva: ${mensagem.id} | media_url: ${mediaUrlInicial || 'nenhuma'}`);
   } catch (e) {
     console.error(`[WAPI] ❌ Erro salvar mensagem:`, e?.message);
     return jsonErr('erro_salvar_mensagem', 500);
   }
 
-  // ✅ ATUALIZAR THREAD - Incrementar contadores E guardar metadata
+  // ATUALIZAR THREAD
   try {
     const agora = new Date().toISOString();
     const threadUpdate = {
@@ -942,23 +836,20 @@ async function handleMessage(dados, payloadBruto, base44) {
       total_mensagens: (thread.total_mensagens || 0) + 1,
       status: 'aberta',
       whatsapp_integration_id: integracaoId || thread.whatsapp_integration_id,
-      conexao_id: integracaoId || thread.conexao_id // Manter simetria
+      conexao_id: integracaoId || thread.conexao_id
     };
     await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-    console.log(`[WAPI] 💭 Thread atualizada | Total: ${threadUpdate.total_mensagens} | Não lidas: ${threadUpdate.unread_count}`);
+    console.log(`[WAPI] 💭 Tópico atualizado | Total: ${threadUpdate.total_mensagens} | Não lida: ${threadUpdate.unread_count}`);
   } catch (updateError) {
     console.error(`[WAPI] ⚠️ Erro ao atualizar thread:`, updateError.message);
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // 🏛️ ARQUITETURA "GERENTE" - WORKER DE MÍDIA
-  // ═══════════════════════════════════════════════════════════════════
-  // O Worker persistirMidiaWapi é outro "Gerente".
-  // Ele recebe o integration_id do Webhook e, internamente,
-  // busca o Token do banco para baixar a mídia do provedor W-API.
-  // ═══════════════════════════════════════════════════════════════════
+  // ✅ WORKER DE MÍDIA — só dispara se downloadSpec tem dados úteis
   if (dados.downloadSpec) {
-    console.log('[WAPI] 🏛️ GERENTE: Disparando worker de mídia (buscará token do banco)...');
+    console.log('[WAPI] 🏛️ GERENTE: Disparando worker de mídia...',
+                { type: dados.downloadSpec.type, hasUrl: !!dados.downloadSpec.url,
+                  hasKeyPath: !!(dados.downloadSpec.mediaKey && dados.downloadSpec.directPath),
+                  hasMediaId: !!dados.downloadSpec.mediaId });
     base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
       message_id: mensagem.id,
       integration_id: integracaoId,
@@ -966,24 +857,14 @@ async function handleMessage(dados, payloadBruto, base44) {
       media_type: dados.mediaType,
       filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
     }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
+  } else if (mediaUrlInicial === 'failed_download') {
+    console.warn(`[WAPI] ⚠️ MEDIA_FAILED | msgId=${mensagem.id} | type=${dados.mediaType} | Sem dados para download`);
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // 🏛️ ARQUITETURA "GERENTE" - ETAPA 2: PROCESSAMENTO VIA CÉREBRO CENTRAL
-  // ═══════════════════════════════════════════════════════════════════
-  // Agora o "Gerente" (processInbound → inboundCore) entra em ação.
-  // Ele recebe o integracaoId do "Porteiro" e, internamente,
-  // busca o Token (api_key_provider) do banco quando precisar
-  // realizar ações como:
-  // - Enviar mensagens de resposta
-  // - Baixar mídias
-  // - Atualizar status
-  //
-  // O Webhook NÃO passa o token. Passa apenas o ID da integração.
-  // ═══════════════════════════════════════════════════════════════════
+  // PROCESSAMENTO CORE
   try {
     console.log('[WAPI] 🏛️ GERENTE: Iniciando processamento com Core...');
-    console.log('[WAPI] 📊 Diagnóstico Thread:', {
+    console.log('[WAPI] 📊 Thread de diagnóstico:', {
       thread_id: thread.id,
       assigned_user_id: thread.assigned_user_id,
       pre_atendimento_ativo: thread.pre_atendimento_ativo,
@@ -996,18 +877,17 @@ async function handleMessage(dados, payloadBruto, base44) {
     if (integracaoId) {
       try {
         integracaoCompleta = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
-        console.log('[WAPI] 🔐 GERENTE: Integração carregada (Token seguro no banco)');
+        console.log('[WAPI] 🔐 GERENTE: Integração compartilhada (Token seguro no banco)');
       } catch (e) {
         console.warn('[WAPI] ⚠️ Integração não encontrada:', e.message);
       }
     }
 
-    // ✅ INVOCAR processInbound (adaptador HTTP que delega para inboundCore)
     console.log('[WAPI] 🎯 Invocando processInbound (adaptador) para thread:', thread.id);
     await base44.asServiceRole.functions.invoke('processInbound', {
       message: mensagem,
       contact: contato,
-      thread: thread,
+      thread,
       integration: integracaoCompleta,
       provider: 'w_api',
       messageContent: dados.content,
@@ -1018,7 +898,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
   }
 
-  // Audit log
+  // AUDIT LOG
   try {
     await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
       payload_bruto: payloadBruto,
@@ -1027,12 +907,12 @@ async function handleMessage(dados, payloadBruto, base44) {
       evento: 'ReceivedCallback',
       timestamp_recebido: new Date().toISOString(),
       sucesso_processamento: true,
-      message_id: payloadBruto.messageId || payloadBruto.data?.key?.id || dados.messageId,
+      message_id: payloadBruto.messageId || dados.messageId,
     });
   } catch {}
 
   const duracao = Date.now() - inicio;
-  console.log(`[WAPI] ✅ SUCESSO! Msg: ${mensagem.id} | Thread: ${thread.id} | ${duracao}ms`);
+  console.log(`[WAPI] ✅ SUCESSO! Mensagem: ${mensagem.id} | Tópico: ${thread.id} | ${duracao}ms`);
 
   return jsonOk({
     message_id: mensagem.id,
@@ -1049,40 +929,36 @@ async function handleMessage(dados, payloadBruto, base44) {
 // ============================================================================
 Deno.serve(async (req) => {
   console.log('[WAPI-WEBHOOK] REQUEST | Método:', req.method);
-  
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   if (req.method === 'GET') {
-    return jsonOk({ 
-      version: VERSION, 
+    return jsonOk({
+      version: VERSION,
       build_date: BUILD_DATE,
       deployment_id: DEPLOYMENT_ID,
       architecture: ARCHITECTURE,
-      status: 'ok', 
+      status: 'ok',
       provider: 'w_api',
-      auth_method: 'createClientFromRequest(req.clone()) - req.clone() OBRIGATÓRIO',
-      strategy: {
-        webhook_role: 'PORTEIRO_CEGO - Identifica pela instanceId/connectedPhone',
-        token_usage: 'GERENTE - Core e Workers buscam token no banco',
-        security: 'Token nunca trafega no webhook de entrada',
-        symmetry: 'Total com Z-API (webhookFinalZapi)',
-        critical_fix: 'req.clone() previne erro de asServiceRole'
-      },
-      no_supabase_vars: true,
-      cache_bust: Date.now()
+      fixes: [
+        'downloadSpec null quando sem url/mediaKey+directPath/mediaId',
+        'url||link (Auto Download Whapi) como fast-path',
+        'failed_download imediato para mídia sem dados',
+        'telemetria PTT_SEM_DADOS para diagnóstico',
+        'messageContextInfo não salva mais [Mensagem sem conteúdo]',
+        'reactionMessage/protocolMessage/editedMessage ignorados silenciosamente'
+      ]
     });
   }
 
-  // ✅ AUTH: SDK Base44 0.8.20 - req direto (sem clone)
   let base44;
   try {
     base44 = createClientFromRequest(req);
     console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (asServiceRole habilitado)');
   } catch (e) {
     console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
-    console.error('[WAPI] 🔴 Stack:', e.stack);
     return jsonErr(`auth_error: ${e.message}`, 500);
   }
 
@@ -1091,7 +967,6 @@ Deno.serve(async (req) => {
     const body = await req.text();
     if (!body) return jsonOk({ ignored: true });
     payload = JSON.parse(body);
-
     console.log('[WAPI] 📥 Event:', payload.event, '| Type:', payload.type);
     console.log('[WAPI] 📥 Payload:', JSON.stringify(payload).substring(0, 1500));
   } catch (e) {
@@ -1100,17 +975,15 @@ Deno.serve(async (req) => {
 
   const classification = classifyWapiEvent(payload);
   console.log('[WAPI] 📊 Classification:', classification, '| Event:', payload.event || payload.type);
-  
+
   const motivoIgnorar = deveIgnorar(payload, classification);
-  
+
   if (motivoIgnorar) {
     console.log('[WAPI] ⏭️ Ignorado:', motivoIgnorar);
-    
-    // ✅ SALVAR AUDIT LOG mesmo de eventos ignorados (para diagnóstico)
     try {
       await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
         payload_bruto: payload,
-        instance_identificado: payload.instanceId || payload.instance || null,
+        instance_identificado: payload.instanceId || null,
         integration_id: null,
         message_id: payload.messageId || null,
         evento: payload.event || payload.type || 'unknown',
@@ -1119,17 +992,17 @@ Deno.serve(async (req) => {
         erro_detalhes: `Ignorado: ${motivoIgnorar}`
       });
     } catch {}
-    
     return jsonOk({ ignored: true, reason: motivoIgnorar });
   }
 
   const dados = normalizarPayload(payload);
-  console.log('[WAPI] 🔄 Dados normalizados:', { type: dados.type, error: dados.error, from: dados.from, mediaType: dados.mediaType });
-  
+  console.log('[WAPI] 🔄 Dados normalizados:', {
+    type: dados.type, error: dados.error, from: dados.from,
+    mediaType: dados.mediaType, hasDownloadSpec: !!dados.downloadSpec
+  });
+
   if (dados.type === 'unknown') {
     console.log(`[WAPI] ⏭️ Unknown: ${dados.error}`);
-    
-    // ✅ SALVAR AUDIT LOG de erros de normalização
     try {
       await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
         payload_bruto: payload,
@@ -1142,11 +1015,9 @@ Deno.serve(async (req) => {
         erro_detalhes: `Normalização falhou: ${dados.error}`
       });
     } catch {}
-    
     return jsonOk({ ignored: true, reason: dados.error });
   }
 
-  // ✅ TRATAR EVENTOS DE CONEXÃO/DESCONEXÃO (antes da normalização)
   if (classification === 'connection-status') {
     return await handleConnectionStatus(payload, base44);
   }
@@ -1155,16 +1026,11 @@ Deno.serve(async (req) => {
 
   try {
     switch (dados.type) {
-      case 'qrcode':
-        return await handleQRCode(dados, base44);
-      case 'connection':
-        return await handleConnection(dados, base44, payload);
-      case 'message_update':
-        return await handleMessageUpdate(dados, base44);
-      case 'message':
-        return await handleMessage(dados, payload, base44);
-      default:
-        return jsonOk({ ignored: true, reason: 'tipo_desconhecido' });
+      case 'qrcode':         return await handleQRCode(dados, base44);
+      case 'connection':     return await handleConnection(dados, base44, payload);
+      case 'message_update': return await handleMessageUpdate(dados, base44);
+      case 'message':        return await handleMessage(dados, payload, base44);
+      default:               return jsonOk({ ignored: true, reason: 'tipo_desconhecido' });
     }
   } catch (error) {
     console.error('[WAPI] ❌ ERRO:', error?.message);
