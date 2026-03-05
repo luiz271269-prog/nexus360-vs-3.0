@@ -245,10 +245,27 @@ Deno.serve(async (req) => {
     const baseF = (filename?.replace(/\.[^.]+$/, '') || downloadSpec.type || 'media').replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 40);
     const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${baseF}.${extensao}`;
 
-    // ✅ URL pública da W-API (fileLink já confirmado público nos logs — Caminho B retornou 200)
-    // Usar diretamente sem re-upload para evitar URL privada do Base44
-    const permanentUrl = mediaUrl;
-    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Usando URL pública W-API como media_url:', permanentUrl);
+    // ✅ Tentar upload permanente via Base44
+    // Se a URL gerada for pública (supabase/storage ou similar), usa ela
+    // Caso contrário, cai para a URL pública temporária da W-API como fallback
+    let permanentUrl = mediaUrl; // fallback: URL pública W-API
+    try {
+      const file = new File([blob], nomeArquivo, { type: contentType });
+      const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+      const uploadedUrl = uploadResult?.file_url || '';
+      // Verificar se é URL pública (supabase public storage) ou privada (api interno)
+      const isPublicUrl = uploadedUrl.includes('/storage/v1/object/public/') || 
+                          uploadedUrl.includes('supabase.co/storage') ||
+                          (!uploadedUrl.includes('/api/apps/') && uploadedUrl.startsWith('https://'));
+      if (isPublicUrl && uploadedUrl) {
+        permanentUrl = uploadedUrl;
+        console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload permanente OK (URL pública):', permanentUrl);
+      } else {
+        console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Upload gerou URL privada, usando W-API URL como fallback:', mediaUrl);
+      }
+    } catch (uploadErr) {
+      console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Upload falhou, usando W-API URL como fallback:', uploadErr.message);
+    }
 
     // Buscar metadata atual para preservar
     let mensagemAtual;
