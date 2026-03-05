@@ -245,20 +245,10 @@ Deno.serve(async (req) => {
     const baseF = (filename?.replace(/\.[^.]+$/, '') || downloadSpec.type || 'media').replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 40);
     const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${baseF}.${extensao}`;
 
-    // ✅ UPLOAD via Base44 integrations (sem Supabase)
-    console.log('[PERSISTIR-MIDIA-WAPI] 📤 Upload via Base44.UploadFile:', nomeArquivo);
-
-    const file = new File([blob], nomeArquivo, { type: contentType });
-    let permanentUrl;
-    try {
-      const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({ file });
-      permanentUrl = uploadResult.file_url;
-      console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload concluído:', permanentUrl);
-    } catch (uploadErr) {
-      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Upload Base44 falhou:', uploadErr.message);
-      await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
-      return Response.json({ success: false, error: 'Upload falhou: ' + uploadErr.message, marked_as: 'failed_download' }, { status: 200, headers });
-    }
+    // ✅ URL pública da W-API (fileLink já confirmado público nos logs — Caminho B retornou 200)
+    // Usar diretamente sem re-upload para evitar URL privada do Base44
+    const permanentUrl = mediaUrl;
+    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Usando URL pública W-API como media_url:', permanentUrl);
 
     // Buscar metadata atual para preservar
     let mensagemAtual;
