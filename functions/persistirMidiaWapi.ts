@@ -52,16 +52,45 @@ Deno.serve(async (req) => {
     const baseUrl = integracao.base_url_provider || 'https://gate.whapi.cloud';
 
     // ═══════════════════════════════════════════════════════════════════
-    // CASCATA: obter media_url para download
+    // CASCATA: obter fileLink via W-API (conforme manual oficial)
+    // IMPORTANTE: a URL do WhatsApp (mmg.whatsapp.net/*.enc) é criptografada
+    // e NÃO pode ser baixada diretamente — deve passar pela W-API
     // ═══════════════════════════════════════════════════════════════════
     let mediaUrl = null;
     let caminhoUsado = null;
+    const instanceId = integracao.instance_id_provider;
 
-    // CAMINHO A: url/link direta (Auto Download ativo — sem chamada extra)
-    if (downloadSpec.url) {
-      mediaUrl = downloadSpec.url;
-      caminhoUsado = 'A_url_direta';
-      console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho A: URL direta');
+    // CAMINHO A: mediaKey + directPath → POST /message/download-media (prioritário)
+    // Esse é o caminho correto conforme manual W-API
+    if (downloadSpec.mediaKey && downloadSpec.directPath) {
+      try {
+        console.log('[PERSISTIR-MIDIA-WAPI] 🔄 Caminho A: POST /message/download-media (W-API)');
+        const resp = await fetch(`${baseUrl}/message/download-media?instanceId=${instanceId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            mediaKey: downloadSpec.mediaKey,
+            directPath: downloadSpec.directPath,
+            type: downloadSpec.type,
+            mimetype: downloadSpec.mimetype
+          })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          mediaUrl = data.fileLink || data.link || data.url || null;
+          if (mediaUrl) {
+            caminhoUsado = 'A_mediaKey_directPath';
+            console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho A: fileLink obtido via W-API');
+          } else {
+            console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho A: resposta sem link:', JSON.stringify(data).substring(0, 200));
+          }
+        } else {
+          const errText = await resp.text();
+          console.warn(`[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho A falhou: HTTP ${resp.status} | ${errText.substring(0, 200)}`);
+        }
+      } catch (e) {
+        console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho A erro:', e.message);
+      }
     }
 
     // CAMINHO B: mediaId → GET /media/{id}
@@ -86,36 +115,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // CAMINHO C: mediaKey + directPath → POST /download-media
-    if (!mediaUrl && downloadSpec.mediaKey && downloadSpec.directPath) {
-      try {
-        console.log('[PERSISTIR-MIDIA-WAPI] 🔄 Caminho C: POST /message/download-media');
-        const instanceId = integracao.instance_id_provider;
-        const resp = await fetch(`${baseUrl}/message/download-media?instanceId=${instanceId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({
-            mediaKey: downloadSpec.mediaKey,
-            directPath: downloadSpec.directPath,
-            type: downloadSpec.type,
-            mimetype: downloadSpec.mimetype
-          })
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          mediaUrl = data.fileLink || data.link || data.url || null;
-          if (mediaUrl) {
-            caminhoUsado = 'C_mediaKey_directPath';
-            console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho C: fileLink obtido');
-          } else {
-            console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho C: resposta sem link:', JSON.stringify(data).substring(0, 200));
-          }
-        } else {
-          console.warn(`[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho C falhou: HTTP ${resp.status}`);
-        }
-      } catch (e) {
-        console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho C erro:', e.message);
-      }
+    // CAMINHO C: URL direta (somente se Auto Download estiver ativo no painel W-API)
+    // ATENÇÃO: mmg.whatsapp.net/*.enc são URLs criptografadas — só funcionam se
+    // a W-API já tiver feito o Auto Download e retornado uma URL própria (não do WhatsApp)
+    if (!mediaUrl && downloadSpec.url && !downloadSpec.url.includes('whatsapp.net')) {
+      mediaUrl = downloadSpec.url;
+      caminhoUsado = 'C_url_direta';
+      console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho C: URL direta (não-WhatsApp)');
     }
 
     // Cascata esgotada sem URL
