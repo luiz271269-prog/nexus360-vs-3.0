@@ -1641,14 +1641,15 @@ export default function Comunicacao() {
       // MAS: Bloqueados durante busca ativa (usuário quer ver resultados da busca)
       // ═══════════════════════════════════════════════════════════════════════════
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        // 🔍 BUSCA ATIVA: Bloquear threads internas (mostrar apenas resultados da busca)
-        if (modoBusca) {
-          logThread('Modo Busca - Interno', false, 'Threads internas bloqueadas durante busca');
+        // Modo normal: ocultar threads internas (lista recente só mostra externas)
+        // Modo busca: threads internas passam — se o nome bater, aparecem nos resultados
+        if (!modoBusca) {
+          logThread('Modo Normal - Interno', false, 'Thread interna oculta na lista recente');
           return false;
         }
 
         const visInterna = podeVerThreadInterna(thread, usuario);
-        logThread('Usuário Interno (INDEPENDENTE)', visInterna, visInterna ? 'Participante ou admin' : 'Não é participante nem admin');
+        logThread('Usuário Interno (Busca Ativa)', visInterna, visInterna ? 'Participante ou admin' : 'Não é participante nem admin');
         return visInterna;
       }
 
@@ -1688,20 +1689,10 @@ export default function Comunicacao() {
       const threadComContato = { ...thread, contato };
 
       // ═══════════════════════════════════════════════════════════════════════
-      // MODO BUSCA: Aplicar permissões rigorosas mesmo durante a busca
+      // MODO BUSCA: Sem VISIBILITY_MATRIX — mostrar tudo que o banco retornou
+      // O bloqueio de acesso acontece apenas ao ABRIR a conversa (modal de permissão)
       // ═══════════════════════════════════════════════════════════════════════
       if (modoBusca) {
-        // Verificar permissões base mesmo em modo busca (NEXUS360)
-        if (!permissionsService.canUserSeeThreadBase(userPermissions, thread, contato)) {
-          logThread('Modo Busca - Base', false, 'Bloqueado por visibilidade base');
-          if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
-            console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - Modo Busca bloqueado por VISIBILITY_MATRIX');
-          }
-          return false;
-        }
-
-        logThread('Modo Busca - Base', true, 'Passou visibilidade base');
-
         if (!contato || !matchBuscaGoogle(contato, debouncedSearchTerm)) {
           logThread('Modo Busca - Match', false, 'Não match com termo de busca');
           return false;
@@ -1903,7 +1894,9 @@ export default function Comunicacao() {
         // Busca SEMPRE mostra todos os contatos (permissões aplicadas ao abrir thread)
         // Duplicatas detectadas servem apenas para alerta informativo
 
-        if (contato.telefone) {
+        // Em modo busca: sem deduplicação por telefone (mostra todos os contatos do banco)
+        // Em lista recente: deduplica normalmente para não mostrar duplicatas
+        if (contato.telefone && !temBuscaPorTexto) {
           const telNorm = normalizarTelefone(contato.telefone);
           if (telNorm && telefonesJaAcionados.has(telNorm)) {
             if (DEBUG_VIS) {
