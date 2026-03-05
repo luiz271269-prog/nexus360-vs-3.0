@@ -296,7 +296,8 @@ function normalizarPayload(payload) {
       downloadSpec = buildDownloadSpec('document', docMsg, {
         fileName,
         fileLength: docMsg?.fileLength,
-        pageCount: docMsg?.pageCount
+        pageCount: docMsg?.pageCount,
+        mediaId: payload.messageId || null
       });
 
     } else if (msgContent.stickerMessage) {
