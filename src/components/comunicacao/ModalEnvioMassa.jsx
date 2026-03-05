@@ -71,33 +71,36 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
     try {
       toast.loading(`📤 Enviando para ${contatosSelecionados.length} contatos...`, { id: 'envio-massa' });
 
-      // ✅ FIX: Fazer upload da imagem colada se existir
-      let finalMediaUrl = urlMidia;
-      if (pastedImage && !mediaUrl) {
-        console.log('[MODAL_ENVIO_MASSA] 🖼️ Upload de imagem colada...');
-        const uploadResult = await base44.integrations.Core.UploadFile({ file: pastedImage });
-        finalMediaUrl = uploadResult.file_url;
-      }
+      // ✅ FIX #3: Upload ANTES de usar URL (evita blob:// inválido)
+       let finalMediaUrl = null;
+       if (pastedImage && !mediaUrl) {
+         console.log('[MODAL_ENVIO_MASSA] 🖼️ Upload de imagem colada...');
+         const uploadResult = await base44.integrations.Core.UploadFile({ file: pastedImage });
+         finalMediaUrl = uploadResult.file_url;
+       } else if (mediaUrl) {
+         finalMediaUrl = mediaUrl;
+       }
 
-      console.log('[MODAL_ENVIO_MASSA] 📤 Payload final:', {
-        contact_ids: contatosSelecionados.length,
-        mensagem: mensagemTexto.substring(0, 100),
+       console.log('[MODAL_ENVIO_MASSA] 📤 Payload final:', {
+         contact_ids: contatosSelecionados.length,
+         mensagem: mensagemTexto.substring(0, 100),
+         media_url: finalMediaUrl,
+         media_type: tipoMidia,
+         media_caption: legendaMidia
+       });
+
+       // ✅ FIX #1: Chamar enviarCampanhaLote DIRETO (não wrapper deprecated)
+       const resultado = await base44.functions.invoke('enviarCampanhaLote', {
+        contact_ids: contatosSelecionados
+         .map(c => c.contact_id) // ✅ SEMPRE contact_id (vem de thread)
+         .filter(id => id), // ✅ Remover nulls (threads órfãs ou internas)
+        modo: 'broadcast',
+        mensagem: mensagemTexto,
+        personalizar: true,
         media_url: finalMediaUrl,
         media_type: tipoMidia,
         media_caption: legendaMidia
-      });
-
-      const resultado = await base44.functions.invoke('enviarMensagemMassa', {
-       contact_ids: contatosSelecionados
-         .map(c => c.contact_id) // ✅ SEMPRE contact_id (vem de thread)
-         .filter(id => id), // ✅ Remover nulls (threads órfãs ou internas)
-       mensagem: mensagemTexto,
-       personalizar: true,
-       media_url: finalMediaUrl,
-       media_type: tipoMidia,
-       media_caption: legendaMidia,
-       usar_atendente_fidelizado: true
-      });
+       });
 
       if (resultado.data?.success) {
         toast.success(
