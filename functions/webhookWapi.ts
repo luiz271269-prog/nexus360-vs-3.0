@@ -303,7 +303,9 @@ function normalizarPayload(payload) {
     } else if (msgContent.stickerMessage) {
       mediaType = 'sticker';
       conteudo = '[Sticker]';
-      downloadSpec = buildDownloadSpec('sticker', msgContent.stickerMessage);
+      downloadSpec = buildDownloadSpec('sticker', msgContent.stickerMessage, {
+        mediaId: payload.messageId || null
+      });
 
     } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
       mediaType = 'contact';
