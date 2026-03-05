@@ -1,4 +1,5 @@
 import { createClientFromRequest, createClient } from 'npm:@base44/sdk@0.8.20';
+import { createClient as createSupabaseClient } from 'npm:@supabase/supabase-js@2.39.0';
 
 // ============================================================================
 // PERSISTIR MÍDIA W-API - v6.0.0-AUTH-FIX
