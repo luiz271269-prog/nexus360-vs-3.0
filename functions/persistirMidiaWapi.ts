@@ -23,7 +23,11 @@ Deno.serve(async (req) => {
 
   console.log('[PERSISTIR-MIDIA-WAPI] 🚀', VERSION, '| Método:', req.method);
 
-  // Ler body ANTES de criar cliente (evita consumo duplo do stream)
+  // ✅ BUG FIX #1: Criar cliente ANTES de ler body (evita consumo do stream)
+  const base44 = createClientFromRequest(req);
+  console.log('[PERSISTIR-MIDIA-WAPI] ✅ Cliente criado via createClientFromRequest');
+
+  // Ler body DEPOIS de criar cliente
   let bodyText;
   try {
     bodyText = await req.text();
@@ -46,9 +50,6 @@ Deno.serve(async (req) => {
   let message_id_global = null;
 
   try {
-    // ✅ Igual à Z-API: createClientFromRequest funciona pois o req da invocação
-    // carrega o token do app no header — asServiceRole funciona neste contexto.
-    const base44 = createClientFromRequest(req);
     console.log('[PERSISTIR-MIDIA-WAPI] ✅ Cliente criado via createClientFromRequest');
 
     const { message_id, integration_id, downloadSpec, media_type, filename } = payload;
@@ -162,11 +163,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // CAMINHO C: URL direta — só aceita se NÃO for mmg.whatsapp.net (são .enc criptografados)
-    if (!mediaUrl && downloadSpec.url && !downloadSpec.url.includes('whatsapp.net') && !downloadSpec.url.includes('.enc')) {
+    // CAMINHO C: URL direta — só aceita se NÃO for mmg.whatsapp.net ou w-api.app (ambos exigem autenticação)
+    if (!mediaUrl && downloadSpec.url && !downloadSpec.url.includes('whatsapp.net') && !downloadSpec.url.includes('.enc') && !downloadSpec.url.includes('w-api.app')) {
       mediaUrl = downloadSpec.url;
       caminhoUsado = 'C_url_direta';
-      console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho C: URL direta (não-WhatsApp)');
+      console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho C: URL direta (pública)');
     }
 
     // Cascata esgotada sem URL
@@ -195,7 +196,10 @@ Deno.serve(async (req) => {
     try {
       const mediaResponse = await fetch(mediaUrl, {
         signal: controller.signal,
-        headers: { 'User-Agent': 'VendaPro-MediaDownloader/4.0' }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'User-Agent': 'Nexus360-MediaDownloader/1.0'
+        }
       });
       clearTimeout(timeoutId);
 
@@ -257,26 +261,35 @@ Deno.serve(async (req) => {
        console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload para Base44 concluído:', permanentUrl);
      } catch (uploadErr) {
        console.error('[PERSISTIR-MIDIA-WAPI] ❌ Erro no upload para Base44:', uploadErr.message);
-       console.log('[PERSISTIR-MIDIA-WAPI] ⚠️ Fallback: usando URL W-API (com aviso de TTL)');
-       permanentUrl = mediaUrl + '#ttl-24h'; // Marcar que pode expirar
+       console.log('[PERSISTIR-MIDIA-WAPI] ⚠️ Fallback: usando URL W-API temporária');
+       permanentUrl = mediaUrl; // URL limpa, sem fragmento
      }
 
      // Buscar metadata atual para preservar
      let mensagemAtual;
      try { mensagemAtual = await base44.asServiceRole.entities.Message.get(message_id); } catch (_) {}
 
+     // ✅ BUG FIX #4: URL limpa + flags separadas no metadata (não #ttl-24h na URL)
+     const isTemporary = !permanentUrl.includes('base44');
+     const metadata = {
+       ...(mensagemAtual?.metadata || {}),
+       midia_persistida: true,
+       caminho_usado: caminhoUsado,
+       url_original: mediaUrl,
+       persistida_em: new Date().toISOString(),
+       tamanho_bytes: blob.size,
+       mimetype_detectado: contentType,
+       url_provider: permanentUrl.includes('base44') ? 'base44' : 'wapi'
+     };
+
+     if (isTemporary) {
+       metadata.media_ttl_warning = true;
+       metadata.media_expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+     }
+
      await base44.asServiceRole.entities.Message.update(message_id, {
        media_url: permanentUrl,
-       metadata: {
-         ...(mensagemAtual?.metadata || {}),
-         midia_persistida: true,
-         caminho_usado: caminhoUsado,
-         url_original: mediaUrl,
-         persistida_em: new Date().toISOString(),
-         tamanho_bytes: blob.size,
-         mimetype_detectado: contentType,
-         url_provider: 'base44' // ✅ Novo: indica que a URL é permanente
-       }
+       metadata
      });
 
      // ✅ LOG FINAL: confirmar URL salva
