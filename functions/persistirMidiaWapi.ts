@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
     console.log('[PERSISTIR-MIDIA-WAPI] ✅ Cliente criado via createClientFromRequest');
 
     const { message_id, integration_id, downloadSpec, media_type, filename } = payload;
+    message_id_global = message_id; // expor para o catch geral
 
     console.log('[PERSISTIR-MIDIA-WAPI] 📦 Parâmetros:', { message_id, integration_id, media_type, filename });
 
