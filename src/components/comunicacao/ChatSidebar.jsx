@@ -392,49 +392,30 @@ export default function ChatSidebar({
       {/* SUPER CONTATO FIXO - EQUIPE INTERNA / SETOR */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {!modoSelecao && (
-        <div className="sticky top-0 z-10 bg-purple-50/80 backdrop-blur-sm border-b border-purple-200 px-2 py-1.5 space-y-1.5">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm bg-gradient-to-br from-purple-500 to-indigo-600">
-              <MessagesSquare className="w-4 h-4" />
+        <div className="sticky top-0 z-10 bg-purple-50/80 backdrop-blur-sm border-b border-purple-200 px-2 py-1 space-y-1">
+          {/* Linha única: ícone + label + 4 botões + 2 botões de ação */}
+          <div className="flex items-center gap-1">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-sm bg-gradient-to-br from-purple-500 to-indigo-600 flex-shrink-0">
+              <MessagesSquare className="w-3 h-3" />
             </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-slate-900 text-xs truncate">
-                Equipe interna
-              </h3>
-              <p className="text-[10px] text-slate-600 truncate">
-                Envio 1:1 / Setores / Grupos
-              </p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-4 gap-1">
-            <Button
-              onClick={() => { setDelegateMode(false); setInternalComposerOpen(true); }}
-              variant="outline" size="sm"
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-8 text-[10px] px-1">
-              <Send className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Enviar</span>
+            <span className="text-[10px] font-semibold text-slate-700 flex-shrink-0 mr-1">Equipe</span>
+            <Button onClick={() => { setDelegateMode(false); setInternalComposerOpen(true); }} size="sm"
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white border-0 h-6 text-[9px] px-1.5 flex-1 min-w-0">
+              <Send className="w-2.5 h-2.5 mr-0.5 flex-shrink-0" /><span>Enviar</span>
             </Button>
-            <Button
-              onClick={() => { setDelegateMode(true); setInternalComposerOpen(true); }}
-              variant="outline" size="sm"
-              className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-8 text-[10px] px-1">
-              <ArrowRightLeft className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Transfer</span>
+            <Button onClick={() => { setDelegateMode(true); setInternalComposerOpen(true); }} size="sm"
+              className="bg-gradient-to-r from-orange-500 to-amber-600 text-white border-0 h-6 text-[9px] px-1.5 flex-1 min-w-0">
+              <ArrowRightLeft className="w-2.5 h-2.5 mr-0.5 flex-shrink-0" /><span>Transf</span>
             </Button>
-            <Button
-              onClick={() => setCriarGrupoOpen(true)}
-              variant="outline" size="sm"
-              className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-8 text-[10px] px-1">
-              <Plus className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Grupo</span>
+            <Button onClick={() => setCriarGrupoOpen(true)} size="sm"
+              className="bg-gradient-to-r from-slate-500 to-slate-600 text-white border-0 h-6 text-[9px] px-1.5 flex-1 min-w-0">
+              <Plus className="w-2.5 h-2.5 mr-0.5 flex-shrink-0" /><span>Grupo</span>
             </Button>
-            <Button
-              onClick={() => setAgendaIAOpen(true)}
-              variant="outline" size="sm"
-              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-0 h-8 text-[10px] px-1">
-              <CalendarCheck className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Agenda</span>
+            <Button onClick={() => setAgendaIAOpen(true)} size="sm"
+              className="bg-gradient-to-r from-emerald-500 to-green-600 text-white border-0 h-6 text-[9px] px-1.5 flex-1 min-w-0">
+              <CalendarCheck className="w-2.5 h-2.5 mr-0.5 flex-shrink-0" /><span>Agenda</span>
             </Button>
           </div>
-
-          <div className="h-px bg-purple-300/30 my-1.5" />
 
           {/* ✅ BOTÕES AÇÃO - Não Atribuídos + Contatos Parados */}
            <div className="grid grid-cols-2 gap-1">
