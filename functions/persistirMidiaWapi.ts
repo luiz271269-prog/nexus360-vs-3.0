@@ -296,15 +296,6 @@ Deno.serve(async (req) => {
     // Marcar failed_download se temos o message_id disponível
     if (message_id_global) {
       try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL');
-        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-        if (supabaseUrl && supabaseServiceKey) {
-          // Usar Supabase diretamente para não depender do base44 (que pode ter falhado)
-          const { createClient: supaCreate } = await import('npm:@supabase/supabase-js@2.39.0');
-          const sb = supaCreate(supabaseUrl, supabaseServiceKey);
-          // Não temos acesso ao base44 aqui, então usar o createClientFromRequest de novo
-        }
-        // Tentar via base44 recriado
         const base44Catch = createClientFromRequest(req);
         await base44Catch.asServiceRole.entities.Message.update(message_id_global, { media_url: 'failed_download' });
         console.log('[PERSISTIR-MIDIA-WAPI] ✅ failed_download marcado no catch geral');
