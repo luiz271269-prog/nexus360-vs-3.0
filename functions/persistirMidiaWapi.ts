@@ -1,17 +1,13 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest, createClient } from 'npm:@base44/sdk@0.8.20';
 
 // ============================================================================
-// PERSISTIR MÍDIA W-API - v4.0.0
+// PERSISTIR MÍDIA W-API - v6.0.0-AUTH-FIX
 // ============================================================================
-// CASCATA DE 3 CAMINHOS (ordem de prioridade):
-//   A → url/link direta (Auto Download ativo)  → 1 GET, mais rápido
-//   B → mediaId → GET /media/{id}              → 1 GET via ID
-//   C → mediaKey+directPath → POST /download-media → chamada extra W-API
-//
-// Se toda a cascata falhar: marca media_url = 'failed_download' e retorna HTTP 200
+// FIX v6: Upload usa createClient(APP_ID) com serviceRole explícito
+//         porque quando invocado via functions.invoke() o req não carrega token
 // ============================================================================
 
-const VERSION = 'v5.0.0-FIXED';
+const VERSION = 'v6.0.0-AUTH-FIX';
 
 Deno.serve(async (req) => {
   const headers = {
