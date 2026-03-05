@@ -49,7 +49,9 @@ Deno.serve(async (req) => {
 
     const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
     const token = integracao.api_key_provider;
-    const baseUrl = integracao.base_url_provider || 'https://gate.whapi.cloud';
+    const baseUrl = (integracao.base_url_provider || 'https://api.w-api.app/v1').replace(/\/$/, '');
+
+    console.log('[PERSISTIR-MIDIA-WAPI] 🔧 baseUrl:', baseUrl, '| instanceId:', integracao.instance_id_provider);
 
     // ═══════════════════════════════════════════════════════════════════
     // CASCATA: obter fileLink via W-API (conforme manual oficial)
