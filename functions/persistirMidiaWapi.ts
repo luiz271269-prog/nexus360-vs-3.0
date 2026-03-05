@@ -43,7 +43,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const base44 = createClientFromRequest(req);
+    // ✅ AUTH-FIX: worker é invocado via functions.invoke() sem token de usuário.
+    // Usar createClient com APP_ID e forçar serviceRole para todas as operações.
+    const appId = Deno.env.get('BASE44_APP_ID');
+    const base44 = appId ? createClient(appId) : createClientFromRequest(req);
+    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Cliente criado | appId:', appId ? appId.substring(0, 8) + '...' : 'N/A (req fallback)');
 
     const { message_id, integration_id, downloadSpec, media_type, filename } = payload;
 
