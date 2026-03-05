@@ -924,44 +924,20 @@ async function handleMessage(dados, payloadBruto, base44) {
                             dados.mediaUrl.includes('temp-file-download');
     
     if (isUrlTemporaria) {
-      console.log(`[${VERSION}] 📥 URL temporária detectada, tentando persistir...`);
+      console.log(`[${VERSION}] 📥 URL temporária detectada, tentando persistir via persistirMidiaWapi...`);
       
       try {
-        // Chamar função de download e persistência
-        const resultadoPersistencia = await base44.asServiceRole.functions.invoke('downloadMediaZAPI', {
-          media_url: dados.mediaUrl,
-          media_type: dados.mediaType,
-          integration_id: integracaoId,
-          filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
-        });
-        
-        console.log(`[${VERSION}] 📥 Resultado persistência:`, JSON.stringify(resultadoPersistencia?.data || {}).substring(0, 300));
-        
-        if (resultadoPersistencia?.data?.url && !resultadoPersistencia?.data?.fallback) {
-          mediaUrlFinal = resultadoPersistencia.data.url;
-          midiaPersistida = true;
-          console.log(`[${VERSION}] ✅ Mídia persistida com sucesso: ${mediaUrlFinal?.substring(0, 80)}...`);
-        } else {
-          const erroDetalhe = resultadoPersistencia?.data?.error || 'resposta sem URL permanente';
-          console.warn(`[${VERSION}] ⚠️ Fallback para URL temporária: ${erroDetalhe}`);
-          // Manter a URL temporária mas marcar como não persistida
-          midiaPersistida = false;
-        }
+        // Salvar mensagem primeiro com URL temporária para ter message_id
+        // A persistência definitiva é feita após criação da mensagem — ver bloco abaixo
+        midiaPersistida = false;
       } catch (e) {
-        console.error(`[${VERSION}] ❌ Erro ao persistir mídia:`, e?.message || e);
-        console.error(`[${VERSION}] ❌ Stack:`, e?.stack);
-        // Continuar com URL temporária
         midiaPersistida = false;
       }
-    } else if (dados.mediaUrl.includes('supabase.co') || dados.mediaUrl.includes('storage.googleapis.com') || dados.mediaUrl.includes('base44.app')) {
+    } else if (dados.mediaUrl.includes('base44.app') || dados.mediaUrl.includes('storage.googleapis.com') || dados.mediaUrl.includes('supabase.co')) {
       console.log(`[${VERSION}] ℹ️ URL já é permanente (storage), não precisa persistir`);
       midiaPersistida = true;
-    } else if (dados.mediaUrl.includes('backblazeb2.com') || dados.mediaUrl.includes('temp-file-download')) {
-      // URLs do Backblaze B2 da Z-API são temporárias!
-      console.warn(`[${VERSION}] ⚠️ URL Backblaze B2 detectada (TEMPORÁRIA): ${dados.mediaUrl?.substring(0, 60)}...`);
-      midiaPersistida = false;
     } else {
-      console.log(`[${VERSION}] ℹ️ URL externa (${dados.mediaUrl?.substring(0, 40)}...), assumindo permanente`);
+      console.log(`[${VERSION}] ℹ️ URL externa, assumindo permanente`);
       midiaPersistida = true;
     }
   }
