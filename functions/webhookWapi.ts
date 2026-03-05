@@ -257,22 +257,26 @@ function normalizarPayload(payload) {
     if (msgContent.imageMessage) {
       mediaType = 'image';
       conteudo = msgContent.imageMessage.caption || '📷 [Imagem recebida]';
-      downloadSpec = buildDownloadSpec('image', msgContent.imageMessage);
+      // W-API: messageId é o mediaId para download-url
+      downloadSpec = buildDownloadSpec('image', msgContent.imageMessage, {
+        mediaId: payload.messageId || null
+      });
 
     } else if (msgContent.videoMessage) {
       mediaType = 'video';
       conteudo = msgContent.videoMessage.caption || '🎥 [Vídeo recebido]';
-      downloadSpec = buildDownloadSpec('video', msgContent.videoMessage);
+      downloadSpec = buildDownloadSpec('video', msgContent.videoMessage, {
+        mediaId: payload.messageId || null
+      });
 
     } else if (msgContent.audioMessage || msgContent.pttMessage) {
       mediaType = 'audio';
       const audioMsg = msgContent.audioMessage || msgContent.pttMessage;
       conteudo = audioMsg?.ptt ? '🎤 [Áudio de voz]' : '🎤 [Áudio recebido]';
 
-      // ✅ PTT: tenta pegar mediaId do payload raiz também (W-API às vezes coloca lá)
       downloadSpec = buildDownloadSpec('audio', audioMsg, {
         isPtt: audioMsg?.ptt || false,
-        mediaId: audioMsg?.mediaId || audioMsg?.id || payload.mediaId || null
+        mediaId: audioMsg?.mediaId || audioMsg?.id || payload.mediaId || payload.messageId || null
       });
 
       // ✅ TELEMETRIA: logar PTTs que chegam sem dados
