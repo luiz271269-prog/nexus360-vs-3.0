@@ -853,17 +853,24 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // ✅ WORKER DE MÍDIA — só dispara se downloadSpec tem dados úteis
   if (dados.downloadSpec) {
-    console.log('[WAPI] 🏛️ GERENTE: Disparando worker de mídia...',
-                { type: dados.downloadSpec.type, hasUrl: !!dados.downloadSpec.url,
-                  hasKeyPath: !!(dados.downloadSpec.mediaKey && dados.downloadSpec.directPath),
-                  hasMediaId: !!dados.downloadSpec.mediaId });
-    base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
+    const workerPayload = {
       message_id: mensagem.id,
       integration_id: integracaoId,
       downloadSpec: dados.downloadSpec,
       media_type: dados.mediaType,
       filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
-    }).catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
+    };
+    console.log('[WAPI] 🏛️ GERENTE: Disparando worker de mídia...', {
+      message_id: mensagem.id,
+      integration_id: integracaoId,
+      type: dados.downloadSpec.type,
+      hasUrl: !!dados.downloadSpec.url,
+      hasKeyPath: !!(dados.downloadSpec.mediaKey && dados.downloadSpec.directPath),
+      hasMediaId: !!dados.downloadSpec.mediaId,
+      mediaId_value: dados.downloadSpec.mediaId
+    });
+    base44.asServiceRole.functions.invoke('persistirMidiaWapi', workerPayload)
+      .catch(e => console.error('[WAPI] Erro trigger mídia:', e.message));
   } else if (mediaUrlInicial === 'failed_download') {
     console.warn(`[WAPI] ⚠️ MEDIA_FAILED | msgId=${mensagem.id} | type=${dados.mediaType} | Sem dados para download`);
   }
