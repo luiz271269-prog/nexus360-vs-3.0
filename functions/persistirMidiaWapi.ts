@@ -11,7 +11,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 // Se toda a cascata falhar: marca media_url = 'failed_download' e retorna HTTP 200
 // ============================================================================
 
-const VERSION = 'v4.0.0-CASCADE';
+const VERSION = 'v5.0.0-FIXED';
 
 Deno.serve(async (req) => {
   const headers = {
@@ -22,15 +22,32 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
 
   if (req.method === 'GET') {
-    return Response.json({ version: VERSION, status: 'ready', cascade: ['url', 'mediaId', 'mediaKey+directPath'] }, { headers });
+    return Response.json({ version: VERSION, status: 'ready' }, { headers });
   }
 
-  console.log('[PERSISTIR-MIDIA-WAPI] 🚀 v4.0.0 | Método:', req.method);
+  console.log('[PERSISTIR-MIDIA-WAPI] 🚀', VERSION, '| Método:', req.method);
+
+  // Ler body ANTES de criar cliente (evita consumo duplo do stream)
+  let bodyText;
+  try {
+    bodyText = await req.text();
+    console.log('[PERSISTIR-MIDIA-WAPI] 📨 Body recebido (primeiros 200):', bodyText.substring(0, 200));
+  } catch (e) {
+    console.error('[PERSISTIR-MIDIA-WAPI] ❌ Erro ao ler body:', e.message);
+    return Response.json({ success: false, error: 'Erro ao ler body: ' + e.message }, { status: 400, headers });
+  }
+
+  let payload;
+  try {
+    const bodyRaw = JSON.parse(bodyText);
+    payload = bodyRaw?.payload ?? bodyRaw;
+  } catch (e) {
+    console.error('[PERSISTIR-MIDIA-WAPI] ❌ JSON inválido:', e.message);
+    return Response.json({ success: false, error: 'JSON inválido: ' + e.message }, { status: 400, headers });
+  }
 
   try {
     const base44 = createClientFromRequest(req);
-    const bodyRaw = await req.json();
-    const payload = bodyRaw?.payload ?? bodyRaw;
 
     const { message_id, integration_id, downloadSpec, media_type, filename } = payload;
 
