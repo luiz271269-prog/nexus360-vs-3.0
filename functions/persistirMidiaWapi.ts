@@ -49,7 +49,8 @@ Deno.serve(async (req) => {
   // Extrair message_id fora do try para o catch conseguir marcar failed_download
   let message_id_global = null;
 
-  const { message_id, integration_id, downloadSpec, media_type, filename } = payload;
+  try {
+    const { message_id, integration_id, downloadSpec, media_type, filename } = payload;
     message_id_global = message_id; // expor para o catch geral
 
     console.log('[PERSISTIR-MIDIA-WAPI] 📦 Parâmetros:', { message_id, integration_id, media_type, filename });
