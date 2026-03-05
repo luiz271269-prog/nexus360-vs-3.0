@@ -533,10 +533,45 @@ export default React.memo(function MessageBubble({
   };
 
   // ✅ BUSCAR MENSAGEM ORIGINAL para quote/resposta (IGUAL WhatsApp)
+  // Prioridade: reply_to_message_id (mensagem interna) → metadata.quoted_message (W-API)
   const mensagemOriginal = React.useMemo(() => {
-    if (!message?.reply_to_message_id || !mensagens) return null;
-    return mensagens.find((m) => m.id === message.reply_to_message_id);
-  }, [message?.reply_to_message_id, mensagens]);
+    // 1. Buscar no array local por ID (respostas internas)
+    if (message?.reply_to_message_id && mensagens) {
+      const found = mensagens.find((m) => m.id === message.reply_to_message_id);
+      if (found) return found;
+    }
+    // 2. Fallback: quoted_message do metadata (W-API/WhatsApp nativo)
+    const qm = message?.metadata?.quoted_message;
+    if (qm) {
+      // Normalizar para formato compatível com a UI
+      const texto = qm.conversation ||
+                    qm.extendedTextMessage?.text ||
+                    qm.imageMessage?.caption ||
+                    qm.videoMessage?.caption ||
+                    qm.documentMessage?.caption ||
+                    qm.audioMessage ? '🎤 Áudio' :
+                    qm.imageMessage ? '📷 Imagem' :
+                    qm.videoMessage ? '🎥 Vídeo' :
+                    qm.documentMessage ? `📄 ${qm.documentMessage.fileName || 'Documento'}` :
+                    qm.stickerMessage ? '🎨 Sticker' :
+                    null;
+      if (texto) {
+        return {
+          id: null,
+          content: texto,
+          media_type: qm.imageMessage ? 'image' :
+                      qm.videoMessage ? 'video' :
+                      qm.audioMessage ? 'audio' :
+                      qm.documentMessage ? 'document' :
+                      qm.stickerMessage ? 'sticker' : 'none',
+          sender_type: qm.key?.fromMe ? 'user' : 'contact',
+          sender_id: qm.key?.fromMe ? message.sender_id : null,
+          _fromMetadata: true
+        };
+      }
+    }
+    return null;
+  }, [message?.reply_to_message_id, message?.metadata?.quoted_message, mensagens]);
 
   const normalizarCategorias = (categorias) => {
     if (!Array.isArray(categorias)) return [];
