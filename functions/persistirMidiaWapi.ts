@@ -194,9 +194,9 @@ Deno.serve(async (req) => {
     const baseF = (filename?.replace(/\.[^.]+$/, '') || downloadSpec.type || 'media').replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 40);
     const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${baseF}.${extensao}`;
 
-    // Upload via SDK (asServiceRole para URL pública)
+    // ✅ Upload sem service role → gera URL pública acessível sem autenticação
     const file = new File([blob], nomeArquivo, { type: contentType });
-    const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+    const uploadResult = await base44.integrations.Core.UploadFile({ file });
 
     if (!uploadResult?.file_url) {
       console.error('[PERSISTIR-MIDIA-WAPI] ❌ Upload falhou sem URL');
