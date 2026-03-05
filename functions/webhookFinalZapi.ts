@@ -979,6 +979,26 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonServerError({ success: false, error: 'erro_salvar_mensagem' });
   }
 
+  // ✅ DISPARAR WORKER DE MÍDIA (assíncrono) — igual ao webhookWapi
+  if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none' && !midiaPersistida) {
+    const isUrlTemporaria = dados.mediaUrl.includes('backblazeb2.com') ||
+                            dados.mediaUrl.includes('temp-file-download') ||
+                            dados.mediaUrl.includes('z-api.io') ||
+                            dados.mediaUrl.includes('mmg.whatsapp.net');
+    if (isUrlTemporaria) {
+      console.log(`[${VERSION}] 🏛️ Disparando worker de mídia (Z-API)...`, { type: dados.mediaType, hasUrl: !!dados.mediaUrl });
+      // Fire-and-forget: não bloquear resposta ao WhatsApp
+      base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
+        file_id: dados.messageId || mensagem.id,
+        integration_id: integracaoId,
+        media_type: dados.mediaType,
+        media_url: dados.mediaUrl,
+        message_id: mensagem.id,
+        filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+      }).catch(e => console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message));
+    }
+  }
+
   // ✅ ATUALIZAR THREAD - Incrementar contadores DEPOIS de salvar mensagem
   try {
     const agora = new Date().toISOString();
