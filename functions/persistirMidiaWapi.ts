@@ -62,65 +62,71 @@ Deno.serve(async (req) => {
     let caminhoUsado = null;
     const instanceId = integracao.instance_id_provider;
 
-    // CAMINHO A: mediaKey + directPath → POST /message/download-media (prioritário)
-    // Esse é o caminho correto conforme manual W-API
+    // ═══════════════════════════════════════════════════════════════════
+    // CASCATA W-API: 3 endpoints possíveis para obter URL de download
+    // ═══════════════════════════════════════════════════════════════════
+
+    // CAMINHO A: POST /message/download-media com mediaKey + directPath
     if (downloadSpec.mediaKey && downloadSpec.directPath) {
       try {
-        console.log('[PERSISTIR-MIDIA-WAPI] 🔄 Caminho A: POST /message/download-media (W-API)');
-        const resp = await fetch(`${baseUrl}/message/download-media?instanceId=${instanceId}`, {
+        const endpointA = `${baseUrl}/message/download-media?instanceId=${instanceId}`;
+        const bodyA = {
+          mediaKey: downloadSpec.mediaKey,
+          directPath: downloadSpec.directPath,
+          type: downloadSpec.type,
+          mimetype: downloadSpec.mimetype
+        };
+        console.log('[PERSISTIR-MIDIA-WAPI] 🔄 Caminho A:', endpointA);
+        console.log('[PERSISTIR-MIDIA-WAPI] 🔄 Body A:', JSON.stringify(bodyA));
+        const resp = await fetch(endpointA, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({
-            mediaKey: downloadSpec.mediaKey,
-            directPath: downloadSpec.directPath,
-            type: downloadSpec.type,
-            mimetype: downloadSpec.mimetype
-          })
+          body: JSON.stringify(bodyA)
         });
+        const respText = await resp.text();
+        console.log(`[PERSISTIR-MIDIA-WAPI] Caminho A status: ${resp.status} | body: ${respText.substring(0, 300)}`);
         if (resp.ok) {
-          const data = await resp.json();
-          mediaUrl = data.fileLink || data.link || data.url || null;
+          let data;
+          try { data = JSON.parse(respText); } catch(_) { data = {}; }
+          mediaUrl = data.fileLink || data.link || data.url || data.mediaUrl || null;
           if (mediaUrl) {
             caminhoUsado = 'A_mediaKey_directPath';
-            console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho A: fileLink obtido via W-API');
+            console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho A: link obtido');
           } else {
-            console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho A: resposta sem link:', JSON.stringify(data).substring(0, 200));
+            console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho A: resposta OK mas sem link. Keys:', Object.keys(data).join(','));
           }
-        } else {
-          const errText = await resp.text();
-          console.warn(`[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho A falhou: HTTP ${resp.status} | ${errText.substring(0, 200)}`);
         }
       } catch (e) {
         console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho A erro:', e.message);
       }
     }
 
-    // CAMINHO B: mediaId → GET /media/{id}
+    // CAMINHO B: GET /media/{messageId} - alguns provedores W-API usam esse endpoint
     if (!mediaUrl && downloadSpec.mediaId) {
       try {
-        console.log('[PERSISTIR-MIDIA-WAPI] 🔄 Caminho B: GET /media/', downloadSpec.mediaId);
-        const resp = await fetch(`${baseUrl}/media/${downloadSpec.mediaId}`, {
+        const endpointB = `${baseUrl}/media/${downloadSpec.mediaId}?instanceId=${instanceId}`;
+        console.log('[PERSISTIR-MIDIA-WAPI] 🔄 Caminho B:', endpointB);
+        const resp = await fetch(endpointB, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+        const respText = await resp.text();
+        console.log(`[PERSISTIR-MIDIA-WAPI] Caminho B status: ${resp.status} | body: ${respText.substring(0, 200)}`);
         if (resp.ok) {
-          const data = await resp.json();
-          mediaUrl = data.link || data.url || data.fileLink || null;
+          let data;
+          try { data = JSON.parse(respText); } catch(_) { data = {}; }
+          mediaUrl = data.link || data.url || data.fileLink || data.mediaUrl || null;
           if (mediaUrl) {
             caminhoUsado = 'B_mediaId';
-            console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho B: link obtido via mediaId');
+            console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho B: link obtido');
           }
-        } else {
-          console.warn(`[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho B falhou: HTTP ${resp.status}`);
         }
       } catch (e) {
         console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho B erro:', e.message);
       }
     }
 
-    // CAMINHO C: URL direta (somente se Auto Download estiver ativo no painel W-API)
-    // ATENÇÃO: mmg.whatsapp.net/*.enc são URLs criptografadas — só funcionam se
-    // a W-API já tiver feito o Auto Download e retornado uma URL própria (não do WhatsApp)
-    if (!mediaUrl && downloadSpec.url && !downloadSpec.url.includes('whatsapp.net')) {
+    // CAMINHO C: URL direta — só aceita se NÃO for mmg.whatsapp.net (são .enc criptografados)
+    if (!mediaUrl && downloadSpec.url && !downloadSpec.url.includes('whatsapp.net') && !downloadSpec.url.includes('.enc')) {
       mediaUrl = downloadSpec.url;
       caminhoUsado = 'C_url_direta';
       console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho C: URL direta (não-WhatsApp)');
