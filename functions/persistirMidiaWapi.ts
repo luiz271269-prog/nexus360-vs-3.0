@@ -51,7 +51,15 @@ Deno.serve(async (req) => {
     const token = integracao.api_key_provider;
     const baseUrl = (integracao.base_url_provider || 'https://api.w-api.app/v1').replace(/\/$/, '');
 
-    console.log('[PERSISTIR-MIDIA-WAPI] 🔧 baseUrl:', baseUrl, '| instanceId:', integracao.instance_id_provider);
+    // ✅ LOG DIAGNÓSTICO: confirmar que pegou a integração W-API correta
+    console.log('[PERSISTIR-MIDIA-WAPI] 🔍 INTEGRAÇÃO ENCONTRADA:', {
+      integration_id,
+      nome: integracao.nome_instancia,
+      api_provider: integracao.api_provider,
+      base_url_provider: integracao.base_url_provider,
+      instance_id_provider: integracao.instance_id_provider,
+      numero_telefone: integracao.numero_telefone
+    });
 
     // ═══════════════════════════════════════════════════════════════════
     // CASCATA: obter fileLink via W-API (conforme manual oficial)
