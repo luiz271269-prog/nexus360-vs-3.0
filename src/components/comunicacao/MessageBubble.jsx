@@ -1025,15 +1025,15 @@ export default React.memo(function MessageBubble({
               </TooltipProvider>
             }
 
-            {/* IMAGEM - ✅ AGNÓSTICO: Funciona para WhatsApp E Interno */}
+            {/* IMAGEM - ✅ Abre em nova aba (igual PDF) */}
             {message.media_type === 'image' && (message.media_url || message.content?.includes('[Imagem]')) &&
-            <div className="relative overflow-hidden rounded-lg">
+            <div className="relative overflow-hidden rounded-lg cursor-pointer" onClick={() => message.media_url && window.open(message.media_url, '_blank')}>
                 {message.media_url ?
               <ImageWithFallback
                 src={message.media_url}
                 alt="Imagem"
-                className="max-w-[280px] max-h-[280px] object-cover rounded-lg cursor-pointer"
-                onClick={() => window.open(message.media_url, '_blank')}
+                className="max-w-[280px] max-h-[280px] object-cover rounded-lg"
+                onClick={() => message.media_url && window.open(message.media_url, '_blank')}
                 isPersisted={message.metadata?.midia_persistida} /> :
               message.metadata?.requiresDownload ?
               <div className="flex flex-col items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px] max-w-[280px]">
@@ -1297,7 +1297,7 @@ export default React.memo(function MessageBubble({
               </div>
             }
 
-            {/* TEXTO - ✅ RENDERIZAÇÃO SEGURA DE EMOJIS */}
+            {/* TEXTO - ✅ Detecta URLs e links em nova aba */}
             {(!message?.media_url || message?.media_type === 'none') && message?.media_type !== 'document' && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
             <>
                 <div className={cn(
@@ -1306,7 +1306,30 @@ export default React.memo(function MessageBubble({
                 "text-[#111b21]"
               )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                   <p className="text-[14.2px] leading-[19px]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
-                    {sanitizeEmojis(String(message.content || ''))}
+                    {(() => {
+                      const content = String(message.content || '');
+                      const urlRegex = /(https?:\/\/[^\s]+)/gi;
+                      const parts = content.split(urlRegex);
+                      return parts.map((part, idx) => {
+                        if (urlRegex.test(part)) {
+                          return (
+                            <a
+                              key={idx}
+                              href={part}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 underline hover:text-blue-800 hover:font-semibold transition-colors"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                window.open(part, '_blank', 'noopener,noreferrer');
+                              }}>
+                              {part}
+                            </a>
+                          );
+                        }
+                        return sanitizeEmojis(part);
+                      });
+                    })()}
                   </p>
                 </div>
 
