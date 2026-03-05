@@ -49,10 +49,7 @@ Deno.serve(async (req) => {
   // Extrair message_id fora do try para o catch conseguir marcar failed_download
   let message_id_global = null;
 
-  try {
-    console.log('[PERSISTIR-MIDIA-WAPI] ✅ Cliente criado via createClientFromRequest');
-
-    const { message_id, integration_id, downloadSpec, media_type, filename } = payload;
+  const { message_id, integration_id, downloadSpec, media_type, filename } = payload;
     message_id_global = message_id; // expor para o catch geral
 
     console.log('[PERSISTIR-MIDIA-WAPI] 📦 Parâmetros:', { message_id, integration_id, media_type, filename });
@@ -250,36 +247,39 @@ Deno.serve(async (req) => {
     const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${baseF}.${extensao}`;
 
     // ✅ UPLOAD PARA BASE44 (URLs W-API expiram em 24h)
-     // Converter blob para File para upload via SDK
-     const file = new File([blob], nomeArquivo, { type: contentType });
-     console.log('[PERSISTIR-MIDIA-WAPI] 📤 Fazendo upload para Base44...');
+    // Converter blob para File para upload via SDK
+    const file = new File([blob], nomeArquivo, { type: contentType });
+    console.log('[PERSISTIR-MIDIA-WAPI] 📤 Fazendo upload para Base44...');
 
-     let permanentUrl;
-     try {
-       const uploadResult = await base44.integrations.Core.UploadFile({ file });
-       permanentUrl = uploadResult.file_url;
-       console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload para Base44 concluído:', permanentUrl);
-     } catch (uploadErr) {
-       console.error('[PERSISTIR-MIDIA-WAPI] ❌ Erro no upload para Base44:', uploadErr.message);
-       console.log('[PERSISTIR-MIDIA-WAPI] ⚠️ Fallback: usando URL W-API temporária');
-       permanentUrl = mediaUrl; // URL limpa, sem fragmento
-     }
+    let permanentUrl;
+    let uploadOk = false;
+    try {
+      const uploadResult = await base44.integrations.Core.UploadFile({ file });
+      permanentUrl = uploadResult.file_url;
+      uploadOk = true;
+      console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload para Base44 concluído:', permanentUrl);
+    } catch (uploadErr) {
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Erro no upload para Base44:', uploadErr.message);
+      console.log('[PERSISTIR-MIDIA-WAPI] ⚠️ Fallback: usando URL W-API temporária');
+      permanentUrl = mediaUrl; // URL limpa, sem fragmento
+      uploadOk = false;
+    }
 
-     // Buscar metadata atual para preservar
-     let mensagemAtual;
-     try { mensagemAtual = await base44.asServiceRole.entities.Message.get(message_id); } catch (_) {}
+    // Buscar metadata atual para preservar
+    let mensagemAtual;
+    try { mensagemAtual = await base44.asServiceRole.entities.Message.get(message_id); } catch (_) {}
 
-     // ✅ BUG FIX #4: URL limpa + flags separadas no metadata (não #ttl-24h na URL)
-     const isTemporary = !permanentUrl.includes('base44');
+    // ✅ BUG FIX #4: URL limpa + flags separadas no metadata (não #ttl-24h na URL)
+    const isTemporary = !uploadOk;
      const metadata = {
        ...(mensagemAtual?.metadata || {}),
-       midia_persistida: true,
+       midia_persistida: uploadOk,
        caminho_usado: caminhoUsado,
        url_original: mediaUrl,
        persistida_em: new Date().toISOString(),
        tamanho_bytes: blob.size,
        mimetype_detectado: contentType,
-       url_provider: permanentUrl.includes('base44') ? 'base44' : 'wapi'
+       url_provider: uploadOk ? 'base44' : 'wapi'
      };
 
      if (isTemporary) {
@@ -312,8 +312,7 @@ Deno.serve(async (req) => {
     // Marcar failed_download se temos o message_id disponível
     if (message_id_global) {
       try {
-        const base44Catch = createClientFromRequest(req);
-        await base44Catch.asServiceRole.entities.Message.update(message_id_global, { media_url: 'failed_download' });
+        await base44.asServiceRole.entities.Message.update(message_id_global, { media_url: 'failed_download' });
         console.log('[PERSISTIR-MIDIA-WAPI] ✅ failed_download marcado no catch geral');
       } catch (catchErr) {
         console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Não conseguiu marcar failed_download:', catchErr.message);
