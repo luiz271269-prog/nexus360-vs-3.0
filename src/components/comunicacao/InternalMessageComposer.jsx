@@ -311,6 +311,16 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
 
   return (
     <>
+      <CriarGrupoModal
+        open={criarGrupoOpen}
+        onClose={() => setCriarGrupoOpen(false)}
+        usuarios={usuarios}
+        currentUser={currentUser}
+        onSuccess={() => {
+          refetchGroups();
+          toast.success('✅ Grupo criado com sucesso!');
+        }}
+      />
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className="w-[98vw] sm:max-w-4xl h-[92vh] sm:h-[85vh] sm:max-h-[90vh] flex flex-col p-3 sm:p-6">
           <DialogHeader className="flex-shrink-0">
