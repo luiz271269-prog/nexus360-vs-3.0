@@ -669,7 +669,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                 {/* Mobile: Abas de conteúdo */}
                 <div className="flex-1 min-h-0 overflow-y-auto">
                   {/* Aba Usuários */}
-                  <TabsContent value="usuarios" forceMount className={`m-0 p-0 ${activeTab !== 'usuarios' ? 'hidden' : ''}`}>
+                  <TabsContent value="usuarios" className="m-0 p-0">
                     <div className="space-y-1">
                       {loadingUsers ? (
                         <div className="flex items-center justify-center py-8">
@@ -733,7 +733,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                   </TabsContent>
 
                   {/* Aba Setores */}
-                  <TabsContent value="setores" forceMount className={`m-0 p-0 ${activeTab !== 'setores' ? 'hidden' : ''}`}>
+                  <TabsContent value="setores" className="m-0 p-0">
                     <div className="space-y-1">
                       {setores.length === 0 ? (
                         <div className="text-center py-8 text-slate-500 text-xs">
@@ -781,7 +781,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                   </TabsContent>
 
                   {/* Aba Grupos */}
-                  <TabsContent value="grupos" forceMount className={`m-0 p-0 ${activeTab !== 'grupos' ? 'hidden' : ''}`}>
+                  <TabsContent value="grupos" className="m-0 p-0">
                     <div className="space-y-1">
                       <Button
                         onClick={() => setCriarGrupoOpen(true)}
