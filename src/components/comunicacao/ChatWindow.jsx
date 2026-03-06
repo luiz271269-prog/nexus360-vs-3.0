@@ -1344,35 +1344,41 @@ export default function ChatWindow({
   }, [contatoCompleto, podeTransferirConversas]);
 
   // 🎯 BUSCAR NOME + SETOR DO OUTRO PARTICIPANTE (threads internas 1:1)
+  // PERF FIX: só busca quando thread interna muda, usando atendentes[] já disponível como cache primeiro
   const [outroParticipanteNome, setOutroParticipanteNome] = React.useState('');
-  
+  const outroParticipanteThreadIdRef = React.useRef(null);
+
   React.useEffect(() => {
-    const buscarNomeParticipante = async () => {
-      if (thread?.thread_type !== 'team_internal' || thread?.is_group_chat) {
-        setOutroParticipanteNome('');
-        return;
-      }
-      
-      // Encontrar ID do outro participante (não é o usuário atual)
-      const outroId = thread.participants?.find(id => id !== usuario?.id);
-      if (!outroId) {
-        setOutroParticipanteNome('Usuário');
-        return;
-      }
-      
-      try {
-        const outroUser = await base44.entities.User.get(outroId);
-        const nome = outroUser.full_name || outroUser.email;
-        const setor = outroUser.attendant_sector || 'geral';
-        setOutroParticipanteNome(`${nome} • ${setor}`);
-      } catch (error) {
-        console.error('[CHAT] Erro ao buscar nome do participante:', error);
-        setOutroParticipanteNome('Usuário');
-      }
-    };
-    
-    buscarNomeParticipante();
-  }, [thread?.id, thread?.participants, usuario?.id]);
+    if (thread?.thread_type !== 'team_internal' || thread?.is_group_chat) {
+      setOutroParticipanteNome('');
+      return;
+    }
+    if (outroParticipanteThreadIdRef.current === thread.id) return;
+    outroParticipanteThreadIdRef.current = thread.id;
+
+    const outroId = thread.participants?.find(id => id !== usuario?.id);
+    if (!outroId) { setOutroParticipanteNome('Usuário'); return; }
+
+    // Tentar cache local (atendentes já carregados) antes de ir ao banco
+    const atendenteLocal = atendentes.find(a => a.id === outroId);
+    if (atendenteLocal) {
+      const nome = atendenteLocal.display_name || atendenteLocal.full_name || atendenteLocal.email;
+      const setor = atendenteLocal.attendant_sector || 'geral';
+      setOutroParticipanteNome(`${nome} • ${setor}`);
+      return;
+    }
+
+    // Fallback: buscar no banco apenas se não encontrado no cache
+    let cancelled = false;
+    base44.entities.User.get(outroId).then(outroUser => {
+      if (cancelled) return;
+      const nome = outroUser.full_name || outroUser.email;
+      const setor = outroUser.attendant_sector || 'geral';
+      setOutroParticipanteNome(`${nome} • ${setor}`);
+    }).catch(() => { if (!cancelled) setOutroParticipanteNome('Usuário'); });
+
+    return () => { cancelled = true; };
+  }, [thread?.id, thread?.participants, usuario?.id, atendentes]);
 
   // Se está em modo broadcast com contatos selecionados, mostrar interface de envio
   const mostrarInterfaceBroadcast = modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno);
