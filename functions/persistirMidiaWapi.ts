@@ -255,7 +255,7 @@ Deno.serve(async (req) => {
     let permanentUrl;
     let uploadOk = false;
     try {
-      const uploadResult = await base44.integrations.Core.UploadFile({ file });
+      const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({ file });
       permanentUrl = uploadResult.file_url;
       uploadOk = true;
       console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload para Base44 concluído:', permanentUrl);
