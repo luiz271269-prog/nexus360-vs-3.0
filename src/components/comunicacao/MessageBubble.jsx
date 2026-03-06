@@ -798,12 +798,7 @@ export default React.memo(function MessageBubble({
               </div>);
 
           })()}
-          {!isOwn && message.sender_type === 'contact' && contato?.nome && !mensagens?.length ||
-          !isOwn && message.sender_type === 'contact' && contato?.nome && mensagens && (() => {
-            const idx = mensagens.findIndex(m => m.id === message.id);
-            const prev = idx > 0 ? mensagens[idx - 1] : null;
-            return !prev || prev.sender_type !== 'contact' || prev.sender_id !== message.sender_id;
-          })() ?
+          {!isOwn && message.sender_type === 'contact' && contato?.nome &&
           <div className="flex items-center gap-2 mb-0.5">
               <span className="text-[11px] font-semibold text-[#00a884]">
                 {contato.nome}
