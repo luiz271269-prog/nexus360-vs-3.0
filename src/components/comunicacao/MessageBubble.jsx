@@ -809,7 +809,7 @@ export default React.memo(function MessageBubble({
               </div>);
 
           })()}
-          {!isOwn && message.sender_type === 'contact' && contato?.nome &&
+          {mostrarHeaderContato &&
           <div className="flex items-center gap-2 mb-0.5">
               <span className="text-[11px] font-semibold text-[#00a884]">
                 {contato.nome}
