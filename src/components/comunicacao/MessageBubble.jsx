@@ -809,7 +809,7 @@ export default React.memo(function MessageBubble({
               </div>);
 
           })()}
-          {mostrarHeaderContato &&
+          {mostrarHeaderContato ? (
           <div className="flex items-center gap-2 mb-0.5">
               <span className="text-[11px] font-semibold text-[#00a884]">
                 {contato.nome}
@@ -829,7 +829,7 @@ export default React.memo(function MessageBubble({
 
             })()}
             </div>
-          }
+          ) : null}
 
           {/* ✅ QUOTE/RESPOSTA - Estilo WhatsApp */}
           {mensagemOriginal &&
