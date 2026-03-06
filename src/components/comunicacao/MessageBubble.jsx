@@ -1037,40 +1037,27 @@ export default React.memo(function MessageBubble({
             }
 
             {/* IMAGEM - ✅ Abre em nova aba (igual PDF) */}
-            {message.media_type === 'image' && (message.media_url || message.content?.includes('[Imagem]')) &&
-            <div className="relative overflow-hidden rounded-lg cursor-pointer" onClick={() => message.media_url && message.media_url !== 'pending_download' && window.open(message.media_url, '_blank')}>
-                {message.media_url === 'pending_download' ? (() => {
-                  const msgAge = Date.now() - new Date(message.sent_at || message.created_date).getTime();
-                  const expirou = msgAge > 3 * 60 * 1000;
-                  return (
-                    <div className="flex flex-col items-center justify-center bg-slate-100 rounded-lg p-8 min-h-[160px] max-w-[280px]">
-                      {expirou ? (
-                        <>
-                          <ImageIcon className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-                          <p className="text-sm text-slate-500">Imagem indisponível</p>
-                        </>
-                      ) : (
-                        <>
-                          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
-                          <span className="text-sm text-slate-600 font-medium">Processando imagem...</span>
-                        </>
-                      )}
+            {message.media_type === 'image' &&
+            <div className="relative overflow-hidden rounded-lg cursor-pointer" onClick={() => message.media_url && message.media_url !== 'pending_download' && message.media_url !== 'failed_download' && window.open(message.media_url, '_blank')}>
+                {message.media_url === 'pending_download' ? (
+                  <div className="flex flex-col items-center justify-center bg-slate-100 rounded-lg p-8 min-h-[160px] max-w-[280px]">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
+                    <span className="text-sm text-slate-600 font-medium">Processando imagem...</span>
+                  </div>
+                ) : !message.media_url || message.media_url === 'failed_download' ? (
+                  <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[160px] max-w-[280px]">
+                    <div className="text-center">
+                      <ImageIcon className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                      <p className="text-sm text-slate-500">Imagem indisponível</p>
                     </div>
-                  );
-                })() :
-              message.media_url ?
+                  </div>
+                ) :
               <ImageWithFallback
                 src={message.media_url}
                 alt="Imagem"
                 className="max-w-[280px] max-h-[280px] object-cover rounded-lg"
                 onClick={() => message.media_url && window.open(message.media_url, '_blank')}
-                isPersisted={message.metadata?.midia_persistida} /> :
-              <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[200px] max-w-[280px]">
-                    <div className="text-center">
-                      <ImageIcon className="w-12 h-12 text-slate-400 mx-auto mb-2" />
-                      <p className="text-sm text-slate-500">Imagem indisponível</p>
-                    </div>
-                  </div>
+                isPersisted={message.metadata?.midia_persistida} />
               }
                 {message.media_caption &&
               <div className="px-4 py-2 break-words whitespace-pre-wrap text-slate-800" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
