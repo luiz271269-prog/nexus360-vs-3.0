@@ -226,8 +226,19 @@ export default React.memo(function MessageBubble({
   integracoes = [],
   usuarioAtual = null,
   contato = null,
-  atendentes = []
+  atendentes = [],
+  indexInList = -1
 }) {
+  // Calcular se deve mostrar header (nome/número) do contato
+  // Mostra apenas na primeira mensagem consecutiva do mesmo remetente
+  const mostrarHeaderContato = React.useMemo(() => {
+    if (isOwn || message.sender_type !== 'contact' || !contato?.nome) return false;
+    if (!mensagens || indexInList < 0) return true;
+    if (indexInList === 0) return true;
+    const prev = mensagens[indexInList - 1];
+    if (!prev) return true;
+    return prev.sender_type !== 'contact' || prev.sender_id !== message.sender_id;
+  }, [isOwn, message.sender_type, message.sender_id, contato?.nome, mensagens, indexInList]);
   // ✅ NEXUS360: Validar permissões de ações
   const podeEncaminhar = usuarioAtual?.permissoes_acoes_nexus?.podeEncaminharMensagens ?? true;
   const podeCategorizar = usuarioAtual?.permissoes_acoes_nexus?.podeCategorizarMensagensIndividuais ?? true;
