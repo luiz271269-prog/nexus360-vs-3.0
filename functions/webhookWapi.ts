@@ -763,6 +763,8 @@ async function handleMessage(dados, payloadBruto, base44) {
       const duplicadaPorConteudo = msgRecentes.find(m =>
         m.media_type === dados.mediaType &&
         m.content === dados.content &&
+        // Para mídias: só deduplica se tiver whatsapp_message_id igual (evitar bloquear 2 imagens iguais)
+        dados.messageId && m.whatsapp_message_id === dados.messageId &&
         Math.abs(new Date(m.created_date) - Date.now()) < 2000
       );
       if (duplicadaPorConteudo) {
