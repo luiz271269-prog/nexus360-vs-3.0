@@ -1163,36 +1163,32 @@ export default function ChatWindow({
     return () => clearTimeout(t);
   }, [mensagens.length, thread?.id, thread?.unread_count]);
 
-  // ✅ Buscar análise comportamental do contato
+  // ✅ PERF FIX: Buscar análise em background sem bloquear render.
+  // Usa ref para evitar requisição duplicada para o mesmo contact_id.
+  const analiseContactIdRef = React.useRef(null);
   React.useEffect(() => {
-    const buscarAnalise = async () => {
-      if (!thread?.contact_id) {
-        setAnaliseComportamental(null);
-        return;
-      }
-      
-      try {
-        const analises = await base44.entities.ContactBehaviorAnalysis.filter(
-          { contact_id: thread.contact_id },
-          '-analyzed_at',
-          1
-        );
-        
-        if (analises.length > 0) {
-          setAnaliseComportamental(analises[0]);
-          
-          // ✅ Mostrar reativação rápida se inativo 30+ dias
-          const diasInativo = analises[0].days_inactive_inbound || 0;
-          if (diasInativo >= 30) {
-            setMostrarReativacaoRapida(true);
-          }
+    if (!thread?.contact_id) {
+      setAnaliseComportamental(null);
+      return;
+    }
+    // Só busca se mudou o contato
+    if (analiseContactIdRef.current === thread.contact_id) return;
+    analiseContactIdRef.current = thread.contact_id;
+
+    let cancelled = false;
+    base44.entities.ContactBehaviorAnalysis.filter(
+      { contact_id: thread.contact_id }, '-analyzed_at', 1
+    ).then(analises => {
+      if (cancelled) return;
+      if (analises.length > 0) {
+        setAnaliseComportamental(analises[0]);
+        if ((analises[0].days_inactive_inbound || 0) >= 30) {
+          setMostrarReativacaoRapida(true);
         }
-      } catch (error) {
-        console.error('[CHAT] Erro ao buscar análise:', error);
       }
-    };
-    
-    buscarAnalise();
+    }).catch(() => {}); // silencioso — não bloquear UI
+
+    return () => { cancelled = true; };
   }, [thread?.contact_id]);
 
   React.useEffect(() => {
