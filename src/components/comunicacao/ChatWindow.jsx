@@ -1733,17 +1733,17 @@ export default function ChatWindow({
           </div> :
 
         mensagensProcessadas.map((mensagem, index) => {
-          const msgCompleta = mensagens.find((m) => m.id === mensagem.id);
-          const indexOriginal = mensagens.indexOf(msgCompleta);
+          // ✅ PERF FIX: usar index direto em vez de find+indexOf O(n²)
+          const prevMensagem = index > 0 ? mensagensProcessadas[index - 1] : null;
           const isFirstUnread =
           mensagem.sender_type === 'contact' &&
           mensagem.status !== 'lida' &&
           mensagem.status !== 'apagada' && (
-          indexOriginal === 0 ||
-          mensagens[indexOriginal - 1] && (
-          mensagens[indexOriginal - 1].status === 'lida' ||
-          mensagens[indexOriginal - 1].status === 'apagada' ||
-          mensagens[indexOriginal - 1].sender_type === 'user'));
+          index === 0 ||
+          prevMensagem && (
+          prevMensagem.status === 'lida' ||
+          prevMensagem.status === 'apagada' ||
+          prevMensagem.sender_type === 'user'));
 
           return (
             <React.Fragment key={mensagem.id}>
