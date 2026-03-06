@@ -1773,6 +1773,7 @@ export default function ChatWindow({
                 selecionada={mensagensSelecionadas.includes(mensagem.id)}
                 onToggleSelecao={toggleSelecionarMensagem}
                 mensagens={mensagensProcessadas}
+                indexInList={index}
                 integracoes={integracoes}
                 usuarioAtual={usuario}
                 contato={contatoCompleto}
