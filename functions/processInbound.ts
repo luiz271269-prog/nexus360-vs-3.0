@@ -210,20 +210,25 @@ Deno.serve(async (req) => {
 
   // CLAUDE AI: Responder automaticamente quando sem humano ativo e sem URA
   result.pipeline.push('claude_ai_responder');
-  if (message?.sender_type === 'contact' && messageContent?.length > 2 && integration?.id) {
-    try {
-      console.log(`[${VERSION}] 🤖 Ativando Claude AI para resposta automática`);
-      await base44.asServiceRole.functions.invoke('claudeWhatsAppResponder', {
-        thread_id: thread.id,
-        contact_id: contact.id,
-        message_content: messageContent,
-        integration_id: integration.id,
-        provider: provider
-      });
-      result.actions.push('claude_ai_responded');
-    } catch (e) {
-      console.warn(`[${VERSION}] ⚠️ Erro ao invocar Claude:`, e.message);
-      result.actions.push('claude_ai_failed');
+  if (message?.sender_type === 'contact' && messageContent?.length > 2) {
+    if (!integration?.id) {
+      console.warn(`[${VERSION}] ⚠️ integration.id ausente — claudeWhatsAppResponder não pode ser acionado`);
+      result.actions.push('claude_ai_skipped_no_integration');
+    } else {
+      try {
+        console.log(`[${VERSION}] 🤖 Ativando Claude AI para resposta automática`);
+        await base44.asServiceRole.functions.invoke('claudeWhatsAppResponder', {
+          thread_id: thread.id,
+          contact_id: contact.id,
+          message_content: messageContent,
+          integration_id: integration.id,
+          provider,
+        });
+        result.actions.push('claude_ai_responded');
+      } catch (e) {
+        console.error(`[${VERSION}] ❌ claudeWhatsAppResponder falhou: ${e.message}`);
+        result.actions.push('claude_ai_failed');
+      }
     }
   }
 
