@@ -179,6 +179,31 @@ Deno.serve(async (req) => {
     return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, handled_by_ura: true });
   }
 
+  // CLAUDE AGENDA: Detectar intenção de agendamento e rotear para agente especializado
+  result.pipeline.push('claude_agenda_check');
+  if (message?.sender_type === 'contact' && messageContent?.length > 2 && integration?.id) {
+    const textoAgenda = (messageContent || '').toLowerCase();
+    const ehAgenda = /(agendar|agendamento|marcar|desmarcar|reagendar|remarcar|cancelar|horário|horario|disponível|disponivel|atendimento|consulta|visita|reunião|reuniao|quando vocês atendem|quando voces atendem)/.test(textoAgenda);
+    if (ehAgenda) {
+      result.pipeline.push('claude_agenda_dispatch');
+      try {
+        console.log(`[${VERSION}] 📅 Intenção de agendamento detectada — ativando claudeAgendaAgent`);
+        await base44.asServiceRole.functions.invoke('claudeAgendaAgent', {
+          thread_id: thread.id,
+          contact_id: contact.id,
+          message_content: messageContent,
+          integration_id: integration.id,
+          provider: provider
+        });
+        result.actions.push('claude_agenda_responded');
+      } catch (e) {
+        console.warn(`[${VERSION}] ⚠️ Erro ao invocar claudeAgendaAgent:`, e.message);
+        result.actions.push('claude_agenda_failed');
+      }
+      return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, routed: true, to: 'claude_agenda' });
+    }
+  }
+
   // CLAUDE AI: Responder automaticamente quando sem humano ativo e sem URA
   result.pipeline.push('claude_ai_responder');
   if (message?.sender_type === 'contact' && messageContent?.length > 2 && integration?.id) {
