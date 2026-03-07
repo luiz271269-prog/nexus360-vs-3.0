@@ -247,7 +247,7 @@ ${contact?.nome ? `\nVocê está falando com ${contact.nome}.` : ''}
 
     console.log(`[CLAUDE] ✅ Resposta gerada: ${respostaTexto.substring(0, 100)}...`);
 
-    // 5. Buscar integração WhatsApp para envio
+    // 6. Buscar integração WhatsApp para envio
     const integration = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
 
     if (!integration) {
