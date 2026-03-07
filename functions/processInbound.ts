@@ -128,6 +128,35 @@ Deno.serve(async (req) => {
     return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, routed: true, to: 'agenda_ia' });
   }
 
+  // 5b. AGENDA IA (CLAUDE): Detectar intenção de agendamento ANTES da URA
+  result.pipeline.push('claude_agenda_check');
+  if (message?.sender_type === 'contact' && messageContent?.length > 2) {
+    if (!integration?.id) {
+      console.warn(`[${VERSION}] ⚠️ integration.id ausente — claudeAgendaAgent não pode ser acionado`);
+    } else {
+      const textoAgenda = (messageContent || '').toLowerCase();
+      const ehAgenda = /(agendar|agendamento|marcar|desmarcar|reagendar|remarcar|cancelar|horário|horario|disponível|disponivel|consulta|visita|reunião|reuniao)/.test(textoAgenda);
+      if (ehAgenda) {
+        result.pipeline.push('claude_agenda_dispatch');
+        try {
+          console.log(`[${VERSION}] 📅 Intenção de agendamento detectada — ativando claudeAgendaAgent`);
+          await base44.asServiceRole.functions.invoke('claudeAgendaAgent', {
+            thread_id: thread.id,
+            contact_id: contact.id,
+            message_content: messageContent,
+            integration_id: integration.id,
+            provider,
+          });
+          result.actions.push('claude_agenda_responded');
+        } catch (e) {
+          console.error(`[${VERSION}] ❌ claudeAgendaAgent falhou: ${e.message}`);
+          result.actions.push('claude_agenda_failed');
+        }
+        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, routed: true, to: 'claude_agenda' });
+      }
+    }
+  }
+
   // 6. NOVO CICLO E DECISÃO URA
   result.pipeline.push('cycle_detection');
   const novoCiclo = detectNovoCiclo(thread.last_inbound_at);
