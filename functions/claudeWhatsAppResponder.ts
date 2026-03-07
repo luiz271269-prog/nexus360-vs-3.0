@@ -1,6 +1,7 @@
-// claudeWhatsAppResponder - v2.0.0
+// claudeWhatsAppResponder - v2.1.0
 // Responde automaticamente mensagens de clientes WhatsApp usando Claude (Anthropic)
-// Melhorias v2: Promise.all paralelo, retry automático, timeout, AgentRun log, metadata enriquecida
+// Ativado quando: sem humano ativo + sem URA ativa + mensagem requer resposta
+// MELHORIAS v2: Promise.all, retry+timeout, reqId, metadata enriquecida, fallback ao cliente
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import Anthropic from 'npm:@anthropic-ai/sdk@0.39.0';
@@ -10,111 +11,153 @@ const anthropic = new Anthropic({
 });
 
 // ============================================================
-// ⚙️ CONFIG CENTRAL — ajuste modelo, tokens e comportamento
-// ============================================================
-const CONFIG = {
-  model: 'claude-3-5-haiku-20241022',  // Troque por 'claude-sonnet-4-5' para mais qualidade
-  max_tokens: 500,
-  timeout_ms: 15000,   // 15s timeout para evitar travamento do webhook
-  max_retries: 2,       // Tentativas em caso de falha do Claude
-  historico_msgs: 10,   // Quantas mensagens do histórico usar como contexto
-};
-// ============================================================
-
-// ============================================================
-// ✏️ PERSONALIZE AQUI com os dados reais da sua empresa
+// ✏️ PERSONALIZE AQUI — dados reais da sua empresa
 // ============================================================
 const EMPRESA = {
-  nome: '[NOME DA EMPRESA]',
-  segmento: 'Eletrônicos e Tecnologia',
-  produtos: 'smartphones, notebooks, acessórios e periféricos',
-  pagamento: 'Pix, cartão de crédito em até 12x, boleto',
-  prazo_entrega: '3 a 7 dias úteis',
-  frete_gratis: 'acima de R$ 299',
-  politica_troca: 'até 7 dias após recebimento, produto sem uso',
-  garantia: '12 meses para defeitos de fabricação',
-  horario_humano: 'seg-sex, 9h às 18h',
+  nome:                     '[NOME DA EMPRESA]',
+  segmento:                 'Eletrônicos e Tecnologia',
+  produtos:                 'smartphones, notebooks, acessórios e periféricos',
+  pagamento:                'Pix, cartão de crédito em até 12x, boleto',
+  prazo_entrega:            '3 a 7 dias úteis',
+  frete_gratis:             'acima de R$ 299',
+  politica_troca:           'até 7 dias após recebimento, produto sem uso',
+  garantia:                 '12 meses para defeitos de fabricação',
+  horario_humano:           'seg-sex, 9h às 18h',
   prazo_retorno_fornecedor: '2 dias úteis',
 };
 // ============================================================
 
-const SYSTEM_PROMPT = `Você é o assistente virtual da ${EMPRESA.nome}, uma loja de ${EMPRESA.segmento}. Seu atendimento é formal, profissional e eficiente via WhatsApp.
+// ============================================================
+// CONFIGURAÇÕES DE COMPORTAMENTO
+// ============================================================
+const CONFIG = {
+  modelo:           'claude-3-5-haiku-20241022', // troque por claude-3-5-sonnet-20241022 para mais qualidade
+  max_tokens:       600,
+  historico_msgs:   12,
+  timeout_ms:       15000,
+  retry_tentativas: 2,
+};
+// ============================================================
+
+function buildSystemPrompt(nomeContato) {
+  return `Você é o assistente virtual da ${EMPRESA.nome}, especializada em ${EMPRESA.segmento}. Atenda com profissionalismo, clareza e agilidade via WhatsApp.
 
 ## IDENTIDADE
-- Nunca finja ser humano se o cliente perguntar diretamente
+- Nunca afirme ser humano se perguntado diretamente
 - Apresente-se como: "Assistente Virtual da ${EMPRESA.nome}"
 - Em caso de dúvida, prefira encaminhar a inventar informações
 
-## SOBRE A EMPRESA
-- Segmento: ${EMPRESA.segmento}
-- Produtos principais: ${EMPRESA.produtos}
-- Formas de pagamento: ${EMPRESA.pagamento}
-- Prazo de entrega: ${EMPRESA.prazo_entrega}
+## DADOS DA EMPRESA
+- Produtos: ${EMPRESA.produtos}
+- Pagamento: ${EMPRESA.pagamento}
+- Entrega: ${EMPRESA.prazo_entrega}
 - Frete grátis: ${EMPRESA.frete_gratis}
-- Política de troca: ${EMPRESA.politica_troca}
+- Troca/Devolução: ${EMPRESA.politica_troca}
 - Garantia: ${EMPRESA.garantia}
-- Horário de atendimento humano: ${EMPRESA.horario_humano}
+- Atendimento humano: ${EMPRESA.horario_humano}
 
 ## O QUE VOCÊ PODE FAZER
 
 ### 🛒 VENDAS
 - Informar preços e disponibilidade de produtos
-- Comparar modelos e recomendar o mais adequado
+- Comparar modelos e recomendar conforme necessidade
 - Informar prazo e custo de entrega
-- Auxiliar no processo de compra
 
-### 🔧 ASSISTÊNCIA TÉCNICA
-- Registrar chamados de suporte (coletar: nome, CPF, nº do pedido, descrição do problema)
-- Orientar sobre garantia e procedimentos de envio para reparo
+### 🔧 SUPORTE / ASSISTÊNCIA TÉCNICA
+- Registrar chamados (coletar: nome, CPF, nº do pedido, descrição do problema)
+- Orientar sobre garantia e logística de reparo
 
-### 💰 FINANCEIRO
-- Informar sobre formas de pagamento
-- Auxiliar com dúvidas de cobrança (coletar: nome, CPF, nº do pedido)
-- Encaminhar pedidos de estorno ou nota fiscal
+### 💰 FINANCEIRO / COBRANÇA
+- Esclarecer dúvidas sobre pagamentos e cobranças
+- Coletar: nome, CPF, nº do pedido para análise
+- Encaminhar solicitações de estorno ou 2ª via de NF
 
-### 🤝 FORNECEDORES
-- Receber propostas e coletar dados de contato (nome, empresa, telefone, e-mail)
-- Informar que a equipe retornará em até ${EMPRESA.prazo_retorno_fornecedor}
+### 🤝 FORNECEDORES / PARCERIAS
+- Receber propostas com dados: nome, empresa, telefone, e-mail
+- Informar retorno em até ${EMPRESA.prazo_retorno_fornecedor}
 
 ## REGRAS DE OURO
 - Nunca invente preços, prazos ou especificações técnicas
-- Nunca compartilhe dados de outros clientes
-- Respostas curtas e diretas — adequadas para WhatsApp
-- Use emojis com moderação ✅
-- Finalize sempre com: "Posso ajudá-lo(a) com mais alguma coisa?"`;
-
-// Palavras que indicam urgência e requerem escalação imediata para humano
-const PALAVRAS_URGENCIA = [
-  'urgente', 'emergência', 'emergencia', 'quebrou', 'parou de funcionar',
-  'não funciona', 'nao funciona', 'defeito', 'problema grave',
-  'cobrança indevida', 'cobranca indevida', 'fraude', 'danificado',
-  'quero cancelar', 'vou reclamar', 'procon', 'reclame aqui'
-];
-
-// Palavras que indicam pedido de atendente humano
-const PALAVRAS_HUMANO = [
-  'falar com atendente', 'falar com pessoa', 'quero humano',
-  'atendente humano', 'falar com alguém', 'falar com alguem',
-  'me transfere', 'transferir', 'gerente', 'responsável', 'responsavel'
-];
-
-function classificarIntencao(texto) {
-  const t = (texto || '').toLowerCase();
-  if (/(preço|preco|valor|comprar|disponível|disponivel|estoque|frete|entrega|orçamento|orcamento|produto|quanto custa|tem à venda)/.test(t)) return 'VENDAS';
-  if (/(defeito|quebrou|não funciona|nao funciona|suporte|garantia|reparo|técnico|tecnico|assistência|assistencia|conserto)/.test(t)) return 'SUPORTE';
-  if (/(pagamento|cobrança|cobranca|nota fiscal|estorno|boleto|financeiro|pagar|débito|debito|crédito|credito)/.test(t)) return 'FINANCEIRO';
-  if (/(fornecedor|parceria|representante|proposta|distribui|revenda)/.test(t)) return 'FORNECEDOR';
-  return 'GERAL';
+- Nunca compartilhe dados pessoais de outros clientes
+- Respostas curtas e diretas (WhatsApp não é e-mail)
+- Emojis com moderação ✅
+- Finalize sempre com: "Posso ajudá-lo(a) com mais alguma coisa?"
+${nomeContato ? `\n## CONTEXTO\nVocê está falando com ${nomeContato}. Use o nome para personalizar.` : ''}`;
 }
 
-function detectarUrgencia(texto) {
+const PADROES = {
+  urgencia: [
+    'urgente','emergência','emergencia','quebrou','parou de funcionar',
+    'não funciona','nao funciona','defeito grave','problema grave',
+    'cobrança indevida','cobranca indevida','fraude','danificado',
+    'quero cancelar','vou reclamar','procon','reclame aqui','golpe',
+  ],
+  humano: [
+    'falar com atendente','falar com pessoa','quero humano',
+    'atendente humano','falar com alguém','falar com alguem',
+    'me transfere','transferir','chamar gerente','falar com gerente',
+    'responsável','responsavel','falar com humano',
+  ],
+  vendas:     /(preço|preco|valor|comprar|disponível|disponivel|estoque|frete|entrega|orçamento|orcamento|produto|quanto custa|à venda|a venda)/,
+  suporte:    /(defeito|quebrou|não funciona|nao funciona|suporte|garantia|reparo|técnico|tecnico|assistência|assistencia|conserto|chamado)/,
+  financeiro: /(pagamento|cobrança|cobranca|nota fiscal|estorno|boleto|financeiro|pagar|débito|debito|crédito|credito|fatura|cobrado)/,
+  fornecedor: /(fornecedor|parceria|representante|proposta|distribui|revenda|atacado)/,
+};
+
+function analisarMensagem(texto) {
   const t = (texto || '').toLowerCase();
-  return PALAVRAS_URGENCIA.some(p => t.includes(p));
+  return {
+    urgente:    PADROES.urgencia.some(p => t.includes(p)),
+    querHumano: PADROES.humano.some(p => t.includes(p)),
+    intencao:   PADROES.vendas.test(t)     ? 'VENDAS'
+              : PADROES.suporte.test(t)    ? 'SUPORTE'
+              : PADROES.financeiro.test(t) ? 'FINANCEIRO'
+              : PADROES.fornecedor.test(t) ? 'FORNECEDOR'
+              : 'GERAL',
+  };
 }
 
-function detectarPedidoHumano(texto) {
-  const t = (texto || '').toLowerCase();
-  return PALAVRAS_HUMANO.some(p => t.includes(p));
+async function enviarMensagem(provider, integration, telefone, texto) {
+  if (!integration || !telefone) throw new Error('Integração ou telefone ausentes');
+
+  if (provider === 'z_api') {
+    const url = `${integration.base_url_provider}/instances/${integration.instance_id_provider}/token/${integration.api_key_provider}/send-text`;
+    const headers = { 'Content-Type': 'application/json' };
+    if (integration.security_client_token_header) headers['Client-Token'] = integration.security_client_token_header;
+    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ phone: telefone, message: texto }) });
+    if (!res.ok) throw new Error(`Z-API erro ${res.status}`);
+  } else if (provider === 'w_api') {
+    const res = await fetch(`${integration.base_url_provider}/messages/send/text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integration.api_key_provider}` },
+      body: JSON.stringify({ instanceId: integration.instance_id_provider, number: telefone, text: texto }),
+    });
+    if (!res.ok) throw new Error(`W-API erro ${res.status}`);
+  }
+}
+
+async function chamarClaude(systemPrompt, historico, tentativa = 1) {
+  try {
+    const response = await Promise.race([
+      anthropic.messages.create({
+        model:      CONFIG.modelo,
+        max_tokens: CONFIG.max_tokens,
+        system:     systemPrompt,
+        messages:   historico,
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), CONFIG.timeout_ms)
+      ),
+    ]);
+    return response.content[0]?.text || null;
+  } catch (err) {
+    if (tentativa < CONFIG.retry_tentativas) {
+      console.warn(`[CLAUDE] ⚠️ Tentativa ${tentativa} falhou (${err.message}). Retentando...`);
+      await new Promise(r => setTimeout(r, 1500 * tentativa));
+      return chamarClaude(systemPrompt, historico, tentativa + 1);
+    }
+    throw err;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -123,279 +166,140 @@ Deno.serve(async (req) => {
   }
 
   let base44;
-  try {
-    base44 = createClientFromRequest(req);
-  } catch (e) {
+  try { base44 = createClientFromRequest(req); } catch {
     return Response.json({ success: false, error: 'sdk_init_error' }, { status: 500 });
   }
 
   let payload;
-  try {
-    payload = await req.json();
-  } catch (e) {
+  try { payload = await req.json(); } catch {
     return Response.json({ success: false, error: 'invalid_json' }, { status: 400 });
   }
 
   const { thread_id, contact_id, message_content, integration_id, provider } = payload;
-
   if (!thread_id || !contact_id || !message_content) {
     return Response.json({ success: false, error: 'missing_required_fields' }, { status: 400 });
   }
 
-  const reqId = `claude_${Date.now()}`;
-  const startedAt = Date.now();
-  console.log(`[CLAUDE] 🤖 [${reqId}] Processando thread: ${thread_id}`);
+  const reqId = Math.random().toString(36).slice(2, 10);
+  const inicio = Date.now();
+  console.log(`[CLAUDE:${reqId}] 🚀 thread=${thread_id} | provider=${provider}`);
 
-  // Criar AgentRun para rastreamento
-  let agentRun = null;
+  // AgentRun opcional — não bloqueia se entidade não existir
+  let agentRunId = null;
   try {
-    agentRun = await base44.asServiceRole.entities.AgentRun.create({
-      trigger_type: 'message.inbound',
-      trigger_event_id: thread_id,
-      playbook_selected: 'claude_whatsapp_responder',
-      execution_mode: 'automatico',
-      status: 'processando',
-      context_snapshot: { thread_id, contact_id, content_preview: message_content?.substring(0, 100) },
-      started_at: new Date().toISOString()
+    const run = await base44.asServiceRole.entities.AgentRun.create({
+      agent: 'claudeWhatsAppResponder',
+      thread_id, contact_id,
+      status: 'running',
+      started_at: new Date().toISOString(),
     });
-  } catch (e) { /* não-crítico */ }
+    agentRunId = run?.id ?? null;
+  } catch { /* não-crítico */ }
+
+  const finalizarRun = async (status, extra = {}) => {
+    if (!agentRunId) return;
+    try {
+      await base44.asServiceRole.entities.AgentRun.update(agentRunId, {
+        status, finished_at: new Date().toISOString(), duration_ms: Date.now() - inicio, ...extra,
+      });
+    } catch { /* silencioso */ }
+  };
 
   try {
-    // 1. Buscar histórico e contato EM PARALELO (antes era sequencial)
-    const [mensagens, contact] = await Promise.all([
-      base44.asServiceRole.entities.Message.filter(
-        { thread_id },
-        '-created_date',
-        CONFIG.historico_msgs
-      ),
-      base44.asServiceRole.entities.Contact.get(contact_id)
+    // 1. Buscar dados em paralelo
+    const [mensagens, contact, integration] = await Promise.all([
+      base44.asServiceRole.entities.Message.filter({ thread_id }, '-created_date', CONFIG.historico_msgs),
+      base44.asServiceRole.entities.Contact.get(contact_id),
+      integration_id ? base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id) : Promise.resolve(null),
     ]);
 
-    // 3. Detectar urgência e pedido de humano ANTES de chamar Claude
-    const ehUrgente = detectarUrgencia(message_content);
-    const querHumano = detectarPedidoHumano(message_content);
-    const intencao = classificarIntencao(message_content);
+    // 2. Analisar mensagem
+    const { urgente, querHumano, intencao } = analisarMensagem(message_content);
+    console.log(`[CLAUDE:${reqId}] 🔍 intenção=${intencao} | urgente=${urgente} | querHumano=${querHumano}`);
 
-    console.log(`[CLAUDE] 🔍 Intenção: ${intencao} | Urgente: ${ehUrgente} | Quer humano: ${querHumano}`);
+    // 3. Escalar para humano se necessário
+    if (urgente || querHumano) {
+      const motivo = urgente ? 'urgencia_detectada' : 'pedido_humano';
+      const msgTransicao = urgente
+        ? `Entendo a urgência. Vou transferir você para um de nossos especialistas agora. Aguarde. 🔴`
+        : `Claro! Vou te conectar com um atendente agora. Um momento. 😊`;
 
-    // Se urgente ou pede humano → NÃO chamar Claude, acionar URA
-    if (ehUrgente || querHumano) {
-      const motivo = ehUrgente ? 'urgencia_detectada' : 'pedido_humano';
-      console.log(`[CLAUDE] 🚨 Escalando para humano (${motivo}). Acionando preAtendimentoHandler...`);
-
-      // Buscar integração para enviar mensagem de transição
-      const integration = integration_id
-        ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id)
-        : null;
-
-      // Enviar mensagem de transição ao cliente
       if (integration && contact?.telefone) {
-        const msgTransicao = ehUrgente
-          ? `Entendo a urgência. Vou transferir você para um de nossos especialistas agora. Aguarde um momento. 🔴`
-          : `Claro! Vou te conectar com um atendente agora. Um momento. 😊`;
-
-        const sendUrl = provider === 'w_api'
-          ? `${integration.base_url_provider}/messages/send/text`
-          : `${integration.base_url_provider}/instances/${integration.instance_id_provider}/token/${integration.api_key_provider}/send-text`;
-
-        if (provider === 'w_api') {
-          await fetch(sendUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integration.api_key_provider}` },
-            body: JSON.stringify({ instanceId: integration.instance_id_provider, number: contact.telefone, text: msgTransicao })
-          }).catch(e => console.warn('[CLAUDE] Erro ao enviar msg transição:', e.message));
-        } else {
-          const headers = { 'Content-Type': 'application/json' };
-          if (integration.security_client_token_header) headers['Client-Token'] = integration.security_client_token_header;
-          await fetch(sendUrl, {
-            method: 'POST', headers,
-            body: JSON.stringify({ phone: contact.telefone, message: msgTransicao })
-          }).catch(e => console.warn('[CLAUDE] Erro ao enviar msg transição:', e.message));
-        }
-
-        // Salvar msg de transição no banco
-        await base44.asServiceRole.entities.Message.create({
-          thread_id,
-          sender_id: 'claude_ai',
-          sender_type: 'user',
-          content: msgTransicao,
-          channel: 'whatsapp',
-          status: 'enviada',
-          sent_at: new Date().toISOString(),
-          metadata: { is_ai_response: true, ai_escalation: true, escalation_reason: motivo }
-        });
+        await enviarMensagem(provider, integration, contact.telefone, msgTransicao)
+          .catch(e => console.warn(`[CLAUDE:${reqId}] ⚠️ Erro transição: ${e.message}`));
       }
 
-      // Acionar preAtendimento para rotear para humano
-      await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
-        thread_id,
-        contact_id,
-        whatsapp_integration_id: integration_id,
-        user_input: { type: 'text', content: message_content }
-      }).catch(e => console.warn('[CLAUDE] Erro ao acionar URA:', e.message));
+      await base44.asServiceRole.entities.Message.create({
+        thread_id, sender_id: 'claude_ai', sender_type: 'user',
+        content: msgTransicao, channel: 'whatsapp', status: 'enviada',
+        sent_at: new Date().toISOString(),
+        metadata: { is_ai_response: true, ai_escalation: true, escalation_reason: motivo },
+      });
 
+      await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
+        thread_id, contact_id,
+        whatsapp_integration_id: integration_id,
+        user_input: { type: 'text', content: message_content },
+      }).catch(e => console.warn(`[CLAUDE:${reqId}] ⚠️ Erro URA: ${e.message}`));
+
+      await finalizarRun('escalated', { escalation_reason: motivo });
       return Response.json({ success: true, action: 'escalated_to_human', reason: motivo });
     }
 
-    // 4. Montar histórico para contexto do Claude (filtrar mensagens de sistema/automação)
+    // 4. Montar histórico limpo
     const historico = mensagens
       .reverse()
-      .filter(m => !m.metadata?.is_ai_response || m.metadata?.is_ai_response === true) // incluir IA também
-      .filter(m => !(m.sender_id === 'claude_ai' && m.metadata?.ai_escalation)) // excluir msgs de escalação
-      .map(m => ({
-        role: m.sender_type === 'contact' ? 'user' : 'assistant',
-        content: m.content || null
-      }))
-      .filter(m => m.content && m.content !== '[mídia]'); // excluir mídias sem texto
+      .filter(m => m.content && m.content !== '[mídia]' && !m.metadata?.ai_escalation)
+      .map(m => ({ role: m.sender_type === 'contact' ? 'user' : 'assistant', content: m.content }));
 
-    // Garantir que começa com mensagem do usuário
-    const historicoValido = historico.length > 0 && historico[0].role === 'user'
+    const historicoFinal = historico.length > 0 && historico[0].role === 'user'
       ? historico
       : [{ role: 'user', content: message_content }];
 
-    // 5. Chamar Claude com contexto enriquecido
-    console.log(`[CLAUDE] 💬 Chamando Claude com ${historicoValido.length} mensagens | Intenção: ${intencao}`);
+    // 5. Chamar Claude
+    const systemPrompt = buildSystemPrompt(contact?.nome) +
+      `\n\n## CONTEXTO DESTA MENSAGEM\nIntenção classificada como: ${intencao}. Responda dentro desse departamento.`;
 
-    const systemPromptFinal = `${SYSTEM_PROMPT}
-${contact?.nome ? `\nVocê está falando com ${contact.nome}.` : ''}
-\nCONTEXTO DESTA MENSAGEM: Classificada como "${intencao}". Responda de acordo com esse departamento.`;
+    console.log(`[CLAUDE:${reqId}] 💬 Chamando ${CONFIG.modelo} | ${historicoFinal.length} msgs`);
+    const resposta = await chamarClaude(systemPrompt, historicoFinal);
+    if (!resposta) throw new Error('Claude retornou resposta vazia');
 
-    // Chamar Claude com retry automático e timeout
-    let respostaTexto = null;
-    for (let tentativa = 1; tentativa <= CONFIG.max_retries; tentativa++) {
-      try {
-        console.log(`[CLAUDE] 💬 [${reqId}] Tentativa ${tentativa}/${CONFIG.max_retries} | ${historicoValido.length} msgs | Intenção: ${intencao}`);
+    // 6. Enviar e salvar
+    if (!integration) throw new Error(`Integração ${integration_id} não encontrada`);
+    await enviarMensagem(provider, integration, contact.telefone, resposta);
 
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), CONFIG.timeout_ms)
-        );
-        const claudePromise = anthropic.messages.create({
-          model: CONFIG.model,
-          max_tokens: CONFIG.max_tokens,
-          system: systemPromptFinal,
-          messages: historicoValido,
-        });
-
-        const response = await Promise.race([claudePromise, timeoutPromise]);
-        respostaTexto = response.content[0]?.text;
-        if (respostaTexto) break;
-      } catch (e) {
-        console.warn(`[CLAUDE] ⚠️ [${reqId}] Tentativa ${tentativa} falhou: ${e.message}`);
-        if (tentativa === CONFIG.max_retries) throw e;
-        await new Promise(r => setTimeout(r, 1000 * tentativa)); // backoff
-      }
-    }
-
-    if (!respostaTexto) throw new Error('Claude não retornou resposta após retries');
-    console.log(`[CLAUDE] ✅ [${reqId}] Resposta gerada: ${respostaTexto.substring(0, 100)}...`);
-
-    // 6. Buscar integração WhatsApp para envio
-    const integration = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
-
-    if (!integration) {
-      throw new Error(`Integração ${integration_id} não encontrada`);
-    }
-
-    // 6. Enviar mensagem pelo WhatsApp
-    if (provider === 'z_api') {
-      const zapiUrl = `${integration.base_url_provider}/instances/${integration.instance_id_provider}/token/${integration.api_key_provider}/send-text`;
-      const headers = { 'Content-Type': 'application/json' };
-      if (integration.security_client_token_header) {
-        headers['Client-Token'] = integration.security_client_token_header;
-      }
-      await fetch(zapiUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ phone: contact.telefone, message: respostaTexto })
-      });
-    } else if (provider === 'w_api') {
-      await fetch(`${integration.base_url_provider}/messages/send/text`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${integration.api_key_provider}`
-        },
-        body: JSON.stringify({
-          instanceId: integration.instance_id_provider,
-          number: contact.telefone,
-          text: respostaTexto
-        })
-      });
-    }
-
-    const duration_ms = Date.now() - startedAt;
-
-    // 7. Registrar mensagem no banco com metadata enriquecida
     await base44.asServiceRole.entities.Message.create({
-      thread_id,
-      sender_id: 'claude_ai',
-      sender_type: 'user',
-      content: respostaTexto,
-      channel: 'whatsapp',
-      status: 'enviada',
+      thread_id, sender_id: 'claude_ai', sender_type: 'user',
+      content: resposta, channel: 'whatsapp', status: 'enviada',
       sent_at: new Date().toISOString(),
       metadata: {
         whatsapp_integration_id: integration_id,
         is_ai_response: true,
-        ai_model: CONFIG.model,
-        ai_provider: 'anthropic',
-        intencao_detectada: intencao,      // ← enriquecido para análise futura
-        agent_run_id: agentRun?.id ?? null,
-        req_id: reqId,
-        duration_ms
-      }
+        ai_model: CONFIG.modelo, ai_provider: 'anthropic',
+        ai_intencao: intencao, ai_agent_run: agentRunId,
+        duration_ms: Date.now() - inicio,
+      },
     });
 
-    // Finalizar AgentRun como concluído
-    if (agentRun?.id) {
-      await base44.asServiceRole.entities.AgentRun.update(agentRun.id, {
-        status: 'concluido',
-        completed_at: new Date().toISOString(),
-        duration_ms
-      }).catch(() => {});
-    }
-
-    console.log(`[CLAUDE] ✅ [${reqId}] Concluído em ${duration_ms}ms`);
-    return Response.json({ success: true, response: respostaTexto, model: CONFIG.model, duration_ms });
+    await finalizarRun('success', { intencao, response_length: resposta.length });
+    console.log(`[CLAUDE:${reqId}] ✅ ${resposta.length} chars | ${Date.now() - inicio}ms`);
+    return Response.json({ success: true, response: resposta, intencao, model: CONFIG.modelo });
 
   } catch (error) {
-    console.error(`[CLAUDE] ❌ [${reqId}] Erro:`, error.message);
+    console.error(`[CLAUDE:${reqId}] ❌ ${error.message}`);
+    await finalizarRun('error', { error: error.message });
 
-    // Finalizar AgentRun como falhou
-    if (agentRun?.id) {
-      await base44.asServiceRole.entities.AgentRun.update(agentRun.id, {
-        status: 'falhou',
-        error_message: error.message,
-        completed_at: new Date().toISOString(),
-        duration_ms: Date.now() - startedAt
-      }).catch(() => {});
-    }
-
-    // Fallback humanizado ao cliente — nunca deixar sem resposta
-    if (contact_id && integration_id) {
-      try {
-        const [fallbackContact, fallbackIntegration] = await Promise.all([
-          base44.asServiceRole.entities.Contact.get(contact_id),
-          base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id)
-        ]);
-        if (fallbackContact?.telefone && fallbackIntegration) {
-          const msgFallback = 'Desculpe, estou com uma instabilidade no momento. Em breve um atendente irá te ajudar. 🙏';
-          const url = provider === 'w_api'
-            ? `${fallbackIntegration.base_url_provider}/messages/send/text`
-            : `${fallbackIntegration.base_url_provider}/instances/${fallbackIntegration.instance_id_provider}/token/${fallbackIntegration.api_key_provider}/send-text`;
-          const headers = { 'Content-Type': 'application/json' };
-          const body = provider === 'w_api'
-            ? { instanceId: fallbackIntegration.instance_id_provider, number: fallbackContact.telefone, text: msgFallback }
-            : { phone: fallbackContact.telefone, message: msgFallback };
-          if (provider !== 'w_api' && fallbackIntegration.security_client_token_header) {
-            headers['Client-Token'] = fallbackIntegration.security_client_token_header;
-          } else if (provider === 'w_api') {
-            headers['Authorization'] = `Bearer ${fallbackIntegration.api_key_provider}`;
-          }
-          await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) }).catch(() => {});
-        }
-      } catch (fallbackErr) { /* silencioso */ }
-    }
+    // Fallback humanizado ao cliente
+    try {
+      const [fb_integration, fb_contact] = await Promise.all([
+        integration_id ? base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id) : Promise.resolve(null),
+        base44.asServiceRole.entities.Contact.get(contact_id),
+      ]);
+      if (fb_integration && fb_contact?.telefone) {
+        await enviarMensagem(provider, fb_integration, fb_contact.telefone,
+          'Desculpe, tivemos uma instabilidade momentânea. Nossa equipe foi notificada e entrará em contato em breve. 🙏');
+      }
+    } catch { /* silencioso */ }
 
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
