@@ -142,18 +142,34 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'missing_required_fields' }, { status: 400 });
   }
 
-  console.log(`[CLAUDE] 🤖 Processando resposta para thread: ${thread_id}`);
+  const reqId = `claude_${Date.now()}`;
+  const startedAt = Date.now();
+  console.log(`[CLAUDE] 🤖 [${reqId}] Processando thread: ${thread_id}`);
+
+  // Criar AgentRun para rastreamento
+  let agentRun = null;
+  try {
+    agentRun = await base44.asServiceRole.entities.AgentRun.create({
+      trigger_type: 'message.inbound',
+      trigger_event_id: thread_id,
+      playbook_selected: 'claude_whatsapp_responder',
+      execution_mode: 'automatico',
+      status: 'processando',
+      context_snapshot: { thread_id, contact_id, content_preview: message_content?.substring(0, 100) },
+      started_at: new Date().toISOString()
+    });
+  } catch (e) { /* não-crítico */ }
 
   try {
-    // 1. Buscar histórico recente da conversa (últimas 10 mensagens)
-    const mensagens = await base44.asServiceRole.entities.Message.filter(
-      { thread_id },
-      '-created_date',
-      10
-    );
-
-    // 2. Buscar dados do contato para personalizar resposta
-    const contact = await base44.asServiceRole.entities.Contact.get(contact_id);
+    // 1. Buscar histórico e contato EM PARALELO (antes era sequencial)
+    const [mensagens, contact] = await Promise.all([
+      base44.asServiceRole.entities.Message.filter(
+        { thread_id },
+        '-created_date',
+        CONFIG.historico_msgs
+      ),
+      base44.asServiceRole.entities.Contact.get(contact_id)
+    ]);
 
     // 3. Detectar urgência e pedido de humano ANTES de chamar Claude
     const ehUrgente = detectarUrgencia(message_content);
