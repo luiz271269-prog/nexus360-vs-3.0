@@ -186,7 +186,6 @@ export default function ChatSidebar({
   // Estado para o composer de mensagens internas
   const [internalComposerOpen, setInternalComposerOpen] = React.useState(false);
   const [delegateMode, setDelegateMode] = React.useState(false);
-  const [criarGrupoOpen, setCriarGrupoOpen] = React.useState(false);
   const [agendaIAOpen, setAgendaIAOpen] = React.useState(false);
 
   // Buscar categorias dinâmicas
