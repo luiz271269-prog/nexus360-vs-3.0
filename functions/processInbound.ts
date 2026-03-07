@@ -179,8 +179,27 @@ Deno.serve(async (req) => {
     return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, handled_by_ura: true });
   }
 
+  // CLAUDE AI: Responder automaticamente quando sem humano ativo e sem URA
+  result.pipeline.push('claude_ai_responder');
+  if (message?.sender_type === 'contact' && messageContent?.length > 2 && integration?.id) {
+    try {
+      console.log(`[${VERSION}] 🤖 Ativando Claude AI para resposta automática`);
+      await base44.asServiceRole.functions.invoke('claudeWhatsAppResponder', {
+        thread_id: thread.id,
+        contact_id: contact.id,
+        message_content: messageContent,
+        integration_id: integration.id,
+        provider: provider
+      });
+      result.actions.push('claude_ai_responded');
+    } catch (e) {
+      console.warn(`[${VERSION}] ⚠️ Erro ao invocar Claude:`, e.message);
+      result.actions.push('claude_ai_failed');
+    }
+  }
+
   result.pipeline.push('normal_message');
   result.actions.push('message_in_cycle_no_ura');
-  console.log(`[${VERSION}] ✅ Mensagem processada sem URA`);
+  console.log(`[${VERSION}] ✅ Mensagem processada`);
   return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
 });
