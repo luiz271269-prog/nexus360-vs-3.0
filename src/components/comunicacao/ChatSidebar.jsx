@@ -505,18 +505,6 @@ export default function ChatSidebar({
         }}
       />
 
-      {/* Modal de Criar Grupo */}
-      <CriarGrupoModal
-        open={criarGrupoOpen}
-        onClose={() => setCriarGrupoOpen(false)}
-        usuarios={atendentes}
-        currentUser={usuarioAtual}
-        onSuccess={() => {
-          setCriarGrupoOpen(false);
-          toast.success('✅ Grupo criado!');
-        }}
-      />
-
       {/* Modal Agenda IA Unificada */}
       <AgendaIAUnificada
         open={agendaIAOpen}
