@@ -143,26 +143,94 @@ Deno.serve(async (req) => {
     // 2. Buscar dados do contato para personalizar resposta
     const contact = await base44.asServiceRole.entities.Contact.get(contact_id);
 
-    // 3. Montar histórico para contexto do Claude
+    // 3. Detectar urgência e pedido de humano ANTES de chamar Claude
+    const ehUrgente = detectarUrgencia(message_content);
+    const querHumano = detectarPedidoHumano(message_content);
+    const intencao = classificarIntencao(message_content);
+
+    console.log(`[CLAUDE] 🔍 Intenção: ${intencao} | Urgente: ${ehUrgente} | Quer humano: ${querHumano}`);
+
+    // Se urgente ou pede humano → NÃO chamar Claude, acionar URA
+    if (ehUrgente || querHumano) {
+      const motivo = ehUrgente ? 'urgencia_detectada' : 'pedido_humano';
+      console.log(`[CLAUDE] 🚨 Escalando para humano (${motivo}). Acionando preAtendimentoHandler...`);
+
+      // Buscar integração para enviar mensagem de transição
+      const integration = integration_id
+        ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id)
+        : null;
+
+      // Enviar mensagem de transição ao cliente
+      if (integration && contact?.telefone) {
+        const msgTransicao = ehUrgente
+          ? `Entendo a urgência. Vou transferir você para um de nossos especialistas agora. Aguarde um momento. 🔴`
+          : `Claro! Vou te conectar com um atendente agora. Um momento. 😊`;
+
+        const sendUrl = provider === 'w_api'
+          ? `${integration.base_url_provider}/messages/send/text`
+          : `${integration.base_url_provider}/instances/${integration.instance_id_provider}/token/${integration.api_key_provider}/send-text`;
+
+        if (provider === 'w_api') {
+          await fetch(sendUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integration.api_key_provider}` },
+            body: JSON.stringify({ instanceId: integration.instance_id_provider, number: contact.telefone, text: msgTransicao })
+          }).catch(e => console.warn('[CLAUDE] Erro ao enviar msg transição:', e.message));
+        } else {
+          const headers = { 'Content-Type': 'application/json' };
+          if (integration.security_client_token_header) headers['Client-Token'] = integration.security_client_token_header;
+          await fetch(sendUrl, {
+            method: 'POST', headers,
+            body: JSON.stringify({ phone: contact.telefone, message: msgTransicao })
+          }).catch(e => console.warn('[CLAUDE] Erro ao enviar msg transição:', e.message));
+        }
+
+        // Salvar msg de transição no banco
+        await base44.asServiceRole.entities.Message.create({
+          thread_id,
+          sender_id: 'claude_ai',
+          sender_type: 'user',
+          content: msgTransicao,
+          channel: 'whatsapp',
+          status: 'enviada',
+          sent_at: new Date().toISOString(),
+          metadata: { is_ai_response: true, ai_escalation: true, escalation_reason: motivo }
+        });
+      }
+
+      // Acionar preAtendimento para rotear para humano
+      await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
+        thread_id,
+        contact_id,
+        whatsapp_integration_id: integration_id,
+        user_input: { type: 'text', content: message_content }
+      }).catch(e => console.warn('[CLAUDE] Erro ao acionar URA:', e.message));
+
+      return Response.json({ success: true, action: 'escalated_to_human', reason: motivo });
+    }
+
+    // 4. Montar histórico para contexto do Claude (filtrar mensagens de sistema/automação)
     const historico = mensagens
       .reverse()
+      .filter(m => !m.metadata?.is_ai_response || m.metadata?.is_ai_response === true) // incluir IA também
+      .filter(m => !(m.sender_id === 'claude_ai' && m.metadata?.ai_escalation)) // excluir msgs de escalação
       .map(m => ({
         role: m.sender_type === 'contact' ? 'user' : 'assistant',
-        content: m.content || '[mídia]'
+        content: m.content || null
       }))
-      .filter(m => m.content !== '[mídia]' || m.role === 'user');
+      .filter(m => m.content && m.content !== '[mídia]'); // excluir mídias sem texto
 
     // Garantir que começa com mensagem do usuário
     const historicoValido = historico.length > 0 && historico[0].role === 'user'
       ? historico
       : [{ role: 'user', content: message_content }];
 
-    // 4. Chamar Claude
-    console.log(`[CLAUDE] 💬 Chamando Claude com ${historicoValido.length} mensagens de histórico`);
+    // 5. Chamar Claude com contexto enriquecido
+    console.log(`[CLAUDE] 💬 Chamando Claude com ${historicoValido.length} mensagens | Intenção: ${intencao}`);
 
-    const systemPromptFinal = contact?.nome
-      ? `${SYSTEM_PROMPT}\nVocê está falando com ${contact.nome}.`
-      : SYSTEM_PROMPT;
+    const systemPromptFinal = `${SYSTEM_PROMPT}
+${contact?.nome ? `\nVocê está falando com ${contact.nome}.` : ''}
+\nCONTEXTO DESTA MENSAGEM: Classificada como "${intencao}". Responda de acordo com esse departamento.`;
 
     const response = await anthropic.messages.create({
       model: 'claude-3-5-haiku-20241022',
