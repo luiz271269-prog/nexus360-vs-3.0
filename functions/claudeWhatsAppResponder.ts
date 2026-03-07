@@ -260,20 +260,34 @@ Deno.serve(async (req) => {
 ${contact?.nome ? `\nVocê está falando com ${contact.nome}.` : ''}
 \nCONTEXTO DESTA MENSAGEM: Classificada como "${intencao}". Responda de acordo com esse departamento.`;
 
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022',
-      max_tokens: 500,
-      system: systemPromptFinal,
-      messages: historicoValido,
-    });
+    // Chamar Claude com retry automático e timeout
+    let respostaTexto = null;
+    for (let tentativa = 1; tentativa <= CONFIG.max_retries; tentativa++) {
+      try {
+        console.log(`[CLAUDE] 💬 [${reqId}] Tentativa ${tentativa}/${CONFIG.max_retries} | ${historicoValido.length} msgs | Intenção: ${intencao}`);
 
-    const respostaTexto = response.content[0]?.text;
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), CONFIG.timeout_ms)
+        );
+        const claudePromise = anthropic.messages.create({
+          model: CONFIG.model,
+          max_tokens: CONFIG.max_tokens,
+          system: systemPromptFinal,
+          messages: historicoValido,
+        });
 
-    if (!respostaTexto) {
-      throw new Error('Claude não retornou resposta');
+        const response = await Promise.race([claudePromise, timeoutPromise]);
+        respostaTexto = response.content[0]?.text;
+        if (respostaTexto) break;
+      } catch (e) {
+        console.warn(`[CLAUDE] ⚠️ [${reqId}] Tentativa ${tentativa} falhou: ${e.message}`);
+        if (tentativa === CONFIG.max_retries) throw e;
+        await new Promise(r => setTimeout(r, 1000 * tentativa)); // backoff
+      }
     }
 
-    console.log(`[CLAUDE] ✅ Resposta gerada: ${respostaTexto.substring(0, 100)}...`);
+    if (!respostaTexto) throw new Error('Claude não retornou resposta após retries');
+    console.log(`[CLAUDE] ✅ [${reqId}] Resposta gerada: ${respostaTexto.substring(0, 100)}...`);
 
     // 6. Buscar integração WhatsApp para envio
     const integration = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
