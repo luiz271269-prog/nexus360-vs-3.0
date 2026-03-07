@@ -9,13 +9,101 @@ const anthropic = new Anthropic({
   apiKey: Deno.env.get('ANTHROPIC_API_KEY'),
 });
 
-const SYSTEM_PROMPT = `Você é um assistente de atendimento ao cliente inteligente e prestativo.
-Responda de forma educada, clara e concisa em português brasileiro.
-Seja natural e humano nas respostas. Não se identifique como IA a menos que perguntado diretamente.
-Seu objetivo é ajudar o cliente da melhor forma possível.
-Se não souber a resposta ou o assunto for muito específico (ex: preços, estoque, técnico avançado), 
-diga que vai verificar e que em breve um atendente entrará em contato.
-Mantenha as respostas curtas e diretas - máximo 3 parágrafos.`;
+// ============================================================
+// ✏️ PERSONALIZE AQUI com os dados reais da sua empresa
+// ============================================================
+const EMPRESA = {
+  nome: '[NOME DA EMPRESA]',
+  segmento: 'Eletrônicos e Tecnologia',
+  produtos: 'smartphones, notebooks, acessórios e periféricos',
+  pagamento: 'Pix, cartão de crédito em até 12x, boleto',
+  prazo_entrega: '3 a 7 dias úteis',
+  frete_gratis: 'acima de R$ 299',
+  politica_troca: 'até 7 dias após recebimento, produto sem uso',
+  garantia: '12 meses para defeitos de fabricação',
+  horario_humano: 'seg-sex, 9h às 18h',
+  prazo_retorno_fornecedor: '2 dias úteis',
+};
+// ============================================================
+
+const SYSTEM_PROMPT = `Você é o assistente virtual da ${EMPRESA.nome}, uma loja de ${EMPRESA.segmento}. Seu atendimento é formal, profissional e eficiente via WhatsApp.
+
+## IDENTIDADE
+- Nunca finja ser humano se o cliente perguntar diretamente
+- Apresente-se como: "Assistente Virtual da ${EMPRESA.nome}"
+- Em caso de dúvida, prefira encaminhar a inventar informações
+
+## SOBRE A EMPRESA
+- Segmento: ${EMPRESA.segmento}
+- Produtos principais: ${EMPRESA.produtos}
+- Formas de pagamento: ${EMPRESA.pagamento}
+- Prazo de entrega: ${EMPRESA.prazo_entrega}
+- Frete grátis: ${EMPRESA.frete_gratis}
+- Política de troca: ${EMPRESA.politica_troca}
+- Garantia: ${EMPRESA.garantia}
+- Horário de atendimento humano: ${EMPRESA.horario_humano}
+
+## O QUE VOCÊ PODE FAZER
+
+### 🛒 VENDAS
+- Informar preços e disponibilidade de produtos
+- Comparar modelos e recomendar o mais adequado
+- Informar prazo e custo de entrega
+- Auxiliar no processo de compra
+
+### 🔧 ASSISTÊNCIA TÉCNICA
+- Registrar chamados de suporte (coletar: nome, CPF, nº do pedido, descrição do problema)
+- Orientar sobre garantia e procedimentos de envio para reparo
+
+### 💰 FINANCEIRO
+- Informar sobre formas de pagamento
+- Auxiliar com dúvidas de cobrança (coletar: nome, CPF, nº do pedido)
+- Encaminhar pedidos de estorno ou nota fiscal
+
+### 🤝 FORNECEDORES
+- Receber propostas e coletar dados de contato (nome, empresa, telefone, e-mail)
+- Informar que a equipe retornará em até ${EMPRESA.prazo_retorno_fornecedor}
+
+## REGRAS DE OURO
+- Nunca invente preços, prazos ou especificações técnicas
+- Nunca compartilhe dados de outros clientes
+- Respostas curtas e diretas — adequadas para WhatsApp
+- Use emojis com moderação ✅
+- Finalize sempre com: "Posso ajudá-lo(a) com mais alguma coisa?"`;
+
+// Palavras que indicam urgência e requerem escalação imediata para humano
+const PALAVRAS_URGENCIA = [
+  'urgente', 'emergência', 'emergencia', 'quebrou', 'parou de funcionar',
+  'não funciona', 'nao funciona', 'defeito', 'problema grave',
+  'cobrança indevida', 'cobranca indevida', 'fraude', 'danificado',
+  'quero cancelar', 'vou reclamar', 'procon', 'reclame aqui'
+];
+
+// Palavras que indicam pedido de atendente humano
+const PALAVRAS_HUMANO = [
+  'falar com atendente', 'falar com pessoa', 'quero humano',
+  'atendente humano', 'falar com alguém', 'falar com alguem',
+  'me transfere', 'transferir', 'gerente', 'responsável', 'responsavel'
+];
+
+function classificarIntencao(texto) {
+  const t = (texto || '').toLowerCase();
+  if (/(preço|preco|valor|comprar|disponível|disponivel|estoque|frete|entrega|orçamento|orcamento|produto|quanto custa|tem à venda)/.test(t)) return 'VENDAS';
+  if (/(defeito|quebrou|não funciona|nao funciona|suporte|garantia|reparo|técnico|tecnico|assistência|assistencia|conserto)/.test(t)) return 'SUPORTE';
+  if (/(pagamento|cobrança|cobranca|nota fiscal|estorno|boleto|financeiro|pagar|débito|debito|crédito|credito)/.test(t)) return 'FINANCEIRO';
+  if (/(fornecedor|parceria|representante|proposta|distribui|revenda)/.test(t)) return 'FORNECEDOR';
+  return 'GERAL';
+}
+
+function detectarUrgencia(texto) {
+  const t = (texto || '').toLowerCase();
+  return PALAVRAS_URGENCIA.some(p => t.includes(p));
+}
+
+function detectarPedidoHumano(texto) {
+  const t = (texto || '').toLowerCase();
+  return PALAVRAS_HUMANO.some(p => t.includes(p));
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
