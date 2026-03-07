@@ -1,6 +1,6 @@
-// claudeWhatsAppResponder - v1.0.0
+// claudeWhatsAppResponder - v2.0.0
 // Responde automaticamente mensagens de clientes WhatsApp usando Claude (Anthropic)
-// Ativado quando: sem humano ativo + sem URA ativa + mensagem requer resposta
+// Melhorias v2: Promise.all paralelo, retry automático, timeout, AgentRun log, metadata enriquecida
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import Anthropic from 'npm:@anthropic-ai/sdk@0.39.0';
@@ -8,6 +8,18 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.39.0';
 const anthropic = new Anthropic({
   apiKey: Deno.env.get('ANTHROPIC_API_KEY'),
 });
+
+// ============================================================
+// ⚙️ CONFIG CENTRAL — ajuste modelo, tokens e comportamento
+// ============================================================
+const CONFIG = {
+  model: 'claude-3-5-haiku-20241022',  // Troque por 'claude-sonnet-4-5' para mais qualidade
+  max_tokens: 500,
+  timeout_ms: 15000,   // 15s timeout para evitar travamento do webhook
+  max_retries: 2,       // Tentativas em caso de falha do Claude
+  historico_msgs: 10,   // Quantas mensagens do histórico usar como contexto
+};
+// ============================================================
 
 // ============================================================
 // ✏️ PERSONALIZE AQUI com os dados reais da sua empresa
