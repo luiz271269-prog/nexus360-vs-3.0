@@ -323,7 +323,9 @@ ${contact?.nome ? `\nVocê está falando com ${contact.nome}.` : ''}
       });
     }
 
-    // 7. Registrar mensagem no banco
+    const duration_ms = Date.now() - startedAt;
+
+    // 7. Registrar mensagem no banco com metadata enriquecida
     await base44.asServiceRole.entities.Message.create({
       thread_id,
       sender_id: 'claude_ai',
@@ -335,21 +337,66 @@ ${contact?.nome ? `\nVocê está falando com ${contact.nome}.` : ''}
       metadata: {
         whatsapp_integration_id: integration_id,
         is_ai_response: true,
-        ai_model: 'claude-3-5-haiku',
-        ai_provider: 'anthropic'
+        ai_model: CONFIG.model,
+        ai_provider: 'anthropic',
+        intencao_detectada: intencao,      // ← enriquecido para análise futura
+        agent_run_id: agentRun?.id ?? null,
+        req_id: reqId,
+        duration_ms
       }
     });
 
-    console.log(`[CLAUDE] ✅ Mensagem enviada e registrada`);
+    // Finalizar AgentRun como concluído
+    if (agentRun?.id) {
+      await base44.asServiceRole.entities.AgentRun.update(agentRun.id, {
+        status: 'concluido',
+        completed_at: new Date().toISOString(),
+        duration_ms
+      }).catch(() => {});
+    }
 
-    return Response.json({
-      success: true,
-      response: respostaTexto,
-      model: 'claude-3-5-haiku-20241022'
-    });
+    console.log(`[CLAUDE] ✅ [${reqId}] Concluído em ${duration_ms}ms`);
+    return Response.json({ success: true, response: respostaTexto, model: CONFIG.model, duration_ms });
 
   } catch (error) {
-    console.error(`[CLAUDE] ❌ Erro:`, error.message);
+    console.error(`[CLAUDE] ❌ [${reqId}] Erro:`, error.message);
+
+    // Finalizar AgentRun como falhou
+    if (agentRun?.id) {
+      await base44.asServiceRole.entities.AgentRun.update(agentRun.id, {
+        status: 'falhou',
+        error_message: error.message,
+        completed_at: new Date().toISOString(),
+        duration_ms: Date.now() - startedAt
+      }).catch(() => {});
+    }
+
+    // Fallback humanizado ao cliente — nunca deixar sem resposta
+    if (contact_id && integration_id) {
+      try {
+        const [fallbackContact, fallbackIntegration] = await Promise.all([
+          base44.asServiceRole.entities.Contact.get(contact_id),
+          base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id)
+        ]);
+        if (fallbackContact?.telefone && fallbackIntegration) {
+          const msgFallback = 'Desculpe, estou com uma instabilidade no momento. Em breve um atendente irá te ajudar. 🙏';
+          const url = provider === 'w_api'
+            ? `${fallbackIntegration.base_url_provider}/messages/send/text`
+            : `${fallbackIntegration.base_url_provider}/instances/${fallbackIntegration.instance_id_provider}/token/${fallbackIntegration.api_key_provider}/send-text`;
+          const headers = { 'Content-Type': 'application/json' };
+          const body = provider === 'w_api'
+            ? { instanceId: fallbackIntegration.instance_id_provider, number: fallbackContact.telefone, text: msgFallback }
+            : { phone: fallbackContact.telefone, message: msgFallback };
+          if (provider !== 'w_api' && fallbackIntegration.security_client_token_header) {
+            headers['Client-Token'] = fallbackIntegration.security_client_token_header;
+          } else if (provider === 'w_api') {
+            headers['Authorization'] = `Bearer ${fallbackIntegration.api_key_provider}`;
+          }
+          await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) }).catch(() => {});
+        }
+      } catch (fallbackErr) { /* silencioso */ }
+    }
+
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 });
