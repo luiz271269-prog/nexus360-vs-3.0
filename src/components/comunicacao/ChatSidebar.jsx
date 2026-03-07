@@ -421,7 +421,7 @@ export default function ChatSidebar({
               <ArrowRightLeft className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Transfer</span>
             </Button>
             <Button
-              onClick={() => { setDelegateMode(false); setInternalComposerOpen(true); }}
+              onClick={() => setCriarGrupoOpen(true)}
               variant="outline" size="sm"
               className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-8 text-[10px] px-1">
               <Plus className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Grupo</span>
