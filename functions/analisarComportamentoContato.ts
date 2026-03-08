@@ -230,6 +230,7 @@ Deno.serve(async (req) => {
     let signals = [];
     let stageAtual = 'descoberta';
     let evidencias = [];
+    let analiseIA = null; // FIX: declarar antes do try para evitar "analiseIA is not defined"
     
     const textos = inboundMessages
       .filter(m => m.content && m.content.length > 5)
