@@ -347,7 +347,7 @@ ${textos}
 
 Retorne OBRIGATORIAMENTE todos os campos acima.`;
 
-        const analiseIA = await base44.asServiceRole.integrations.Core.InvokeLLM({
+        analiseIA = await base44.asServiceRole.integrations.Core.InvokeLLM({
           prompt: promptV2,
           response_json_schema: {
             type: "object",
