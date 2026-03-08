@@ -27,13 +27,14 @@ const CONFIG = {
 };
 
 const EMPRESA = {
-  nome: '[NOME DA EMPRESA]',
+  nome: 'Liesch Informática',
   servicos: [
-    // ✏️ Edite com seus serviços reais
-    { nome: 'Consulta Técnica',      duracao_min: 60, descricao: 'Avaliação técnica do equipamento' },
-    { nome: 'Reparo Express',        duracao_min: 30, descricao: 'Reparos rápidos no balcão'        },
-    { nome: 'Instalação',            duracao_min: 90, descricao: 'Instalação de equipamentos'       },
-    { nome: 'Manutenção Preventiva', duracao_min: 45, descricao: 'Check-up e limpeza'              },
+    { nome: 'Assistência Técnica',        duracao_min: 60,  descricao: 'Diagnóstico, manutenção e reparo de notebooks, computadores e periféricos' },
+    { nome: 'Consultoria de TI',          duracao_min: 90,  descricao: 'Consultoria especializada em infraestrutura, segurança e soluções tecnológicas' },
+    { nome: 'Instalação de Rede',         duracao_min: 120, descricao: 'Projeto e instalação de infraestrutura de rede corporativa' },
+    { nome: 'Demonstração de Produto',    duracao_min: 30,  descricao: 'Apresentação de notebooks, servidores ou equipamentos de interesse' },
+    { nome: 'Consultoria Cloud / IA',     duracao_min: 60,  descricao: 'Avaliação de soluções em nuvem, VMs e automação com inteligência artificial' },
+    { nome: 'Orçamento Corporativo',      duracao_min: 45,  descricao: 'Elaboração de proposta para empresas — hardware, software e serviços' },
   ],
 };
 // ============================================================

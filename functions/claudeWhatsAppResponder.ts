@@ -14,16 +14,53 @@ const anthropic = new Anthropic({
 // ✏️ PERSONALIZE AQUI — dados reais da sua empresa
 // ============================================================
 const EMPRESA = {
-  nome:                     '[NOME DA EMPRESA]',
-  segmento:                 'Eletrônicos e Tecnologia',
-  produtos:                 'smartphones, notebooks, acessórios e periféricos',
-  pagamento:                'Pix, cartão de crédito em até 12x, boleto',
-  prazo_entrega:            '3 a 7 dias úteis',
-  frete_gratis:             'acima de R$ 299',
-  politica_troca:           'até 7 dias após recebimento, produto sem uso',
-  garantia:                 '12 meses para defeitos de fabricação',
-  horario_humano:           'seg-sex, 9h às 18h',
-  prazo_retorno_fornecedor: '2 dias úteis',
+  nome:                     'Liesch Informática',
+  segmento:                 'Distribuição e Tecnologia em Informática',
+  endereco:                 'Av. Centenário, 305 - Pinheirinho, Criciúma - SC',
+  telefone:                 '(48) 3045-2077',
+  whatsapp:                 '(48) 3045-2076',
+  site:                     'www.liesch.net',
+
+  produtos: [
+    'notebooks e computadores (uso profissional e alto desempenho)',
+    'placas de vídeo e componentes para upgrade',
+    'impressoras e monitores',
+    'projetores, TVs e celulares',
+    'servidores e workstations personalizados',
+    'licenças Microsoft (Office, Windows, etc.)',
+  ].join(', '),
+
+  servicos: [
+    'assistência técnica especializada (manutenção, reparo, otimização)',
+    'infraestrutura de rede corporativa',
+    'governança de TI',
+    'cybersegurança',
+    'cloud server e VMs (nuvem pública, privada e servidores dedicados)',
+    'automação de processos e agentes de IA empresarial',
+    'produtos sob encomenda',
+  ].join(', '),
+
+  pagamento:                'Pix, cartão de crédito (consulte condições), boleto bancário',
+  prazo_entrega:            'variável conforme produto e disponibilidade de estoque — consulte',
+  frete_gratis:             'consulte condições para sua região',
+  politica_troca:           'consulte nossa política em liesch.net/política-de-privacidade',
+  garantia:                 'garantia de fábrica em todos os produtos + suporte técnico especializado',
+  horario_humano:           'seg-sex, horário comercial — consulte pelo WhatsApp (48) 3045-2076',
+  prazo_retorno_fornecedor: '1 a 2 dias úteis',
+
+  emails: {
+    vendas:      'vendas7@liesch.com.br',
+    financeiro:  'financeiro@liesch.com.br',
+    fornecedor:  'compras@liesch.com.br',
+    rh:          'rh@liesch.com.br',
+  },
+
+  diferenciais: [
+    'mais de 30 anos no mercado',
+    'equipe especializada e certificada',
+    'consultoria especializada B2B',
+    'nova área de IA e automação empresarial',
+  ].join(', '),
 };
 // ============================================================
 
