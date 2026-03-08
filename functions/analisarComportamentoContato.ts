@@ -778,7 +778,7 @@ Status: ${prontuarioObj.visao_geral ? 'COMPLETA' : 'PARCIAL'}
     
     // Mesmo em erro, tentar salvar análise com status error
     try {
-      const { contact_id } = await req.json();
+      // FIX: req.json() já foi consumido no topo — usar variável do escopo externo
       if (contact_id) {
         await base44.asServiceRole.entities.ContactBehaviorAnalysis.create({
           contact_id: contact_id,
