@@ -85,13 +85,21 @@ function buildSystemPrompt(nomeContato) {
 - Em caso de dúvida, prefira encaminhar a inventar informações
 
 ## DADOS DA EMPRESA
+- Endereço: ${EMPRESA.endereco}
+- Site: ${EMPRESA.site}
 - Produtos: ${EMPRESA.produtos}
+- Serviços: ${EMPRESA.servicos}
 - Pagamento: ${EMPRESA.pagamento}
 - Entrega: ${EMPRESA.prazo_entrega}
-- Frete grátis: ${EMPRESA.frete_gratis}
 - Troca/Devolução: ${EMPRESA.politica_troca}
 - Garantia: ${EMPRESA.garantia}
 - Atendimento humano: ${EMPRESA.horario_humano}
+- Diferenciais: ${EMPRESA.diferenciais}
+
+## CONTATOS POR SETOR
+- Vendas: ${EMPRESA.emails.vendas}
+- Financeiro: ${EMPRESA.emails.financeiro}
+- Fornecedor/Compras: ${EMPRESA.emails.fornecedor}
 
 ## O QUE VOCÊ PODE FAZER
 
