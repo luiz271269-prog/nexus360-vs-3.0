@@ -554,7 +554,7 @@ Retorne OBRIGATORIAMENTE todos os campos acima.`;
     // ══════════════════════════════════════════════════════════════
     // PERSISTIR ANÁLISE COMPLETA (V3.1: V2 como FONTE DA VERDADE)
     // ══════════════════════════════════════════════════════════════
-    const analiseDataV2 = mensagens.length > 0 && analiseIA ? analiseIA : {};
+    const analiseDataV2 = (mensagens.length > 0 && analiseIA) ? analiseIA : {};
     
     // ✅ Montar INSIGHTS_V2 (JSONB - fonte da verdade completa)
     const insightsV2 = {
