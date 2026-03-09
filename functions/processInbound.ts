@@ -162,6 +162,37 @@ Deno.serve(async (req) => {
     console.warn(`[${VERSION}] ⚠️ Erro engagement:`, e.message);
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // [INBOUND-GATE] CAMADA 2 — DEDUP REFORÇADO (já existe abaixo como "1. IDEMPOTÊNCIA")
+  // A verificação abaixo é o ponto oficial de dedup — nada a adicionar aqui.
+  // ════════════════════════════════════════════════════════════════
+
+  // [INBOUND-GATE] CAMADA 3 — THREAD JÁ CONTEXTUALIZADA
+  // Se thread tem atendente E setor definidos: apenas notifica o atendente,
+  // não dispara URA nem automações. Evita URA aparecer pra clientes que já
+  // estão sendo atendidos quando humano está em silêncio temporário.
+  result.pipeline.push('context_check');
+  if (thread?.assigned_user_id && thread?.sector_id && !humanoAtivo(thread)) {
+    console.log(`[INBOUND-GATE] 🔔 CAMADA 3: Thread contextualizada (atendente=${thread.assigned_user_id}, setor=${thread.sector_id}) — apenas notificando, sem URA`);
+    result.actions.push('context_notify_only');
+    try {
+      await base44.asServiceRole.entities.NotificationEvent.create({
+        tipo: 'mensagem_cliente_contextualizada',
+        titulo: `Nova mensagem de ${contact?.nome || 'contato'}`,
+        mensagem: `Mensagem recebida em thread já atribuída. Atendente: ${thread.assigned_user_id}`,
+        prioridade: 'media',
+        metadata: {
+          thread_id: thread.id,
+          contact_id: contact?.id,
+          message_id: message?.id,
+          assigned_user_id: thread.assigned_user_id,
+          sector_id: thread.sector_id
+        }
+      });
+    } catch (e) { /* silencioso */ }
+    return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, stop: true, reason: 'context_notify_only' });
+  }
+
   // 4. HARD-STOP: Humano ativo
   result.pipeline.push('human_check');
   if (humanoAtivo(thread)) {
