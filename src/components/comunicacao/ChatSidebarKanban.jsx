@@ -692,6 +692,27 @@ export default function ChatSidebarKanban({
             ));
           })}
 
+          {/* ── VISUALIZAÇÃO: JARVIS (por atendente monitorado) ── */}
+          {kanbanMode === 'jarvis' && colunasPorJarvis.length === 0 && (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center text-slate-400">
+                <Bot className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                <p className="text-sm font-medium">Nenhum alerta Jarvis ativo</p>
+                <p className="text-xs mt-1">Quando o Jarvis alertar sobre uma conversa, ela aparecerá aqui.</p>
+              </div>
+            </div>
+          )}
+          {kanbanMode === 'jarvis' && colunasPorJarvis.map(coluna => {
+            const headerCor = coluna.isSemAtendente ? 'bg-slate-600' : 'bg-gradient-to-r from-violet-600 to-purple-700';
+            return renderColuna(coluna, headerCor, (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Bot className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
+                <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
+                <span className="text-white/60 text-[9px] flex-shrink-0">Jarvis</span>
+              </div>
+            ));
+          })}
+
           {/* ── VISUALIZAÇÃO: POR INSTÂNCIA/CANAL ── */}
           {kanbanMode === 'integracao' && colunasPorInstancia.map(coluna => {
             const totalNaoLidas = coluna.threads.reduce((sum, t) => sum + getUnreadCount(t, usuarioAtual?.id), 0);
