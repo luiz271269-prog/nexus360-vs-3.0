@@ -23,15 +23,22 @@ function construirMenuBoasVindas(nomeContato) {
 }
 
 // --- Inline: enviarMensagem ---
+// Bug #9 fix: retornar sucesso/falha para condicionar avanço de estado
 async function enviarMensagem(base44, contact, integrationId, texto) {
   try {
-    await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+    const resultado = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
       integration_id: integrationId,
       numero_destino: contact.telefone,
       mensagem: processTextWithEmojis(texto)
     });
+    if (resultado?.data?.success === false) {
+      console.error('[PRE-ATENDIMENTO] Envio retornou erro:', resultado.data.error);
+      return false;
+    }
+    return true;
   } catch (e) {
     console.error('[PRE-ATENDIMENTO] Falha ao enviar msg:', e.message);
+    return false;
   }
 }
 
@@ -98,11 +105,20 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
         { rowId: 'setor_livre',        title: '💬 Falar com alguém', description: 'Diga o nome ou setor desejado' },
       ]
     });
+    // Bug #9 fix: verificar se envio realmente teve sucesso
+    menuEnviado = res?.data?.success !== false;
   } catch (e) {
     console.error('[PRE-ATENDIMENTO] Falha ao enviar list menu:', e.message);
   }
-  await atualizarEstado(base44, thread.id, 'WAITING_SECTOR_CHOICE');
-  return { success: true, mode: 'menu_list' };
+  
+  // Bug #9 fix: condicionar avanço de estado ao sucesso do envio
+  if (menuEnviado) {
+    await atualizarEstado(base44, thread.id, 'WAITING_SECTOR_CHOICE');
+    return { success: true, mode: 'menu_list' };
+  } else {
+    console.error('[PRE-ATENDIMENTO] ⚠️ Menu não enviado, mantendo INIT para retry');
+    return { success: false, mode: 'menu_send_failed' };
+  }
 }
 
 async function processarWAITING_STICKY_DECISION(base44, thread, contact, user_input, whatsappIntegrationId) {
