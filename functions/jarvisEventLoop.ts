@@ -116,32 +116,26 @@ Deno.serve(async (req) => {
     ).catch(() => []);
     const integracaoPrincipal = integracoes[0] || null;
 
+    const inicioCiclo = Date.now();
+
     for (const thread of threadsParaProcessar) {
+      // [P1] Guard de tempo: abort se ultrapassou 90s
+      if (Date.now() - inicioCiclo > MAX_CICLO_MS) {
+        console.warn('[JARVIS v2] ⏱️ Guard de tempo atingido — abortando loop para evitar timeout');
+        break;
+      }
+
       const inicioThread = Date.now();
       try {
-        // Determinar ação baseada no contexto da thread
-        const temIntegracao = !!integracaoPrincipal && !!thread.whatsapp_integration_id;
         const minutosOcioso = Math.round((agora - new Date(thread.last_message_at)) / 60000);
 
         let acaoExecutada = 'nenhuma';
         let erroAcao = null;
 
-        if (temIntegracao && thread.contact_id) {
-          // [P2 FIX] Ação real: invocar Claude para responder automaticamente
-          try {
-            await base44.asServiceRole.functions.invoke('claudeWhatsAppResponder', {
-              thread_id: thread.id,
-              contact_id: thread.contact_id,
-              message_content: `[JARVIS] Thread ociosa há ${minutosOcioso} minutos. Verificar e responder.`,
-              integration_id: thread.whatsapp_integration_id,
-              provider: integracaoPrincipal.api_provider || 'w_api'
-            });
-            acaoExecutada = 'claude_resposta_automatica';
-          } catch (err) {
-            erroAcao = err.message;
-            console.warn(`[JARVIS v2] ⚠️ Claude falhou para thread ${thread.id}: ${err.message}`);
-          }
-        }
+        // [P0 FIX] claudeWhatsAppResponder REMOVIDO daqui — retornava StreamingResponse
+        // que quebrava o invoker do Base44 com "'StreamingResponse' object has no attribute 'body'"
+        // Claude é invocado apenas via webhook inbound (processInbound → claudeWhatsAppResponder)
+        // O Jarvis só faz notificação interna ao atendente como fallback seguro
 
         if (acaoExecutada === 'nenhuma' && thread.assigned_user_id) {
           // [FIX CIRÚRGICO] Notificar atendente via thread INTERNA (não a thread externa do contato)
