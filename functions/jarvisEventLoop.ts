@@ -1,8 +1,7 @@
-// jarvisEventLoop - v2.0.0
-// CORREÇÕES v2:
-// [P1] Anti-loop: cooldown de 4h por thread via jarvis_next_check_after
-// [P2] Ações reais: invoca claudeWhatsAppResponder OU notifica atendente via mensagem interna
-// [P3] EventoSistema: step ignorado se fila vazia (sem escritas inúteis)
+// jarvisEventLoop - v2.1.0
+// CORREÇÕES v2.1:
+// [P4] jarvis_last_playbook salvo no MessageThread após ação bem-sucedida
+// [P5] Threshold de inatividade dinâmico baseado no score de risco do contato
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
@@ -79,12 +78,28 @@ Deno.serve(async (req) => {
       assigned_user_id: { $exists: true },
       unread_count: { $gt: 0 },
       status: 'aberta'
-    }, '-last_message_at', 20);
+    }, '-last_message_at', 40);
 
-    // [P1 FIX] Filtrar manualmente pelo cooldown (jarvis_next_check_after)
+    // [P1] Filtrar pelo cooldown + [P5 FIX] threshold dinâmico por score de risco
+    // Regra: quanto maior o risco do contato, menor o tempo de inatividade tolerado
+    //   score_engajamento >= 70 (VIP/quente) → alerta após 30min de ociosidade
+    //   score_engajamento 40-69 (morno)       → alerta após 2h
+    //   score_engajamento < 40 (frio)         → alerta após 6h
+    //   sem score                             → alerta após 1h (padrão seguro)
+    const getIdleThresholdMs = (thread) => {
+      const score = thread.score_engajamento ?? thread.cliente_score ?? null;
+      if (score === null) return 60 * 60 * 1000;        // 1h — sem score
+      if (score >= 70)    return 30 * 60 * 1000;        // 30min — alto risco/VIP
+      if (score >= 40)    return 2 * 60 * 60 * 1000;   // 2h — médio
+      return 6 * 60 * 60 * 1000;                        // 6h — baixo engajamento
+    };
+
     const threadsParaProcessar = threadsCandidatas.filter(t => {
-      if (!t.jarvis_next_check_after) return true; // nunca alertada → processar
-      return new Date(t.jarvis_next_check_after) < agora; // cooldown expirado → processar
+      // Cooldown anti-loop
+      if (t.jarvis_next_check_after && new Date(t.jarvis_next_check_after) >= agora) return false;
+      // Threshold dinâmico: rejeita se ociosidade ainda não atingiu o limiar do score
+      const idleMs = agora - new Date(t.last_message_at);
+      return idleMs >= getIdleThresholdMs(t);
     }).slice(0, MAX_THREADS_POR_CICLO);
 
     resultados.threads_ignoradas_cooldown = threadsCandidatas.length - threadsParaProcessar.length;
@@ -142,11 +157,12 @@ Deno.serve(async (req) => {
           }
         }
 
-        // [P1 FIX] Marcar cooldown na thread para não reprocessar por 4h
+        // [P4 FIX] Marcar cooldown + salvar último playbook executado
         const proximoCheck = new Date(agora.getTime() + COOLDOWN_HORAS * 60 * 60 * 1000);
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
           jarvis_alerted_at: agora.toISOString(),
-          jarvis_next_check_after: proximoCheck.toISOString()
+          jarvis_next_check_after: proximoCheck.toISOString(),
+          ...(acaoExecutada !== 'nenhuma' && { jarvis_last_playbook: acaoExecutada })
         });
 
         // Registrar AgentRun com status real
