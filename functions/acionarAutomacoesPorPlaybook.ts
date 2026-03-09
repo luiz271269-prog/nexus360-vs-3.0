@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
           console.log('[acionarAutomacoesPorPlaybook] ✅ DECLINE: contato deve entrar em LOW priority queue');
 
           // Criar WorkQueueItem para revisar se vale investir esforço
-          await base44.entities.WorkQueueItem.create({
+          await base44.asServiceRole.entities.WorkQueueItem.create({
             tipo: 'avaliar_potencial',
             contact_id: contact_id,
             thread_id: '', 
