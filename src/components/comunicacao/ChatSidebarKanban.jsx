@@ -3,8 +3,9 @@ import { format } from "date-fns";
 import {
   CheckCheck, Check, AlertCircle, Image, Video, Mic, FileText,
   UserCheck, Columns, Users, Send, ArrowRightLeft, Plus, CalendarCheck,
-  AlertTriangle, MessagesSquare, Pause, Zap, LayoutList, CheckSquare
+  AlertTriangle, MessagesSquare, Pause, Zap, LayoutList, CheckSquare, BookOpen, Bot
 } from "lucide-react";
+import ManualJarvis from "./ManualJarvis";
 import ContatosRequerendoAtencaoKanban from "./ContatosRequerendoAtencaoKanban";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
