@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
         if (!tags.includes('auto_decline_generic_quotes')) {
           tags.push('auto_decline_generic_quotes');
 
-          await base44.entities.Contact.update(contact_id, { tags });
+          await base44.asServiceRole.entities.Contact.update(contact_id, { tags });
           acionadas.push('Contact:tag_auto_decline');
         }
       } catch (error) {
