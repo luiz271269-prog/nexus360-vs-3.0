@@ -96,6 +96,9 @@ Deno.serve(async (req) => {
     resultados.threads_ignoradas_cooldown = threadsCandidatas.length - threadsParaProcessar.length;
     console.log(`[NEXUS-AGENT v3] 📊 ${threadsCandidatas.length} candidatas | ${threadsParaProcessar.length} a processar | ${resultados.threads_ignoradas_cooldown} em cooldown`);
 
+    // Mapa de contatos suprimidos por atendente (para WorkQueueItem de resumo)
+    const resumosPendentes = {}; // { atendente_id: [{ contact_id, thread_id, priority_score }] }
+
     // Buscar integração WhatsApp ativa (para follow-up automático)
     const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
       { status: 'conectado' }, '-created_date', 1
@@ -260,8 +263,16 @@ Deno.serve(async (req) => {
               }, '-sent_at', 5).catch(() => []);
 
               if (alertasRecentes.length >= 3) {
-                console.log(`[NEXUS-AGENT v3.2] 🔕 Cooldown atendente ${thread.assigned_user_id} — já recebeu ${alertasRecentes.length} alertas nas últimas 2h. Pulando.`);
+                // Anti-fadiga: agrupar para WorkQueueItem de resumo (não spam individual)
+                if (!resumosPendentes[thread.assigned_user_id]) resumosPendentes[thread.assigned_user_id] = [];
+                resumosPendentes[thread.assigned_user_id].push({
+                  contact_id: thread.contact_id,
+                  thread_id: thread.id,
+                  priority_score: priorityScore,
+                  minutos_ocioso: minutosOcioso
+                });
                 acaoExecutada = 'ignorado_cooldown_atendente';
+                console.log(`[NEXUS-AGENT v3.2] 🔕 Cooldown atendente ${thread.assigned_user_id} — agrupando contato ${thread.contact_id} no resumo`);
               } else {
               // Monta alerta rico com contexto do prontuário
               const riskInfo = analise?.relationship_risk?.level
@@ -355,6 +366,28 @@ Deno.serve(async (req) => {
       } catch (err) {
         console.error(`[NEXUS-AGENT v3] Erro ao processar thread ${thread.id}:`, err.message);
         resultados.erros++;
+      }
+    }
+
+    // ── WorkQueueItems de resumo para atendentes com anti-fadiga ───────────
+    for (const [atendenteId, contatos] of Object.entries(resumosPendentes)) {
+      try {
+        await base44.asServiceRole.entities.WorkQueueItem.create({
+          tipo: 'manual',
+          reason: 'manual',
+          severity: 'medium',
+          status: 'open',
+          owner_user_id: atendenteId,
+          notes: `Jarvis suprimiu ${contatos.length} alerta(s) por anti-fadiga. Verifique os contatos pendentes.`,
+          payload: {
+            tipo: 'resumo_pendentes',
+            contatos_suprimidos: contatos,
+            gerado_em: agora.toISOString()
+          }
+        });
+        console.log(`[NEXUS-AGENT v3.2] 📋 WorkQueueItem resumo_pendentes criado para atendente ${atendenteId} com ${contatos.length} contato(s)`);
+      } catch (e) {
+        console.warn(`[NEXUS-AGENT v3.2] ⚠️ Erro ao criar resumo pendentes: ${e.message}`);
       }
     }
 
