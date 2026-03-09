@@ -51,6 +51,26 @@ Deno.serve(async (req) => {
     };
 
     // ══════════════════════════════════════════════
+    // STEP 0: Contexto do negócio (businessIA)
+    // Ajusta sensibilidade se o negócio estiver em crise
+    // ══════════════════════════════════════════════
+    let sensibilidadeBoost = 0;
+    try {
+      const saude = await base44.asServiceRole.functions.invoke('businessIA', {
+        action: 'strategic_insights'
+      });
+      const criticos = (saude.data?.insights || []).filter(i =>
+        i.tipo === 'alerta' && i.severidade === 'critica'
+      );
+      if (criticos.length > 0) {
+        sensibilidadeBoost = 10;
+        console.log(`[NEXUS-AGENT v3.1] ⚠️ ${criticos.length} alerta(s) crítico(s) → sensibilidade +${sensibilidadeBoost}`);
+      }
+    } catch (e) {
+      console.warn('[NEXUS-AGENT v3.1] businessIA indisponível — sensibilidade normal');
+    }
+
+    // ══════════════════════════════════════════════
     // STEP 1: EventoSistema (só executa se há eventos)
     // ══════════════════════════════════════════════
     const eventos = await base44.asServiceRole.entities.EventoSistema.filter(
@@ -247,7 +267,7 @@ Deno.serve(async (req) => {
         }
 
         // ── ALTO ou fallback do CRÍTICO: Alerta interno ao atendente ────────
-        if ((priorityLabel === 'ALTO' || (priorityLabel === 'CRITICO' && acaoExecutada === 'nenhuma')) && thread.assigned_user_id) {
+        if ((priorityLabel === 'ALTO' || (priorityLabel === 'CRITICO' && acaoExecutada === 'nenhuma') || (priorityLabel === 'MEDIO' && sensibilidadeBoost > 0)) && thread.assigned_user_id) {
           try {
             const internalResult = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
               target_user_id: thread.assigned_user_id
@@ -359,7 +379,51 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, versao: '3.0.0', resultados });
     }
 
+    const tresDiasAtras = new Date(agora.getTime() - 3 * 24 * 60 * 60 * 1000);
     const seteDiasAtras = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const quatorzeAtras = new Date(agora.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    // 3a. Negociando travados >3 dias → alerta interno ao responsável
+    const negociandoTravados = await base44.asServiceRole.entities.Orcamento.filter({
+      status: 'negociando',
+      updated_date: { $lt: tresDiasAtras.toISOString() }
+    }, '-updated_date', 10);
+
+    for (const orc of negociandoTravados) {
+      try {
+        if (orc.vendedor) {
+          const vendedores = await base44.asServiceRole.entities.User.filter(
+            { full_name: orc.vendedor }, 'full_name', 1
+          ).catch(() => []);
+          if (vendedores.length > 0) {
+            const internalResult = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
+              target_user_id: vendedores[0].id
+            }).catch(() => null);
+            const internalThread = internalResult?.data?.thread;
+            if (internalThread?.id) {
+              await base44.asServiceRole.entities.Message.create({
+                thread_id: internalThread.id,
+                sender_id: 'nexus_agent',
+                sender_type: 'user',
+                content: `📋 *Orçamento em negociação parado há 3+ dias*\n👤 Cliente: ${orc.cliente_nome}\n💰 Valor: R$ ${orc.valor_total?.toLocaleString('pt-BR')}\n📅 Última atualização: ${orc.updated_date?.slice(0, 10)}`,
+                channel: 'interno',
+                visibility: 'internal_only',
+                provider: 'internal_system',
+                status: 'enviada',
+                sent_at: agora.toISOString(),
+                metadata: { jarvis_alert: true, orcamento_id: orc.id, tipo: 'negociando_parado' }
+              });
+              resultados.orcamentos_processados++;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[NEXUS-AGENT v3.1] Erro orçamento negociando:', err.message);
+        resultados.erros++;
+      }
+    }
+
+    // 3b. Enviados >7 dias → TarefaInteligente (comportamento original mantido)
     const orcamentosParados = await base44.asServiceRole.entities.Orcamento.filter({
       status: 'enviado',
       updated_date: { $lt: seteDiasAtras.toISOString() }
@@ -376,11 +440,40 @@ Deno.serve(async (req) => {
           orcamento_id: orc.id,
           vendedor_responsavel: orc.vendedor,
           data_prazo: agora.toISOString(),
-          contexto_ia: { motivo_criacao: 'NexusAgent v3 — orçamento parado', criado_por: 'nexus_agent' }
+          contexto_ia: { motivo_criacao: 'NexusAgent v3.1 — orçamento parado', criado_por: 'nexus_agent' }
         });
         resultados.orcamentos_processados++;
       } catch (err) {
-        console.error('[NEXUS-AGENT v3] Erro orçamento:', err.message);
+        console.error('[NEXUS-AGENT v3.1] Erro orçamento enviado:', err.message);
+        resultados.erros++;
+      }
+    }
+
+    // 3c. Vencidos <14 dias → WorkQueueItem reativação
+    const vencidosRecentes = await base44.asServiceRole.entities.Orcamento.filter({
+      status: 'vencido',
+      updated_date: { $gte: quatorzeAtras.toISOString() }
+    }, '-updated_date', 5);
+
+    for (const orc of vencidosRecentes) {
+      try {
+        await base44.asServiceRole.entities.WorkQueueItem.create({
+          tipo: 'follow_up',
+          reason: 'manual',
+          severity: 'medium',
+          status: 'open',
+          notes: `Orçamento vencido recentemente — janela de reativação: ${orc.numero_orcamento || orc.id}`,
+          payload: {
+            orcamento_id: orc.id,
+            cliente_nome: orc.cliente_nome,
+            valor_total: orc.valor_total,
+            data_vencimento: orc.data_vencimento,
+            tipo: 'orcamento_vencido_reativacao'
+          }
+        });
+        resultados.orcamentos_processados++;
+      } catch (err) {
+        console.error('[NEXUS-AGENT v3.1] Erro orçamento vencido:', err.message);
         resultados.erros++;
       }
     }

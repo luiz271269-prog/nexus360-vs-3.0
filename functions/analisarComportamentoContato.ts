@@ -115,6 +115,13 @@ Deno.serve(async (req) => {
     
     console.log(`[ANALISE] 📊 ${mensagens.length} mensagens carregadas (ASC)`);
 
+    // Buscar orçamentos do contato (enriquece deal_risk com dados reais)
+    const orcamentos = await base44.asServiceRole.entities.Orcamento.filter(
+      { cliente_telefone: contact.telefone },
+      '-data_orcamento', 10
+    ).catch(() => []);
+    console.log(`[ANALISE] 💰 ${orcamentos.length} orçamento(s) encontrado(s)`);
+
     // ══════════════════════════════════════════════════════════════
     // ETAPA C: TIMESTAMPS E BUCKETS DE INATIVIDADE
     // ══════════════════════════════════════════════════════════════
@@ -264,6 +271,9 @@ ${textos}
 - Tempo médio de resposta (contato): ${avgReplyMinutesContact} minutos
 - Dias sem resposta (inbound): ${daysInactiveInbound}
 - Maior gap de silêncio: ${maxSilenceGapDays.toFixed(1)} dias
+- Histórico comercial: ${orcamentos.length > 0
+    ? orcamentos.map(o => `${o.status} R$${o.valor_total?.toLocaleString('pt-BR') || '?'} em ${o.data_orcamento || '?'}`).join(' | ')
+    : 'sem orçamentos registrados'}
 
 ⚠️ REGRAS OBRIGATÓRIAS DO MOTOR:
 1. Sempre classificar o tipo de relacionamento (relationship_profile.type)

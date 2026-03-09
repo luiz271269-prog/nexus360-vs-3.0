@@ -491,17 +491,30 @@ async function escalonarParaHumano(base44, execution, motivo) {
     completed_at: new Date().toISOString()
   });
 
-  // Criar notificação para administradores
-  const admins = await base44.asServiceRole.entities.User.filter({ role: 'admin' }, 'full_name', 5);
-  
-  for (const admin of admins) {
+  // Notificar responsável pela thread primeiro; admins como fallback
+  let usuariosParaNotificar = [];
+  try {
+    const thread = await base44.asServiceRole.entities.MessageThread.get(execution.thread_id);
+    if (thread?.assigned_user_id) {
+      const responsavel = await base44.asServiceRole.entities.User.get(thread.assigned_user_id);
+      if (responsavel) usuariosParaNotificar = [responsavel];
+    }
+  } catch (e) { /* silencioso — fallback para admins */ }
+
+  if (usuariosParaNotificar.length === 0) {
+    usuariosParaNotificar = await base44.asServiceRole.entities.User.filter(
+      { role: 'admin' }, 'full_name', 3
+    );
+  }
+
+  for (const usuario of usuariosParaNotificar) {
     await base44.asServiceRole.entities.NotificationEvent.create({
       tipo: 'escalacao',
       titulo: '👤 Atendimento humano necessário',
       mensagem: motivo,
       prioridade: 'alta',
-      usuario_id: admin.id,
-      usuario_nome: admin.full_name,
+      usuario_id: usuario.id,
+      usuario_nome: usuario.full_name,
       entidade_relacionada: 'FlowExecution',
       entidade_id: execution.id,
       metadata: {
