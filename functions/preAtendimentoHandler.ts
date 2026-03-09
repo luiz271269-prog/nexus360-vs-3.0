@@ -79,8 +79,9 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
   const horaMenu = new Date().getHours();
   const saudacaoMenu = horaMenu < 12 ? 'Bom dia' : (horaMenu < 18 ? 'Boa tarde' : 'Boa noite');
   const descricaoMenu = `👋 Olá${nomeMenu ? ` ${nomeMenu}` : ''}! ${saudacaoMenu}! Estou aqui para te conectar com a equipe certa. 🎯`;
+  let menuEnviado = false;
   try {
-    await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+    const res = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
       integration_id: whatsappIntegrationId,
       numero_destino: contact.telefone,
       type: 'list',
