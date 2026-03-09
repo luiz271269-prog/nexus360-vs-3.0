@@ -120,6 +120,44 @@ async function processarWAITING_STICKY_DECISION(base44, thread, contact, user_in
 }
 
 async function processarWAITING_SECTOR_CHOICE(base44, thread, contact, user_input, whatsappIntegrationId) {
+  // AJUSTE 3 — Ler selectedRowId do listMessage PRIMEIRO
+  const selectedRowId = user_input?.listResponseMessage?.singleSelectReply?.selectedRowId
+    || user_input?.interactive?.list_reply?.id
+    || user_input?.selectedRowId;
+
+  const MAPA_SETORES = {
+    'setor_vendas':       'vendas',
+    'setor_financeiro':   'financeiro',
+    'setor_suporte':      'assistencia',   // AJUSTE 4: suporte → assistencia
+    'setor_fornecedores': 'fornecedor',
+    'setor_livre':        'livre',
+  };
+
+  if (selectedRowId) {
+    const setor = MAPA_SETORES[selectedRowId];
+    console.log(`[PRE-ATENDIMENTO] 🔘 selectedRowId=${selectedRowId} → setor=${setor}`);
+
+    if (setor === 'livre') {
+      await enviarMensagem(base44, contact, whatsappIntegrationId, 'Com quem ou qual setor você deseja falar? 😊');
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        pre_atendimento_state: 'WAITING_SECTOR_CHOICE',
+        pre_atendimento_last_interaction: new Date().toISOString()
+      });
+      return { success: true, mode: 'livre' };
+    }
+
+    if (setor) {
+      await enviarMensagem(base44, contact, whatsappIntegrationId, `Você escolheu: *${setor.toUpperCase()}*.\nBuscando atendentes...`);
+      await atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', setor);
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        ura_respondida_at: new Date().toISOString()
+      });
+      thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+      return await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system' }, whatsappIntegrationId);
+    }
+  }
+
+  // Fallback: lógica de texto para quem digitar manualmente
   const entrada = (user_input.content || user_input.id || '').toLowerCase().trim();
   let setor = null;
 
@@ -131,6 +169,7 @@ async function processarWAITING_SECTOR_CHOICE(base44, thread, contact, user_inpu
   if (setor) {
     await enviarMensagem(base44, contact, whatsappIntegrationId, `Você escolheu: *${setor.toUpperCase()}*.\nBuscando atendentes...`);
     await atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', setor);
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, { ura_respondida_at: new Date().toISOString() });
     thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
     return await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system' }, whatsappIntegrationId);
   }

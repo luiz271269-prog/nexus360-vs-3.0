@@ -308,8 +308,43 @@ Deno.serve(async (req) => {
     let body;
     let tipoMidiaReal = null; // Declarar no escopo principal para o fallback de documento funcionar
 
+    // ========== LIST MESSAGE EXPLÍCITO (type='list') ==========
+    if (type === 'list') {
+      const buttons = interactive_buttons || [];
+      const bodyText = mensagem || '';
+
+      if (isWAPI) {
+        console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📋 List Message W-API explícito`);
+        endpoint = `${baseUrl}/message/send-list-message?instanceId=${instanceId}`;
+        body = {
+          phone: numeroFormatado,
+          title: listTitle || '📋 Menu',
+          buttonText: listButtonText || 'Ver opções',
+          description: bodyText,
+          footer: listFooter || '',
+          sections: [{
+            title: listSectionTitle || 'Opções',
+            rows: buttons.map(btn => ({
+              id: btn.rowId || btn.id,
+              title: btn.title || btn.text,
+              description: btn.description || ''
+            }))
+          }],
+          delayMessage: 1
+        };
+      } else {
+        // Z-API: não suporta list nativo — fallback para texto numerado
+        console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📋 List Message Z-API: fallback texto numerado`);
+        const linhas = buttons.map((btn, i) => `${i + 1}️⃣ ${btn.title || btn.text}`).join('\n');
+        const textoFallback = `${listTitle || 'Como podemos te ajudar?'}\n\n${linhas}\n\nDigite o número da opção:`;
+        endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-text`;
+        body = { phone: numeroFormatado, message: textoFallback };
+      }
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📋 List Message via ${providerName}`);
+    }
+
     // ========== BOTÕES INTERATIVOS ==========
-    if (message_type === 'interactive_buttons' || interactive_buttons) {
+    else if (message_type === 'interactive_buttons' || interactive_buttons) {
       const buttons = interactive_buttons || [];
       const bodyText = mensagem || '';
       
@@ -320,15 +355,16 @@ Deno.serve(async (req) => {
         endpoint = `${baseUrl}/message/send-list-message?instanceId=${instanceId}`;
         body = {
           phone: numeroFormatado,
-          title: 'Menu',
-          buttonText: 'Ver opções',
+          title: listTitle || 'Menu',
+          buttonText: listButtonText || 'Ver opções',
           description: bodyText,
+          footer: listFooter || '',
           sections: [{
-            title: 'Opções',
+            title: listSectionTitle || 'Opções',
             rows: buttons.map(btn => ({
-              id: btn.id,
-              title: btn.text,
-              description: ''
+              id: btn.rowId || btn.id,
+              title: btn.title || btn.text,
+              description: btn.description || ''
             }))
           }],
           delayMessage: 1
