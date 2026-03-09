@@ -6,6 +6,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 // Sem nenhum import local - tudo inlinado
 // ============================================================================
 
+const PRE_ATENDIMENTO_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos (ajustável)
+
 // --- Inline: emojiHelper (processTextWithEmojis only) ---
 function processTextWithEmojis(text) {
   if (!text || typeof text !== 'string') return '';
@@ -37,7 +39,7 @@ async function atualizarEstado(base44, threadId, novoEstado, setorId = undefined
   const updateData = {
     pre_atendimento_state: novoEstado,
     pre_atendimento_last_interaction: new Date().toISOString(),
-    pre_atendimento_timeout_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    pre_atendimento_timeout_at: new Date(Date.now() + PRE_ATENDIMENTO_TIMEOUT_MS).toISOString()
   };
   if (setorId !== undefined) updateData.sector_id = setorId;
   await base44.asServiceRole.entities.MessageThread.update(threadId, updateData);
@@ -121,7 +123,15 @@ async function processarWAITING_STICKY_DECISION(base44, thread, contact, user_in
     return await processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, null, null);
   }
 
-  // Fallback
+  // Fallback — Bug #8 fix: avisar antes de reapresentar menu
+  await enviarMensagem(base44, contact, whatsappIntegrationId,
+    `Não entendi sua resposta. 😊 Vou te mostrar o menu novamente.`
+  );
+  await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+    pre_atendimento_state: 'INIT',
+    sector_id: null,
+    assigned_user_id: null
+  });
   thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
   return await processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, null, null);
 }
