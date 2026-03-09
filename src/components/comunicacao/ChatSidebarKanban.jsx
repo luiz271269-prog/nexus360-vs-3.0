@@ -411,6 +411,46 @@ export default function ChatSidebarKanban({
     return Object.values(mapa).filter(c => c.threads.length > 0 || integracoesVisiveis.find(i => i.id === c.id));
   }, [externasKanban, integracoesVisiveis, usuarioAtual, isAdmin]);
 
+  // ── VISUALIZAÇÃO 4: Por atendente — monitorado pelo Jarvis ─────────────
+  const colunasPorJarvis = React.useMemo(() => {
+    const norm = (v) => String(v || '').toLowerCase().trim();
+    const mapa = {};
+    // Threads que o Jarvis monitorou (tem jarvis_alerted_at ou jarvis_last_playbook)
+    const threadsJarvis = externasKanban.filter(t => t.jarvis_alerted_at || t.jarvis_last_playbook);
+
+    threadsJarvis.forEach(thread => {
+      const uid = thread.assigned_user_id || '__sem_atendente__';
+      if (!isAdmin && !isGerente && norm(uid) !== norm(usuarioAtual?.id) && uid !== '__sem_atendente__') return;
+
+      if (!mapa[uid]) {
+        const at = atendentes.find(a => a.id === uid);
+        mapa[uid] = {
+          id: uid,
+          nome: uid === '__sem_atendente__' ? 'Não Atribuídas' : (at?.full_name || at?.display_name || uid.substring(0, 8)),
+          isSemAtendente: uid === '__sem_atendente__',
+          threads: []
+        };
+      }
+      if (!mapa[uid].threads.find(t => t.id === thread.id))
+        mapa[uid].threads.push(thread);
+    });
+
+    Object.values(mapa).forEach(col => col.threads.sort((a, b) => {
+      // Ordenar por score do Jarvis (prioridade mais alta primeiro)
+      const scoreA = a._analiseComportamental?.priority_score || 0;
+      const scoreB = b._analiseComportamental?.priority_score || 0;
+      return scoreB - scoreA;
+    }));
+
+    return Object.values(mapa)
+      .sort((a, b) => {
+        if (a.isSemAtendente) return -1;
+        if (b.isSemAtendente) return 1;
+        return b.threads.length - a.threads.length;
+      })
+      .filter(c => c.threads.length > 0);
+  }, [externasKanban, usuarioAtual, atendentes, isAdmin, isGerente]);
+
   const corConfig = {
     blue: 'bg-blue-600', green: 'bg-green-600', purple: 'bg-purple-600',
     orange: 'bg-orange-600', pink: 'bg-pink-600', teal: 'bg-teal-600',
