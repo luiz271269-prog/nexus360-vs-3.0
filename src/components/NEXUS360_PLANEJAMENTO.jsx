@@ -1,895 +1,1267 @@
 # NEXUS360 — Plano Estratégico do Agente Autônomo
-**Data:** 2026-03-09 | **Versão:** 2.0 DETALHADA | **Status:** Documento de Referência Oficial
+**Data:** 2026-03-09 | **Versão:** 3.0 MÁXIMO DETALHE | **Status:** Documento de Referência Oficial
 
 > ⚠️ REGRA MÁXIMA: Qualquer nova função ou mudança arquitetural deve ser documentada e justificada aqui ANTES de ser implementada.
 > Se a necessidade cabe em um módulo IA CORE existente → estenda-o. Não crie função nova.
 
 ---
 
-## PARTE 1 — INVENTÁRIO REAL E ESTADO ATUAL
+# PARTE 1 — INVENTÁRIO REAL DE FUNÇÕES
 
-### 1.1 — Módulos IA CORE (os "órgãos vitais")
+## 1.1 — Módulos IA CORE (os "órgãos vitais" — não mexer sem justificativa)
 
 ---
 
-#### 🧠 `jarvisEventLoop` — v3.0 (NexusAgentLoop)
-**O que faz de verdade:**
-O loop principal do agente autônomo. Roda como scheduled automation a cada 30 minutos.
+### 🔄 `jarvisEventLoop` — v3.0 (NexusAgentLoop)
+**Status:** ✅ Ativo e funcional (refatorado 2026-03-09)
+**Scheduling:** Automação scheduled a cada 30 minutos
+**SDK:** `@base44/sdk@0.8.20`
 
-**Fluxo interno detalhado:**
+**Responsabilidade oficial:** Motor central do agente autônomo. Detecta contatos/leads parados, toma decisão e age. É o "proprietário" de prioridades do sistema.
+
+**Fluxo interno completo:**
 ```
-STEP 1 — EventoSistema
-  → Busca EventoSistema com processado=false (limit 20)
-  → Para cada evento: cria AgentRun, marca processado=true
-  → ⚠️ PROBLEMA: Quase nenhuma função produz EventoSistema → step quase sempre vazio
+STEP 1 — EventoSistema (geralmente vazio na prática)
+  → EventoSistema.filter({processado: false}, limit=20)
+  → Para cada: cria AgentRun, marca processado=true
+  → ⚠️ PROBLEMA REAL: Quase nenhuma função produz EventoSistema
+    → Nos logs aparece: "⏭️ EventoSistema vazio — pulando step 1"
+    → Este step é letra morta. Não bloqueia nada, mas nunca faz nada.
 
 STEP 2 — Threads Ociosas (CORAÇÃO DO AGENTE)
-  → Query: last_message_sender='contact' AND last_message_at < 30min atrás
-            AND assigned_user_id existe AND unread_count>0 AND status='aberta'
-  → Filtra por cooldown (jarvis_next_check_after) e threshold dinâmico:
-      score >= 70 → alerta em 30min (contato quente)
-      score 40-70 → alerta em 2h (contato morno)
-      score < 40  → alerta em 6h (contato frio)
-  → Processa máx 3 threads por ciclo (guard MAX_THREADS_POR_CICLO)
-  → Guard de 90s total para não estourar timeout
-  
-  Para cada thread:
-    1. Busca ContactBehaviorAnalysis mais recente (ordem -analyzed_at)
-    2. Extrai: priority_score, priority_label, suggested_message, relationship_risk
-    3. Se sem análise → usa cliente_score da thread como proxy
-    
-    DECISÃO por priority_label:
-    ┌─────────────────────────────────────────────────────────────────┐
-    │ CRÍTICO (score>75):                                             │
-    │  → Busca telefone do Contact                                    │
-    │  → Chama enviarWhatsApp com suggested_message do prontuário    │
-    │  → Salva Message na thread (sender_id='nexus_agent')           │
-    │  → Atualiza thread (last_outbound_at, last_message_content)    │
-    │  → Se falhar → fallback para ALTO                              │
-    │  → Se sem telefone → fallback para ALTO                        │
-    ├─────────────────────────────────────────────────────────────────┤
-    │ ALTO (score 55-75) + fallback de CRÍTICO:                       │
-    │  → Chama getOrCreateInternalThread(assigned_user_id)           │
-    │  → Cria Message interna com:                                    │
-    │    "⏰ Conversa parada há Xmin | Score Y/100 | Risco Z"        │
-    │  → Incrementa unread_by do atendente                           │
-    ├─────────────────────────────────────────────────────────────────┤
-    │ MÉDIO (score 35-54):                                            │
-    │  → Apenas registra cooldown, sem ação visível                  │
-    ├─────────────────────────────────────────────────────────────────┤
-    │ BAIXO (score < 35):                                             │
-    │  → Ignora completamente (contato frio, não gasta recursos)     │
-    └─────────────────────────────────────────────────────────────────┘
-    
-    Após decisão:
-    → Salva jarvis_next_check_after = agora + 4h (cooldown)
-    → Salva jarvis_last_playbook = ação executada
-    → Cria AgentRun para auditoria
+  Filtro candidatas:
+  → last_message_sender = 'contact'
+  → last_message_at < 30min atrás
+  → assigned_user_id exists
+  → unread_count > 0
+  → status = 'aberta'
+  → limit = 40 candidatas
+
+  Filtro de cooldown + threshold dinâmico (código real):
+  → Se jarvis_next_check_after >= agora → skip (em cooldown)
+  → Threshold dinâmico por score de engajamento:
+    score >= 70 → threshold = 30min  (contato quente/VIP)
+    score 40-70 → threshold = 2h     (contato morno)
+    score < 40  → threshold = 6h     (contato frio)
+    score null  → threshold = 1h     (sem score)
+  → Processa máx 3 threads por ciclo (MAX_THREADS_POR_CICLO = 3)
+  → Guard total de 90s (MAX_CICLO_MS = 90.000) — se ultrapassar, aborta
+
+  Para cada thread candidata (até 3):
+  ┌─────────────────────────────────────────────────────────────┐
+  │ 1. Busca prontuário:                                        │
+  │    ContactBehaviorAnalysis.filter({contact_id}, '-analyzed_at', 1)
+  │    → Extrai: priority_score, priority_label                 │
+  │    → Extrai: insights_v2.next_best_action.suggested_message │
+  │    → Extrai: relationship_risk.level                        │
+  │    → Se sem análise: usa thread.cliente_score como proxy    │
+  │                                                             │
+  │ 2. Decisão por priority_label:                              │
+  │                                                             │
+  │  CRÍTICO (score ≥ 75):                                      │
+  │    → Contact.get(thread.contact_id) → busca telefone        │
+  │    → suggested_message = prontuário.next_best_action.       │
+  │      suggested_message OU fallback genérico                 │
+  │    → Invoca enviarWhatsApp(integration_id, telefone, msg)   │
+  │    → Se sucesso:                                            │
+  │      → Message.create(sender_id='nexus_agent',              │
+  │          visibility='public_to_customer')                   │
+  │      → MessageThread.update(last_outbound_at, last_message) │
+  │      → resultados.followups_automaticos++                   │
+  │    → Se falhar OU sem telefone → fallback para ALTO         │
+  │                                                             │
+  │  ALTO (score 55-74) + fallback de CRÍTICO:                  │
+  │    → Invoca getOrCreateInternalThread(assigned_user_id)     │
+  │    → Monta alerta rico:                                     │
+  │      "⏰ Conversa parada Xmin | Score Y/100 (LABEL)"        │
+  │      "🔴 Risco relacional: LEVEL" (se análise presente)     │
+  │      "💡 Próxima ação: next_action" (se análise presente)   │
+  │    → Message.create na thread interna (visibility=internal) │
+  │    → Incrementa unread_by[assigned_user_id]++               │
+  │    → resultados.alertas_internos++                          │
+  │                                                             │
+  │  MÉDIO (score 35-54):                                       │
+  │    → Apenas registra: acaoExecutada = 'registrado_sem_acao' │
+  │    → Sem WhatsApp. Sem alerta. Só aplica cooldown.          │
+  │                                                             │
+  │  BAIXO (score < 35):                                        │
+  │    → Ignora completamente. Não gasta nenhum recurso.        │
+  │    → acaoExecutada = 'ignorado_score_baixo'                 │
+  │                                                             │
+  │ 3. Pós-decisão (sempre):                                    │
+  │    → MessageThread.update:                                  │
+  │      jarvis_alerted_at = agora                              │
+  │      jarvis_next_check_after = agora + 4h (COOLDOWN_HORAS) │
+  │      jarvis_last_playbook = acao_executada (se não ignorado)│
+  │    → AgentRun.create() para auditoria completa              │
+  └─────────────────────────────────────────────────────────────┘
 
 STEP 3 — Orçamentos parados >7 dias
-  → Query: status='enviado' AND updated_date < 7 dias atrás (limit 10)
-  → Para cada: cria TarefaInteligente de follow-up
-  → ⚠️ PROBLEMA: só pega 'enviado', não pega 'negociando' nem 'vencido'
+  → Se ciclo já ultrapassou 90s → SKIP (guard de tempo)
+  → Orcamento.filter({status: 'enviado', updated_date < 7d}, limit=10)
+  → Para cada: TarefaInteligente.create(tipo='follow_up_orcamento')
+  ⚠️ PROBLEMA REAL: só status='enviado'. NÃO vê:
+    → 'negociando' travado (problema crítico de pipeline)
+    → 'vencido' recente (oportunidade de reativação)
+    → 'rejeitado' recente (análise de causa perdida)
 ```
 
-**Variáveis de controle importantes:**
-- `COOLDOWN_HORAS = 4` — contato só recebe 1 alerta a cada 4 horas
-- `MAX_THREADS_POR_CICLO = 3` — máximo de threads processadas por ciclo de 30min
-- `MAX_CICLO_MS = 90.000ms` — guard de tempo total do ciclo
-
-**Campos que usa no banco:**
-- `MessageThread.jarvis_alerted_at` — quando alertou pela última vez
-- `MessageThread.jarvis_next_check_after` — quando pode verificar novamente  
-- `MessageThread.jarvis_last_playbook` — última ação executada
-- `ContactBehaviorAnalysis.priority_score` / `.priority_label` / `.insights_v2.next_best_action.suggested_message`
-- `ContactBehaviorAnalysis.relationship_risk.level`
+**Campos de controle no banco:**
+| Campo | Entidade | Uso |
+|---|---|---|
+| `jarvis_next_check_after` | MessageThread | Cooldown: quando pode verificar de novo |
+| `jarvis_alerted_at` | MessageThread | Quando alertou pela última vez |
+| `jarvis_last_playbook` | MessageThread | Última ação executada pelo Jarvis |
+| `priority_score` | ContactBehaviorAnalysis | Score 0-100 que define a decisão |
+| `priority_label` | ContactBehaviorAnalysis | CRÍTICO/ALTO/MÉDIO/BAIXO |
+| `insights_v2.next_best_action.suggested_message` | ContactBehaviorAnalysis | Mensagem pronta para envio direto |
 
 ---
 
-#### 🔬 `analisarComportamentoContato` — v3 (Motor de Prontuário)
-**O que faz de verdade:**
-Gera o "prontuário de inteligência" de um contato. É chamado por `analisarClientesEmLote` e pode ser chamado diretamente da UI.
+### 🔬 `analisarComportamentoContato` — v3 (Motor de Prontuário)
+**Status:** ✅ Ativo e funcional
+**SDK:** `@base44/sdk@0.8.20`
 
-**Fluxo interno detalhado:**
+**Responsabilidade:** Gera o "prontuário de inteligência" completo de um contato. É a única fonte da verdade sobre comportamento, risco e intenção.
+
+**Fluxo interno completo:**
 ```
-ETAPA A — Busca dados
+ETAPA A — Busca de dados
   → Contact.get(contact_id)
-  → MessageThread.filter({contact_id}) → todos os threads do contato
+  → MessageThread.filter({contact_id}) → todos os threads
 
-ETAPA B — Busca mensagens
-  → Message.filter({thread_id: {$in: threadIds}}, '-sent_at', 100)
-  → Inverte para ordem ASC (cronológica)
-  → Se sem mensagens → cria ContactBehaviorAnalysis com status='insufficient_data'
+ETAPA B — Busca de mensagens
+  → Message.filter({thread_id: {$in: threadIds}}, '-sent_at', limit=100)
+  → Inverte para ASC (ordem cronológica)
+  → Se 0 threads → cria ContactBehaviorAnalysis(status='insufficient_data'), retorna
+  → Se 0 mensagens → idem
+  ⚠️ NÃO lê: Orcamento, Venda, Interacao
+    → deal_risk calculado sem saber de orçamentos reais
 
 ETAPA C — Timestamps e Buckets
-  → Calcula: lastMessageAt, lastInboundAt, lastOutboundAt
-  → Calcula: daysInactiveTotal, daysInactiveInbound, daysInactiveOutbound
-  → Bucket de inatividade (baseado em INBOUND do cliente):
-      'active' → inbound < 30 dias
-      '30'     → 30-59 dias
-      '60'     → 60-89 dias
-      '90+'    → 90+ dias
+  → lastMessageAt (qualquer sender)
+  → lastInboundAt (sender_type = 'contact')
+  → lastOutboundAt (sender_type = 'user')
+  → daysInactiveInbound = dias sem resposta DO CLIENTE
+  → bucketInactive = 'active'|'30'|'60'|'90+' (baseado em inbound)
 
-ETAPA D — Métricas Determinísticas (Hard Stats)
-  → inboundCount, outboundCount, ratioInOut
-  → responseTimesAgent[] — tempo resposta do atendente após mensagem do cliente
-  → responseTimesContact[] — tempo resposta do cliente após mensagem do atendente
-  → avgReplyMinutesAgent, avgReplyMinutesContact
-  → unansweredFollowups — follow-ups enviados sem resposta (últimas 10 msgs)
-  → maxSilenceGapDays — maior gap de silêncio em dias
-  → conversationVelocity — mensagens/dia no histórico
-  → last10Balance — balanço inbound/outbound últimas 10 msgs
+ETAPA D — Métricas Determinísticas (Hard Stats — sem IA)
+  → inboundCount, outboundCount
+  → ratioInOut = inbound/outbound
+  → responseTimesAgent[] = diff(msg_user após msg_contact), em minutos
+  → responseTimesContact[] = diff(msg_contact após msg_user), em minutos
+  → Filtro: ignora diffs > 7 dias (silêncios prolongados não são "resposta")
+  → avgReplyMinutesAgent (média dos tempos de resposta do atendente)
+  → avgReplyMinutesContact (média dos tempos de resposta do cliente)
+  → unansweredFollowups = mensagens 'user' nas últimas 10 sem resposta 'contact' depois
+  → maxSilenceGapDays = maior gap entre mensagens consecutivas
+  → conversationVelocity = totalMsgs / diasHistórico (msgs/dia)
+  → last10Balance = {inbound: N, outbound: M} nas últimas 10 msgs
 
-ETAPA E — Análise de IA (Semântica) via Claude/GPT
-  → Usa textos das últimas 50 mensagens inbound do contato
-  → Prompt detalhado pede JSON com:
-    - relationship_profile: {type, flags[], summary}
-      tipos: comprador_corporativo_multi_cotacao | cliente_fidelizado | lead_quente | suporte_tecnico | financeiro | outro
-      flags: price_sensitive | deadline_sensitive | process_formal | decision_by_third_party | uses_benchmark | relationship_frictions
-    - scores: {health 0-100, deal_risk 0-100, buy_intent 0-100, engagement 0-100}
-    - stage: {current, days_stalled, last_milestone, last_milestone_at}
-      estágios: primeiro_contato | cotacao_enviada | negociacao | negociacao_stalled | perdido | ganho
-    - root_causes[]: [{cause, severity: low/medium/high/critical, confidence}]
-    - evidence_snippets[]: [{timestamp, sender, text, related_cause}]
-    - objections[]: [{type: preco/prazo/marca/condicoes_comerciais/processo, status: open/resolved/recurring, snippet}]
-    - alerts[]: [{level: info/warning/critical, message}]
-    - playbook: {goal, rules_of_game[], when_to_compete[], when_to_decline[]}
-    - next_best_action: {action, priority: low/medium/high/urgent, rationale, suggested_message (máx 300 chars)}
-    - relationship_risk: {level: low/medium/high/critical, events[]}
-    - prontuario_ptbr: {visao_geral, necessidades_contexto, estado_atual_scores, causas_principais, oportunidades_sinais_positivos, recomendacoes_objetivas, mensagem_pronta}
+ETAPA E — Análise Semântica via IA (Claude/GPT)
+  → Pega últimas 50 mensagens inbound do contato
+  → Se texto total < 20 chars → skip (sem dado suficiente)
+  → Prompt V2 detalhado pede JSON completo com:
 
-ETAPA F — Cálculo do Priority Score (algoritmo real)
-  → inactivityPoints: bucket '30'=10pts | '60'=20pts | '90+'=30pts
-  → priorityScore = MIN(100, ROUND(
-      inactivityPoints +
-      deal_risk * 0.4 +          (risco alto → score alto)
-      (100 - buy_intent) * 0.2 + (baixa intenção → score alto)
-      (100 - engagement) * 0.2 + (baixo engajamento → score alto)
-      MIN(maxSilenceGapDays * 2, 15) (gap silêncio → até 15pts extra)
-    ))
-  → Labels: CRÍTICO ≥75 | ALTO ≥55 | MÉDIO ≥35 | BAIXO <35
+    relationship_profile:
+      type: comprador_corporativo_multi_cotacao | cliente_fidelizado |
+            lead_quente | suporte_tecnico | financeiro | outro
+      flags: price_sensitive | deadline_sensitive | process_formal |
+             decision_by_third_party | uses_benchmark | relationship_frictions
+      summary: "1 frase"
+
+    scores: {health: 0-100, deal_risk: 0-100, buy_intent: 0-100, engagement: 0-100}
+
+    stage:
+      current: primeiro_contato | cotacao_enviada | negociacao |
+               negociacao_stalled | perdido | ganho
+      days_stalled: número
+      last_milestone: "descrição"
+
+    root_causes[]: [{cause, severity: low/medium/high/critical, confidence: 0-1}]
+
+    evidence_snippets[]: [{timestamp, sender, text, related_cause}]
+
+    objections[]: [{type: preco/prazo/marca/condicoes_comerciais/processo,
+                    status: open/resolved/recurring, snippet}]
+
+    alerts[]: [{level: info/warning/critical, message}]
+
+    playbook: {goal, rules_of_game[], when_to_compete[], when_to_decline[]}
+
+    next_best_action: {action, priority: low/medium/high/urgent,
+                       rationale, suggested_message (máx 300 chars)}
+
+    relationship_risk: {level: low/medium/high/critical, events[]}
+
+    prontuario_ptbr: {
+      visao_geral, necessidades_contexto, estado_atual_scores,
+      causas_principais, oportunidades_sinais_positivos,
+      recomendacoes_objetivas, mensagem_pronta
+    }
+
+ETAPA F — Priority Score (algoritmo determinístico real)
+  inactivityPoints:
+    bucket '30'  → +10 pts
+    bucket '60'  → +20 pts
+    bucket '90+' → +30 pts
+
+  priorityScore = MIN(100, ROUND(
+    inactivityPoints +
+    deal_risk * 0.4 +           ← risco alto → score alto
+    (100 - buy_intent) * 0.2 +  ← baixa intenção → score alto
+    (100 - engagement) * 0.2 +  ← baixo eng → score alto
+    MIN(maxSilenceGapDays * 2, 15)  ← até +15pts por silêncio
+  ))
+
+  Labels: CRÍTICO ≥75 | ALTO ≥55 | MÉDIO ≥35 | BAIXO <35
+
+  Root causes sintéticas:
+  → unansweredFollowups ≥ 3 → "X follow-ups sem resposta"
+  → daysInactiveInbound > 7 → "Cliente sem responder há X dias"
+  → objecoes.length > 0 → "N objeção(ões) ativa(s)"
+  → health < 40 → "Saúde baixa do relacionamento"
 
 ETAPA G — Persistência dupla
-  1. ContactBehaviorAnalysis.create() com campos completos:
-     - insights_v2 (JSONB — fonte da verdade V3.1)
-     - prontuario_text (texto concatenado para leitura rápida)
-     - Todos os campos individuais para compatibilidade
-  2. Contact.update() com cache de scores:
-     - score_engajamento, segmento_atual, estagio_ciclo_vida, cliente_score
-     - campos_personalizados: cache de deal_risk, buy_intent, health, relationship_risk, etc.
+  1. ContactBehaviorAnalysis.create({
+       status: 'ok',
+       insights_v2: {...},         ← FONTE DA VERDADE (JSONB completo)
+       prontuario_text: "...",     ← texto concatenado para leitura rápida
+       priority_score, priority_label,
+       bucket_inactive, days_inactive_inbound,
+       relationship_profile, scores, stage,
+       root_causes, objections, alerts,
+       playbook, next_best_action, relationship_risk,
+       ai_insights: {...},          ← campo legado (compatibilidade)
+     })
+
+  2. Contact.update({
+       score_engajamento: engagement,
+       segmento_atual: (calculado),
+       estagio_ciclo_vida: stage.current,
+       cliente_score: priorityScore,
+       campos_personalizados: {
+         deal_risk_cached, buy_intent_cached, health_cached, engagement_cached,
+         relationship_profile_type, relationship_profile_flags,
+         relationship_risk_level, relationship_risk_events_count,
+         bucket_inactive, days_inactive_inbound,
+         playbook_goal, playbook_when_to_compete, playbook_when_to_decline,
+         last_analysis_status, last_analysis_at, last_analysis_priority_label
+       }
+     })
 
 ETAPA H — Hook pós-análise
-  → Chama acionarAutomacoesPorPlaybook({contact_id, analysis_id})
-  → Erros aqui são apenas logados, não param o retorno
+  → Invoca acionarAutomacoesPorPlaybook({contact_id, analysis_id})
+  → Erros aqui são logados mas não param o retorno de sucesso
 ```
 
 **Segmentação automática (helper interno):**
-- `risco_churn` → deal_risk>70 AND bucket='90+'
-- `lead_quente` → buy_intent>70 AND deal_risk<30
-- `lead_morno` → buy_intent>40 AND deal_risk<50
-- `lead_frio` → bucket='90+'
-- `cliente_ativo` → default
+- `risco_churn` → deal_risk > 70 AND bucket = '90+'
+- `lead_quente` → buy_intent > 70 AND deal_risk < 30
+- `lead_morno` → buy_intent > 40 AND deal_risk < 50
+- `lead_frio` → bucket = '90+'
+- `cliente_ativo` → fallback padrão
 
 ---
 
-#### 📦 `analisarClientesEmLote` — Orquestrador de Prontuários
-**O que faz de verdade:**
-Gerencia QUANDO e QUAIS contatos serão analisados. Tem 3 modos distintos.
+### 📦 `analisarClientesEmLote` — Orquestrador de Prontuários
+**Status:** ✅ Ativo e funcional
+**SDK:** `@base44/sdk@0.8.6`
+**Scheduling:** Automação scheduled a cada 1 hora (modo scheduled)
 
-**Modo 1 — Direto (chamado pela UI com IDs específicos):**
+**3 modos distintos:**
+
+**MODO 1 — Direto (IDs específicos, chamado pela UI)**
 ```
 → Recebe contact_ids[]
-→ Para cada: chama analisarComportamentoContato com delay 300ms
-→ Retorna: {total, sucesso, erro, erros[]}
+→ Para cada: invoca analisarComportamentoContato com delay 300ms
+→ Retorna {total, sucesso, erro, erros[]}
 ```
 
-**Modo 2 — Priorização (chamado pela UI de Contatos Inteligentes):**
+**MODO 2 — Priorização (chamado pela UI de Contatos Inteligentes)**
 ```
-→ Filtra Contact por tipo_contato + dias de inatividade (bucket)
-→ Busca ContactBehaviorAnalysis dos últimos 7 dias em paralelo
-→ Busca MessageThreads canônicas em paralelo
+→ Filtra Contact por tipo_contato + inatividade (bucket)
+  → bucket_inactive: '30'|'60'|'90'|'all'|null
+  → null → dias = MAX(diasSemMensagem, 2) — default 2 dias
+→ Promise.all para buscar em paralelo:
+  → ContactBehaviorAnalysis últimas 7 dias
+  → MessageThreads canônicas (is_canonical=true)
 → Para cada contato:
-  - SE sem análise/insufficient_data/error:
-    → Usa inatividade como proxy de prioridade (sem IA)
-    → Retorna dados básicos + suggested_message genérica
-  - SE com análise válida:
-    → Extrai deal_risk, buy_intent, engagement, health, stage, next_action
-    → Aplica filtro duplo: (inatividade >= bucket) OR (deal_risk >= minDealRisk)
-    → Retorna DTO padronizado com campos snake_case e camelCase
+  CASO 1 — Sem análise ou status=insufficient_data/error:
+    → Usa inatividade como proxy de score
+    → daysInactive ≥90 → 75pts (CRITICO)
+    → daysInactive ≥60 → 60pts (ALTO)
+    → daysInactive ≥30 → 40pts (MEDIO)
+    → default → 10pts (BAIXO)
+    → suggested_message genérica por nome
+  CASO 2 — Com análise válida:
+    → Extrai deal_risk, buy_intent, engagement, health, stage
+    → Filtro DUPLO: (daysInactiveInbound ≥ bucket) OR (deal_risk ≥ minDealRisk)
+    → Só exclui se NÃO passar por NENHUM critério
+    → DTO padronizado: campos snake_case + camelCase (para compatibilidade UI)
 → Ordena por prioridadeScore DESC
-→ Retorna estatísticas: {criticos, altos, porPrioridade, porBucket, scoresMedios}
+→ Retorna estatísticas:
+  {criticos, altos, porPrioridade, porBucket, scoresMedios}
 ```
 
-**Modo 3 — Scheduled (roda automaticamente a cada hora):**
+**MODO 3 — Scheduled (automático a cada hora)**
 ```
-→ Busca contatos tipo lead/cliente com ultima_interacao nos últimos 90 dias
-→ Para cada:
-  → Verifica se tem análise < 24h → pula (não recalcula desnecessariamente)
-  → Chama analisarComportamentoContato com delay 200ms (anti-rate-limit)
-→ Retorna: {total_processados, analises_criadas, analises_puladas, erros[]}
+→ Contact.filter({tipo_contato: ['lead','cliente'],
+                  ultima_interacao: {$gte: 90d atrás}}, limit=50)
+→ Para cada contato:
+  → Verifica análise < 24h → PULA (não recalcula desnecessariamente)
+  → Invoca analisarComportamentoContato com delay 200ms
+→ Retorna {total_processados, analises_criadas, analises_puladas, erros[]}
 ```
 
 ---
 
-#### 🎯 `acionarAutomacoesPorPlaybook` — Hook Pós-Análise
-**O que faz de verdade:**
-Chamado automaticamente após cada `analisarComportamentoContato`. Aplica regras de negócio baseadas no resultado do prontuário.
+### 🎯 `acionarAutomacoesPorPlaybook` — Hook Pós-Análise
+**Status:** ✅ Ativo (corrigido 2026-03-09 — bug 401 por auth.me())
+**SDK:** `@base44/sdk@0.8.20`
 
-**Regras reais implementadas:**
+**Responsabilidade:** Aplicar regras de negócio baseadas no resultado do prontuário. Chamado automaticamente por `analisarComportamentoContato`.
 
+**4 regras implementadas:**
 ```
-REGRA 1 — when_to_decline (quando NÃO investir esforço)
-  → Avalia playbook.when_to_decline contra campos_personalizados do contato
-  → Se deal_risk>70 → regras de preço/benchmark se aplicam
-  → Se engagement<40 → regras de volume/genérica se aplicam
-  → Cria WorkQueueItem tipo='avaliar_potencial', severity='low'
-  → Scheduled para 7 dias no futuro
-  → Inclui hook criativo mesmo em decline (para se decidir reengajar)
+REGRA 1 — when_to_decline
+  → Se playbook.when_to_decline[] tem regras E se aplicam ao contato:
+    → "preço|benchmark" → se deal_risk > 70
+    → "volume|genérica" → se engagement < 40
+  → Cria WorkQueueItem:
+    tipo='avaliar_potencial', severity='low'
+    scheduled_for = agora + 7 dias
+    payload = {playbook_rules_matched, analysis_id, hook_criativo}
 
-REGRA 2 — when_to_compete (quando LUTAR pelo cliente)
-  → Busca thread canônica do contato
-  → Atualiza thread.campos_personalizados com:
-    playbook_status='compete'
-    playbook_matched_rules=...
-    hook_criativo_sugerido=...
-    hook_tipo=...
+REGRA 2 — when_to_compete
+  → Se playbook.when_to_compete[] tem regras E se aplicam:
+  → Busca thread canônica
+  → MessageThread.update(campos_personalizados):
+    playbook_status = 'compete'
+    hook_criativo_sugerido = gerado
+    last_playbook_check = agora
 
 REGRA 3 — relationship_risk HIGH/CRITICAL
   → Busca thread canônica
-  → Cria WorkQueueItem tipo='reativacao', severity='high'/'critical'
-  → Scheduled para 24h no futuro
-  → Inclui risk_events + hook criativo personalizado
+  → Cria WorkQueueItem:
+    tipo='reativacao', severity='high'/'critical'
+    scheduled_for = agora + 24h
+    payload = {risk_events, playbook_goal, suggested_action, hook_criativo}
 
-REGRA 4 — Auto-decline
-  → Se analise.scores.deal_risk>70 AND analise.scores.engagement<40
-  → Adiciona tag 'auto_decline_generic_quotes' ao Contact
-  → Evita enviar cotações genéricas para contatos sem chance
+REGRA 4 — Auto-decline (deal_risk>70 + engagement<40)
+  → Adiciona tag 'auto_decline_generic_quotes' no Contact
+  → Evita envio de cotações genéricas para contatos sem chance
 
-GERADOR DE HOOK CRIATIVO (helper interno):
-  → Risco alto + critical → personalizacao_extrema
-  → price_sensitive + process_formal → contraste_provocacao
-  → Lead frio (deal_risk<50, engagement<40) → autoridade_prova_social
-  → Cliente fidelizado travado → reciprocidade_valor
-  → Default → curiosidade_scarcity
+GERADOR DE HOOK CRIATIVO (helper interno — 5 casos):
+  1. relationship_risk high/critical → personalizacao_extrema
+     "Você mencionou que {tema}... achei solução específica pra isso."
+  2. price_sensitive + process_formal → contraste_provocacao
+     "Aviso: você provavelmente está pagando a mais nessa categoria..."
+  3. deal_risk<50 + engagement<40 → autoridade_prova_social
+     "3-5 empresas no seu ramo já fazem isso conosco. Quer saber como?"
+  4. cliente_fidelizado + negociacao_stalled → reciprocidade_valor
+     "Fiz análise do seu histórico. Dá pra economizar ~15%..."
+  5. default → curiosidade_scarcity
+     "⏰ Achei algo que você pediu... mas só 2 unidades nesse preço."
 ```
 
 ---
 
-#### ⏰ `executarFluxosAgendados` — v2.0
-**O que faz de verdade:**
-Worker que roda a cada 5-10 minutos. Avança FlowExecutions com `next_action_at` vencido.
+### ⏰ `executarFluxosAgendados` — v2.0
+**Status:** ✅ Ativo (reescrito 2026-03-09 — import local quebrado removido)
+**SDK:** `@base44/sdk@0.8.20`
+**Scheduling:** Automação scheduled a cada 5-10 minutos
 
+**O que faz:**
 ```
-→ Busca FlowExecution: status='waiting_follow_up' AND next_action_at <= agora (limit 20)
+→ FlowExecution.filter({
+    status: 'waiting_follow_up',
+    next_action_at: {$lte: agora}
+  }, limit=20)
 → Para cada:
-  → Chama playbookEngine({action: 'continue_follow_up', execution_id})
-  → Se falhar: marca FlowExecution.status='erro' e registra no execution_history
-→ Retorna: {total, sucessos, erros}
+  → Invoca playbookEngine({action: 'continue_follow_up', execution_id})
+  → Se falha: FlowExecution.update(status='erro') + registra execution_history
+→ Retorna {total, sucessos, erros}
 ```
 
 ---
 
-#### 🎬 `playbookEngine` — v4 (Motor de Execução)
-**O que faz de verdade:**
-Executa FlowTemplates passo a passo. O "runtime" dos scripts de automação.
+### 🎬 `playbookEngine` — v4 (Motor de Execução)
+**Status:** ✅ Ativo e funcional
+**SDK:** `@base44/sdk@0.7.1`
 
 **Actions disponíveis:**
 ```
 'start' → iniciarExecucao(contact_id, flow_template_id)
-  → Busca ou cria MessageThread para o contato
-  → Cria FlowExecution com status='ativo'
+  → Busca/cria MessageThread para o contato
+  → FlowExecution.create(status='ativo', current_step=0)
   → Executa step 0
 
 'process_response' → processarResposta(execution_id, user_response)
-  → Valida input contra step.opcoes / step.tipo_input
-  → Se inválido: retorna 'retry' ou escala para humano (max_tentativas)
+  → Valida input (opcoes, tipo, email, número)
+  → Se inválido: retry ou escalação após max_tentativas
   → Se válido: armazena em variables, avança step
 
 'continue_follow_up' → continuarFollowUp(execution_id)
   → Chamado por executarFluxosAgendados
-  → Avança current_step + 1
-  → Se chegou ao fim: verifica taxa de engajamento
-    → <30% + auto_escalate_to_human → escala para humano
+  → current_step + 1
+  → Se fim: verifica taxa engajamento
+    → taxaEngajamento < 30% + auto_escalate_to_human → escala
     → Senão: finaliza
 
 'cancel' → cancelarExecucao(execution_id)
 ```
 
-**Tipos de Step implementados:**
+**Tipos de Step suportados:**
 ```
-'message' → envia WhatsApp via enviarWhatsApp + registra Message
-  → Se step.delay_days: status='waiting_follow_up', calcula next_action_at
-'input'   → retorna 'wait_input' com campo + opcoes (cliente deve responder)
-'ia_classify' → chama nexusClassifier, atualiza variables + score do cliente
-'action'  → executa ação: criarLead | agendarFollowUp | enviarOrcamento | atribuirVendedor
-'delay'   → pausa execução por delay_days ou delay_seconds
-'end'     → finaliza execução
+'message'    → envia WhatsApp + registra Message
+              → Se delay_days: status='waiting_follow_up', calcula next_action_at
+'input'      → retorna 'wait_input' com campo + opcoes
+'ia_classify'→ nexusClassifier → intent → atualiza variables + score do cliente
+'action'     → criarLead | agendarFollowUp | enviarOrcamento | atribuirVendedor
+'delay'      → pausa por delay_days ou delay_seconds
+'end'        → finaliza execução
 ```
 
-**Escalação para humano:**
-```
-→ Atualiza FlowExecution.status='escalado_humano'
-→ Cria NotificationEvent para TODOS os admin (não só o atendente responsável)
-→ Cria AutomationLog
-→ Atualiza MessageThread.prioridade='alta'
-⚠️ PROBLEMA: notifica todos admins, não o atendente assigned_user_id
+**Escalação para humano (BUG REAL):**
+```javascript
+// Linha 495 — notifica TODOS os admins, não o atendente responsável
+const admins = await base44.asServiceRole.entities.User.filter(
+  { role: 'admin' }, 'full_name', 5
+);
+// ← Nunca busca contact.vendedor_responsavel nem thread.assigned_user_id
 ```
 
 ---
 
-#### 📥 `processInbound` — v11.0.0
-**O que faz de verdade:**
-Pipeline central que processa TODA mensagem inbound recebida do WhatsApp. Chamado pelos webhooks (Z-API, W-API).
+### 📥 `processInbound` — v11.0.0
+**Status:** ✅ Ativo e funcional
+**SDK:** `@base44/sdk@0.8.20`
 
-**Pipeline completo em ordem:**
+**Pipeline completo em ordem exata:**
 ```
 1. IDEMPOTÊNCIA
-   → Busca Message existente com mesmo whatsapp_message_id
-   → Se > 1 resultado: skipa como duplicata
+   → Message.filter({whatsapp_message_id, integration_id})
+   → Se > 1 resultado: retorna {skipped: true, reason: 'duplicate'}
 
-2. RESET FUNIL PROMOÇÕES
-   → Se thread tem autoboost_stage ou last_boost_at: reseta
-   → Garante que nova mensagem cancela funil promocional ativo
+2. RESET PROMOÇÕES
+   → Se thread tem autoboost_stage/last_boost_at: reset
 
-3. ATUALIZAR ENGAGEMENT STATE
-   → Busca ContactEngagementState ativo para o contato
-   → Se encontrado: status='paused', registra last_inbound_at
-   → (Pausa campanhas ativas quando cliente responde)
+3. ENGAGEMENT STATE
+   → ContactEngagementState ativo? → status='paused'
 
 4. HARD-STOP: HUMANO ATIVO
-   → humanoAtivo(thread): assigned_user_id existe + last_human_message_at < 2h + pre_atendimento_ativo=false
-   → Se ativo: PARA PIPELINE COMPLETAMENTE
-   → Retorna {stop: true, reason: 'human_active'}
+   humanoAtivo(thread) = true SE:
+     assigned_user_id existe
+     AND last_human_message_at < 2h atrás
+     AND pre_atendimento_ativo = false
+   → SE ativo: {stop: true, reason: 'human_active'}
 
 5. AGENDA IA CHECK
-   → thread.assistant_mode === 'agenda' OU integration.nome_instancia === 'NEXUS_AGENDA_INTEGRATION'
-   → Se sim: roteia para routeToAgendaIA e PARA
+   → thread.assistant_mode === 'agenda'
+     OR integration.nome_instancia === 'NEXUS_AGENDA_INTEGRATION'
+   → SE sim: routeToAgendaIA → STOP
 
-6. CLAUDE AGENDA CHECK (ANTES da URA)
-   → Detecta palavras: agendar|agendamento|marcar|desmarcar|reagendar|cancelar|horário|disponível|consulta|visita|reunião
-   → Se detectado E integration.id existe: chama claudeAgendaAgent e PARA
-   ⚠️ PROBLEMA: se integration.id está ausente no payload, Claude Agenda é silenciosamente pulado
+6. CLAUDE AGENDA (keyword detection — antes da URA)
+   → Regex: /(agendar|agendamento|marcar|desmarcar|reagendar|remarcar|
+              cancelar|horário|horario|disponível|disponivel|consulta|
+              visita|reunião|reuniao)/
+   → SE detectado E integration.id existe → claudeAgendaAgent → STOP
+   ⚠️ BUG: se integration.id ausente no payload → pulado silenciosamente
 
 7. CICLO DETECTION + DECISÃO URA
-   → novoCiclo = lastInboundAt NULL ou gap >= 12h
-   → shouldDispatch = true se:
-     a) URA já ativa (pre_atendimento_ativo=true) OU
-     b) Novo ciclo OU
-     c) Humano dormant (atribuído mas sem resposta > 2h) E mensagem > 4 chars OU
-     d) Sem assigned_user_id
-   → Se shouldDispatch:
-     → Busca FlowTemplate com is_pre_atendimento_padrao=true AND ativo=true
-     → Se NENHUM encontrado: retorna {stop: true, reason: 'pre_atendimento_desativado'}
-     ⚠️ PROBLEMA CRÍTICO: Hoje NÃO existe nenhum FlowTemplate com is_pre_atendimento_padrao=true
-     → Resultado: URA nunca é acionada, pipeline cai no fallback (Claude)
-     → Chama preAtendimentoHandler e PARA
+   novoCiclo = lastInboundAt NULL OR gap >= 12h
 
-8. CLAUDE AI RESPONDER (FALLBACK)
-   → Se message.sender_type='contact' E mensagem > 2 chars E integration.id existe
-   → Chama claudeWhatsAppResponder
-   ⚠️ PROBLEMA: Se integration.id ausente no payload, Claude não é acionado (silencioso)
+   shouldDispatch = true se QUALQUER:
+   a) pre_atendimento_ativo = true (URA já rodando)
+   b) novoCiclo = true
+   c) humanoDormant (atribuído mas last_human_message > 2h) + msg > 4 chars
+   d) assigned_user_id = null (sem atendente)
+
+   SE shouldDispatch:
+   → FlowTemplate.filter({is_pre_atendimento_padrao: true, ativo: true}, limit=1)
+   ⚠️ BUG CRÍTICO: Hoje = 0 FlowTemplates com is_pre_atendimento_padrao=true
+   → Retorna: {stop: true, reason: 'pre_atendimento_desativado'}
+   → IMPACTO: URA nunca é acionada. Cliente NUNCA é perguntado "qual setor?"
+   → Todo o pipeline cai no fallback do Claude para TUDO
+
+8. CLAUDE AI RESPONDER (FALLBACK — ativa hoje porque URA está morta)
+   → message.sender_type = 'contact' AND content > 2 chars
+   ⚠️ BUG: integration.id ausente → skipped silenciosamente
+   → claudeWhatsAppResponder({thread_id, contact_id, content, integration_id, provider})
 ```
 
 ---
 
-#### 🤖 `claudeWhatsAppResponder`
+### 🤖 `claudeWhatsAppResponder` — v2.1.0
+**Status:** ✅ Ativo e funcional
+**SDK:** `@base44/sdk@0.8.20` | **IA:** Anthropic `claude-3-5-haiku-20241022`
+
 **O que faz de verdade:**
-Fallback de atendimento 24/7. Usa Anthropic Claude com contexto completo da empresa.
+```
+→ Recebe: thread_id, contact_id, message_content, integration_id, provider
+→ Promise.all em paralelo:
+  → Message.filter({thread_id}, limit=12) → histórico
+  → Contact.get(contact_id)
+  → WhatsAppIntegration.get(integration_id)
 
-**Contexto injetado no prompt:**
-- Identidade da empresa (nome, produtos, serviços, políticas)
-- Histórico de mensagens da thread (últimas N)
-- Dados do contato (nome, tipo, empresa)
-- Perfil comportamental do contato (se disponível em ContactBehaviorAnalysis)
+→ Análise da mensagem (keywords simples):
+  → urgente: 'urgente', 'emergência', 'quebrou', 'não funciona', 'procon', ...
+  → querHumano: 'falar com atendente', 'quero humano', 'chamar gerente', ...
+  → intencao: VENDAS | SUPORTE | FINANCEIRO | FORNECEDOR | GERAL (regex)
 
-**Capabilities reais:**
-- Responde dúvidas sobre produtos/serviços
-- Detecta urgência, pedido de transferência para humano
-- Classifica intenção (vendas/suporte/financeiro/etc)
-- Escala para humano quando necessário
+→ SE urgente OR querHumano:
+  → Envia mensagem de transição para o cliente
+  → Invoca preAtendimentoHandler para URA
+  → Retorna {action: 'escalated_to_human'}
+
+→ SE não precisa escalar:
+  → Monta histórico para Claude (últimas 12 msgs, inverte para ASC)
+  → System prompt inclui:
+    - Dados da empresa (Liesch Informática — hardcoded)
+    - Produtos e serviços
+    - Políticas de pagamento, garantia, troca
+    - Emails por setor
+    - Nome do contato para personalização
+  → Chama Claude com timeout 15s + 2 retries (backoff 1.5s * tentativa)
+  → model: claude-3-5-haiku-20241022
+  → max_tokens: 600
+  → Envia resposta via enviarMensagem (Z-API ou W-API diretamente)
+  → Message.create com metadata completa
+
+→ Fallback de erro:
+  → Se Claude falha após retries: envia msg humanizada ao cliente
+  → "Desculpe, tivemos uma instabilidade. Nossa equipe foi notificada."
+
+⚠️ LIMITAÇÃO: Dados da empresa são hardcoded no código
+   Mudança de produto/serviço requer alterar o código, não o banco.
+⚠️ LIMITAÇÃO: Não consulta ContactBehaviorAnalysis antes de responder
+   Claude não sabe o histórico de risco/intenção do contato.
+```
 
 ---
 
-#### 📅 `claudeAgendaAgent`
+### 📅 `claudeAgendaAgent`
+**Status:** ✅ Ativo e funcional
+**IA:** Anthropic Claude
+
 **O que faz de verdade:**
-Agente especializado em agendamentos. Acionado por palavras-chave de agenda no processInbound.
-
-**Capabilities reais:**
-- Criar agendamento: verifica disponibilidade real no banco (Agendamento entity)
-- Consultar agendamento: lista compromissos do contato
-- Cancelar/reagendar: atualiza no banco
-- Valida horário de funcionamento, serviços disponíveis, duração
-- Responde em português com tom profissional
-
-**Contexto:**
-- Agendamentos existentes para calcular disponibilidade
-- Serviços configurados com duração
-- Fuso horário (America/Sao_Paulo)
-
----
-
-### 1.2 — Entidades Críticas do Agente
-
-#### `ContactBehaviorAnalysis` — O Prontuário
-Campos mais importantes:
 ```
-analyzed_at       — quando foi gerado
-status            — 'ok' | 'insufficient_data' | 'error'
-priority_score    — 0-100 (algoritmo determinístico + IA)
-priority_label    — 'CRITICO' | 'ALTO' | 'MÉDIO' | 'BAIXO'
-insights_v2       — JSONB completo (FONTE DA VERDADE V3.1)
-  └── relationship_profile: {type, flags[], summary}
-  └── scores: {health, deal_risk, buy_intent, engagement}
-  └── stage: {current, days_stalled, last_milestone}
-  └── root_causes: [{cause, severity, confidence}]
-  └── next_best_action: {action, priority, rationale, suggested_message}
-  └── relationship_risk: {level, events[]}
-  └── playbook: {goal, rules_of_game[], when_to_compete[], when_to_decline[]}
-prontuario_text   — texto concatenado para leitura rápida
-days_inactive_inbound — dias sem mensagem do cliente
-bucket_inactive   — 'active' | '30' | '60' | '90+'
-```
-
-#### `MessageThread` — Estado Atual da Conversa
-Campos críticos para o agente:
-```
-last_message_sender       — 'user' | 'contact'
-last_message_at           — timestamp última mensagem
-last_inbound_at           — timestamp última mensagem DO cliente
-last_human_message_at     — timestamp última mensagem de HUMANO (não URA/automação)
-unread_count              — mensagens não lidas (cliente não respondeu)
-jarvis_next_check_after   — cooldown do Jarvis
-jarvis_last_playbook      — última ação do Jarvis
-assigned_user_id          — atendente responsável
-pre_atendimento_ativo     — URA ativa?
-assistant_mode            — 'default' | 'agenda' | 'vendas' | 'suporte'
-```
-
-#### `WorkQueueItem` — Fila de Tarefas do Agente
-```
-tipo     — 'idle_reativacao' | 'enviar_promocao' | 'follow_up' | 'manual' | 'avaliar_potencial' | 'reativacao'
-severity — 'low' | 'medium' | 'high' | 'critical'
-status   — 'agendado' | 'open' | 'in_progress' | 'processado' | 'done' | 'dismissed' | 'cancelado' | 'erro'
-scheduled_for — quando executar
-payload  — dados específicos da tarefa (hook_criativo, analysis_id, etc.)
-```
-
-#### `FlowExecution` — Instância de Playbook Rodando
-```
-status             — 'ativo' | 'waiting_follow_up' | 'concluido' | 'cancelado' | 'erro' | 'escalado_humano'
-current_step       — índice do step atual no FlowTemplate.steps[]
-next_action_at     — quando executarFluxosAgendados deve retomar
-follow_up_stage_index — posição no ciclo 24h→3d→7d→15d
-variables          — dados coletados durante a execução (nome, interesse, etc.)
-execution_history  — log completo de cada step executado
+→ Ativado por: palavras-chave de agendamento no processInbound
+→ Capabilities reais:
+  → Criar agendamento: verifica disponibilidade no banco (Agendamento entity)
+  → Consultar agendamentos do contato
+  → Cancelar/reagendar: atualiza Agendamento no banco
+  → Valida horário de funcionamento, serviços, duração
+  → Responde em PT-BR com tom profissional
+→ Contexto: Agendamentos existentes, serviços configurados
+→ Fuso: America/Sao_Paulo
 ```
 
 ---
 
-## PARTE 2 — FLUXO REAL COMPLETO (do webhook à resposta)
+### 💼 `businessIA`
+**Status:** ✅ Ativo mas ISOLADO (só UI, não integrado ao ciclo do agente)
+**SDK:** `@base44/sdk@0.7.1`
+
+**4 actions disponíveis:**
+```
+'strategic_insights' → gerarInsightsEstrategicos(base44)
+  → Lê últimos 30 dias: FlowTemplate, FlowExecution, Venda, MessageThread
+  → Detecta: queda >20% em playbook, engajamento <30%, variação receita >25%
+  → Retorna array de insights: {tipo, severidade, titulo, descricao, confianca}
+
+'detect_anomalies' → detectarAnomalias(base44, {playbook_id, periodo_dias})
+  → Agrupa FlowExecution por dia
+  → Detecta quedas abruptas >30% dia-a-dia
+  → Retorna: [{tipo, dia, variacao_percentual, taxa_anterior, taxa_atual}]
+
+'predict_30_days' → preverProximos30Dias(base44)
+  → Calcula: receitaAtual, ticketMedio, taxaConversao, pipelineValor
+  → Projeta: leads_esperados, conversoes_esperadas, receita_esperada
+  → Lê: Venda, FlowExecution, Orcamento(status: enviado/negociando/liberado)
+
+'recommend_actions' → recomendarAcoes(base44)
+  → Roda strategic_insights
+  → Busca threads com unread>0 e last_sender='contact'
+  → Se >10 threads pendentes: gera recomendação de alta prioridade
+  → Retorna: [{prioridade, titulo, descricao, passos[], prazo}]
+
+⚠️ PROBLEMA REAL: businessIA não é invocado por ninguém automaticamente.
+   Apenas a UI do Dashboard o chama. O Jarvis não sabe o que businessIA retorna.
+   → O agente age sem saber se o negócio está em crise ou crescendo.
+```
+
+---
+
+### 🎯 `nexusClassifier`
+**Status:** ✅ Ativo
+**SDK:** `@base44/sdk@0.7.1`
+
+**2 actions:**
+```
+'classify_intention' → classifyIntention(base44, {mensagem, contexto})
+  → Prompt LLM → JSON {intent, confidence, reasoning, entities}
+  → Fallback por keywords se LLM falhar
+  → Intents: vendas | suporte | financeiro | informacao | outro
+
+'query_rag' → queryRAG(base44, {pergunta, contexto, limit=5})
+  → BaseConhecimento.filter({ativo: true}, '-relevancia_score', 50)
+  → Score de relevância por palavras comuns (simples, não embedding)
+  → Filtra: relevancia > 0.3
+  → Monta prompt com contextos encontrados
+  → Retorna: {resposta, is_confident, conhecimentos[]}
+  ⚠️ LIMITAÇÃO: busca por palavras, não por semântica/embeddings
+  ⚠️ LIMITAÇÃO: BaseConhecimento precisa ser populada manualmente
+```
+
+---
+
+### 🚪 `preAtendimentoHandler` — v11.0.0
+**Status:** ✅ Ativo e funcional
+**SDK:** `@base44/sdk@0.8.20`
+
+**O que faz de verdade:**
+```
+→ URA (Unidade de Resposta Automática) de pré-atendimento
+→ Gerencia máquina de estados para cada thread:
+
+Estados e transições:
+  INIT → menu de setores (ou sticky se teve setor anterior)
+    → Se intent_context.confidence ≥ 70 → fast-track direto para roteamento
+    → Se thread.sector_id existe → pergunta se quer continuar no mesmo setor
+    → Senão → menu "1-Vendas, 2-Financeiro, 3-Suporte, 4-Fornecedores"
+
+  WAITING_SECTOR_CHOICE → parseando resposta do cliente
+    → Reconhece: '1'/'vendas'/'comercial' → setor 'vendas'
+    → Reconhece: '2'/'financeiro'/'boleto' → setor 'financeiro'
+    → Reconhece: '3'/'suporte'/'tecnico' → setor 'assistencia'
+    → Reconhece: '4'/'fornecedor'/'compras' → setor 'fornecedor'
+    → Se inválido: re-envia menu
+
+  WAITING_STICKY_DECISION → sim/não para continuar no mesmo setor
+
+  WAITING_ATTENDANT_CHOICE → busca atendente disponível
+    → Invoca roteamentoInteligente({thread_id, contact_id, sector})
+    → Se atendente encontrado: "Encontrei [nome], transferindo..."
+    → Senão: pergunta se quer entrar na fila
+
+  WAITING_QUEUE_DECISION → sim/não para entrar na fila
+    → Sim: gerenciarFila({action: 'enqueue'})
+    → Não: volta ao INIT
+
+→ Política de libertação: estados COMPLETED/CANCELLED/TIMEOUT → reset para INIT
+→ Timeout de 10 minutos por step sem resposta → reset para INIT
+
+⚠️ PROBLEMA REAL: Este handler está funcional e completo,
+   MAS nunca é acionado porque processInbound bloqueia na verificação
+   de FlowTemplate(is_pre_atendimento_padrao=true) antes de chegar aqui.
+   O preAtendimentoHandler está pronto. Falta 1 FlowTemplate no banco.
+```
+
+---
+
+## 1.2 — Funções de Suporte (ativas, não são IA CORE)
+
+| Função | Status | O que faz |
+|---|---|---|
+| `enviarWhatsApp` | ✅ Ativo | Gateway unificado Z-API/W-API/Evolution. Todos os tipos de mídia. |
+| `webhookFinalZapi` | ✅ Ativo | Recebe webhooks Z-API, normaliza, cria Contact/Thread/Message |
+| `webhookWapi` | ✅ Ativo | Recebe webhooks W-API, normaliza, cria Contact/Thread/Message |
+| `roteamentoInteligente` | ✅ Ativo | Busca atendente disponível por setor para assignar conversa |
+| `getOrCreateInternalThread` | ✅ Ativo | Cria thread interna entre agente e atendente |
+| `gerenciarFila` | ✅ Ativo | Enfileira thread quando sem atendente disponível |
+| `runPromotionBatchTick` | ✅ Ativo | Worker de promoções em lote |
+| `runPromotionInboundTick` | ✅ Ativo | Worker de promoções inbound |
+| `processarFilaBroadcast` | ✅ Ativo | Worker de broadcasts |
+| `enviarCampanhaLote` | ✅ Ativo | Envia campanhas em lote (Z-API ou W-API) |
+| `gerarSugestoesRespostaContato` | ✅ Ativo | Copiloto: sugere respostas para atendente na UI |
+
+## 1.3 — Funções Deletadas / Obsoletas
+
+| Função | Status | Motivo |
+|---|---|---|
+| `enviarMensagemMassa` | ✅ DELETADA 2026-03-09 | Wrapper morto → enviarCampanhaLote |
+| `enviarPromocoesLote` | ✅ DELETADA 2026-03-09 | Wrapper morto → enviarCampanhaLote |
+| Tudo em `_OBSOLETAS_PARA_DELETAR.md` | ⏳ Pendente | Verificar UIs dependentes antes |
+| `analisarComportamentoContatoIA` | ⚠️ Verificar | Possível duplicata de analisarComportamentoContato |
+| `analisarScorePreditivo` | ⚠️ Verificar | Possível duplicata de lógica no analisarComportamentoContato |
+
+---
+
+# PARTE 2 — FLUXO REAL DO WEBHOOK ATÉ A RESPOSTA
 
 ```
-╔══════════════════════════════════════════════════════════╗
-║  CLIENTE MANDA MENSAGEM WHATSAPP                         ║
-╚══════════════════════════════════════════════════════════╝
-                         │
-              ┌──────────┴──────────┐
-              │                     │
-     webhookFinalZapi          webhookWapi
-     (Z-API)                   (W-API)
-              │                     │
-              └──────────┬──────────┘
-                         │
-                    NORMALIZA payload
-                    → Extrai: phone, name, message, media_type
-                    → Normaliza telefone (remove +55, 9º dígito, etc.)
-                         │
-                  BUSCA/CRIA Contact
-                    → Busca por telefone_canonico
-                    → Se não existe: cria Contact novo
-                         │
-                  BUSCA/CRIA MessageThread
-                    → Busca thread canônica do contato
-                    → Atualiza: last_message_at, last_inbound_at, unread_count++
-                         │
-                  PERSISTE Message
-                    → Cria Message com whatsapp_message_id (para dedup)
-                         │
-                  MÍDIA? → spawn persistirMidiaZapi/Wapi (async, não bloqueia)
-                         │
-                  CHAMA processInbound (async)
-                         │
-                         ▼
-╔══════════════════════════════════════════════════════════╗
-║  processInbound v11 — Pipeline de Decisão               ║
-╠══════════════════════════════════════════════════════════╣
-║  1. Dedup (whatsapp_message_id) ──────── se duplicata: STOP
-║  2. Reset promoções ─────────────────── se funil ativo: reset
-║  3. Update engagement state ────────── pausa campanhas ativas
-║                                                          ║
-║  4. HUMANO ATIVO? (last_human_message_at < 2h) ─── STOP ║
-║                                                          ║
-║  5. MODO AGENDA? (assistant_mode='agenda') ───────────── ║
-║     → routeToAgendaIA ──────────────────────────── STOP ║
-║                                                          ║
-║  6. PALAVRAS DE AGENDA? (agendar|marcar|horário|...)──── ║
-║     → claudeAgendaAgent ───────────────────────── STOP  ║
-║                                                          ║
-║  7. shouldDispatch URA?                                  ║
-║     a) URA já ativa (pre_atendimento_ativo=true) OU     ║
-║     b) Novo ciclo (gap >= 12h) OU                        ║
-║     c) Humano dormant + msg > 4 chars OU                 ║
-║     d) Sem atendente atribuído                           ║
-║     → Busca FlowTemplate(is_pre_atendimento_padrao=true) ║
-║     → ⚠️ HOJE: NENHUM ENCONTRADO → STOP (pre_atendimento_desativado)
-║     → Se encontrado: preAtendimentoHandler ──────── STOP║
-║                                                          ║
-║  8. FALLBACK: claudeWhatsAppResponder                    ║
-║     (só se integration.id presente no payload)           ║
-╚══════════════════════════════════════════════════════════╝
-                         │
-              [PARALELO — Rodando em Background]
-                         │
-         ┌───────────────┼───────────────┐
-         │               │               │
-    A cada 1h        A cada 30min    A cada 5-10min
-         │               │               │
-analisarClientes   jarvisEventLoop  executarFluxos
-EmLote (scheduled)  v3.0 (Nexus)    Agendados v2
-         │               │               │
-         ▼               ▼               ▼
-  Atualiza      Detecta threads    Avança FlowExec
-  Prontuários   ociosas + decide   com next_action_at
-  (ContactBe-   CRÍTICO/ALTO/     vencido via
-  haviorAnalysis) MÉDIO/BAIXO     playbookEngine
+╔══════════════════════════════════════════════════════════════════╗
+║  CLIENTE MANDA MENSAGEM WHATSAPP                                 ║
+╚══════════════════════════════════════════════════════════════════╝
+                              │
+            ┌─────────────────┴──────────────────┐
+            │                                    │
+     webhookFinalZapi                       webhookWapi
+     (Z-API)                                (W-API)
+            │                                    │
+            └─────────────────┬──────────────────┘
+                              │
+                  [Processamento síncrono — ~200ms]
+                              │
+              1. NORMALIZA payload
+                 → Extrai: phone, name, text, media_type
+                 → Normaliza telefone (remove +55, dígito 9, etc.)
+                 → Filtra: groups, status, reactions → DROP
+                              │
+              2. DEDUPLICAÇÃO (whatsapp_message_id)
+                 → Já existe? → 200 OK silencioso
+                              │
+              3. BUSCA/CRIA Contact
+                 → Busca por telefone_canonico
+                 → Se não existe: Contact.create(tipo='novo')
+                              │
+              4. BUSCA/CRIA MessageThread
+                 → Busca thread canônica (is_canonical=true)
+                 → Cria se não existe
+                 → Atualiza: last_message_at, last_inbound_at, unread_count++
+                              │
+              5. PERSISTE Message
+                 → Message.create(whatsapp_message_id, status='recebida')
+                              │
+              6. MÍDIA? → spawn async persistirMidia (não bloqueia)
+                              │
+              7. CHAMA processInbound (async, não bloqueia webhook)
+                 → Retorna 200 para o provider imediatamente
+                              │
+                              ▼
+╔══════════════════════════════════════════════════════════════════╗
+║  processInbound v11 — Pipeline de Decisão                        ║
+╠══════════════════════════════════════════════════════════════════╣
+║                                                                  ║
+║  STEP 1: Dedup (2ª verificação) ─────────────── DUPLICATA? STOP ║
+║  STEP 2: Reset funil promoções                                   ║
+║  STEP 3: Pausa ContactEngagementState ativo                      ║
+║                                                                  ║
+║  STEP 4: HUMANO ATIVO?                                           ║
+║  → last_human_message_at < 2h AND assigned AND não-URA? ─► STOP ║
+║                                                                  ║
+║  STEP 5: MODO AGENDA?                                            ║
+║  → assistant_mode='agenda' → routeToAgendaIA ──────────► STOP  ║
+║                                                                  ║
+║  STEP 6: KEYWORD AGENDA? (agendar|marcar|horário|...)            ║
+║  → claudeAgendaAgent ──────────────────────────────────► STOP  ║
+║  ⚠️ SE integration.id ausente → pulado silenciosamente          ║
+║                                                                  ║
+║  STEP 7: shouldDispatch URA?                                     ║
+║  → novoCiclo OR uraAtiva OR humanoDormant OR semAtendente?       ║
+║  → SE SIM: busca FlowTemplate(is_pre_atendimento_padrao=true)    ║
+║  → ⚠️ HOJE: 0 ENCONTRADOS → {stop, reason:'pre_atendimento_    ║
+║                                              desativado'}        ║
+║  → SE ENCONTRADO: preAtendimentoHandler ──────────────► STOP   ║
+║                                                                  ║
+║  STEP 8: FALLBACK — claudeWhatsAppResponder                      ║
+║  (Único caminho ativo hoje para a maioria das mensagens)         ║
+║  ⚠️ SE integration.id ausente → skipped silenciosamente         ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+                              │
+                    [PARALELO — Background Schedulers]
+                              │
+         ┌────────────────────┼────────────────────┐
+         │                    │                    │
+    A cada 1h            A cada 30min         A cada 5min
+         │                    │                    │
+analisarClientesEmLote   jarvisEventLoop v3    executarFluxos
+(modo scheduled)         (NexusAgentLoop)      Agendados v2
+         │                    │                    │
+         ▼                    ▼                    ▼
+  Atualiza prontuário  Detecta threads       Avança FlowExec
+  ContactBehaviorAn.   ociosas → decide      waiting_follow_up
+  para todos os        CRÍTICO/ALTO/MÉDIO/   via playbookEngine
+  leads/clientes       BAIXO → age
+  ativos (90d)
          │
          ▼
-acionarAutomacoes
-PorPlaybook
-  → Cria WorkQueueItems
-  → Atualiza tags
-  → Marca threads prioritárias
+acionarAutomacoesPor
+Playbook (hook)
+→ Cria WorkQueueItems
+→ Atualiza tags
+→ Marca threads prioritárias
 ```
 
 ---
 
-## PARTE 3 — GAPS REAIS COM EVIDÊNCIA DE CÓDIGO
+# PARTE 3 — O QUE ESTÁ FUNCIONANDO (pode aproveitar sem reescrita)
 
-### GAP 1 — URA nunca dispara (CRÍTICO)
-**Evidência:**
+| Componente | O que funciona | Confiabilidade |
+|---|---|---|
+| Webhook Z-API (`webhookFinalZapi`) | Recebe, normaliza, cria Contact/Thread/Message | ✅ Alta |
+| Webhook W-API (`webhookWapi`) | Idem para W-API | ✅ Alta |
+| `enviarWhatsApp` | Gateway unificado, todos os tipos de mídia | ✅ Alta |
+| `processInbound` v11 | Pipeline de roteamento, dedup, reset promos | ✅ Alta |
+| `claudeWhatsAppResponder` v2.1 | Resposta automática com retry, timeout, fallback | ✅ Alta |
+| `claudeAgendaAgent` | Agendamentos completos com validação de disponibilidade | ✅ Alta |
+| `preAtendimentoHandler` v11 | Máquina de estados completa, pronta para uso | ✅ Alta |
+| `analisarComportamentoContato` v3 | Prontuário completo com IA + scores determinísticos | ✅ Alta |
+| `analisarClientesEmLote` | 3 modos: scheduled/priorização/direto | ✅ Alta |
+| `jarvisEventLoop` v3.0 | Loop autônomo com decisão por prontuário | ✅ Alta |
+| `acionarAutomacoesPorPlaybook` | Hook pós-análise com 4 regras de negócio | ✅ Alta |
+| `executarFluxosAgendados` v2 | Worker de follow-ups agendados | ✅ Alta |
+| `playbookEngine` v4 | Execução de flows: mensagem, input, ação, delay | ✅ Alta |
+| `businessIA` | Insights de negócio, anomalias, previsão | ✅ Alta (isolado) |
+| `nexusClassifier` | Classificação de intenção + RAG básico | ✅ Média |
+| `roteamentoInteligente` | Busca atendente disponível por setor | ✅ Alta |
+| `getOrCreateInternalThread` | Threads internas entre usuários | ✅ Alta |
+
+---
+
+# PARTE 4 — GAPS REAIS COM EVIDÊNCIA DE CÓDIGO
+
+## GAP 1 — URA nunca dispara (CRÍTICO — bloqueia pré-atendimento)
+**Evidência direta do código:**
 ```javascript
-// processInbound linha 176-184
+// processInbound.js linha 176-184
 const playbooks = await base44.asServiceRole.entities.FlowTemplate.filter({
-  is_pre_atendimento_padrao: true,
+  is_pre_atendimento_padrao: true,  // ← ZERO registros com este campo = true
   ativo: true
 }, '-created_date', 1);
 
 if (!playbooks?.length) {
-  console.log(`[${VERSION}] 🚫 Sem playbook ativo - bloqueando URA`);
   result.actions.push('ura_blocked_no_playbook');
-  return Response.json({...stop: true, reason: 'pre_atendimento_desativado'});
+  return Response.json({
+    ...stop: true, reason: 'pre_atendimento_desativado'  // ← SEMPRE retorna isso
+  });
 }
 ```
-**Impacto:** Toda mensagem que deveria passar pela URA cai direto no Claude.
-O cliente nunca é perguntado "qual setor você quer?" — Claude tenta adivinhar.
-**Solução:** Criar 1 FlowTemplate com `is_pre_atendimento_padrao=true` e `ativo=true`.
+**Impacto real:** Toda mensagem que deveria passar pela URA cai direto no Claude. O cliente nunca é perguntado "qual setor?". Setores ficam sem roteamento automático.
+**Solução:** Criar 1 FlowTemplate no banco (ver Fase 2).
+**Custo:** Nenhuma linha de código nova. Apenas inserção de dados.
 
 ---
 
-### GAP 2 — Orçamentos: Jarvis vê pouco (ALTO)
+## GAP 2 — Orçamentos: Jarvis vê apenas "enviado" >7d (ALTO)
 **Evidência:**
 ```javascript
-// jarvisEventLoop STEP 3, linha ~155
+// jarvisEventLoop STEP 3
 const orcamentosParados = await base44.asServiceRole.entities.Orcamento.filter({
-  status: 'enviado',         // ← SÓ 'enviado'! Não vê 'negociando', 'vencido', 'rejeitado'
-  updated_date: { $lt: seteDiasAtras.toISOString() }
+  status: 'enviado',    // ← SÓ 'enviado'
+  updated_date: { $lt: seteDiasAtras.toISOString() }  // ← SÓ >7 dias
 }, '-updated_date', 10);
 ```
-**Impacto:**
-- Orçamento em `negociando` travado por 3 dias → **Jarvis não vê**
-- Orçamento `vencido` que pode ser reativado → **Jarvis não vê**
-- Orçamento `rejeitado` com causa recuperável → **Jarvis não vê**
-**Solução:** Estender Step 3 com múltiplos status e limiares diferentes.
+**O que o Jarvis NÃO vê:**
+- `status: 'negociando'` parado há 3+ dias → cliente esfriando em negociação ativa
+- `status: 'vencido'` há < 14 dias → janela de reativação perdida
+- `status: 'rejeitado'` há < 30 dias → causa não analisada
+**Solução:** Estender Step 3 do jarvisEventLoop (ver Fase 3).
 
 ---
 
-### GAP 3 — playbookEngine escala para admins, não para o atendente (MÉDIO)
+## GAP 3 — playbookEngine escala para admins, não para o atendente (MÉDIO)
 **Evidência:**
 ```javascript
-// playbookEngine linha 495
-const admins = await base44.asServiceRole.entities.User.filter({ role: 'admin' }, 'full_name', 5);
+// playbookEngine linha 495-508
+const admins = await base44.asServiceRole.entities.User.filter(
+  { role: 'admin' }, 'full_name', 5
+);
 for (const admin of admins) {
-  await base44.asServiceRole.entities.NotificationEvent.create({...})
+  await base44.asServiceRole.entities.NotificationEvent.create({
+    usuario_id: admin.id,  // ← TODOS os admins
+    // ← NUNCA busca contact.vendedor_responsavel
+    // ← NUNCA busca thread.assigned_user_id
+  });
 }
-// ← Nunca notifica execution.variables.assigned_user_id ou thread.assigned_user_id
 ```
-**Impacto:** Escalações chegam para todos os admins mas não para o vendedor/atendente responsável pelo cliente.
-**Solução:** Buscar `Contact.vendedor_responsavel` e notificar esse usuário prioritariamente.
+**Impacto:** Atendente que está gerenciando o cliente não recebe a notificação de escalação. Administradores recebem alertas de conversas que não são suas.
 
 ---
 
-### GAP 4 — EventoSistema é produzido por quase ninguém (BAIXO)
+## GAP 4 — claudeWhatsAppResponder não consulta prontuário (MÉDIO)
 **Evidência:**
 ```javascript
-// jarvisEventLoop STEP 1 — sempre loga isso:
-// "[NEXUS-AGENT v3] ⏭️ EventoSistema vazio — pulando step 1"
+// claudeWhatsAppResponder.js
+// O system prompt NUNCA inclui dados de ContactBehaviorAnalysis
+// Dados hardcoded da empresa, nome do contato, histórico de mensagens
+// ← Não sabe: deal_risk, buy_intent, relationship_profile, objeções ativas
 ```
-**Impacto:** Step 1 do Jarvis é letra morta. AgentRuns criados ali nunca acontecem na prática.
-**Solução:** Baixo impacto — o Step 2 (threads) é o motor real. EventoSistema pode ser ignorado ou removido.
+**Impacto:** Claude responde sem saber se o cliente está em risco, se é price-sensitive, se tem objeções abertas. Pode oferecer promoções para contatos marcados como auto_decline, ou não priorizar contatos CRÍTICO.
 
 ---
 
-### GAP 5 — integration.id pode estar ausente no payload (MÉDIO)
+## GAP 5 — Prontuário não lê dados de Orçamentos/Vendas (MÉDIO)
 **Evidência:**
 ```javascript
-// processInbound linhas 134-136
+// analisarComportamentoContato.js
+// ETAPA B — apenas:
+const threads = await base44.asServiceRole.entities.MessageThread.filter({contact_id});
+const mensagens = await base44.asServiceRole.entities.Message.filter({thread_id: {$in: threadIds}});
+// ← Nunca busca: Orcamento, Venda, Interacao
+```
+**Impacto:** deal_risk calculado sem histórico de compras reais. Um cliente com R$200k em orçamentos aprovados mas que não respondeu há 5 dias pode ter o mesmo score que um lead frio.
+
+---
+
+## GAP 6 — businessIA isolado da tomada de decisão (MÉDIO)
+**Evidência:** Não existe nenhuma invocação de `businessIA` dentro do `jarvisEventLoop`.
+**Impacto:** O agente toma decisões de "quem alertar" e "com que urgência" sem saber se o negócio está em crise (receita -40%) ou crescendo normalmente. A sensibilidade deveria ser dinâmica.
+
+---
+
+## GAP 7 — integration.id pode chegar null no processInbound (MÉDIO)
+**Evidência:**
+```javascript
+// processInbound v11 linhas 134-136 e 214-217
 if (!integration?.id) {
-  console.warn(`[${VERSION}] ⚠️ integration.id ausente — claudeAgendaAgent não pode ser acionado`);
-} else {
-// E linhas 214-217
-if (!integration?.id) {
-  console.warn(`[${VERSION}] ⚠️ integration.id ausente — claudeWhatsAppResponder não pode ser acionado`);
-  result.actions.push('claude_ai_skipped_no_integration');
+  console.warn(`⚠️ integration.id ausente — claudeAgendaAgent não pode ser acionado`);
+  // PARA SILENCIOSAMENTE
+}
 ```
-**Impacto:** Mensagens recebidas de integrações sem ID configurado corretamente ficam sem resposta automática.
-**Solução:** Validar no webhook antes de chamar processInbound que integration.id está presente.
+**Impacto:** Mensagens de integrações com ID mal configurado ficam sem resposta automática e sem URA. Silencioso — não aparece como erro, apenas como não-processamento.
 
 ---
 
-### GAP 6 — businessIA está isolado (MÉDIO)
-**Situação atual:** `businessIA` existe e funciona (insights de funil, anomalias, receita), mas é chamado apenas pela UI do Dashboard. O Jarvis não o consulta. Ou seja, o agente toma decisões de "quem alertar" sem saber se o negócio como um todo está bem ou em crise.
-**Impacto:** Em um dia de crise (ex: taxa de conversão caiu 40%), o Jarvis continua no ritmo normal.
-**Solução:** No início de cada ciclo do Jarvis, invocar businessIA para ajustar sensibilidade.
-
----
-
-### GAP 7 — Análise de comportamento não inclui dados de Orçamentos (MÉDIO)
+## GAP 8 — nexusClassifier usa busca por palavras, não embeddings (BAIXO)
 **Evidência:**
 ```javascript
-// analisarComportamentoContato — lê apenas:
-// Contact, MessageThread, Message
-// ← Não lê Orcamento, Venda, Interacao
+// nexusClassifier.js — calcularRelevancia()
+palavrasPergunta.forEach(palavra => {
+  if (tituloLower.includes(palavra)) score += 0.3;  // ← string.includes
+  if (conteudoLower.includes(palavra)) score += 0.1;
+});
+// ← Não usa embeddings vetoriais. "computador" não encontra "notebook".
 ```
-**Impacto:** O prontuário diz "deal_risk=80" mas não sabe que o cliente tem um orçamento de R$50k aprovado e esquecido. O score está errado.
-**Solução:** Na ETAPA B, buscar orçamentos e vendas do contato e injetar no contexto da IA.
+**Impacto:** RAG de baixa qualidade semântica. Funcional para termos exatos, falha em sinônimos e variações.
 
 ---
 
-## PARTE 4 — COMPARAÇÃO ESTUDO vs REALIDADE
+# PARTE 5 — ARQUITETURA PROPOSTA (modelo de agentes Anthropic)
 
-| Proposta do Estudo | Status Real | Delta Concreto |
-|---|---|---|
-| Jarvis como NexusAgentLoop | ✅ Feito (v3.0) | Nenhum |
-| Consultar prontuário antes de agir | ✅ Feito | Nenhum |
-| Decisão 4 níveis CRÍTICO/ALTO/MÉDIO/BAIXO | ✅ Feito | Nenhum |
-| WhatsApp direto para CRÍTICO | ✅ Feito | Monitorar opt-out |
-| Alerta interno para ALTO | ✅ Feito | Funciona via thread interna |
-| analisarClientesEmLote schedulado | ✅ Feito (a cada 1h) | Nenhum |
-| Hook pós-análise (acionarAutomacoesPorPlaybook) | ✅ Feito* | *Corrigido 2026-03-09 (bug 401) |
-| executarFluxosAgendados avançando follow-ups | ✅ Feito* | *Reescrito 2026-03-09 (import quebrado) |
-| URA como peça integrada do agente | ❌ Gap — 0 templates ativos | Criar FlowTemplate mínimo |
-| Análise de orçamentos parados | ⚠️ Parcial | Só `status='enviado'` >7d → expandir |
-| Análise de orçamentos rejeitados/vencidos | ❌ Não existe | Adicionar no Step 3 do Jarvis |
-| "O que estamos perdendo" (funil) | ⚠️ businessIA tem, mas isolado | Integrar ao ciclo do Jarvis |
-| Prontuário inclui dados de orçamentos | ❌ Não inclui | Injetar Orcamento/Venda na ETAPA B |
-| Escalação notifica o atendente responsável | ❌ Notifica só admins | Corrigir playbookEngine |
-| Prioridade centralizada (1 dono) | ✅ Jarvis é o dono | Falta UI consumir fila do Jarvis |
+```
+╔═══════════════════════════════════════════════════════════════════╗
+║          AGENTE ORQUESTRADOR CENTRAL (Nexus Agent Loop)          ║
+║                    jarvisEventLoop v3.x                           ║
+╠═══════════════════════════════════════════════════════════════════╣
+║  CICLO A CADA 30MIN:                                              ║
+║  ┌─────────────────────────────────────────────────────────────┐  ║
+║  │ STEP 0 [NOVO]: Contexto do negócio                          │  ║
+║  │  → businessIA('detect_anomalies') → ajusta sensibilidade    │  ║
+║  │  → Crise (receita -30%) → sensibilidadeBoost +10pts         │  ║
+║  │  → Normal → sem ajuste                                      │  ║
+║  ├─────────────────────────────────────────────────────────────┤  ║
+║  │ STEP 1: Threads ociosas + prontuário → CRÍTICO/ALTO/MÉD/    │  ║
+║  │         BAIXO → age (já funciona)                           │  ║
+║  ├─────────────────────────────────────────────────────────────┤  ║
+║  │ STEP 2 [EXPANDIR]: Orçamentos                               │  ║
+║  │  → 'negociando' >3d → alerta interno atendente              │  ║
+║  │  → 'enviado' >7d → TarefaInteligente (já existe)            │  ║
+║  │  → 'vencido' <14d → WorkQueueItem reativação                │  ║
+║  └─────────────────────────────────────────────────────────────┘  ║
+╚════════════════════╤══════════════════════════════════════════════╝
+                     │ delega para
+     ┌───────────────┼────────────────────────────────┐
+     │               │                                │
+     ▼               ▼                                ▼
+┌──────────┐  ┌─────────────────┐  ┌──────────────────────────────┐
+│ MOTOR DE │  │  AGENTES DE     │  │  CAMADA DE COMUNICAÇÃO       │
+│PRONTUÁRIO│  │  AÇÃO           │  │                              │
+│          │  │                 │  │  claudeWhatsApp              │
+│ analisar │  │ playbookEngine  │  │  Responder v2.1              │
+│Comporta- │  │ (FlowTemplates) │  │  → fallback 24/7             │
+│mento     │  │                 │  │  → com contexto empresa      │
+│Contato   │  │ acionarAutoma-  │  │  → retry + timeout           │
+│          │  │ coesPorPlaybook │  │                              │
+│ analisar │  │                 │  │  claudeAgendaAgent           │
+│Clientes  │  │ executarFluxos  │  │  → criação/consulta/cancel   │
+│EmLote    │  │ Agendados       │  │                              │
+│(scheduler│  │                 │  │  preAtendimento              │
+│)         │  │                 │  │  Handler (URA)               │
+└──────────┘  └─────────────────┘  │  → roteamento por setor     │
+                                   │  → fila de espera            │
+                                   └──────────────────────────────┘
+```
+
+**Princípio de design:**
+- O orquestrador central (Jarvis) é o único que toma decisões de prioridade
+- Agentes especializados executam, não decidem
+- Cada função tem 1 responsabilidade clara
+- Nenhuma função reimplementa lógica de outra
 
 ---
 
-## PARTE 5 — ARQUITETURA PROPOSTA (o que deve ser o sistema)
+# PARTE 6 — ROADMAP DETALHADO (ordem de dependência)
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                     NEXUS AGENT LOOP                                 │
-│                   (jarvisEventLoop v3.x)                             │
-│                                                                      │
-│  CICLO A CADA 30MIN:                                                 │
-│  1. [NOVO] Consultar businessIA → ajustar sensibilidade do dia       │
-│  2. Threads ociosas → prontuário → CRÍTICO/ALTO/MÉDIO/BAIXO         │
-│  3. [EXPANDIR] Orçamentos: enviado>7d | negociando>3d | vencido<14d │
-│                                                                      │
-│  ENTRADAS:                                                           │
-│  - MessageThread (ociosa, unread, assigned)                          │
-│  - ContactBehaviorAnalysis (prontuário atualizado)                  │
-│  - Orcamento (parado, vencido) ← GAP a resolver                     │
-│                                                                      │
-│  SAÍDAS POSSÍVEIS:                                                   │
-│  - enviarWhatsApp (direto ao cliente) — CRÍTICO                      │
-│  - Message interna (alerta atendente) — ALTO                        │
-│  - WorkQueueItem (fila de tarefa) — MÉDIO/ações playbook            │
-│  - TarefaInteligente (orçamento parado) — Step 3                    │
-│  - AgentRun (auditoria de cada decisão)                              │
-└──────────────────┬─────────────────────────────────┬────────────────┘
-                   │                                 │
-                   ▼                                 ▼
-┌─────────────────────────────┐   ┌──────────────────────────────────┐
-│  MOTOR DE PRONTUÁRIO        │   │  CAMADA DE EXECUÇÃO              │
-│                             │   │                                  │
-│  analisarComportamento      │   │  playbookEngine v4               │
-│  Contato (por contato)      │   │  - start/process_response        │
-│                             │   │  - continue_follow_up            │
-│  Lê: Message, Thread        │   │  - cancel/escalate               │
-│  [FALTA]: Orcamento, Venda  │   │                                  │
-│                             │   │  claudeWhatsAppResponder         │
-│  Gera: priority_score,      │   │  - fallback 24/7                 │
-│  prontuario_text, playbook, │   │  - contexto empresa + contato    │
-│  next_best_action,          │   │                                  │
-│  suggested_message           │   │  claudeAgendaAgent               │
-│                             │   │  - criação/consulta/cancelamento │
-│  analisarClientesEmLote     │   │  - verificação disponibilidade   │
-│  (scheduler + orquestrador) │   │                                  │
-│  - Modo scheduled (1h)      │   │  enviarWhatsApp (gateway)        │
-│  - Modo priorização (UI)    │   │  - Z-API / W-API / Evolution     │
-│  - Modo direto (IDs)        │   │  - Todos os tipos de mídia       │
-└─────────────────────────────┘   └──────────────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────┐
-│  ACIONADORES PÓS-ANÁLISE    │
-│                             │
-│  acionarAutomacoesPor       │
-│  Playbook                   │
-│  - Regra decline            │
-│  - Regra compete            │
-│  - Regra risk               │
-│  - Auto-decline             │
-│  - Gerador de hook criativo │
-│                             │
-│  executarFluxosAgendados    │
-│  - Avança FlowExecution     │
-│  - Ciclo 24h→3d→7d→15d     │
-└─────────────────────────────┘
-```
-
-### O que NÃO deve ser criado como função nova:
-| Necessidade | Onde resolver |
-|---|---|
-| "Alertar quando lead esfria" | Já existe no Jarvis Step 2 |
-| "Detectar cliente esquecido" | Já existe: analisarClientesEmLote modo priorização |
-| "Follow-up automático WhatsApp" | Já existe: playbookEngine + FlowTemplate |
-| "Notificação de orçamento parado" | Estender Jarvis Step 3 (não criar função nova) |
-| "Score de risco de perda" | Já existe: deal_risk em ContactBehaviorAnalysis |
-| "O que estamos perdendo" | businessIA já calcula → integrar ao Jarvis |
-| "Análise de intenção da mensagem" | Já existe: nexusClassifier |
-| "Resposta automática sem humano" | Já existe: claudeWhatsAppResponder |
-
----
-
-## PARTE 6 — ROADMAP DETALHADO (ordem de dependência)
-
-### ✅ Fase 1 — CONCLUÍDA em 2026-03-09
-- [x] Deletar `enviarMensagemMassa`, `enviarPromocoesLote` (wrappers mortos)
-- [x] Corrigir `acionarAutomacoesPorPlaybook` (bug 401 silencioso por auth.me())
-- [x] Reescrever `executarFluxosAgendados` (import local quebrado)
+## ✅ Fase 1 — CONCLUÍDA (2026-03-09)
+- [x] Deletar `enviarMensagemMassa` e `enviarPromocoesLote` (wrappers mortos)
+- [x] Corrigir `acionarAutomacoesPorPlaybook` (bug 401 por auth.me() sem user)
+- [x] Reescrever `executarFluxosAgendados` v2 (import local quebrado)
 - [x] Refatorar `jarvisEventLoop` v3.0 (consulta prontuário antes de agir)
 
 ---
 
-### 🔥 Fase 2 — URA Mínima Ativa (PRÓXIMA PRIORIDADE)
-**Por que primeiro:** Sem URA, o processInbound cai no Claude para TUDO. O cliente nunca é direcionado corretamente. O Jarvis não sabe em que setor classificar a conversa.
+## 🔥 Fase 2 — URA Mínima Ativa (PRÓXIMA — sem código novo)
+**Dependências:** Fase 1 ✅
+**Esforço:** Apenas inserção de 1 registro no banco
+**Impacto:** A URA passa a funcionar para 100% das mensagens novas
 
-**O que fazer (sem criar função nova):**
-Criar 1 `FlowTemplate` no banco com:
+**O que fazer:**
+Criar este FlowTemplate no banco (via UI de Automações ou diretamente):
 ```json
 {
-  "nome": "Pré-atendimento Padrão",
+  "nome": "Pré-atendimento Padrão Nexus360",
+  "categoria": "geral",
+  "tipo_fluxo": "pre_atendimento",
   "is_pre_atendimento_padrao": true,
   "ativo": true,
   "activation_mode": "global",
+  "gatilhos": ["*"],
   "steps": [
     {
       "type": "buttons",
-      "texto": "Olá {nome}! 👋 Para qual área você precisa de atendimento?",
-      "opcoes": ["💼 Vendas", "🔧 Suporte", "💰 Financeiro"]
+      "texto": "Olá! Para qual área você precisa de atendimento?",
+      "opcoes": ["💼 Vendas", "🔧 Suporte", "💰 Financeiro", "📦 Fornecedores"]
     },
     {
       "type": "route",
       "mapa": {
         "💼 Vendas": "vendas",
         "🔧 Suporte": "assistencia",
-        "💰 Financeiro": "financeiro"
+        "💰 Financeiro": "financeiro",
+        "📦 Fornecedores": "fornecedor"
       }
+    },
+    {
+      "type": "end",
+      "texto": "Perfeito! Aguarde um momento enquanto conectamos você."
     }
+  ],
+  "mensagem_saudacao": "Olá {saudacao}! Bem-vindo à Liesch Informática.",
+  "opcoes_setor": [
+    {"label": "💼 Vendas", "setor": "vendas"},
+    {"label": "🔧 Suporte", "setor": "assistencia"},
+    {"label": "💰 Financeiro", "setor": "financeiro"}
   ]
 }
 ```
 
-**Pré-requisito:** Verificar se `preAtendimentoHandler` está funcional (ler o arquivo).
-
 ---
 
-### 📊 Fase 3 — Jarvis vê mais orçamentos
-**O que fazer (estender Step 3 do jarvisEventLoop):**
-```
-ATUAL:
-  status='enviado' AND updated_date < 7 dias → cria TarefaInteligente
+## 📊 Fase 3 — Jarvis vê mais orçamentos (estender Step 3)
+**Dependências:** Fase 1 ✅
+**Esforço:** Pequeno — editar jarvisEventLoop Step 3
 
-EXPANDIR PARA:
-  status='negociando' AND updated_date < 3 dias → alerta ALTO para atendente
-  status='enviado' AND updated_date < 7 dias → já existe (manter)
-  status='vencido' AND updated_date < 14 dias → WorkQueueItem reativação
-  status='rejeitado' AND updated_date < 30 dias → análise de causa (IA)
-```
-
----
-
-### 🧠 Fase 4 — Prontuário com dados de orçamentos
-**O que fazer (estender ETAPA B do analisarComportamentoContato):**
 ```javascript
-// Após buscar mensagens, buscar também:
-const orcamentos = await base44.asServiceRole.entities.Orcamento.filter(
-  { cliente_telefone: contact.telefone },
-  '-data_orcamento', 10
-);
-// Injetar no prompt da IA:
-// "Orçamentos: ${orcamentos.map(o => `${o.status} R$${o.valor_total} (${o.data_orcamento})`).join(', ')}"
+// SUBSTITUIR o Step 3 atual por:
+
+// 3a. Orçamentos 'negociando' travados >3 dias → alerta ao atendente
+const negociandoTravados = await base44.asServiceRole.entities.Orcamento.filter({
+  status: 'negociando',
+  updated_date: { $lt: new Date(agora.getTime() - 3*24*60*60*1000).toISOString() }
+}, '-updated_date', 10);
+
+for (const orc of negociandoTravados) {
+  // Buscar atendente responsável e criar alerta interno
+}
+
+// 3b. Orçamentos 'enviado' >7 dias → TarefaInteligente (já existe — manter)
+const enviados = await base44.asServiceRole.entities.Orcamento.filter({
+  status: 'enviado',
+  updated_date: { $lt: seteDiasAtras.toISOString() }
+}, '-updated_date', 10);
+
+// 3c. Orçamentos 'vencido' <14 dias → WorkQueueItem reativação
+const vencidosRecentes = await base44.asServiceRole.entities.Orcamento.filter({
+  status: 'vencido',
+  updated_date: { $gte: new Date(agora.getTime() - 14*24*60*60*1000).toISOString() }
+}, '-updated_date', 5);
 ```
-**Impacto:** deal_risk passa a considerar histórico de compras reais, não só conversas.
 
 ---
 
-### 🔔 Fase 5 — Escalação notifica o atendente certo
-**O que fazer (corrigir playbookEngine função `escalonarParaHumano`):**
+## 🧠 Fase 4 — Prontuário com dados de orçamentos
+**Dependências:** Fases 1, 3
+**Esforço:** Médio — estender ETAPA B do analisarComportamentoContato
+
 ```javascript
-// ATUAL (notifica só admins):
-const admins = await base44.asServiceRole.entities.User.filter({ role: 'admin' });
+// Na ETAPA B, após buscar mensagens, adicionar:
+const [orcamentos, vendas] = await Promise.all([
+  base44.asServiceRole.entities.Orcamento.filter(
+    { $or: [
+        { cliente_telefone: contact.telefone },
+        { cliente_id: contact.cliente_id }
+    ]},
+    '-data_orcamento', 10
+  ),
+  base44.asServiceRole.entities.Venda.filter(
+    { cliente_nome: contact.nome },  // ou por cliente_id se disponível
+    '-data_venda', 5
+  )
+]);
+
+// No prompt da IA, adicionar seção:
+const contextoNegocio = `
+HISTÓRICO COMERCIAL:
+Orçamentos: ${orcamentos.map(o =>
+  `${o.status} R$${o.valor_total?.toLocaleString('pt-BR')} (${o.data_orcamento})`
+).join(', ') || 'Nenhum'}
+Vendas: ${vendas.map(v =>
+  `R$${v.valor_total?.toLocaleString('pt-BR')} (${v.data_venda})`
+).join(', ') || 'Nenhuma'}
+`;
+```
+
+---
+
+## 🔔 Fase 5 — Escalação notifica o atendente certo
+**Dependências:** Fase 1 ✅
+**Esforço:** Pequeno — corrigir playbookEngine função `escalonarParaHumano`
+
+```javascript
+// SUBSTITUIR no playbookEngine função escalonarParaHumano:
+// ATUAL:
+const admins = await base44.asServiceRole.entities.User.filter({role: 'admin'});
 
 // CORRETO:
 const contact = await base44.asServiceRole.entities.Contact.get(execution.contact_id);
-const responsavelId = contact.vendedor_responsavel || execution.variables.assigned_user_id;
-// Notificar o responsável + admins como fallback
+const thread = await base44.asServiceRole.entities.MessageThread.get(execution.thread_id);
+const responsavelId = thread.assigned_user_id || contact.vendedor_responsavel;
+
+let notificar = [];
+if (responsavelId) {
+  const responsavel = await base44.asServiceRole.entities.User.get(responsavelId);
+  if (responsavel) notificar.push(responsavel);
+}
+// Admins como fallback se sem responsável
+if (notificar.length === 0) {
+  const admins = await base44.asServiceRole.entities.User.filter({role: 'admin'}, 'full_name', 3);
+  notificar = admins;
+}
 ```
 
 ---
 
-### 🔭 Fase 6 — businessIA no ciclo do Jarvis
-**O que fazer (adicionar no início do jarvisEventLoop):**
+## 🔭 Fase 6 — businessIA alimenta sensibilidade do Jarvis
+**Dependências:** Fases 1, 3
+**Esforço:** Pequeno — adicionar Step 0 no jarvisEventLoop
+
 ```javascript
-// STEP 0 (novo): ajustar sensibilidade
+// Adicionar no início do jarvisEventLoop, antes do Step 1:
 let sensibilidadeBoost = 0;
 try {
-  const anomalias = await base44.asServiceRole.functions.invoke('businessIA', {
-    action: 'get_anomalies'
+  const saude = await base44.asServiceRole.functions.invoke('businessIA', {
+    action: 'strategic_insights'
   });
-  // Se taxa de conversão caiu >20% → elevar sensibilidade → mais alertas
-  if (anomalias.data?.critical_anomalies?.length > 0) {
-    sensibilidadeBoost = 10; // reduz threshold de ALTO para capturar mais casos
+  const criticos = saude.data?.insights?.filter(i =>
+    i.tipo === 'alerta' && i.severidade === 'critica'
+  ) || [];
+  // Em crise → reduz threshold → mais alertas → mais agressivo
+  if (criticos.length > 0) {
+    sensibilidadeBoost = 10;
+    console.log(`[NEXUS-AGENT v3] ⚠️ ${criticos.length} alertas críticos → sensibilidade +${sensibilidadeBoost}`);
   }
-} catch(e) { /* não bloqueia o ciclo */ }
+} catch (e) {
+  console.warn('[NEXUS-AGENT v3] businessIA indisponível — sensibilidade normal');
+}
+
+// Usar sensibilidadeBoost nos limiares:
+const ALTO_THRESHOLD = 55 - sensibilidadeBoost;  // em crise: 45 em vez de 55
 ```
 
 ---
 
-## PARTE 7 — MÉTRICAS DE SAÚDE DO AGENTE
+## 🤖 Fase 7 — claudeWhatsAppResponder com contexto de prontuário
+**Dependências:** Fase 1 ✅
+**Esforço:** Médio — adicionar busca de prontuário no claudeWhatsAppResponder
 
-### Como saber se o agente está funcionando:
+```javascript
+// Na etapa 1 (Promise.all), adicionar:
+const [mensagens, contact, integration, analise] = await Promise.all([
+  base44.asServiceRole.entities.Message.filter({thread_id}, '-created_date', 12),
+  base44.asServiceRole.entities.Contact.get(contact_id),
+  integration_id ? base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id)
+                 : Promise.resolve(null),
+  base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
+    {contact_id}, '-analyzed_at', 1
+  ).then(a => a[0] || null).catch(() => null)
+]);
 
-| Métrica | Como medir | Target |
-|---|---|---|
-| ContactBehaviorAnalysis atualizados nas últimas 24h | `ContactBehaviorAnalysis.filter({analyzed_at: {$gte: 24h atrás}}).count()` | >80% dos leads/clientes ativos |
-| Threads com unread_count>0 sem jarvis_alerted_at | `MessageThread.filter({unread_count:{$gt:0}, jarvis_alerted_at: null})` | <10 em qualquer momento |
-| AgentRun com status='falhou' no último ciclo | `AgentRun.filter({status:'falhou', started_at:{$gte: 30min}})` | 0 |
-| FlowExecution com status='erro' | `FlowExecution.filter({status:'erro', completed_at:{$gte: 24h}})` | <5% do total |
-| WorkQueueItems em status='agendado' expirados | `WorkQueueItem.filter({status:'agendado', scheduled_for:{$lt: agora}})` | 0 (workers processando) |
-| Orçamentos 'negociando' >3d sem toque | `Orcamento.filter({status:'negociando', updated_date:{$lt: 3d}})` | 0 após Fase 3 |
+// No system prompt, adicionar seção de contexto de inteligência:
+const contextoIA = analise ? `
+## INTELIGÊNCIA DO CONTATO (CONFIDENCIAL — não mencionar ao cliente)
+- Perfil: ${analise.relationship_profile?.type || 'N/A'}
+- Flags: ${analise.relationship_profile?.flags?.join(', ') || 'nenhuma'}
+- Score de risco: ${analise.scores?.deal_risk || 0}/100
+- Intenção de compra: ${analise.scores?.buy_intent || 0}/100
+- Objeções ativas: ${(analise.objections || []).filter(o => o.status === 'open').map(o => o.type).join(', ') || 'nenhuma'}
+- Próxima ação recomendada: ${analise.next_best_action?.action || 'N/A'}
+- Mensagem sugerida: ${analise.next_best_action?.suggested_message || 'N/A'}
+
+USE ESTE CONTEXTO para personalizar sua resposta sem revelar que tem acesso a estes dados.
+` : '';
+```
 
 ---
 
-## PARTE 8 — FUNÇÕES PARA DELETAR
+# PARTE 7 — REGRAS DE GOVERNANÇA DO CÓDIGO
 
-> Deletar apenas após confirmar que nenhuma UI ou automação as referencia.
+## Antes de criar qualquer função nova, verificar:
+1. O `jarvisEventLoop` pode fazer isso como novo Step?
+2. O `analisarComportamentoContato` pode retornar esse dado adicionando ao prompt?
+3. O `playbookEngine` + um FlowTemplate resolve?
+4. O `businessIA` já calcula isso?
+5. O `preAtendimentoHandler` + um estado novo na máquina resolve?
 
-| Função | Motivo | Status |
-|---|---|---|
-| `enviarMensagemMassa` | ✅ Wrapper morto de enviarCampanhaLote | Deletada 2026-03-09 |
-| `enviarPromocoesLote` | ✅ Wrapper morto de enviarCampanhaLote | Deletada 2026-03-09 |
-| Tudo em `_OBSOLETAS_PARA_DELETAR.md` | Diagnósticos antigos, duplicatas | Pendente — verificar UIs |
-| `analisarComportamentoContatoIA` | Duplicata de analisarComportamentoContato? | Verificar |
-| `analisarScorePreditivo` | Duplicata de lógica em analisarComportamentoContato? | Verificar |
-| `diagnosticarContatoDuplicado`, `diagnoseWithLLM`, etc | Ferramentas de diagnóstico pontual | Mover para página admin |
+**Se a resposta para todas for NÃO** → documenta aqui e cria a função.
+
+## Módulos IA CORE (não mexer sem justificativa neste documento):
+- `jarvisEventLoop`
+- `analisarComportamentoContato`
+- `analisarClientesEmLote`
+- `processInbound`
+- `playbookEngine`
+- `preAtendimentoHandler`
+- `claudeWhatsAppResponder`
+- `claudeAgendaAgent`
+- `enviarWhatsApp`
+
+## Versionamento obrigatório:
+- Qualquer mudança nos módulos IA CORE deve atualizar o comentário de versão no arquivo
+- Exemplo: `// jarvisEventLoop - v3.1.0 (adicionado Step 0 — businessIA)`
 
 ---
 
-*Última atualização: 2026-03-09 — Documento de referência oficial do Nexus360.*
+# PARTE 8 — MÉTRICAS DE SAÚDE DO AGENTE
+
+| Métrica | Query Conceitual | Target |
+|---|---|---|
+| Prontuários atualizados <24h | `ContactBehaviorAnalysis.filter({analyzed_at: {$gte: 24h}})` | >80% dos leads/clientes ativos |
+| Threads ociosas sem alerta >4h | `MessageThread.filter({unread_count:{$gt:0}, jarvis_alerted_at: null, assigned: true})` | < 5 |
+| AgentRun falhos no último ciclo | `AgentRun.filter({status:'falhou', started_at:{$gte: 30min}})` | 0 |
+| FlowExecution com status='erro' | `FlowExecution.filter({status:'erro', completed_at:{$gte: 24h}})` | < 5% do total |
+| WorkQueueItems expirados não processados | `WorkQueueItem.filter({status:'agendado', scheduled_for:{$lt: agora}})` | 0 |
+| Orçamentos 'negociando' >3d sem alerta | `Orcamento.filter({status:'negociando', updated_date:{$lt: 3d}})` | 0 (após Fase 3) |
+| URA ativa (FlowTemplate padrao) | Verificar is_pre_atendimento_padrao=true no banco | ≥ 1 |
+
+---
+
+# PARTE 9 — COMPARAÇÃO ESTUDO vs REALIDADE ATUAL
+
+| Proposta do Estudo | Status | Delta Concreto |
+|---|---|---|
+| Jarvis como NexusAgentLoop | ✅ Feito v3.0 | Nenhum |
+| Consultar prontuário antes de agir | ✅ Feito | Nenhum |
+| Decisão em 4 níveis CRÍTICO/ALTO/MÉDIO/BAIXO | ✅ Feito | Nenhum |
+| WhatsApp direto para CRÍTICO | ✅ Feito | Monitorar opt-out |
+| Alerta interno para ALTO | ✅ Feito | Thread interna funcionando |
+| analisarClientesEmLote schedulado | ✅ Feito (a cada 1h) | Nenhum |
+| Hook pós-análise | ✅ Feito (corrigido 2026-03-09) | Bug 401 corrigido |
+| Worker de follow-ups agendados | ✅ Feito (reescrito 2026-03-09) | Import quebrado corrigido |
+| URA integrada ao pipeline | ❌ Gap — código pronto, falta 1 registro no banco | Fase 2 |
+| Análise completa de orçamentos | ⚠️ Parcial — só 'enviado'>7d | Fase 3 |
+| Prontuário com dados financeiros | ❌ Não inclui Orcamento/Venda | Fase 4 |
+| Escalação para atendente responsável | ❌ Vai só para admins | Fase 5 |
+| businessIA integrado ao ciclo | ❌ Isolado na UI | Fase 6 |
+| Claude com contexto de prontuário | ❌ Claude não vê prontuário | Fase 7 |
+| 1 proprietário único de prioridades | ✅ jarvisEventLoop v3 | Nenhum |
+| Regra: nova necessidade → evoluir IA CORE | ⚠️ Cultural | Disciplina de equipe |
+
+---
+
+*Última atualização: 2026-03-09*
+*Versão: 3.0 — Leitura completa de todos os módulos IA CORE*
 *Qualquer mudança arquitetural deve atualizar este arquivo.*
