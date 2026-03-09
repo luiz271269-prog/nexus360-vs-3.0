@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
           console.log('[acionarAutomacoesPorPlaybook] ✅ COMPETE: contato é oportunidade real');
 
           // Buscar thread canônica
-          const threads = await base44.entities.MessageThread.filter(
+          const threads = await base44.asServiceRole.entities.MessageThread.filter(
             { contact_id: contact_id, is_canonical: true },
             null,
             1
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
             const thread = threads[0];
 
             // Marcar como prioritário + adicionar hook sugerido
-            await base44.entities.MessageThread.update(thread.id, {
+            await base44.asServiceRole.entities.MessageThread.update(thread.id, {
               campos_personalizados: {
                 ...(thread.campos_personalizados || {}),
                 playbook_status: 'compete',
