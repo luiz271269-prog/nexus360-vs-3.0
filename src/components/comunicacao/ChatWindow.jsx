@@ -1493,7 +1493,7 @@ export default function ChatWindow({
 
             {/* Nome + Telefone/Setor */}
             <div className="flex-1 min-w-0">
-              <h3 className="text-slate-50 font-bold text-sm truncate mb-1">
+              <h3 className="text-slate-50 font-bold text-sm truncate mb-1" translate="no">
                 {thread?.thread_type === 'sector_group'
                   ? `Setor ${thread.sector_key?.replace('sector:', '') || 'Geral'}`
                   : thread?.thread_type === 'team_internal' && thread?.is_group_chat
@@ -1502,7 +1502,7 @@ export default function ChatWindow({
                   ? outroParticipanteNome || 'Contato'
                   : nomeContato}
               </h3>
-              <p className="text-slate-200 text-xs">
+              <p className="text-slate-200 text-xs" translate="no">
                 {thread?.thread_type === 'team_internal' && !thread?.is_group_chat ? (
                   '1:1 interno'
                 ) : thread?.thread_type === 'sector_group' ? (
@@ -1622,7 +1622,7 @@ export default function ChatWindow({
               return (
                 <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-100 border border-amber-300 rounded-full flex-shrink-0">
                     <span className="text-amber-600 text-xs">★</span>
-                    <span className="text-[10px] font-semibold text-amber-700 truncate max-w-[80px]">
+                    <span className="text-[10px] font-semibold text-amber-700 truncate max-w-[80px]" translate="no">
                       {atendenteFidelizado.split(' ')[0]}
                     </span>
                   </div>);
