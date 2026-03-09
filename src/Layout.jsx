@@ -467,7 +467,7 @@ export default function Layout({ children, currentPageName }) {
   }));
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-gradient-to-br from-amber-50 via-orange-50/30 to-red-50/20">
+    <div className="flex h-screen w-screen overflow-hidden bg-gradient-to-br from-amber-50 via-orange-50/30 to-red-50/20" translate="no">
       <InitializadorSistema />
       <CacheBuster />
       <DeploymentBanner />
