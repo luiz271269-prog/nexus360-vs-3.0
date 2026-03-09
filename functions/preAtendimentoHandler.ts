@@ -47,11 +47,18 @@ async function atualizarEstado(base44, threadId, novoEstado, setorId = undefined
 async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, user_input = null, intent_context = null) {
   console.log('[FLUXO] INIT | Input:', user_input?.content, '| IA:', intent_context ? 'Sim' : 'Não');
 
-  // Fast-track via IA
+  // Fast-track via IA — Bug 5 fix: normalizar sector_slug para nome interno correto
+  const SLUG_NORMALIZER = {
+    'suporte': 'assistencia', 'support': 'assistencia', 'tecnico': 'assistencia',
+    'vendas': 'vendas', 'comercial': 'vendas', 'sales': 'vendas',
+    'financeiro': 'financeiro', 'finance': 'financeiro',
+    'fornecedor': 'fornecedor', 'fornecedores': 'fornecedor', 'compras': 'fornecedor',
+  };
   if (intent_context?.sector_slug && intent_context.confidence >= 70) {
-    const msg = `✅ Entendi! Vou te direcionar para *${intent_context.sector_slug.toUpperCase()}*.`;
+    const setorNormalizado = SLUG_NORMALIZER[intent_context.sector_slug.toLowerCase()] || intent_context.sector_slug;
+    const msg = `✅ Entendi! Vou te direcionar para *${setorNormalizado.toUpperCase()}*.`;
     await enviarMensagem(base44, contact, whatsappIntegrationId, msg);
-    await atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', intent_context.sector_slug);
+    await atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', setorNormalizado);
     thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
     return await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system', content: '' }, whatsappIntegrationId);
   }
@@ -158,13 +165,14 @@ async function processarWAITING_SECTOR_CHOICE(base44, thread, contact, user_inpu
   }
 
   // Fallback: lógica de texto para quem digitar manualmente
+  // Bug 6 fix: números usam match exato (=== '1') para evitar includes('1') em "R$100", "13h" etc.
   const entrada = (user_input.content || user_input.id || '').toLowerCase().trim();
   let setor = null;
 
-  if (['1', 'vendas', 'comercial'].some(k => entrada.includes(k))) setor = 'vendas';
-  else if (['2', 'financeiro', 'fat', 'boleto'].some(k => entrada.includes(k))) setor = 'financeiro';
-  else if (['3', 'suporte', 'tecnico', 'ajuda', 'assistencia'].some(k => entrada.includes(k))) setor = 'assistencia';
-  else if (['4', 'fornecedor', 'compras'].some(k => entrada.includes(k))) setor = 'fornecedor';
+  if (entrada === '1' || ['vendas', 'comercial'].some(k => entrada.includes(k))) setor = 'vendas';
+  else if (entrada === '2' || ['financeiro', 'fat', 'boleto'].some(k => entrada.includes(k))) setor = 'financeiro';
+  else if (entrada === '3' || ['suporte', 'tecnico', 'ajuda', 'assistencia'].some(k => entrada.includes(k))) setor = 'assistencia';
+  else if (entrada === '4' || ['fornecedor', 'compras'].some(k => entrada.includes(k))) setor = 'fornecedor';
 
   if (setor) {
     await enviarMensagem(base44, contact, whatsappIntegrationId, `Você escolheu: *${setor.toUpperCase()}*.\nBuscando atendentes...`);

@@ -412,7 +412,7 @@ Deno.serve(async (req) => {
       } else {
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-template`;
         body = {
-          phone: numero_destino,
+          phone: numeroFormatado,  // Bug 2 fix: era numero_destino (raw)
           template: template_name,
           variables: template_variables || {}
         };
