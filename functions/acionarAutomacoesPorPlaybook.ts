@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
         console.log('[acionarAutomacoesPorPlaybook] ⚠️ HIGH RISK: criar tarefa de reativo');
 
         // Buscar thread
-        const threads = await base44.entities.MessageThread.filter(
+        const threads = await base44.asServiceRole.entities.MessageThread.filter(
           { contact_id: contact_id, is_canonical: true },
           null,
           1
@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
           const thread = threads[0];
 
           // Criar WorkQueueItem para reativação com hook criativo
-          await base44.entities.WorkQueueItem.create({
+          await base44.asServiceRole.entities.WorkQueueItem.create({
             tipo: 'reativacao',
             contact_id: contact_id,
             thread_id: thread.id,
