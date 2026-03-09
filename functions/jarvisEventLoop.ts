@@ -414,9 +414,18 @@ Deno.serve(async (req) => {
     for (const orc of negociandoTravados) {
       try {
         if (orc.vendedor) {
-          const vendedores = await base44.asServiceRole.entities.User.filter(
+          let vendedores = await base44.asServiceRole.entities.User.filter(
             { full_name: orc.vendedor }, 'full_name', 1
           ).catch(() => []);
+
+          // Fallback: se nome não bater exatamente, notifica o primeiro admin
+          if (vendedores.length === 0) {
+            console.warn(`[NEXUS-AGENT v3.2] ⚠️ Vendedor "${orc.vendedor}" não encontrado por full_name — notificando admin`);
+            vendedores = await base44.asServiceRole.entities.User.filter(
+              { role: 'admin' }, 'full_name', 1
+            ).catch(() => []);
+          }
+
           if (vendedores.length > 0) {
             const internalResult = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
               target_user_id: vendedores[0].id
