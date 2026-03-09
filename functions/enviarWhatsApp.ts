@@ -214,7 +214,12 @@ Deno.serve(async (req) => {
       audio_url,
       reply_to_message_id,
       message_type,
-      interactive_buttons
+      interactive_buttons,
+      type,
+      listTitle,
+      listButtonText,
+      listFooter,
+      listSectionTitle
     } = payload;
 
     // ✅ Validação de campos obrigatórios

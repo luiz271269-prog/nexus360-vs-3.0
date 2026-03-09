@@ -64,11 +64,34 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
     return { success: true, mode: 'sticky' };
   }
 
-  // Menu padrão
-  const menu = construirMenuBoasVindas(contact.nome);
-  await enviarMensagem(base44, contact, whatsappIntegrationId, menu);
+  // Menu principal — listMessage (W-API) ou texto numerado (Z-API, via enviarWhatsApp)
+  const nomeMenu = contact.nome && !/^\d+$/.test(contact.nome) ? contact.nome.split(' ')[0] : '';
+  const horaMenu = new Date().getHours();
+  const saudacaoMenu = horaMenu < 12 ? 'Bom dia' : (horaMenu < 18 ? 'Boa tarde' : 'Boa noite');
+  const descricaoMenu = `👋 Olá${nomeMenu ? ` ${nomeMenu}` : ''}! ${saudacaoMenu}! Estou aqui para te conectar com a equipe certa. 🎯`;
+  try {
+    await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+      integration_id: whatsappIntegrationId,
+      numero_destino: contact.telefone,
+      type: 'list',
+      mensagem: descricaoMenu,
+      listTitle: '👋 Como podemos te ajudar?',
+      listButtonText: 'Ver opções',
+      listFooter: 'Liesch Informática',
+      listSectionTitle: 'Setores disponíveis',
+      interactive_buttons: [
+        { rowId: 'setor_vendas',       title: '🛒 Vendas',          description: 'Orçamentos e compras' },
+        { rowId: 'setor_financeiro',   title: '💰 Financeiro',       description: 'Pagamentos e cobranças' },
+        { rowId: 'setor_suporte',      title: '🔧 Suporte Técnico',  description: 'Assistência e manutenção' },
+        { rowId: 'setor_fornecedores', title: '📦 Fornecedores',     description: 'Pedidos e cotações' },
+        { rowId: 'setor_livre',        title: '💬 Falar com alguém', description: 'Diga o nome ou setor desejado' },
+      ]
+    });
+  } catch (e) {
+    console.error('[PRE-ATENDIMENTO] Falha ao enviar list menu:', e.message);
+  }
   await atualizarEstado(base44, thread.id, 'WAITING_SECTOR_CHOICE');
-  return { success: true, mode: 'menu' };
+  return { success: true, mode: 'menu_list' };
 }
 
 async function processarWAITING_STICKY_DECISION(base44, thread, contact, user_input, whatsappIntegrationId) {
