@@ -20,11 +20,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // ✅ FIX CRÍTICO: Usar asServiceRole — esta função é chamada pelo sistema
+    // (via analisarComportamentoContato) sem usuário logado. auth.me() sempre falhava.
 
     const { contact_id, analysis_id } = await req.json();
 
@@ -35,7 +32,7 @@ Deno.serve(async (req) => {
     console.log('[acionarAutomacoesPorPlaybook] Iniciando para contact:', contact_id);
 
     // Buscar análise completa
-    const analises = await base44.entities.ContactBehaviorAnalysis.filter(
+    const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
       { id: analysis_id },
       null,
       1
@@ -47,7 +44,7 @@ Deno.serve(async (req) => {
 
     const analise = analises[0];
     const playbook = analise.playbook || {};
-    const contact = await base44.entities.Contact.filter({ id: contact_id }, null, 1);
+    const contact = await base44.asServiceRole.entities.Contact.filter({ id: contact_id }, null, 1);
 
     if (!contact.length) {
       return Response.json({ error: 'Contact not found' }, { status: 404 });
