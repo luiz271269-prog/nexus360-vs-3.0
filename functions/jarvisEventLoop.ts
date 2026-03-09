@@ -1,27 +1,50 @@
-// jarvisEventLoop - v2.2.0
-// CORREÇÕES v2.2:
-// [P0] Removida chamada claudeWhatsAppResponder (retornava StreamingResponse quebrando o invoker)
-// [P1] MAX_THREADS reduzido para 3 + guard de tempo (abort se > 90s gastos)
-// [P4] jarvis_last_playbook salvo no MessageThread após ação bem-sucedida
-// [P5] Threshold de inatividade dinâmico baseado no score de risco do contato
+// jarvisEventLoop - v3.0.0 (NexusAgentLoop)
+// ═══════════════════════════════════════════════════════════════════════
+// NEXUS AGENT LOOP — Agente autônomo que impede clientes esquecidos
+// ═══════════════════════════════════════════════════════════════════════
+//
+// CICLO COMPLETO:
+//   analisarClientesEmLote → ContactBehaviorAnalysis (prontuário atualizado)
+//   jarvisEventLoop (este)  → lê prontuário + thread ociosa → decide:
+//     CRÍTICO  (score>75) → follow-up WhatsApp direto com mensagem da análise
+//     ALTO     (55-75)    → alerta interno ao atendente via thread interna
+//     MÉDIO    (35-54)    → registra cooldown, sem ação
+//     BAIXO    (<35)      → ignora (contato frio, não gasta recursos)
+//
+// STEP 1: Processar EventoSistema não processados
+// STEP 2: Threads ociosas com decisão inteligente por análise + score
+// STEP 3: Orçamentos parados > 7 dias → criar TarefaInteligente
+// ═══════════════════════════════════════════════════════════════════════
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 const COOLDOWN_HORAS = 4;
-const MAX_THREADS_POR_CICLO = 3;   // conservador: 3 threads por ciclo para não estoura 3min
-const IDLE_THRESHOLD_MIN = 30;     // thread ociosa se sem resposta há X minutos
-const MAX_CICLO_MS = 90_000;       // abort após 90s para não chegar perto do timeout de 3min
+const MAX_THREADS_POR_CICLO = 3;
+const MAX_CICLO_MS = 90_000; // guard de 90s para não estourar o timeout de 3min
+
+// Threshold de inatividade dinâmico por score de engajamento do contato
+// Contato quente/VIP → alerta rápido | Frio → aguardar mais
+const getIdleThresholdMs = (thread) => {
+  const score = thread.score_engajamento ?? thread.cliente_score ?? null;
+  if (score === null) return 60 * 60 * 1000;      // 1h — sem score
+  if (score >= 70)    return 30 * 60 * 1000;      // 30min — VIP/quente
+  if (score >= 40)    return 2 * 60 * 60 * 1000;  // 2h — morno
+  return 6 * 60 * 60 * 1000;                       // 6h — frio
+};
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const agora = new Date();
+    const inicioCiclo = Date.now();
 
-    console.log('[JARVIS v2] 🔄 Event Loop iniciado...');
+    console.log('[NEXUS-AGENT v3] 🔄 Loop iniciado...');
 
     const resultados = {
       eventos_processados: 0,
       threads_alertadas: 0,
+      followups_automaticos: 0,
+      alertas_internos: 0,
       orcamentos_processados: 0,
       threads_ignoradas_cooldown: 0,
       erros: 0
@@ -39,10 +62,9 @@ Deno.serve(async (req) => {
     if (eventos.length > 0) {
       for (const evento of eventos) {
         try {
-          let playbook = 'generic';
-          if (evento.tipo_evento === 'message.inbound' && evento.detalhes?.has_url) {
-            playbook = 'link_intelligence';
-          }
+          const playbook = evento.tipo_evento === 'message.inbound' && evento.detalhes?.has_url
+            ? 'link_intelligence'
+            : 'generic';
 
           await base44.asServiceRole.entities.AgentRun.create({
             trigger_type: evento.tipo_evento,
@@ -59,22 +81,29 @@ Deno.serve(async (req) => {
           await base44.asServiceRole.entities.EventoSistema.update(evento.id, { processado: true });
           resultados.eventos_processados++;
         } catch (err) {
-          console.error('[JARVIS v2] Erro evento:', err.message);
+          console.error('[NEXUS-AGENT v3] Erro evento:', err.message);
           resultados.erros++;
         }
       }
     } else {
-      console.log('[JARVIS v2] ⏭️ EventoSistema vazio — pulando step 1');
+      console.log('[NEXUS-AGENT v3] ⏭️ EventoSistema vazio — pulando step 1');
     }
 
     // ══════════════════════════════════════════════
-    // STEP 2: Threads ociosas — COM COOLDOWN
-    // [P1 FIX] Filtra por jarvis_next_check_after < agora OU null
-    // [P2 FIX] Executa ação real: Claude AI se chip disponível, senão mensagem interna
+    // STEP 2: Threads ociosas com decisão inteligente
+    //
+    // Fluxo por thread:
+    //  1. Aplicar threshold dinâmico por score
+    //  2. Verificar cooldown (jarvis_next_check_after)
+    //  3. Buscar ContactBehaviorAnalysis (prontuário)
+    //  4. Decidir ação baseado no priority_score:
+    //     CRÍTICO  → WhatsApp direto com suggested_message da análise
+    //     ALTO     → Alerta interno ao atendente
+    //     MÉDIO    → Apenas registrar (sem ação)
+    //     BAIXO    → Ignorar (contato frio)
     // ══════════════════════════════════════════════
-    const idleThreshold = new Date(agora.getTime() - IDLE_THRESHOLD_MIN * 60 * 1000);
+    const idleThreshold = new Date(agora.getTime() - 30 * 60 * 1000); // mínimo 30min
 
-    // Busca threads ociosas que passaram do cooldown
     const threadsCandidatas = await base44.asServiceRole.entities.MessageThread.filter({
       last_message_sender: 'contact',
       last_message_at: { $lt: idleThreshold.toISOString() },
@@ -83,76 +112,163 @@ Deno.serve(async (req) => {
       status: 'aberta'
     }, '-last_message_at', 40);
 
-    // [P1] Filtrar pelo cooldown + [P5 FIX] threshold dinâmico por score de risco
-    // Regra: quanto maior o risco do contato, menor o tempo de inatividade tolerado
-    //   score_engajamento >= 70 (VIP/quente) → alerta após 30min de ociosidade
-    //   score_engajamento 40-69 (morno)       → alerta após 2h
-    //   score_engajamento < 40 (frio)         → alerta após 6h
-    //   sem score                             → alerta após 1h (padrão seguro)
-    const getIdleThresholdMs = (thread) => {
-      const score = thread.score_engajamento ?? thread.cliente_score ?? null;
-      if (score === null) return 60 * 60 * 1000;        // 1h — sem score
-      if (score >= 70)    return 30 * 60 * 1000;        // 30min — alto risco/VIP
-      if (score >= 40)    return 2 * 60 * 60 * 1000;   // 2h — médio
-      return 6 * 60 * 60 * 1000;                        // 6h — baixo engajamento
-    };
-
     const threadsParaProcessar = threadsCandidatas.filter(t => {
-      // Cooldown anti-loop
       if (t.jarvis_next_check_after && new Date(t.jarvis_next_check_after) >= agora) return false;
-      // Threshold dinâmico: rejeita se ociosidade ainda não atingiu o limiar do score
       const idleMs = agora - new Date(t.last_message_at);
       return idleMs >= getIdleThresholdMs(t);
     }).slice(0, MAX_THREADS_POR_CICLO);
 
     resultados.threads_ignoradas_cooldown = threadsCandidatas.length - threadsParaProcessar.length;
-    console.log(`[JARVIS v2] 📊 ${threadsCandidatas.length} candidatas | ${threadsParaProcessar.length} a processar | ${resultados.threads_ignoradas_cooldown} em cooldown`);
+    console.log(`[NEXUS-AGENT v3] 📊 ${threadsCandidatas.length} candidatas | ${threadsParaProcessar.length} a processar | ${resultados.threads_ignoradas_cooldown} em cooldown`);
 
-    // Buscar integração WhatsApp ativa para envio automático
+    // Buscar integração WhatsApp ativa (para follow-up automático)
     const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { status: 'conectado' },
-      '-created_date',
-      1
+      { status: 'conectado' }, '-created_date', 1
     ).catch(() => []);
     const integracaoPrincipal = integracoes[0] || null;
 
-    const inicioCiclo = Date.now();
-
     for (const thread of threadsParaProcessar) {
-      // [P1] Guard de tempo: abort se ultrapassou 90s
+      // Guard de tempo — não ultrapassar 90s
       if (Date.now() - inicioCiclo > MAX_CICLO_MS) {
-        console.warn('[JARVIS v2] ⏱️ Guard de tempo atingido — abortando loop para evitar timeout');
+        console.warn('[NEXUS-AGENT v3] ⏱️ Guard de tempo — abortando loop');
         break;
       }
 
       const inicioThread = Date.now();
-      try {
-        const minutosOcioso = Math.round((agora - new Date(thread.last_message_at)) / 60000);
+      const minutosOcioso = Math.round((agora - new Date(thread.last_message_at)) / 60000);
 
+      try {
+        // ── Buscar prontuário do contato (ContactBehaviorAnalysis) ──────────
+        let analise = null;
+        let priorityScore = 0;
+        let priorityLabel = 'BAIXO';
+        let suggestedMessage = null;
+
+        if (thread.contact_id) {
+          try {
+            const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
+              { contact_id: thread.contact_id },
+              '-analyzed_at',
+              1
+            );
+            if (analises.length > 0) {
+              analise = analises[0];
+              priorityScore = analise.priority_score || 0;
+              priorityLabel = analise.priority_label || 'BAIXO';
+              // Pegar mensagem sugerida do prontuário ou next_best_action
+              suggestedMessage = analise.insights_v2?.next_best_action?.suggested_message
+                || analise.next_best_action?.suggested_message
+                || analise.ai_insights?.next_best_action?.message_suggestion
+                || null;
+              console.log(`[NEXUS-AGENT v3] 🧠 Prontuário: ${priorityLabel} (${priorityScore}) | Análise: ${analise.analyzed_at?.substring(0, 10)}`);
+            } else {
+              console.log(`[NEXUS-AGENT v3] ⚠️ Sem prontuário para contact ${thread.contact_id} — usando score padrão`);
+              // Sem análise, usar score do thread como proxy
+              priorityScore = thread.cliente_score || thread.score_engajamento || 0;
+              priorityLabel = priorityScore >= 75 ? 'CRITICO' : priorityScore >= 55 ? 'ALTO' : priorityScore >= 35 ? 'MEDIO' : 'BAIXO';
+            }
+          } catch (e) {
+            console.warn(`[NEXUS-AGENT v3] ⚠️ Erro ao buscar análise: ${e.message}`);
+          }
+        }
+
+        // ── DECISÃO baseada no priority_score ───────────────────────────────
         let acaoExecutada = 'nenhuma';
         let erroAcao = null;
 
-        // [P0 FIX] claudeWhatsAppResponder REMOVIDO daqui — retornava StreamingResponse
-        // que quebrava o invoker do Base44 com "'StreamingResponse' object has no attribute 'body'"
-        // Claude é invocado apenas via webhook inbound (processInbound → claudeWhatsAppResponder)
-        // O Jarvis só faz notificação interna ao atendente como fallback seguro
+        if (priorityLabel === 'BAIXO') {
+          // Contato frio — não gastar recursos, apenas registrar cooldown
+          acaoExecutada = 'ignorado_score_baixo';
+          console.log(`[NEXUS-AGENT v3] ⏭️ Score BAIXO (${priorityScore}) — sem ação para thread ${thread.id}`);
 
-        if (acaoExecutada === 'nenhuma' && thread.assigned_user_id) {
-          // [FIX CIRÚRGICO] Notificar atendente via thread INTERNA (não a thread externa do contato)
+        } else if (priorityLabel === 'CRITICO' && integracaoPrincipal && thread.contact_id && thread.whatsapp_integration_id) {
+          // ── CRÍTICO: Follow-up automático WhatsApp ─────────────────────────
+          // Usa a mensagem sugerida pelo prontuário ou um fallback profissional
+          const msgFollowUp = suggestedMessage
+            || `Olá! Percebi que nossa conversa ficou pendente. Posso ajudar com algo? 😊`;
+
           try {
-            // 1. Buscar/criar thread interna do atendente
+            // Buscar contato para pegar telefone
+            const contato = await base44.asServiceRole.entities.Contact.get(thread.contact_id);
+
+            if (contato?.telefone) {
+              const respEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+                integration_id: thread.whatsapp_integration_id,
+                numero_destino: contato.telefone,
+                mensagem: msgFollowUp
+              });
+
+              if (respEnvio.data?.success) {
+                // Salvar mensagem no histórico da thread
+                await base44.asServiceRole.entities.Message.create({
+                  thread_id: thread.id,
+                  sender_id: 'nexus_agent',
+                  sender_type: 'user',
+                  content: msgFollowUp,
+                  channel: 'whatsapp',
+                  status: 'enviada',
+                  sent_at: agora.toISOString(),
+                  visibility: 'public_to_customer',
+                  metadata: {
+                    is_ai_response: true,
+                    ai_agent: 'nexusAgentLoop',
+                    trigger: 'idle_critical',
+                    minutos_ocioso: minutosOcioso,
+                    priority_score: priorityScore,
+                    whatsapp_integration_id: thread.whatsapp_integration_id
+                  }
+                });
+
+                await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+                  last_message_at: agora.toISOString(),
+                  last_outbound_at: agora.toISOString(),
+                  last_message_sender: 'user',
+                  last_message_content: msgFollowUp.substring(0, 100)
+                });
+
+                acaoExecutada = 'followup_automatico_whatsapp';
+                resultados.followups_automaticos++;
+                console.log(`[NEXUS-AGENT v3] ✅ Follow-up AUTOMÁTICO enviado → ${contato.nome} (${priorityScore} pts, ${minutosOcioso}min ocioso)`);
+              } else {
+                erroAcao = respEnvio.data?.error || 'Erro no gateway';
+                console.warn(`[NEXUS-AGENT v3] ⚠️ Falha no envio WhatsApp: ${erroAcao}`);
+              }
+            } else {
+              console.warn(`[NEXUS-AGENT v3] ⚠️ Contato sem telefone — fallback para alerta interno`);
+              // Fallback para alerta interno se não tiver telefone
+              priorityLabel = 'ALTO';
+            }
+          } catch (e) {
+            erroAcao = e.message;
+            console.warn(`[NEXUS-AGENT v3] ⚠️ Erro no follow-up automático: ${e.message}`);
+            // Fallback para alerta interno
+            priorityLabel = 'ALTO';
+          }
+        }
+
+        // ── ALTO ou fallback do CRÍTICO: Alerta interno ao atendente ────────
+        if ((priorityLabel === 'ALTO' || (priorityLabel === 'CRITICO' && acaoExecutada === 'nenhuma')) && thread.assigned_user_id) {
+          try {
             const internalResult = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
               target_user_id: thread.assigned_user_id
             });
             const internalThread = internalResult?.data?.thread || internalResult?.thread;
 
             if (internalThread?.id) {
-              const msgContent = `⏰ *Atenção!* A conversa com o contato está sem resposta há *${minutosOcioso} minutos*. Por favor, verifique. [Thread: ${thread.id}]`;
+              // Monta alerta rico com contexto do prontuário
+              const riskInfo = analise?.relationship_risk?.level
+                ? `\n🔴 Risco relacional: *${analise.relationship_risk.level.toUpperCase()}*`
+                : '';
+              const nextAction = analise?.insights_v2?.next_best_action?.action
+                || analise?.next_best_action?.action
+                || '';
+              const actionInfo = nextAction ? `\n💡 Próxima ação sugerida: ${nextAction}` : '';
 
-              // 2. Criar mensagem diretamente via service role (sem exigir auth de usuário real)
+              const msgContent = `⏰ *Atenção!* Conversa parada há *${minutosOcioso} minutos*.\n📊 Score: *${priorityScore}/100 (${priorityLabel})*${riskInfo}${actionInfo}\n🔗 Thread: ${thread.id}`;
+
               await base44.asServiceRole.entities.Message.create({
                 thread_id: internalThread.id,
-                sender_id: 'jarvis_system',
+                sender_id: 'nexus_agent',
                 sender_type: 'user',
                 content: msgContent,
                 channel: 'interno',
@@ -164,52 +280,61 @@ Deno.serve(async (req) => {
                   is_internal_message: true,
                   jarvis_alert: true,
                   external_thread_id: thread.id,
-                  contact_id: thread.contact_id
+                  contact_id: thread.contact_id,
+                  priority_score: priorityScore,
+                  priority_label: priorityLabel
                 }
               });
 
-              // 3. Atualizar unread_by na thread interna
               const currentUnreads = internalThread.unread_by || {};
               currentUnreads[thread.assigned_user_id] = (currentUnreads[thread.assigned_user_id] || 0) + 1;
               await base44.asServiceRole.entities.MessageThread.update(internalThread.id, {
                 last_message_at: agora.toISOString(),
-                last_message_content: `⏰ Conversa parada há ${minutosOcioso} min`,
+                last_message_content: `⏰ Conversa parada ${minutosOcioso}min | Score ${priorityScore}`,
                 unread_by: currentUnreads,
                 total_mensagens: (internalThread.total_mensagens || 0) + 1
               });
 
-              acaoExecutada = 'notificacao_atendente';
-              console.log(`[JARVIS v2] ✅ Alerta interno enviado ao atendente ${thread.assigned_user_id} via thread ${internalThread.id}`);
-            } else {
-              console.warn(`[JARVIS v2] ⚠️ Thread interna não encontrada/criada para atendente ${thread.assigned_user_id}`);
+              acaoExecutada = 'alerta_interno_atendente';
+              resultados.alertas_internos++;
+              console.log(`[NEXUS-AGENT v3] ✅ Alerta interno → atendente ${thread.assigned_user_id} | Score ${priorityScore} | ${minutosOcioso}min`);
             }
-          } catch (err) {
-            erroAcao = erroAcao || err.message;
-            console.warn(`[JARVIS v2] ⚠️ Notificação falhou para thread ${thread.id}: ${err.message}`);
+          } catch (e) {
+            erroAcao = erroAcao || e.message;
+            console.warn(`[NEXUS-AGENT v3] ⚠️ Alerta interno falhou: ${e.message}`);
           }
         }
 
-        // [P4 FIX] Marcar cooldown + salvar último playbook executado
+        // ── MÉDIO: só registrar, sem incomodar ─────────────────────────────
+        if (priorityLabel === 'MEDIO' && acaoExecutada === 'nenhuma') {
+          acaoExecutada = 'registrado_sem_acao';
+          console.log(`[NEXUS-AGENT v3] 📝 Score MÉDIO (${priorityScore}) — registrando cooldown sem ação`);
+        }
+
+        // Aplicar cooldown + salvar último playbook
         const proximoCheck = new Date(agora.getTime() + COOLDOWN_HORAS * 60 * 60 * 1000);
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
           jarvis_alerted_at: agora.toISOString(),
           jarvis_next_check_after: proximoCheck.toISOString(),
-          ...(acaoExecutada !== 'nenhuma' && { jarvis_last_playbook: acaoExecutada })
+          ...(acaoExecutada !== 'nenhuma' && acaoExecutada !== 'ignorado_score_baixo' && { jarvis_last_playbook: acaoExecutada })
         });
 
-        // Registrar AgentRun com status real
+        // Registrar AgentRun para auditoria
         await base44.asServiceRole.entities.AgentRun.create({
           trigger_type: 'thread.idle',
           trigger_event_id: thread.id,
           playbook_selected: acaoExecutada,
-          execution_mode: 'assistente',
+          execution_mode: 'auto_execute',
           status: erroAcao ? 'erro' : 'concluido',
           context_snapshot: {
             thread_id: thread.id,
             contact_id: thread.contact_id,
             minutos_ocioso: minutosOcioso,
             unread_count: thread.unread_count,
+            priority_score: priorityScore,
+            priority_label: priorityLabel,
             acao_executada: acaoExecutada,
+            tinha_analise: !!analise,
             erro: erroAcao
           },
           started_at: new Date(inicioThread).toISOString(),
@@ -219,19 +344,19 @@ Deno.serve(async (req) => {
 
         resultados.threads_alertadas++;
       } catch (err) {
-        console.error(`[JARVIS v2] Erro ao processar thread ${thread.id}:`, err.message);
+        console.error(`[NEXUS-AGENT v3] Erro ao processar thread ${thread.id}:`, err.message);
         resultados.erros++;
       }
     }
 
     // ══════════════════════════════════════════════
-    // STEP 3: Orçamentos parados (> 7 dias no status 'enviado')
-    // Só executa se ainda há tempo disponível no ciclo
+    // STEP 3: Orçamentos parados > 7 dias
+    // Só executa se ainda há tempo disponível
     // ══════════════════════════════════════════════
     if (Date.now() - inicioCiclo > MAX_CICLO_MS) {
-      console.warn('[JARVIS v2] ⏱️ Skip Step 3 (orçamentos) — ciclo sem tempo restante');
-      console.log('[JARVIS v2] ✅ Ciclo concluído (sem step 3):', resultados);
-      return Response.json({ success: true, versao: '2.2.0', resultados });
+      console.warn('[NEXUS-AGENT v3] ⏱️ Skip Step 3 — ciclo sem tempo');
+      console.log('[NEXUS-AGENT v3] ✅ Ciclo concluído (sem step 3):', resultados);
+      return Response.json({ success: true, versao: '3.0.0', resultados });
     }
 
     const seteDiasAtras = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -251,20 +376,20 @@ Deno.serve(async (req) => {
           orcamento_id: orc.id,
           vendedor_responsavel: orc.vendedor,
           data_prazo: agora.toISOString(),
-          contexto_ia: { motivo_criacao: 'Jarvis v2 — orçamento parado', criado_por: 'jarvis' }
+          contexto_ia: { motivo_criacao: 'NexusAgent v3 — orçamento parado', criado_por: 'nexus_agent' }
         });
         resultados.orcamentos_processados++;
       } catch (err) {
-        console.error('[JARVIS v2] Erro orçamento:', err.message);
+        console.error('[NEXUS-AGENT v3] Erro orçamento:', err.message);
         resultados.erros++;
       }
     }
 
-    console.log('[JARVIS v2] ✅ Ciclo concluído:', resultados);
-    return Response.json({ success: true, versao: '2.2.0', resultados });
+    console.log('[NEXUS-AGENT v3] ✅ Ciclo concluído:', resultados);
+    return Response.json({ success: true, versao: '3.0.0', resultados });
 
   } catch (error) {
-    console.error('[JARVIS v2] ❌ Erro geral:', error.message);
+    console.error('[NEXUS-AGENT v3] ❌ Erro geral:', error.message);
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 });
