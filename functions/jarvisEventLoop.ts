@@ -102,6 +102,18 @@ Deno.serve(async (req) => {
     ).catch(() => []);
     const integracaoPrincipal = integracoes[0] || null;
 
+    // ── FREIO DE MÃO: limite de 10 disparos diretos/hora por chip ──────────
+    // Protege o chip de banimento por envio em massa automático
+    const umaHoraAtras = new Date(agora.getTime() - 60 * 60 * 1000);
+    const disparosUltimaHora = await base44.asServiceRole.entities.Message.filter({
+      sender_id: 'nexus_agent',
+      sent_at: { $gte: umaHoraAtras.toISOString() }
+    }, '-sent_at', 20).catch(() => []);
+    const forceModeAlertOnly = disparosUltimaHora.length >= 10;
+    if (forceModeAlertOnly) {
+      console.log(`[NEXUS-AGENT v3.2] 🛑 FREIO DE MÃO ativado — ${disparosUltimaHora.length} disparos na última hora. Convertendo CRÍTICOs em alertas internos.`);
+    }
+
     for (const thread of threadsParaProcessar) {
       // Guard de tempo — não ultrapassar 90s
       if (Date.now() - inicioCiclo > MAX_CICLO_MS) {
@@ -165,7 +177,7 @@ Deno.serve(async (req) => {
           acaoExecutada = 'ignorado_score_baixo';
           console.log(`[NEXUS-AGENT v3] ⏭️ Score BAIXO (${priorityScore}) — sem ação para thread ${thread.id}`);
 
-        } else if (priorityLabel === 'CRITICO' && integracaoPrincipal && thread.contact_id && thread.whatsapp_integration_id) {
+        } else if (priorityLabel === 'CRITICO' && !forceModeAlertOnly && integracaoPrincipal && thread.contact_id && thread.whatsapp_integration_id) {
           // ── CRÍTICO: Follow-up automático WhatsApp ─────────────────────────
           // Usa a mensagem sugerida pelo prontuário ou um fallback profissional
           const msgFollowUp = suggestedMessage
@@ -231,7 +243,7 @@ Deno.serve(async (req) => {
         }
 
         // ── ALTO ou fallback do CRÍTICO: Alerta interno ao atendente ────────
-        if ((priorityLabel === 'ALTO' || (priorityLabel === 'CRITICO' && acaoExecutada === 'nenhuma') || (priorityLabel === 'MEDIO' && sensibilidadeBoost > 0)) && thread.assigned_user_id) {
+        if ((priorityLabel === 'ALTO' || (priorityLabel === 'CRITICO' && (acaoExecutada === 'nenhuma' || forceModeAlertOnly)) || (priorityLabel === 'MEDIO' && sensibilidadeBoost > 0)) && thread.assigned_user_id) {
           try {
             const internalResult = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
               target_user_id: thread.assigned_user_id
@@ -239,6 +251,18 @@ Deno.serve(async (req) => {
             const internalThread = internalResult?.data?.thread || internalResult?.thread;
 
             if (internalThread?.id) {
+              // ── COOLDOWN POR ATENDENTE: máx 3 alertas por atendente a cada 2h ─
+              const duasHorasAtras = new Date(agora.getTime() - 2 * 60 * 60 * 1000);
+              const alertasRecentes = await base44.asServiceRole.entities.Message.filter({
+                thread_id: internalThread.id,
+                sender_id: 'nexus_agent',
+                sent_at: { $gte: duasHorasAtras.toISOString() }
+              }, '-sent_at', 5).catch(() => []);
+
+              if (alertasRecentes.length >= 3) {
+                console.log(`[NEXUS-AGENT v3.2] 🔕 Cooldown atendente ${thread.assigned_user_id} — já recebeu ${alertasRecentes.length} alertas nas últimas 2h. Pulando.`);
+                acaoExecutada = 'ignorado_cooldown_atendente';
+              } else {
               // Monta alerta rico com contexto do prontuário
               const riskInfo = analise?.relationship_risk?.level
                 ? `\n🔴 Risco relacional: *${analise.relationship_risk.level.toUpperCase()}*`
@@ -279,9 +303,10 @@ Deno.serve(async (req) => {
                 total_mensagens: (internalThread.total_mensagens || 0) + 1
               });
 
-              acaoExecutada = 'alerta_interno_atendente';
-              resultados.alertas_internos++;
-              console.log(`[NEXUS-AGENT v3] ✅ Alerta interno → atendente ${thread.assigned_user_id} | Score ${priorityScore} | ${minutosOcioso}min`);
+                acaoExecutada = 'alerta_interno_atendente';
+                resultados.alertas_internos++;
+                console.log(`[NEXUS-AGENT v3.2] ✅ Alerta interno → atendente ${thread.assigned_user_id} | Score ${priorityScore} | ${minutosOcioso}min | Freio: ${forceModeAlertOnly}`);
+              } // fim cooldown atendente
             }
           } catch (e) {
             erroAcao = erroAcao || e.message;
