@@ -1,60 +1,66 @@
-import { createClient } from 'npm:@base44/sdk@0.7.1';
+// executarFluxosAgendados - v2.0.0
+// ═══════════════════════════════════════════════════════════════════════
+// Worker que avança FlowExecutions com next_action_at no passado.
+// Corrigido: removido import local quebrado (../components/...).
+// Usa playbookEngine via SDK em vez de import direto.
+// ═══════════════════════════════════════════════════════════════════════
 
-/**
- * Função Cron para Executar Fluxos Agendados
- * Deve ser executada a cada minuto
- */
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+
 Deno.serve(async (req) => {
   try {
-    const base44 = createClient({
-      appId: Deno.env.get('BASE44_APP_ID'),
-      apiKey: Deno.env.get('BASE44_SERVICE_ROLE_KEY')
-    });
-    
-    console.log("⏰ [Cron] Verificando fluxos agendados...");
-    
+    const base44 = createClientFromRequest(req);
     const agora = new Date().toISOString();
-    
-    // Buscar execuções agendadas para agora ou antes
+
+    console.log('[EXEC-FLUXOS v2] ⏰ Verificando fluxos agendados...');
+
     const execucoes = await base44.asServiceRole.entities.FlowExecution.filter({
-      status: 'ativo',
+      status: 'waiting_follow_up',
       next_action_at: { $lte: agora }
-    });
-    
-    console.log(`📊 [Cron] ${execucoes.length} fluxos para executar`);
-    
+    }, 'next_action_at', 20);
+
+    console.log(`[EXEC-FLUXOS v2] 📊 ${execucoes.length} fluxos para executar`);
+
     let sucessos = 0;
     let erros = 0;
-    
+
     for (const execution of execucoes) {
       try {
-        // Importar executor dinamicamente
-        const { ExecutorFluxos } = await import('../components/automacao/ExecutorFluxos.js');
-        
-        await ExecutorFluxos.executarProximoPasso(execution.id);
-        sucessos++;
-        
+        // Invocar playbookEngine via SDK (sem import local)
+        const resultado = await base44.asServiceRole.functions.invoke('playbookEngine', {
+          action: 'continue_follow_up',
+          execution_id: execution.id
+        });
+
+        if (resultado?.data?.success) {
+          console.log(`[EXEC-FLUXOS v2] ✅ Fluxo ${execution.id} avançado | Ação: ${resultado.data.action}`);
+          sucessos++;
+        } else {
+          console.warn(`[EXEC-FLUXOS v2] ⚠️ Fluxo ${execution.id} retornou falha:`, resultado?.data?.error);
+          erros++;
+        }
       } catch (error) {
-        console.error(`❌ [Cron] Erro ao executar fluxo ${execution.id}:`, error);
+        console.error(`[EXEC-FLUXOS v2] ❌ Erro ao executar fluxo ${execution.id}:`, error.message);
         erros++;
-        
-        // Marcar como erro
+
+        // Marcar execução como erro para não tentar de novo
         await base44.asServiceRole.entities.FlowExecution.update(execution.id, {
           status: 'erro',
           execution_history: [
             ...(execution.execution_history || []),
             {
               executed_at: new Date().toISOString(),
-              erro: error.message,
-              success: false
+              action: 'continue_follow_up',
+              result: 'failed',
+              details: { error: error.message }
             }
           ]
-        });
+        }).catch(() => {});
       }
     }
-    
-    console.log(`✅ [Cron] Concluído: ${sucessos} sucessos, ${erros} erros`);
-    
+
+    console.log(`[EXEC-FLUXOS v2] ✅ Concluído: ${sucessos} sucessos | ${erros} erros`);
+
     return Response.json({
       success: true,
       timestamp: agora,
@@ -62,12 +68,9 @@ Deno.serve(async (req) => {
       sucessos,
       erros
     });
-    
+
   } catch (error) {
-    console.error("❌ [Cron] Erro geral:", error);
-    return Response.json({
-      success: false,
-      error: error.message
-    }, { status: 500 });
+    console.error('[EXEC-FLUXOS v2] ❌ Erro geral:', error.message);
+    return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 });
