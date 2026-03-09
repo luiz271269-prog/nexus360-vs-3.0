@@ -226,7 +226,14 @@ Deno.serve(async (req) => {
 
     // ══════════════════════════════════════════════
     // STEP 3: Orçamentos parados (> 7 dias no status 'enviado')
+    // Só executa se ainda há tempo disponível no ciclo
     // ══════════════════════════════════════════════
+    if (Date.now() - inicioCiclo > MAX_CICLO_MS) {
+      console.warn('[JARVIS v2] ⏱️ Skip Step 3 (orçamentos) — ciclo sem tempo restante');
+      console.log('[JARVIS v2] ✅ Ciclo concluído (sem step 3):', resultados);
+      return Response.json({ success: true, versao: '2.2.0', resultados });
+    }
+
     const seteDiasAtras = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000);
     const orcamentosParados = await base44.asServiceRole.entities.Orcamento.filter({
       status: 'enviado',
