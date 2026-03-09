@@ -96,35 +96,55 @@ Deno.serve(async (req) => {
   try {
     console.log(`[${VERSION}] 🔍 Buscando com ${variacoes.length} variações: ${variacoes.join(', ')}`);
     
-    // Busca sequencial pelas variações até encontrar um contato
+    // Busca sequencial pelas variações — campo "telefone" E "telefone_canonico"
     for (const variacao of variacoes) {
+      if (contatoExistente) break;
+      for (const campo of ['telefone', 'telefone_canonico']) {
+        try {
+          const resultado = await base44.asServiceRole.entities.Contact.filter(
+            { [campo]: variacao },
+            '-created_date',
+            1
+          );
+          if (resultado && resultado.length > 0) {
+            contatoExistente = resultado[0];
+            console.log(`[${VERSION}] ✅ ENCONTRADO por ${campo}="${variacao}"! ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
+            // Normaliza telefone se desatualizado
+            if (contatoExistente.telefone !== telefoneNormalizado) {
+              await base44.asServiceRole.entities.Contact.update(contatoExistente.id, {
+                telefone: telefoneNormalizado,
+                telefone_canonico: telefoneNormalizado.replace(/\D/g, '')
+              });
+              contatoExistente.telefone = telefoneNormalizado;
+            }
+            break;
+          }
+        } catch (searchErr) {
+          console.error(`[${VERSION}] ❌ Erro ao buscar ${campo}="${variacao}":`, searchErr.message);
+        }
+      }
+    }
+
+    // Busca por nome no Cliente — vincula contexto se pushName bater com razao_social/nome_fantasia
+    if (!contatoExistente && pushName) {
       try {
-        const resultado = await base44.asServiceRole.entities.Contact.filter(
-          { telefone: variacao },
+        const clientesMatch = await base44.asServiceRole.entities.Cliente.filter(
+          { razao_social: { $regex: pushName.split(' ')[0] } },
           '-created_date',
           1
         );
-        
-        if (resultado && resultado.length > 0) {
-          contatoExistente = resultado[0];
-          console.log(`[${VERSION}] ✅ ENCONTRADO pela variação "${variacao}"! ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome} | Tel DB: "${contatoExistente.telefone}"`);
-          
-          // Se o telefone no banco está desatualizado (sem o 9), corrige para o formato normalizado
-          if (contatoExistente.telefone !== telefoneNormalizado) {
-            console.log(`[${VERSION}] 🔧 Atualizando telefone do contato de "${contatoExistente.telefone}" para "${telefoneNormalizado}"`);
-            await base44.asServiceRole.entities.Contact.update(contatoExistente.id, { 
-              telefone: telefoneNormalizado,
-              telefone_canonico: telefoneNormalizado.replace(/\D/g, '')
-            });
-            contatoExistente.telefone = telefoneNormalizado;
-          }
-          break;
+        if (clientesMatch && clientesMatch.length > 0) {
+          const clienteMatch = clientesMatch[0];
+          console.log(`[${VERSION}] 🏢 Match por nome empresa: "${clienteMatch.razao_social}" → herdando cliente_id`);
+          // Será salvo no create abaixo via clienteParaVincular
+          contatoExistente = null; // ainda vai criar, mas com contexto
+          payload._clienteParaVincular = clienteMatch;
         }
-      } catch (searchErr) {
-        console.error(`[${VERSION}] ❌ Erro ao buscar variação "${variacao}":`, searchErr.message);
+      } catch (e) {
+        console.warn(`[${VERSION}] ⚠️ Erro ao buscar match por nome:`, e.message);
       }
     }
-    
+
     if (!contatoExistente) {
       console.log(`[${VERSION}] 🆕 Nenhum contato encontrado. Criando NOVO com telefone: "${telefoneNormalizado}"`);
     }
