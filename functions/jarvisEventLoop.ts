@@ -141,16 +141,51 @@ Deno.serve(async (req) => {
         }
 
         if (acaoExecutada === 'nenhuma' && thread.assigned_user_id) {
-          // [P2 FIX] Fallback: notificar atendente via mensagem interna
+          // [FIX CIRÚRGICO] Notificar atendente via thread INTERNA (não a thread externa do contato)
           try {
-            await base44.asServiceRole.functions.invoke('sendInternalMessage', {
-              from_user_id: 'jarvis_system',
-              to_user_id: thread.assigned_user_id,
-              thread_id: thread.id,
-              content: `⏰ *Atenção!* A conversa com este contato está sem resposta há *${minutosOcioso} minutos*. Por favor, verifique.`,
-              visibility: 'internal_only'
+            // 1. Buscar/criar thread interna do atendente
+            const internalResult = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
+              target_user_id: thread.assigned_user_id
             });
-            acaoExecutada = 'notificacao_atendente';
+            const internalThread = internalResult?.data?.thread || internalResult?.thread;
+
+            if (internalThread?.id) {
+              const msgContent = `⏰ *Atenção!* A conversa com o contato está sem resposta há *${minutosOcioso} minutos*. Por favor, verifique. [Thread: ${thread.id}]`;
+
+              // 2. Criar mensagem diretamente via service role (sem exigir auth de usuário real)
+              await base44.asServiceRole.entities.Message.create({
+                thread_id: internalThread.id,
+                sender_id: 'jarvis_system',
+                sender_type: 'user',
+                content: msgContent,
+                channel: 'interno',
+                visibility: 'internal_only',
+                provider: 'internal_system',
+                status: 'enviada',
+                sent_at: agora.toISOString(),
+                metadata: {
+                  is_internal_message: true,
+                  jarvis_alert: true,
+                  external_thread_id: thread.id,
+                  contact_id: thread.contact_id
+                }
+              });
+
+              // 3. Atualizar unread_by na thread interna
+              const currentUnreads = internalThread.unread_by || {};
+              currentUnreads[thread.assigned_user_id] = (currentUnreads[thread.assigned_user_id] || 0) + 1;
+              await base44.asServiceRole.entities.MessageThread.update(internalThread.id, {
+                last_message_at: agora.toISOString(),
+                last_message_content: `⏰ Conversa parada há ${minutosOcioso} min`,
+                unread_by: currentUnreads,
+                total_mensagens: (internalThread.total_mensagens || 0) + 1
+              });
+
+              acaoExecutada = 'notificacao_atendente';
+              console.log(`[JARVIS v2] ✅ Alerta interno enviado ao atendente ${thread.assigned_user_id} via thread ${internalThread.id}`);
+            } else {
+              console.warn(`[JARVIS v2] ⚠️ Thread interna não encontrada/criada para atendente ${thread.assigned_user_id}`);
+            }
           } catch (err) {
             erroAcao = erroAcao || err.message;
             console.warn(`[JARVIS v2] ⚠️ Notificação falhou para thread ${thread.id}: ${err.message}`);
