@@ -749,6 +749,7 @@ export default function ChatSidebarKanban({
         usuarios={atendentes} currentUser={usuarioAtual}
         onSuccess={() => { setCriarGrupoOpen(false); toast.success('✅ Grupo criado!'); }} />
       <AgendaIAUnificada open={agendaIAOpen} onClose={() => setAgendaIAOpen(false)} usuario={usuarioAtual} />
+      <ManualJarvis open={manualJarvisOpen} onClose={() => setManualJarvisOpen(false)} />
     </div>
   );
 }
