@@ -49,6 +49,67 @@ Deno.serve(async (req) => {
   const result = { pipeline: [], actions: [] };
   const now = new Date();
 
+  // ════════════════════════════════════════════════════════════════
+  // [INBOUND-GATE] CAMADA 5 — BATCH WINDOW (10 segundos)
+  // Foto + legenda chegam como 2 webhooks separados (1-3s de diferença).
+  // Se há 2+ mensagens do mesmo contato nos últimos 10s, aguarda 3s
+  // para agrupar antes de prosseguir — evita duplo disparo de URA.
+  // ════════════════════════════════════════════════════════════════
+  if (contact?.id) {
+    try {
+      const dezSegAtras = new Date(Date.now() - 10_000).toISOString();
+      const msgRecentes = await base44.asServiceRole.entities.Message.filter({
+        sender_id: contact.id,
+        sender_type: 'contact',
+        created_date: { $gte: dezSegAtras }
+      }, '-created_date', 3);
+
+      if (msgRecentes && msgRecentes.length >= 2) {
+        console.log(`[INBOUND-GATE] ⏳ CAMADA 5 BATCH WINDOW: ${msgRecentes.length} msgs em 10s — aguardando 3s`);
+        await new Promise(r => setTimeout(r, 3000));
+        console.log(`[INBOUND-GATE] ✅ CAMADA 5: janela encerrada, processando`);
+      }
+    } catch (e) {
+      console.warn(`[INBOUND-GATE] ⚠️ Erro batch window:`, e.message);
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // [INBOUND-GATE] CAMADA 1 — FILTRO INTERNO
+  // Se o número pertence a um User do sistema OU a um chip da empresa
+  // (WhatsAppIntegration): salva mensagem e para — zero automação.
+  // ════════════════════════════════════════════════════════════════
+  const canonico = (contact?.telefone || contact?.telefone_canonico || '').replace(/\D/g, '');
+  if (canonico) {
+    try {
+      // 1a. Verificar chips da empresa (número entre as integrações cadastradas)
+      const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({}, '-created_date', 30);
+      const numerosChips = integracoes
+        .map(i => (i.numero_telefone || '').replace(/\D/g, ''))
+        .filter(Boolean);
+
+      if (numerosChips.includes(canonico)) {
+        console.log(`[INBOUND-GATE] 🛑 CAMADA 1: Chip interno detectado (${canonico}) — pipeline interrompido`);
+        return Response.json({ success: true, skipped: true, reason: 'chip_interno', pipeline: ['internal_filter'] });
+      }
+
+      // 1b. Verificar usuários do sistema (atendentes com telefone cadastrado)
+      const usuarios = await base44.asServiceRole.entities.User.list('-created_date', 100);
+      const telefonesInternos = usuarios
+        .map(u => (u.phone || u.attendant_phone || u.whatsapp_phone || '').replace(/\D/g, ''))
+        .filter(t => t && t.length >= 10);
+
+      if (telefonesInternos.includes(canonico)) {
+        console.log(`[INBOUND-GATE] 🛑 CAMADA 1: Usuário interno detectado (${canonico}) — pipeline interrompido`);
+        return Response.json({ success: true, skipped: true, reason: 'usuario_interno', pipeline: ['internal_filter'] });
+      }
+
+      console.log(`[INBOUND-GATE] ✅ CAMADA 1: Número externo (${canonico})`);
+    } catch (e) {
+      console.warn(`[INBOUND-GATE] ⚠️ Erro filtro interno (prosseguindo):`, e.message);
+    }
+  }
+
   // 1. IDEMPOTÊNCIA
   result.pipeline.push('idempotency_check');
   if (message?.whatsapp_message_id && integration?.id) {
