@@ -584,6 +584,21 @@ export default function ChatSidebarKanban({
             className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'urgentes' ? 'bg-purple-600 text-white shadow' : 'text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100'}`}>
             <Zap className="w-3.5 h-3.5 flex-shrink-0" />Urgentes
           </button>
+
+          {/* Jarvis */}
+          <button onClick={() => setKanbanMode('jarvis')}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'jarvis' ? 'bg-violet-600 text-white shadow' : 'text-violet-700 bg-violet-50 border border-violet-200 hover:bg-violet-100'}`}>
+            <Bot className="w-3.5 h-3.5 flex-shrink-0" />Jarvis
+          </button>
+
+          <div className="h-5 w-px bg-slate-200" />
+
+          {/* Manual de Bolso */}
+          <button onClick={() => setManualJarvisOpen(true)}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all text-slate-600 bg-slate-50 border border-slate-200 hover:bg-slate-100"
+            title="Manual de Bolso — Alertas do Jarvis">
+            <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />Manual
+          </button>
         </div>
 
         {/* Colunas Kanban */}
