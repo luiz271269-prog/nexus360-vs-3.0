@@ -198,10 +198,14 @@ Deno.serve(async (req) => {
 
   // CONTATO NOVO - CRIAR
   try {
+    const clienteVincular = payload._clienteParaVincular || null;
     const novoContato = await base44.asServiceRole.entities.Contact.create({
       nome: pushName || telefoneNormalizado,
       telefone: telefoneNormalizado,
-      tipo_contato: 'lead',
+      telefone_canonico: telefoneNormalizado.replace(/\D/g, ''), // FIX: sempre gravar canonico
+      tipo_contato: clienteVincular ? 'cliente' : 'lead',         // FIX: herdar tipo se match empresa
+      cliente_id: clienteVincular ? clienteVincular.id : null,    // FIX: vincular cliente
+      empresa: clienteVincular ? (clienteVincular.nome_fantasia || clienteVincular.razao_social) : null,
       whatsapp_status: 'verificado',
       conexao_origem: conexaoId || null,
       foto_perfil_url: profilePicUrl || null,
