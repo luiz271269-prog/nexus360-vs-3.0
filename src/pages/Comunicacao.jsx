@@ -269,7 +269,7 @@ export default function Comunicacao() {
     enabled: !!usuario,
     retry: 2,
     retryDelay: 1000,
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: false // P2: sem refetch ao focar janela
   });
 
   // ══════════════════════════════════════════════════════════════════════
@@ -320,8 +320,8 @@ export default function Comunicacao() {
     enabled: !!usuario && !isRateLimited,
     retry: 2,
     retryDelay: 1000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
     onError: (error) => {
       console.error('[COMUNICACAO] Erro ao carregar threads externas:', error);
     }
@@ -393,7 +393,7 @@ export default function Comunicacao() {
   // ✅ PRESERVA _meta (score_completude, tem_dados_basicos) do backend
   // ═══════════════════════════════════════════════════════════════════════════════
   const { data: contatos = [], isLoading: loadingContatos } = useQuery({
-    queryKey: ['contacts', contactIdsParaCarregar],
+    queryKey: ['contacts', contactIdsParaCarregar.join(',')], // P3: chave estável
     queryFn: async () => {
       if (contactIdsParaCarregar.length === 0) return [];
 
