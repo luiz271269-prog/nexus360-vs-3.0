@@ -38,6 +38,7 @@ async function enviarMensagem(base44, contact, integrationId, texto) {
 async function atualizarEstado(base44, threadId, novoEstado, setorId = undefined) {
   const updateData = {
     pre_atendimento_state: novoEstado,
+    pre_atendimento_ativo: true,  // Bug fix: garantir que sempre está true durante o fluxo
     pre_atendimento_last_interaction: new Date().toISOString(),
     pre_atendimento_timeout_at: new Date(Date.now() + PRE_ATENDIMENTO_TIMEOUT_MS).toISOString()
   };
