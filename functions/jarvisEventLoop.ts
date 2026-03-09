@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
     }
 
     console.log('[JARVIS v2] ✅ Ciclo concluído:', resultados);
-    return Response.json({ success: true, versao: '2.0.0', resultados });
+    return Response.json({ success: true, versao: '2.2.0', resultados });
 
   } catch (error) {
     console.error('[JARVIS v2] ❌ Erro geral:', error.message);
