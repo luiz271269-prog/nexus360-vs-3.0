@@ -1,16 +1,16 @@
-// redeploy: 2026-03-03T14:40
+// redeploy: 2026-03-09T00:00
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 // ============================================================================
 // FUNÇÃO CENTRALIZADORA ÚNICA - CONTATO (ANTI-DUPLICAÇÃO)
+// v2.0.0 - Busca canônica primeiro, depois variações em 1 query só
 // ============================================================================
-const VERSION = 'v1.0.0-CENTRALIZED-CONTACT';
+const VERSION = 'v2.0.0-CANONICAL-FIRST';
 
-// --- Inline: phone utils (NO local imports in Deno Edge) ---
 function normalizarTelefone(telefone) {
   if (!telefone) return null;
   let n = String(telefone).split('@')[0].replace(/\D/g, '');
-  if (!n || n.length < 10) return null;
+  if (!n || n.length < 8) return null;
   n = n.replace(/^0+/, '');
   if (!n.startsWith('55')) {
     if (n.length === 10 || n.length === 11) n = '55' + n;
@@ -22,31 +22,46 @@ function normalizarTelefone(telefone) {
   return '+' + n;
 }
 
-function gerarVariacoesTelefone(telefoneNormalizado) {
+// Gera TODAS as variações canônicas possíveis de um número
+// para busca tolerante a formatos legados no banco
+function gerarVariacoes(telefoneNormalizado) {
   if (!telefoneNormalizado) return [];
-  const base = telefoneNormalizado.replace(/\D/g, '');
-  const variacoes = new Set([telefoneNormalizado, base]);
+  const base = telefoneNormalizado.replace(/\D/g, ''); // ex: 5548988634900 (13 digits)
+  const variacoes = new Set();
+
+  // Com e sem +
+  variacoes.add('+' + base);
+  variacoes.add(base);
+
   if (base.startsWith('55')) {
+    const semPais = base.substring(2);  // ex: 48988634900 (11 digits)
+    variacoes.add(semPais);
+    variacoes.add('+55' + semPais);
+
+    // Com 13 dígitos (tem 9): adicionar versão sem o 9 (12 dígitos)
     if (base.length === 13) {
-      const sem9 = base.substring(0, 4) + base.substring(5);
+      const sem9 = base.substring(0, 4) + base.substring(5); // ex: 554888634900
       variacoes.add('+' + sem9);
       variacoes.add(sem9);
+      variacoes.add(sem9.substring(2)); // sem país sem 9: 4888634900
     }
+
+    // Com 12 dígitos (sem 9): adicionar versão com o 9 (13 dígitos)
     if (base.length === 12) {
-      const com9 = base.substring(0, 4) + '9' + base.substring(4);
+      const com9 = base.substring(0, 4) + '9' + base.substring(4); // ex: 5548988634900
       variacoes.add('+' + com9);
       variacoes.add(com9);
+      variacoes.add(com9.substring(2)); // sem país com 9: 48988634900
     }
-    variacoes.add('+55' + base.substring(2));
   }
+
   return [...variacoes];
 }
-// --- End inline ---
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
-      status: 204, 
+    return new Response(null, {
+      status: 204,
       headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST' }
     });
   }
@@ -59,7 +74,7 @@ Deno.serve(async (req) => {
   try {
     base44 = createClientFromRequest(req.clone());
   } catch (e) {
-    console.error('[CENTRALIZED-CONTACT] ❌ Erro ao criar cliente SDK:', e.message);
+    console.error(`[${VERSION}] ❌ SDK init error:`, e.message);
     return Response.json({ success: false, error: 'sdk_init_error' }, { status: 500 });
   }
 
@@ -77,134 +92,175 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'telefone_required' }, { status: 400 });
   }
 
-  console.log(`[${VERSION}] 📞 Buscando/criando contato para: ${telefone}`);
-
-  // NORMALIZAÇÃO ÚNICA
   const telefoneNormalizado = normalizarTelefone(telefone);
-  
   if (!telefoneNormalizado) {
     return Response.json({ success: false, error: 'telefone_invalido' }, { status: 400 });
   }
 
-  // GERAR 6 VARIAÇÕES
-  const variacoes = gerarVariacoesTelefone(telefoneNormalizado);
-  console.log(`[${VERSION}] 🔍 Buscando com ${variacoes.length} variações`);
+  const canonico = telefoneNormalizado.replace(/\D/g, ''); // apenas dígitos: 5548988634900
+  const variacoes = gerarVariacoes(telefoneNormalizado);
 
-  // BUSCA TOLERANTE: tenta todas as variações (com e sem dígito 9)
+  console.log(`[${VERSION}] 📞 Buscando: ${telefoneNormalizado} | canonico: ${canonico} | variações: ${variacoes.length}`);
+
   let contatoExistente = null;
-  
+
   try {
-    console.log(`[${VERSION}] 🔍 Buscando com ${variacoes.length} variações: ${variacoes.join(', ')}`);
-    
-    // Busca sequencial pelas variações — campo "telefone" E "telefone_canonico"
-    for (const variacao of variacoes) {
-      if (contatoExistente) break;
-      for (const campo of ['telefone', 'telefone_canonico']) {
-        try {
-          const resultado = await base44.asServiceRole.entities.Contact.filter(
-            { [campo]: variacao },
-            '-created_date',
-            1
-          );
-          if (resultado && resultado.length > 0) {
-            contatoExistente = resultado[0];
-            console.log(`[${VERSION}] ✅ ENCONTRADO por ${campo}="${variacao}"! ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
-            // Normaliza telefone se desatualizado
-            if (contatoExistente.telefone !== telefoneNormalizado) {
-              await base44.asServiceRole.entities.Contact.update(contatoExistente.id, {
-                telefone: telefoneNormalizado,
-                telefone_canonico: telefoneNormalizado.replace(/\D/g, '')
-              });
-              contatoExistente.telefone = telefoneNormalizado;
+    // ═══════════════════════════════════════════════════════════════
+    // STEP 1: Busca pelo canonico (campo telefone_canonico)
+    // Campo sempre em dígitos puros — mais confiável para novos contatos
+    // ═══════════════════════════════════════════════════════════════
+    try {
+      const r1 = await base44.asServiceRole.entities.Contact.filter(
+        { telefone_canonico: canonico },
+        '-created_date',
+        1
+      );
+      if (r1 && r1.length > 0) {
+        contatoExistente = r1[0];
+        console.log(`[${VERSION}] ✅ ENCONTRADO por telefone_canonico="${canonico}" | ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
+      }
+    } catch (e) {
+      console.warn(`[${VERSION}] ⚠️ Erro busca telefone_canonico:`, e.message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // STEP 2: Busca por telefone (campo normalizado com +)
+    // Cobre contatos legados que não têm telefone_canonico populado
+    // ═══════════════════════════════════════════════════════════════
+    if (!contatoExistente) {
+      try {
+        const r2 = await base44.asServiceRole.entities.Contact.filter(
+          { telefone: telefoneNormalizado },
+          '-created_date',
+          1
+        );
+        if (r2 && r2.length > 0) {
+          contatoExistente = r2[0];
+          console.log(`[${VERSION}] ✅ ENCONTRADO por telefone="${telefoneNormalizado}" | ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
+        }
+      } catch (e) {
+        console.warn(`[${VERSION}] ⚠️ Erro busca telefone:`, e.message);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // STEP 3: Busca tolerante — variações sem o 9 e sem código de país
+    // Cobre contatos salvos em formatos antigos (legado pré-normalização)
+    // ═══════════════════════════════════════════════════════════════
+    if (!contatoExistente) {
+      for (const variacao of variacoes) {
+        if (contatoExistente) break;
+        if (variacao === telefoneNormalizado || variacao === canonico) continue; // já testado
+
+        for (const campo of ['telefone', 'telefone_canonico']) {
+          try {
+            const r = await base44.asServiceRole.entities.Contact.filter(
+              { [campo]: variacao },
+              '-created_date',
+              1
+            );
+            if (r && r.length > 0) {
+              contatoExistente = r[0];
+              console.log(`[${VERSION}] ✅ ENCONTRADO (legado) por ${campo}="${variacao}" | ID: ${contatoExistente.id}`);
+              break;
             }
-            break;
+          } catch (e) {
+            // silencioso — continua próxima variação
           }
-        } catch (searchErr) {
-          console.error(`[${VERSION}] ❌ Erro ao buscar ${campo}="${variacao}":`, searchErr.message);
         }
       }
     }
 
-    // Busca por nome no Cliente — vincula contexto se pushName bater com razao_social/nome_fantasia
+    // Normalizar telefone do contato encontrado se estiver desatualizado
+    if (contatoExistente) {
+      const precisaNormalizar = contatoExistente.telefone !== telefoneNormalizado ||
+                                 contatoExistente.telefone_canonico !== canonico;
+      if (precisaNormalizar) {
+        try {
+          await base44.asServiceRole.entities.Contact.update(contatoExistente.id, {
+            telefone: telefoneNormalizado,
+            telefone_canonico: canonico
+          });
+          contatoExistente.telefone = telefoneNormalizado;
+          contatoExistente.telefone_canonico = canonico;
+          console.log(`[${VERSION}] 🔧 Telefone normalizado para: ${telefoneNormalizado}`);
+        } catch (e) {
+          console.warn(`[${VERSION}] ⚠️ Erro ao normalizar telefone:`, e.message);
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // STEP 4: Sem contato por telefone → tentar match por empresa (pushName)
+    // Vincula novo número à empresa existente no CRM
+    // ═══════════════════════════════════════════════════════════════
     if (!contatoExistente && pushName) {
       try {
+        const primeiraPalavra = pushName.split(' ')[0];
         const clientesMatch = await base44.asServiceRole.entities.Cliente.filter(
-          { razao_social: { $regex: pushName.split(' ')[0] } },
+          { razao_social: { $regex: primeiraPalavra } },
           '-created_date',
           1
         );
         if (clientesMatch && clientesMatch.length > 0) {
-          const clienteMatch = clientesMatch[0];
-          console.log(`[${VERSION}] 🏢 Match por nome empresa: "${clienteMatch.razao_social}" → herdando cliente_id`);
-          // Será salvo no create abaixo via clienteParaVincular
-          contatoExistente = null; // ainda vai criar, mas com contexto
-          payload._clienteParaVincular = clienteMatch;
+          payload._clienteParaVincular = clientesMatch[0];
+          console.log(`[${VERSION}] 🏢 Match por empresa: "${clientesMatch[0].razao_social}" → novo contato será vinculado`);
         }
       } catch (e) {
-        console.warn(`[${VERSION}] ⚠️ Erro ao buscar match por nome:`, e.message);
+        console.warn(`[${VERSION}] ⚠️ Erro busca por empresa:`, e.message);
       }
     }
 
     if (!contatoExistente) {
-      console.log(`[${VERSION}] 🆕 Nenhum contato encontrado. Criando NOVO com telefone: "${telefoneNormalizado}"`);
+      console.log(`[${VERSION}] 🆕 Não encontrado. Criando novo contato para: ${telefoneNormalizado}`);
     }
+
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro geral na busca:`, e.message);
     return Response.json({ success: false, error: 'search_error' }, { status: 500 });
   }
 
-  // CONTATO EXISTENTE - ATUALIZAR
+  // ═══════════════════════════════════════════════════════════════
+  // CONTATO EXISTENTE — ATUALIZAR
+  // ═══════════════════════════════════════════════════════════════
   if (contatoExistente) {
     try {
       const agora = new Date().toISOString();
       const update = { ultima_interacao: agora };
-      
-      // Atualizar nome se veio pushName e (não tem nome OU nome é o telefone)
+
       if (pushName && (!contatoExistente.nome || contatoExistente.nome === contatoExistente.telefone)) {
         update.nome = pushName;
       }
-      
-      // Atualizar foto se mudou
       if (profilePicUrl && contatoExistente.foto_perfil_url !== profilePicUrl) {
         update.foto_perfil_url = profilePicUrl;
         update.foto_perfil_atualizada_em = agora;
       }
-      
-      // Atualizar conexão se veio
       if (conexaoId && !contatoExistente.conexao_origem) {
         update.conexao_origem = conexaoId;
       }
-      
+
       await base44.asServiceRole.entities.Contact.update(contatoExistente.id, update);
-      
       console.log(`[${VERSION}] 🔄 Contato atualizado: ${contatoExistente.id}`);
-      
-      return Response.json({
-        success: true,
-        contact: contatoExistente,
-        action: 'updated'
-      });
-      
-    } catch (updateErr) {
-      console.error(`[${VERSION}] ❌ Erro ao atualizar contato:`, updateErr.message);
-      // Continua e retorna o contato mesmo sem update
-      return Response.json({
-        success: true,
-        contact: contatoExistente,
-        action: 'found'
-      });
+
+      return Response.json({ success: true, contact: contatoExistente, action: 'updated' });
+    } catch (e) {
+      console.error(`[${VERSION}] ❌ Erro ao atualizar:`, e.message);
+      return Response.json({ success: true, contact: contatoExistente, action: 'found' });
     }
   }
 
-  // CONTATO NOVO - CRIAR
+  // ═══════════════════════════════════════════════════════════════
+  // CONTATO NOVO — CRIAR
+  // ═══════════════════════════════════════════════════════════════
   try {
     const clienteVincular = payload._clienteParaVincular || null;
+
     const novoContato = await base44.asServiceRole.entities.Contact.create({
       nome: pushName || telefoneNormalizado,
       telefone: telefoneNormalizado,
-      telefone_canonico: telefoneNormalizado.replace(/\D/g, ''), // FIX: sempre gravar canonico
-      tipo_contato: clienteVincular ? 'cliente' : 'lead',         // FIX: herdar tipo se match empresa
-      cliente_id: clienteVincular ? clienteVincular.id : null,    // FIX: vincular cliente
+      telefone_canonico: canonico,                                              // ← SEMPRE gravar
+      tipo_contato: clienteVincular ? 'cliente' : 'lead',
+      cliente_id: clienteVincular ? clienteVincular.id : null,
       empresa: clienteVincular ? (clienteVincular.nome_fantasia || clienteVincular.razao_social) : null,
       whatsapp_status: 'verificado',
       conexao_origem: conexaoId || null,
@@ -212,21 +268,13 @@ Deno.serve(async (req) => {
       foto_perfil_atualizada_em: profilePicUrl ? new Date().toISOString() : null,
       ultima_interacao: new Date().toISOString()
     });
-    
-    console.log(`[${VERSION}] 🆕 Novo contato criado: ${novoContato.id} | ${novoContato.nome}`);
-    
-    return Response.json({
-      success: true,
-      contact: novoContato,
-      action: 'created'
-    });
-    
-  } catch (createErr) {
-    console.error(`[${VERSION}] ❌ Erro ao criar contato:`, createErr.message);
-    return Response.json({ 
-      success: false, 
-      error: 'create_error',
-      details: createErr.message 
-    }, { status: 500 });
+
+    console.log(`[${VERSION}] 🆕 Novo contato criado: ${novoContato.id} | ${novoContato.nome}${clienteVincular ? ' | vinculado a ' + clienteVincular.razao_social : ''}`);
+
+    return Response.json({ success: true, contact: novoContato, action: 'created' });
+
+  } catch (e) {
+    console.error(`[${VERSION}] ❌ Erro ao criar contato:`, e.message);
+    return Response.json({ success: false, error: 'create_error', details: e.message }, { status: 500 });
   }
 });
