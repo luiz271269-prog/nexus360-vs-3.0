@@ -306,7 +306,7 @@ Deno.serve(async (req) => {
 
     let endpoint;
     let body;
-    let tipoMidiaReal = null; // Declarar no escopo principal para o fallback de documento funcionar
+    let tipoMidiaReal = null;
 
     // ========== LIST MESSAGE EXPLÍCITO (type='list') ==========
     if (type === 'list') {
@@ -457,7 +457,7 @@ Deno.serve(async (req) => {
     // ========== MÍDIAS (imagem, vídeo, documento) ==========
     else if (media_url && media_type) {
       // ✅ CRÍTICO: Forçar media_type SEMPRE como 'document' para PDFs mesmo se URL pareça imagem
-      let tipoMidiaReal = media_type;
+      tipoMidiaReal = media_type; // usa variável do escopo externo — sem 'let'
       
       // Se media_type é 'document', NUNCA deixa detectarTipoMidia sobrescrever para 'image'
       if (media_type !== 'document') {
@@ -639,7 +639,7 @@ Deno.serve(async (req) => {
       } else {
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-text`;
         body = {
-          phone: numero_destino,
+          phone: numeroFormatado,  // Bug 2 fix: era numero_destino (raw), agora formatado com 55
           message: mensagem
         };
       }
@@ -650,6 +650,7 @@ Deno.serve(async (req) => {
 
       console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 💬 Enviando texto (${providerName})`);
     } else {
+      // Bug 2 fix: Z-API usava numero_destino raw — agora usa numeroFormatado em ambos
       throw new Error('Nenhum conteúdo fornecido');
     }
 
