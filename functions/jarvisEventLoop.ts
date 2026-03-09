@@ -1,13 +1,16 @@
-// jarvisEventLoop - v2.1.0
-// CORREÇÕES v2.1:
+// jarvisEventLoop - v2.2.0
+// CORREÇÕES v2.2:
+// [P0] Removida chamada claudeWhatsAppResponder (retornava StreamingResponse quebrando o invoker)
+// [P1] MAX_THREADS reduzido para 3 + guard de tempo (abort se > 90s gastos)
 // [P4] jarvis_last_playbook salvo no MessageThread após ação bem-sucedida
 // [P5] Threshold de inatividade dinâmico baseado no score de risco do contato
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 const COOLDOWN_HORAS = 4;
-const MAX_THREADS_POR_CICLO = 5; // processa no máximo 5 por execução para não exceder timeout
-const IDLE_THRESHOLD_MIN = 30;   // thread ociosa se sem resposta há X minutos
+const MAX_THREADS_POR_CICLO = 3;   // conservador: 3 threads por ciclo para não estoura 3min
+const IDLE_THRESHOLD_MIN = 30;     // thread ociosa se sem resposta há X minutos
+const MAX_CICLO_MS = 90_000;       // abort após 90s para não chegar perto do timeout de 3min
 
 Deno.serve(async (req) => {
   try {
