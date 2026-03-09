@@ -279,6 +279,30 @@ Deno.serve(async (req) => {
       console.warn(`[${VERSION}] ⚠️ Erro ao verificar playbooks:`, e.message);
     }
 
+    // ════════════════════════════════════════════════════════════════
+    // [INBOUND-GATE] CAMADA 4 — COOLDOWN DE URA (2 minutos)
+    // Foto + legenda chegam como 2 webhooks: sem cooldown, URA dispara 2x.
+    // Se sistema já enviou uma mensagem automática nesta thread nos últimos
+    // 2 minutos, não dispara URA novamente.
+    // ════════════════════════════════════════════════════════════════
+    try {
+      const doisMinAtras = new Date(Date.now() - 120_000).toISOString();
+      const uraRecente = await base44.asServiceRole.entities.Message.filter({
+        thread_id: thread.id,
+        sender_type: 'user',
+        created_date: { $gte: doisMinAtras }
+      }, '-created_date', 1);
+
+      if (uraRecente && uraRecente.length > 0) {
+        console.log(`[INBOUND-GATE] ⏭️ CAMADA 4 COOLDOWN: URA já enviada há menos de 2min (msg=${uraRecente[0].id}) — bloqueando`);
+        result.actions.push('ura_cooldown_blocked');
+        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, stop: true, reason: 'ura_cooldown_2min' });
+      }
+      console.log(`[INBOUND-GATE] ✅ CAMADA 4: Cooldown OK — URA pode disparar`);
+    } catch (e) {
+      console.warn(`[INBOUND-GATE] ⚠️ Erro cooldown URA (prosseguindo):`, e.message);
+    }
+
     try {
       await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
         thread_id: thread.id,
