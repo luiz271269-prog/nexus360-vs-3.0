@@ -290,6 +290,7 @@ export default function ChatSidebarKanban({
   const [delegateMode, setDelegateMode] = React.useState(false);
   const [criarGrupoOpen, setCriarGrupoOpen] = React.useState(false);
   const [agendaIAOpen, setAgendaIAOpen] = React.useState(false);
+  const [manualJarvisOpen, setManualJarvisOpen] = React.useState(false);
 
   const isAdmin = usuarioAtual?.role === 'admin';
   const isGerente = ['gerente', 'coordenador', 'supervisor'].includes(usuarioAtual?.attendant_role);
