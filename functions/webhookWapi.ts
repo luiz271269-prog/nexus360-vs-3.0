@@ -898,6 +898,13 @@ async function handleMessage(dados, payloadBruto, base44) {
         console.warn('[WAPI] ⚠️ Integração não encontrada:', e.message);
       }
     }
+    // Fallback: recuperar integração salva na thread (evita integration.id=null no processInbound)
+    if (!integracaoCompleta && thread.whatsapp_integration_id) {
+      try {
+        integracaoCompleta = await base44.asServiceRole.entities.WhatsAppIntegration.get(thread.whatsapp_integration_id);
+        console.log('[WAPI] 🔄 Integração recuperada via thread.whatsapp_integration_id');
+      } catch (e) { /* silencioso */ }
+    }
 
     console.log('[WAPI] 🎯 Invocando processInbound (adaptador) para thread:', thread.id);
     await base44.asServiceRole.functions.invoke('processInbound', {

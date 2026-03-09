@@ -1,19 +1,13 @@
-// jarvisEventLoop - v3.0.0 (NexusAgentLoop)
+// jarvisEventLoop - v3.2.0 (NexusAgentLoop)
 // ═══════════════════════════════════════════════════════════════════════
 // NEXUS AGENT LOOP — Agente autônomo que impede clientes esquecidos
 // ═══════════════════════════════════════════════════════════════════════
 //
-// CICLO COMPLETO:
-//   analisarClientesEmLote → ContactBehaviorAnalysis (prontuário atualizado)
-//   jarvisEventLoop (este)  → lê prontuário + thread ociosa → decide:
-//     CRÍTICO  (score>75) → follow-up WhatsApp direto com mensagem da análise
-//     ALTO     (55-75)    → alerta interno ao atendente via thread interna
-//     MÉDIO    (35-54)    → registra cooldown, sem ação
-//     BAIXO    (<35)      → ignora (contato frio, não gasta recursos)
-//
-// STEP 1: Processar EventoSistema não processados
-// STEP 2: Threads ociosas com decisão inteligente por análise + score
-// STEP 3: Orçamentos parados > 7 dias → criar TarefaInteligente
+// CICLO COMPLETO (v3.2):
+//   STEP 0: businessIA → ajusta sensibilidade se negócio em crise
+//   STEP 1: (REMOVIDO) EventoSistema era letra morta — nenhuma função produzia eventos
+//   STEP 2: Threads ociosas → prontuário → CRÍTICO/ALTO/MÉDIO/BAIXO (thresholds dinâmicos)
+//   STEP 3: Orçamentos: negociando>3d, enviado>7d, vencido<14d
 // ═══════════════════════════════════════════════════════════════════════
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
@@ -68,45 +62,6 @@ Deno.serve(async (req) => {
       }
     } catch (e) {
       console.warn('[NEXUS-AGENT v3.1] businessIA indisponível — sensibilidade normal');
-    }
-
-    // ══════════════════════════════════════════════
-    // STEP 1: EventoSistema (só executa se há eventos)
-    // ══════════════════════════════════════════════
-    const eventos = await base44.asServiceRole.entities.EventoSistema.filter(
-      { processado: false },
-      '-timestamp',
-      20
-    );
-
-    if (eventos.length > 0) {
-      for (const evento of eventos) {
-        try {
-          const playbook = evento.tipo_evento === 'message.inbound' && evento.detalhes?.has_url
-            ? 'link_intelligence'
-            : 'generic';
-
-          await base44.asServiceRole.entities.AgentRun.create({
-            trigger_type: evento.tipo_evento,
-            trigger_event_id: evento.id,
-            playbook_selected: playbook,
-            execution_mode: 'assistente',
-            status: 'concluido',
-            context_snapshot: { evento_tipo: evento.tipo_evento, evento_detalhes: evento.detalhes },
-            started_at: agora.toISOString(),
-            completed_at: agora.toISOString(),
-            duration_ms: 0
-          });
-
-          await base44.asServiceRole.entities.EventoSistema.update(evento.id, { processado: true });
-          resultados.eventos_processados++;
-        } catch (err) {
-          console.error('[NEXUS-AGENT v3] Erro evento:', err.message);
-          resultados.erros++;
-        }
-      }
-    } else {
-      console.log('[NEXUS-AGENT v3] ⏭️ EventoSistema vazio — pulando step 1');
     }
 
     // ══════════════════════════════════════════════
@@ -180,12 +135,21 @@ Deno.serve(async (req) => {
                 || analise.next_best_action?.suggested_message
                 || analise.ai_insights?.next_best_action?.message_suggestion
                 || null;
-              console.log(`[NEXUS-AGENT v3] 🧠 Prontuário: ${priorityLabel} (${priorityScore}) | Análise: ${analise.analyzed_at?.substring(0, 10)}`);
+              // Em crise, upgrade de label se score está na zona expandida
+              if (sensibilidadeBoost > 0) {
+                const ct = 75 - sensibilidadeBoost;
+                const at = 55 - sensibilidadeBoost;
+                if (priorityScore >= ct && priorityLabel === 'ALTO') priorityLabel = 'CRITICO';
+                else if (priorityScore >= at && priorityLabel === 'MEDIO') priorityLabel = 'ALTO';
+              }
+              console.log(`[NEXUS-AGENT v3.2] 🧠 Prontuário: ${priorityLabel} (${priorityScore}) | Análise: ${analise.analyzed_at?.substring(0, 10)} | Boost: ${sensibilidadeBoost}`);
             } else {
               console.log(`[NEXUS-AGENT v3] ⚠️ Sem prontuário para contact ${thread.contact_id} — usando score padrão`);
               // Sem análise, usar score do thread como proxy
               priorityScore = thread.cliente_score || thread.score_engajamento || 0;
-              priorityLabel = priorityScore >= 75 ? 'CRITICO' : priorityScore >= 55 ? 'ALTO' : priorityScore >= 35 ? 'MEDIO' : 'BAIXO';
+              const ctProxy = 75 - sensibilidadeBoost;
+              const atProxy = 55 - sensibilidadeBoost;
+              priorityLabel = priorityScore >= ctProxy ? 'CRITICO' : priorityScore >= atProxy ? 'ALTO' : priorityScore >= 35 ? 'MEDIO' : 'BAIXO';
             }
           } catch (e) {
             console.warn(`[NEXUS-AGENT v3] ⚠️ Erro ao buscar análise: ${e.message}`);
