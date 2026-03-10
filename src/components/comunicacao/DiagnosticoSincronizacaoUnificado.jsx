@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { createPageUrl } from '@/utils';
 import { useNavigate } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
+import SincronizadorMensagensOrfas from './SincronizadorMensagensOrfas';
 
 export default function DiagnosticoSincronizacaoUnificado({ contact, usuario, onUpdate }) {
   const [loading, setLoading] = React.useState(false);
@@ -121,6 +122,15 @@ export default function DiagnosticoSincronizacaoUnificado({ contact, usuario, on
           </Button>
         </>
       )}
+
+      {/* Sincronizador de Mensagens Órfãs */}
+      <div className="border-t pt-4 mt-4">
+        <p className="text-xs text-slate-600 font-semibold mb-3">🔗 Sincronizar Mensagens Órfãs</p>
+        <SincronizadorMensagensOrfas 
+          threadId={contact?.id}
+          contactId={contact?.id}
+        />
+      </div>
 
       {/* Info */}
       <p className="text-xs text-slate-500 text-center mt-3">
