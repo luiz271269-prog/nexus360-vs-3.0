@@ -208,14 +208,16 @@ async function processarWAITING_SECTOR_CHOICE(base44, thread, contact, user_inpu
   else if (entrada === '4' || ['fornecedor', 'compras'].some(k => entrada.includes(k))) setor = 'fornecedor';
 
   if (setor) {
-    await enviarMensagem(base44, contact, whatsappIntegrationId, `Você escolheu: *${setor.toUpperCase()}*.\nBuscando atendentes...`);
+    const ok = await enviarMensagem(base44, contact, whatsappIntegrationId, `Você escolheu: *${setor.toUpperCase()}*.\nBuscando atendentes...`);
+    if (!ok) return { success: false, mode: 'sector_text_send_failed' };
     await atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', setor);
     await base44.asServiceRole.entities.MessageThread.update(thread.id, { ura_respondida_at: new Date().toISOString() });
     thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
     return await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system' }, whatsappIntegrationId);
   }
 
-  await enviarMensagem(base44, contact, whatsappIntegrationId, "❌ Opção inválida. Digite o número ou nome do setor.\n\n" + construirMenuBoasVindas(contact.nome));
+  const invalidOk = await enviarMensagem(base44, contact, whatsappIntegrationId, "❌ Opção inválida. Digite o número ou nome do setor.\n\n" + construirMenuBoasVindas(contact.nome));
+  if (!invalidOk) return { success: false, mode: 'invalid_option_send_failed' };
   return { success: false };
 }
 
