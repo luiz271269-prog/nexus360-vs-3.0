@@ -431,14 +431,11 @@ export default function SearchAndFilter({
           <Input
             type="text"
             placeholder="Buscar nome, empresa, cargo... (Enter para buscar)"
-            value={searchTerm}
-            onChange={(e) => {
-              // Apenas atualiza estado local, não filtra
-              // onSearchChange é chamado apenas no onKeyDown
-            }}
+            value={searchInputValue}
+            onChange={(e) => setSearchInputValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                onSearchChange(e.target.value);
+                onSearchChange(searchInputValue);
               }
             }}
             className="w-full pl-10 pr-4 py-2.5 bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
