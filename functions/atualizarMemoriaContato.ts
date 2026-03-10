@@ -16,6 +16,10 @@ Deno.serve(async (req) => {
     console.log(`[CONTACT-MEMORY] Iniciando para contact_id=${contact_id}`);
 
     // ── STEP 1: Coletar dados reais em paralelo ──────────────────────────
+    // Buscar contato primeiro para pegar cliente_nome (Venda não tem contact_id)
+    const contato = await base44.asServiceRole.entities.Contact.get(contact_id).catch(() => null);
+    const nomeContato = contato?.nome || '';
+
     const [mensagens, orcamentos, vendas, agentRuns] = await Promise.all([
       base44.asServiceRole.entities.Message.filter(
         { sender_id: contact_id }, '-created_date', 50
@@ -23,9 +27,12 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.Orcamento.filter(
         { contact_id }, '-created_date', 10
       ).catch(() => []),
-      base44.asServiceRole.entities.Venda.filter(
-        { contact_id }, '-created_date', 10
-      ).catch(() => []),
+      // Venda não tem contact_id — buscar por cliente_nome
+      nomeContato
+        ? base44.asServiceRole.entities.Venda.filter(
+            { cliente_nome: nomeContato }, '-data_venda', 10
+          ).catch(() => [])
+        : Promise.resolve([]),
       base44.asServiceRole.entities.AgentRun.filter(
         { trigger_event_id: contact_id }, '-created_date', 20
       ).catch(() => [])
