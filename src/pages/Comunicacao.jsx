@@ -1637,19 +1637,14 @@ export default function Comunicacao() {
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
-      // ✅ USUÁRIOS INTERNOS - SAGRADOS: Nunca bloqueados por escopos/filtros
-      // MAS: Bloqueados durante busca ativa (usuário quer ver resultados da busca)
-      // ═══════════════════════════════════════════════════════════════════════════
+      // ✅ USUÁRIOS INTERNOS - SAGRADOS: Mostrar se usuário participa (grupo/setor)
+      // ═════════════════════════════════════════════════════════════════════════════
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        // Modo normal: ocultar threads internas (lista recente só mostra externas)
-        // Modo busca: threads internas passam — se o nome bater, aparecem nos resultados
-        if (!modoBusca) {
-          logThread('Modo Normal - Interno', false, 'Thread interna oculta na lista recente');
-          return false;
-        }
-
         const visInterna = podeVerThreadInterna(thread, usuario);
-        logThread('Usuário Interno (Busca Ativa)', visInterna, visInterna ? 'Participante ou admin' : 'Não é participante nem admin');
+        const motivo = visInterna 
+          ? (thread.thread_type === 'sector_group' ? 'Participante do setor' : 'Participante do chat 1:1')
+          : 'Não é participante';
+        logThread('Thread Interna Recebida', visInterna, motivo);
         return visInterna;
       }
 
