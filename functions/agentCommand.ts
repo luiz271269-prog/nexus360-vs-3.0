@@ -169,6 +169,12 @@ Deno.serve(async (req) => {
       });
 
       try {
+        // Carregar configs do banco
+        const cfg = await loadConfig(base44);
+        const modelToUse = cfg.modelo_ia || 'claude-3-5-haiku-20241022';
+        const nomeEmpresa = cfg.nome_empresa || 'CRM';
+        const descricaoEmpresa = cfg.descricao_empresa || '';
+
         // Contexto estático rápido
         const [vendas, orcamentos, threads, workQueue] = await Promise.all([
           base44.asServiceRole.entities.Venda.list('-data_venda', 10).catch(() => []),
@@ -203,7 +209,7 @@ Deno.serve(async (req) => {
           ? 'PERMISSÕES: Administrador — acesso total a todos os dados e operações.'
           : `PERMISSÕES: Atendente ${userLevel} | Setor: ${userSector} — responda com foco no setor, não exponha dados de outros setores sem necessidade.`;
 
-        const systemPrompt = `Você é o **Nexus AI**, assistente inteligente do CRM (Liesch Informática).
+        const systemPrompt = `Você é o **Nexus AI**, assistente inteligente do CRM (${nomeEmpresa}${descricaoEmpresa ? ' — ' + descricaoEmpresa : ''}).
 
 OPERADOR: ${user.full_name} | ${isAdmin ? 'Admin' : 'Atendente'} | Setor: ${userSector} | Nível: ${userLevel} | Página: ${context?.page || 'Dashboard'}
 ${permissaoInfo}
@@ -231,7 +237,7 @@ INSTRUÇÕES:
         while (rodadas < 3) {
           rodadas++;
           const response = await anthropic.messages.create({
-            model: 'claude-3-5-haiku-20241022',
+            model: modelToUse,
             max_tokens: 1500,
             system: systemPrompt,
             tools: ANALYST_TOOLS,
