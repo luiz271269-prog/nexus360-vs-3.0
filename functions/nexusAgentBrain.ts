@@ -85,6 +85,56 @@ const TOOLS = [
       },
       required: ['reason']
     }
+  },
+  {
+    name: 'query_database',
+    description: 'Faz consulta dinâmica no banco de dados real. Use para responder perguntas como: quais clientes não foram contatados há X dias, orçamentos parados, threads sem atendente, vendas do mês, tarefas pendentes. Retorna dados REAIS, não estimativas.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        entidade: {
+          type: 'string',
+          enum: ['Contact', 'Orcamento', 'Venda', 'MessageThread', 'WorkQueueItem', 'Message', 'AgentRun'],
+          description: 'Qual entidade consultar'
+        },
+        filtros: {
+          type: 'object',
+          description: 'Filtros no formato Base44. Ex: { status: "negociando" } ou { created_date: { $gte: "2026-01-01" } }'
+        },
+        ordenar_por: {
+          type: 'string',
+          description: 'Campo para ordenação. Prefixo - para decrescente. Ex: -created_date, valor_total'
+        },
+        limite: {
+          type: 'number',
+          description: 'Máximo de registros. Default 10, máximo 50'
+        },
+        objetivo: {
+          type: 'string',
+          description: 'Por que está buscando esses dados — ajuda a formatar a resposta'
+        }
+      },
+      required: ['entidade', 'objetivo']
+    }
+  },
+  {
+    name: 'search_knowledge',
+    description: 'Busca na base de conhecimento da empresa: produtos com preços, políticas internas, casos resolvidos, tabelas de fornecedores. Use quando o usuário perguntar sobre produtos, preços ou procedimentos internos.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Texto de busca. Ex: "notebook dell 5420", "política de devolução"'
+        },
+        tipo: {
+          type: 'string',
+          enum: ['produto', 'politica', 'caso_resolvido', 'preco', 'fornecedor', 'qualquer'],
+          description: 'Tipo de conhecimento. Use "qualquer" quando não souber o tipo.'
+        }
+      },
+      required: ['query']
+    }
   }
 ];
 
