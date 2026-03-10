@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Phone, MessageCircle, AlertCircle, CheckCircle, Users, Trash2, RefreshCw } from "lucide-react";
+import { Loader2, Phone, MessageCircle, AlertCircle, CheckCircle, Users, Trash2, RefreshCw, Zap, Database } from "lucide-react";
 import { normalizarTelefone } from "@/components/lib/phoneUtils";
 import DiagnosticoVisibilidadeRealtime from "../components/comunicacao/DiagnosticoVisibilidadeRealtime";
 import { toast } from "sonner";
