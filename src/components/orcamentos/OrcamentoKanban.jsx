@@ -414,6 +414,7 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
 
 
   return (
+    <DragDropContext onDragEnd={onDragEnd}>
     <div className="space-y-4">
       {/* Kanban Board - COM ABAS FUTURISTAS ESTILO MENU PRINCIPAL */}
       <Tabs defaultValue="interna" className="w-full">
