@@ -1,126 +1,79 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 // ============================================================================
-// WATCHDOG - Monitoramento de Contatos Parados > 48h
+// WATCHDOG v2.0 - Rede de Segurança para Contatos no Limbo
 // ============================================================================
-// Não envia mensagens, apenas cria WorkQueueItem e atualiza EngagementState
+// Lógica em 2 camadas (conforme diagrama):
+// 1. PASSIVA: seta INIT em threads sem atendimento → URA aciona na próxima msg
+// 2. ATIVA: se msg < 2h → chama preAtendimentoHandler diretamente (proativo)
 // ============================================================================
-
-const IDLE_THRESHOLD_HOURS = 48;
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    
-    // Calcular timestamp de 48h atrás
-    const threshold = new Date();
-    threshold.setHours(threshold.getHours() - IDLE_THRESHOLD_HOURS);
-    const thresholdISO = threshold.toISOString();
-    
-    console.log('[WATCHDOG] Iniciando varredura | Threshold:', thresholdISO);
-    
-    // Buscar todas as threads com última mensagem antes de 48h
-    const allThreads = await base44.asServiceRole.entities.MessageThread.list('-last_message_at', 1000);
-    
-    const idleThreads = allThreads.filter(thread => {
-      if (!thread.last_message_at) return false;
-      if (!thread.contact_id) return false;
-      if (thread.status === 'arquivada') return false;
-      
-      const lastMessageDate = new Date(thread.last_message_at);
-      return lastMessageDate < threshold;
+
+    const now = new Date();
+    const threshold24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const threshold2h  = new Date(now.getTime() -  2 * 60 * 60 * 1000).toISOString();
+
+    console.log('[WATCHDOG v2] Iniciando varredura | Now:', now.toISOString());
+
+    // Buscar threads no limbo: sem atendente, sem URA ativa, com msg recente (24h)
+    const allThreads = await base44.asServiceRole.entities.MessageThread.filter({
+      thread_type: 'contact_external',
+      status: 'aberta',
+      assigned_user_id: null
+    }, '-last_inbound_at', 200);
+
+    // Filtrar: sem URA ativa OU state null, e com inbound nas últimas 24h
+    const limboThreads = allThreads.filter(t => {
+      if (!t.last_inbound_at) return false;
+      if (t.last_inbound_at < threshold24h) return false;
+      // Limbo = sem atendimento ativo
+      const semURA = !t.pre_atendimento_ativo || !t.pre_atendimento_state;
+      return semURA;
     });
-    
-    console.log('[WATCHDOG] Threads paradas encontradas:', idleThreads.length);
-    
-    const results = {
-      processed: 0,
-      created: 0,
-      updated: 0,
-      skipped: 0,
-      errors: []
-    };
-    
-    for (const thread of idleThreads) {
+
+    console.log(`[WATCHDOG v2] Threads no limbo: ${limboThreads.length}`);
+
+    const results = { total: limboThreads.length, resetadas: 0, proativas: 0, erros: [] };
+
+    for (const thread of limboThreads) {
       try {
-        results.processed++;
-        
-        // Verificar se já existe item na fila
-        const existingItems = await base44.asServiceRole.entities.WorkQueueItem.filter({
-          contact_id: thread.contact_id,
-          status: { $in: ['open', 'in_progress'] }
-        }, '-created_date', 1);
-        
-        if (existingItems.length > 0) {
-          // Já existe, apenas atualizar se necessário
-          const item = existingItems[0];
-          if (item.reason !== 'idle_48h' || item.thread_id !== thread.id) {
-            await base44.asServiceRole.entities.WorkQueueItem.update(item.id, {
-              reason: 'idle_48h',
-              thread_id: thread.id,
-              severity: 'high'
-            });
-            results.updated++;
-          } else {
-            results.skipped++;
-          }
-          continue;
-        }
-        
-        // Criar novo item na fila
-        await base44.asServiceRole.entities.WorkQueueItem.create({
-          contact_id: thread.contact_id,
-          thread_id: thread.id,
-          reason: 'idle_48h',
-          severity: 'high',
-          owner_sector_id: thread.sector_id || 'geral',
-          owner_user_id: thread.assigned_user_id || null,
-          status: 'open'
+        // CAMADA 1: Garantir que a URA vai disparar na próxima mensagem
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          pre_atendimento_state: 'INIT',
+          pre_atendimento_ativo: true,
+          pre_atendimento_timeout_at: null
         });
-        
-        results.created++;
-        
-        // Atualizar ou criar ContactEngagementState
-        const existingStates = await base44.asServiceRole.entities.ContactEngagementState.filter({
-          contact_id: thread.contact_id
-        }, '-created_date', 1);
-        
-        if (existingStates.length > 0) {
-          const state = existingStates[0];
-          await base44.asServiceRole.entities.ContactEngagementState.update(state.id, {
-            last_inbound_at: thread.last_message_at,
-            last_thread_id: thread.id,
-            lock_reason: state.lock_reason || 'idle_48h'
-          });
-        } else {
-          await base44.asServiceRole.entities.ContactEngagementState.create({
+        results.resetadas++;
+
+        // CAMADA 2: Se msg recente (< 2h) → acionar preAtendimentoHandler agora
+        if (thread.last_inbound_at >= threshold2h) {
+          console.log(`[WATCHDOG v2] ATIVO: chamando preAtendimentoHandler para thread ${thread.id}`);
+          
+          await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
+            thread_id: thread.id,
             contact_id: thread.contact_id,
-            last_inbound_at: thread.last_message_at,
-            last_thread_id: thread.id,
-            status: 'paused',
-            lock_reason: 'idle_48h'
+            integration_id: thread.whatsapp_integration_id,
+            mensagem: '__watchdog_trigger__',
+            force_init: true
           });
+          results.proativas++;
         }
-        
-      } catch (error) {
-        console.error('[WATCHDOG] Erro ao processar thread:', thread.id, error.message);
-        results.errors.push({ thread_id: thread.id, error: error.message });
+
+      } catch (err) {
+        console.error(`[WATCHDOG v2] Erro thread ${thread.id}:`, err.message);
+        results.erros.push({ thread_id: thread.id, error: err.message });
       }
     }
-    
-    console.log('[WATCHDOG] Concluído:', results);
-    
-    return Response.json({
-      success: true,
-      summary: results,
-      threshold: thresholdISO
-    });
-    
+
+    console.log('[WATCHDOG v2] Concluído:', results);
+
+    return Response.json({ success: true, results });
+
   } catch (error) {
-    console.error('[WATCHDOG] Erro geral:', error);
-    return Response.json({
-      success: false,
-      error: error.message
-    }, { status: 500 });
+    console.error('[WATCHDOG v2] Erro geral:', error);
+    return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 });
