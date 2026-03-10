@@ -9,12 +9,15 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Obter a chave de API
-    const apiKey = Deno.env.get('antropik_api');
+    // Obter a chave de API (tenta nomes variados)
+    const apiKey = Deno.env.get('antropik.api') || 
+                   Deno.env.get('ANTROPIK_API') || 
+                   Deno.env.get('ANTHROPIC_API_KEY');
+    
     if (!apiKey) {
       return Response.json({ 
         success: false, 
-        error: 'Chave de API não configurada' 
+        error: 'Chave de API não configurada. Secrets disponíveis: ' + Object.keys(Deno.env.toObject()).filter(k => k.includes('api') || k.includes('KEY')).join(', ')
       }, { status: 400 });
     }
 
