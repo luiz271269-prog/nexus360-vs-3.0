@@ -76,7 +76,8 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
   // Sticky setor
   if (thread.sector_id && !intent_context) {
     const msgSticky = `Olá novamente, ${contact.nome}! 👋\n\nVi que seu último atendimento foi em *${thread.sector_id.toUpperCase()}*. Deseja continuar por lá?\n\n1️⃣ Sim, continuar\n2️⃣ Não, outro assunto`;
-    await enviarMensagem(base44, contact, whatsappIntegrationId, msgSticky);
+    const stickyOk = await enviarMensagem(base44, contact, whatsappIntegrationId, msgSticky);
+    if (!stickyOk) return { success: false, mode: 'sticky_send_failed' };
     await atualizarEstado(base44, thread.id, 'WAITING_STICKY_DECISION');
     return { success: true, mode: 'sticky' };
   }
