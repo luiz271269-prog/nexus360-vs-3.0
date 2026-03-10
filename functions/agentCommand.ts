@@ -328,7 +328,7 @@ INSTRUÇÕES:
           }
         })();
 
-        return Response.json({ success: true, response: text, run_id: run.id, agent_mode: 'analista' });
+        return Response.json({ success: true, response: text, run_id: run.id, agent_mode: usedFallback ? 'fallback_base44' : 'analista' });
 
       } catch (error) {
         console.error('[AGENT-COMMAND] Erro no bloco principal:', error.message);
