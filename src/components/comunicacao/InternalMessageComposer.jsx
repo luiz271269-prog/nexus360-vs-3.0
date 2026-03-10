@@ -661,14 +661,14 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                         <div className="text-center py-8 text-slate-500 text-xs">Nenhum grupo criado</div>
                       ) : (
                         grupos.map(grupo => {
-                          const isSelected = selectedGroups.includes(grupo.id);
-                          return (
-                            <button
-                              key={grupo.id}
-                              onClick={() => toggleGroup(grupo.id)}
-                              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left border text-xs ${
-                                isSelected ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' : 'hover:bg-slate-50 border-transparent'
-                              }`}
+                        const isSelected = selectedGroups.includes(grupo.id);
+                        return (
+                          <button
+                            key={grupo.id}
+                            onClick={() => toggleGroup(grupo.id)}
+                            className={`w-full flex items-center gap-2 px-3 py-3 rounded-lg transition-all text-left border text-xs ${
+                              isSelected ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' : 'hover:bg-slate-50 border-transparent hover:border-slate-200'
+                            }`}
                             >
                               <div className="flex-shrink-0">
                                 {isSelected ? <CheckSquare className="w-3 h-3 text-cyan-600" /> : <Square className="w-3 h-3 text-slate-300" />}
