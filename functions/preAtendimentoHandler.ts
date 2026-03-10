@@ -67,7 +67,11 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
   if (intent_context?.sector_slug && intent_context.confidence >= 70) {
     const setorNormalizado = SLUG_NORMALIZER[intent_context.sector_slug.toLowerCase()] || intent_context.sector_slug;
     const msg = `✅ Entendi! Vou te direcionar para *${setorNormalizado.toUpperCase()}*.`;
-    await enviarMensagem(base44, contact, whatsappIntegrationId, msg);
+    const enviou = await enviarMensagem(base44, contact, whatsappIntegrationId, msg);
+    if (!enviou) {
+      console.error('[PRE-ATENDIMENTO] ⚠️ Fast-track: envio falhou, mantendo INIT');
+      return { success: false, mode: 'fast_track_send_failed' };
+    }
     await atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', setorNormalizado);
     thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
     return await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system', content: '' }, whatsappIntegrationId);
@@ -235,13 +239,13 @@ async function processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, user_i
     if (rota.data?.success && rota.data?.atendente_id) {
       const atendenteNome = rota.data.atendente_nome || 'um atendente';
       const enviado = await enviarMensagem(base44, contact, whatsappIntegrationId, `🥳 Encontrei o atendente *${atendenteNome}* para você! Transferindo...`);
-      if (!enviado) return { success: false, mode: 'attendant_found_send_failed' };
+      if (!enviado) console.error('[PRE-ATENDIMENTO] ⚠️ Msg atribuição falhou, mas agente FOI atribuído — completando mesmo assim');
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         pre_atendimento_state: 'COMPLETED',
         pre_atendimento_ativo: false,
         pre_atendimento_completed_at: new Date().toISOString()
       });
-      return { success: true, allocated: true };
+      return { success: true, allocated: true, msg_enviada: enviado };
     }
 
     const msgFila = `No momento, todos os atendentes de *${setor || 'geral'}* estão ocupados. 😕\n\nDeseja aguardar na fila?\n\n1️⃣ Sim, entrar na fila\n2️⃣ Escolher outro setor`;
@@ -268,13 +272,13 @@ async function processarWAITING_QUEUE_DECISION(base44, thread, contact, user_inp
       metadata: { nome: contact.nome }
     });
     const queuedOk = await enviarMensagem(base44, contact, whatsappIntegrationId, `✅ Você está na fila! Assim que alguém liberar, você será chamado.`);
-    if (!queuedOk) return { success: false, mode: 'queue_confirm_send_failed' };
+    if (!queuedOk) console.error('[PRE-ATENDIMENTO] ⚠️ Msg confirmação fila falhou, mas contato FOI enfileirado — completando mesmo assim');
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       pre_atendimento_state: 'COMPLETED',
       pre_atendimento_ativo: false,
       pre_atendimento_completed_at: new Date().toISOString()
     });
-    return { success: true, queued: true };
+    return { success: true, queued: true, msg_enviada: queuedOk };
   }
 
   thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
