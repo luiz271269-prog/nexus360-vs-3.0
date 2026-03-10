@@ -166,8 +166,14 @@ Deno.serve(async (req) => {
       });
 
       try {
-        // Carregar configs do banco
-        const cfg = await loadConfig(base44);
+        // Carregar configs do banco (com fallback para padrões)
+        let cfg = {};
+        try {
+          cfg = await loadConfig(base44);
+        } catch (e) {
+          console.warn('[AGENT-COMMAND] Falha ao carregar configs, usando padrões:', e.message);
+        }
+        
         const modelToUse = cfg.modelo_ia || 'claude-3-5-haiku-20241022';
         const nomeEmpresa = cfg.nome_empresa || 'CRM';
         const descricaoEmpresa = cfg.descricao_empresa || '';
