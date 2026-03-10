@@ -91,7 +91,9 @@ Deno.serve(async (req) => {
       if (t.jarvis_next_check_after && new Date(t.jarvis_next_check_after) >= agora) return false;
       const idleMs = agora - new Date(t.last_message_at);
       return idleMs >= getIdleThresholdMs(t);
-    }).slice(0, MAX_THREADS_POR_CICLO);
+      })
+      .sort((a, b) => (b.score_engajamento ?? b.cliente_score ?? 0) - (a.score_engajamento ?? a.cliente_score ?? 0))
+      .slice(0, MAX_THREADS_POR_CICLO);
 
     resultados.threads_ignoradas_cooldown = threadsCandidatas.length - threadsParaProcessar.length;
     console.log(`[NEXUS-AGENT v3] 📊 ${threadsCandidatas.length} candidatas | ${threadsParaProcessar.length} a processar | ${resultados.threads_ignoradas_cooldown} em cooldown`);
@@ -350,7 +352,7 @@ Deno.serve(async (req) => {
 
         // Registrar AgentRun para auditoria
         await base44.asServiceRole.entities.AgentRun.create({
-          trigger_type: 'thread.idle',
+          trigger_type: 'scheduled.check',
           trigger_event_id: thread.id,
           playbook_selected: acaoExecutada,
           execution_mode: 'auto_execute',

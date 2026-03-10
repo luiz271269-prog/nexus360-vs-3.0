@@ -117,11 +117,11 @@ async function atribuirAtendenteEspecifico(base44, thread, atendenteId, motivo) 
     // Verificar se atendente está disponível
     if (atendente.availability_status !== 'online') {
       console.warn(`[ROTEAMENTO] ⚠️ Atendente fidelizado ${atendente.full_name} está offline`);
-      return { 
+      return Response.json({ 
         success: false, 
         message: 'Atendente fidelizado indisponível',
         fallback_needed: true 
-      };
+      });
     }
 
     // Verificar capacidade
@@ -130,11 +130,11 @@ async function atribuirAtendenteEspecifico(base44, thread, atendenteId, motivo) 
 
     if (cargaAtual >= capacidadeMax) {
       console.warn(`[ROTEAMENTO] ⚠️ Atendente fidelizado ${atendente.full_name} está lotado`);
-      return { 
+      return Response.json({ 
         success: false, 
         message: 'Atendente fidelizado lotado',
         fallback_needed: true 
-      };
+      });
     }
 
     // Atribuir
@@ -176,21 +176,21 @@ async function atribuirAtendenteEspecifico(base44, thread, atendenteId, motivo) 
 
     console.log(`[ROTEAMENTO] ✅ Atribuído a ${atendente.full_name} (${motivo})`);
 
-    return {
+    return Response.json({
       success: true,
       message: 'Thread atribuída ao atendente fidelizado',
       assigned_to: atendente.id,
       assigned_to_name: atendente.full_name,
       reason: motivo
-    };
+    });
 
   } catch (error) {
     console.error('[ROTEAMENTO] Erro ao atribuir atendente específico:', error);
-    return { 
+    return Response.json({ 
       success: false, 
       error: error.message,
       fallback_needed: true 
-    };
+    });
   }
 }
 

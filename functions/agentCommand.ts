@@ -47,6 +47,24 @@ const ANALYST_TOOLS = [
       },
       required: ['query']
     }
+  },
+  {
+    name: 'save_to_knowledge',
+    description: 'Salva informação na base de conhecimento da empresa. Use quando o usuário ENSINAR algo novo: preço de produto, procedimento, política, caso resolvido. Isso TREINA o agente para todos os usuários do sistema.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        tipo: {
+          type: 'string',
+          enum: ['produto', 'politica', 'caso_resolvido', 'preco', 'fornecedor'],
+          description: 'Categoria do conhecimento'
+        },
+        titulo: { type: 'string', description: 'Título descritivo. Ex: "Notebook Dell 5420 - 16GB 512GB"' },
+        conteudo: { type: 'string', description: 'Conteúdo completo com todos os detalhes relevantes' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Palavras-chave para busca futura. Ex: ["notebook", "dell", "16gb"]' }
+      },
+      required: ['tipo', 'titulo', 'conteudo']
+    }
   }
 ];
 
@@ -79,6 +97,19 @@ async function executeTool(base44, toolName, toolInput) {
       }).catch(() => {});
     }
     return { total: relevantes.length, dados: relevantes.slice(0, 5) };
+  }
+
+  if (toolName === 'save_to_knowledge') {
+    const novo = await base44.asServiceRole.entities.KnowledgeBase.create({
+      tipo: toolInput.tipo,
+      titulo: toolInput.titulo,
+      conteudo: toolInput.conteudo,
+      tags: toolInput.tags || [],
+      fonte: 'atendente',
+      vezes_consultado: 0
+    });
+    console.log(`[AGENT-COMMAND] save_to_knowledge: "${toolInput.titulo}" salvo (${toolInput.tipo})`);
+    return { saved: true, id: novo.id, titulo: toolInput.titulo, tipo: toolInput.tipo };
   }
 
   return { error: `Tool desconhecida: ${toolName}` };
@@ -142,9 +173,27 @@ Deno.serve(async (req) => {
         const receitaTotal = vendas.reduce((s, v) => s + (v.valor_total || 0), 0);
         const valorPipeline = orcamentos.reduce((s, o) => s + (o.valor_total || 0), 0);
 
-        const systemPrompt = `Você é o **Nexus AI**, assistente do CRM VendaPro (Liesch Informática).
+        const userSector = user.attendant_sector || context?.user?.sector || 'geral';
+        const userLevel = user.attendant_role || 'pleno';
+        const isAdmin = user.role === 'admin';
 
-OPERADOR: ${user.full_name} | ${user.role === 'admin' ? 'Admin' : 'Atendente'} | Setor: ${context?.user?.sector || 'geral'} | Página: ${context?.page || 'Dashboard'}
+        const sectorFocus = {
+          vendas: 'Foco em leads, pipeline, orçamentos e fechamento. Priorize dados de vendas e clientes do setor comercial.',
+          assistencia: 'Foco em suporte técnico, chamados abertos, histórico de atendimento. Priorize SLA e tickets pendentes.',
+          financeiro: 'Foco em cobranças, inadimplência, pagamentos pendentes e fluxo de caixa.',
+          fornecedor: 'Foco em compras, tabelas de preço, catálogo e negociação com fornecedores.',
+          geral: 'Visão geral de todas as operações da empresa.'
+        }[userSector] || 'Visão geral de todas as operações.';
+
+        const permissaoInfo = isAdmin
+          ? 'PERMISSÕES: Administrador — acesso total a todos os dados e operações.'
+          : `PERMISSÕES: Atendente ${userLevel} | Setor: ${userSector} — responda com foco no setor, não exponha dados de outros setores sem necessidade.`;
+
+        const systemPrompt = `Você é o **Nexus AI**, assistente inteligente do CRM (Liesch Informática).
+
+OPERADOR: ${user.full_name} | ${isAdmin ? 'Admin' : 'Atendente'} | Setor: ${userSector} | Nível: ${userLevel} | Página: ${context?.page || 'Dashboard'}
+${permissaoInfo}
+FOCO DO SETOR: ${sectorFocus}
 
 SITUAÇÃO ATUAL (snapshot):
 • Vendas recentes: ${vendas.length} | Receita: R$ ${receitaTotal.toLocaleString('pt-BR')}
@@ -153,7 +202,12 @@ SITUAÇÃO ATUAL (snapshot):
 • Fila de trabalho: ${workQueue.length} itens abertos
 ${contextoMemoria}
 
-INSTRUÇÃO: Se precisar de dados mais específicos ou detalhados para responder, use as tools query_database ou search_knowledge. Para perguntas simples, responda direto. Seja objetivo, máximo 3 parágrafos.`;
+INSTRUÇÕES:
+1. Use query_database para dados específicos (clientes, orçamentos, vendas, conversas).
+2. Use search_knowledge para perguntas sobre produtos, preços, políticas da empresa.
+3. Use save_to_knowledge quando o usuário ENSINAR algo novo ("salva isso", "anota", "adiciona ao sistema"). Confirme que foi salvo e que o agente aprendeu.
+4. Adapte as respostas ao setor ${userSector} do operador${!isAdmin ? ' — não exponha dados de outros setores' : ''}.
+5. Seja objetivo, máximo 3 parágrafos.`;
 
         // ── Loop tool_use (máximo 3 rodadas) ──────────────────────────
         const messages = [{ role: 'user', content: user_message }];
