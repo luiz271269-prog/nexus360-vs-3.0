@@ -48,6 +48,11 @@ Deno.serve(async (req) => {
 
     console.log('[NEXUS-AGENT v3] 🔄 Loop iniciado...');
 
+    // Carregar configs do banco (cooldown e max_threads configuráveis)
+    const cfg = await loadConfig(base44);
+    const cooldownHoras = Number(cfg.jarvis_cooldown_horas || COOLDOWN_HORAS);
+    const maxThreads = Number(cfg.jarvis_max_threads || MAX_THREADS_POR_CICLO);
+
     const resultados = {
       eventos_processados: 0,
       threads_alertadas: 0,
@@ -107,7 +112,7 @@ Deno.serve(async (req) => {
       return idleMs >= getIdleThresholdMs(t);
       })
       .sort((a, b) => (b.score_engajamento ?? b.cliente_score ?? 0) - (a.score_engajamento ?? a.cliente_score ?? 0))
-      .slice(0, MAX_THREADS_POR_CICLO);
+      .slice(0, maxThreads);
 
     resultados.threads_ignoradas_cooldown = threadsCandidatas.length - threadsParaProcessar.length;
     console.log(`[NEXUS-AGENT v3] 📊 ${threadsCandidatas.length} candidatas | ${threadsParaProcessar.length} a processar | ${resultados.threads_ignoradas_cooldown} em cooldown`);
@@ -357,7 +362,7 @@ Deno.serve(async (req) => {
         }
 
         // Aplicar cooldown + salvar último playbook
-        const proximoCheck = new Date(agora.getTime() + COOLDOWN_HORAS * 60 * 60 * 1000);
+        const proximoCheck = new Date(agora.getTime() + cooldownHoras * 60 * 60 * 1000);
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
           jarvis_alerted_at: agora.toISOString(),
           jarvis_next_check_after: proximoCheck.toISOString(),
