@@ -482,7 +482,7 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
           </TabsContent>
         )}
       </Tabs>
-    </div>
+      </div>
     </DragDropContext>
   );
 }
