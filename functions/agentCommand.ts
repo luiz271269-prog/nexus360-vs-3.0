@@ -88,13 +88,18 @@ PERGUNTA: ${user_message}
 
 Responda em português, seja direto e acionável. Máximo 3 parágrafos. Sugira próximos passos concretos quando relevante.`;
 
-        const response = await anthropic.messages.create({
-          model: 'claude-3-5-haiku-20241022',
-          max_tokens: 1500,
-          messages: [{ role: 'user', content: systemPrompt }]
-        });
-
-        const text = response.content[0]?.text || 'Não foi possível gerar resposta.';
+        let text = 'Não foi possível gerar resposta.';
+        try {
+          const response = await anthropic.messages.create({
+            model: 'claude-3-5-haiku-20241022',
+            max_tokens: 1500,
+            messages: [{ role: 'user', content: systemPrompt }]
+          });
+          text = response.content[0]?.text || text;
+        } catch (e) {
+          console.error('[AGENT-COMMAND] Claude falhou:', e.message);
+          text = `Erro ao processar: ${e.message}`;
+        }
 
         await base44.asServiceRole.entities.AgentRun.update(run.id, {
           status: 'concluido',
