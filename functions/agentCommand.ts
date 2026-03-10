@@ -19,10 +19,16 @@ Deno.serve(async (req) => {
       const userId = user.id;
 
       // ── Carregar memória da última sessão ──────────────────────────
-      const memoriasSessao = await base44.asServiceRole.entities.NexusMemory.filter(
-        { owner_user_id: userId, tipo: 'sessao' }, '-created_date', 1
-      ).catch(() => []);
-      const memoriaAtual = memoriasSessao[0] || null;
+      let memoriaAtual = null;
+      try {
+        const memoriasSessao = await base44.asServiceRole.entities.NexusMemory.filter(
+          { owner_user_id: userId, tipo: 'sessao' }, '-created_date', 1
+        );
+        memoriaAtual = memoriasSessao[0] || null;
+      } catch (e) {
+        console.warn('[AGENT-COMMAND] NexusMemory não disponível:', e.message);
+        memoriaAtual = null;
+      }
 
       const contextoMemoria = memoriaAtual
         ? `\nMEMÓRIA DA ÚLTIMA SESSÃO (${memoriaAtual.created_date?.slice(0, 10) || 'anterior'}):\n${memoriaAtual.conteudo}\nÚltima ação: ${memoriaAtual.ultima_acao || 'nenhuma'}`
