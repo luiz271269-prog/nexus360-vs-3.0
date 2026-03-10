@@ -388,18 +388,18 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                     <div className="text-center py-12 text-slate-500 text-xs">Nenhum usuário disponível</div>
                   ) : (
                     usuariosDisponiveis.map(usuario => {
-                      const isSelected = selectedUsers.includes(usuario.id);
-                      const setor = usuario.attendant_sector || 'geral';
-                      const nivel = usuario.attendant_role || usuario.role || 'pleno';
-                      const setorCfg = setorConfig[setor] || setorConfig['geral'];
-                      const nivelCfg = nivelConfig[nivel] || nivelConfig['pleno'];
-                      return (
-                        <button
-                          key={usuario.id}
-                          onClick={() => toggleUser(usuario.id)}
-                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left border ${
-                            isSelected ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' : 'hover:bg-slate-50 border-transparent'
-                          }`}
+                     const isSelected = selectedUsers.includes(usuario.id);
+                     const setor = usuario.attendant_sector || 'geral';
+                     const nivel = usuario.attendant_role || usuario.role || 'pleno';
+                     const setorCfg = setorConfig[setor] || setorConfig['geral'];
+                     const nivelCfg = nivelConfig[nivel] || nivelConfig['pleno'];
+                     return (
+                       <button
+                         key={usuario.id}
+                         onClick={() => toggleUser(usuario.id)}
+                         className={`w-full flex items-center gap-2 px-3 py-3 rounded-lg transition-all text-left border ${
+                           isSelected ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' : 'hover:bg-slate-50 border-transparent hover:border-slate-200'
+                         }`}
                         >
                           <div className="flex-shrink-0">
                             {isSelected ? <CheckSquare className="w-4 h-4 text-cyan-600" /> : <Square className="w-4 h-4 text-slate-300" />}
