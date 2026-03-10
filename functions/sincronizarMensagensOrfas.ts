@@ -1,23 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
-// Helper: Normalizar telefone (remover caracteres especiais, manter apenas dígitos)
+// Usar funções de normalização de telefone (reutilizar do sistema)
 function normalizarTelefone(phone) {
   if (!phone) return '';
   return String(phone).replace(/[\s\-\(\)\+]/g, '').replace(/^0+/, '');
-}
-
-// Helper: Comparar últimos 10-11 dígitos
-function telefonesBatam(phone1, phone2) {
-  const norm1 = normalizarTelefone(phone1);
-  const norm2 = normalizarTelefone(phone2);
-  
-  if (!norm1 || !norm2) return false;
-  
-  // Pega últimos 11 dígitos (para número com 9 dígito celular + 2 DDD)
-  const suffix1 = norm1.slice(-11);
-  const suffix2 = norm2.slice(-11);
-  
-  return suffix1 === suffix2;
 }
 
 Deno.serve(async (req) => {
