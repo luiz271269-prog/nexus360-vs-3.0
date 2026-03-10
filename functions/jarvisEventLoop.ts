@@ -12,9 +12,23 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
-const COOLDOWN_HORAS = 4;
-const MAX_THREADS_POR_CICLO = 3;
-const MAX_CICLO_MS = 90_000; // guard de 90s para não estourar o timeout de 3min
+const COOLDOWN_HORAS = 4;          // padrão — sobrescrito por ConfiguracaoSistema: jarvis_cooldown_horas
+const MAX_THREADS_POR_CICLO = 3;   // padrão — sobrescrito por ConfiguracaoSistema: jarvis_max_threads
+const MAX_CICLO_MS = 90_000;       // guard de 90s para não estourar o timeout de 3min
+
+async function loadConfig(base44) {
+  try {
+    const configs = await base44.asServiceRole.entities.ConfiguracaoSistema.filter({ ativa: true }, 'chave', 100);
+    const map = {};
+    for (const c of configs) {
+      map[c.chave] = c.valor?.value !== undefined ? c.valor.value : null;
+    }
+    return map;
+  } catch (e) {
+    console.warn('[CONFIG] Falha ao carregar configs do banco:', e.message);
+    return {};
+  }
+}
 
 // Threshold de inatividade dinâmico por score de engajamento do contato
 // Contato quente/VIP → alerta rápido | Frio → aguardar mais

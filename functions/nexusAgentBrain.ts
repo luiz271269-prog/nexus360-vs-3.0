@@ -8,8 +8,22 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.39.0';
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
 
-// Troque por 'claude-3-5-sonnet-20241022' para maior qualidade
+// Modelo padrão (sobrescrito pelo banco via ConfiguracaoSistema → chave: modelo_ia)
 const MODEL = 'claude-3-5-haiku-20241022';
+
+async function loadConfig(base44) {
+  try {
+    const configs = await base44.asServiceRole.entities.ConfiguracaoSistema.filter({ ativa: true }, 'chave', 100);
+    const map = {};
+    for (const c of configs) {
+      map[c.chave] = c.valor?.value !== undefined ? c.valor.value : null;
+    }
+    return map;
+  } catch (e) {
+    console.warn('[CONFIG] Falha ao carregar configs do banco:', e.message);
+    return {};
+  }
+}
 
 const TOOLS = [
   {
