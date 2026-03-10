@@ -279,16 +279,81 @@ INSTRUÇÕES:
             }
           }
         } catch (anthropicError) {
-          // ── FALLBACK: Anthropic falhou → usar Base44 InvokeLLM ─────────
-          console.warn(`[AGENT-COMMAND] Anthropic falhou (${anthropicError.message}) — usando Base44 InvokeLLM como fallback`);
+          // ── FALLBACK: Anthropic falhou → pré-buscar dados + Base44 InvokeLLM ─────
+          console.warn(`[AGENT-COMMAND] Anthropic falhou (${anthropicError.message}) — fallback com pré-busca de dados`);
           usedFallback = true;
           try {
-            const fallbackPrompt = `${systemPrompt}\n\n---\nPERGUNTA DO OPERADOR: ${user_message}`;
+            const msgLower = user_message.toLowerCase();
+            const hoje = new Date().toISOString().slice(0, 10);
+            const dadosBuscados = {};
+            const buscasParalelas = [];
+
+            // Detectar intenção e buscar dados relevantes proativamente
+            if (msgLower.match(/jarvis|agente|agent|atendimento.*hoje|hoje.*atendimento|loop|ciclo/)) {
+              buscasParalelas.push(
+                base44.asServiceRole.entities.AgentRun
+                  .filter({ created_date: { $gte: `${hoje}T00:00:00` } }, '-created_date', 50)
+                  .catch(() => [])
+                  .then(r => { dadosBuscados.agent_runs_hoje = r; })
+              );
+              buscasParalelas.push(
+                base44.asServiceRole.entities.MessageThread
+                  .filter({ jarvis_alerted_at: { $gte: `${hoje}T00:00:00` } }, '-jarvis_alerted_at', 30)
+                  .catch(() => [])
+                  .then(r => { dadosBuscados.threads_alertadas_jarvis_hoje = r; })
+              );
+            }
+
+            if (msgLower.match(/contato|cliente|conversa|thread/)) {
+              buscasParalelas.push(
+                base44.asServiceRole.entities.MessageThread
+                  .filter({ status: 'aberta', thread_type: 'contact_external' }, '-last_message_at', 20)
+                  .catch(() => [])
+                  .then(r => { dadosBuscados.threads_abertas = r; })
+              );
+            }
+
+            if (msgLower.match(/venda|receita|faturamento/)) {
+              buscasParalelas.push(
+                base44.asServiceRole.entities.Venda
+                  .filter({ created_date: { $gte: `${hoje}T00:00:00` } }, '-created_date', 20)
+                  .catch(() => [])
+                  .then(r => { dadosBuscados.vendas_hoje = r; })
+              );
+            }
+
+            if (msgLower.match(/orçamento|orcamento|pipeline|negocian/)) {
+              buscasParalelas.push(
+                base44.asServiceRole.entities.Orcamento
+                  .filter({ status: { $in: ['enviado', 'negociando', 'liberado'] } }, '-updated_date', 20)
+                  .catch(() => [])
+                  .then(r => { dadosBuscados.orcamentos_ativos = r; })
+              );
+            }
+
+            if (msgLower.match(/fila|tarefa|work.*queue|queue/)) {
+              buscasParalelas.push(
+                base44.asServiceRole.entities.WorkQueueItem
+                  .filter({ status: 'open', created_date: { $gte: `${hoje}T00:00:00` } }, '-created_date', 20)
+                  .catch(() => [])
+                  .then(r => { dadosBuscados.fila_hoje = r; })
+              );
+            }
+
+            await Promise.all(buscasParalelas);
+            console.log(`[AGENT-COMMAND] Fallback pré-buscou: ${Object.keys(dadosBuscados).join(', ') || 'nenhum dado específico'}`);
+
+            const contextoExtras = Object.keys(dadosBuscados).length > 0
+              ? `\n\nDADOS REAIS CONSULTADOS DO BANCO (use estes para responder):\n${JSON.stringify(dadosBuscados, null, 2)}`
+              : '';
+
+            const fallbackPrompt = `${systemPrompt}${contextoExtras}\n\n---\nPERGUNTA DO OPERADOR: ${user_message}\n\nIMPORTANTE: Responda DIRETAMENTE com base nos dados acima. NÃO diga que vai buscar dados — você já os tem. Seja analítico e objetivo.`;
+
             const fallbackResp = await base44.asServiceRole.integrations.Core.InvokeLLM({
               prompt: fallbackPrompt
             });
             text = typeof fallbackResp === 'string' ? fallbackResp : JSON.stringify(fallbackResp);
-            console.log('[AGENT-COMMAND] Fallback Base44 InvokeLLM respondeu com sucesso');
+            console.log('[AGENT-COMMAND] Fallback respondeu com sucesso');
           } catch (fallbackError) {
             console.error('[AGENT-COMMAND] Fallback também falhou:', fallbackError.message);
             text = 'Serviço de IA temporariamente indisponível. Tente novamente em instantes.';
