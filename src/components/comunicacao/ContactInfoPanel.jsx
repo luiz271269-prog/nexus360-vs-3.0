@@ -26,6 +26,7 @@ import AtribuidorAtendenteRapido from './AtribuidorAtendenteRapido';
 import SeletorEtiquetasContato from './SeletorEtiquetasContato';
 import UsuarioDisplay from './UsuarioDisplay';
 import CallHistoryPanel from './CallHistoryPanel';
+import DiagnosticoSincronizacaoUnificado from './DiagnosticoSincronizacaoUnificado';
 
 export default function ContactInfoPanel({ 
   contact, 
@@ -501,11 +502,12 @@ export default function ContactInfoPanel({
       </div>
 
       <Tabs defaultValue="dados" className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="grid w-full grid-cols-3 mx-4 mt-2">
-          <TabsTrigger value="dados"><User className="w-4 h-4 mr-2" />Dados</TabsTrigger>
-          <TabsTrigger value="ia"><Brain className="w-4 h-4 mr-2" />IA</TabsTrigger>
-          <TabsTrigger value="chamadas"><Phone className="w-4 h-4 mr-2" />Chamadas</TabsTrigger>
-        </TabsList>
+         <TabsList className="grid w-full grid-cols-4 mx-4 mt-2">
+           <TabsTrigger value="dados"><User className="w-4 h-4 mr-2" />Dados</TabsTrigger>
+           <TabsTrigger value="diagnostico"><Zap className="w-4 h-4 mr-2" />Diagnóstico</TabsTrigger>
+           <TabsTrigger value="ia"><Brain className="w-4 h-4 mr-2" />IA</TabsTrigger>
+           <TabsTrigger value="chamadas"><Phone className="w-4 h-4 mr-2" />Chamadas</TabsTrigger>
+         </TabsList>
 
         <TabsContent value="dados" className="flex-1 overflow-y-auto m-0">
           {/* Cards Classificação - 1cm altura NO TOPO */}
@@ -667,83 +669,7 @@ export default function ContactInfoPanel({
             </div>
           </div>
 
-          {/* Diagnóstico + Sincronização - Botão Único com Dropdown */}
-           <div className="mt-4 px-4 pb-2 border-t pt-3">
-             <DropdownMenu>
-               <DropdownMenuTrigger asChild>
-                 <Button
-                   variant="outline"
-                   size="sm"
-                   className="w-full justify-between text-blue-600 hover:bg-blue-50"
-                   disabled={salvando}
-                 >
-                   <span className="flex items-center gap-2">
-                     {salvando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-4 h-4" />}
-                     Diagnóstico & Sincronização
-                   </span>
-                   <ChevronDown className="w-4 h-4" />
-                 </Button>
-               </DropdownMenuTrigger>
-               <DropdownMenuContent align="end" className="w-56">
-                 {/* VERIFICAR SINCRONIZAÇÃO */}
-                 <DropdownMenuItem
-                   onClick={async () => {
-                     setSalvando(true);
-                     try {
-                       console.log('[ContactInfoPanel] Sincronizando contato:', contact.id);
 
-                       const res = await base44.functions.invoke('sincronizarContactoErros', {
-                         contact_id: contact.id,
-                         corrigir: false
-                       });
-
-                       console.log('[ContactInfoPanel] Resposta sincronização:', res);
-
-                       if (res?.data?.erros_encontrados > 0) {
-                         const errosTexto = res.data.erros?.map(e => e.tipo)?.join(', ') || 'desconhecidos';
-                         toast.warning(`⚠️ ${res.data.erros_encontrados} erro(s): ${errosTexto}`);
-                       } else {
-                         toast.success('✅ Contato sincronizado com sucesso!');
-                       }
-                       if (onUpdate) await onUpdate();
-                     } catch (error) {
-                       console.error('[ContactInfoPanel] Erro ao sincronizar:', error);
-                       toast.error(`❌ Erro: ${error?.message || 'Falha desconhecida'}`);
-                     } finally {
-                       setSalvando(false);
-                     }
-                   }}
-                 >
-                   <span className="text-amber-600">☑️ Verificar Sincronização</span>
-                 </DropdownMenuItem>
-
-                 {/* DIAGNÓSTICO COMPLETO - Admin only */}
-                 {usuario?.role === 'admin' && (
-                   <>
-                     <DropdownMenuItem
-                       onClick={() => {
-                         console.log('[ContactInfoPanel] Abrindo diagnóstico para:', contact.telefone);
-                         const url = createPageUrl('DiagnosticoContato') + `?telefone=${encodeURIComponent(contact.telefone)}`;
-                         navigate(url);
-                       }}
-                     >
-                       <span className="text-indigo-600">🔬 Diagnóstico Completo</span>
-                     </DropdownMenuItem>
-
-                     {/* REMOVER BLOQUEIOS - Admin only */}
-                     <DropdownMenuItem
-                       onClick={() => {
-                         const url = createPageUrl('DiagnosticoBloqueios') + `?telefone=${encodeURIComponent(contact.telefone)}`;
-                         navigate(url);
-                       }}
-                     >
-                       <span className="text-red-600">🔓 Remover Bloqueios</span>
-                     </DropdownMenuItem>
-                   </>
-                 )}
-               </DropdownMenuContent>
-             </DropdownMenu>
-           </div>
 
           {/* Gerenciamento */}
           <div className="mt-4 px-4 pb-4 border-t pt-4">
