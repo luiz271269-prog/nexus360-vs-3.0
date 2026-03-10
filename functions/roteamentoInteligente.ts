@@ -144,6 +144,16 @@ async function atribuirAtendenteEspecifico(base44, thread, atendenteId, motivo) 
       sector_id: atendente.attendant_sector
     });
 
+    // Briefing automático para o novo atendente (fire-and-forget)
+    base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+      thread_id: thread.id,
+      contact_id: thread.contact_id,
+      integration_id: thread.whatsapp_integration_id,
+      trigger: 'thread_transfer',
+      message_content: `Thread transferida para ${atendente.full_name}. Analisar histórico e gerar briefing interno: (1) quem é o cliente, (2) o que pediu exatamente, (3) o que já foi respondido, (4) próximo passo concreto.`,
+      mode: 'copilot'
+    }).catch(e => console.warn('[ROTEAMENTO] Briefing falhou (não afeta transferência):', e.message));
+
     // Incrementar contador
     await base44.asServiceRole.entities.User.update(atendente.id, {
       current_conversations_count: cargaAtual + 1
