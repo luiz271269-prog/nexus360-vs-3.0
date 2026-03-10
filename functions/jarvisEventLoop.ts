@@ -547,11 +547,20 @@ Deno.serve(async (req) => {
     const quatroHorasAtras = new Date(agora.getTime() - 4 * 60 * 60 * 1000);
 
     try {
-      const promessasPendentes = await base44.asServiceRole.entities.WorkQueueItem.filter({
-        tipo: 'orcamento_specs_cliente',
+      // Bug #5 fix: monitora tipo 'manual' com payload.tipo === 'orcamento_specs_cliente'
+      // (ninguém criava tipo 'orcamento_specs_cliente' — brain sempre cria tipo 'manual')
+      const promessasPendentesRaw = await base44.asServiceRole.entities.WorkQueueItem.filter({
+        tipo: 'manual',
         status: 'open',
         created_date: { $lt: quatroHorasAtras.toISOString() }
-      }, '-created_date', 10).catch(() => []);
+      }, '-created_date', 30).catch(() => []);
+
+      // Filtrar apenas os que têm payload.tipo === 'orcamento_specs_cliente' ou 'cotacao_pendente'
+      const promessasPendentes = promessasPendentesRaw.filter(item =>
+        item.payload?.tipo === 'orcamento_specs_cliente' ||
+        item.payload?.tipo === 'cotacao_pendente' ||
+        (item.notes && /orçamento.*prometido|prometeu.*orçamento|cotação.*pendente/i.test(item.notes))
+      );
 
       console.log(`[JARVIS-3D] ${promessasPendentes.length} promessas sem entrega encontradas`);
 
