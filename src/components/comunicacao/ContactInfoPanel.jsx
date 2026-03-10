@@ -667,8 +667,8 @@ export default function ContactInfoPanel({
           </div>
 
           {/* Sincronização de Erros */}
-           <div className="mt-4 px-4 pb-2 border-t pt-3">
-             <button
+           <div className="mt-4 px-4 pb-2 border-t pt-3 space-y-2">
+             <Button
                onClick={async () => {
                  try {
                    const res = await base44.functions.invoke('sincronizarContactoErros', {
@@ -685,10 +685,12 @@ export default function ContactInfoPanel({
                    toast.error(`Erro: ${error.message}`);
                  }
                }}
-               className="w-full text-xs font-medium text-amber-700 hover:text-amber-900 px-2 py-2 bg-amber-100 hover:bg-amber-200 rounded transition"
+               variant="outline"
+               size="sm"
+               className="w-full text-amber-600 hover:bg-amber-50"
              >
-               🔄 Verificar Sincronização
-             </button>
+               ☑️ Verificar Sincronização
+             </Button>
            </div>
 
           {/* Botões de Diagnóstico para Admin */}
