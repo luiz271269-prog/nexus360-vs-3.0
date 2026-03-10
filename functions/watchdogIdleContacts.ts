@@ -69,6 +69,9 @@ Deno.serve(async (req) => {
             continue;
           }
 
+          // Delay para evitar rate limit nas queries de WorkQueueItem
+          await new Promise(r => setTimeout(r, 200));
+
           // Verificar se já existe item na fila
           const existingItems = await base44.asServiceRole.entities.WorkQueueItem.filter({
             contact_id: thread.contact_id,
