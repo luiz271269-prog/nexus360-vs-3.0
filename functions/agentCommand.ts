@@ -1,29 +1,10 @@
-// agentCommand - v5.0 (modo analista com chamarIA centralizado)
+// agentCommand - v6.0 (Resiliência Nativa sem Middleware)
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
-async function loadConfig(base44) {
-  try {
-    const configs = await base44.asServiceRole.entities.ConfiguracaoSistema
-      .filter({ ativa: true }, '-created_date', 100)
-      .catch(() => []);
-    const map = {};
-    for (const c of configs || []) {
-      const chave = c.chave;
-      const valor = c.valor?.value !== undefined ? c.valor.value : (c.valor || null);
-      map[chave] = valor;
-    }
-    return map;
-  } catch (e) {
-    console.warn('[CONFIG] Falha ao carregar configs do banco:', e.message);
-    return {};
-  }
-}
-
-// Tools disponíveis no modo analista (sem contexto de thread/contato)
 const ANALYST_TOOLS = [
   {
     name: 'query_database',
-    description: 'Consulta dados reais do banco. Use para responder perguntas sobre clientes, orçamentos, vendas, conversas, tarefas. Retorna dados REAIS.',
+    description: 'Consulta dados reais do banco. Use para responder perguntas sobre clientes, orçamentos, vendas, conversas, tarefas.',
     input_schema: {
       type: 'object',
       properties: {
@@ -34,11 +15,11 @@ const ANALYST_TOOLS = [
         },
         filtros: {
           type: 'object',
-          description: 'Filtros. Ex: { status: "negociando" } ou { created_date: { $gte: "2026-01-01" } }'
+          description: 'Filtros. Ex: { status: "negociando" }'
         },
         ordenar_por: {
           type: 'string',
-          description: 'Campo de ordenação. Ex: -created_date, valor_total'
+          description: 'Campo de ordenação. Ex: -created_date'
         },
         limite: {
           type: 'number',
@@ -50,33 +31,26 @@ const ANALYST_TOOLS = [
   },
   {
     name: 'search_knowledge',
-    description: 'Busca na base de conhecimento: produtos, preços, políticas, casos resolvidos. Use quando perguntarem sobre produtos ou procedimentos.',
+    description: 'Busca na base de conhecimento: produtos, preços, políticas, casos resolvidos.',
     input_schema: {
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Texto de busca' },
-        tipo: {
-          type: 'string',
-          enum: ['produto', 'politica', 'caso_resolvido', 'preco', 'fornecedor', 'qualquer']
-        }
+        tipo: { type: 'string', enum: ['produto', 'politica', 'caso_resolvido', 'preco', 'fornecedor', 'qualquer'] }
       },
       required: ['query']
     }
   },
   {
     name: 'save_to_knowledge',
-    description: 'Salva informação na base de conhecimento da empresa. Use quando o usuário ENSINAR algo novo: preço de produto, procedimento, política, caso resolvido. Isso TREINA o agente para todos os usuários do sistema.',
+    description: 'Salva informação na base de conhecimento. Use quando o usuário ENSINAR algo novo.',
     input_schema: {
       type: 'object',
       properties: {
-        tipo: {
-          type: 'string',
-          enum: ['produto', 'politica', 'caso_resolvido', 'preco', 'fornecedor'],
-          description: 'Categoria do conhecimento'
-        },
-        titulo: { type: 'string', description: 'Título descritivo. Ex: "Notebook Dell 5420 - 16GB 512GB"' },
-        conteudo: { type: 'string', description: 'Conteúdo completo com todos os detalhes relevantes' },
-        tags: { type: 'array', items: { type: 'string' }, description: 'Palavras-chave para busca futura. Ex: ["notebook", "dell", "16gb"]' }
+        tipo: { type: 'string', enum: ['produto', 'politica', 'caso_resolvido', 'preco', 'fornecedor'] },
+        titulo: { type: 'string', description: 'Título descritivo' },
+        conteudo: { type: 'string', description: 'Conteúdo completo' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Palavras-chave' }
       },
       required: ['tipo', 'titulo', 'conteudo']
     }
@@ -90,7 +64,6 @@ async function executeTool(base44, toolName, toolInput) {
     const ordem = toolInput.ordenar_por || '-created_date';
     const limite = Math.min(toolInput.limite || 10, 50);
     const resultados = await base44.asServiceRole.entities[entidade].filter(filtros, ordem, limite);
-    console.log(`[AGENT-COMMAND] query_database: ${entidade} → ${resultados.length} registros`);
     return { entidade, total: resultados.length, dados: resultados };
   }
 
@@ -123,11 +96,75 @@ async function executeTool(base44, toolName, toolInput) {
       fonte: 'atendente',
       vezes_consultado: 0
     });
-    console.log(`[AGENT-COMMAND] save_to_knowledge: "${toolInput.titulo}" salvo (${toolInput.tipo})`);
     return { saved: true, id: novo.id, titulo: toolInput.titulo, tipo: toolInput.tipo };
   }
 
   return { error: `Tool desconhecida: ${toolName}` };
+}
+
+async function fetchContextData(base44) {
+  try {
+    const [vendas, orcamentos, threads, workQueue, runs] = await Promise.all([
+      base44.asServiceRole.entities.Venda.list('-data_venda', 10).catch(() => []),
+      base44.asServiceRole.entities.Orcamento.filter({ status: { $in: ['enviado', 'negociando', 'liberado'] } }, '-updated_date', 10).catch(() => []),
+      base44.asServiceRole.entities.MessageThread.filter({ status: 'aberta', thread_type: 'contact_external' }, '-last_message_at', 30).catch(() => []),
+      base44.asServiceRole.entities.WorkQueueItem.filter({ status: 'open' }, '-created_date', 10).catch(() => []),
+      base44.asServiceRole.entities.AgentRun.filter({ status: 'processando' }, '-started_at', 5).catch(() => [])
+    ]);
+
+    return {
+      vendas,
+      orcamentos,
+      threads,
+      workQueue,
+      runs,
+      snapshot: {
+        vendas_count: vendas.length,
+        receita_total: vendas.reduce((s, v) => s + (v.valor_total || 0), 0),
+        pipeline_valor: orcamentos.reduce((s, o) => s + (o.valor_total || 0), 0),
+        threads_nao_atribuidas: threads.filter(t => !t.assigned_user_id).length,
+        fila_aberta: workQueue.length,
+        runs_ativos: runs.length
+      }
+    };
+  } catch (e) {
+    console.warn('[AGENT-COMMAND] Erro ao buscar contexto:', e.message);
+    return { snapshot: {}, vendas: [], orcamentos: [], threads: [], workQueue: [], runs: [] };
+  }
+}
+
+async function callAnthropicDirect(apiKey, systemPrompt, messages, tools, maxTokens = 1500) {
+  const url = 'https://api.anthropic.com/v1/messages';
+  const headers = {
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'content-type': 'application/json'
+  };
+
+  const body = {
+    model: 'claude-3-5-haiku-20241022',
+    max_tokens: maxTokens,
+    system: systemPrompt,
+    tools: tools,
+    messages: messages
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Anthropic API error: ${response.status} ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('[ANTHROPIC] Erro:', error.message);
+    throw error;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -142,8 +179,11 @@ Deno.serve(async (req) => {
     const { command, user_message, context } = await req.json();
 
     if (command === 'chat') {
-      console.log('[AGENT-COMMAND] Chat iniciado com mensagem:', user_message.slice(0, 50));
+      console.log('[AGENT-COMMAND] Chat iniciado:', user_message.slice(0, 50));
       const userId = user.id;
+
+      // ── Pré-buscar dados em paralelo (não depende de IA) ──────────────
+      const contextData = await fetchContextData(base44);
 
       // ── Carregar memória da última sessão ──────────────────────────
       let memoriaAtual = null;
@@ -157,7 +197,7 @@ Deno.serve(async (req) => {
       }
 
       const contextoMemoria = memoriaAtual
-        ? `\nMEMÓRIA DA ÚLTIMA SESSÃO (${memoriaAtual.created_date?.slice(0, 10) || 'anterior'}):\n${memoriaAtual.conteudo}\nÚltima ação: ${memoriaAtual.ultima_acao || 'nenhuma'}`
+        ? `\nMEMÓRIA DA ÚLTIMA SESSÃO:\n${memoriaAtual.conteudo}\nÚltima ação: ${memoriaAtual.ultima_acao || 'nenhuma'}`
         : '\nPrimeira sessão — sem histórico anterior.';
 
       const run = await base44.asServiceRole.entities.AgentRun.create({
@@ -174,164 +214,146 @@ Deno.serve(async (req) => {
       });
 
       try {
-        // Usar padrões simples (sem carregar configs do banco por enquanto)
-        const modelToUse = 'claude-3-5-haiku-20241022';
-        const nomeEmpresa = 'CRM';
-        const descricaoEmpresa = '';
-
-        // Contexto estático rápido
-        const [vendas, orcamentos, threads, workQueue] = await Promise.all([
-          base44.asServiceRole.entities.Venda.list('-data_venda', 10).catch(() => []),
-          base44.asServiceRole.entities.Orcamento.filter(
-            { status: { $in: ['enviado', 'negociando', 'liberado'] } }, '-updated_date', 10
-          ).catch(() => []),
-          base44.asServiceRole.entities.MessageThread.filter(
-            { status: 'aberta', thread_type: 'contact_external' }, '-last_message_at', 30
-          ).catch(() => []),
-          base44.asServiceRole.entities.WorkQueueItem.filter(
-            { status: 'open' }, '-created_date', 10
-          ).catch(() => [])
-        ]);
-
-        const threadsNaoAtribuidas = threads.filter(t => !t.assigned_user_id).length;
-        const receitaTotal = vendas.reduce((s, v) => s + (v.valor_total || 0), 0);
-        const valorPipeline = orcamentos.reduce((s, o) => s + (o.valor_total || 0), 0);
-
+        const apiKey = Deno.env.get('ANTROPIK_API');
         const userSector = user.attendant_sector || context?.user?.sector || 'geral';
         const userLevel = user.attendant_role || 'pleno';
         const isAdmin = user.role === 'admin';
 
         const sectorFocus = {
-          vendas: 'Foco em leads, pipeline, orçamentos e fechamento. Priorize dados de vendas e clientes do setor comercial.',
-          assistencia: 'Foco em suporte técnico, chamados abertos, histórico de atendimento. Priorize SLA e tickets pendentes.',
-          financeiro: 'Foco em cobranças, inadimplência, pagamentos pendentes e fluxo de caixa.',
-          fornecedor: 'Foco em compras, tabelas de preço, catálogo e negociação com fornecedores.',
-          geral: 'Visão geral de todas as operações da empresa.'
-        }[userSector] || 'Visão geral de todas as operações.';
+          vendas: 'Foco em leads, pipeline, orçamentos e fechamento.',
+          assistencia: 'Foco em suporte técnico, chamados abertos, histórico de atendimento.',
+          financeiro: 'Foco em cobranças, inadimplência, pagamentos pendentes.',
+          fornecedor: 'Foco em compras, tabelas de preço, catálogo e negociação.',
+          geral: 'Visão geral de todas as operações.'
+        }[userSector] || 'Visão geral.';
 
-        const permissaoInfo = isAdmin
-          ? 'PERMISSÕES: Administrador — acesso total a todos os dados e operações.'
-          : `PERMISSÕES: Atendente ${userLevel} | Setor: ${userSector} — responda com foco no setor, não exponha dados de outros setores sem necessidade.`;
+        const systemPrompt = `Você é o **Nexus AI**, assistente inteligente do CRM.
 
-        const systemPrompt = `Você é o **Nexus AI**, assistente inteligente do CRM (${nomeEmpresa}${descricaoEmpresa ? ' — ' + descricaoEmpresa : ''}).
+OPERADOR: ${user.full_name} | ${userLevel} | Setor: ${userSector}
+FOCO: ${sectorFocus}
 
-OPERADOR: ${user.full_name} | ${isAdmin ? 'Admin' : 'Atendente'} | Setor: ${userSector} | Nível: ${userLevel} | Página: ${context?.page || 'Dashboard'}
-${permissaoInfo}
-FOCO DO SETOR: ${sectorFocus}
-
-SITUAÇÃO ATUAL (snapshot):
-• Vendas recentes: ${vendas.length} | Receita: R$ ${receitaTotal.toLocaleString('pt-BR')}
-• Orçamentos em aberto: ${orcamentos.length} | Pipeline: R$ ${valorPipeline.toLocaleString('pt-BR')}
-• Conversas ativas: ${threads.length} | Sem atendente: ${threadsNaoAtribuidas} ⚠️
-• Fila de trabalho: ${workQueue.length} itens abertos
+CONTEXTO OPERACIONAL (pré-buscado — DADOS REAIS):
+• Vendas recentes: ${contextData.snapshot.vendas_count} | Receita: R$ ${contextData.snapshot.receita_total.toLocaleString('pt-BR')}
+• Orçamentos em aberto: ${contextData.snapshot.orcamentos_count || 0} | Pipeline: R$ ${contextData.snapshot.pipeline_valor.toLocaleString('pt-BR')}
+• Conversas ativas: ${contextData.snapshot.threads_nao_atribuidas} sem atendente
+• Fila de trabalho: ${contextData.snapshot.fila_aberta} itens
+• Execuções ativas: ${contextData.snapshot.runs_ativos}
 ${contextoMemoria}
 
 INSTRUÇÕES:
-1. Use query_database para dados específicos (clientes, orçamentos, vendas, conversas).
-2. Use search_knowledge para perguntas sobre produtos, preços, políticas da empresa.
-3. Use save_to_knowledge quando o usuário ENSINAR algo novo ("salva isso", "anota", "adiciona ao sistema"). Confirme que foi salvo e que o agente aprendeu.
-4. Adapte as respostas ao setor ${userSector} do operador${!isAdmin ? ' — não exponha dados de outros setores' : ''}.
-5. Seja objetivo, máximo 3 parágrafos.`;
+1. Use query_database para dados específicos que precisar além do contexto pré-buscado.
+2. Use search_knowledge para produtos, preços, políticas.
+3. Use save_to_knowledge quando o usuário ENSINAR algo novo.
+4. Sempre cite dados reais. Seja objetivo, máximo 3 parágrafos.`;
 
-        // ── Loop tool_use com Anthropic (máximo 3 rodadas) ────────────
-        const messages = [{ role: 'user', content: user_message }];
+        // ── Loop de Tool Use com Anthropic (Fallback Integrado) ────────
+        let messages = [{ role: 'user', content: user_message }];
         let text = '';
         let rodadas = 0;
         let usedFallback = false;
 
+        // ── CAMINHO FELIZ: Tentar Anthropic Direto ────────────────────
         try {
           while (rodadas < 3) {
             rodadas++;
-            
-            console.log('[AGENT-COMMAND] Chamando chamarIA... (rodada ' + rodadas + ')');
-            
-            // ── Usar chamarIA centralizado ──────────────────────
-            const iaResponse = await base44.asServiceRole.functions.invoke('chamarIA', {
-              system_prompt: systemPrompt,
-              messages: messages,
-              tools: ANALYST_TOOLS,
-              max_tokens: 1500,
-              model: modelToUse
-            });
+            console.log(`[AGENT-COMMAND] Tool-use rodada ${rodadas} com Anthropic...`);
 
-            console.log('[AGENT-COMMAND] chamarIA retornou:', typeof iaResponse);
-            
-            const response = typeof iaResponse === 'string' ? JSON.parse(iaResponse) : iaResponse;
-            
-            console.log('[AGENT-COMMAND] Response parsed:', response?.stop_reason, response?.fallback);
-            
-            if (response.fallback) {
-              console.log('[AGENT-COMMAND] Usando fallback:', response.motivo_fallback);
-              usedFallback = true;
-            }
+            const response = await callAnthropicDirect(apiKey, systemPrompt, messages, ANALYST_TOOLS);
 
-            // Extrair texto da resposta
             const textBlock = response.content.find(b => b.type === 'text');
             if (textBlock) {
               text = textBlock.text;
             }
 
-            // Se parou por texto final
             if (response.stop_reason === 'end_turn') {
+              console.log('[AGENT-COMMAND] ✓ Anthropic respondeu com sucesso');
               break;
             }
 
-            // Se chamou tool
             if (response.stop_reason === 'tool_use') {
               messages.push({ role: 'assistant', content: response.content });
               const toolResults = [];
+
               for (const block of response.content) {
                 if (block.type !== 'tool_use') continue;
                 console.log(`[AGENT-COMMAND] Tool: ${block.name}`);
+
                 let result;
                 try {
                   result = await executeTool(base44, block.name, block.input);
                 } catch (e) {
                   result = { error: e.message };
                 }
+
                 toolResults.push({
                   type: 'tool_result',
                   tool_use_id: block.id,
                   content: JSON.stringify(result)
                 });
               }
+
               messages.push({ role: 'user', content: toolResults });
             } else {
-              // Qualquer outro stop_reason (erro, etc)
               break;
             }
           }
-        } catch (loopError) {
-          console.error('[AGENT-COMMAND] Erro no loop de mensagens:', loopError.message);
-          console.error('[AGENT-COMMAND] Stack:', loopError.stack);
-          text = 'Erro ao processar sua pergunta. Tente novamente.';
+        } catch (anthropicError) {
+          console.warn('[AGENT-COMMAND] Anthropic falhou, ativando Fallback:', anthropicError.message);
+          usedFallback = true;
+
+          // ── CAMINHO DE SEGURANÇA: InvokeLLM com Dados Pré-Buscados ────
+          const fallbackPrompt = `Baseado NESSES DADOS REAIS do sistema (não invente, não especule):
+
+${JSON.stringify(contextData.snapshot, null, 2)}
+
+Últimos dados disponíveis:
+${contextData.vendas.length > 0 ? `Vendas: ${JSON.stringify(contextData.vendas.slice(0, 2), null, 2)}` : 'Sem vendas'}
+${contextData.orcamentos.length > 0 ? `Orçamentos: ${JSON.stringify(contextData.orcamentos.slice(0, 2), null, 2)}` : 'Sem orçamentos'}
+${contextData.threads.length > 0 ? `Conversas: ${JSON.stringify(contextData.threads.slice(0, 1), null, 2)}` : 'Sem conversas'}
+
+Pergunta do usuário: ${user_message}
+
+Responda usando APENAS os dados fornecidos. Não invente dados. Se não souber, diga que a informação não está disponível.`;
+
+          try {
+            const iaResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
+              prompt: fallbackPrompt,
+              model: 'gemini_3_flash'
+            });
+            text = typeof iaResponse === 'string' ? iaResponse : JSON.stringify(iaResponse);
+            console.log('[AGENT-COMMAND] ✓ Fallback InvokeLLM respondeu');
+          } catch (fallbackError) {
+            console.error('[AGENT-COMMAND] Fallback também falhou:', fallbackError.message);
+            text = `[Modo backup] Não foi possível processar sua pergunta neste momento. Dados disponíveis no sistema: ${contextData.snapshot.vendas_count} vendas, ${contextData.snapshot.pipeline_valor} em pipeline.`;
+          }
         }
 
         if (!text) text = 'Não foi possível gerar resposta. Tente novamente.';
 
-        // ── Adicionar indicador visual se estiver em fallback ──────
+        // ── Indicador de modo ────────────────────────────────────────
         if (usedFallback && !text.includes('[Modo backup')) {
-          text = '⚙️ [Modo backup ativo] ' + text;
+          text = '⚙️ [Modo backup] ' + text;
         }
 
+        // ── Salvar execução ──────────────────────────────────────────
         await base44.asServiceRole.entities.AgentRun.update(run.id, {
           status: 'concluido',
           completed_at: new Date().toISOString(),
           duration_ms: Date.now() - new Date(run.started_at).getTime()
         });
 
-        // ── Salvar memória de sessão (fire-and-forget) ──────────────
+        // ── Salvar memória (async) ──────────────────────────────────
         (async () => {
           try {
             const resumoSessao = await base44.asServiceRole.integrations.Core.InvokeLLM({
-              prompt: `Resumir em no máximo 5 linhas o que foi discutido nesta sessão do Nexus AI.\n\nPergunta: ${user_message}\nResposta: ${text.slice(0, 300)}`
+              prompt: `Resumir em 3 linhas:\nPergunta: ${user_message}\nResposta: ${text.slice(0, 200)}`
             });
             const dadosMemoria = {
               owner_user_id: userId,
               tipo: 'sessao',
               conteudo: typeof resumoSessao === 'string' ? resumoSessao : JSON.stringify(resumoSessao),
               ultima_acao: 'chat',
-              contexto: { page: context?.page || null },
+              contexto: { page: context?.page },
               score_utilidade: 80
             };
             if (memoriaAtual) {
@@ -339,16 +361,21 @@ INSTRUÇÕES:
             } else {
               await base44.asServiceRole.entities.NexusMemory.create(dadosMemoria);
             }
-            console.log(`[NEXUS-MEMORY] Sessão salva para userId=${userId}`);
           } catch (e) {
-            console.error('[NEXUS-MEMORY] Erro ao salvar sessão:', e.message);
+            console.warn('[NEXUS-MEMORY] Erro ao salvar:', e.message);
           }
         })();
 
-        return Response.json({ success: true, response: text, run_id: run.id, agent_mode: usedFallback ? 'fallback_base44' : 'analista' });
+        return Response.json({
+          success: true,
+          response: text,
+          run_id: run.id,
+          agent_mode: usedFallback ? 'fallback' : 'anthropic',
+          context_snapshot: contextData.snapshot
+        });
 
       } catch (error) {
-        console.error('[AGENT-COMMAND] Erro no bloco principal:', error.message);
+        console.error('[AGENT-COMMAND] Erro crítico:', error.message);
         try {
           await base44.asServiceRole.entities.AgentRun.update(run.id, {
             status: 'falhou',
@@ -358,7 +385,7 @@ INSTRUÇÕES:
         } catch (_) {}
         return Response.json({
           success: false,
-          response: `Erro interno: ${error.message}`,
+          response: `Erro: ${error.message}`,
           agent_mode: 'error'
         });
       }
@@ -367,7 +394,7 @@ INSTRUÇÕES:
     return Response.json({ success: false, error: 'Comando não suportado' }, { status: 400 });
 
   } catch (error) {
-    console.error('[AGENT_COMMAND] Erro:', error);
+    console.error('[AGENT_COMMAND] Fatal:', error);
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 });
