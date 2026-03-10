@@ -370,6 +370,11 @@ INSTRUÇÕES:
 
         if (!text) text = 'Não foi possível gerar resposta. Tente novamente.';
 
+        // ── Adicionar indicador visual se estiver em fallback ──────
+        if (usedFallback && !text.includes('[Modo backup')) {
+          text = '⚙️ [Modo backup ativo] ' + text;
+        }
+
         await base44.asServiceRole.entities.AgentRun.update(run.id, {
           status: 'concluido',
           completed_at: new Date().toISOString(),
