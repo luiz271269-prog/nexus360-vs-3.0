@@ -954,6 +954,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       media_type: dados.mediaType,
       media_caption: dados.mediaCaption ?? null,
       channel: 'whatsapp',
+      visibility: 'public_to_customer',
       status: 'recebida',
       whatsapp_message_id: dados.messageId ?? null,
       sent_at: new Date().toISOString(),

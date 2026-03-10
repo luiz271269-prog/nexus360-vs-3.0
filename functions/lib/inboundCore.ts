@@ -547,6 +547,7 @@ async function enviarMensagem(params) {
       sender_type: 'user',
       content: processedMessage,
       channel: 'whatsapp',
+      visibility: 'internal_only',
       status: 'enviada',
       sent_at: new Date().toISOString(),
       metadata: {

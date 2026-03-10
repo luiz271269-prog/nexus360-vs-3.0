@@ -271,6 +271,27 @@ Deno.serve(async (req) => {
 
     console.log(`[${VERSION}] 🆕 Novo contato criado: ${novoContato.id} | ${novoContato.nome}${clienteVincular ? ' | vinculado a ' + clienteVincular.razao_social : ''}`);
 
+    // ── ANTI-RACE: re-busca para garantir unicidade após create ──────────────
+    // Se duas requisições simultâneas criaram o contato ao mesmo tempo,
+    // mantemos o mais antigo e descartamos o recém-criado.
+    try {
+      const recheck = await base44.asServiceRole.entities.Contact.filter(
+        { telefone_canonico: canonico },
+        'created_date', // ASC — mais antigo primeiro
+        2
+      );
+      if (recheck && recheck.length > 1) {
+        const maisAntigo = recheck[0];
+        if (maisAntigo.id !== novoContato.id) {
+          await base44.asServiceRole.entities.Contact.delete(novoContato.id);
+          console.log(`[${VERSION}] 🔀 Race condition: descartando ${novoContato.id}, usando canônico ${maisAntigo.id}`);
+          return Response.json({ success: true, contact: maisAntigo, action: 'deduplicated' });
+        }
+      }
+    } catch (e) {
+      console.warn(`[${VERSION}] ⚠️ Erro no re-check anti-race:`, e.message);
+    }
+
     return Response.json({ success: true, contact: novoContato, action: 'created' });
 
   } catch (e) {
