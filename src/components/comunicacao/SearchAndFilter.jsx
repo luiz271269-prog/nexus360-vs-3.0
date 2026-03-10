@@ -92,10 +92,12 @@ export default function SearchAndFilter({
     emoji: cat.emoji || '🏷️'
   }));
 
-  // ✅ DETECÇÃO DE DUPLICATAS DESATIVADA - NÃO bloqueia busca
-  // Busca é SEMPRE livre, permissões aplicadas ao abrir thread
-  
-  // Normalizar telefone apenas para criar contato
+  // ✅ Sincronizar searchInputValue quando searchTerm muda (de fora)
+  React.useEffect(() => {
+    setSearchInputValue(searchTerm || '');
+  }, [searchTerm]);
+
+  // ✅ Normalizar telefone apenas para criar contato
   React.useEffect(() => {
     if (!searchTerm || searchTerm.trim() === '') {
       if (novoContatoTelefone) {
