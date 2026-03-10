@@ -137,12 +137,19 @@ Responda em português, seja direto e acionável. Máximo 3 parágrafos. Sugira 
         return Response.json({ success: true, response: text, run_id: run.id, agent_mode: 'assistente' });
 
       } catch (error) {
-        await base44.asServiceRole.entities.AgentRun.update(run.id, {
-          status: 'falhou',
-          error_message: error.message,
-          completed_at: new Date().toISOString()
+        console.error('[AGENT-COMMAND] Erro no bloco principal:', error.message);
+        try {
+          await base44.asServiceRole.entities.AgentRun.update(run.id, {
+            status: 'falhou',
+            error_message: error.message,
+            completed_at: new Date().toISOString()
+          });
+        } catch (_) {}
+        return Response.json({
+          success: false,
+          response: `Erro interno: ${error.message}`,
+          agent_mode: 'error'
         });
-        throw error;
       }
     }
 
