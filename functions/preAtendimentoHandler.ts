@@ -245,7 +245,8 @@ async function processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, user_i
     }
 
     const msgFila = `No momento, todos os atendentes de *${setor || 'geral'}* estão ocupados. 😕\n\nDeseja aguardar na fila?\n\n1️⃣ Sim, entrar na fila\n2️⃣ Escolher outro setor`;
-    await enviarMensagem(base44, contact, whatsappIntegrationId, msgFila);
+    const filaOk = await enviarMensagem(base44, contact, whatsappIntegrationId, msgFila);
+    if (!filaOk) return { success: false, mode: 'queue_msg_send_failed' };
     await atualizarEstado(base44, thread.id, 'WAITING_QUEUE_DECISION');
     return { success: true, waiting_queue: true };
 
