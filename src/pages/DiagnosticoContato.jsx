@@ -570,20 +570,96 @@ export default function DiagnosticoContato() {
             </div>
           ))}
 
-          {/* DIAGNÓSTICO REALTIME - APENAS ADMIN */}
-          {usuario?.role === 'admin' && resultado.analiseDetalhadaPorContato.length > 0 && resultado.analiseDetalhadaPorContato[0].threads.length > 0 && (
-            <Card className="p-4 bg-slate-50 border-slate-300">
-              <h3 className="font-bold text-slate-900 mb-3">🔍 Diagnóstico Real-time</h3>
-              <DiagnosticoVisibilidadeRealtime
-                threadAtiva={resultado.analiseDetalhadaPorContato[0].threads[0].id ? {
-                  id: resultado.analiseDetalhadaPorContato[0].threads[0].id
-                } : null}
-                filterScope="all"
-                selectedIntegrationId="all"
-                selectedAttendantId={null}
-              />
+          {/* SINCRONIZAÇÃO DE MENSAGENS ÓRFÃS - APENAS ADMIN */}
+          {usuario?.role === 'admin' && resultado.analiseDetalhadaPorContato.length > 0 && (
+            <Card className="p-6 bg-orange-50 border-orange-300 border-2">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-orange-900 mb-2 flex items-center gap-2">
+                    <Database className="w-5 h-5" />
+                    🔗 Sincronizar Mensagens Órfãs
+                  </h3>
+                  <p className="text-sm text-orange-700">
+                    Se detectou "0 mensagens" na thread mas há mensagens no WhatsApp, clique abaixo para sincronizar.
+                  </p>
+                </div>
+              </div>
+
+              {!resultadoOrfas ? (
+                <div className="flex gap-2 mb-4">
+                  <Button 
+                    onClick={() => sincronizarMensagensOrfas('diagnostico')}
+                    disabled={sincronizandoOrfas}
+                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    {sincronizandoOrfas ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                    Analisar Órfãs (Seguro)
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Alert className={resultadoOrfas.mensagens_orfas_encontradas > 0 ? 'bg-orange-100 border-orange-300' : 'bg-green-100 border-green-300'}>
+                    <AlertCircle className={`w-4 h-4 ${resultadoOrfas.mensagens_orfas_encontradas > 0 ? 'text-orange-600' : 'text-green-600'}`} />
+                    <AlertDescription className={resultadoOrfas.mensagens_orfas_encontradas > 0 ? 'text-orange-800' : 'text-green-800'}>
+                      <strong>Threads analisadas:</strong> {resultadoOrfas.threads_analisadas} | 
+                      <strong className="ml-2">Órfãs encontradas:</strong> {resultadoOrfas.mensagens_orfas_encontradas}
+                    </AlertDescription>
+                  </Alert>
+
+                  {resultadoOrfas.detalhes.length > 0 && (
+                    <div className="bg-white p-4 rounded-lg border border-orange-200 space-y-2 max-h-40 overflow-y-auto">
+                      {resultadoOrfas.detalhes.map((d, i) => (
+                        <div key={i} className="text-sm text-slate-700 pb-2 border-b last:border-0">
+                          <div className="font-semibold">{d.contato_nome}</div>
+                          <div className="text-xs text-slate-500">Telefone: {d.telefone_contato}</div>
+                          <div className="text-xs text-orange-600">Encontradas: {d.mensagens_encontradas}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {resultadoOrfas.mensagens_orfas_encontradas > 0 && (
+                    <Button 
+                      onClick={() => {
+                        if (window.confirm(`Revincular ${resultadoOrfas.mensagens_orfas_encontradas} mensagens? Esta ação é permanente.`)) {
+                          sincronizarMensagensOrfas('correcao');
+                          setResultadoOrfas(null);
+                        }
+                      }}
+                      disabled={sincronizandoOrfas}
+                      className="bg-red-600 hover:bg-red-700 text-white w-full"
+                    >
+                      {sincronizandoOrfas ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                      ⚠️ Revincular Mensagens (Permanente)
+                    </Button>
+                  )}
+
+                  <Button 
+                    onClick={() => setResultadoOrfas(null)}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Fechar Resultado
+                  </Button>
+                </div>
+              )}
             </Card>
           )}
+
+           {/* DIAGNÓSTICO REALTIME - APENAS ADMIN */}
+           {usuario?.role === 'admin' && resultado.analiseDetalhadaPorContato.length > 0 && resultado.analiseDetalhadaPorContato[0].threads.length > 0 && (
+             <Card className="p-4 bg-slate-50 border-slate-300">
+               <h3 className="font-bold text-slate-900 mb-3">🔍 Diagnóstico Real-time</h3>
+               <DiagnosticoVisibilidadeRealtime
+                 threadAtiva={resultado.analiseDetalhadaPorContato[0].threads[0].id ? {
+                   id: resultado.analiseDetalhadaPorContato[0].threads[0].id
+                 } : null}
+                 filterScope="all"
+                 selectedIntegrationId="all"
+                 selectedAttendantId={null}
+               />
+             </Card>
+           )}
         </div>
       )}
     </div>
