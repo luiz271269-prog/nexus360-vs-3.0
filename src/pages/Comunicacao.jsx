@@ -2373,15 +2373,7 @@ export default function Comunicacao() {
 
                   <div className={`flex-1 overflow-hidden transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
                     {sidebarViewMode === 'kanban' ? (
-                      <ChatSidebarKanban
-                        threads={threadsParaExibir}
-                        threadAtiva={threadAtiva}
-                        onSelecionarThread={handleSelecionarThread}
-                        onVoltar={() => setThreadAtiva(null)}
-                        usuarioAtual={usuario}
-                        integracoes={integracoes}
-                        atendentes={atendentes}
-                      />
+                      <ChatSidebarKanban threads={threadsParaExibir} threadAtiva={threadAtiva} onSelecionarThread={handleSelecionarThread} onVoltar={() => setThreadAtiva(null)} usuarioAtual={usuario} integracoes={integracoes} atendentes={atendentes} onSelectInternalDestinations={handleInternalSelection} sidebarViewMode={sidebarViewMode} onSidebarViewModeChange={setSidebarViewMode} modoSelecaoMultipla={modoSelecaoMultipla} onModoSelecaoMultiplaChange={setModoSelecaoMultipla} onOpenKanbanNaoAtribuidos={() => setMostrarKanbanNaoAtribuidos(true)} onOpenKanbanRequerAtencao={() => setMostrarKanbanRequerAtencao(true)} />
                     ) : (
                       <div className="h-full overflow-y-auto">
                         <ChatSidebar
