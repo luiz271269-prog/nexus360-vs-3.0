@@ -229,57 +229,69 @@ INSTRUÇÕES:
 4. Adapte as respostas ao setor ${userSector} do operador${!isAdmin ? ' — não exponha dados de outros setores' : ''}.
 5. Seja objetivo, máximo 3 parágrafos.`;
 
-        // ── Loop tool_use (máximo 3 rodadas) ──────────────────────────
+        // ── Loop tool_use com Anthropic (máximo 3 rodadas) ────────────
         const messages = [{ role: 'user', content: user_message }];
         let text = '';
         let rodadas = 0;
+        let usedFallback = false;
 
-        while (rodadas < 3) {
-          rodadas++;
-          const response = await anthropic.messages.create({
-            model: modelToUse,
-            max_tokens: 1500,
-            system: systemPrompt,
-            tools: ANALYST_TOOLS,
-            tool_choice: { type: 'auto' },
-            messages
-          });
+        try {
+          while (rodadas < 3) {
+            rodadas++;
+            const response = await anthropic.messages.create({
+              model: modelToUse,
+              max_tokens: 1500,
+              system: systemPrompt,
+              tools: ANALYST_TOOLS,
+              tool_choice: { type: 'auto' },
+              messages
+            });
 
-          // Se parou por texto final
-          if (response.stop_reason === 'end_turn') {
-            text = response.content.find(b => b.type === 'text')?.text || text;
-            break;
-          }
-
-          // Se chamou tool
-          if (response.stop_reason === 'tool_use') {
-            // Adicionar resposta do assistant com as tool calls
-            messages.push({ role: 'assistant', content: response.content });
-
-            // Executar todas as tools chamadas
-            const toolResults = [];
-            for (const block of response.content) {
-              if (block.type !== 'tool_use') continue;
-              console.log(`[AGENT-COMMAND] Tool: ${block.name}`);
-              let result;
-              try {
-                result = await executeTool(base44, block.name, block.input);
-              } catch (e) {
-                result = { error: e.message };
-              }
-              toolResults.push({
-                type: 'tool_result',
-                tool_use_id: block.id,
-                content: JSON.stringify(result)
-              });
+            // Se parou por texto final
+            if (response.stop_reason === 'end_turn') {
+              text = response.content.find(b => b.type === 'text')?.text || text;
+              break;
             }
 
-            // Adicionar resultados e continuar o loop
-            messages.push({ role: 'user', content: toolResults });
-          } else {
-            // stop_reason inesperado — pegar texto se houver
-            text = response.content.find(b => b.type === 'text')?.text || 'Não foi possível gerar resposta.';
-            break;
+            // Se chamou tool
+            if (response.stop_reason === 'tool_use') {
+              messages.push({ role: 'assistant', content: response.content });
+              const toolResults = [];
+              for (const block of response.content) {
+                if (block.type !== 'tool_use') continue;
+                console.log(`[AGENT-COMMAND] Tool: ${block.name}`);
+                let result;
+                try {
+                  result = await executeTool(base44, block.name, block.input);
+                } catch (e) {
+                  result = { error: e.message };
+                }
+                toolResults.push({
+                  type: 'tool_result',
+                  tool_use_id: block.id,
+                  content: JSON.stringify(result)
+                });
+              }
+              messages.push({ role: 'user', content: toolResults });
+            } else {
+              text = response.content.find(b => b.type === 'text')?.text || 'Não foi possível gerar resposta.';
+              break;
+            }
+          }
+        } catch (anthropicError) {
+          // ── FALLBACK: Anthropic falhou → usar Base44 InvokeLLM ─────────
+          console.warn(`[AGENT-COMMAND] Anthropic falhou (${anthropicError.message}) — usando Base44 InvokeLLM como fallback`);
+          usedFallback = true;
+          try {
+            const fallbackPrompt = `${systemPrompt}\n\n---\nPERGUNTA DO OPERADOR: ${user_message}`;
+            const fallbackResp = await base44.asServiceRole.integrations.Core.InvokeLLM({
+              prompt: fallbackPrompt
+            });
+            text = typeof fallbackResp === 'string' ? fallbackResp : JSON.stringify(fallbackResp);
+            console.log('[AGENT-COMMAND] Fallback Base44 InvokeLLM respondeu com sucesso');
+          } catch (fallbackError) {
+            console.error('[AGENT-COMMAND] Fallback também falhou:', fallbackError.message);
+            text = 'Serviço de IA temporariamente indisponível. Tente novamente em instantes.';
           }
         }
 
