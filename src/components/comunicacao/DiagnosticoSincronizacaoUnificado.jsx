@@ -17,25 +17,35 @@ export default function DiagnosticoSincronizacaoUnificado({ contact, usuario, on
     try {
       const res = await base44.functions.invoke('sincronizarContactoErros', {
         contact_id: contact.id,
-        corrigir: false
+        corrigir: true
       });
 
+      console.log('[DiagnosticoSincronizacao] Resposta:', res);
+
       if (res?.data?.erros_encontrados > 0) {
-        const errosTexto = res.data.erros?.map(e => e.tipo)?.join(', ') || 'desconhecidos';
+        const detalhes = res.data.erros
+          ?.map(e => `• ${e.descricao}`)
+          ?.join('\n') || '';
+        const corrigidosTexto = res.data.corrigidos?.length > 0 
+          ? `\n\n✅ Corrigidos:\n${res.data.corrigidos.map(c => `• ${c}`).join('\n')}`
+          : '';
+        
         setResultado({
-          tipo: 'warning',
-          mensagem: `⚠️ ${res.data.erros_encontrados} erro(s): ${errosTexto}`
+          tipo: res.data.corrigidos?.length > 0 ? 'success' : 'warning',
+          mensagem: `${res.data.corrigidos?.length > 0 ? '✅ Sincronizado!' : '⚠️ Verificado'}\n\n📋 Erros encontrados: ${res.data.erros_encontrados}\n${detalhes}${corrigidosTexto}`
         });
-        toast.warning(`⚠️ ${res.data.erros_encontrados} erro(s): ${errosTexto}`);
+        
+        toast.success(`✅ ${res.data.corrigidos?.length > 0 ? 'Contato corrigido!' : 'Verificação concluída'}`);
       } else {
         setResultado({
           tipo: 'success',
-          mensagem: '✅ Contato sincronizado com sucesso!'
+          mensagem: '✅ Contato sincronizado com sucesso! Nenhum erro encontrado.'
         });
-        toast.success('✅ Contato sincronizado com sucesso!');
+        toast.success('✅ Contato sincronizado sem erros!');
       }
       if (onUpdate) await onUpdate();
     } catch (error) {
+      console.error('[DiagnosticoSincronizacao] Erro:', error);
       setResultado({
         tipo: 'error',
         mensagem: `❌ Erro: ${error?.message || 'Falha desconhecida'}`
