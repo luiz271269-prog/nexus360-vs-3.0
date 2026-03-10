@@ -242,6 +242,18 @@ export default function MessageInput({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // 🧠 NEXUS BRAIN: ouvir sugestão de resposta injetada
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.texto) {
+        setMensagemTexto(e.detail.texto);
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+    };
+    window.addEventListener('nexus:inject_reply', handler);
+    return () => window.removeEventListener('nexus:inject_reply', handler);
+  }, []);
+
   // Fechar menu de anexos ao clicar fora
   useEffect(() => {
     function handleClickOutside(event) {
