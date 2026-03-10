@@ -519,6 +519,61 @@ Deno.serve(async (req) => {
     }
 
     // ══════════════════════════════════════════════
+    // STEP 3d — Orçamentos prometidos mas não enviados (>4h)
+    // Detecta WorkQueueItems tipo 'orcamento_specs_cliente' abertos há mais de 4h
+    // sem que um Orcamento tenha sido criado depois
+    // ══════════════════════════════════════════════
+    const quatroHorasAtras = new Date(agora.getTime() - 4 * 60 * 60 * 1000);
+
+    try {
+      const promessasPendentes = await base44.asServiceRole.entities.WorkQueueItem.filter({
+        tipo: 'orcamento_specs_cliente',
+        status: 'open',
+        created_date: { $lt: quatroHorasAtras.toISOString() }
+      }, '-created_date', 10).catch(() => []);
+
+      console.log(`[JARVIS-3D] ${promessasPendentes.length} promessas sem entrega encontradas`);
+
+      for (const item of promessasPendentes) {
+        try {
+          // Verificar se orçamento já foi criado para esse contato depois da tarefa
+          const orcamentosPosteriores = await base44.asServiceRole.entities.Orcamento.filter({
+            contact_id: item.contact_id,
+            created_date: { $gt: item.created_date }
+          }, '-created_date', 1).catch(() => []);
+
+          if (orcamentosPosteriores.length > 0) {
+            // Orçamento foi enviado — fechar tarefa automaticamente
+            await base44.asServiceRole.entities.WorkQueueItem.update(item.id, {
+              status: 'done',
+              notes: (item.notes || '') + '\n[AUTO] Orçamento enviado — fechado pelo Jarvis'
+            }).catch(() => {});
+            continue;
+          }
+
+          // Ainda sem orçamento — alertar via brain
+          if (item.thread_id && item.contact_id) {
+            await base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+              thread_id: item.thread_id,
+              contact_id: item.contact_id,
+              integration_id: null,
+              trigger: 'jarvis_alert',
+              message_content: `ALERTA: Cliente está esperando orçamento há mais de 4 horas. Tarefa criada em ${item.created_date?.slice(0, 16)} ainda está aberta. Criar alerta urgente para o atendente responsável e sugerir resposta ao cliente.`,
+              mode: 'copilot'
+            }).catch(e => console.warn('[JARVIS-3D] Brain falhou:', e.message));
+
+            console.log(`[JARVIS-3D] Alerta enviado para thread ${item.thread_id}`);
+            resultados.orcamentos_processados++;
+          }
+        } catch (e) {
+          console.error(`[JARVIS-3D] Erro no item ${item.id}:`, e.message);
+        }
+      }
+    } catch (e) {
+      console.warn('[JARVIS-3D] Erro geral:', e.message);
+    }
+
+    // ══════════════════════════════════════════════
     // STEP 5 — APRENDIZADO SEMANAL DO BRAIN (segundas-feiras)
     // ══════════════════════════════════════════════
     const diaDaSemana = agora.getDay(); // 0=dom, 1=seg
