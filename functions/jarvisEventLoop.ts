@@ -245,8 +245,29 @@ Deno.serve(async (req) => {
           }
         }
 
-        // ── ALTO ou fallback do CRÍTICO: Alerta interno ao atendente ────────
+        // ── ALTO ou fallback do CRÍTICO: Nexus Brain decide a ação ─────────
         if ((priorityLabel === 'ALTO' || (priorityLabel === 'CRITICO' && (acaoExecutada === 'nenhuma' || forceModeAlertOnly)) || (priorityLabel === 'MEDIO' && sensibilidadeBoost > 0)) && thread.assigned_user_id) {
+          // Tentar nexusAgentBrain primeiro para decisão inteligente
+          try {
+            const brainResult = await base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+              thread_id: thread.id,
+              contact_id: thread.contact_id,
+              integration_id: thread.whatsapp_integration_id,
+              trigger: 'jarvis_alert',
+              message_content: suggestedMessage || `Conversa parada há ${minutosOcioso} minutos. Score: ${priorityScore}/100 (${priorityLabel})`,
+              mode: forceModeAlertOnly ? 'copilot' : (priorityLabel === 'CRITICO' ? 'autonomous' : 'copilot')
+            });
+            if (brainResult.data?.success && brainResult.data?.action !== 'no_action') {
+              acaoExecutada = `nexus_brain_${brainResult.data?.action}`;
+              resultados.alertas_internos++;
+              console.log(`[NEXUS-AGENT v3.2] 🧠 Brain agiu: ${brainResult.data?.action} | thread ${thread.id}`);
+            }
+          } catch (brainErr) {
+            console.warn(`[NEXUS-AGENT v3.2] ⚠️ Brain falhou, fallback alerta interno: ${brainErr.message}`);
+          }
+
+          // Fallback: alerta interno clássico se brain não agiu
+          if (acaoExecutada === 'nenhuma') {
           try {
             const internalResult = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
               target_user_id: thread.assigned_user_id
