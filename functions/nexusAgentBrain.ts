@@ -178,6 +178,15 @@ Deno.serve(async (req) => {
     const inicio = Date.now();
     console.log(`[NEXUS-BRAIN] 🧠 trigger=${trigger} | mode=${requestedMode} | thread=${thread_id}`);
 
+    // ── STEP 0: Carregar configs do banco ───────────────────────────
+    const cfg = await loadConfig(base44);
+    const modelToUse = cfg.modelo_ia || MODEL;
+    const cooldownHumanoMin = Number(cfg.cooldown_humano_minutos || 10);
+    const maxDisparosHora = Number(cfg.max_disparos_hora || 10);
+    const calibracaoMinRuns = Number(cfg.calibracao_min_runs || 50);
+    const nomeEmpresa = cfg.nome_empresa || 'a empresa';
+    const descricaoEmpresa = cfg.descricao_empresa || 'tecnologia B2B';
+
     // ── STEP 1: Contexto completo em paralelo ──────────────────────
     const [thread, contact, mensagensRaw] = await Promise.all([
       base44.asServiceRole.entities.MessageThread.get(thread_id),
@@ -230,7 +239,7 @@ Deno.serve(async (req) => {
     );
     if (ultimaMsgHumana) {
       const minutos = (Date.now() - new Date(ultimaMsgHumana.created_date || ultimaMsgHumana.sent_at).getTime()) / 60000;
-      if (minutos < 10) {
+      if (minutos < cooldownHumanoMin) {
         console.log(`[NEXUS-BRAIN] 🛑 Humano ativo há ${Math.round(minutos)}min — skip`);
         return Response.json({ success: true, skipped: true, reason: 'humano_ativo_recente' });
       }
@@ -250,16 +259,16 @@ Deno.serve(async (req) => {
       created_date: { $gte: umaHoraAtras }
     }, '-created_date', 15).catch(() => []);
 
-    if (disparosRecentes.length >= 10) {
+    if (disparosRecentes.length >= maxDisparosHora) {
       mode = 'copilot';
-      console.log(`[NEXUS-BRAIN] ⚠️ Chip no limite (${disparosRecentes.length}/10h) — forçando copilot`);
+      console.log(`[NEXUS-BRAIN] ⚠️ Chip no limite (${disparosRecentes.length}/${maxDisparosHora}h) — forçando copilot`);
     }
 
     // Freio 4: Sistema novo — forçar copilot até 50 runs para calibrar
     const totalRuns = await base44.asServiceRole.entities.AgentRun.filter(
       { playbook_selected: 'nexus_brain' }, '-created_date', 1
     ).catch(() => []);
-    if (totalRuns.length < 50 && mode === 'autonomous') {
+    if (totalRuns.length < calibracaoMinRuns && mode === 'autonomous') {
       mode = 'copilot';
       console.log(`[NEXUS-BRAIN] 🎓 Sistema calibrando (${totalRuns.length} runs) — copilot obrigatório`);
     }
@@ -278,7 +287,7 @@ Deno.serve(async (req) => {
       })
       .join('\n');
 
-    const systemPrompt = `Você é o Nexus Brain, assistente de atendimento da Liesch Informática (tecnologia B2B, 30+ anos de mercado).
+    const systemPrompt = `Você é o Nexus Brain, assistente de atendimento d${nomeEmpresa.startsWith('A') || nomeEmpresa.startsWith('a') ? 'a' : 'o'} ${nomeEmpresa} (${descricaoEmpresa}).
 
 MODO ATUAL: ${mode === 'copilot' ? 'COPILOT — sugira resposta, humano aprova. Use suggest_reply.' : 'AUTÔNOMO — aja em casos simples apenas.'}
 TRIGGER: ${trigger === 'inbound' ? 'Nova mensagem do cliente' : trigger === 'jarvis_alert' ? 'Alerta Jarvis (conversa parada)' : 'Chat interno'}
@@ -325,7 +334,7 @@ REGRAS OBRIGATÓRIAS:
 
     // ── STEP 5: Claude com tool_use ─────────────────────────────────
     const claudeResp = await anthropic.messages.create({
-      model: MODEL,
+      model: modelToUse,
       max_tokens: 1000,
       tools: TOOLS,
       tool_choice: { type: 'auto' },
