@@ -171,13 +171,19 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.Message.filter({ thread_id }, '-created_date', 20)
     ]);
 
-    const [orcamentosAbertos, analises] = await Promise.all([
+    const [orcamentosAbertos, analises, memoriaContato, aprendizadoSemanal] = await Promise.all([
       base44.asServiceRole.entities.Orcamento.filter(
         { cliente_id: contact_id, status: { $in: ['enviado', 'negociando', 'liberado'] } },
         '-updated_date', 3
       ).catch(() => []),
       base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
         { contact_id }, '-analyzed_at', 1
+      ).catch(() => []),
+      base44.asServiceRole.entities.ContactMemory.filter(
+        { contact_id }, '-created_date', 1
+      ).catch(() => []),
+      base44.asServiceRole.entities.NexusMemory.filter(
+        { owner_user_id: 'system', tipo: 'aprendizado_semanal' }, '-created_date', 1
       ).catch(() => [])
     ]);
 
@@ -267,6 +273,17 @@ ${orcamentosAbertos.map(o => `• ${o.numero_orcamento || 'ORC'}: R$ ${o.valor_t
 ${prontuario ? `PRONTUÁRIO IA:
 • Buy intent: ${prontuario.ai_insights?.buy_intent || 0}% | Deal risk: ${prontuario.ai_insights?.deal_risk || 0}%
 • Próxima ação: ${prontuario.insights_v2?.next_best_action?.action || prontuario.next_best_action?.action || 'N/D'}` : 'Sem prontuário.'}
+
+MEMÓRIA DO CONTATO (aprendida automaticamente):
+${memoriaContato[0]?.historico_resumido || 'Primeiro contato — sem histórico aprendido ainda'}
+Horário preferido: ${memoriaContato[0]?.preferencias?.horario_preferido ?? 'não mapeado'}h
+Ticket médio: R$${memoriaContato[0]?.padroes?.ticket_medio?.toFixed(2) || 'não calculado'}
+Frequência de compra: ${memoriaContato[0]?.padroes?.frequencia_compra ? memoriaContato[0].padroes.frequencia_compra.toFixed(0) + ' dias' : 'não calculada'}
+Melhor abordagem: ${memoriaContato[0]?.melhor_abordagem || 'não definida'}
+Objeções comuns: ${(memoriaContato[0]?.padroes?.objecoes_comuns || []).join(', ') || 'não mapeadas'}
+
+APRENDIZADO DA SEMANA ANTERIOR (auto-análise do brain):
+${aprendizadoSemanal[0]?.conteudo || 'Sem aprendizado registrado ainda — primeira semana de operação.'}
 
 HISTÓRICO DA CONVERSA:
 ${historicoTexto || '(sem histórico)'}
@@ -381,6 +398,47 @@ REGRAS OBRIGATÓRIAS:
 
     else if (acao === 'no_action') {
       resultado = { type: 'no_action', reason: params.reason };
+    }
+
+    else if (acao === 'query_database') {
+      try {
+        const entidade = params.entidade;
+        const filtros = params.filtros || {};
+        const ordem = params.ordenar_por || '-created_date';
+        const limite = Math.min(params.limite || 10, 50);
+        const resultados = await base44.asServiceRole.entities[entidade].filter(filtros, ordem, limite);
+        console.log(`[NEXUS-BRAIN] query_database: ${entidade} — ${resultados.length} registros`);
+        resultado = { type: 'query_database', entidade, total: resultados.length, dados: resultados, objetivo: params.objetivo };
+      } catch (e) {
+        console.error('[NEXUS-BRAIN] query_database erro:', e);
+        resultado = { type: 'query_database', error: e.message };
+      }
+    }
+
+    else if (acao === 'search_knowledge') {
+      try {
+        const filtroKB = params.tipo && params.tipo !== 'qualquer' ? { tipo: params.tipo } : {};
+        const conhecimentos = await base44.asServiceRole.entities.KnowledgeBase.filter(filtroKB, '-vezes_consultado', 20).catch(() => []);
+        const queryLower = (params.query || '').toLowerCase();
+        const palavras = queryLower.split(/\s+/).filter(Boolean);
+        const relevantes = conhecimentos.filter(k => {
+          const tituloL = (k.titulo || '').toLowerCase();
+          const conteudoL = (k.conteudo || '').toLowerCase();
+          const tagsL = (k.tags || []).map(t => t.toLowerCase());
+          return palavras.some(p => tituloL.includes(p) || conteudoL.includes(p) || tagsL.some(t => t.includes(p)));
+        });
+        // Incrementar contador dos 3 mais relevantes (fire-and-forget)
+        for (const item of relevantes.slice(0, 3)) {
+          base44.asServiceRole.entities.KnowledgeBase.update(item.id, {
+            vezes_consultado: (item.vezes_consultado || 0) + 1,
+            ultima_consulta: new Date().toISOString()
+          }).catch(() => {});
+        }
+        resultado = { type: 'search_knowledge', total: relevantes.length, dados: relevantes.slice(0, 5), query_original: params.query };
+      } catch (e) {
+        console.error('[NEXUS-BRAIN] search_knowledge erro:', e);
+        resultado = { type: 'search_knowledge', error: e.message };
+      }
     }
 
     // ── STEP 7: Registrar AgentRun ──────────────────────────────────
