@@ -18,6 +18,8 @@ export default function DiagnosticoContato() {
   const [carregando, setCarregando] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [usuario, setUsuario] = useState(null);
+  const [sincronizandoOrfas, setSincronizandoOrfas] = useState(false);
+  const [resultadoOrfas, setResultadoOrfas] = useState(null);
 
   // ✅ CARREGAR USUÁRIO
   useEffect(() => {
