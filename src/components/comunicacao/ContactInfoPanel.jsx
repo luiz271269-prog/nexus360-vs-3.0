@@ -666,9 +666,34 @@ export default function ContactInfoPanel({
             </div>
           </div>
 
+          {/* Sincronização de Erros */}
+           <div className="mt-4 px-4 pb-2 border-t pt-3">
+             <button
+               onClick={async () => {
+                 try {
+                   const res = await base44.functions.invoke('sincronizarContactoErros', {
+                     contact_id: contact.id,
+                     corrigir: false
+                   });
+                   if (res.data?.erros_encontrados > 0) {
+                     toast.warning(`⚠️ ${res.data.erros_encontrados} erro(s): ${res.data.erros.map(e => e.tipo).join(', ')}`);
+                   } else {
+                     toast.success('✅ Contato sincronizado!');
+                   }
+                   if (onUpdate) await onUpdate();
+                 } catch (error) {
+                   toast.error(`Erro: ${error.message}`);
+                 }
+               }}
+               className="w-full text-xs font-medium text-amber-700 hover:text-amber-900 px-2 py-2 bg-amber-100 hover:bg-amber-200 rounded transition"
+             >
+               🔄 Verificar Sincronização
+             </button>
+           </div>
+
           {/* Botões de Diagnóstico para Admin */}
-          {usuario?.role === 'admin' && (
-            <div className="mt-4 px-4 pb-2 border-t pt-3 space-y-2">
+           {usuario?.role === 'admin' && (
+             <div className="mt-4 px-4 pb-2 border-t pt-3 space-y-2">
               <Button
                 onClick={() => navigate(createPageUrl('DiagnosticoContato') + `?telefone=${contact.telefone}`)}
                 variant="outline"
