@@ -126,7 +126,8 @@ async function processarWAITING_STICKY_DECISION(base44, thread, contact, user_in
   const entrada = (user_input.content || user_input.id || '').toLowerCase();
 
   if (['sim', '1', 'quero'].some(x => entrada.includes(x))) {
-    await enviarMensagem(base44, contact, whatsappIntegrationId, `Combinado! Retornando para *${thread.sector_id}*...`);
+    const ok = await enviarMensagem(base44, contact, whatsappIntegrationId, `Combinado! Retornando para *${thread.sector_id}*...`);
+    if (!ok) return { success: false, mode: 'sticky_confirm_send_failed' };
     await atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', thread.sector_id);
     thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
     return await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system' }, whatsappIntegrationId);
@@ -143,9 +144,10 @@ async function processarWAITING_STICKY_DECISION(base44, thread, contact, user_in
   }
 
   // Fallback — Bug #8 fix: avisar antes de reapresentar menu
-  await enviarMensagem(base44, contact, whatsappIntegrationId,
+  const fallbackOk = await enviarMensagem(base44, contact, whatsappIntegrationId,
     `Não entendi sua resposta. 😊 Vou te mostrar o menu novamente.`
   );
+  if (!fallbackOk) return { success: false, mode: 'sticky_fallback_send_failed' };
   await base44.asServiceRole.entities.MessageThread.update(thread.id, {
     pre_atendimento_state: 'INIT',
     sector_id: null,
