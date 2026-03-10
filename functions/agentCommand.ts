@@ -236,6 +236,8 @@ INSTRUÇÕES:
           while (rodadas < 3) {
             rodadas++;
             
+            console.log('[AGENT-COMMAND] Chamando chamarIA... (rodada ' + rodadas + ')');
+            
             // ── Usar chamarIA centralizado ──────────────────────
             const iaResponse = await base44.asServiceRole.functions.invoke('chamarIA', {
               system_prompt: systemPrompt,
@@ -245,7 +247,11 @@ INSTRUÇÕES:
               model: modelToUse
             });
 
+            console.log('[AGENT-COMMAND] chamarIA retornou:', typeof iaResponse);
+            
             const response = typeof iaResponse === 'string' ? JSON.parse(iaResponse) : iaResponse;
+            
+            console.log('[AGENT-COMMAND] Response parsed:', response?.stop_reason, response?.fallback);
             
             if (response.fallback) {
               console.log('[AGENT-COMMAND] Usando fallback:', response.motivo_fallback);
