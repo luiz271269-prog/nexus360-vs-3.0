@@ -234,7 +234,8 @@ async function processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, user_i
 
     if (rota.data?.success && rota.data?.atendente_id) {
       const atendenteNome = rota.data.atendente_nome || 'um atendente';
-      await enviarMensagem(base44, contact, whatsappIntegrationId, `🥳 Encontrei o atendente *${atendenteNome}* para você! Transferindo...`);
+      const enviado = await enviarMensagem(base44, contact, whatsappIntegrationId, `🥳 Encontrei o atendente *${atendenteNome}* para você! Transferindo...`);
+      if (!enviado) return { success: false, mode: 'attendant_found_send_failed' };
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         pre_atendimento_state: 'COMPLETED',
         pre_atendimento_ativo: false,
