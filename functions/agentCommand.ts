@@ -3,10 +3,14 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 async function loadConfig(base44) {
   try {
-    const configs = await base44.asServiceRole.entities.ConfiguracaoSistema.filter({ ativa: true }, 'chave', 100);
+    const configs = await base44.asServiceRole.entities.ConfiguracaoSistema
+      .filter({ ativa: true }, '-created_date', 100)
+      .catch(() => []);
     const map = {};
-    for (const c of configs) {
-      map[c.chave] = c.valor?.value !== undefined ? c.valor.value : null;
+    for (const c of configs || []) {
+      const chave = c.chave;
+      const valor = c.valor?.value !== undefined ? c.valor.value : (c.valor || null);
+      map[chave] = valor;
     }
     return map;
   } catch (e) {
