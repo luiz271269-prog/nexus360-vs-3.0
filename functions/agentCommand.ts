@@ -171,20 +171,10 @@ Deno.serve(async (req) => {
       });
 
       try {
-        console.log('[AGENT-COMMAND] Antes de loadConfig');
-        
-        // Carregar configs do banco (com fallback para padrões)
-        let cfg = {};
-        try {
-          cfg = await loadConfig(base44);
-        } catch (e) {
-          console.warn('[AGENT-COMMAND] Falha ao carregar configs, usando padrões:', e.message);
-        }
-        
-        console.log('[AGENT-COMMAND] Após loadConfig');
-        const modelToUse = cfg.modelo_ia || 'claude-3-5-haiku-20241022';
-        const nomeEmpresa = cfg.nome_empresa || 'CRM';
-        const descricaoEmpresa = cfg.descricao_empresa || '';
+        // Usar padrões simples (sem carregar configs do banco por enquanto)
+        const modelToUse = 'claude-3-5-haiku-20241022';
+        const nomeEmpresa = 'CRM';
+        const descricaoEmpresa = '';
 
         // Contexto estático rápido
         const [vendas, orcamentos, threads, workQueue] = await Promise.all([
