@@ -614,16 +614,16 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                         <div className="text-center py-8 text-slate-500 text-xs">Nenhum setor encontrado</div>
                       ) : (
                         setores.map(setor => {
-                          const isSelected = selectedSectors.includes(setor);
-                          const usuariosDoSetor = usuarios.filter(u => u.attendant_sector === setor);
-                          const setorCfg = setorConfig[setor] || setorConfig['geral'];
-                          return (
-                            <button
-                              key={setor}
-                              onClick={() => toggleSector(setor)}
-                              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left border text-xs ${
-                                isSelected ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' : 'hover:bg-slate-50 border-transparent'
-                              }`}
+                        const isSelected = selectedSectors.includes(setor);
+                        const usuariosDoSetor = usuarios.filter(u => u.attendant_sector === setor);
+                        const setorCfg = setorConfig[setor] || setorConfig['geral'];
+                        return (
+                          <button
+                            key={setor}
+                            onClick={() => toggleSector(setor)}
+                            className={`w-full flex items-center gap-2 px-3 py-3 rounded-lg transition-all text-left border text-xs ${
+                              isSelected ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' : 'hover:bg-slate-50 border-transparent hover:border-slate-200'
+                            }`}
                             >
                               <div className="flex-shrink-0">
                                 {isSelected ? <CheckSquare className="w-3 h-3 text-cyan-600" /> : <Square className="w-3 h-3 text-slate-300" />}
