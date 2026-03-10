@@ -268,82 +268,70 @@ Deno.serve(async (req) => {
 
           // Fallback: alerta interno clássico se brain não agiu
           if (acaoExecutada === 'nenhuma') {
-          try {
-            const internalResult = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
-              target_user_id: thread.assigned_user_id
-            });
-            const internalThread = internalResult?.data?.thread || internalResult?.thread;
+            try {
+              const internalResult = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
+                target_user_id: thread.assigned_user_id
+              });
+              const internalThread = internalResult?.data?.thread || internalResult?.thread;
 
-            if (internalThread?.id) {
-              // ── COOLDOWN POR ATENDENTE: máx 3 alertas por atendente a cada 2h ─
-              const duasHorasAtras = new Date(agora.getTime() - 2 * 60 * 60 * 1000);
-              const alertasRecentes = await base44.asServiceRole.entities.Message.filter({
-                thread_id: internalThread.id,
-                sender_id: 'nexus_agent',
-                sent_at: { $gte: duasHorasAtras.toISOString() }
-              }, '-sent_at', 5).catch(() => []);
+              if (internalThread?.id) {
+                const duasHorasAtras = new Date(agora.getTime() - 2 * 60 * 60 * 1000);
+                const alertasRecentes = await base44.asServiceRole.entities.Message.filter({
+                  thread_id: internalThread.id,
+                  sender_id: 'nexus_agent',
+                  sent_at: { $gte: duasHorasAtras.toISOString() }
+                }, '-sent_at', 5).catch(() => []);
 
-              if (alertasRecentes.length >= 3) {
-                // Anti-fadiga: agrupar para WorkQueueItem de resumo (não spam individual)
-                if (!resumosPendentes[thread.assigned_user_id]) resumosPendentes[thread.assigned_user_id] = [];
-                resumosPendentes[thread.assigned_user_id].push({
-                  contact_id: thread.contact_id,
-                  thread_id: thread.id,
-                  priority_score: priorityScore,
-                  minutos_ocioso: minutosOcioso
-                });
-                acaoExecutada = 'ignorado_cooldown_atendente';
-                console.log(`[NEXUS-AGENT v3.2] 🔕 Cooldown atendente ${thread.assigned_user_id} — agrupando contato ${thread.contact_id} no resumo`);
-              } else {
-              // Monta alerta rico com contexto do prontuário
-              const riskInfo = analise?.relationship_risk?.level
-                ? `\n🔴 Risco relacional: *${analise.relationship_risk.level.toUpperCase()}*`
-                : '';
-              const nextAction = analise?.insights_v2?.next_best_action?.action
-                || analise?.next_best_action?.action
-                || '';
-              const actionInfo = nextAction ? `\n💡 Próxima ação sugerida: ${nextAction}` : '';
+                if (alertasRecentes.length >= 3) {
+                  if (!resumosPendentes[thread.assigned_user_id]) resumosPendentes[thread.assigned_user_id] = [];
+                  resumosPendentes[thread.assigned_user_id].push({
+                    contact_id: thread.contact_id,
+                    thread_id: thread.id,
+                    priority_score: priorityScore,
+                    minutos_ocioso: minutosOcioso
+                  });
+                  acaoExecutada = 'ignorado_cooldown_atendente';
+                  console.log(`[NEXUS-AGENT v3.2] 🔕 Cooldown atendente ${thread.assigned_user_id}`);
+                } else {
+                  const riskInfo = analise?.relationship_risk?.level
+                    ? `\n🔴 Risco relacional: *${analise.relationship_risk.level.toUpperCase()}*`
+                    : '';
+                  const nextAction = analise?.insights_v2?.next_best_action?.action || analise?.next_best_action?.action || '';
+                  const actionInfo = nextAction ? `\n💡 Próxima ação sugerida: ${nextAction}` : '';
+                  const msgContent = `⏰ *Atenção!* Conversa parada há *${minutosOcioso} minutos*.\n📊 Score: *${priorityScore}/100 (${priorityLabel})*${riskInfo}${actionInfo}\n🔗 Thread: ${thread.id}`;
 
-              const msgContent = `⏰ *Atenção!* Conversa parada há *${minutosOcioso} minutos*.\n📊 Score: *${priorityScore}/100 (${priorityLabel})*${riskInfo}${actionInfo}\n🔗 Thread: ${thread.id}`;
+                  await base44.asServiceRole.entities.Message.create({
+                    thread_id: internalThread.id,
+                    sender_id: 'nexus_agent',
+                    sender_type: 'user',
+                    content: msgContent,
+                    channel: 'interno',
+                    visibility: 'internal_only',
+                    provider: 'internal_system',
+                    status: 'enviada',
+                    sent_at: agora.toISOString(),
+                    metadata: { is_internal_message: true, jarvis_alert: true, external_thread_id: thread.id, contact_id: thread.contact_id, priority_score: priorityScore, priority_label: priorityLabel }
+                  });
 
-              await base44.asServiceRole.entities.Message.create({
-                thread_id: internalThread.id,
-                sender_id: 'nexus_agent',
-                sender_type: 'user',
-                content: msgContent,
-                channel: 'interno',
-                visibility: 'internal_only',
-                provider: 'internal_system',
-                status: 'enviada',
-                sent_at: agora.toISOString(),
-                metadata: {
-                  is_internal_message: true,
-                  jarvis_alert: true,
-                  external_thread_id: thread.id,
-                  contact_id: thread.contact_id,
-                  priority_score: priorityScore,
-                  priority_label: priorityLabel
+                  const currentUnreads = internalThread.unread_by || {};
+                  currentUnreads[thread.assigned_user_id] = (currentUnreads[thread.assigned_user_id] || 0) + 1;
+                  await base44.asServiceRole.entities.MessageThread.update(internalThread.id, {
+                    last_message_at: agora.toISOString(),
+                    last_message_content: `⏰ Conversa parada ${minutosOcioso}min | Score ${priorityScore}`,
+                    unread_by: currentUnreads,
+                    total_mensagens: (internalThread.total_mensagens || 0) + 1
+                  });
+
+                  acaoExecutada = 'alerta_interno_atendente';
+                  resultados.alertas_internos++;
+                  console.log(`[NEXUS-AGENT v3.2] ✅ Alerta interno → atendente ${thread.assigned_user_id} | Score ${priorityScore} | ${minutosOcioso}min`);
                 }
-              });
-
-              const currentUnreads = internalThread.unread_by || {};
-              currentUnreads[thread.assigned_user_id] = (currentUnreads[thread.assigned_user_id] || 0) + 1;
-              await base44.asServiceRole.entities.MessageThread.update(internalThread.id, {
-                last_message_at: agora.toISOString(),
-                last_message_content: `⏰ Conversa parada ${minutosOcioso}min | Score ${priorityScore}`,
-                unread_by: currentUnreads,
-                total_mensagens: (internalThread.total_mensagens || 0) + 1
-              });
-
-                acaoExecutada = 'alerta_interno_atendente';
-                resultados.alertas_internos++;
-                console.log(`[NEXUS-AGENT v3.2] ✅ Alerta interno → atendente ${thread.assigned_user_id} | Score ${priorityScore} | ${minutosOcioso}min | Freio: ${forceModeAlertOnly}`);
-              } // fim cooldown atendente
+              }
+            } catch (e) {
+              erroAcao = erroAcao || e.message;
+              console.warn(`[NEXUS-AGENT v3] ⚠️ Alerta interno falhou: ${e.message}`);
             }
-          } catch (e) {
-            erroAcao = erroAcao || e.message;
-            console.warn(`[NEXUS-AGENT v3] ⚠️ Alerta interno falhou: ${e.message}`);
-          }
+          } // fim fallback alerta interno
         }
 
         // ── MÉDIO: só registrar, sem incomodar ─────────────────────────────
