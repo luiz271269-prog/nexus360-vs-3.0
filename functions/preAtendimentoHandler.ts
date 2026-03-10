@@ -176,7 +176,8 @@ async function processarWAITING_SECTOR_CHOICE(base44, thread, contact, user_inpu
     console.log(`[PRE-ATENDIMENTO] 🔘 selectedRowId=${selectedRowId} → setor=${setor}`);
 
     if (setor === 'livre') {
-      await enviarMensagem(base44, contact, whatsappIntegrationId, 'Com quem ou qual setor você deseja falar? 😊');
+      const livreOk = await enviarMensagem(base44, contact, whatsappIntegrationId, 'Com quem ou qual setor você deseja falar? 😊');
+      if (!livreOk) return { success: false, mode: 'livre_send_failed' };
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         pre_atendimento_state: 'WAITING_SECTOR_CHOICE',
         pre_atendimento_last_interaction: new Date().toISOString()
@@ -185,7 +186,8 @@ async function processarWAITING_SECTOR_CHOICE(base44, thread, contact, user_inpu
     }
 
     if (setor) {
-      await enviarMensagem(base44, contact, whatsappIntegrationId, `Você escolheu: *${setor.toUpperCase()}*.\nBuscando atendentes...`);
+      const ok = await enviarMensagem(base44, contact, whatsappIntegrationId, `Você escolheu: *${setor.toUpperCase()}*.\nBuscando atendentes...`);
+      if (!ok) return { success: false, mode: 'sector_rowid_send_failed' };
       await atualizarEstado(base44, thread.id, 'WAITING_ATTENDANT_CHOICE', setor);
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         ura_respondida_at: new Date().toISOString()
