@@ -422,14 +422,22 @@ export default function SearchAndFilter({
           </Button>
           </div>{/* fim dos botões à esquerda */}
 
-          {/* Campo de busca */}
+          {/* Campo de busca - SÓ BUSCA AO PRESSIONAR ENTER */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
           <Input
             type="text"
-            placeholder="Buscar nome, empresa, cargo, descrição..."
+            placeholder="Buscar nome, empresa, cargo... (Enter para buscar)"
             value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
+            onChange={(e) => {
+              // Apenas atualiza estado local, não filtra
+              // onSearchChange é chamado apenas no onKeyDown
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                onSearchChange(e.target.value);
+              }
+            }}
             className="w-full pl-10 pr-4 py-2.5 bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
           />
         </div>
