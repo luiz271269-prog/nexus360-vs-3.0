@@ -240,6 +240,16 @@ async function distribuirPorCarga(base44, thread, contact, atendentes, origem) {
       sector_id: melhorAtendente.atendente.attendant_sector
     });
 
+    // Briefing automático para o novo atendente (fire-and-forget)
+    base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+      thread_id: thread.id,
+      contact_id: thread.contact_id,
+      integration_id: thread.whatsapp_integration_id,
+      trigger: 'thread_transfer',
+      message_content: `Thread atribuída para ${melhorAtendente.atendente.full_name}. Analisar histórico e gerar briefing interno: (1) quem é o cliente, (2) o que pediu exatamente, (3) o que já foi respondido, (4) próximo passo concreto.`,
+      mode: 'copilot'
+    }).catch(e => console.warn('[ROTEAMENTO] Briefing falhou (não afeta atribuição):', e.message));
+
     // Atualizar contagem do atendente
     await base44.asServiceRole.entities.User.update(melhorAtendente.atendente.id, {
       current_conversations_count: melhorAtendente.cargaAtual + 1
