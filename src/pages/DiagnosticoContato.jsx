@@ -358,7 +358,7 @@ export default function DiagnosticoContato() {
         <div className="space-y-4">
           {/* DUPLICATAS COM AÇÃO */}
           <Card className={`p-6 ${resultado.contatosDuplicados.total > 1 ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3 flex-1">
                 {resultado.contatosDuplicados.total > 1 ? (
                   <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-1" />
@@ -403,15 +403,38 @@ export default function DiagnosticoContato() {
               </div>
               
               {resultado.contatosDuplicados.total > 1 && usuario?.role === 'admin' && (
-                <Button 
-                  onClick={consolidarDuplicatas}
-                  className="bg-red-600 hover:bg-red-700 text-white shadow-lg"
-                  size="lg"
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  Consolidar
-                </Button>
-              )}
+                 <div className="flex flex-col gap-2">
+                   <Button 
+                     onClick={consolidarDuplicatas}
+                     className="bg-red-600 hover:bg-red-700 text-white shadow-lg"
+                     size="lg"
+                   >
+                     <Users className="w-4 h-4 mr-2" />
+                     Consolidar
+                   </Button>
+                   <Button 
+                     onClick={() => {
+                       // Remover bloqueio de contatos duplicados
+                       resultado.contatosDuplicados.contatos.forEach(async (c) => {
+                         if (c.bloqueado) {
+                           try {
+                             await base44.entities.Contact.update(c.id, { bloqueado: false });
+                           } catch (err) {
+                             console.error(`Erro ao desbloquear ${c.id}:`, err);
+                           }
+                         }
+                       });
+                       toast.success('✅ Bloqueios removidos!');
+                       setTimeout(() => analisar(), 1000);
+                     }}
+                     className="bg-yellow-600 hover:bg-yellow-700 text-white shadow-lg"
+                     size="lg"
+                   >
+                     <AlertCircle className="w-4 h-4 mr-2" />
+                     Remover bloqueios
+                   </Button>
+                 </div>
+               )}
             </div>
           </Card>
 
@@ -597,14 +620,14 @@ export default function DiagnosticoContato() {
               </div>
 
               {!resultadoOrfas ? (
-                <div className="flex gap-2 mb-4">
+                <div className="flex gap-3 mb-4">
                   <Button 
                     onClick={() => sincronizarMensagensOrfas('diagnostico')}
                     disabled={sincronizandoOrfas}
                     className="bg-orange-500 hover:bg-orange-600 text-white"
                   >
                     {sincronizandoOrfas ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
-                    Analisar Órfãs (Seguro)
+                    Verificar Sincronização
                   </Button>
                 </div>
               ) : (
