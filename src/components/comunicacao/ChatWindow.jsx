@@ -1856,6 +1856,17 @@ export default function ChatWindow({
         />
 
 
+      {/* 🧠 NEXUS BRAIN SUGGESTIONS — sugestões copilot do agente */}
+      {!mostrarInterfaceBroadcast && thread?.thread_type === 'contact_external' && (
+        <NexusBrainSuggestions
+          thread={thread}
+          onUsar={(texto) => {
+            // Injeta o texto sugerido no MessageInput via evento customizado
+            window.dispatchEvent(new CustomEvent('nexus:inject_reply', { detail: { texto } }));
+          }}
+        />
+      )}
+
       {/* 🎯 SISTEMA INTELIGENTE DE SUGESTÕES */}
       <ChatSuggestions
         thread={thread}
