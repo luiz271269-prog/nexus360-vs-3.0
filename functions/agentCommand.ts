@@ -238,14 +238,22 @@ INSTRUÇÕES:
         try {
           while (rodadas < 3) {
             rodadas++;
-            const response = await anthropic.messages.create({
-              model: modelToUse,
-              max_tokens: 1500,
-              system: systemPrompt,
+            
+            // ── Usar chamarIA centralizado ──────────────────────
+            const iaResponse = await base44.asServiceRole.functions.invoke('chamarIA', {
+              system_prompt: systemPrompt,
+              messages: messages,
               tools: ANALYST_TOOLS,
-              tool_choice: { type: 'auto' },
-              messages
+              max_tokens: 1500,
+              model: modelToUse
             });
+
+            const response = typeof iaResponse === 'string' ? JSON.parse(iaResponse) : iaResponse;
+            
+            if (response.fallback) {
+              console.log('[AGENT-COMMAND] Usando fallback:', response.motivo_fallback);
+              usedFallback = true;
+            }
 
             // Se parou por texto final
             if (response.stop_reason === 'end_turn') {
