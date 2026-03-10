@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Badge } from '@/components/ui/badge';
@@ -227,10 +226,9 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
     }
   };
 
-  // Renderizar Kanban para uma etapa específica
+  // Renderizar Kanban para uma etapa específica (sem DragDropContext — está no pai)
   const renderKanbanEtapa = (etapaConfig) => (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <div
+    <div
         className="grid gap-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
         style={{ gridTemplateColumns: `repeat(${etapaConfig.statuses.length}, minmax(250px, 1fr))` }}
       >
