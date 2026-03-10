@@ -1,8 +1,88 @@
-// agentCommand - v3.0 (memória de sessão)
+// agentCommand - v4.0 (modo analista com tool_use real)
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import Anthropic from 'npm:@anthropic-ai/sdk@0.39.0';
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
+
+// Tools disponíveis no modo analista (sem contexto de thread/contato)
+const ANALYST_TOOLS = [
+  {
+    name: 'query_database',
+    description: 'Consulta dados reais do banco. Use para responder perguntas sobre clientes, orçamentos, vendas, conversas, tarefas. Retorna dados REAIS.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        entidade: {
+          type: 'string',
+          enum: ['Contact', 'Orcamento', 'Venda', 'MessageThread', 'WorkQueueItem', 'Cliente', 'AgentRun'],
+          description: 'Qual entidade consultar'
+        },
+        filtros: {
+          type: 'object',
+          description: 'Filtros. Ex: { status: "negociando" } ou { created_date: { $gte: "2026-01-01" } }'
+        },
+        ordenar_por: {
+          type: 'string',
+          description: 'Campo de ordenação. Ex: -created_date, valor_total'
+        },
+        limite: {
+          type: 'number',
+          description: 'Máximo de registros (default 10, máximo 50)'
+        }
+      },
+      required: ['entidade']
+    }
+  },
+  {
+    name: 'search_knowledge',
+    description: 'Busca na base de conhecimento: produtos, preços, políticas, casos resolvidos. Use quando perguntarem sobre produtos ou procedimentos.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Texto de busca' },
+        tipo: {
+          type: 'string',
+          enum: ['produto', 'politica', 'caso_resolvido', 'preco', 'fornecedor', 'qualquer']
+        }
+      },
+      required: ['query']
+    }
+  }
+];
+
+async function executeTool(base44, toolName, toolInput) {
+  if (toolName === 'query_database') {
+    const entidade = toolInput.entidade;
+    const filtros = toolInput.filtros || {};
+    const ordem = toolInput.ordenar_por || '-created_date';
+    const limite = Math.min(toolInput.limite || 10, 50);
+    const resultados = await base44.asServiceRole.entities[entidade].filter(filtros, ordem, limite);
+    console.log(`[AGENT-COMMAND] query_database: ${entidade} → ${resultados.length} registros`);
+    return { entidade, total: resultados.length, dados: resultados };
+  }
+
+  if (toolName === 'search_knowledge') {
+    const filtroKB = toolInput.tipo && toolInput.tipo !== 'qualquer' ? { tipo: toolInput.tipo } : {};
+    const conhecimentos = await base44.asServiceRole.entities.KnowledgeBase.filter(filtroKB, '-vezes_consultado', 20).catch(() => []);
+    const queryLower = (toolInput.query || '').toLowerCase();
+    const palavras = queryLower.split(/\s+/).filter(Boolean);
+    const relevantes = conhecimentos.filter(k => {
+      const t = (k.titulo || '').toLowerCase();
+      const c = (k.conteudo || '').toLowerCase();
+      const tags = (k.tags || []).map(x => x.toLowerCase());
+      return palavras.some(p => t.includes(p) || c.includes(p) || tags.some(tg => tg.includes(p)));
+    });
+    for (const item of relevantes.slice(0, 3)) {
+      base44.asServiceRole.entities.KnowledgeBase.update(item.id, {
+        vezes_consultado: (item.vezes_consultado || 0) + 1,
+        ultima_consulta: new Date().toISOString()
+      }).catch(() => {});
+    }
+    return { total: relevantes.length, dados: relevantes.slice(0, 5) };
+  }
+
+  return { error: `Tool desconhecida: ${toolName}` };
+}
 
 Deno.serve(async (req) => {
   try {
@@ -27,12 +107,11 @@ Deno.serve(async (req) => {
         memoriaAtual = memoriasSessao[0] || null;
       } catch (e) {
         console.warn('[AGENT-COMMAND] NexusMemory não disponível:', e.message);
-        memoriaAtual = null;
       }
 
       const contextoMemoria = memoriaAtual
         ? `\nMEMÓRIA DA ÚLTIMA SESSÃO (${memoriaAtual.created_date?.slice(0, 10) || 'anterior'}):\n${memoriaAtual.conteudo}\nÚltima ação: ${memoriaAtual.ultima_acao || 'nenhuma'}`
-        : '\nPrimeira sessão com este usuário — sem histórico anterior.';
+        : '\nPrimeira sessão — sem histórico anterior.';
 
       const run = await base44.asServiceRole.entities.AgentRun.create({
         trigger_type: 'manual.invoke',
@@ -45,8 +124,8 @@ Deno.serve(async (req) => {
       });
 
       try {
-        const [clientes, vendas, orcamentos, threads, workQueue, agentRuns] = await Promise.all([
-          base44.asServiceRole.entities.Cliente.list('-updated_date', 20).catch(() => []),
+        // Contexto estático rápido
+        const [vendas, orcamentos, threads, workQueue] = await Promise.all([
           base44.asServiceRole.entities.Venda.list('-data_venda', 10).catch(() => []),
           base44.asServiceRole.entities.Orcamento.filter(
             { status: { $in: ['enviado', 'negociando', 'liberado'] } }, '-updated_date', 10
@@ -56,14 +135,10 @@ Deno.serve(async (req) => {
           ).catch(() => []),
           base44.asServiceRole.entities.WorkQueueItem.filter(
             { status: 'open' }, '-created_date', 10
-          ).catch(() => []),
-          base44.asServiceRole.entities.AgentRun.filter(
-            { playbook_selected: 'nexus_brain', status: 'concluido' }, '-created_date', 5
           ).catch(() => [])
         ]);
 
         const threadsNaoAtribuidas = threads.filter(t => !t.assigned_user_id).length;
-        const threadsAguardando = threads.filter(t => t.last_message_sender === 'contact').length;
         const receitaTotal = vendas.reduce((s, v) => s + (v.valor_total || 0), 0);
         const valorPipeline = orcamentos.reduce((s, o) => s + (o.valor_total || 0), 0);
 
@@ -71,35 +146,70 @@ Deno.serve(async (req) => {
 
 OPERADOR: ${user.full_name} | ${user.role === 'admin' ? 'Admin' : 'Atendente'} | Setor: ${context?.user?.sector || 'geral'} | Página: ${context?.page || 'Dashboard'}
 
-SITUAÇÃO ATUAL:
-• Clientes: ${clientes.length} (recentes)
-• Vendas: ${vendas.length} | Receita: R$ ${receitaTotal.toLocaleString('pt-BR')}
+SITUAÇÃO ATUAL (snapshot):
+• Vendas recentes: ${vendas.length} | Receita: R$ ${receitaTotal.toLocaleString('pt-BR')}
 • Orçamentos em aberto: ${orcamentos.length} | Pipeline: R$ ${valorPipeline.toLocaleString('pt-BR')}
-• Conversas ativas: ${threads.length} | Sem atendente: ${threadsNaoAtribuidas} ⚠️ | Aguardando: ${threadsAguardando}
+• Conversas ativas: ${threads.length} | Sem atendente: ${threadsNaoAtribuidas} ⚠️
 • Fila de trabalho: ${workQueue.length} itens abertos
-• Nexus Brain (IA): ${agentRuns.length} ações recentes
-
-${orcamentos.length > 0 ? `ORÇAMENTOS PENDENTES:\n${orcamentos.slice(0, 5).map(o => `• ${o.cliente_nome} — R$ ${o.valor_total?.toLocaleString('pt-BR')} (${o.status})`).join('\n')}` : ''}
-
-${workQueue.length > 0 ? `FILA DE TRABALHO:\n${workQueue.slice(0, 5).map(w => `• ${(w.notes || w.tipo || '').slice(0, 100)}`).join('\n')}` : ''}
 ${contextoMemoria}
 
-PERGUNTA: ${user_message}
+INSTRUÇÃO: Se precisar de dados mais específicos ou detalhados para responder, use as tools query_database ou search_knowledge. Para perguntas simples, responda direto. Seja objetivo, máximo 3 parágrafos.`;
 
-Responda em português, seja direto e acionável. Máximo 3 parágrafos. Sugira próximos passos concretos quando relevante.`;
+        // ── Loop tool_use (máximo 3 rodadas) ──────────────────────────
+        const messages = [{ role: 'user', content: user_message }];
+        let text = '';
+        let rodadas = 0;
 
-        let text = 'Não foi possível gerar resposta.';
-        try {
+        while (rodadas < 3) {
+          rodadas++;
           const response = await anthropic.messages.create({
             model: 'claude-3-5-haiku-20241022',
             max_tokens: 1500,
-            messages: [{ role: 'user', content: systemPrompt }]
+            system: systemPrompt,
+            tools: ANALYST_TOOLS,
+            tool_choice: { type: 'auto' },
+            messages
           });
-          text = response.content[0]?.text || text;
-        } catch (e) {
-          console.error('[AGENT-COMMAND] Claude falhou:', e.message);
-          text = `Erro ao processar: ${e.message}`;
+
+          // Se parou por texto final
+          if (response.stop_reason === 'end_turn') {
+            text = response.content.find(b => b.type === 'text')?.text || text;
+            break;
+          }
+
+          // Se chamou tool
+          if (response.stop_reason === 'tool_use') {
+            // Adicionar resposta do assistant com as tool calls
+            messages.push({ role: 'assistant', content: response.content });
+
+            // Executar todas as tools chamadas
+            const toolResults = [];
+            for (const block of response.content) {
+              if (block.type !== 'tool_use') continue;
+              console.log(`[AGENT-COMMAND] Tool: ${block.name}`);
+              let result;
+              try {
+                result = await executeTool(base44, block.name, block.input);
+              } catch (e) {
+                result = { error: e.message };
+              }
+              toolResults.push({
+                type: 'tool_result',
+                tool_use_id: block.id,
+                content: JSON.stringify(result)
+              });
+            }
+
+            // Adicionar resultados e continuar o loop
+            messages.push({ role: 'user', content: toolResults });
+          } else {
+            // stop_reason inesperado — pegar texto se houver
+            text = response.content.find(b => b.type === 'text')?.text || 'Não foi possível gerar resposta.';
+            break;
+          }
         }
+
+        if (!text) text = 'Não foi possível gerar resposta. Tente novamente.';
 
         await base44.asServiceRole.entities.AgentRun.update(run.id, {
           status: 'concluido',
@@ -111,9 +221,8 @@ Responda em português, seja direto e acionável. Máximo 3 parágrafos. Sugira 
         (async () => {
           try {
             const resumoSessao = await base44.asServiceRole.integrations.Core.InvokeLLM({
-              prompt: `Resumir em no máximo 5 linhas o que foi discutido nesta sessão do Nexus AI. Seja objetivo. Foque no que o usuário quis fazer e o que o sistema fez.\n\nPergunta do usuário: ${user_message}\nResposta resumida: ${text.slice(0, 300)}`
+              prompt: `Resumir em no máximo 5 linhas o que foi discutido nesta sessão do Nexus AI.\n\nPergunta: ${user_message}\nResposta: ${text.slice(0, 300)}`
             });
-
             const dadosMemoria = {
               owner_user_id: userId,
               tipo: 'sessao',
@@ -122,7 +231,6 @@ Responda em português, seja direto e acionável. Máximo 3 parágrafos. Sugira 
               contexto: { page: context?.page || null },
               score_utilidade: 80
             };
-
             if (memoriaAtual) {
               await base44.asServiceRole.entities.NexusMemory.update(memoriaAtual.id, dadosMemoria);
             } else {
@@ -134,7 +242,7 @@ Responda em português, seja direto e acionável. Máximo 3 parágrafos. Sugira 
           }
         })();
 
-        return Response.json({ success: true, response: text, run_id: run.id, agent_mode: 'assistente' });
+        return Response.json({ success: true, response: text, run_id: run.id, agent_mode: 'analista' });
 
       } catch (error) {
         console.error('[AGENT-COMMAND] Erro no bloco principal:', error.message);
