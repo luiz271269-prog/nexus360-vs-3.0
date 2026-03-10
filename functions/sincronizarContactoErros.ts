@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
 
     // 5️⃣ CORRIGIR se modo correção
     let corrigidos = [];
-    if (corrigir && erros.length > 0 && user.role === 'admin') {
+    if (corrigir) {
       const updates = {};
 
       // Corrigir telefone_canonico
@@ -98,11 +98,46 @@ Deno.serve(async (req) => {
       if (!nomePuro && contato.empresa) {
         updates.nome = contato.empresa;
         corrigidos.push('nome preenchido com empresa');
+      } else if (!nomePuro && contato.telefone) {
+        updates.nome = `Contato ${contato.telefone}`;
+        corrigidos.push('nome gerado do telefone');
       }
 
+      // Aplicar correções
       if (Object.keys(updates).length > 0) {
         await base44.asServiceRole.entities.Contact.update(contact_id, updates);
-        console.log(`[sincronizarContactoErros] ✅ Contato corrigido:`, corrigidos);
+        console.log(`[sincronizarContactoErros] ✅ Contato corrigido:`, corrigidos, 'Updates:', updates);
+      }
+
+      // Consolidar threads órfãs se necessário
+      try {
+        const threads = await base44.asServiceRole.entities.MessageThread.filter({ 
+          contact_id: contact_id 
+        });
+        
+        if (threads && threads.length > 1) {
+          const principal = threads[0];
+          let threadsConsolidadas = 0;
+          
+          for (let i = 1; i < threads.length; i++) {
+            const thread = threads[i];
+            
+            if (thread.status !== 'merged') {
+              await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+                status: 'merged',
+                merged_into: principal.id
+              });
+              threadsConsolidadas++;
+            }
+          }
+          
+          if (threadsConsolidadas > 0) {
+            corrigidos.push(`${threadsConsolidadas} thread(s) consolidada(s)`);
+            console.log(`[sincronizarContactoErros] 📌 Consolidadas ${threadsConsolidadas} threads`);
+          }
+        }
+      } catch (threadError) {
+        console.warn('[sincronizarContactoErros] Aviso ao consolidar threads:', threadError.message);
       }
     }
 
