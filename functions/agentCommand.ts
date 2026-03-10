@@ -168,6 +168,9 @@ Deno.serve(async (req) => {
         status: 'processando',
         context_snapshot: { user_id: userId, page: context?.page, message: user_message },
         started_at: new Date().toISOString()
+      }).catch(e => {
+        console.warn('[AGENT-COMMAND] Falha ao criar AgentRun:', e.message);
+        return { id: 'temp_' + Date.now() };
       });
 
       try {
