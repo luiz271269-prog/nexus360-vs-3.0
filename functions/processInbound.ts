@@ -324,26 +324,28 @@ Deno.serve(async (req) => {
     return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, handled_by_ura: true });
   }
 
-  // CLAUDE AI: Responder automaticamente quando sem humano ativo e sem URA
-  result.pipeline.push('claude_ai_responder');
+  // NEXUS BRAIN: Agente autônomo — percepção → decisão → ação
+  result.pipeline.push('nexus_brain');
   if (message?.sender_type === 'contact' && messageContent?.length > 2) {
     if (!integration?.id) {
-      console.warn(`[${VERSION}] ⚠️ integration.id ausente — claudeWhatsAppResponder não pode ser acionado`);
-      result.actions.push('claude_ai_skipped_no_integration');
+      console.warn(`[${VERSION}] ⚠️ integration.id ausente — nexusAgentBrain não pode ser acionado`);
+      result.actions.push('nexus_brain_skipped_no_integration');
     } else {
       try {
-        console.log(`[${VERSION}] 🤖 Ativando Claude AI para resposta automática`);
-        await base44.asServiceRole.functions.invoke('claudeWhatsAppResponder', {
+        console.log(`[${VERSION}] 🧠 Ativando Nexus Brain`);
+        await base44.asServiceRole.functions.invoke('nexusAgentBrain', {
           thread_id: thread.id,
           contact_id: contact.id,
           message_content: messageContent,
           integration_id: integration.id,
           provider,
+          trigger: 'inbound',
+          mode: 'copilot'
         });
-        result.actions.push('claude_ai_responded');
+        result.actions.push('nexus_brain_responded');
       } catch (e) {
-        console.error(`[${VERSION}] ❌ claudeWhatsAppResponder falhou: ${e.message}`);
-        result.actions.push('claude_ai_failed');
+        console.error(`[${VERSION}] ❌ nexusAgentBrain falhou: ${e.message}`);
+        result.actions.push('nexus_brain_failed');
       }
     }
   }
