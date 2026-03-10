@@ -276,6 +276,45 @@ export default function DiagnosticoContato() {
     }
   };
 
+  const sincronizarMensagensOrfas = async (modo = 'diagnostico') => {
+    if (!resultado?.analiseDetalhadaPorContato[0]?.contato?.id) {
+      toast.error('Selecione um contato para sincronizar');
+      return;
+    }
+
+    setSincronizandoOrfas(true);
+    setResultadoOrfas(null);
+
+    try {
+      const contact = resultado.analiseDetalhadaPorContato[0].contato;
+      toast.info(`🔄 ${modo === 'diagnostico' ? 'Analisando' : 'Sincronizando'} mensagens órfãs...`);
+      
+      const res = await base44.asServiceRole.functions.invoke('sincronizarMensagensOrfas', {
+        contact_id: contact.id,
+        periodo_horas: 72,
+        modo: modo
+      });
+
+      if (res.data?.success) {
+        setResultadoOrfas(res.data);
+        if (modo === 'diagnostico') {
+          toast.success(`✅ Encontradas ${res.data.mensagens_orfas_encontradas} mensagens órfãs`);
+        } else {
+          toast.success(`✅ Revinculadas ${res.data.mensagens_revinculadas} mensagens!`);
+          // Re-analisar após correção
+          setTimeout(() => analisar(), 1000);
+        }
+      } else {
+        toast.error(res.data?.error || 'Erro ao sincronizar');
+      }
+    } catch (error) {
+      console.error('[DiagnosticoContato] Erro sync:', error);
+      toast.error(`Erro: ${error.message}`);
+    } finally {
+      setSincronizandoOrfas(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-4">
       <Card className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 border-0 shadow-xl">
