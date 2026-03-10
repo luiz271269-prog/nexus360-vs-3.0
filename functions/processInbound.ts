@@ -50,6 +50,31 @@ Deno.serve(async (req) => {
   const now = new Date();
 
   // ════════════════════════════════════════════════════════════════
+  // [FIX 1] GARANTIR CONTATO ANTES DE QUALQUER LÓGICA
+  // Se contact.id não existe, chamar getOrCreateContactCentralized
+  // para criar o contato IMEDIATAMENTE
+  // ════════════════════════════════════════════════════════════════
+  if (!contact?.id && contact?.telefone) {
+    console.log(`[${VERSION}] 🆕 FIX 1: Contato sem ID encontrado, criando...`);
+    try {
+      const createResult = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+        telefone: contact.telefone,
+        pushName: contact.nome || null,
+        profilePicUrl: contact.foto_perfil_url || null,
+        conexaoId: integration?.id || null
+      });
+      if (createResult.data?.success && createResult.data?.contact?.id) {
+        contact = createResult.data.contact;
+        console.log(`[${VERSION}] ✅ FIX 1: Contato criado/recuperado: ${contact.id}`);
+        result.actions.push('contact_ensured');
+      }
+    } catch (e) {
+      console.error(`[${VERSION}] ❌ FIX 1: Erro ao garantir contato:`, e.message);
+      return Response.json({ success: false, error: 'contact_creation_failed' }, { status: 500 });
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // [INBOUND-GATE] CAMADA 5 — BATCH WINDOW (10 segundos)
   // Foto + legenda chegam como 2 webhooks separados (1-3s de diferença).
   // Se há 2+ mensagens do mesmo contato nos últimos 10s, aguarda 3s
