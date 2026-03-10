@@ -190,6 +190,26 @@ Deno.serve(async (req) => {
         }
       });
     } catch (e) { /* silencioso */ }
+
+    // ── NEXUS BRAIN: fire-and-forget (não bloqueia resposta do webhook) ─────
+    // Thread contextualizada = atendente existe mas humano dormiu → Brain sugere resposta
+    if (integration?.id && contact?.id && message?.sender_type === 'contact' && (messageContent || '').length > 2) {
+      base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+        thread_id: thread.id,
+        contact_id: contact.id,
+        message_content: messageContent,
+        integration_id: integration.id,
+        provider,
+        trigger: 'inbound',
+        mode: 'copilot'
+      }).then(() => {
+        console.log(`[INBOUND-GATE] 🧠 Brain CAMADA 3 concluído para thread ${thread.id}`);
+      }).catch(e => {
+        console.warn(`[INBOUND-GATE] ⚠️ Brain CAMADA 3 erro: ${e.message}`);
+      });
+      result.actions.push('nexus_brain_copilot_dispatched');
+    }
+
     return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, stop: true, reason: 'context_notify_only' });
   }
 
