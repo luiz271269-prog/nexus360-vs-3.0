@@ -59,6 +59,7 @@ export default function SearchAndFilter({
   onDuplicataDetectada
 }) {
   const [showFilters, setShowFilters] = React.useState(false);
+  const [searchInputValue, setSearchInputValue] = React.useState(searchTerm || '');
 
   // Buscar categorias dinâmicas
   const { data: categoriasDB = [] } = useQuery({
