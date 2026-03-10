@@ -57,6 +57,24 @@ async function atualizarEstado(base44, threadId, novoEstado, setorId = undefined
 async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, user_input = null, intent_context = null) {
   console.log('[FLUXO] INIT | Input:', user_input?.content, '| IA:', intent_context ? 'Sim' : 'Não');
 
+  // ════════════════════════════════════════════════════════════════
+  // [FIX 2] CONTEXTO VIA NEXUS BRAIN ANTES DO MENU
+  // Se contato tem histórico, buscar contexto antes de perguntar
+  // ════════════════════════════════════════════════════════════════
+  let contextoHistorico = null;
+  if (!intent_context && contact?.id && thread?.last_message_at) {
+    console.log('[FLUXO] [FIX 2] Buscando contexto histórico para:', contact.nome);
+    try {
+      // Usar fire-and-forget do Brain para enriquecer a memória do contato
+      await base44.asServiceRole.functions.invoke('atualizarMemoriaContato', {
+        contact_id: contact.id,
+        thread_id: thread.id
+      }).catch(e => console.warn('[FLUXO] [FIX 2] Brain contexto falhou:', e.message));
+    } catch (e) {
+      console.warn('[FLUXO] [FIX 2] Erro ao chamar atualizarMemoriaContato:', e.message);
+    }
+  }
+
   // Fast-track via IA — Bug 5 fix: normalizar sector_slug para nome interno correto
   const SLUG_NORMALIZER = {
     'suporte': 'assistencia', 'support': 'assistencia', 'tecnico': 'assistencia',
