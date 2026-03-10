@@ -171,23 +171,35 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.Message.filter({ thread_id }, '-created_date', 20)
     ]);
 
-    const [orcamentosAbertos, analises, memoriaContato, aprendizadoSemanal] = await Promise.all([
+    const [orcamentosAbertos, analises] = await Promise.all([
       base44.asServiceRole.entities.Orcamento.filter(
         { cliente_id: contact_id, status: { $in: ['enviado', 'negociando', 'liberado'] } },
         '-updated_date', 3
       ).catch(() => []),
       base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
         { contact_id }, '-analyzed_at', 1
-      ).catch(() => []),
-      base44.asServiceRole.entities.ContactMemory.filter(
-        { contact_id }, '-created_date', 1
-      ).catch(() => []),
-      base44.asServiceRole.entities.NexusMemory.filter(
-        { owner_user_id: 'system', tipo: 'aprendizado_semanal' }, '-created_date', 1
       ).catch(() => [])
     ]);
 
     const prontuario = analises[0] || null;
+
+    // Buscas de memória isoladas — não devem quebrar o pipeline se entidades novas não existirem ainda
+    let memoriaContato = [];
+    let aprendizadoSemanal = [];
+    try {
+      memoriaContato = await base44.asServiceRole.entities.ContactMemory.filter(
+        { contact_id }, '-created_date', 1
+      );
+    } catch (e) {
+      console.warn('[BRAIN] ContactMemory não disponível:', e.message);
+    }
+    try {
+      aprendizadoSemanal = await base44.asServiceRole.entities.NexusMemory.filter(
+        { owner_user_id: 'system', tipo: 'aprendizado_semanal' }, '-created_date', 1
+      );
+    } catch (e) {
+      console.warn('[BRAIN] Aprendizado semanal não disponível:', e.message);
+    }
 
     // ── STEP 2: Pular fornecedores (fluxo dedicado) ─────────────────
     if (contact.tipo_contato === 'fornecedor') {
