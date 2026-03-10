@@ -267,7 +267,8 @@ async function processarWAITING_QUEUE_DECISION(base44, thread, contact, user_inp
       setor: thread.sector_id,
       metadata: { nome: contact.nome }
     });
-    await enviarMensagem(base44, contact, whatsappIntegrationId, `✅ Você está na fila! Assim que alguém liberar, você será chamado.`);
+    const queuedOk = await enviarMensagem(base44, contact, whatsappIntegrationId, `✅ Você está na fila! Assim que alguém liberar, você será chamado.`);
+    if (!queuedOk) return { success: false, mode: 'queue_confirm_send_failed' };
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       pre_atendimento_state: 'COMPLETED',
       pre_atendimento_ativo: false,
