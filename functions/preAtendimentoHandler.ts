@@ -95,9 +95,26 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
     return await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system', content: '' }, whatsappIntegrationId);
   }
 
-  // Sticky setor
+  // Sticky setor — agora com contexto histórico se disponível
   if (thread.sector_id && !intent_context) {
-    const msgSticky = `Olá novamente, ${contact.nome}! 👋\n\nVi que seu último atendimento foi em *${thread.sector_id.toUpperCase()}*. Deseja continuar por lá?\n\n1️⃣ Sim, continuar\n2️⃣ Não, outro assunto`;
+    let msgSticky = `Olá novamente, ${contact.nome}! 👋\n\nVi que seu último atendimento foi em *${thread.sector_id.toUpperCase()}*. Deseja continuar por lá?\n\n1️⃣ Sim, continuar\n2️⃣ Não, outro assunto`;
+    
+    // Tentar buscar contexto da memória do contato
+    try {
+      const memoria = await base44.asServiceRole.entities.ContactMemory.filter(
+        { contact_id: contact.id },
+        '-updated_date',
+        1
+      );
+      if (memoria?.length > 0 && memoria[0].melhor_abordagem) {
+        // Injetar dica de contexto
+        msgSticky = `Olá novamente, ${contact.nome}! 👋\n\n*${memoria[0].melhor_abordagem.slice(0, 60)}*\n\nDeseja continuar em *${thread.sector_id.toUpperCase()}*?\n\n1️⃣ Sim, continuar\n2️⃣ Não, outro assunto`;
+        console.log('[FLUXO] [FIX 2] Contexto histórico injetado no menu sticky');
+      }
+    } catch (e) {
+      console.warn('[FLUXO] [FIX 2] Erro ao injetar contexto:', e.message);
+    }
+
     const stickyOk = await enviarMensagem(base44, contact, whatsappIntegrationId, msgSticky);
     if (!stickyOk) return { success: false, mode: 'sticky_send_failed' };
     await atualizarEstado(base44, thread.id, 'WAITING_STICKY_DECISION');
