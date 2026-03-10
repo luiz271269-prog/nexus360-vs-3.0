@@ -670,26 +670,38 @@ export default function ContactInfoPanel({
            <div className="mt-4 px-4 pb-2 border-t pt-3 space-y-2">
              <Button
                onClick={async () => {
+                 setSalvando(true);
                  try {
+                   console.log('[ContactInfoPanel] Sincronizando contato:', contact.id);
+                   
                    const res = await base44.functions.invoke('sincronizarContactoErros', {
                      contact_id: contact.id,
                      corrigir: false
                    });
-                   if (res.data?.erros_encontrados > 0) {
-                     toast.warning(`⚠️ ${res.data.erros_encontrados} erro(s): ${res.data.erros.map(e => e.tipo).join(', ')}`);
+                   
+                   console.log('[ContactInfoPanel] Resposta sincronização:', res);
+                   
+                   if (res?.data?.erros_encontrados > 0) {
+                     const errosTexto = res.data.erros?.map(e => e.tipo)?.join(', ') || 'desconhecidos';
+                     toast.warning(`⚠️ ${res.data.erros_encontrados} erro(s): ${errosTexto}`);
                    } else {
-                     toast.success('✅ Contato sincronizado!');
+                     toast.success('✅ Contato sincronizado com sucesso!');
                    }
                    if (onUpdate) await onUpdate();
                  } catch (error) {
-                   toast.error(`Erro: ${error.message}`);
+                   console.error('[ContactInfoPanel] Erro ao sincronizar:', error);
+                   toast.error(`❌ Erro: ${error?.message || 'Falha desconhecida'}`);
+                 } finally {
+                   setSalvando(false);
                  }
                }}
                variant="outline"
                size="sm"
                className="w-full text-amber-600 hover:bg-amber-50"
+               disabled={salvando}
              >
-               ☑️ Verificar Sincronização
+               {salvando ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : '☑️'}
+               Verificar Sincronização
              </Button>
            </div>
 
@@ -697,7 +709,12 @@ export default function ContactInfoPanel({
            {usuario?.role === 'admin' && (
              <div className="mt-4 px-4 pb-2 border-t pt-3 space-y-2">
               <Button
-                onClick={() => navigate(createPageUrl('DiagnosticoContato') + `?telefone=${contact.telefone}`)}
+                onClick={() => {
+                  console.log('[ContactInfoPanel] Abrindo diagnóstico para:', contact.telefone);
+                  const url = createPageUrl('DiagnosticoContato') + `?telefone=${encodeURIComponent(contact.telefone)}`;
+                  console.log('[ContactInfoPanel] URL:', url);
+                  navigate(url);
+                }}
                 variant="outline"
                 size="sm"
                 className="w-full text-indigo-600 hover:bg-indigo-50"
@@ -705,7 +722,10 @@ export default function ContactInfoPanel({
                 🔬 Diagnóstico deste contato
               </Button>
               <Button
-                onClick={() => navigate(createPageUrl('DiagnosticoBloqueios') + `?telefone=${contact.telefone}`)}
+                onClick={() => {
+                  const url = createPageUrl('DiagnosticoBloqueios') + `?telefone=${encodeURIComponent(contact.telefone)}`;
+                  navigate(url);
+                }}
                 variant="outline"
                 size="sm"
                 className="w-full text-red-600 hover:bg-red-50"
