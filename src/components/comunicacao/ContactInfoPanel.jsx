@@ -8,8 +8,9 @@ import {
   User, Briefcase, Phone, Mail, Building2, Tag,
   Loader2, Brain, X, AlertCircle,
   ShieldAlert, ShieldCheck, Trash2, CheckCircle2, UserPlus,
-  Lock, Unlock
+  Lock, Unlock, ChevronDown, Zap
 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { createPageUrl } from "@/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -666,74 +667,83 @@ export default function ContactInfoPanel({
             </div>
           </div>
 
-          {/* Sincronização de Erros */}
-           <div className="mt-4 px-4 pb-2 border-t pt-3 space-y-2">
-             <Button
-               onClick={async () => {
-                 setSalvando(true);
-                 try {
-                   console.log('[ContactInfoPanel] Sincronizando contato:', contact.id);
-                   
-                   const res = await base44.functions.invoke('sincronizarContactoErros', {
-                     contact_id: contact.id,
-                     corrigir: false
-                   });
-                   
-                   console.log('[ContactInfoPanel] Resposta sincronização:', res);
-                   
-                   if (res?.data?.erros_encontrados > 0) {
-                     const errosTexto = res.data.erros?.map(e => e.tipo)?.join(', ') || 'desconhecidos';
-                     toast.warning(`⚠️ ${res.data.erros_encontrados} erro(s): ${errosTexto}`);
-                   } else {
-                     toast.success('✅ Contato sincronizado com sucesso!');
-                   }
-                   if (onUpdate) await onUpdate();
-                 } catch (error) {
-                   console.error('[ContactInfoPanel] Erro ao sincronizar:', error);
-                   toast.error(`❌ Erro: ${error?.message || 'Falha desconhecida'}`);
-                 } finally {
-                   setSalvando(false);
-                 }
-               }}
-               variant="outline"
-               size="sm"
-               className="w-full text-amber-600 hover:bg-amber-50"
-               disabled={salvando}
-             >
-               {salvando ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : '☑️'}
-               Verificar Sincronização
-             </Button>
-           </div>
+          {/* Diagnóstico + Sincronização - Botão Único com Dropdown */}
+           <div className="mt-4 px-4 pb-2 border-t pt-3">
+             <DropdownMenu>
+               <DropdownMenuTrigger asChild>
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   className="w-full justify-between text-blue-600 hover:bg-blue-50"
+                   disabled={salvando}
+                 >
+                   <span className="flex items-center gap-2">
+                     {salvando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-4 h-4" />}
+                     Diagnóstico & Sincronização
+                   </span>
+                   <ChevronDown className="w-4 h-4" />
+                 </Button>
+               </DropdownMenuTrigger>
+               <DropdownMenuContent align="end" className="w-56">
+                 {/* VERIFICAR SINCRONIZAÇÃO */}
+                 <DropdownMenuItem
+                   onClick={async () => {
+                     setSalvando(true);
+                     try {
+                       console.log('[ContactInfoPanel] Sincronizando contato:', contact.id);
 
-          {/* Botões de Diagnóstico para Admin */}
-           {usuario?.role === 'admin' && (
-             <div className="mt-4 px-4 pb-2 border-t pt-3 space-y-2">
-              <Button
-                onClick={() => {
-                  console.log('[ContactInfoPanel] Abrindo diagnóstico para:', contact.telefone);
-                  const url = createPageUrl('DiagnosticoContato') + `?telefone=${encodeURIComponent(contact.telefone)}`;
-                  console.log('[ContactInfoPanel] URL:', url);
-                  navigate(url);
-                }}
-                variant="outline"
-                size="sm"
-                className="w-full text-indigo-600 hover:bg-indigo-50"
-              >
-                🔬 Diagnóstico deste contato
-              </Button>
-              <Button
-                onClick={() => {
-                  const url = createPageUrl('DiagnosticoBloqueios') + `?telefone=${encodeURIComponent(contact.telefone)}`;
-                  navigate(url);
-                }}
-                variant="outline"
-                size="sm"
-                className="w-full text-red-600 hover:bg-red-50"
-              >
-                🔓 Remover bloqueios
-              </Button>
-            </div>
-          )}
+                       const res = await base44.functions.invoke('sincronizarContactoErros', {
+                         contact_id: contact.id,
+                         corrigir: false
+                       });
+
+                       console.log('[ContactInfoPanel] Resposta sincronização:', res);
+
+                       if (res?.data?.erros_encontrados > 0) {
+                         const errosTexto = res.data.erros?.map(e => e.tipo)?.join(', ') || 'desconhecidos';
+                         toast.warning(`⚠️ ${res.data.erros_encontrados} erro(s): ${errosTexto}`);
+                       } else {
+                         toast.success('✅ Contato sincronizado com sucesso!');
+                       }
+                       if (onUpdate) await onUpdate();
+                     } catch (error) {
+                       console.error('[ContactInfoPanel] Erro ao sincronizar:', error);
+                       toast.error(`❌ Erro: ${error?.message || 'Falha desconhecida'}`);
+                     } finally {
+                       setSalvando(false);
+                     }
+                   }}
+                 >
+                   <span className="text-amber-600">☑️ Verificar Sincronização</span>
+                 </DropdownMenuItem>
+
+                 {/* DIAGNÓSTICO COMPLETO - Admin only */}
+                 {usuario?.role === 'admin' && (
+                   <>
+                     <DropdownMenuItem
+                       onClick={() => {
+                         console.log('[ContactInfoPanel] Abrindo diagnóstico para:', contact.telefone);
+                         const url = createPageUrl('DiagnosticoContato') + `?telefone=${encodeURIComponent(contact.telefone)}`;
+                         navigate(url);
+                       }}
+                     >
+                       <span className="text-indigo-600">🔬 Diagnóstico Completo</span>
+                     </DropdownMenuItem>
+
+                     {/* REMOVER BLOQUEIOS - Admin only */}
+                     <DropdownMenuItem
+                       onClick={() => {
+                         const url = createPageUrl('DiagnosticoBloqueios') + `?telefone=${encodeURIComponent(contact.telefone)}`;
+                         navigate(url);
+                       }}
+                     >
+                       <span className="text-red-600">🔓 Remover Bloqueios</span>
+                     </DropdownMenuItem>
+                   </>
+                 )}
+               </DropdownMenuContent>
+             </DropdownMenu>
+           </div>
 
           {/* Gerenciamento */}
           <div className="mt-4 px-4 pb-4 border-t pt-4">
