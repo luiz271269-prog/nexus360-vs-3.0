@@ -518,6 +518,81 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ══════════════════════════════════════════════
+    // STEP 5 — APRENDIZADO SEMANAL DO BRAIN (segundas-feiras)
+    // ══════════════════════════════════════════════
+    const diaDaSemana = agora.getDay(); // 0=dom, 1=seg
+    if (diaDaSemana === 1) {
+      console.log('[JARVIS-STEP-5] Segunda-feira — iniciando aprendizado semanal...');
+      try {
+        // Guardrail de idempotência: não criar 2 aprendizados na mesma semana
+        const inicioSemana = new Date(agora);
+        inicioSemana.setDate(agora.getDate() - agora.getDay() + 1);
+        inicioSemana.setHours(0, 0, 0, 0);
+        const jaExiste = await base44.asServiceRole.entities.NexusMemory.filter({
+          owner_user_id: 'system',
+          tipo: 'aprendizado_semanal',
+          created_date: { $gte: inicioSemana.toISOString() }
+        }, '-created_date', 1).catch(() => []);
+
+        if (jaExiste.length > 0) {
+          console.log('[JARVIS-STEP-5] Aprendizado desta semana já existe — pulando');
+        } else {
+          const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+          const [decisoesSemana, tarefasBrain] = await Promise.all([
+            base44.asServiceRole.entities.AgentRun.filter(
+              { created_date: { $gte: seteDiasAtras } }, '-created_date', 200
+            ).catch(() => []),
+            base44.asServiceRole.entities.WorkQueueItem.filter(
+              { created_date: { $gte: seteDiasAtras } }, '-created_date', 100
+            ).catch(() => [])
+          ]);
+
+          const totalDecisoes = decisoesSemana.length;
+          const tarefasResolvidas = tarefasBrain.filter(t => ['done', 'processado', 'closed'].includes(t.status)).length;
+          const taxaResolucao = tarefasBrain.length > 0
+            ? (tarefasResolvidas / tarefasBrain.length * 100)
+            : 0;
+
+          const distribuicaoAcoes = decisoesSemana.reduce((acc, d) => {
+            const acao = d.context_snapshot?.acao || d.playbook_selected || 'desconhecida';
+            acc[acao] = (acc[acao] || 0) + 1;
+            return acc;
+          }, {});
+
+          const contatosUnicos = new Set(
+            decisoesSemana.map(d => d.context_snapshot?.contact_id || d.trigger_event_id).filter(Boolean)
+          ).size;
+
+          const aprendizado = await base44.asServiceRole.integrations.Core.InvokeLLM({
+            prompt: `Você é o Nexus Brain fazendo auto-análise da sua performance semanal.\n\nDADOS DA SEMANA:\n- Total de decisões: ${totalDecisoes}\n- Contatos únicos: ${contatosUnicos}\n- Distribuição de ações: ${JSON.stringify(distribuicaoAcoes)}\n- Tarefas criadas: ${tarefasBrain.length}\n- Tarefas resolvidas: ${tarefasResolvidas}\n- Taxa de resolução: ${taxaResolucao.toFixed(1)}%\n\nAnalise: 1) O que está funcionando bem? 2) Onde o brain está conservador demais? 3) Onde está ativo demais? 4) Qual ajuste para a próxima semana?\n\nSeja específico e prático. Máximo 10 linhas.`
+          });
+
+          await base44.asServiceRole.entities.NexusMemory.create({
+            owner_user_id: 'system',
+            tipo: 'aprendizado_semanal',
+            conteudo: typeof aprendizado === 'string' ? aprendizado : JSON.stringify(aprendizado),
+            contexto: {
+              semana_inicio: seteDiasAtras.split('T')[0],
+              semana_fim: agora.toISOString().split('T')[0],
+              total_decisoes: totalDecisoes,
+              contatos_unicos: contatosUnicos,
+              taxa_resolucao: parseFloat(taxaResolucao.toFixed(1)),
+              distribuicao_acoes: distribuicaoAcoes,
+              tarefas_criadas: tarefasBrain.length,
+              tarefas_resolvidas: tarefasResolvidas
+            },
+            score_utilidade: parseFloat(taxaResolucao.toFixed(1))
+          });
+
+          console.log(`[JARVIS-STEP-5] ✅ Aprendizado salvo. Decisões: ${totalDecisoes} | Contatos: ${contatosUnicos} | Resolução: ${taxaResolucao.toFixed(1)}%`);
+        }
+      } catch (e) {
+        console.error('[JARVIS-STEP-5] Erro no aprendizado semanal:', e.message);
+      }
+    }
+
     console.log('[NEXUS-AGENT v3] ✅ Ciclo concluído:', resultados);
     return Response.json({ success: true, versao: '3.0.0', resultados });
 

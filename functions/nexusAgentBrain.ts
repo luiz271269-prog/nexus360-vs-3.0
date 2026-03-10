@@ -441,6 +441,10 @@ REGRAS OBRIGATÓRIAS:
       }
     }
 
+    // ── STEP 6b: Atualizar memória do contato (fire-and-forget) ────────
+    base44.asServiceRole.functions.invoke('atualizarMemoriaContato', { contact_id })
+      .catch(e => console.error('[CONTACT-MEMORY] Erro async:', e.message));
+
     // ── STEP 7: Registrar AgentRun ──────────────────────────────────
     await base44.asServiceRole.entities.AgentRun.create({
       trigger_type: trigger === 'inbound' ? 'message.inbound' : 'scheduled.check',

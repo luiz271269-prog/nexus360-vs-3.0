@@ -1,4 +1,4 @@
-// agentCommand - v2.0 (usa Claude direto com contexto rico)
+// agentCommand - v3.0 (memória de sessão)
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import Anthropic from 'npm:@anthropic-ai/sdk@0.39.0';
 
@@ -16,18 +16,29 @@ Deno.serve(async (req) => {
     const { command, user_message, context } = await req.json();
 
     if (command === 'chat') {
+      const userId = user.id;
+
+      // ── Carregar memória da última sessão ──────────────────────────
+      const memoriasSessao = await base44.asServiceRole.entities.NexusMemory.filter(
+        { owner_user_id: userId, tipo: 'sessao' }, '-created_date', 1
+      ).catch(() => []);
+      const memoriaAtual = memoriasSessao[0] || null;
+
+      const contextoMemoria = memoriaAtual
+        ? `\nMEMÓRIA DA ÚLTIMA SESSÃO (${memoriaAtual.created_date?.slice(0, 10) || 'anterior'}):\n${memoriaAtual.conteudo}\nÚltima ação: ${memoriaAtual.ultima_acao || 'nenhuma'}`
+        : '\nPrimeira sessão com este usuário — sem histórico anterior.';
+
       const run = await base44.asServiceRole.entities.AgentRun.create({
         trigger_type: 'manual.invoke',
         trigger_event_id: `chat_${Date.now()}`,
         playbook_selected: 'nexus_chat',
         execution_mode: 'assistente',
         status: 'processando',
-        context_snapshot: { user_id: user.id, page: context?.page, message: user_message },
+        context_snapshot: { user_id: userId, page: context?.page, message: user_message },
         started_at: new Date().toISOString()
       });
 
       try {
-        // Contexto rico: 5x mais dados que antes
         const [clientes, vendas, orcamentos, threads, workQueue, agentRuns] = await Promise.all([
           base44.asServiceRole.entities.Cliente.list('-updated_date', 20).catch(() => []),
           base44.asServiceRole.entities.Venda.list('-data_venda', 10).catch(() => []),
@@ -50,7 +61,7 @@ Deno.serve(async (req) => {
         const receitaTotal = vendas.reduce((s, v) => s + (v.valor_total || 0), 0);
         const valorPipeline = orcamentos.reduce((s, o) => s + (o.valor_total || 0), 0);
 
-        const prompt = `Você é o **Nexus AI**, assistente do CRM VendaPro (Liesch Informática).
+        const systemPrompt = `Você é o **Nexus AI**, assistente do CRM VendaPro (Liesch Informática).
 
 OPERADOR: ${user.full_name} | ${user.role === 'admin' ? 'Admin' : 'Atendente'} | Setor: ${context?.user?.sector || 'geral'} | Página: ${context?.page || 'Dashboard'}
 
@@ -58,15 +69,14 @@ SITUAÇÃO ATUAL:
 • Clientes: ${clientes.length} (recentes)
 • Vendas: ${vendas.length} | Receita: R$ ${receitaTotal.toLocaleString('pt-BR')}
 • Orçamentos em aberto: ${orcamentos.length} | Pipeline: R$ ${valorPipeline.toLocaleString('pt-BR')}
-• Conversas ativas: ${threads.length} | Sem atendente: ${threadsNaoAtribuidas} ⚠️ | Aguardando resposta: ${threadsAguardando}
+• Conversas ativas: ${threads.length} | Sem atendente: ${threadsNaoAtribuidas} ⚠️ | Aguardando: ${threadsAguardando}
 • Fila de trabalho: ${workQueue.length} itens abertos
 • Nexus Brain (IA): ${agentRuns.length} ações recentes
 
-${orcamentos.length > 0 ? `ORÇAMENTOS PENDENTES:
-${orcamentos.slice(0, 5).map(o => `• ${o.cliente_nome} — R$ ${o.valor_total?.toLocaleString('pt-BR')} (${o.status})`).join('\n')}` : ''}
+${orcamentos.length > 0 ? `ORÇAMENTOS PENDENTES:\n${orcamentos.slice(0, 5).map(o => `• ${o.cliente_nome} — R$ ${o.valor_total?.toLocaleString('pt-BR')} (${o.status})`).join('\n')}` : ''}
 
-${workQueue.length > 0 ? `FILA DE TRABALHO:
-${workQueue.slice(0, 5).map(w => `• ${(w.notes || w.tipo || '').slice(0, 100)}`).join('\n')}` : ''}
+${workQueue.length > 0 ? `FILA DE TRABALHO:\n${workQueue.slice(0, 5).map(w => `• ${(w.notes || w.tipo || '').slice(0, 100)}`).join('\n')}` : ''}
+${contextoMemoria}
 
 PERGUNTA: ${user_message}
 
@@ -75,7 +85,7 @@ Responda em português, seja direto e acionável. Máximo 3 parágrafos. Sugira 
         const response = await anthropic.messages.create({
           model: 'claude-3-5-haiku-20241022',
           max_tokens: 1500,
-          messages: [{ role: 'user', content: prompt }]
+          messages: [{ role: 'user', content: systemPrompt }]
         });
 
         const text = response.content[0]?.text || 'Não foi possível gerar resposta.';
@@ -85,6 +95,33 @@ Responda em português, seja direto e acionável. Máximo 3 parágrafos. Sugira 
           completed_at: new Date().toISOString(),
           duration_ms: Date.now() - new Date(run.started_at).getTime()
         });
+
+        // ── Salvar memória de sessão (fire-and-forget) ──────────────
+        (async () => {
+          try {
+            const resumoSessao = await base44.asServiceRole.integrations.Core.InvokeLLM({
+              prompt: `Resumir em no máximo 5 linhas o que foi discutido nesta sessão do Nexus AI. Seja objetivo. Foque no que o usuário quis fazer e o que o sistema fez.\n\nPergunta do usuário: ${user_message}\nResposta resumida: ${text.slice(0, 300)}`
+            });
+
+            const dadosMemoria = {
+              owner_user_id: userId,
+              tipo: 'sessao',
+              conteudo: typeof resumoSessao === 'string' ? resumoSessao : JSON.stringify(resumoSessao),
+              ultima_acao: 'chat',
+              contexto: { page: context?.page || null },
+              score_utilidade: 80
+            };
+
+            if (memoriaAtual) {
+              await base44.asServiceRole.entities.NexusMemory.update(memoriaAtual.id, dadosMemoria);
+            } else {
+              await base44.asServiceRole.entities.NexusMemory.create(dadosMemoria);
+            }
+            console.log(`[NEXUS-MEMORY] Sessão salva para userId=${userId}`);
+          } catch (e) {
+            console.error('[NEXUS-MEMORY] Erro ao salvar sessão:', e.message);
+          }
+        })();
 
         return Response.json({ success: true, response: text, run_id: run.id, agent_mode: 'assistente' });
 
