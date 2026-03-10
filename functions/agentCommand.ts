@@ -252,9 +252,14 @@ INSTRUÇÕES:
               usedFallback = true;
             }
 
+            // Extrair texto da resposta
+            const textBlock = response.content.find(b => b.type === 'text');
+            if (textBlock) {
+              text = textBlock.text;
+            }
+
             // Se parou por texto final
             if (response.stop_reason === 'end_turn') {
-              text = response.content.find(b => b.type === 'text')?.text || text;
               break;
             }
 
@@ -279,7 +284,7 @@ INSTRUÇÕES:
               }
               messages.push({ role: 'user', content: toolResults });
             } else {
-              text = response.content.find(b => b.type === 'text')?.text || 'Não foi possível gerar resposta.';
+              // Qualquer outro stop_reason (erro, etc)
               break;
             }
           }
