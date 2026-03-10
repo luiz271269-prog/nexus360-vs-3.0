@@ -87,9 +87,9 @@ export default function DiagnosticoContato() {
           return;
         }
 
-        // ✅ Buscar TAMBÉM por telefone_canonico (normalizado no banco)
+        // ✅ Buscar por telefone e também telefone_canonico
         const contatosPorTelefone = await buscarContatosPorTelefone(base44, telefonNormalizado);
-        const contatosPorCanonico = await base44.asServiceRole.entities.Contact.filter({ 
+        const contatosPorCanonico = await base44.entities.Contact.filter({ 
           telefone_canonico: telefonNormalizado 
         });
         
