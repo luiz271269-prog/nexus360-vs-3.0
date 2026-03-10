@@ -290,6 +290,7 @@ INSTRUÇÕES:
           }
         } catch (loopError) {
           console.error('[AGENT-COMMAND] Erro no loop de mensagens:', loopError.message);
+          console.error('[AGENT-COMMAND] Stack:', loopError.stack);
           text = 'Erro ao processar sua pergunta. Tente novamente.';
         }
 
