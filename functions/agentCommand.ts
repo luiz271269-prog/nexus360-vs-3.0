@@ -138,6 +138,7 @@ Deno.serve(async (req) => {
     const { command, user_message, context } = await req.json();
 
     if (command === 'chat') {
+      console.log('[AGENT-COMMAND] Chat iniciado com mensagem:', user_message.slice(0, 50));
       const userId = user.id;
 
       // ── Carregar memória da última sessão ──────────────────────────
