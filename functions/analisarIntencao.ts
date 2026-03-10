@@ -22,12 +22,6 @@ Deno.serve(async (req) => {
 
   try {
     const base44 = createClientFromRequest(req);
-
-    const user = await base44.auth.me();
-    if (!user) {
-      return Response.json({ error: 'Não autenticado' }, { status: 401, headers });
-    }
-
     const { mensagem, contexto = {} } = await req.json();
 
     if (!mensagem || typeof mensagem !== 'string' || mensagem.trim() === '') {
