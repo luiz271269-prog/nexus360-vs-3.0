@@ -87,7 +87,18 @@ export default function DiagnosticoContato() {
           return;
         }
 
-        contatosComTelefone = await buscarContatosPorTelefone(base44, telefonNormalizado);
+        // ✅ Buscar TAMBÉM por telefone_canonico (normalizado no banco)
+        const contatosPorTelefone = await buscarContatosPorTelefone(base44, telefonNormalizado);
+        const contatosPorCanonico = await base44.asServiceRole.entities.Contact.filter({ 
+          telefone_canonico: telefonNormalizado 
+        });
+        
+        // Mesclar resultados (remover duplicatas por ID)
+        const contatosMap = new Map();
+        [...contatosPorTelefone, ...contatosPorCanonico].forEach(c => {
+          contatosMap.set(c.id, c);
+        });
+        contatosComTelefone = Array.from(contatosMap.values());
       }
 
       if (contatosComTelefone.length === 0) {
