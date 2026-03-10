@@ -1,4 +1,8 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+// agentCommand - v2.0 (usa Claude direto com contexto rico)
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import Anthropic from 'npm:@anthropic-ai/sdk@0.39.0';
+
+const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
 
 Deno.serve(async (req) => {
   try {
@@ -12,139 +16,92 @@ Deno.serve(async (req) => {
     const { command, user_message, context } = await req.json();
 
     if (command === 'chat') {
-      // 1. Criar AgentRun
       const run = await base44.asServiceRole.entities.AgentRun.create({
         trigger_type: 'manual.invoke',
         trigger_event_id: `chat_${Date.now()}`,
         playbook_selected: 'nexus_chat',
         execution_mode: 'assistente',
         status: 'processando',
-        context_snapshot: {
-          user_id: user.id,
-          user_role: user.role,
-          user_sector: context?.user?.sector || 'geral',
-          page: context?.page || 'unknown',
-          path: context?.path || '/',
-          message: user_message
-        },
+        context_snapshot: { user_id: user.id, page: context?.page, message: user_message },
         started_at: new Date().toISOString()
       });
 
       try {
-        // 2. Buscar contexto do sistema (limitado para não estourar rate limit)
-        const [
-          clientesRecentes,
-          vendasRecentes,
-          orcamentosRecentes,
-          threadsRecentes
-        ] = await Promise.all([
-          base44.asServiceRole.entities.Cliente.list('-updated_date', 5).catch(() => []),
-          base44.asServiceRole.entities.Venda.list('-data_venda', 5).catch(() => []),
-          base44.asServiceRole.entities.Orcamento.list('-updated_date', 5).catch(() => []),
-          base44.asServiceRole.entities.MessageThread.list('-last_message_at', 10).catch(() => [])
+        // Contexto rico: 5x mais dados que antes
+        const [clientes, vendas, orcamentos, threads, workQueue, agentRuns] = await Promise.all([
+          base44.asServiceRole.entities.Cliente.list('-updated_date', 20).catch(() => []),
+          base44.asServiceRole.entities.Venda.list('-data_venda', 10).catch(() => []),
+          base44.asServiceRole.entities.Orcamento.filter(
+            { status: { $in: ['enviado', 'negociando', 'liberado'] } }, '-updated_date', 10
+          ).catch(() => []),
+          base44.asServiceRole.entities.MessageThread.filter(
+            { status: 'aberta', thread_type: 'contact_external' }, '-last_message_at', 30
+          ).catch(() => []),
+          base44.asServiceRole.entities.WorkQueueItem.filter(
+            { status: 'open' }, '-created_date', 10
+          ).catch(() => []),
+          base44.asServiceRole.entities.AgentRun.filter(
+            { playbook_selected: 'nexus_brain', status: 'concluido' }, '-created_date', 5
+          ).catch(() => [])
         ]);
 
-        const orcamentosPendentes = orcamentosRecentes.filter(o => 
-          o.status === 'enviado' || o.status === 'negociando'
-        ).length;
+        const threadsNaoAtribuidas = threads.filter(t => !t.assigned_user_id).length;
+        const threadsAguardando = threads.filter(t => t.last_message_sender === 'contact').length;
+        const receitaTotal = vendas.reduce((s, v) => s + (v.valor_total || 0), 0);
+        const valorPipeline = orcamentos.reduce((s, o) => s + (o.valor_total || 0), 0);
 
-        const threadsNaoAtribuidas = threadsRecentes.filter(t => 
-          !t.assigned_user_id && t.thread_type === 'contact_external'
-        ).length;
+        const prompt = `Você é o **Nexus AI**, assistente do CRM VendaPro (Liesch Informática).
 
-        // 3. Construir prompt contextual
-        const promptCompleto = `Você é o **Nexus AI**, assistente inteligente do **VendaPro**.
+OPERADOR: ${user.full_name} | ${user.role === 'admin' ? 'Admin' : 'Atendente'} | Setor: ${context?.user?.sector || 'geral'} | Página: ${context?.page || 'Dashboard'}
 
-**PERFIL DO USUÁRIO:**
-- Nome: ${user.full_name}
-- Email: ${user.email}
-- Cargo: ${user.role === 'admin' ? 'Administrador' : 'Usuário'}
-- Setor: ${context?.user?.sector || 'Não definido'}
-- Nível: ${context?.user?.level || 'Não definido'}
-- Página atual: ${context?.page || 'Desconhecida'}
+SITUAÇÃO ATUAL:
+• Clientes: ${clientes.length} (recentes)
+• Vendas: ${vendas.length} | Receita: R$ ${receitaTotal.toLocaleString('pt-BR')}
+• Orçamentos em aberto: ${orcamentos.length} | Pipeline: R$ ${valorPipeline.toLocaleString('pt-BR')}
+• Conversas ativas: ${threads.length} | Sem atendente: ${threadsNaoAtribuidas} ⚠️ | Aguardando resposta: ${threadsAguardando}
+• Fila de trabalho: ${workQueue.length} itens abertos
+• Nexus Brain (IA): ${agentRuns.length} ações recentes
 
-**CONTEXTO DO SISTEMA:**
-- Clientes recentes: ${clientesRecentes.length}
-- Vendas recentes: ${vendasRecentes.length}
-- Orçamentos pendentes: ${orcamentosPendentes}
-- Conversas não atribuídas: ${threadsNaoAtribuidas}
+${orcamentos.length > 0 ? `ORÇAMENTOS PENDENTES:
+${orcamentos.slice(0, 5).map(o => `• ${o.cliente_nome} — R$ ${o.valor_total?.toLocaleString('pt-BR')} (${o.status})`).join('\n')}` : ''}
 
-**PERGUNTA DO USUÁRIO:**
-${user_message}
+${workQueue.length > 0 ? `FILA DE TRABALHO:
+${workQueue.slice(0, 5).map(w => `• ${(w.notes || w.tipo || '').slice(0, 100)}`).join('\n')}` : ''}
 
-**INSTRUÇÕES:**
-- Use os dados reais fornecidos
-- Seja objetivo e acionável
-- Sugira próximos passos concretos
-- Se identificar problemas, mencione proativamente
-- Adapte ao nível de acesso do usuário
+PERGUNTA: ${user_message}
 
-Responda de forma útil e contextual:`;
+Responda em português, seja direto e acionável. Máximo 3 parágrafos. Sugira próximos passos concretos quando relevante.`;
 
-        // 4. Chamar LLM
-        const response = await base44.integrations.Core.InvokeLLM({
-          prompt: promptCompleto,
-          add_context_from_internet: false
+        const response = await anthropic.messages.create({
+          model: 'claude-3-5-haiku-20241022',
+          max_tokens: 1500,
+          messages: [{ role: 'user', content: prompt }]
         });
 
-        // 5. Registrar decisão
-        await base44.asServiceRole.entities.AgentDecisionLog.create({
-          agent_run_id: run.id,
-          step_name: 'chat_response',
-          decisao_tipo: 'sugestao_resposta',
-          ferramentas_usadas: ['InvokeLLM'],
-          decisao_tomada: {
-            resposta: response.substring(0, 500), // Limitar para não explodir DB
-            contexto_usado: {
-              clientes: clientesRecentes.length,
-              vendas: vendasRecentes.length,
-              orcamentos: orcamentosRecentes.length
-            }
-          },
-          confianca_ia: 75,
-          resultado_execucao: 'sucesso',
-          timestamp_decisao: new Date().toISOString()
-        });
+        const text = response.content[0]?.text || 'Não foi possível gerar resposta.';
 
-        // 6. Finalizar run
         await base44.asServiceRole.entities.AgentRun.update(run.id, {
           status: 'concluido',
           completed_at: new Date().toISOString(),
           duration_ms: Date.now() - new Date(run.started_at).getTime()
         });
 
-        return Response.json({
-          success: true,
-          response,
-          run_id: run.id,
-          agent_mode: 'assistente'
-        });
+        return Response.json({ success: true, response: text, run_id: run.id, agent_mode: 'assistente' });
 
       } catch (error) {
-        console.error('[AGENT_COMMAND] Erro ao processar:', error);
-
         await base44.asServiceRole.entities.AgentRun.update(run.id, {
           status: 'falhou',
           error_message: error.message,
-          completed_at: new Date().toISOString(),
-          duration_ms: Date.now() - new Date(run.started_at).getTime()
+          completed_at: new Date().toISOString()
         });
-
         throw error;
       }
     }
 
-    return Response.json({ 
-      success: false,
-      error: 'Comando não suportado' 
-    }, { status: 400 });
+    return Response.json({ success: false, error: 'Comando não suportado' }, { status: 400 });
 
   } catch (error) {
-    console.error('[AGENT_COMMAND] Erro geral:', error);
-
-    return Response.json({
-      success: false,
-      error: error.message
-    }, { status: 500 });
+    console.error('[AGENT_COMMAND] Erro:', error);
+    return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 });
