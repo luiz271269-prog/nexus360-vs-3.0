@@ -126,6 +126,7 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
+import AnaliseContatosBanco from './pages/AnaliseContatosBanco';
 import __Layout from './Layout.jsx';
 
 
@@ -209,6 +210,7 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
+    "AnaliseContatosBanco": AnaliseContatosBanco,
 }
 
 export const pagesConfig = {
