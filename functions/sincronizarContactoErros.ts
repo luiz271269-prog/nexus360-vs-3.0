@@ -88,10 +88,10 @@ Deno.serve(async (req) => {
     if (corrigir) {
       const updates = {};
 
-      // Corrigir telefone_canonico
-      if (telefoneNorm && !contato.telefone_canonico) {
+      // Corrigir telefone_canonico se vazio ou diferente do normalizado
+      if (telefoneNorm && contato.telefone_canonico !== telefoneNorm) {
         updates.telefone_canonico = telefoneNorm;
-        corrigidos.push('telefone_canonico normalizado');
+        corrigidos.push(`telefone_canonico corrigido: ${contato.telefone_canonico || 'vazio'} → ${telefoneNorm}`);
       }
 
       // Corrigir nome se vazio
