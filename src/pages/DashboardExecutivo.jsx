@@ -532,38 +532,104 @@ export default function DashboardExecutivo() {
             />
           </div>
 
-          {/* Gráfico de Evolução */}
-          <Card>
+          {/* Gráfico de Evolução + Top Vendedores */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Evolução de Receita (Últimos 7 dias)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="h-64 bg-slate-100 animate-pulse rounded" />
+                ) : (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <AreaChart data={kpis?.evolucao || []}>
+                      <defs>
+                        <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="data" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
+                      <Area type="monotone" dataKey="receita" stroke="#10b981" fillOpacity={1} fill="url(#colorReceita)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-500" />
+                  Top Vendedores
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-10 bg-slate-100 animate-pulse rounded" />)}</div>
+                ) : kpis?.topVendedores?.length > 0 ? (
+                  <div className="space-y-3">
+                    {kpis.topVendedores.map((v, idx) => (
+                      <div key={idx} className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-slate-400' : 'bg-orange-400'}`}>
+                          {idx + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{v.nome}</p>
+                          <p className="text-xs text-slate-500">{v.count} venda{v.count !== 1 ? 's' : ''}</p>
+                        </div>
+                        <span className="text-sm font-bold text-green-600">
+                          R$ {v.total.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-500 text-sm text-center py-4">Nenhuma venda registrada</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Status das Importações */}
+          <Card className="border-l-4 border-indigo-500">
             <CardHeader>
-              <CardTitle>Evolução de Receita (Últimos 7 dias)</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Upload className="w-5 h-5 text-indigo-600" />
+                  Status das Importações
+                </span>
+                <Link to={createPageUrl("Importacao")}>
+                  <button className="text-xs text-indigo-600 hover:underline">Ver todas →</button>
+                </Link>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="h-64 bg-slate-100 animate-pulse rounded" />
+                <div className="h-12 bg-slate-100 animate-pulse rounded" />
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={kpis?.evolucao || []}>
-                    <defs>
-                      <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="data" />
-                    <YAxis />
-                    <Tooltip 
-                      formatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="receita" 
-                      stroke="#10b981" 
-                      fillOpacity={1} 
-                      fill="url(#colorReceita)" 
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-blue-50 rounded-lg">
+                    <p className="text-2xl font-bold text-blue-700">{kpis?.importacoes?.hoje ?? 0}</p>
+                    <p className="text-xs text-blue-600">Hoje</p>
+                  </div>
+                  <div className="text-center p-3 bg-red-50 rounded-lg cursor-pointer hover:bg-red-100">
+                    <p className="text-2xl font-bold text-red-700">{kpis?.importacoes?.erro ?? 0}</p>
+                    <p className="text-xs text-red-600">Com Erro</p>
+                  </div>
+                  <div className="text-center p-3 bg-amber-50 rounded-lg">
+                    <p className="text-2xl font-bold text-amber-700">{kpis?.importacoes?.revisao ?? 0}</p>
+                    <p className="text-xs text-amber-600">Aguardando Revisão</p>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 rounded-lg">
+                    <p className="text-xs font-medium text-green-700 truncate">{kpis?.importacoes?.ultimaSucesso || '—'}</p>
+                    <p className="text-xs text-green-600">Último com Sucesso</p>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
