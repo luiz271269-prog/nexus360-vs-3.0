@@ -351,6 +351,14 @@ export default function DashboardExecutivo() {
           label: tokensTotal.toLocaleString('pt-BR')
         },
         evolucao: ultimos7Dias,
+        evolucaoMensal,
+        topVendedores,
+        importacoes: {
+          hoje: importacoesHoje.length,
+          erro: importacoesErro.length,
+          revisao: importacoesRevisao.length,
+          ultimaSucesso: ultimaSucesso?.nome_arquivo || null
+        },
         alertas
       };
     },
