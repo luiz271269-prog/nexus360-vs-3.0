@@ -251,7 +251,10 @@ export default function DashboardPerformanceIA() {
                 <option value="90d">Últimos 90 dias</option>
               </select>
 
-              <Button variant="outline" onClick={carregarMetricas}>
+              <Button variant="outline" onClick={() => {
+                base44.analytics.track({ eventName: "performance_dashboard_refreshed", properties: { periodo } });
+                carregarMetricas();
+              }}>
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Atualizar
               </Button>
