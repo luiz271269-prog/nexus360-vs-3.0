@@ -243,7 +243,10 @@ export default function DashboardPerformanceIA() {
             <div className="flex items-center gap-2">
               <select
                 value={periodo}
-                onChange={(e) => setPeriodo(e.target.value)}
+                onChange={(e) => {
+                  base44.analytics.track({ eventName: "performance_dashboard_period_changed", properties: { periodo: e.target.value } });
+                  setPeriodo(e.target.value);
+                }}
                 className="px-4 py-2 border border-slate-300 rounded-lg"
               >
                 <option value="7d">Últimos 7 dias</option>
