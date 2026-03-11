@@ -63,13 +63,13 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════════════════
     // PASSO 1: LOAD CONVERSATION STATE
     // ═══════════════════════════════════════════════════════════════════════
-    const now = new Date().toISOString();
+    const nowISO = new Date().toISOString();
     let conversationState = null;
     
     try {
       const states = await base44.asServiceRole.entities.ScheduleConversationState.filter({
         thread_id,
-        expires_at: { $gte: now }
+        expires_at: { $gte: nowISO }
       }, '-created_date', 1);
       
       if (states && states.length > 0) {
@@ -207,12 +207,12 @@ RETORNE JSON COM:
       }
 
       // Buscar eventos futuros do usuário
-      const now = new Date().toISOString();
+      const nowList = new Date().toISOString();
       const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
       const events = await base44.asServiceRole.entities.ScheduleEvent.filter({
         assigned_user_id: targetUserId,
-        start_at: { $gte: now, $lte: in7Days },
+        start_at: { $gte: nowList, $lte: in7Days },
         status: { $in: ['scheduled', 'pending_review'] }
       }, 'start_at', 20);
 
@@ -273,10 +273,10 @@ RETORNE JSON COM:
       }
 
       // Buscar eventos recentes do usuário
-      const now = new Date().toISOString();
+      const nowCancel = new Date().toISOString();
       const events = await base44.asServiceRole.entities.ScheduleEvent.filter({
         assigned_user_id: targetUserId,
-        start_at: { $gte: now },
+        start_at: { $gte: nowCancel },
         status: 'scheduled'
       }, 'start_at', 10);
 
@@ -442,10 +442,10 @@ Confirma? (Responda: sim/ok ou não)`;
     // ═══════════════════════════════════════════════════════════════════════
     const startAt = `${agendaIntent.date}T${agendaIntent.time}:00`;
     const startDate = new Date(startAt);
-    const now = new Date();
+    const nowValidation = new Date();
 
     // Não aceitar datas passadas
-    if (startDate < now) {
+    if (startDate < nowValidation) {
       return Response.json({
         success: false,
         message_to_send: '⏰ Não posso agendar eventos no passado. Escolha uma data futura.'
@@ -453,7 +453,7 @@ Confirma? (Responda: sim/ok ou não)`;
     }
 
     // Não aceitar datas muito distantes (> 2 anos)
-    const maxFutureDate = new Date(now.getFullYear() + 2, 11, 31);
+    const maxFutureDate = new Date(nowValidation.getFullYear() + 2, 11, 31);
     if (startDate > maxFutureDate) {
       return Response.json({
         success: false,
