@@ -720,24 +720,24 @@ export default function GradeDadosEstruturados({
                         {cabecalhos.map((cabecalho, index) => {
                           const estaMapeado = mapeamentoCampos[cabecalho.original] && mapeamentoCampos[cabecalho.original] !== 'ignorar';
                           return (
-                        <th key={index} className={`p-2 text-left border min-w-[250px] ${estaMapeado ? 'bg-blue-50 border-blue-300' : 'bg-yellow-50 border-yellow-300'}`}>
-                            <p className={`font-mono text-xs px-2 py-1 rounded-full inline-block ${estaMapeado ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                              {estaMapeado ? '✓' : '⚠️'} {cabecalho.original}
-                            </p>
-                            <Select onValueChange={(value) => handleEditarCabecalho(cabecalho.original, value)} value={mapeamentoCampos[cabecalho.original] || 'ignorar'}>
+                            <th key={index} className={`p-2 text-left border min-w-[250px] ${estaMapeado ? 'bg-blue-50 border-blue-300' : 'bg-yellow-50 border-yellow-300'}`}>
+                              <p className={`font-mono text-xs px-2 py-1 rounded-full inline-block ${estaMapeado ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                {estaMapeado ? '✓' : '⚠️'} {cabecalho.original}
+                              </p>
+                              <Select onValueChange={(value) => handleEditarCabecalho(cabecalho.original, value)} value={mapeamentoCampos[cabecalho.original] || 'ignorar'}>
                                 <SelectTrigger className="mt-2 bg-white h-9">
-                                    <SelectValue placeholder="Mapear para..."/>
+                                  <SelectValue placeholder="Mapear para..."/>
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="ignorar">-- Ignorar esta coluna --</SelectItem>
-                                    {camposDisponiveis.map(campo => (
-                                        <SelectItem key={campo} value={campo}>{campo}</SelectItem>
-                                    ))}
+                                  <SelectItem value="ignorar">-- Ignorar esta coluna --</SelectItem>
+                                  {camposDisponiveis.map(campo => (
+                                    <SelectItem key={campo} value={campo}>{campo}</SelectItem>
+                                  ))}
                                 </SelectContent>
-                                </Select>
-                                </th>
-                                );
-                                })}
+                              </Select>
+                            </th>
+                          );
+                        })}
                                 <th className="p-2 w-20 border border-slate-300">
                           <Button onClick={adicionarColuna} size="sm" variant="ghost" className="w-full">
                             <Plus className="w-4 h-4 mr-1" /> Col
