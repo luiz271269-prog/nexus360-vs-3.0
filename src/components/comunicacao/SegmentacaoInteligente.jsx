@@ -780,34 +780,32 @@ export default function SegmentacaoInteligente({
           <Card>
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
-                {getSentimentoIcon(analise.analise_sentimento?.sentimento_predominante)}
-                Análise de Sentimento
+                Perfil de Relacionamento
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-slate-600">Sentimento Predominante</span>
-                    <Badge variant="outline">
-                      {analise.analise_sentimento?.sentimento_predominante?.replace(/_/g, ' ')}
-                    </Badge>
-                  </div>
-                  <Progress 
-                    value={analise.analise_sentimento?.score_sentimento || 50} 
-                    className="h-2"
-                  />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">Tipo</span>
+                  <Badge variant="outline">
+                    {analise.relationship_profile?.type?.replace(/_/g, ' ') || 'não analisado'}
+                  </Badge>
                 </div>
+                {analise.relationship_profile?.summary && (
+                  <p className="text-xs text-slate-700">{analise.relationship_profile.summary}</p>
+                )}
+                {analise.relationship_profile?.flags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {analise.relationship_profile.flags.map((flag, i) => (
+                      <Badge key={i} variant="secondary" className="text-xs">{flag.replace(/_/g, ' ')}</Badge>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-center gap-2 text-sm">
-                  {analise.analise_sentimento?.evolucao_sentimento === 'melhorando' && (
-                    <><TrendingUp className="w-4 h-4 text-green-600" /> Melhorando</>
-                  )}
-                  {analise.analise_sentimento?.evolucao_sentimento === 'piorando' && (
-                    <><TrendingDown className="w-4 h-4 text-red-600" /> Piorando</>
-                  )}
-                  {analise.analise_sentimento?.evolucao_sentimento === 'estavel' && (
-                    <><span className="text-slate-400">—</span> Estável</>
-                  )}
+                  <span className="text-slate-500">Bucket:</span>
+                  <Badge className={analise.bucket_inactive === 'active' ? 'bg-green-500' : analise.bucket_inactive === '30' ? 'bg-yellow-500' : 'bg-red-500'} style={{color:'white'}}>
+                    {analise.bucket_inactive || 'desconhecido'}
+                  </Badge>
                 </div>
               </div>
             </CardContent>
