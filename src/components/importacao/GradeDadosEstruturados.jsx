@@ -605,8 +605,21 @@ export default function GradeDadosEstruturados({
         </div>
 
         {/* Configurações */}
-        <div className="p-4 bg-white border-b border-slate-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+         <div className="p-4 bg-white border-b border-slate-200">
+           {/* Indicador de Mapeamento */}
+           <div className="mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-between">
+             <div className="flex items-center gap-2">
+               <Target className="w-4 h-4 text-blue-600" />
+               <span className="text-sm font-medium text-blue-900">
+                 Colunas mapeadas: {Object.values(mapeamentoCampos || {}).filter(v => v && v !== 'ignorar').length} de {cabecalhos.length}
+               </span>
+             </div>
+             {Object.values(mapeamentoCampos || {}).filter(v => v && v !== 'ignorar').length === 0 && (
+               <span className="text-xs text-red-600 font-semibold">⚠️ Nenhuma coluna mapeada ainda</span>
+             )}
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label className="font-semibold text-slate-600 mb-1 block">
                 1. Destino dos Dados
