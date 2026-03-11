@@ -377,16 +377,22 @@ export default function GradeDadosEstruturados({
 
       if (destinoDados === 'orcamentos') {
         for (const orc of registros) {
-          if (!orc.cliente_nome || !orc.vendedor) continue;
-          await base44.entities.Interacao.create({
-            cliente_nome: orc.cliente_nome,
-            vendedor: orc.vendedor,
-            tipo_interacao: 'outro',
-            data_interacao: orc.data_orcamento ? new Date(orc.data_orcamento).toISOString() : agora,
-            resultado: 'orcamento_solicitado',
-            observacoes: `Orçamento importado - Nº: ${orc.numero_orcamento || 'S/N'} - Valor: R$ ${orc.valor_total || 0}`,
-            categoria_interacao: 'vendas'
-          });
+          const nomeCliente = orc.cliente_nome || 'Cliente não identificado';
+          const nomeVendedor = orc.vendedor || 'Vendedor não informado';
+
+          try {
+            await base44.entities.Interacao.create({
+              cliente_nome: nomeCliente,
+              vendedor: nomeVendedor,
+              tipo_interacao: 'outro',
+              data_interacao: orc.data_orcamento ? new Date(orc.data_orcamento).toISOString() : agora,
+              resultado: 'orcamento_solicitado',
+              observacoes: `Orçamento importado - Nº: ${orc.numero_orcamento || 'S/N'} - Valor: R$ ${orc.valor_total || 0}`,
+              categoria_interacao: 'vendas'
+            });
+          } catch(err) {
+            console.warn(`[Interacao] Falha ao criar para "${nomeCliente}":`, err.message);
+          }
         }
       }
     } catch (err) {
