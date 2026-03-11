@@ -4,31 +4,58 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { file_url } = await req.json();
-    if (!file_url) {
-      return Response.json({ error: 'file_url é obrigatório' }, { status: 400 });
-    }
-
-    // Fazer fetch do PDF e converter para base64
-    const pdfResponse = await fetch(file_url);
-    if (!pdfResponse.ok) {
-      throw new Error(`Não foi possível baixar o PDF: ${pdfResponse.status}`);
-    }
-    const pdfBuffer = await pdfResponse.arrayBuffer();
-    const uint8Array = new Uint8Array(pdfBuffer);
-    let binary = '';
-    for (let i = 0; i < uint8Array.length; i++) {
-      binary += String.fromCharCode(uint8Array[i]);
-    }
-    const base64Pdf = btoa(binary);
+    const { file_url, tipo = 'pdf' } = await req.json();
+    if (!file_url) return Response.json({ error: 'file_url é obrigatório' }, { status: 400 });
 
     const apiKey = Deno.env.get('ANTROPIK_API');
-    if (!apiKey) {
-      throw new Error('ANTROPIK_API não configurada');
+    if (!apiKey) throw new Error('ANTROPIK_API não configurada');
+
+    // Fetch do arquivo e converter para base64
+    const fileResponse = await fetch(file_url);
+    if (!fileResponse.ok) throw new Error(`Não foi possível baixar o arquivo: ${fileResponse.status}`);
+
+    const buffer = await fileResponse.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, chunk);
+    }
+    const base64Data = btoa(binary);
+
+    const promptTexto = `Analise o conteúdo deste arquivo e extraia dados estruturados em formato de tabela.
+
+REGRAS CRÍTICAS:
+1. Se for uma IMAGEM (print de tela): Faça OCR, identifique a tabela principal e extraia TODAS as linhas e colunas.
+2. Se for um PDF: Extraia a tabela principal do documento.
+3. NUNCA retorne um array 'dados_extraidos' vazio. Se não encontrar uma tabela, extraia qualquer informação estruturada que encontrar (ex: chave-valor de um formulário).
+4. Se não houver absolutamente nada, retorne um array com um único objeto contendo uma chave 'erro' com a descrição do problema.
+
+RETORNE APENAS JSON VÁLIDO (sem markdown, sem explicações), com esta estrutura EXATA:
+{"dados_extraidos":[{"coluna1":"valorA1","coluna2":"valorA2"},{"coluna1":"valorB1","coluna2":"valorB2"}],"confianca_extracao":85,"tipo_conteudo_detectado":"pdf_tabela","observacoes":"Breve descrição do que foi extraído"}`;
+
+    // Content block dinâmico por tipo
+    let contentBlock;
+    if (tipo === 'pdf') {
+      contentBlock = {
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: base64Data }
+      };
+    } else {
+      // imagem — detectar media_type pelo header ou assumir jpeg
+      const contentTypeHeader = fileResponse.headers?.get('content-type') || '';
+      let mediaType = 'image/jpeg';
+      if (contentTypeHeader.includes('png')) mediaType = 'image/png';
+      else if (contentTypeHeader.includes('webp')) mediaType = 'image/webp';
+      else if (contentTypeHeader.includes('gif')) mediaType = 'image/gif';
+
+      contentBlock = {
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType, data: base64Data }
+      };
     }
 
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
@@ -37,34 +64,14 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'pdfs-2024-09-25'
+        ...(tipo === 'pdf' ? { 'anthropic-beta': 'pdfs-2024-09-25' } : {})
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
         max_tokens: 4000,
         messages: [{
           role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: {
-                type: 'base64',
-                media_type: 'application/pdf',
-                data: base64Pdf
-              }
-            },
-            {
-              type: 'text',
-              text: `Analise este PDF e extraia todos os dados estruturados em formato JSON.
-Retorne SOMENTE um objeto JSON válido (sem markdown, sem explicações extras) com esta estrutura:
-{
-  "dados_extraidos": [{"coluna1": "valor1", ...}, ...],
-  "confianca_extracao": 85,
-  "tipo_conteudo_detectado": "pdf_tabela",
-  "observacoes": "descrição do que foi extraído"
-}`
-            }
-          ]
+          content: [contentBlock, { type: 'text', text: promptTexto }]
         }]
       })
     });
@@ -75,8 +82,14 @@ Retorne SOMENTE um objeto JSON válido (sem markdown, sem explicações extras) 
     }
 
     const anthropicData = await anthropicResponse.json();
-    const textContent = anthropicData.content?.find(b => b.type === 'text')?.text || '{}';
-    const cleanJson = textContent.replace(/```json\n?|\n?```/g, '').trim();
+    const rawText = anthropicData.content?.find(b => b.type === 'text')?.text || '{}';
+
+    const cleanJson = rawText
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+
     const result = JSON.parse(cleanJson);
 
     return Response.json({ success: true, ...result });
