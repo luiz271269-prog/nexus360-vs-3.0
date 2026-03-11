@@ -98,7 +98,6 @@ import Importacao from './pages/Importacao';
 import InteligenciaMetricas from './pages/InteligenciaMetricas';
 import JarvisControl from './pages/JarvisControl';
 import KPIDashboard from './pages/KPIDashboard';
-import LeadsQualificados from './pages/LeadsQualificados';
 import Metas from './pages/Metas';
 import MonitoramentoRealTime from './pages/MonitoramentoRealTime';
 import NexusCommandCenter from './pages/NexusCommandCenter';
@@ -181,7 +180,6 @@ export const PAGES = {
     "InteligenciaMetricas": InteligenciaMetricas,
     "JarvisControl": JarvisControl,
     "KPIDashboard": KPIDashboard,
-    "LeadsQualificados": LeadsQualificados,
     "Metas": Metas,
     "MonitoramentoRealTime": MonitoramentoRealTime,
     "NexusCommandCenter": NexusCommandCenter,
