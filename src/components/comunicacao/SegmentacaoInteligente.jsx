@@ -329,9 +329,9 @@ export default function SegmentacaoInteligente({
           {analise && (
             <CardDescription className="flex items-center gap-2 mt-3">
               <Clock className="w-3 h-3" />
-              Última análise: {new Date(analise.ultima_analise).toLocaleString('pt-BR')}
+              Última análise: {new Date(analise.analyzed_at).toLocaleString('pt-BR')}
               {(() => {
-                const diasDesdeAnalise = Math.floor((Date.now() - new Date(analise.ultima_analise).getTime()) / (1000 * 60 * 60 * 24));
+                const diasDesdeAnalise = Math.floor((Date.now() - new Date(analise.analyzed_at).getTime()) / (1000 * 60 * 60 * 24));
                 if (diasDesdeAnalise > 7) {
                   return (
                     <Badge variant="outline" className="ml-2 text-orange-600 border-orange-300">
