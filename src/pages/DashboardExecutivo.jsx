@@ -265,6 +265,41 @@ export default function DashboardExecutivo() {
         });
       }
 
+      // ═══════════════════════════════════════════════════════
+      // Status das Importações
+      // ═══════════════════════════════════════════════════════
+      const hoje = new Date().toISOString().split('T')[0];
+      const importacoesHoje = importacoes.filter(i => i.created_date?.startsWith(hoje));
+      const importacoesErro = importacoes.filter(i => i.status_processamento === 'erro');
+      const importacoesRevisao = importacoes.filter(i => i.status_processamento === 'revisao_manual');
+      const ultimaSucesso = importacoes.find(i => i.status_processamento === 'sucesso');
+
+      // Top vendedores por receita
+      const vendasPorVendedor = {};
+      vendas.forEach(v => {
+        if (!v.vendedor) return;
+        if (!vendasPorVendedor[v.vendedor]) vendasPorVendedor[v.vendedor] = { total: 0, count: 0 };
+        vendasPorVendedor[v.vendedor].total += v.valor_total || 0;
+        vendasPorVendedor[v.vendedor].count += 1;
+      });
+      const topVendedores = Object.entries(vendasPorVendedor)
+        .map(([nome, stats]) => ({ nome, ...stats }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 5);
+
+      // Vendas por mês
+      const vendasPorMes = {};
+      vendas.forEach(v => {
+        const mes = v.mes_referencia || (v.data_venda ? v.data_venda.substring(0, 7) : null);
+        if (!mes) return;
+        if (!vendasPorMes[mes]) vendasPorMes[mes] = 0;
+        vendasPorMes[mes] += v.valor_total || 0;
+      });
+      const evolucaoMensal = Object.entries(vendasPorMes)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(-6)
+        .map(([mes, total]) => ({ mes, total }));
+
       return {
         receita: {
           valor: receitaTotal,
