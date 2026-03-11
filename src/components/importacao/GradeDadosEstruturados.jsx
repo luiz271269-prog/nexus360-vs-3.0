@@ -734,10 +734,11 @@ export default function GradeDadosEstruturados({
                                         <SelectItem key={campo} value={campo}>{campo}</SelectItem>
                                     ))}
                                 </SelectContent>
-                            </Select>
-                        </th>
-                        ))}
-                        <th className="p-2 w-20 border border-slate-300">
+                                </Select>
+                                </th>
+                                );
+                                })}
+                                <th className="p-2 w-20 border border-slate-300">
                           <Button onClick={adicionarColuna} size="sm" variant="ghost" className="w-full">
                             <Plus className="w-4 h-4 mr-1" /> Col
                           </Button>
