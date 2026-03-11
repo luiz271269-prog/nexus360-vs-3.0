@@ -16,7 +16,7 @@ import {
   Filter,
   AlertCircle 
 } from 'lucide-react';
-import ClienteKanbanColumn from '../components/clientes/ClienteKanbanColumn';
+import ClienteKanbanColumn from '../components/clientes/ClienteKanbanColumn.js';
 
 const COLUNAS = [
   { id: 'novo_lead', label: '🆕 Novo Lead', status: 'novo_lead', cor: 'bg-slate-100' },
