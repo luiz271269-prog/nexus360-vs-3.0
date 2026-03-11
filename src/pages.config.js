@@ -126,6 +126,7 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
+import ClienteKanban from './pages/ClienteKanban';
 import __Layout from './Layout.jsx';
 
 
@@ -209,6 +210,7 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
+    "ClienteKanban": ClienteKanban,
 }
 
 export const pagesConfig = {
