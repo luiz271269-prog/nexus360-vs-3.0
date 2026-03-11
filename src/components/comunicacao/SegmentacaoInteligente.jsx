@@ -472,7 +472,7 @@ export default function SegmentacaoInteligente({
                 {payload.root_causes.map((cause, i) => (
                   <div key={cause.id || i} className="p-3 bg-white rounded border-l-4 border-red-400">
                     <div className="flex items-start justify-between mb-2">
-                      <p className="text-sm font-bold text-slate-900">{cause.title || cause}</p>
+                      <p className="text-sm font-bold text-slate-900">{cause.title || cause.cause || cause}</p>
                       <Badge className={`text-xs ${
                         cause.severity === 'high' ? 'bg-red-500' :
                         cause.severity === 'medium' ? 'bg-orange-500' :
