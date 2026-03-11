@@ -511,7 +511,14 @@ export default function DashboardExecutivo() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <MetricCard
           titulo="Receita Total"
-          valor={kpis?.receita.label}
+          valor={kpis?.receita.valor === 0 && !isLoading ? (
+            <div className="text-sm text-amber-600">
+              Nenhuma venda importada.{" "}
+              <Link to={createPageUrl("Importacao")}>
+                <span className="underline">Importar dados →</span>
+              </Link>
+            </div>
+          ) : kpis?.receita.label}
           variacao={kpis?.receita.variacao}
           icone={DollarSign}
           cor="border-green-500 from-green-500 to-emerald-600"
