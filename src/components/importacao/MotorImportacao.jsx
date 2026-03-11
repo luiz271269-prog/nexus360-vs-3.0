@@ -16,88 +16,120 @@ const extrairDadosComIA = async (fileUrl, tipoArquivo, nomeArquivo) => {
     throw new Error('Arquivos .xls não são suportados. Por favor, salve como .xlsx ou .csv e tente novamente.');
   }
 
-  if (['excel', 'csv'].includes(tipoArquivo)) {
+  // ✅ BUG FIX 1: XLSX via SheetJS com ArrayBuffer correto
+  if (tipoArquivo === 'excel') {
     try {
-      const schema = {
-        type: "object",
-        properties: {
-          dados_extraidos: {
-            type: "array",
-            items: { type: "object", additionalProperties: true }
-          }
-        },
-        required: ["dados_extraidos"]
-      };
+      const response = await fetch(fileUrl);
+      if (!response.ok) throw new Error(`Falha ao baixar arquivo: ${response.status}`);
+      const arrayBuffer = await response.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const workbook = XLSX.read(uint8Array, { type: 'array' });
 
-      const resultado = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url: fileUrl,
-        json_schema: schema
-      });
+      const primeiraPlanilha = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[primeiraPlanilha];
+      const dadosExtraidos = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
-      if (resultado && resultado.status === 'success' && resultado.output) {
-        const dadosExtraidos = Array.isArray(resultado.output) ? resultado.output : resultado.output.dados_extraidos;
-
-        return {
-          dados_extraidos: dadosExtraidos || [],
-          confianca_extracao: 90,
-          tipo_conteudo_detectado: "planilha",
-          observacoes: "Dados extraídos de planilha estruturada"
-        };
-      } else {
-        throw new Error("Não foi possível extrair dados da planilha");
+      if (!dadosExtraidos || dadosExtraidos.length === 0) {
+        throw new Error('Planilha vazia ou sem dados legíveis');
       }
+
+      return {
+        dados_extraidos: dadosExtraidos,
+        confianca_extracao: 95,
+        tipo_conteudo_detectado: 'planilha',
+        observacoes: `${dadosExtraidos.length} linhas extraídas da aba "${primeiraPlanilha}"`
+      };
     } catch (error) {
-      console.error("Erro ao extrair dados de planilha:", error);
+      console.error('Erro ao processar XLSX:', error);
       throw new Error(`Erro ao processar planilha: ${error.message}`);
     }
   }
 
+  // CSV via ExtractDataFromUploadedFile
+  if (tipoArquivo === 'csv') {
+    try {
+      const resultado = await base44.integrations.Core.ExtractDataFromUploadedFile({
+        file_url: fileUrl,
+        json_schema: {
+          type: 'object',
+          properties: {
+            dados_extraidos: { type: 'array', items: { type: 'object', additionalProperties: true } }
+          },
+          required: ['dados_extraidos']
+        }
+      });
+
+      if (resultado && resultado.status === 'success' && resultado.output) {
+        const dadosExtraidos = Array.isArray(resultado.output) ? resultado.output : resultado.output.dados_extraidos;
+        return {
+          dados_extraidos: dadosExtraidos || [],
+          confianca_extracao: 90,
+          tipo_conteudo_detectado: 'planilha',
+          observacoes: 'Dados extraídos de CSV estruturado'
+        };
+      }
+      throw new Error('Não foi possível extrair dados do CSV');
+    } catch (error) {
+      console.error('Erro ao extrair CSV:', error);
+      throw new Error(`Erro ao processar CSV: ${error.message}`);
+    }
+  }
+
+  // ✅ BUG FIX 2: PDF via Anthropic API direta (sem timeout)
+  if (tipoArquivo === 'pdf') {
+    try {
+      const resultado = await base44.functions.invoke('extrairDadosPDF', { file_url: fileUrl });
+      if (resultado?.data?.success && resultado?.data?.dados_extraidos) {
+        return {
+          dados_extraidos: resultado.data.dados_extraidos,
+          confianca_extracao: resultado.data.confianca_extracao || 80,
+          tipo_conteudo_detectado: resultado.data.tipo_conteudo_detectado || 'pdf_tabela',
+          observacoes: resultado.data.observacoes || 'Dados extraídos do PDF'
+        };
+      }
+      throw new Error(resultado?.data?.error || 'Falha ao extrair dados do PDF');
+    } catch (error) {
+      console.error('Erro ao processar PDF:', error);
+      throw new Error(`Erro ao processar PDF: ${error.message}`);
+    }
+  }
+
+  // Imagens e outros: InvokeLLM
   const prompt = `
-    Analise o conteúdo deste arquivo (pode ser uma imagem, PDF, ou documento) e extraia dados estruturados em formato de tabela.
-
-    REGRAS CRÍTICAS:
-    1.  Se for uma IMAGEM (print de tela): Faça OCR, identifique a tabela principal e extraia TODAS as linhas e colunas.
-    2.  Se for um PDF: Extraia a tabela principal do documento.
-    3.  NUNCA retorne um array 'dados_extraidos' vazio. Se não encontrar uma tabela, extraia qualquer informação estruturada que encontrar (ex: chave-valor de um formulário).
-    4.  Se não houver absolutamente nada, retorne um array com um único objeto contendo uma chave 'erro' com a descrição do problema.
-
-    FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
+    Analise o conteúdo deste arquivo (imagem ou documento) e extraia dados estruturados em formato de tabela.
+    REGRAS: Faça OCR se necessário, identifique a tabela principal, extraia TODAS as linhas e colunas.
+    NUNCA retorne dados_extraidos vazio.
+    FORMATO JSON OBRIGATÓRIO:
     {
-      "dados_extraidos": [
-        {"coluna1": "valorA1", "coluna2": "valorA2", ...},
-        {"coluna1": "valorB1", "coluna2": "valorB2", ...}
-      ],
-      "confianca_extracao": um_numero_de_0_a_100,
-      "tipo_conteudo_detectado": "imagem_tabela | pdf_tabela | formulario | texto_simples",
-      "observacoes": "Breve descrição do que foi extraído."
+      "dados_extraidos": [{"coluna1": "valorA1", ...}, ...],
+      "confianca_extracao": 85,
+      "tipo_conteudo_detectado": "imagem_tabela | formulario | texto_simples",
+      "observacoes": "Breve descrição."
     }
   `;
 
   try {
     const resultadoIA = await base44.integrations.Core.InvokeLLM({
-      prompt: prompt,
+      prompt,
       file_urls: [fileUrl],
       response_json_schema: {
-        type: "object",
+        type: 'object',
         properties: {
-          dados_extraidos: {
-            type: "array",
-            items: { type: "object", additionalProperties: true }
-          },
-          confianca_extracao: { type: "number" },
-          tipo_conteudo_detectado: { type: "string" },
-          observacoes: { type: "string" }
+          dados_extraidos: { type: 'array', items: { type: 'object', additionalProperties: true } },
+          confianca_extracao: { type: 'number' },
+          tipo_conteudo_detectado: { type: 'string' },
+          observacoes: { type: 'string' }
         },
-        required: ["dados_extraidos"]
+        required: ['dados_extraidos']
       }
     });
 
-    if (resultadoIA && resultadoIA.dados_extraidos && Array.isArray(resultadoIA.dados_extraidos)) {
+    if (resultadoIA?.dados_extraidos && Array.isArray(resultadoIA.dados_extraidos)) {
       return resultadoIA;
     }
-    throw new Error("A IA não retornou um formato de dados válido.");
+    throw new Error('A IA não retornou um formato de dados válido.');
   } catch (error) {
-    console.error("Erro na extração de dados com IA:", error);
+    console.error('Erro na extração com IA:', error);
     throw new Error(`Falha na IA: ${error.message}`);
   }
 };
