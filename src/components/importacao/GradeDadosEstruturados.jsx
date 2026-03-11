@@ -279,6 +279,74 @@ export default function GradeDadosEstruturados({
     return String(valor);
   };
   
+  // ─── Enriquecimento pós-salvamento para alimentar o Dashboard ──────────────
+  const executarPosSalvamentoDashboard = async (destinoDados, registros) => {
+    try {
+      const agora = new Date().toISOString();
+
+      if (destinoDados === 'vendas') {
+        // Criar Interacao para cada venda
+        for (const venda of registros) {
+          if (!venda.cliente_nome || !venda.vendedor) continue;
+          await base44.entities.Interacao.create({
+            cliente_nome: venda.cliente_nome,
+            vendedor: venda.vendedor,
+            tipo_interacao: 'outro',
+            data_interacao: venda.data_venda ? new Date(venda.data_venda).toISOString() : agora,
+            resultado: 'venda_fechada',
+            observacoes: `Venda importada - Pedido: ${venda.numero_pedido || 'S/N'} - Valor: R$ ${venda.valor_total || 0}`,
+            categoria_interacao: 'vendas'
+          });
+        }
+
+        // Atualizar ultimo_contato dos clientes envolvidos
+        const clientesMap = {};
+        for (const venda of registros) {
+          if (!venda.cliente_nome) continue;
+          if (!clientesMap[venda.cliente_nome]) {
+            clientesMap[venda.cliente_nome] = { ultimaVenda: venda.data_venda || agora.split('T')[0], totalValor: 0, count: 0 };
+          }
+          clientesMap[venda.cliente_nome].totalValor += parseFloat(venda.valor_total || 0);
+          clientesMap[venda.cliente_nome].count += 1;
+          if (venda.data_venda > clientesMap[venda.cliente_nome].ultimaVenda) {
+            clientesMap[venda.cliente_nome].ultimaVenda = venda.data_venda;
+          }
+        }
+
+        const todosClientes = await base44.entities.Cliente.list();
+        for (const [nomeCliente, stats] of Object.entries(clientesMap)) {
+          const clienteEncontrado = todosClientes.find(c =>
+            c.razao_social?.toLowerCase().includes(nomeCliente.toLowerCase()) ||
+            c.nome_fantasia?.toLowerCase().includes(nomeCliente.toLowerCase())
+          );
+          if (clienteEncontrado) {
+            await base44.entities.Cliente.update(clienteEncontrado.id, {
+              ultimo_contato: stats.ultimaVenda ? String(stats.ultimaVenda).split('T')[0] : new Date().toISOString().split('T')[0],
+              valor_recorrente_mensal: Math.round(stats.count > 0 ? stats.totalValor / stats.count : 0)
+            });
+          }
+        }
+      }
+
+      if (destinoDados === 'orcamentos') {
+        for (const orc of registros) {
+          if (!orc.cliente_nome || !orc.vendedor) continue;
+          await base44.entities.Interacao.create({
+            cliente_nome: orc.cliente_nome,
+            vendedor: orc.vendedor,
+            tipo_interacao: 'outro',
+            data_interacao: orc.data_orcamento ? new Date(orc.data_orcamento).toISOString() : agora,
+            resultado: 'orcamento_solicitado',
+            observacoes: `Orçamento importado - Nº: ${orc.numero_orcamento || 'S/N'} - Valor: R$ ${orc.valor_total || 0}`,
+            categoria_interacao: 'vendas'
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[executarPosSalvamentoDashboard] Erro não-crítico:', err.message);
+    }
+  };
+
   // NOVA FUNÇÃO DE SALVAMENTO COM VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS
   const handleSalvar = async () => {
     set_internalLoading(true);

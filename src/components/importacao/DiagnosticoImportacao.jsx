@@ -107,6 +107,7 @@ NUNCA deixe dados_extraidos vazio. Se necessário, crie um objeto com informaç�
       let dadosExtraidos = null;
       try {
         const resultadoIA = await InvokeLLM({
+          model: 'gemini_3_flash',
           prompt: prompt,
           file_urls: [fileUrl],
           response_json_schema: {

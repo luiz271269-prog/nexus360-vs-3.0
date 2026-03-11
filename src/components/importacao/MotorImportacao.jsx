@@ -158,10 +158,12 @@ const determinarDestinoDados = (tipoClassificacao) => {
 };
 
 const classificarConteudo = async (headers) => {
+  const validos = ['vendas', 'clientes', 'orcamentos', 'vendedores', 'produtos', 'nao_identificado'];
   const prompt = `Analise estes cabeçalhos de coluna: [${headers.join(', ')}]. Qual o tipo de dado mais provável? Responda APENAS com uma das seguintes opções: 'vendas', 'clientes', 'orcamentos', 'vendedores', 'produtos', 'nao_identificado'.`;
   try {
     const resultado = await base44.integrations.Core.InvokeLLM({ prompt });
-    return resultado.trim().toLowerCase();
+    const limpo = String(resultado || '').trim().toLowerCase().replace(/['"]/g, '');
+    return validos.includes(limpo) ? limpo : 'nao_identificado';
   } catch {
     return 'nao_identificado';
   }
