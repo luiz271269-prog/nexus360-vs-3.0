@@ -557,7 +557,13 @@ export default function Dashboard() {
           {navegacao.map((item) =>
             <button
               key={item.key}
-              onClick={() => setViewMode(item.key)}
+              onClick={() => {
+                setViewMode(item.key);
+                base44.analytics.track({
+                  eventName: "dashboard_tab_clicked",
+                  properties: { tab: item.key, tab_label: item.label }
+                });
+              }}
               className={`flex-shrink-0 bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:via-red-500 hover:to-red-600 text-slate-50 p-2.5 md:p-3 rounded-xl border border-slate-200/50 transition-all duration-300 shadow-xl ${
                 viewMode === item.key ? 'scale-105 ring-2 ring-orange-400' : ''}`
               }>
