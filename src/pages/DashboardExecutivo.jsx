@@ -279,9 +279,29 @@ export default function DashboardExecutivo() {
       const importacoesRevisao = importacoes.filter(i => i.status_processamento === 'revisao_manual');
       const ultimaSucesso = importacoes.find(i => i.status_processamento === 'sucesso');
 
-      // Top vendedores por receita
+      // ═══════════════════════════════════════════════════════════
+      // Detectar e alertar sobre vendas "fantasma" (dados incompletos)
+      // ═══════════════════════════════════════════════════════════
+      const vendasInvalidas = vendas.filter(v => 
+        (v.cliente_nome === 'Cliente não informado' || !v.cliente_nome) &&
+        (v.valor_total === 0 || !v.valor_total) &&
+        !v.numero_pedido
+      );
+      if (vendasInvalidas.length > 0) {
+        setVendaInvalidaAlert({
+          count: vendasInvalidas.length,
+          ids: vendasInvalidas.slice(0, 5).map(v => v.id)
+        });
+      }
+
+      // Top vendedores por receita (excluindo vendas inválidas)
+      const vendasValidas = vendas.filter(v => !(
+        (v.cliente_nome === 'Cliente não informado' || !v.cliente_nome) &&
+        (v.valor_total === 0 || !v.valor_total)
+      ));
+
       const vendasPorVendedor = {};
-      vendas.forEach(v => {
+      vendasValidas.forEach(v => {
         if (!v.vendedor) return;
         if (!vendasPorVendedor[v.vendedor]) vendasPorVendedor[v.vendedor] = { total: 0, count: 0 };
         vendasPorVendedor[v.vendedor].total += v.valor_total || 0;
