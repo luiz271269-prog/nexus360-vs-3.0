@@ -60,7 +60,6 @@ import BaseConhecimento from './pages/BaseConhecimento';
 import ChecklistProducao from './pages/ChecklistProducao';
 import ChecklistValidacaoWAPI from './pages/ChecklistValidacaoWAPI';
 import ChecklistValidacaoZAPI from './pages/ChecklistValidacaoZAPI';
-import ClienteKanban from './pages/ClienteKanban';
 import Clientes from './pages/Clientes';
 import ComparativoZapiWapi from './pages/ComparativoZapiWapi';
 import Comunicacao from './pages/Comunicacao';
@@ -144,7 +143,6 @@ export const PAGES = {
     "ChecklistProducao": ChecklistProducao,
     "ChecklistValidacaoWAPI": ChecklistValidacaoWAPI,
     "ChecklistValidacaoZAPI": ChecklistValidacaoZAPI,
-    "ClienteKanban": ClienteKanban,
     "Clientes": Clientes,
     "ComparativoZapiWapi": ComparativoZapiWapi,
     "Comunicacao": Comunicacao,
