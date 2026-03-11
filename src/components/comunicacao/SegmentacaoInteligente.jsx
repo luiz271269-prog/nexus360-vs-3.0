@@ -121,7 +121,7 @@ export default function SegmentacaoInteligente({
         payload.visible_thread_ids = visibleThreadIds;
       }
 
-      const resultado = await base44.functions.invoke('analisarComportamentoContato', payload);
+      const resultado = await analisarComportamentoContato(payload);
 
       if (resultado.data.success) {
         const resumo = resultado.data.resumo;
