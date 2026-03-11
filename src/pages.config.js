@@ -125,6 +125,7 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
+import LeadsQualificados from './pages/LeadsQualificados';
 import __Layout from './Layout.jsx';
 
 
@@ -207,6 +208,7 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
+    "LeadsQualificados": LeadsQualificados,
 }
 
 export const pagesConfig = {
