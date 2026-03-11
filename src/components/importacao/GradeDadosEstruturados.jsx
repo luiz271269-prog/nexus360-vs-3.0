@@ -324,24 +324,32 @@ export default function GradeDadosEstruturados({
       const agora = new Date().toISOString();
 
       if (destinoDados === 'vendas') {
-        // Criar Interacao para cada venda
+        // Criar Interacao para cada venda - CORREÇÃO 5 (sem skip rigoroso)
         for (const venda of registros) {
-          if (!venda.cliente_nome || !venda.vendedor) continue;
-          await base44.entities.Interacao.create({
-            cliente_nome: venda.cliente_nome,
-            vendedor: venda.vendedor,
-            tipo_interacao: 'outro',
-            data_interacao: venda.data_venda ? new Date(venda.data_venda).toISOString() : agora,
-            resultado: 'venda_fechada',
-            observacoes: `Venda importada - Pedido: ${venda.numero_pedido || 'S/N'} - Valor: R$ ${venda.valor_total || 0}`,
-            categoria_interacao: 'vendas'
-          });
+          // Usar nomes padrão se não fornecidos, mas criar a interação mesmo assim
+          const nomeCliente = venda.cliente_nome || 'Cliente não identificado';
+          const nomeVendedor = venda.vendedor || 'Vendedor não informado';
+
+          try {
+            await base44.entities.Interacao.create({
+              cliente_nome: nomeCliente,
+              vendedor: nomeVendedor,
+              tipo_interacao: 'outro',
+              data_interacao: venda.data_venda ? new Date(venda.data_venda).toISOString() : agora,
+              resultado: 'venda_fechada',
+              observacoes: `Venda importada - Pedido: ${venda.numero_pedido || 'S/N'} - Valor: R$ ${venda.valor_total || 0}`,
+              categoria_interacao: 'vendas'
+            });
+          } catch(err) {
+            console.warn(`[Interacao] Falha ao criar para "${nomeCliente}":`, err.message);
+          }
         }
 
         // Atualizar ultimo_contato dos clientes envolvidos
         const clientesMap = {};
         for (const venda of registros) {
-          if (!venda.cliente_nome) continue;
+          const nomeCliente = venda.cliente_nome || 'Cliente não identificado';
+          if (!nomeCliente || nomeCliente === 'Cliente não identificado') continue;
           if (!clientesMap[venda.cliente_nome]) {
             clientesMap[venda.cliente_nome] = { ultimaVenda: venda.data_venda || agora.split('T')[0], totalValor: 0, count: 0 };
           }
