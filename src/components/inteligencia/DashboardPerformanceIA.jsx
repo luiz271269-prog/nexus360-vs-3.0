@@ -334,7 +334,9 @@ export default function DashboardPerformanceIA() {
       </div>
 
       {/* Tabs de Análise */}
-      <Tabs defaultValue="evolucao" className="w-full">
+      <Tabs defaultValue="evolucao" className="w-full" onValueChange={(tab) => {
+        base44.analytics.track({ eventName: "performance_dashboard_tab_clicked", properties: { tab, periodo } });
+      }}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="evolucao">Evolução Temporal</TabsTrigger>
           <TabsTrigger value="distribuicao">Distribuições</TabsTrigger>
