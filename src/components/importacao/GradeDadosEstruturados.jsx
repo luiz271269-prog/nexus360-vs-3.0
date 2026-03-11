@@ -539,40 +539,59 @@ export default function GradeDadosEstruturados({
       // 3. Salvar em lote
       await EntidadeDestino.bulkCreate(dadosComObrigatorios);
 
-      // 4. Enriquecer dados para o Dashboard (best-effort, não bloqueia)
-      executarPosSalvamentoDashboard(destino, dadosComObrigatorios);
+      // 4. Enriquecer dados para o Dashboard (best-effort, não bloqueia) - CORREÇÃO 4
+      try {
+        await executarPosSalvamentoDashboard(destino, dadosComObrigatorios);
+      } catch(err) {
+        console.warn('[handleSalvar] Pós-salvamento falhou (não-crítico):', err.message);
+      }
 
-      // 5. Salvar o mapeamento com deduplicação
+      // 5. Salvar o mapeamento com deduplicação - CORREÇÃO 2 (mapeamento_campos não-vazio)
       if (nomeMapeamento) {
-        const mapeamentosExistentes = await base44.entities.MapeamentoImportacao.filter({
-          nome_mapeamento: nomeMapeamento,
-          entidade_destino: destino
+        const mapeamentoCamposAtual = {};
+        Object.entries(mapeamentoCampos || {}).forEach(([origem, destino]) => {
+          if (destino && destino !== '' && destino !== 'ignorar') {
+            mapeamentoCamposAtual[origem] = destino;
+          }
         });
-        if (mapeamentosExistentes.length > 0) {
-          await base44.entities.MapeamentoImportacao.update(mapeamentosExistentes[0].id, {
-            mapeamento_campos: mapeamentoCampos,
-            vezes_usado: (mapeamentosExistentes[0].vezes_usado || 0) + 1
-          });
-        } else {
-          await base44.entities.MapeamentoImportacao.create({
+
+        // Só salvar mapeamento se houver campos mapeados
+        if (Object.keys(mapeamentoCamposAtual).length > 0) {
+          const mapeamentosExistentes = await base44.entities.MapeamentoImportacao.filter({
             nome_mapeamento: nomeMapeamento,
-            tipo_documento: tiposDetectados[0]?.tipo || 'generico',
-            entidade_destino: destino,
-            mapeamento_campos: mapeamentoCampos,
-            ativo: true,
-            vezes_usado: 1
+            entidade_destino: destino
           });
+          if (mapeamentosExistentes.length > 0) {
+            await base44.entities.MapeamentoImportacao.update(mapeamentosExistentes[0].id, {
+              mapeamento_campos: mapeamentoCamposAtual,
+              vezes_usado: (mapeamentosExistentes[0].vezes_usado || 0) + 1
+            });
+          } else {
+            await base44.entities.MapeamentoImportacao.create({
+              nome_mapeamento: nomeMapeamento,
+              tipo_documento: tiposDetectados[0]?.tipo || 'generico',
+              entidade_destino: destino,
+              mapeamento_campos: mapeamentoCamposAtual,
+              ativo: true,
+              vezes_usado: 1
+            });
+          }
         }
       }
 
-      // 5. Atualizar o registro de importação
+      // 6. Atualizar o registro de importação com destino_dados
       if (processamentoId) {
         await base44.entities.ImportacaoDocumento.update(processamentoId, {
           status_processamento: 'sucesso',
+          destino_dados: destino,
           dados_extraidos: {
               ...(dadosIniciais || {}),
               total_registros: dadosEditaveis.length,
               mapeamento_aplicado: nomeMapeamento || 'Mapeamento Manual'
+          },
+          resultado_salvamento: { 
+            registros_salvos: dadosComObrigatorios.length, 
+            destino: destino 
           }
         });
       }
