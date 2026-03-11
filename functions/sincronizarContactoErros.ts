@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'contact_id é obrigatório' }, { status: 400 });
     }
 
-    console.log(`[sincronizarContactoErros] Iniciando análise contato=${contact_id}, modo=diagnostico`);
+    console.log(`[sincronizarContactoErros] Iniciando contact=${contact_id}, corrigir=${corrigir}`);
 
     // 1️⃣ Buscar contato
     const contatos = await base44.asServiceRole.entities.Contact.filter({ id: contact_id });
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     const contato = contatos[0];
     const erros = [];
 
-    // 2️⃣ ERRO #2: Telefone vazio ou não sincronizado
+    // 2️⃣ Verificar telefone vazio
     if (!contato.telefone || !contato.telefone.trim()) {
       erros.push({
         tipo: 'telefone_vazio',
@@ -37,103 +37,160 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 3️⃣ Verificar telefone_canonico — vazio OU incorreto
+    const telefoneNorm = normalizarTelefone(contato.telefone);
     if (!contato.telefone_canonico || !contato.telefone_canonico.trim()) {
       erros.push({
         tipo: 'telefone_canonico_vazio',
-        descricao: 'Campo telefone_canonico não foi preenchido (necessário para busca e deduplica)',
+        descricao: 'Campo telefone_canonico não foi preenchido',
         campo: 'telefone_canonico',
         valor_atual: contato.telefone_canonico || 'NULL'
       });
+    } else if (telefoneNorm && contato.telefone_canonico !== telefoneNorm) {
+      erros.push({
+        tipo: 'telefone_canonico_incorreto',
+        descricao: `telefone_canonico está errado: ${contato.telefone_canonico} → deveria ser ${telefoneNorm}`,
+        campo: 'telefone_canonico',
+        valor_atual: contato.telefone_canonico,
+        valor_correto: telefoneNorm
+      });
     }
 
-    // 3️⃣ ERRO #3: Verificar duplicatas por telefone
-    const telefoneNorm = normalizarTelefone(contato.telefone);
+    // 4️⃣ Verificar duplicatas por telefone
     if (telefoneNorm) {
       const duplicatas = await base44.asServiceRole.entities.Contact.filter({
         telefone_canonico: telefoneNorm,
-        id: { $ne: contact_id } // Excluir ele mesmo
+        id: { $ne: contact_id }
       });
-
       if (duplicatas && duplicatas.length > 0) {
         erros.push({
           tipo: 'duplicata_encontrada',
-          descricao: `Encontradas ${duplicatas.length} duplicata(s) com mesmo telefone normalizado`,
+          descricao: `Encontradas ${duplicatas.length} duplicata(s) com mesmo telefone`,
           campo: 'telefone_canonico',
           duplicatas: duplicatas.map(d => ({ id: d.id, nome: d.nome }))
         });
       }
     }
 
-    // 4️⃣ ERRO #1: Verificar se nome está preenchido (afeta busca)
+    // 5️⃣ Verificar nome
     const nomePuro = (contato.nome || '').trim();
     if (!nomePuro) {
       erros.push({
         tipo: 'nome_vazio',
-        descricao: 'Campo nome está vazio (impede busca por nome)',
+        descricao: 'Campo nome está vazio',
         campo: 'nome',
         valor_atual: 'NULL'
       });
     } else if (nomePuro.match(/^\+?\d+$/)) {
-      // Se nome = apenas telefone, é erro
       erros.push({
         tipo: 'nome_igual_telefone',
-        descricao: 'Nome contém apenas números (parece ter sido preenchido com telefone)',
+        descricao: 'Nome contém apenas números (preenchido com telefone)',
         campo: 'nome',
         valor_atual: nomePuro
       });
     }
 
-    // 5️⃣ CORRIGIR se modo correção
+    // 6️⃣ CORRIGIR se solicitado
     let corrigidos = [];
     if (corrigir) {
       const updates = {};
 
-      // Corrigir telefone_canonico se vazio ou diferente do normalizado
+      // Corrigir telefone_canonico sempre que incorreto ou vazio
       if (telefoneNorm && contato.telefone_canonico !== telefoneNorm) {
         updates.telefone_canonico = telefoneNorm;
-        corrigidos.push(`telefone_canonico corrigido: ${contato.telefone_canonico || 'vazio'} → ${telefoneNorm}`);
+        corrigidos.push(`telefone_canonico corrigido: "${contato.telefone_canonico || 'vazio'}" → "${telefoneNorm}"`);
       }
 
       // Corrigir nome se vazio
-      if (!nomePuro && contato.empresa) {
-        updates.nome = contato.empresa;
-        corrigidos.push('nome preenchido com empresa');
-      } else if (!nomePuro && contato.telefone) {
-        updates.nome = `Contato ${contato.telefone}`;
-        corrigidos.push('nome gerado do telefone');
+      if (!nomePuro) {
+        if (contato.empresa) {
+          updates.nome = contato.empresa;
+          corrigidos.push('nome preenchido com empresa');
+        } else if (contato.telefone) {
+          updates.nome = `Contato ${contato.telefone}`;
+          corrigidos.push('nome gerado do telefone');
+        }
       }
 
-      // Aplicar correções
       if (Object.keys(updates).length > 0) {
         await base44.asServiceRole.entities.Contact.update(contact_id, updates);
-        console.log(`[sincronizarContactoErros] ✅ Contato corrigido:`, corrigidos, 'Updates:', updates);
+        console.log(`[sincronizarContactoErros] ✅ Contato corrigido:`, updates);
       }
 
-      // Consolidar threads órfãs se necessário
+      // 7️⃣ Consolidar threads + MIGRAR MENSAGENS (correção cirúrgica)
       try {
-        const threads = await base44.asServiceRole.entities.MessageThread.filter({ 
+        const todasThreads = await base44.asServiceRole.entities.MessageThread.filter({ 
           contact_id: contact_id 
         });
-        
-        if (threads && threads.length > 1) {
-          const principal = threads[0];
+
+        if (todasThreads && todasThreads.length > 0) {
+          // Selecionar thread canônica corretamente: is_canonical=true e não merged
+          let threadCanonica = todasThreads.find(t => t.is_canonical === true && t.status !== 'merged');
+          if (!threadCanonica) {
+            // Fallback: a com mais mensagens ou mais recente
+            threadCanonica = todasThreads
+              .filter(t => t.status !== 'merged')
+              .sort((a, b) => (b.total_mensagens || 0) - (a.total_mensagens || 0))[0];
+          }
+          if (!threadCanonica) {
+            threadCanonica = todasThreads[0];
+          }
+
           let threadsConsolidadas = 0;
-          
-          for (let i = 1; i < threads.length; i++) {
-            const thread = threads[i];
-            
+          let mensagensMigradas = 0;
+
+          for (const thread of todasThreads) {
+            if (thread.id === threadCanonica.id) continue;
+
+            // Buscar mensagens presas nesta thread (merged ou não)
+            const mensagensPreasas = await base44.asServiceRole.entities.Message.filter({
+              thread_id: thread.id
+            });
+
+            console.log(`[sincronizarContactoErros] Thread ${thread.id} (${thread.status}): ${mensagensPreasas?.length || 0} mensagens`);
+
+            // Migrar mensagens para a canônica
+            if (mensagensPreasas && mensagensPreasas.length > 0) {
+              for (const msg of mensagensPreasas) {
+                await base44.asServiceRole.entities.Message.update(msg.id, {
+                  thread_id: threadCanonica.id
+                });
+                mensagensMigradas++;
+              }
+              console.log(`[sincronizarContactoErros] ✅ Migradas ${mensagensPreasas.length} msgs da thread ${thread.id}`);
+            }
+
+            // Marcar como merged se ainda não estava
             if (thread.status !== 'merged') {
               await base44.asServiceRole.entities.MessageThread.update(thread.id, {
                 status: 'merged',
-                merged_into: principal.id
+                merged_into: threadCanonica.id,
+                is_canonical: false
               });
               threadsConsolidadas++;
             }
           }
-          
-          if (threadsConsolidadas > 0) {
-            corrigidos.push(`${threadsConsolidadas} thread(s) consolidada(s)`);
-            console.log(`[sincronizarContactoErros] 📌 Consolidadas ${threadsConsolidadas} threads`);
+
+          // Atualizar total_mensagens da canônica com contagem real
+          if (mensagensMigradas > 0 || threadsConsolidadas > 0) {
+            const todasMsgsCanonica = await base44.asServiceRole.entities.Message.filter({
+              thread_id: threadCanonica.id
+            });
+            const ultimaMsg = todasMsgsCanonica?.[todasMsgsCanonica.length - 1];
+
+            const threadUpdate = {
+              total_mensagens: todasMsgsCanonica?.length || 0,
+              is_canonical: true
+            };
+            if (ultimaMsg?.sent_at) threadUpdate.last_message_at = ultimaMsg.sent_at;
+            if (ultimaMsg?.content) threadUpdate.last_message_content = ultimaMsg.content.substring(0, 100);
+            if (ultimaMsg?.sender_type) threadUpdate.last_message_sender = ultimaMsg.sender_type === 'contact' ? 'contact' : 'user';
+
+            await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, threadUpdate);
+
+            corrigidos.push(`${threadsConsolidadas} thread(s) consolidada(s), ${mensagensMigradas} mensagem(ns) migrada(s) para thread canônica`);
+            corrigidos.push(`total_mensagens da canônica atualizado: ${todasMsgsCanonica?.length || 0}`);
+            console.log(`[sincronizarContactoErros] 📊 Thread canônica ${threadCanonica.id} atualizada: ${todasMsgsCanonica?.length} msgs`);
           }
         }
       } catch (threadError) {

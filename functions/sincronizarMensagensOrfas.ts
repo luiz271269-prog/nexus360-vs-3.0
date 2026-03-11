@@ -13,147 +13,190 @@ Deno.serve(async (req) => {
     const {
       thread_id = null,
       contact_id = null,
-      periodo_horas = 48,
+      periodo_horas = 72,
       modo = 'diagnostico'
     } = payload;
 
-    console.log('[sincronizarMensagensOrfas]', {
-      modo,
-      periodo_horas,
-      thread_id,
-      contact_id
-    });
+    console.log('[sincronizarMensagensOrfas]', { modo, periodo_horas, thread_id, contact_id });
 
-    // PASSO 1: Identificar threads suspeitas
-    const dataLimite = new Date(Date.now() - periodo_horas * 60 * 60 * 1000);
-    
-    let filtroThreads = {
-      thread_type: 'contact_external',
-      status: { $in: ['aberta', 'fechada', 'arquivada'] }
-    };
+    // ==============================================================
+    // ESTRATÉGIA 1: Mensagens presas em threads MERGED (causa raiz DEJAIR)
+    // Busca TODAS as threads do contato, inclusive merged
+    // ==============================================================
 
-    if (thread_id) {
-      filtroThreads.id = thread_id;
-    }
-    if (contact_id) {
-      filtroThreads.contact_id = contact_id;
-    }
+    let filtroThreads = { thread_type: 'contact_external' };
+    if (thread_id) filtroThreads.id = thread_id;
+    if (contact_id) filtroThreads.contact_id = contact_id;
 
-    const threads = await base44.asServiceRole.entities.MessageThread.filter(filtroThreads);
-    console.log(`[sincronizarMensagensOrfas] 📌 Encontradas ${threads.length} threads para análise`);
+    // ⚠️ CRÍTICO: incluir threads merged — é onde as mensagens ficam presas
+    const todasThreads = await base44.asServiceRole.entities.MessageThread.filter(filtroThreads);
+    console.log(`[sincronizarMensagensOrfas] ${todasThreads.length} threads encontradas (inclusive merged)`);
 
     const threadsSuspeitas = [];
-
-    // Analisar cada thread
-    for (const thread of threads) {
-      if (!thread.contact_id) continue;
-
-      // Contar mensagens realmente associadas
-      const mensagensVinculadas = await base44.asServiceRole.entities.Message.filter({
-        thread_id: thread.id
-      });
-
-      // Threshold: se thread tem pouquíssimas mensagens ou nenhuma, é suspeita
-      if ((!mensagensVinculadas || mensagensVinculadas.length === 0) && 
-          thread.total_mensagens && thread.total_mensagens > 0) {
-        
-        const contato = await base44.asServiceRole.entities.Contact.filter({
-          id: thread.contact_id
-        });
-
-        if (contato && contato.length > 0) {
-          threadsSuspeitas.push({
-            thread_id: thread.id,
-            contact_id: thread.contact_id,
-            contato_nome: contato[0].nome,
-            telefone_contato: contato[0].telefone,
-            mensagens_vinculadas: mensagensVinculadas?.length || 0,
-            total_mensagens_esperadas: thread.total_mensagens
-          });
-        }
-      }
-    }
-
-    console.log(`[sincronizarMensagensOrfas] 🔍 Threads suspeitas: ${threadsSuspeitas.length}`);
-
-    // PASSO 2: Buscar mensagens órfãs
-    const detalhes = [];
     let totalMensagensOrfas = 0;
     let totalRevinculadas = 0;
+    const detalhes = [];
 
-    for (const threadSuspeita of threadsSuspeitas) {
-      const telefoneNormalizado = normalizarTelefone(threadSuspeita.telefone_contato);
-      if (!telefoneNormalizado) continue;
+    // Agrupar threads por contact_id para encontrar a canônica de cada contato
+    const threadsPorContato = {};
+    for (const thread of todasThreads) {
+      if (!thread.contact_id) continue;
+      if (!threadsPorContato[thread.contact_id]) {
+        threadsPorContato[thread.contact_id] = [];
+      }
+      threadsPorContato[thread.contact_id].push(thread);
+    }
 
-      console.log(`[sincronizarMensagensOrfas] 🔎 Buscando órfãs para contato ${threadSuspeita.contato_nome}`);
+    for (const [cid, threads] of Object.entries(threadsPorContato)) {
+      // Encontrar a thread canônica do contato
+      let threadCanonica = threads.find(t => t.is_canonical === true && t.status !== 'merged');
+      if (!threadCanonica) {
+        threadCanonica = threads
+          .filter(t => t.status !== 'merged')
+          .sort((a, b) => (b.total_mensagens || 0) - (a.total_mensagens || 0))[0];
+      }
+      if (!threadCanonica) continue;
 
-      // Buscar mensagens criadas nos últimas X horas
-      const mensagensOrfas = await buscarMensagensOrfas(
-        base44,
-        telefoneNormalizado,
-        threadSuspeita.thread_id,
-        threadSuspeita.contact_id,
-        dataLimite
-      );
+      // Verificar threads não-canônicas (merged, fechadas, etc.) que têm mensagens presas
+      const threadsSecundarias = threads.filter(t => t.id !== threadCanonica.id);
 
-      if (mensagensOrfas.length === 0) continue;
+      for (const threadSec of threadsSecundarias) {
+        const mensagensPreasas = await base44.asServiceRole.entities.Message.filter({
+          thread_id: threadSec.id
+        });
 
-      console.log(`[sincronizarMensagensOrfas] 📭 Encontradas ${mensagensOrfas.length} mensagens órfãs`);
-      totalMensagensOrfas += mensagensOrfas.length;
+        if (!mensagensPreasas || mensagensPreasas.length === 0) continue;
 
-      let revinculadas = 0;
+        console.log(`[sincronizarMensagensOrfas] 📭 Thread ${threadSec.id} (${threadSec.status}) tem ${mensagensPreasas.length} mensagens presas`);
+        totalMensagensOrfas += mensagensPreasas.length;
 
-      // PASSO 4: Revinculação
-      if (modo === 'correcao') {
-        for (const msg of mensagensOrfas) {
-          try {
-            await base44.asServiceRole.entities.Message.update(msg.id, {
-              thread_id: threadSuspeita.thread_id,
-              sender_id: msg.sender_id || threadSuspeita.contact_id,
-              recipient_id: msg.recipient_id || null
-            });
+        threadsSuspeitas.push({
+          thread_id_origem: threadSec.id,
+          thread_id_destino: threadCanonica.id,
+          status_origem: threadSec.status,
+          contact_id: cid,
+          mensagens: mensagensPreasas
+        });
 
-            revinculadas++;
-            console.log(`[sincronizarMensagensOrfas] ✅ Mensagem ${msg.id} revinculada`);
-          } catch (err) {
-            console.error(`[sincronizarMensagensOrfas] ❌ Erro ao revinacular ${msg.id}:`, err.message);
+        let revinculadas = 0;
+
+        if (modo === 'correcao') {
+          // Migrar mensagens presas → thread canônica
+          for (const msg of mensagensPreasas) {
+            try {
+              await base44.asServiceRole.entities.Message.update(msg.id, {
+                thread_id: threadCanonica.id
+              });
+              revinculadas++;
+              console.log(`[sincronizarMensagensOrfas] ✅ Mensagem ${msg.id} migrada para ${threadCanonica.id}`);
+            } catch (err) {
+              console.error(`[sincronizarMensagensOrfas] ❌ Erro ao migrar ${msg.id}:`, err.message);
+            }
+          }
+
+          totalRevinculadas += revinculadas;
+
+          // Atualizar total_mensagens da canônica com contagem real
+          if (revinculadas > 0) {
+            try {
+              const todasMsgsCanonica = await base44.asServiceRole.entities.Message.filter({
+                thread_id: threadCanonica.id
+              });
+
+              const ultimaMsg = todasMsgsCanonica?.[todasMsgsCanonica.length - 1];
+
+              const threadUpdate = {
+                total_mensagens: todasMsgsCanonica?.length || 0,
+                is_canonical: true
+              };
+              if (ultimaMsg?.sent_at) threadUpdate.last_message_at = ultimaMsg.sent_at;
+              if (ultimaMsg?.content) threadUpdate.last_message_content = ultimaMsg.content.substring(0, 100);
+              if (ultimaMsg?.sender_type) threadUpdate.last_message_sender = ultimaMsg.sender_type === 'contact' ? 'contact' : 'user';
+
+              await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, threadUpdate);
+              console.log(`[sincronizarMensagensOrfas] 📊 Thread canônica ${threadCanonica.id} atualizada: ${todasMsgsCanonica?.length} msgs`);
+            } catch (err) {
+              console.error('[sincronizarMensagensOrfas] Erro ao atualizar thread canônica:', err.message);
+            }
           }
         }
 
-        totalRevinculadas += revinculadas;
-
-        // PASSO 5: Atualizar contadores do thread
+        // Buscar nome do contato para relatório
+        let nomeContato = cid;
         try {
-          const todasMensagensAtualizadas = await base44.asServiceRole.entities.Message.filter({
-            thread_id: threadSuspeita.thread_id
-          });
+          const cs = await base44.asServiceRole.entities.Contact.filter({ id: cid });
+          if (cs?.length > 0) nomeContato = cs[0].nome || cs[0].telefone || cid;
+        } catch (_) {}
 
-          const ultimaMensagem = todasMensagensAtualizadas?.[todasMensagensAtualizadas.length - 1];
-
-          await base44.asServiceRole.entities.MessageThread.update(threadSuspeita.thread_id, {
-            total_mensagens: todasMensagensAtualizadas?.length || 0,
-            last_message_at: ultimaMensagem?.sent_at || new Date().toISOString(),
-            last_message_sender: ultimaMensagem?.sender_type === 'contact' ? 'contact' : 'user',
-            last_message_content: ultimaMensagem?.content?.substring(0, 100) || ''
-          });
-
-          console.log(`[sincronizarMensagensOrfas] 📊 Thread ${threadSuspeita.thread_id} atualizado`);
-        } catch (err) {
-          console.error('[sincronizarMensagensOrfas] Erro ao atualizar thread:', err.message);
-        }
+        detalhes.push({
+          contato_nome: nomeContato,
+          contact_id: cid,
+          thread_id_origem: threadSec.id,
+          thread_id_destino: threadCanonica.id,
+          status_thread_origem: threadSec.status,
+          mensagens_encontradas: mensagensPreasas.length,
+          mensagens_revinculadas: revinculadas
+        });
       }
-
-      detalhes.push({
-        thread_id: threadSuspeita.thread_id,
-        contato_nome: threadSuspeita.contato_nome,
-        telefone_contato: threadSuspeita.telefone_contato,
-        mensagens_encontradas: mensagensOrfas.length,
-        mensagens_revinculadas: revinculadas
-      });
     }
 
-    console.log('[sincronizarMensagensOrfas] ✅ Sincronização concluída', {
-      threads_analisadas: threads.length,
+    // ==============================================================
+    // ESTRATÉGIA 2: Mensagens órfãs por telefone no metadata (fallback)
+    // Busca mensagens recentes sem thread válida usando phone matching
+    // ==============================================================
+    if (contact_id && threadsSuspeitas.length === 0) {
+      const dataLimite = new Date(Date.now() - periodo_horas * 60 * 60 * 1000);
+
+      const contatoList = await base44.asServiceRole.entities.Contact.filter({ id: contact_id });
+      if (contatoList?.length > 0) {
+        const contato = contatoList[0];
+        const telefoneNorm = normalizarTelefone(contato.telefone);
+
+        if (telefoneNorm) {
+          const orfasPorTelefone = await buscarMensagensOrfasPorTelefone(
+            base44, telefoneNorm, contact_id, dataLimite
+          );
+
+          if (orfasPorTelefone.length > 0) {
+            totalMensagensOrfas += orfasPorTelefone.length;
+            console.log(`[sincronizarMensagensOrfas] 📭 Estratégia 2: ${orfasPorTelefone.length} órfãs por telefone`);
+
+            // Encontrar thread canônica para esse contato
+            const threadsContato = todasThreads.filter(t => t.contact_id === contact_id && t.status !== 'merged');
+            const canonicaFallback = threadsContato.find(t => t.is_canonical) || threadsContato[0];
+
+            if (canonicaFallback && modo === 'correcao') {
+              for (const msg of orfasPorTelefone) {
+                try {
+                  await base44.asServiceRole.entities.Message.update(msg.id, {
+                    thread_id: canonicaFallback.id
+                  });
+                  totalRevinculadas++;
+                } catch (err) {
+                  console.error(`Erro ao migrar ${msg.id}:`, err.message);
+                }
+              }
+
+              const todasMsgs = await base44.asServiceRole.entities.Message.filter({ thread_id: canonicaFallback.id });
+              await base44.asServiceRole.entities.MessageThread.update(canonicaFallback.id, {
+                total_mensagens: todasMsgs?.length || 0
+              });
+            }
+
+            detalhes.push({
+              contato_nome: contato.nome,
+              contact_id,
+              estrategia: 'por_telefone',
+              mensagens_encontradas: orfasPorTelefone.length,
+              mensagens_revinculadas: modo === 'correcao' ? orfasPorTelefone.length : 0
+            });
+          }
+        }
+      }
+    }
+
+    console.log('[sincronizarMensagensOrfas] ✅ Concluído', {
+      threads_analisadas: todasThreads.length,
       threads_suspeitas: threadsSuspeitas.length,
       mensagens_orfas_encontradas: totalMensagensOrfas,
       mensagens_revinculadas: totalRevinculadas,
@@ -162,7 +205,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
-      threads_analisadas: threads.length,
+      threads_analisadas: todasThreads.length,
       threads_suspeitas: threadsSuspeitas.length,
       mensagens_orfas_encontradas: totalMensagensOrfas,
       mensagens_revinculadas: totalRevinculadas,
@@ -172,10 +215,7 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('[sincronizarMensagensOrfas] ERRO CRÍTICO:', error);
-    return Response.json(
-      { error: error.message, success: false },
-      { status: 500 }
-    );
+    return Response.json({ error: error.message, success: false }, { status: 500 });
   }
 });
 
@@ -186,35 +226,23 @@ Deno.serve(async (req) => {
 function normalizarTelefone(phone) {
   if (!phone) return '';
   const clean = String(phone).replace(/[\s\-\(\)\+]/g, '').replace(/^0+/, '');
-  // Garantir prefixo 55 (Brasil)
   if (clean.length <= 11 && !clean.startsWith('55')) {
     return '55' + clean;
   }
   return clean || '';
 }
 
-async function buscarMensagensOrfas(base44, telefoneBusca, threadCorreto, contactIdCorreto, dataLimite) {
+async function buscarMensagensOrfasPorTelefone(base44, telefoneBusca, contactIdCorreto, dataLimite) {
   const mensagensOrfas = [];
-
   try {
-    // Buscar TODAS as mensagens recentes do período
     const todasMensagens = await base44.asServiceRole.entities.Message.filter({
       created_date: { $gte: dataLimite.toISOString() },
       channel: { $in: ['whatsapp', 'instagram', 'facebook'] }
     });
 
-    console.log(`[buscarMensagensOrfas] Total de mensagens no período: ${todasMensagens?.length || 0}`);
+    for (const msg of todasMensagens || []) {
+      if (msg.sender_id === contactIdCorreto) continue;
 
-    if (!todasMensagens || todasMensagens.length === 0) return mensagensOrfas;
-
-    for (const msg of todasMensagens) {
-      // Verificar se mensagem está desvinculada ou mal vinculada
-      if (msg.thread_id === threadCorreto && msg.sender_id === contactIdCorreto) {
-        // Já está corretamente vinculada
-        continue;
-      }
-
-      // Buscar telefone em múltiplos campos possíveis
       const telefonesNaMensagem = [
         msg.metadata?.connected_phone,
         msg.metadata?.instance_phone,
@@ -222,30 +250,13 @@ async function buscarMensagensOrfas(base44, telefoneBusca, threadCorreto, contac
         msg.recipient_phone
       ].filter(Boolean);
 
-      // Normalizar e comparar
-      const temTelefoneCorreto = telefonesNaMensagem.some(tel => {
-        const telNorm = normalizarTelefone(tel);
-        return telNorm === telefoneBusca;
-      });
-
-      if (temTelefoneCorreto) {
-        // É uma mensagem órfã que pertence a este contato
-        mensagensOrfas.push({
-          id: msg.id,
-          thread_id_atual: msg.thread_id,
-          sender_id: msg.sender_id,
-          recipient_id: msg.recipient_id,
-          sender_type: msg.sender_type,
-          content: msg.content?.substring(0, 50) || '',
-          sent_at: msg.sent_at
-        });
-
-        console.log(`[buscarMensagensOrfas] 📭 Órfã encontrada: ${msg.id}`);
+      const temTelefone = telefonesNaMensagem.some(tel => normalizarTelefone(tel) === telefoneBusca);
+      if (temTelefone) {
+        mensagensOrfas.push(msg);
       }
     }
   } catch (err) {
-    console.error('[buscarMensagensOrfas] Erro ao buscar mensagens:', err.message);
+    console.error('[buscarMensagensOrfasPorTelefone] Erro:', err.message);
   }
-
   return mensagensOrfas;
 }
