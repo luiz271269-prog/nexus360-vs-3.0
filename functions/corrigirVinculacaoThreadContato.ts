@@ -198,6 +198,25 @@ Deno.serve(async (req) => {
       corrigidos.push(`${mensagensCorrigidas} mensagem(ns) com sender_id corrigido`);
     }
 
+    // 7c.2 Neutralizar duplicados: limpar telefone_canonico para não aparecer mais como duplicata
+    for (const dup of contatosDuplicados) {
+      try {
+        // Verificar se o duplicado ainda tem threads/mensagens (se não, pode neutralizar)
+        const threadsRestantes = await base44.asServiceRole.entities.MessageThread.filter({ contact_id: dup.id });
+        const temThreads = threadsRestantes && threadsRestantes.length > 0;
+        
+        // Limpar telefone_canonico do duplicado para não ser encontrado novamente
+        await base44.asServiceRole.entities.Contact.update(dup.id, {
+          telefone_canonico: `MERGED_${dup.telefone_canonico || dup.id}`,
+          observacoes: `[DUPLICATA UNIFICADA em ${new Date().toISOString().split('T')[0]}] Contato principal: ${contact_id}. ${dup.observacoes || ''}`
+        });
+        corrigidos.push(`Duplicata ${dup.nome || dup.id} neutralizada (telefone_canonico limpo)`);
+        console.log(`[corrigirVinculacao] ✅ Duplicata ${dup.id} neutralizada`);
+      } catch (err) {
+        console.warn(`[corrigirVinculacao] Aviso ao neutralizar duplicata ${dup.id}:`, err.message);
+      }
+    }
+
     // 7d. Consolidar threads: se há múltiplas threads do contato principal, manter a mais ativa
     const todasThreads = await base44.asServiceRole.entities.MessageThread.filter({
       contact_id: contact_id,
