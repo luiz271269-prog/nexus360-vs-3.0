@@ -525,7 +525,85 @@ export default function Clientes() {
         </Card>
 
         {/* CONTEÚDO */}
-        {isLoading ? (
+        {aba === 'contatos_fidelizados' ? (
+          // ABA: CONTATOS FIDELIZADOS
+          <>
+            {isLoadingContatos ? (
+              <div className="flex items-center justify-center py-20 bg-white/80 backdrop-blur-lg rounded-xl shadow-lg border-2 border-slate-200/50">
+                <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+                <span className="ml-3 text-slate-600">Carregando contatos fidelizados...</span>
+              </div>
+            ) : contatosFidelizados.length === 0 ? (
+              <div className="text-center py-20 bg-white/80 backdrop-blur-lg rounded-xl shadow-lg border-2 border-slate-200/50">
+                <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                <p className="text-lg text-slate-600 font-medium">Nenhum contato fidelizado encontrado.</p>
+                <p className="text-sm text-slate-500 mt-2">Contatos classificados como cliente e fidelizados para vendedores aparecerão aqui.</p>
+              </div>
+            ) : (
+              <Card className="shadow-lg border-2 border-slate-200/50">
+                <CardHeader className="pb-3 bg-white/80 backdrop-blur-lg rounded-t-xl border-b border-slate-200">
+                  <CardTitle className="text-lg text-slate-700 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-green-600" />
+                    {contatosFidelizados.length} Contatos Fidelizados
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="px-6 py-3 text-left font-semibold text-slate-700">Nome / Empresa</th>
+                          <th className="px-6 py-3 text-left font-semibold text-slate-700">Telefone</th>
+                          <th className="px-6 py-3 text-left font-semibold text-slate-700">Vendedor</th>
+                          <th className="px-6 py-3 text-left font-semibold text-slate-700">Segmento</th>
+                          <th className="px-6 py-3 text-left font-semibold text-slate-700">Score Engajamento</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {contatosFidelizados.map((contato) => {
+                          const vendedorId = contato.data?.atendente_fidelizado_vendas;
+                          const vendedorNome = vendedores.find(v => String(v.value) === String(vendedorId))?.label || vendedorId || 'N/A';
+                          
+                          return (
+                            <tr key={contato.id} className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors">
+                              <td className="px-6 py-4">
+                                <div>
+                                  <p className="font-medium text-slate-900">{contato.data?.nome || 'N/A'}</p>
+                                  <p className="text-xs text-slate-500">{contato.data?.empresa || ''}</p>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-slate-700">{contato.data?.telefone || '-'}</td>
+                              <td className="px-6 py-4">
+                                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">{vendedorNome}</Badge>
+                              </td>
+                              <td className="px-6 py-4">
+                                <Badge variant="outline">{contato.data?.segmento_atual || 'N/A'}</Badge>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${
+                                        (contato.data?.score_engajamento || 0) >= 70 ? 'bg-green-500' :
+                                        (contato.data?.score_engajamento || 0) >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                                      }`}
+                                      style={{ width: `${Math.min(contato.data?.score_engajamento || 0, 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className="font-semibold text-slate-900">{contato.data?.score_engajamento || 0}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        ) : isLoading ? (
           <div className="flex items-center justify-center py-20 bg-white/80 backdrop-blur-lg rounded-xl shadow-lg border-2 border-slate-200/50">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             <span className="ml-3 text-slate-600">Carregando clientes...</span>
