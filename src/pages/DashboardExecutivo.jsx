@@ -678,24 +678,42 @@ export default function DashboardExecutivo() {
               {isLoading ? (
                 <div className="h-12 bg-slate-100 animate-pulse rounded" />
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-blue-50 rounded-lg">
-                    <p className="text-2xl font-bold text-blue-700">{kpis?.importacoes?.hoje ?? 0}</p>
-                    <p className="text-xs text-blue-600">Hoje</p>
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center p-3 bg-blue-50 rounded-lg">
+                      <p className="text-2xl font-bold text-blue-700">{kpis?.importacoes?.hoje ?? 0}</p>
+                      <p className="text-xs text-blue-600">Hoje</p>
+                    </div>
+                    <Link to={createPageUrl("Importacao")}>
+                      <div className="text-center p-3 bg-red-50 rounded-lg cursor-pointer hover:bg-red-100 transition-colors">
+                        <p className="text-2xl font-bold text-red-700">{kpis?.importacoes?.erro ?? 0}</p>
+                        <p className="text-xs text-red-600">Com Erro</p>
+                      </div>
+                    </Link>
+                    <div className="text-center p-3 bg-amber-50 rounded-lg">
+                      <p className="text-2xl font-bold text-amber-700">{kpis?.importacoes?.revisao ?? 0}</p>
+                      <p className="text-xs text-amber-600">Aguardando Revisão</p>
+                    </div>
+                    <div className="text-center p-3 bg-green-50 rounded-lg">
+                      <p className="text-xs font-medium text-green-700 truncate">{kpis?.importacoes?.ultimaSucesso || '—'}</p>
+                      <p className="text-xs text-green-600">Último com Sucesso</p>
+                    </div>
                   </div>
-                  <div className="text-center p-3 bg-red-50 rounded-lg cursor-pointer hover:bg-red-100">
-                    <p className="text-2xl font-bold text-red-700">{kpis?.importacoes?.erro ?? 0}</p>
-                    <p className="text-xs text-red-600">Com Erro</p>
-                  </div>
-                  <div className="text-center p-3 bg-amber-50 rounded-lg">
-                    <p className="text-2xl font-bold text-amber-700">{kpis?.importacoes?.revisao ?? 0}</p>
-                    <p className="text-xs text-amber-600">Aguardando Revisão</p>
-                  </div>
-                  <div className="text-center p-3 bg-green-50 rounded-lg">
-                    <p className="text-xs font-medium text-green-700 truncate">{kpis?.importacoes?.ultimaSucesso || '—'}</p>
-                    <p className="text-xs text-green-600">Último com Sucesso</p>
-                  </div>
-                </div>
+
+                  {/* CORREÇÃO 7: Botão "Reprocessar Erros" quando há erros */}
+                  {(kpis?.importacoes?.erro ?? 0) > 0 && (
+                    <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded-lg flex items-center justify-between">
+                      <span className="text-sm font-medium text-red-700">
+                        {kpis?.importacoes?.erro} arquivo{(kpis?.importacoes?.erro ?? 0) !== 1 ? 's' : ''} com erro {(kpis?.importacoes?.erro ?? 0) !== 1 ? 'requerem' : 'requer'} atenção
+                      </span>
+                      <Link to={createPageUrl("Importacao")}>
+                        <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs">
+                          Reprocessar →
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
