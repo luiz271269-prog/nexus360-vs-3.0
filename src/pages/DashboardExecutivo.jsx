@@ -78,6 +78,7 @@ const MetricCard = ({ titulo, valor, variacao, icone: Icon, cor, descricao, tren
 export default function DashboardExecutivo() {
   const [periodo, setPeriodo] = useState('30d');
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [vendaInvalidaAlert, setVendaInvalidaAlert] = useState(null);
 
   // ═══════════════════════════════════════════════════════════
   // Query principal de KPIs
