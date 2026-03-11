@@ -458,15 +458,30 @@ export default function GradeDadosEstruturados({
       // 3. Salvar em lote
       await EntidadeDestino.bulkCreate(dadosComObrigatorios);
 
-      // 4. Salvar o mapeamento se for nomeado
+      // 4. Enriquecer dados para o Dashboard (best-effort, não bloqueia)
+      executarPosSalvamentoDashboard(destino, dadosComObrigatorios);
+
+      // 5. Salvar o mapeamento com deduplicação
       if (nomeMapeamento) {
-        await base44.entities.MapeamentoImportacao.create({
+        const mapeamentosExistentes = await base44.entities.MapeamentoImportacao.filter({
           nome_mapeamento: nomeMapeamento,
-          tipo_documento: tiposDetectados[0]?.tipo || 'generico',
-          entidade_destino: destino,
-          mapeamento_campos: mapeamentoCampos,
-          ativo: true,
+          entidade_destino: destino
         });
+        if (mapeamentosExistentes.length > 0) {
+          await base44.entities.MapeamentoImportacao.update(mapeamentosExistentes[0].id, {
+            mapeamento_campos: mapeamentoCampos,
+            vezes_usado: (mapeamentosExistentes[0].vezes_usado || 0) + 1
+          });
+        } else {
+          await base44.entities.MapeamentoImportacao.create({
+            nome_mapeamento: nomeMapeamento,
+            tipo_documento: tiposDetectados[0]?.tipo || 'generico',
+            entidade_destino: destino,
+            mapeamento_campos: mapeamentoCampos,
+            ativo: true,
+            vezes_usado: 1
+          });
+        }
       }
 
       // 5. Atualizar o registro de importação
