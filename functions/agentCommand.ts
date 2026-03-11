@@ -307,22 +307,11 @@ INSTRUÇÕES:
             }
           }
         } catch (anthropicError) {
-          console.warn('[AGENT-COMMAND] Anthropic falhou:', anthropicError.message);
+          console.warn('[AGENT-COMMAND] Anthropic falhou, ativando Fallback Base44:', anthropicError.message);
+          usedFallback = true;
 
-          // BUG-008 fix: erro 401 = chave inválida → não tentar fallback, informar explicitamente
-          const isAuthError = anthropicError.message?.includes('401') ||
-            anthropicError.message?.includes('Unauthorized') ||
-            anthropicError.message?.includes('invalid_api_key') ||
-            anthropicError.message?.includes('authentication');
-
-          if (isAuthError) {
-            text = '⚠️ **Nexus AI indisponível**: A chave de API (ANTROPIK_API) está inválida ou expirada. Solicite ao administrador que atualize a chave em Base44 → Settings → Environment Variables.';
-            console.error('[AGENT-COMMAND] ❌ Erro de autenticação Anthropic — chave inválida');
-          } else {
-            usedFallback = true;
-
-            // ── CAMINHO DE SEGURANÇA: InvokeLLM com Dados Pré-Buscados ────
-            const fallbackPrompt = `Baseado NESSES DADOS REAIS do sistema (não invente, não especule):
+          // ── CAMINHO DE SEGURANÇA: InvokeLLM Base44 (independente da chave Anthropic) ────
+          const fallbackPrompt = `Baseado NESSES DADOS REAIS do sistema (não invente, não especule):
 
 ${JSON.stringify(contextData.snapshot, null, 2)}
 
@@ -335,17 +324,16 @@ Pergunta do usuário: ${user_message}
 
 Responda usando APENAS os dados fornecidos. Não invente dados. Se não souber, diga que a informação não está disponível.`;
 
-            try {
-              const iaResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
-                prompt: fallbackPrompt,
-                model: 'gemini_3_flash'
-              });
-              text = typeof iaResponse === 'string' ? iaResponse : JSON.stringify(iaResponse);
-              console.log('[AGENT-COMMAND] ✓ Fallback InvokeLLM respondeu');
-            } catch (fallbackError) {
-              console.error('[AGENT-COMMAND] Fallback também falhou:', fallbackError.message);
-              text = `[Modo backup] Não foi possível processar sua pergunta neste momento. Dados disponíveis: ${contextData.snapshot.vendas_count} vendas, R$ ${contextData.snapshot.pipeline_valor?.toLocaleString('pt-BR')} em pipeline.`;
-            }
+          try {
+            const iaResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
+              prompt: fallbackPrompt,
+              model: 'gemini_3_flash'
+            });
+            text = typeof iaResponse === 'string' ? iaResponse : JSON.stringify(iaResponse);
+            console.log('[AGENT-COMMAND] ✓ Fallback InvokeLLM respondeu');
+          } catch (fallbackError) {
+            console.error('[AGENT-COMMAND] Fallback também falhou:', fallbackError.message);
+            text = `[Modo backup] Não foi possível processar sua pergunta neste momento. Dados disponíveis: ${contextData.snapshot.vendas_count} vendas, R$ ${contextData.snapshot.pipeline_valor?.toLocaleString('pt-BR')} em pipeline.`;
           }
         }
 
