@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -50,6 +49,7 @@ export default function Clientes() {
     segmento: 'todos',
     vendedor: 'todos'
   });
+  const [aba, setAba] = useState('clientes'); // 'clientes' ou 'contatos_fidelizados'
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -57,6 +57,17 @@ export default function Clientes() {
   const { data: clientes = [], isLoading } = useQuery({
     queryKey: ['clientes'],
     queryFn: () => base44.entities.Cliente.list('-updated_date', 500),
+  });
+
+  const { data: contatosFidelizados = [], isLoading: isLoadingContatos } = useQuery({
+    queryKey: ['contatosFidelizados'],
+    queryFn: async () => {
+      const contatos = await base44.entities.Contact.filter({
+        tipo_contato: 'cliente',
+        atendente_fidelizado_vendas: { $exists: true, $ne: null }
+      }, '-updated_date', 500);
+      return contatos || [];
+    },
   });
 
   const { data: clientesScores = [] } = useQuery({
