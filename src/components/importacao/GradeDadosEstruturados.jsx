@@ -506,6 +506,12 @@ export default function GradeDadosEstruturados({
 
     } catch (error) {
       console.error("Erro ao salvar dados:", error);
+      if (processamentoId) {
+        await base44.entities.ImportacaoDocumento.update(processamentoId, {
+          status_processamento: 'erro',
+          erro_detalhado: `${error.message || 'Erro desconhecido'}. Destino: ${destino}. Arquivo: ${nomeImportacao}`
+        }).catch(() => {});
+      }
       alert(`Erro: ${error.message}`);
     } finally {
       set_internalLoading(false);
