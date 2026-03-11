@@ -155,6 +155,48 @@ export default function DiagnosticoSincronizacaoUnificado({ contact, usuario, on
           >
             🔓 Remover Bloqueios (Admin)
           </Button>
+
+          {/* NOVO: Correção Cirúrgica de Vinculação */}
+          <div className="border-t pt-3">
+            <p className="text-xs text-slate-500 font-semibold mb-2">🔧 Correção Cirúrgica de Vinculação</p>
+
+            {relatorioCorrecao && (
+              <Alert className="p-3 mb-2 bg-orange-50 border-orange-200">
+                <div className="text-xs text-orange-800 space-y-1">
+                  <p className="font-semibold">📋 Pré-diagnóstico:</p>
+                  <p>• Duplicados: {relatorioCorrecao.duplicados_encontrados?.length || 0}</p>
+                  <p>• Threads a mover: {relatorioCorrecao.threads_para_mover?.length || 0}</p>
+                  <p>• Mensagens a corrigir: {relatorioCorrecao.mensagens_para_revinular || 0}</p>
+                  {relatorioCorrecao.contato_principal?.needs_canonico_update && (
+                    <p className="text-red-700">• telefone_canonico precisa atualizar!</p>
+                  )}
+                  {relatorioCorrecao.duplicados_encontrados?.map((d, i) => (
+                    <p key={i} className="text-slate-600 ml-2">↳ Dup: {d.nome || '(sem nome)'} — {d.telefone}</p>
+                  ))}
+                </div>
+              </Alert>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                onClick={() => handleCorrecaoCompleta('diagnostico')}
+                disabled={loadingCorrecao}
+                variant="outline"
+                className="flex-1 text-orange-600 border-orange-300 hover:bg-orange-50 text-xs"
+              >
+                {loadingCorrecao ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Wrench className="w-3 h-3 mr-1" />}
+                Analisar
+              </Button>
+              <Button
+                onClick={() => handleCorrecaoCompleta('correcao')}
+                disabled={loadingCorrecao}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs"
+              >
+                {loadingCorrecao ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Wrench className="w-3 h-3 mr-1" />}
+                Corrigir Tudo
+              </Button>
+            </div>
+          </div>
         </>
       )}
 
