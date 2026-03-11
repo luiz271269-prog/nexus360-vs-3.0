@@ -752,32 +752,25 @@ export default function SegmentacaoInteligente({
             <CardContent className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-slate-500">Total de Mensagens</p>
-                <p className="text-2xl font-bold">{analise.metricas_engajamento?.total_mensagens || 0}</p>
+                <p className="text-2xl font-bold">{analise.metricas_relacionamento?.total_mensagens || analise.window_size || 0}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">Taxa de Resposta</p>
+                <p className="text-xs text-slate-500">Recebidas / Enviadas</p>
                 <p className="text-2xl font-bold">
-                  {(() => {
-                    const taxa = analise.metricas_engajamento?.taxa_resposta;
-                    return typeof taxa === "number" ? taxa.toFixed(1) : "0.0";
-                  })()}%
+                  {analise.metricas_relacionamento?.inbound_count || 0} / {analise.metricas_relacionamento?.outbound_count || 0}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-slate-500">Tempo Médio Resposta (Empresa)</p>
                 <p className="text-xl font-bold flex items-center gap-1">
                   <Clock className="w-4 h-4 text-slate-400" />
-                  {(() => {
-                    const tempo = analise.metricas_engajamento?.avg_reply_minutes_company ?? 
-                                  analise.metricas_engajamento?.tempo_medio_resposta_minutos;
-                    return typeof tempo === "number" ? Math.round(tempo) : 0;
-                  })()}min
+                  {Math.round(analise.metricas_relacionamento?.avg_response_time_agent_minutes || 0)}min
                 </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">Frequência</p>
+                <p className="text-xs text-slate-500">Dias Inativo</p>
                 <p className="text-xl font-bold">
-                  A cada {analise.metricas_engajamento?.frequencia_media_dias?.toFixed(1) || 0} dias
+                  {analise.days_inactive_total || 0} dias
                 </p>
               </div>
             </CardContent>
