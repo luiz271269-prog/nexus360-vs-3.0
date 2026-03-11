@@ -91,6 +91,15 @@ export default function SegmentacaoInteligente({
       return;
     }
 
+    base44.analytics.track({
+      eventName: "ai_segmentation_started",
+      properties: {
+        mode: modeAtual,
+        periodo_dias: modeAtual === "period" ? periodoDias : null,
+        visible_threads_count: modeAtual === "bubble" ? (visibleThreadIds?.length || 0) : null
+      }
+    });
+
     const toastId = toast.loading(
       `🤖 IA analisando ${modeAtual === "bubble" ? "conversas da bolha" : `últimos ${periodoDias} dias`}...`, 
       { duration: Infinity }
