@@ -96,14 +96,16 @@ export default function DashboardExecutivo() {
         clientes,
         threads,
         execucoes,
-        iaMetrics
+        iaMetrics,
+        importacoes
       ] = await Promise.all([
-        base44.entities.Venda.list('-data_venda', 300),
+        base44.entities.Venda.list('-data_venda', 500),
         base44.entities.Orcamento.list('-data_orcamento', 300),
         base44.entities.Cliente.list('-created_date', 500),
         base44.entities.MessageThread.list('-created_date', 300),
         base44.entities.FlowExecution.list('-created_date', 300),
-        base44.entities.IAUsageMetric.list('-timestamp', 500)
+        base44.entities.IAUsageMetric.list('-timestamp', 500),
+        base44.entities.ImportacaoDocumento.list('-created_date', 100)
       ]);
 
       // Filtrar por período atual
