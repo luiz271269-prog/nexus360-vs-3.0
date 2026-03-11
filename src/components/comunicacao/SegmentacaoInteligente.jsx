@@ -126,6 +126,19 @@ export default function SegmentacaoInteligente({
         const payloadData = resultado.data.payload;
         
         setPayload(payloadData);
+
+        base44.analytics.track({
+          eventName: "ai_segmentation_completed",
+          properties: {
+            mode: modeAtual,
+            periodo_dias: modeAtual === "period" ? periodoDias : null,
+            segmento: resumo.segmento || null,
+            priority: resumo.priority || null,
+            score: resumo.score || null,
+            tags_count: resumo.tags_atribuidas?.length || 0,
+            bucket: resumo.bucket || null
+          }
+        });
         
         // Foto será buscada automaticamente ao recarregar o contato no ChatWindow
         
