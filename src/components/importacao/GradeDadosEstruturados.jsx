@@ -180,32 +180,37 @@ export default function GradeDadosEstruturados({
     const colunas = extrairCabecalhos(linhas);
     setDadosEditaveis(linhas);
     setCabecalhos(colunas);
-    
-    // Auto-map based on destination if no mapping is suggested
+
     let mapeamentoInicial = {};
     if (mapeamentoSugerido?.mapeamento_campos) {
       mapeamentoInicial = mapeamentoSugerido.mapeamento_campos;
       setNomeMapeamento(mapeamentoSugerido.nome_mapeamento || '');
       setCampoTotalizador(mapeamentoSugerido.campo_totalizador || '');
     } else {
-        // Simple auto-mapping based on common names
+      // Usar auto-mapeamento inteligente (CORREÇÃO 1)
+      const colunasOrigemArray = colunas.map(c => c.original);
+      mapeamentoInicial = autoMapearColunas(colunasOrigemArray, destino);
+
+      // Se o auto-mapeamento inteligente não encontrou nada, fallback ao método antigo
+      if (Object.keys(mapeamentoInicial).length === 0) {
         const Entidade = entidadesMap[destino];
         if (Entidade) {
-            const schema = obterSchema(Entidade);
-            if (schema && schema.properties) {
-                const camposDestino = Object.keys(schema.properties);
-                colunas.forEach(coluna => {
-                    const nomeOriginal = coluna.original.toLowerCase().replace(/_/g, ' ');
-                    const match = camposDestino.find(cd => nomeOriginal.includes(cd.toLowerCase().replace(/_/g, ' ')));
-                    if (match) {
-                        mapeamentoInicial[coluna.original] = match;
-                    }
-                });
-            }
+          const schema = obterSchema(Entidade);
+          if (schema && schema.properties) {
+            const camposDestino = Object.keys(schema.properties);
+            colunas.forEach(coluna => {
+              const nomeOriginal = coluna.original.toLowerCase().replace(/_/g, ' ');
+              const match = camposDestino.find(cd => nomeOriginal.includes(cd.toLowerCase().replace(/_/g, ' ')));
+              if (match) {
+                mapeamentoInicial[coluna.original] = match;
+              }
+            });
+          }
         }
+      }
     }
     setMapeamentoCampos(mapeamentoInicial);
-  }, [dadosIniciais, mapeamentoSugerido, extrairCabecalhos, destino, obterSchema]);
+  }, [dadosIniciais, mapeamentoSugerido, extrairCabecalhos, destino, obterSchema, autoMapearColunas]);
 
   useEffect(() => {
     const carregarDadosApoio = async () => {
