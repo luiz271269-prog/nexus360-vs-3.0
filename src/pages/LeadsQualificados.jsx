@@ -1,152 +1,325 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useQuery } from '@tanstack/react-query';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, User, DollarSign, Calendar } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { Plus, Trash2, RefreshCw, TrendingUp, FileText, Users } from 'lucide-react';
+import { toast } from 'sonner';
+import KanbanLeadsColumn from '@/components/crm/KanbanLeadsColumn';
+import KanbanClientesColumn from '@/components/crm/KanbanClientesColumn';
+import KanbanOrcamentosColumn from '@/components/crm/KanbanOrcamentosColumn';
+
+const STATUS_LEADS = [
+  { id: 'novo_lead', label: '🆕 Novo Lead', status: 'novo_lead' },
+  { id: 'primeiro_contato', label: '📞 Primeiro Contato', status: 'primeiro_contato' },
+  { id: 'em_conversa', label: '💬 Em Conversa', status: 'em_conversa' },
+  { id: 'lead_qualificado', label: '✅ Qualificado', status: 'lead_qualificado' },
+  { id: 'desqualificado', label: '❌ Desqualificado', status: 'desqualificado' }
+];
+
+const STATUS_CLIENTES = [
+  { id: 'novo_lead', label: '🆕 Novo Lead', status: 'novo_lead' },
+  { id: 'em_conversa', label: '💬 Em Conversa', status: 'em_conversa' },
+  { id: 'lead_qualificado', label: '⭐ Qualificado', status: 'lead_qualificado' },
+  { id: 'cliente_ativo', label: '🎯 Cliente Ativo', status: 'cliente_ativo' }
+];
+
+const STATUS_ORCAMENTOS = [
+  { id: 'rascunho', label: '📝 Rascunho', status: 'rascunho' },
+  { id: 'enviado', label: '📤 Enviado', status: 'enviado' },
+  { id: 'negociando', label: '💬 Negociando', status: 'negociando' },
+  { id: 'aprovado', label: '✅ Aprovado', status: 'aprovado' },
+  { id: 'rejeitado', label: '❌ Rejeitado', status: 'rejeitado' }
+];
 
 export default function LeadsQualificados() {
-  const [clientes, setClientes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [colunas, setColunas] = useState({
-    leads: { title: 'Leads', items: [] },
-    qualificados: { title: 'Qualificados', items: [] },
-    negociacao: { title: 'Em Negociação', items: [] },
-    fechados: { title: 'Fechados', items: [] }
-  });
+  const [usuario, setUsuario] = useState(null);
+  const [aba, setAba] = useState('leads');
+  const [limpando, setLimpando] = useState(false);
 
   useEffect(() => {
-    carregarClientes();
+    const carregarUsuario = async () => {
+      try {
+        const user = await base44.auth.me();
+        setUsuario(user);
+      } catch (error) {
+        console.error('Erro ao carregar usuário:', error);
+      }
+    };
+    carregarUsuario();
   }, []);
 
-  const carregarClientes = async () => {
+  // LEADS
+  const { data: leads, isLoading: loadingLeads, refetch: refetchLeads } = useQuery({
+    queryKey: ['crm_leads'],
+    queryFn: async () => {
+      const clientes = await base44.entities.Cliente.list('-created_date', 500);
+      return clientes.filter(c => ['novo_lead', 'primeiro_contato', 'em_conversa', 'lead_qualificado', 'desqualificado'].includes(c.status));
+    }
+  });
+
+  // CLIENTES
+  const { data: clientes, isLoading: loadingClientes, refetch: refetchClientes } = useQuery({
+    queryKey: ['crm_clientes'],
+    queryFn: async () => {
+      const all = await base44.entities.Cliente.list('-created_date', 500);
+      return all.filter(c => ['cliente_ativo', 'Ativo'].includes(c.status));
+    }
+  });
+
+  // ORÇAMENTOS
+  const { data: orcamentos, isLoading: loadingOrcamentos, refetch: refetchOrcamentos } = useQuery({
+    queryKey: ['crm_orcamentos'],
+    queryFn: async () => {
+      return await base44.entities.Orcamento.list('-data_orcamento', 500);
+    }
+  });
+
+  // Função para limpar dados
+  const handleLimparBD = async () => {
+    setLimpando(true);
     try {
-      setLoading(true);
-      const clientesList = await base44.entities.Cliente.list();
-      setClientes(clientesList);
-      organizarPorStatus(clientesList);
+      // Deletar leads
+      const allClientes = await base44.entities.Cliente.list();
+      for (const cliente of allClientes) {
+        try {
+          await base44.entities.Cliente.delete(cliente.id);
+        } catch (err) {
+          console.warn('Erro ao deletar cliente:', err);
+        }
+      }
+
+      // Deletar orçamentos
+      const allOrcamentos = await base44.entities.Orcamento.list();
+      for (const orc of allOrcamentos) {
+        try {
+          await base44.entities.Orcamento.delete(orc.id);
+        } catch (err) {
+          console.warn('Erro ao deletar orçamento:', err);
+        }
+      }
+
+      toast.success('Base de dados limpa com sucesso! Pronto para começar.');
+      refetchLeads();
+      refetchClientes();
+      refetchOrcamentos();
     } catch (error) {
-      console.error('Erro ao carregar clientes:', error);
+      toast.error('Erro ao limpar base de dados: ' + error.message);
     } finally {
-      setLoading(false);
+      setLimpando(false);
     }
   };
 
-  const organizarPorStatus = (clientes) => {
-    const novasColunas = {
-      leads: { title: 'Leads', items: [] },
-      qualificados: { title: 'Qualificados', items: [] },
-      negociacao: { title: 'Em Negociação', items: [] },
-      fechados: { title: 'Fechados', items: [] }
-    };
-
-    clientes.forEach(cliente => {
-      let coluna = 'leads';
-      if (cliente.status === 'lead_qualificado') coluna = 'qualificados';
-      if (cliente.status === 'em_aquecimento' || cliente.status === 'em_conversa') coluna = 'negociacao';
-      if (cliente.status === 'Ativo') coluna = 'fechados';
-
-      novasColunas[coluna].items.push(cliente);
-    });
-
-    setColunas(novasColunas);
-  };
-
-  const handleDragEnd = (result) => {
+  // Handler para drag and drop
+  const handleDragEnd = async (result) => {
     const { source, destination, draggableId } = result;
-    
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    // Copiar colunas
-    const novasColunas = { ...colunas };
-    const item = novasColunas[source.droppableId].items[source.index];
-    
-    // Remover de origem
-    novasColunas[source.droppableId].items.splice(source.index, 1);
-    
-    // Adicionar em destino
-    novasColunas[destination.droppableId].items.splice(destination.index, 0, item);
-    
-    setColunas(novasColunas);
+    try {
+      const novoStatus = destination.droppableId;
+      
+      if (aba === 'leads' || aba === 'clientes') {
+        await base44.entities.Cliente.update(draggableId, { status: novoStatus });
+        refetchLeads();
+        refetchClientes();
+      } else if (aba === 'orcamentos') {
+        await base44.entities.Orcamento.update(draggableId, { status: novoStatus });
+        refetchOrcamentos();
+      }
+    } catch (error) {
+      toast.error('Erro ao atualizar: ' + error.message);
+    }
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'novo_lead': 'bg-blue-100 text-blue-800',
-      'lead_qualificado': 'bg-green-100 text-green-800',
-      'em_negociacao': 'bg-yellow-100 text-yellow-800',
-      'Ativo': 'bg-purple-100 text-purple-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-screen">Carregando...</div>;
-  }
+  const loadingAba = aba === 'leads' ? loadingLeads : aba === 'clientes' ? loadingClientes : loadingOrcamentos;
 
   return (
-    <div className="p-6 h-full">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">CRM Kanban</h1>
-        <p className="text-gray-600">Gerencie seus leads e clientes com arrastar e soltar</p>
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-3">
+            <TrendingUp className="w-8 h-8 text-blue-600" />
+            CRM - Funil de Vendas
+          </h1>
+          <p className="text-slate-600 mt-1">
+            Central de Qualificação: Leads → Clientes → Orçamentos
+          </p>
+        </div>
+
+        <div className="flex gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={limpando}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Limpar BD
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>⚠️ Limpar Base de Dados</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Isto vai deletar TODOS os Clientes e Orçamentos. Esta ação é irreversível. Tem certeza?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="flex gap-3">
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleLimparBD}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Sim, Limpar
+                </AlertDialogAction>
+              </div>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <Button 
+            onClick={() => {
+              refetchLeads();
+              refetchClientes();
+              refetchOrcamentos();
+            }}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 h-[calc(100vh-180px)]">
-          {Object.entries(colunas).map(([key, coluna]) => (
-            <Droppable key={key} droppableId={key}>
-              {(provided, snapshot) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  className={`bg-gray-50 rounded-lg p-4 flex flex-col ${
-                    snapshot.isDraggingOver ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                    {coluna.title} ({coluna.items.length})
-                  </h2>
-                  <div className="space-y-3 flex-1 overflow-y-auto">
-                    {coluna.items.map((cliente, index) => (
-                      <Draggable key={cliente.id} draggableId={cliente.id} index={index}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className={`bg-white rounded-lg p-4 shadow-sm border-l-4 border-orange-500 cursor-move ${
-                              snapshot.isDragging ? 'shadow-lg bg-blue-50' : ''
-                            }`}
-                          >
-                            <h3 className="font-semibold text-gray-900 truncate">
-                              {cliente.nome_fantasia || cliente.razao_social}
-                            </h3>
-                            <p className="text-sm text-gray-600 mt-1">{cliente.ramo_atividade}</p>
-                            <div className="flex items-center gap-2 mt-2">
-                              <Badge className={getStatusColor(cliente.status)}>
-                                {cliente.status}
-                              </Badge>
-                            </div>
-                            {cliente.valor_recorrente_mensal && (
-                              <div className="flex items-center gap-1 mt-2 text-sm text-gray-700">
-                                <DollarSign className="w-4 h-4" />
-                                R$ {cliente.valor_recorrente_mensal.toLocaleString('pt-BR')}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                  </div>
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          ))}
-        </div>
-      </DragDropContext>
+      {/* Métricas Rápidas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-l-4 border-blue-500">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Leads em Qualificação</p>
+                <p className="text-3xl font-bold text-blue-600 mt-2">{leads?.length || 0}</p>
+              </div>
+              <Users className="w-10 h-10 text-blue-500 opacity-20" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-green-500">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Clientes Ativos</p>
+                <p className="text-3xl font-bold text-green-600 mt-2">{clientes?.length || 0}</p>
+              </div>
+              <Users className="w-10 h-10 text-green-500 opacity-20" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-orange-500">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Orçamentos em Aberto</p>
+                <p className="text-3xl font-bold text-orange-600 mt-2">
+                  {orcamentos?.filter(o => !['rejeitado'].includes(o.status)).length || 0}
+                </p>
+              </div>
+              <FileText className="w-10 h-10 text-orange-500 opacity-20" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Kanban Tabs */}
+      <Tabs value={aba} onValueChange={setAba} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="leads">
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Leads
+          </TabsTrigger>
+          <TabsTrigger value="clientes">
+            <Users className="w-4 h-4 mr-2" />
+            Clientes
+          </TabsTrigger>
+          <TabsTrigger value="orcamentos">
+            <FileText className="w-4 h-4 mr-2" />
+            Orçamentos
+          </TabsTrigger>
+        </TabsList>
+
+        {/* TAB: LEADS */}
+        <TabsContent value="leads" className="space-y-4">
+          {loadingLeads ? (
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-96 bg-slate-100 animate-pulse rounded-lg" />
+              ))}
+            </div>
+          ) : (
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                {STATUS_LEADS.map(status => (
+                  <KanbanLeadsColumn
+                    key={status.id}
+                    status={status}
+                    items={leads?.filter(l => l.status === status.status) || []}
+                  />
+                ))}
+              </div>
+            </DragDropContext>
+          )}
+        </TabsContent>
+
+        {/* TAB: CLIENTES */}
+        <TabsContent value="clientes" className="space-y-4">
+          {loadingClientes ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-96 bg-slate-100 animate-pulse rounded-lg" />
+              ))}
+            </div>
+          ) : (
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {STATUS_CLIENTES.map(status => (
+                  <KanbanClientesColumn
+                    key={status.id}
+                    status={status}
+                    items={clientes?.filter(c => c.status === status.status) || []}
+                  />
+                ))}
+              </div>
+            </DragDropContext>
+          )}
+        </TabsContent>
+
+        {/* TAB: ORÇAMENTOS */}
+        <TabsContent value="orcamentos" className="space-y-4">
+          {loadingOrcamentos ? (
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-96 bg-slate-100 animate-pulse rounded-lg" />
+              ))}
+            </div>
+          ) : (
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                {STATUS_ORCAMENTOS.map(status => (
+                  <KanbanOrcamentosColumn
+                    key={status.id}
+                    status={status}
+                    items={orcamentos?.filter(o => o.status === status.status) || []}
+                  />
+                ))}
+              </div>
+            </DragDropContext>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
