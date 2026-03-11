@@ -49,7 +49,7 @@ export default function SegmentacaoInteligente({
   const carregarAnalise = async () => {
     try {
       setLoading(true);
-      const analises = await base44.entities.ContactBehaviorAnalysis.list('-ultima_analise', 1, { contact_id: contactId });
+      const analises = await base44.entities.ContactBehaviorAnalysis.list('-analyzed_at', 1, { contact_id: contactId });
       
       if (analises.length > 0) {
         setAnalise(analises[0]);

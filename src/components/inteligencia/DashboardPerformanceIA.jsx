@@ -32,10 +32,7 @@ import {
   Activity,
   RefreshCw
 } from 'lucide-react';
-import { Interacao } from '@/entities/Interacao';
-import { MessageThread } from '@/entities/MessageThread';
-import { AprendizadoIA } from '@/entities/AprendizadoIA';
-import { BaseConhecimento } from '@/entities/BaseConhecimento';
+import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 
 export default function DashboardPerformanceIA() {
