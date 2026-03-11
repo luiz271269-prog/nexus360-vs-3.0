@@ -436,6 +436,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     carregarDados();
+    base44.analytics.track({
+      eventName: "dashboard_viewed",
+      properties: { view_mode: viewMode, is_gerente: isGerente }
+    });
   }, [carregarDados]);
 
   useEffect(() => {
