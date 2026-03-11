@@ -1,6 +1,8 @@
 import React from "react";
 const { useState, useEffect } = React;
 import { base44 } from "@/api/base44Client";
+import { analisarComportamentoContato } from "@/functions/analisarComportamentoContato";
+import InsightRenderer from "@/components/comunicacao/InsightRenderer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
