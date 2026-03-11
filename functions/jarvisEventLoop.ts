@@ -64,24 +64,10 @@ Deno.serve(async (req) => {
     };
 
     // ══════════════════════════════════════════════
-    // STEP 0: Contexto do negócio (businessIA)
-    // Ajusta sensibilidade se o negócio estiver em crise
+    // STEP 0: sensibilidadeBoost fixo em 0
+    // businessIA removido: sempre falhava silenciosamente (BUG-007 fix)
     // ══════════════════════════════════════════════
-    let sensibilidadeBoost = 0;
-    try {
-      const saude = await base44.asServiceRole.functions.invoke('businessIA', {
-        action: 'strategic_insights'
-      });
-      const criticos = (saude.data?.insights || []).filter(i =>
-        i.tipo === 'alerta' && i.severidade === 'critica'
-      );
-      if (criticos.length > 0) {
-        sensibilidadeBoost = 10;
-        console.log(`[NEXUS-AGENT v3.1] ⚠️ ${criticos.length} alerta(s) crítico(s) → sensibilidade +${sensibilidadeBoost}`);
-      }
-    } catch (e) {
-      console.warn('[NEXUS-AGENT v3.1] businessIA indisponível — sensibilidade normal');
-    }
+    const sensibilidadeBoost = 0;
 
     // ══════════════════════════════════════════════
     // STEP 2: Threads ociosas com decisão inteligente

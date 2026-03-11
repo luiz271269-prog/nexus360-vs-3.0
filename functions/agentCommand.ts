@@ -240,8 +240,17 @@ CONTEXTO OPERACIONAL (pré-buscado — DADOS REAIS):
 • Execuções ativas: ${contextData.snapshot.runs_ativos}
 ${contextoMemoria}
 
+SCHEMA DAS ENTIDADES (use ao montar filtros no query_database):
+• Contact: id, nome, telefone, telefone_canonico, empresa, tipo_contato(novo/lead/cliente/fornecedor/parceiro), classe_abc(A/B/C), score_abc, tags[], atendente_fidelizado_vendas, vendedor_responsavel, ultima_interacao
+• MessageThread: id, contact_id, status(aberta/fechada/arquivada), channel(whatsapp/instagram/interno), assigned_user_id, last_message_at, last_message_sender(user/contact), unread_count, sector_id, jarvis_alerted_at, jarvis_next_check_after, pre_atendimento_state, thread_type(contact_external/team_internal)
+• Orcamento: id, cliente_nome, cliente_id, vendedor, status(rascunho/aguardando_cotacao/enviado/negociando/aprovado/rejeitado/vencido), valor_total, data_orcamento, data_vencimento
+• Venda: id, cliente_nome, vendedor, data_venda, valor_total, status(Pendente/Faturado/Entregue/Cancelado), produtos[]
+• AgentRun: id, trigger_type(manual.invoke/scheduled.check/message.inbound/thread.updated), playbook_selected, status(iniciado/processando/concluido/falhou), context_snapshot, started_at, duration_ms
+• WorkQueueItem: id, tipo(idle_reativacao/enviar_promocao/follow_up/manual), contact_id, thread_id, status(open/done/dismissed/cancelado), severity(low/medium/high/critical), payload, reason
+• Cliente: id, razao_social, nome_fantasia, cnpj, status(novo_lead/qualificado/Ativo/Inativo), vendedor_id, score_qualificacao_lead
+
 INSTRUÇÕES:
-1. Use query_database para dados específicos que precisar além do contexto pré-buscado.
+1. Use query_database com filtros corretos baseados no schema acima.
 2. Use search_knowledge para produtos, preços, políticas.
 3. Use save_to_knowledge quando o usuário ENSINAR algo novo.
 4. Sempre cite dados reais. Seja objetivo, máximo 3 parágrafos.`;
@@ -298,11 +307,22 @@ INSTRUÇÕES:
             }
           }
         } catch (anthropicError) {
-          console.warn('[AGENT-COMMAND] Anthropic falhou, ativando Fallback:', anthropicError.message);
-          usedFallback = true;
+          console.warn('[AGENT-COMMAND] Anthropic falhou:', anthropicError.message);
 
-          // ── CAMINHO DE SEGURANÇA: InvokeLLM com Dados Pré-Buscados ────
-          const fallbackPrompt = `Baseado NESSES DADOS REAIS do sistema (não invente, não especule):
+          // BUG-008 fix: erro 401 = chave inválida → não tentar fallback, informar explicitamente
+          const isAuthError = anthropicError.message?.includes('401') ||
+            anthropicError.message?.includes('Unauthorized') ||
+            anthropicError.message?.includes('invalid_api_key') ||
+            anthropicError.message?.includes('authentication');
+
+          if (isAuthError) {
+            text = '⚠️ **Nexus AI indisponível**: A chave de API (ANTROPIK_API) está inválida ou expirada. Solicite ao administrador que atualize a chave em Base44 → Settings → Environment Variables.';
+            console.error('[AGENT-COMMAND] ❌ Erro de autenticação Anthropic — chave inválida');
+          } else {
+            usedFallback = true;
+
+            // ── CAMINHO DE SEGURANÇA: InvokeLLM com Dados Pré-Buscados ────
+            const fallbackPrompt = `Baseado NESSES DADOS REAIS do sistema (não invente, não especule):
 
 ${JSON.stringify(contextData.snapshot, null, 2)}
 
@@ -315,16 +335,17 @@ Pergunta do usuário: ${user_message}
 
 Responda usando APENAS os dados fornecidos. Não invente dados. Se não souber, diga que a informação não está disponível.`;
 
-          try {
-            const iaResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
-              prompt: fallbackPrompt,
-              model: 'gemini_3_flash'
-            });
-            text = typeof iaResponse === 'string' ? iaResponse : JSON.stringify(iaResponse);
-            console.log('[AGENT-COMMAND] ✓ Fallback InvokeLLM respondeu');
-          } catch (fallbackError) {
-            console.error('[AGENT-COMMAND] Fallback também falhou:', fallbackError.message);
-            text = `[Modo backup] Não foi possível processar sua pergunta neste momento. Dados disponíveis no sistema: ${contextData.snapshot.vendas_count} vendas, ${contextData.snapshot.pipeline_valor} em pipeline.`;
+            try {
+              const iaResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
+                prompt: fallbackPrompt,
+                model: 'gemini_3_flash'
+              });
+              text = typeof iaResponse === 'string' ? iaResponse : JSON.stringify(iaResponse);
+              console.log('[AGENT-COMMAND] ✓ Fallback InvokeLLM respondeu');
+            } catch (fallbackError) {
+              console.error('[AGENT-COMMAND] Fallback também falhou:', fallbackError.message);
+              text = `[Modo backup] Não foi possível processar sua pergunta neste momento. Dados disponíveis: ${contextData.snapshot.vendas_count} vendas, R$ ${contextData.snapshot.pipeline_valor?.toLocaleString('pt-BR')} em pipeline.`;
+            }
           }
         }
 
