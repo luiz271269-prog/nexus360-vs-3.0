@@ -400,26 +400,49 @@ export default function Clientes() {
                 Novo Cliente
               </Button>
 
+              <div className="flex items-center gap-1">
               <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-1 border border-slate-600/50">
                 <Button
-                  variant={viewMode === 'lista' ? 'default' : 'ghost'}
+                  variant={aba === 'clientes' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setViewMode('lista')}
-                  className={`h-8 px-3 ${viewMode === 'lista' ? 'bg-gradient-to-r from-orange-500 to-amber-600 text-white' : 'text-slate-300 hover:text-white'}`}
+                  onClick={() => setAba('clientes')}
+                  className={`h-8 px-3 ${aba === 'clientes' ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' : 'text-slate-300 hover:text-white'}`}
                 >
-                  <List className="w-4 h-4 mr-1" />
-                  Lista
+                  Clientes
                 </Button>
                 <Button
-                  variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                  variant={aba === 'contatos_fidelizados' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setViewMode('kanban')}
-                  className={`h-8 px-3 ${viewMode === 'kanban' ? 'bg-gradient-to-r from-orange-500 to-amber-600 text-white' : 'text-slate-300 hover:text-white'}`}
+                  onClick={() => setAba('contatos_fidelizados')}
+                  className={`h-8 px-3 ${aba === 'contatos_fidelizados' ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' : 'text-slate-300 hover:text-white'}`}
                 >
-                  <Grid3x3 className="w-4 h-4 mr-1" />
-                  Kanban
+                  👤 Contatos Fidelizados
                 </Button>
               </div>
+
+              {aba === 'clientes' && (
+                <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-1 border border-slate-600/50 ml-2">
+                  <Button
+                    variant={viewMode === 'lista' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('lista')}
+                    className={`h-8 px-3 ${viewMode === 'lista' ? 'bg-gradient-to-r from-orange-500 to-amber-600 text-white' : 'text-slate-300 hover:text-white'}`}
+                  >
+                    <List className="w-4 h-4 mr-1" />
+                    Lista
+                  </Button>
+                  <Button
+                    variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('kanban')}
+                    className={`h-8 px-3 ${viewMode === 'kanban' ? 'bg-gradient-to-r from-orange-500 to-amber-600 text-white' : 'text-slate-300 hover:text-white'}`}
+                  >
+                    <Grid3x3 className="w-4 h-4 mr-1" />
+                    Kanban
+                  </Button>
+                </div>
+              )}
+            </div>
             </div>
           </div>
         </div>
