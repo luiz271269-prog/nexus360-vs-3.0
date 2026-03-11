@@ -590,7 +590,10 @@ export default function Dashboard() {
         {/* Acesso Rápido Kanbans */}
         <div className="grid grid-cols-3 gap-3">
           <button
-            onClick={() => navigate(createPageUrl('LeadsQualificados'))}
+            onClick={() => {
+              navigate(createPageUrl('LeadsQualificados'));
+              base44.analytics.track({ eventName: "dashboard_kanban_clicked", properties: { kanban: "leads_qualificados" } });
+            }}
             className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-4 rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200 text-left">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium opacity-80">Kanban de Gestão de Leads</span>
