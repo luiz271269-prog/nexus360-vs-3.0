@@ -506,6 +506,36 @@ export default function GradeDadosEstruturados({
 
       console.log("✅ Dados com campos obrigatórios preenchidos (amostra):", dadosComObrigatorios.slice(0, 2));
 
+      // CORREÇÃO 3: Validação de qualidade dos dados antes de salvar
+      if (destino === 'vendas') {
+        const semCliente = dadosComObrigatorios.filter(d => !d.cliente_nome || d.cliente_nome === 'Cliente não informado');
+        const semValor = dadosComObrigatorios.filter(d => !d.valor_total || d.valor_total === 0);
+
+        if (semCliente.length > dadosComObrigatorios.length * 0.5) {
+          const confirmar = window.confirm(
+            `⚠️ ATENÇÃO: ${semCliente.length} de ${dadosComObrigatorios.length} registros não têm cliente identificado.\n\n` +
+            `Isso indica que a coluna "Cliente/Razão Social" não foi mapeada corretamente.\n\n` +
+            `Deseja continuar mesmo assim? Os dados serão salvos como "Cliente não informado".`
+          );
+          if (!confirmar) {
+            set_internalLoading(false);
+            return;
+          }
+        }
+
+        if (semValor.length > dadosComObrigatorios.length * 0.5) {
+          const confirmar = window.confirm(
+            `⚠️ ATENÇÃO: ${semValor.length} de ${dadosComObrigatorios.length} registros têm valor R$ 0,00.\n\n` +
+            `Isso indica que a coluna "Valor Total" não foi mapeada corretamente.\n\n` +
+            `Deseja continuar mesmo assim?`
+          );
+          if (!confirmar) {
+            set_internalLoading(false);
+            return;
+          }
+        }
+      }
+
       // 3. Salvar em lote
       await EntidadeDestino.bulkCreate(dadosComObrigatorios);
 
