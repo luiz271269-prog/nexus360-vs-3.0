@@ -196,6 +196,15 @@ export default function SegmentacaoInteligente({
       toast.dismiss(toastId);
       
       // Mensagens de erro mais amigáveis
+      base44.analytics.track({
+        eventName: "ai_segmentation_failed",
+        properties: {
+          mode: modeAtual,
+          periodo_dias: modeAtual === "period" ? periodoDias : null,
+          error: error.message?.substring(0, 100) || "unknown"
+        }
+      });
+
       let mensagemErro = 'Erro ao analisar comportamento';
       
       if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
