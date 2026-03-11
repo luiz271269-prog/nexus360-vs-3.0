@@ -616,7 +616,10 @@ export default function Dashboard() {
           </button>
 
           <button
-            onClick={() => navigate(createPageUrl('Orcamentos'))}
+            onClick={() => {
+              navigate(createPageUrl('Orcamentos'));
+              base44.analytics.track({ eventName: "dashboard_kanban_clicked", properties: { kanban: "orcamentos" } });
+            }}
             className="bg-gradient-to-br from-amber-500 to-orange-600 text-white p-4 rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200 text-left">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium opacity-80">Pipeline de Orçamentos</span>
