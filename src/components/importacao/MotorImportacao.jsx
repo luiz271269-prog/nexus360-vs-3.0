@@ -79,16 +79,17 @@ const extrairDadosComIA = async (fileUrl, tipoArquivo, nomeArquivo) => {
   // ✅ BUG FIX 2: PDF via Anthropic API direta (sem timeout)
   if (tipoArquivo === 'pdf') {
     try {
-      const resultado = await base44.functions.invoke('extrairDadosPDF', { file_url: fileUrl });
-      if (resultado?.data?.success && resultado?.data?.dados_extraidos) {
+      const response = await extrairDadosPDF({ file_url: fileUrl });
+      const resultado = response?.data;
+      if (resultado?.success && resultado?.dados_extraidos) {
         return {
-          dados_extraidos: resultado.data.dados_extraidos,
-          confianca_extracao: resultado.data.confianca_extracao || 80,
-          tipo_conteudo_detectado: resultado.data.tipo_conteudo_detectado || 'pdf_tabela',
-          observacoes: resultado.data.observacoes || 'Dados extraídos do PDF'
+          dados_extraidos: resultado.dados_extraidos,
+          confianca_extracao: resultado.confianca_extracao || 80,
+          tipo_conteudo_detectado: resultado.tipo_conteudo_detectado || 'pdf_tabela',
+          observacoes: resultado.observacoes || 'Dados extraídos do PDF'
         };
       }
-      throw new Error(resultado?.data?.error || 'Falha ao extrair dados do PDF');
+      throw new Error(resultado?.error || 'Falha ao extrair dados do PDF');
     } catch (error) {
       console.error('Erro ao processar PDF:', error);
       throw new Error(`Erro ao processar PDF: ${error.message}`);
