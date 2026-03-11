@@ -236,6 +236,11 @@ export default function Dashboard() {
       dataInicio: dataInicioMes,
       dataFim: dataFimMes
     }));
+
+    base44.analytics.track({
+      eventName: "dashboard_period_changed",
+      properties: { month: selectedMonth, year: anoAtual }
+    });
   };
 
   const carregarDadosComCache = useCallback(async () => {
