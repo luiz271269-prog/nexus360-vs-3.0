@@ -549,8 +549,13 @@ export default function Dashboard() {
           onAcaoExecutada={(alerta) => {
             if (alerta.id === 'fechar_tudo') {
               setAlertasIA([]);
+              base44.analytics.track({ eventName: "dashboard_ia_alerts_dismissed_all" });
               return;
             }
+            base44.analytics.track({
+              eventName: "dashboard_ia_alert_action",
+              properties: { alert_id: alerta.id, prioridade: alerta.prioridade, titulo: alerta.titulo }
+            });
             if (alerta.onAcao) {
               alerta.onAcao();
             }
