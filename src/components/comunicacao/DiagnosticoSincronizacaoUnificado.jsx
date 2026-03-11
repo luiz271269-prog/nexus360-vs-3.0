@@ -69,6 +69,39 @@ export default function DiagnosticoSincronizacaoUnificado({ contact, usuario, on
     navigate(url);
   };
 
+  const handleCorrecaoCompleta = async (modoExec) => {
+    setLoadingCorrecao(true);
+    try {
+      const res = await base44.functions.invoke('corrigirVinculacaoThreadContato', {
+        contact_id: contact.id,
+        modo: modoExec
+      });
+
+      console.log('[CorrecaoCompleta]', res?.data);
+
+      if (modoExec === 'diagnostico') {
+        setRelatorioCorrecao(res?.data);
+        const dups = res?.data?.duplicados_encontrados?.length || 0;
+        const threads = res?.data?.threads_para_mover?.length || 0;
+        if (dups > 0 || threads > 0) {
+          toast.warning(`⚠️ ${dups} duplicado(s), ${threads} thread(s) a mover`);
+        } else {
+          toast.success('✅ Nenhum problema de vinculação encontrado');
+        }
+      } else {
+        const corrigidos = res?.data?.corrigidos || [];
+        toast.success(`✅ Correção concluída! ${corrigidos.length} ajuste(s) feito(s)`);
+        setRelatorioCorrecao(null);
+        if (onUpdate) await onUpdate();
+      }
+    } catch (error) {
+      console.error('[CorrecaoCompleta] Erro:', error);
+      toast.error(`❌ ${error?.message}`);
+    } finally {
+      setLoadingCorrecao(false);
+    }
+  };
+
   return (
     <div className="p-4 space-y-3">
       {/* Resultado anterior */}
