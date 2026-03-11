@@ -9,9 +9,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Plus, Trash2, RefreshCw, TrendingUp, FileText, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import KanbanLeadsColumn from '../components/crm/KanbanLeadsColumn.js';
-import KanbanClientesColumn from '../components/crm/KanbanClientesColumn.js';
-import KanbanOrcamentosColumn from '../components/crm/KanbanOrcamentosColumn.js';
+import KanbanLeadsColumn from '@/components/crm/KanbanLeadsColumn';
+import KanbanClientesColumn from '@/components/crm/KanbanClientesColumn';
+import KanbanOrcamentosColumn from '@/components/crm/KanbanOrcamentosColumn';
 
 const STATUS_LEADS = [
   { id: 'novo_lead', label: '🆕 Novo Lead', status: 'novo_lead' },
