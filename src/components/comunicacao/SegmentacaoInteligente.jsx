@@ -731,10 +731,10 @@ export default function SegmentacaoInteligente({
               <CardContent>
                 <div className="flex items-center gap-3">
                   <div className="text-3xl font-bold text-purple-600">
-                    {analise.score_engajamento}
+                    {analise.scores?.engagement ?? analise.priority_score ?? 0}
                   </div>
                   <div className="flex-1">
-                    <Progress value={analise.score_engajamento} className="h-2" />
+                    <Progress value={analise.scores?.engagement ?? analise.priority_score ?? 0} className="h-2" />
                   </div>
                 </div>
               </CardContent>
