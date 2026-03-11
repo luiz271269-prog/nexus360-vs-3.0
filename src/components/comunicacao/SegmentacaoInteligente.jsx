@@ -714,12 +714,12 @@ export default function SegmentacaoInteligente({
                 <CardTitle className="text-sm font-medium text-slate-600">Segmento</CardTitle>
               </CardHeader>
               <CardContent>
-                <Badge className={`text-base px-3 py-1 ${getSegmentoColor(analise.segmento_sugerido)}`}>
+                <Badge className={`text-base px-3 py-1 ${getSegmentoColor(analise.scores?.health > 60 ? 'cliente_ativo' : 'lead_frio')}`}>
                   <Target className="w-4 h-4 mr-2" />
-                  {analise.segmento_sugerido?.replace(/_/g, ' ')}
+                  {analise.priority_label?.replace(/_/g, ' ') || 'Sem dados'}
                 </Badge>
                 <p className="text-xs text-slate-500 mt-2">
-                  Confiança: {analise.confianca_segmentacao}%
+                  Score: {analise.priority_score || 0}/100
                 </p>
               </CardContent>
             </Card>
