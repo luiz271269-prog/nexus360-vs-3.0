@@ -2040,15 +2040,9 @@ export default function Comunicacao() {
 
     const deduplicated = Array.from(threadsPorChaveUnica.values());
 
-    // ✅ NOVA ORDENAÇÃO: Completude → Tipo → Recência
+    // ✅ ORDENAÇÃO: Recência PRIMEIRO → Tipo → Completude
     return deduplicated.sort((a, b) => {
-      // 1️⃣ PRIORIDADE MÁXIMA: Contatos com dados completos
-      const scoreA = a.uiMeta?.scoreCompletude ?? 0;
-      const scoreB = b.uiMeta?.scoreCompletude ?? 0;
-      
-      if (scoreA !== scoreB) return scoreB - scoreA; // Completos primeiro
-      
-      // 2️⃣ Tipo de item (threads > contatos sem thread > clientes sem contato)
+      // 1️⃣ PRIORIDADE MÁXIMA: Tipo de item (threads com mensagens primeiro)
       const getPrioridade = (item) => {
         if (item.is_cliente_only) return 3;
         if (item.is_contact_only) return 2;
@@ -2059,7 +2053,7 @@ export default function Comunicacao() {
       const prioB = getPrioridade(b);
       if (prioA !== prioB) return prioA - prioB;
 
-      // 3️⃣ Recência
+      // 2️⃣ Recência: mensagens mais recentes no topo (SEMPRE)
       const dateA = new Date(a.last_message_at || 0);
       const dateB = new Date(b.last_message_at || 0);
       return dateB - dateA;
