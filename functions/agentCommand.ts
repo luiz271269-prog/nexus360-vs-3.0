@@ -323,18 +323,29 @@ INSTRUÇÕES:
           usedFallback = true;
 
           // ── CAMINHO DE SEGURANÇA: InvokeLLM Base44 (independente da chave Anthropic) ────
-          const fallbackPrompt = `Baseado NESSES DADOS REAIS do sistema (não invente, não especule):
+          const fallbackPrompt = `Você é o Nexus AI, assistente do CRM. Responda usando APENAS os dados reais abaixo. Não invente. Seja preciso e cite nomes/valores reais.
 
+RESUMO DO SISTEMA:
 ${JSON.stringify(contextData.snapshot, null, 2)}
 
-Últimos dados disponíveis:
-${contextData.vendas.length > 0 ? `Vendas: ${JSON.stringify(contextData.vendas.slice(0, 2), null, 2)}` : 'Sem vendas'}
-${contextData.orcamentos.length > 0 ? `Orçamentos: ${JSON.stringify(contextData.orcamentos.slice(0, 2), null, 2)}` : 'Sem orçamentos'}
-${contextData.threads.length > 0 ? `Conversas: ${JSON.stringify(contextData.threads.slice(0, 1), null, 2)}` : 'Sem conversas'}
+ORÇAMENTOS COMPLETOS (${contextData.orcamentosTodos.length} total):
+${JSON.stringify(contextData.orcamentosTodos.map(o => ({ id: o.id, numero: o.numero_orcamento, cliente: o.cliente_nome, vendedor: o.vendedor, status: o.status, valor: o.valor_total, data: o.data_orcamento, vencimento: o.data_vencimento })), null, 2)}
 
-Pergunta do usuário: ${user_message}
+VENDAS RECENTES (${contextData.vendas.length} registros):
+${JSON.stringify(contextData.vendas.map(v => ({ id: v.id, cliente: v.cliente_nome, vendedor: v.vendedor, valor: v.valor_total, status: v.status, data: v.data_venda })), null, 2)}
 
-Responda usando APENAS os dados fornecidos. Não invente dados. Se não souber, diga que a informação não está disponível.`;
+CONTATOS (${contextData.contatos.length} total):
+${JSON.stringify(contextData.contatos.map(c => ({ id: c.id, nome: c.nome, empresa: c.empresa, classe_abc: c.classe_abc, tipo: c.tipo_contato, ultima_interacao: c.ultima_interacao, last_attention_given_at: c.last_attention_given_at, tags: c.tags })), null, 2)}
+
+CONVERSAS ABERTAS (${contextData.threads.length}):
+${JSON.stringify(contextData.threads.map(t => ({ id: t.id, contact_id: t.contact_id, assigned_user_id: t.assigned_user_id, last_message_at: t.last_message_at, unread_count: t.unread_count, sector_id: t.sector_id })), null, 2)}
+
+FILA DE TRABALHO (${contextData.workQueue.length} abertos):
+${JSON.stringify(contextData.workQueue.map(w => ({ id: w.id, tipo: w.tipo, contact_id: w.contact_id, severity: w.severity, notes: w.notes, created_date: w.created_date })), null, 2)}
+
+PERGUNTA: ${user_message}
+
+Responda com dados reais dos registros acima. Se a pergunta pedir filtragem (ex: classe A, sem atenção X dias), aplique o filtro nos dados fornecidos e liste os resultados.`;
 
           try {
             const iaResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
