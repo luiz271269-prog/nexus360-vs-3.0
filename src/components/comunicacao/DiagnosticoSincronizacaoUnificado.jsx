@@ -1,7 +1,7 @@
 import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Loader2, Zap, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, Zap, AlertCircle, CheckCircle2, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { createPageUrl } from '@/utils';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,8 @@ import SincronizadorMensagensOrfas from './SincronizadorMensagensOrfas';
 export default function DiagnosticoSincronizacaoUnificado({ contact, usuario, onUpdate }) {
   const [loading, setLoading] = React.useState(false);
   const [resultado, setResultado] = React.useState(null);
+  const [loadingCorrecao, setLoadingCorrecao] = React.useState(false);
+  const [relatorioCorrecao, setRelatorioCorrecao] = React.useState(null);
   const navigate = useNavigate();
 
   const handleSincronizar = async () => {
