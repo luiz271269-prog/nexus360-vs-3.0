@@ -445,29 +445,67 @@ export default function DashboardExecutivo() {
         </div>
       </div>
 
-      {/* Alertas */}
-      {kpis?.alertas && kpis.alertas.length > 0 && (
-        <Card className="border-l-4 border-orange-500 bg-orange-50">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-orange-900 mb-2">
-                  {kpis.alertas.length} alerta{kpis.alertas.length > 1 ? 's' : ''} requer{kpis.alertas.length === 1 ? '' : 'em'} atenção
-                </h3>
-                <div className="space-y-2">
-                  {kpis.alertas.map((alerta, idx) => (
-                    <div key={idx} className="bg-white p-3 rounded-lg border border-orange-200">
-                      <p className="font-medium text-sm text-orange-900">{alerta.mensagem}</p>
-                      <p className="text-xs text-orange-700 mt-1">→ {alerta.acao}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Alerta de Vendas Inválidas */}
+       {vendaInvalidaAlert && (
+         <Card className="border-l-4 border-red-500 bg-red-50">
+           <CardContent className="pt-6">
+             <div className="flex items-start gap-3 justify-between">
+               <div className="flex items-start gap-3 flex-1">
+                 <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                 <div>
+                   <h3 className="font-semibold text-red-900 mb-1">
+                     ⚠️ {vendaInvalidaAlert.count} venda{vendaInvalidaAlert.count !== 1 ? 's' : ''} com dados incompletos
+                   </h3>
+                   <p className="text-sm text-red-700">
+                     Registros com cliente não informado e valor zero encontrados. Estes podem ter sido criados por mapeamentos vazios.
+                   </p>
+                 </div>
+               </div>
+               <Button
+                 onClick={async () => {
+                   try {
+                     for (const id of vendaInvalidaAlert.ids) {
+                       await base44.entities.Venda.delete(id);
+                     }
+                     toast.success(`${vendaInvalidaAlert.count} venda(s) inválida(s) removida(s)`);
+                     setVendaInvalidaAlert(null);
+                     refetch();
+                   } catch (error) {
+                     toast.error('Erro ao limpar registros: ' + error.message);
+                   }
+                 }}
+                 className="flex-shrink-0 bg-red-600 hover:bg-red-700 text-white text-xs"
+               >
+                 Limpar
+               </Button>
+             </div>
+           </CardContent>
+         </Card>
+       )}
+
+       {/* Alertas de Negócio */}
+       {kpis?.alertas && kpis.alertas.length > 0 && (
+         <Card className="border-l-4 border-orange-500 bg-orange-50">
+           <CardContent className="pt-6">
+             <div className="flex items-start gap-3">
+               <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+               <div className="flex-1">
+                 <h3 className="font-semibold text-orange-900 mb-2">
+                   {kpis.alertas.length} alerta{kpis.alertas.length > 1 ? 's' : ''} requer{kpis.alertas.length === 1 ? '' : 'em'} atenção
+                 </h3>
+                 <div className="space-y-2">
+                   {kpis.alertas.map((alerta, idx) => (
+                     <div key={idx} className="bg-white p-3 rounded-lg border border-orange-200">
+                       <p className="font-medium text-sm text-orange-900">{alerta.mensagem}</p>
+                       <p className="text-xs text-orange-700 mt-1">→ {alerta.acao}</p>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+             </div>
+           </CardContent>
+         </Card>
+       )}
 
       {/* KPIs Principais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
