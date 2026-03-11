@@ -603,7 +603,10 @@ export default function Dashboard() {
           </button>
 
           <button
-            onClick={() => navigate(createPageUrl('Clientes'))}
+            onClick={() => {
+              navigate(createPageUrl('Clientes'));
+              base44.analytics.track({ eventName: "dashboard_kanban_clicked", properties: { kanban: "clientes" } });
+            }}
             className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-4 rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200 text-left">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium opacity-80">Kanban de Gestão de Clientes</span>
