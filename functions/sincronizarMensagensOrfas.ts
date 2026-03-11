@@ -185,9 +185,12 @@ Deno.serve(async (req) => {
 
 function normalizarTelefone(phone) {
   if (!phone) return '';
-  const clean = String(phone).replace(/[\s\-\(\)\+]/g, '');
-  // Pega últimos 10-11 dígitos
-  return clean.slice(-11) || clean;
+  const clean = String(phone).replace(/[\s\-\(\)\+]/g, '').replace(/^0+/, '');
+  // Garantir prefixo 55 (Brasil)
+  if (clean.length <= 11 && !clean.startsWith('55')) {
+    return '55' + clean;
+  }
+  return clean || '';
 }
 
 async function buscarMensagensOrfas(base44, telefoneBusca, threadCorreto, contactIdCorreto, dataLimite) {

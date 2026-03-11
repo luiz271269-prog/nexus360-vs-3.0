@@ -158,6 +158,10 @@ Deno.serve(async (req) => {
 
 function normalizarTelefone(phone) {
   if (!phone) return '';
-  const clean = String(phone).replace(/[\s\-\(\)\+]/g, '').replace(/^55/, '').replace(/^0+/, '');
+  const clean = String(phone).replace(/[\s\-\(\)\+]/g, '').replace(/^0+/, '');
+  // Garantir prefixo 55 (Brasil)
+  if (clean.length <= 11 && !clean.startsWith('55')) {
+    return '55' + clean;
+  }
   return clean || '';
 }
