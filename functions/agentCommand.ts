@@ -104,32 +104,44 @@ async function executeTool(base44, toolName, toolInput) {
 
 async function fetchContextData(base44) {
   try {
-    const [vendas, orcamentos, threads, workQueue, runs] = await Promise.all([
-      base44.asServiceRole.entities.Venda.list('-data_venda', 10).catch(() => []),
-      base44.asServiceRole.entities.Orcamento.filter({ status: { $in: ['enviado', 'negociando', 'liberado'] } }, '-updated_date', 10).catch(() => []),
-      base44.asServiceRole.entities.MessageThread.filter({ status: 'aberta', thread_type: 'contact_external' }, '-last_message_at', 30).catch(() => []),
-      base44.asServiceRole.entities.WorkQueueItem.filter({ status: 'open' }, '-created_date', 10).catch(() => []),
-      base44.asServiceRole.entities.AgentRun.filter({ status: 'processando' }, '-started_at', 5).catch(() => [])
+    const [vendas, orcamentos, orcamentosTodos, threads, workQueue, runs, contatos, clientes] = await Promise.all([
+      base44.asServiceRole.entities.Venda.list('-data_venda', 50).catch(() => []),
+      base44.asServiceRole.entities.Orcamento.filter({ status: { $in: ['enviado', 'negociando', 'liberado', 'aprovado'] } }, '-updated_date', 50).catch(() => []),
+      base44.asServiceRole.entities.Orcamento.list('-updated_date', 100).catch(() => []),
+      base44.asServiceRole.entities.MessageThread.filter({ status: 'aberta', thread_type: 'contact_external' }, '-last_message_at', 50).catch(() => []),
+      base44.asServiceRole.entities.WorkQueueItem.filter({ status: 'open' }, '-created_date', 50).catch(() => []),
+      base44.asServiceRole.entities.AgentRun.filter({ status: 'processando' }, '-started_at', 10).catch(() => []),
+      base44.asServiceRole.entities.Contact.list('-ultima_interacao', 100).catch(() => []),
+      base44.asServiceRole.entities.Cliente.list('-updated_date', 50).catch(() => [])
     ]);
 
     return {
       vendas,
       orcamentos,
+      orcamentosTodos,
       threads,
       workQueue,
       runs,
+      contatos,
+      clientes,
       snapshot: {
         vendas_count: vendas.length,
         receita_total: vendas.reduce((s, v) => s + (v.valor_total || 0), 0),
         pipeline_valor: orcamentos.reduce((s, o) => s + (o.valor_total || 0), 0),
+        orcamentos_count: orcamentosTodos.length,
+        orcamentos_por_status: orcamentosTodos.reduce((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {}),
         threads_nao_atribuidas: threads.filter(t => !t.assigned_user_id).length,
         fila_aberta: workQueue.length,
-        runs_ativos: runs.length
+        runs_ativos: runs.length,
+        total_contatos: contatos.length,
+        contatos_classe_a: contatos.filter(c => c.classe_abc === 'A').length,
+        contatos_classe_b: contatos.filter(c => c.classe_abc === 'B').length,
+        total_clientes: clientes.length
       }
     };
   } catch (e) {
     console.warn('[AGENT-COMMAND] Erro ao buscar contexto:', e.message);
-    return { snapshot: {}, vendas: [], orcamentos: [], threads: [], workQueue: [], runs: [] };
+    return { snapshot: {}, vendas: [], orcamentos: [], orcamentosTodos: [], threads: [], workQueue: [], runs: [], contatos: [], clientes: [] };
   }
 }
 
