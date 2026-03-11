@@ -46,14 +46,20 @@ export default function DashboardPerformanceIA() {
 
   const carregarMetricas = async () => {
     setLoading(true);
+
+    base44.analytics.track({
+      eventName: "performance_dashboard_viewed",
+      properties: { periodo }
+    });
+
     try {
       const dataInicio = calcularDataInicio(periodo);
 
       const [interacoes, threads, aprendizados, baseConhecimento] = await Promise.all([
-        Interacao.filter({ data_interacao: { $gte: dataInicio } }),
-        MessageThread.list(),
-        AprendizadoIA.list(),
-        BaseConhecimento.list()
+        base44.entities.Interacao.filter({ data_interacao: { $gte: dataInicio } }),
+        base44.entities.MessageThread.list(),
+        base44.entities.AprendizadoIA.list(),
+        base44.entities.KnowledgeBase.list()
       ]);
 
       const metricas = calcularMetricas(interacoes, threads, aprendizados, baseConhecimento);
