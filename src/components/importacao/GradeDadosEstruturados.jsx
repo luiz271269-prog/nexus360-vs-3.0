@@ -717,9 +717,13 @@ export default function GradeDadosEstruturados({
                     <tr>
                         <th className="p-2 w-12 text-center border border-slate-300"><Trash2 className="w-4 h-4 mx-auto text-slate-500"/></th>
                         <th className="p-2 w-40 text-left border border-slate-300">Status da Integração</th>
-                        {cabecalhos.map((cabecalho, index) => (
-                        <th key={index} className="p-2 text-left border border-slate-300 min-w-[250px]">
-                            <p className="font-mono text-xs text-slate-500 bg-white px-2 py-1 rounded-full inline-block">{cabecalho.original}</p>
+                        {cabecalhos.map((cabecalho, index) => {
+                          const estaMapeado = mapeamentoCampos[cabecalho.original] && mapeamentoCampos[cabecalho.original] !== 'ignorar';
+                          return (
+                        <th key={index} className={`p-2 text-left border min-w-[250px] ${estaMapeado ? 'bg-blue-50 border-blue-300' : 'bg-yellow-50 border-yellow-300'}`}>
+                            <p className={`font-mono text-xs px-2 py-1 rounded-full inline-block ${estaMapeado ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                              {estaMapeado ? '✓' : '⚠️'} {cabecalho.original}
+                            </p>
                             <Select onValueChange={(value) => handleEditarCabecalho(cabecalho.original, value)} value={mapeamentoCampos[cabecalho.original] || 'ignorar'}>
                                 <SelectTrigger className="mt-2 bg-white h-9">
                                     <SelectValue placeholder="Mapear para..."/>
