@@ -64,6 +64,40 @@ export default function GradeDadosEstruturados({
     campo.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim()
   ), []);
 
+  // ─── FUNÇÃO DE AUTO-MAPEAMENTO INTELIGENTE ──────────────────────────────
+  const autoMapearColunas = useCallback((colunasOrigemArray, entidadeDestino) => {
+    const mapeamentoResultado = {};
+    const dicionario = {
+      'cliente_nome': ['cliente', 'razao social', 'razão social', 'nome', 'empresa', 'cliente_nome', 'nome cliente', 'razaosocial', 'clientenome', 'nome_cliente', 'cliente nome', 'nome empresa', 'empresa nome'],
+      'valor_total': ['valor', 'total', 'valor total', 'valor_total', 'vlr total', 'vlr', 'montante', 'total venda', 'vl total', 'vlrtotal', 'valor venda', 'total geral', 'preco', 'preço', 'price'],
+      'vendedor': ['vendedor', 'representante', 'consultor', 'resp', 'responsavel', 'responsável', 'seller', 'atendente', 'representante vendas'],
+      'data_venda': ['data', 'data venda', 'data_venda', 'dt venda', 'dtvenda', 'data emissao', 'data emissão', 'emissao', 'date', 'dt'],
+      'numero_pedido': ['pedido', 'numero pedido', 'nº pedido', 'num pedido', 'numero_pedido', 'cod pedido', 'ordem', 'order', 'nf', 'nota fiscal', 'numero nf'],
+      'produto': ['produto', 'item', 'descricao', 'descrição', 'description', 'servico', 'serviço', 'product'],
+      'quantidade': ['qtd', 'quantidade', 'qty', 'quant', 'qnt'],
+      'razao_social': ['razao social', 'razão social', 'nome', 'empresa', 'nome empresa', 'razaosocial'],
+      'cnpj': ['cnpj', 'cpf', 'cpf/cnpj', 'documento'],
+      'telefone': ['telefone', 'fone', 'tel', 'celular', 'whatsapp', 'phone'],
+      'email': ['email', 'e-mail', 'mail'],
+      'cidade': ['cidade', 'city', 'municipio', 'município'],
+      'estado': ['estado', 'uf', 'state'],
+      'numero_orcamento': ['orcamento', 'orçamento', 'numero orcamento', 'nº orcamento', 'cod orcamento'],
+      'data_orcamento': ['data orcamento', 'data orçamento', 'data_orcamento'],
+      'codigo': ['codigo', 'código', 'cod', 'code', 'id', 'matricula'],
+    };
+
+    colunasOrigemArray.forEach(colunaOrigem => {
+      const colunaLower = colunaOrigem.toLowerCase().trim().replace(/\s+/g, ' ');
+      for (const [campoPadrao, variacoes] of Object.entries(dicionario)) {
+        if (variacoes.some(v => colunaLower === v || colunaLower.includes(v) || v.includes(colunaLower))) {
+          mapeamentoResultado[colunaOrigem] = campoPadrao;
+          break;
+        }
+      }
+    });
+    return mapeamentoResultado;
+  }, []);
+
   const detectarTipoCampo = useCallback((dados, campo) => {
     const valores = dados.slice(0, 5).map(item => item[campo]).filter(v => v != null && v !== '');
     if (valores.length === 0) return 'texto';
