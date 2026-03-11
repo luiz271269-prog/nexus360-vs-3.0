@@ -362,6 +362,18 @@ export default function GradeDadosEstruturados({
         return;
       }
 
+      // VALIDAÇÃO CRÍTICA: Verificar se pelo menos uma coluna foi mapeada
+      const mapeamentosAtivos = Object.entries(mapeamentoCampos || {})
+        .filter(([_orig, dest]) => dest && dest !== '' && dest !== 'ignorar');
+      
+      if (mapeamentosAtivos.length === 0) {
+        alert('⚠️ Você precisa mapear pelo menos uma coluna antes de salvar.\n\nSelecione qual campo do arquivo corresponde a cada campo da entidade destino.');
+        set_internalLoading(false);
+        return;
+      }
+
+      console.log('[handleSalvar] Mapeamentos ativos:', mapeamentosAtivos.length, JSON.stringify(mapeamentoCampos));
+
       const EntidadeDestino = entidadesMap[destino];
       if (!EntidadeDestino) {
         throw new Error(`Destino inválido: ${destino}`);
