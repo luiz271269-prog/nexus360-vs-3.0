@@ -72,12 +72,13 @@ export default function DiagnosticoSincronizacaoUnificado({ contact, usuario, on
   const handleCorrecaoCompleta = async (modoExec) => {
     setLoadingCorrecao(true);
     try {
+      // PASSO 1: Corrigir vinculação de threads/mensagens de duplicados
       const res = await base44.functions.invoke('corrigirVinculacaoThreadContato', {
         contact_id: contact.id,
         modo: modoExec
       });
 
-      console.log('[CorrecaoCompleta]', res?.data);
+      console.log('[CorrecaoCompleta] Vinculação:', res?.data);
 
       if (modoExec === 'diagnostico') {
         setRelatorioCorrecao(res?.data);
@@ -89,8 +90,26 @@ export default function DiagnosticoSincronizacaoUnificado({ contact, usuario, on
           toast.success('✅ Nenhum problema de vinculação encontrado');
         }
       } else {
+        // PASSO 2: Aplicar correção completa do contato (scores, segmento, mensagens órfãs)
+        const resSync = await base44.functions.invoke('sincronizarContactoErros', {
+          contact_id: contact.id,
+          corrigir: true
+        });
+        console.log('[CorrecaoCompleta] Sincronização:', resSync?.data);
+
+        // PASSO 3: Migrar mensagens órfãs presas em threads merged
+        const resOrfas = await base44.functions.invoke('sincronizarMensagensOrfas', {
+          contact_id: contact.id,
+          modo: 'correcao'
+        });
+        console.log('[CorrecaoCompleta] Órfãs:', resOrfas?.data);
+
         const corrigidos = res?.data?.corrigidos || [];
-        toast.success(`✅ Correção concluída! ${corrigidos.length} ajuste(s) feito(s)`);
+        const syncCorrigidos = resSync?.data?.corrigidos || [];
+        const totalMsgsMigradas = resOrfas?.data?.mensagens_revinculadas || 0;
+        const totalAjustes = corrigidos.length + syncCorrigidos.length + (totalMsgsMigradas > 0 ? 1 : 0);
+
+        toast.success(`✅ Correção completa! ${totalAjustes} ajuste(s). Msgs migradas: ${totalMsgsMigradas}`);
         setRelatorioCorrecao(null);
         if (onUpdate) await onUpdate();
       }
