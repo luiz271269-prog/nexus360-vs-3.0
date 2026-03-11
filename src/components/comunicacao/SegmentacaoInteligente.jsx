@@ -812,7 +812,7 @@ export default function SegmentacaoInteligente({
           </Card>
 
           {/* Próxima Ação Sugerida */}
-          {analise.proxima_acao_sugerida && (
+          {analise.next_best_action?.action && (
             <Card className="border-orange-200 bg-orange-50">
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -822,8 +822,14 @@ export default function SegmentacaoInteligente({
               </CardHeader>
               <CardContent>
                 <p className="text-sm font-medium text-slate-700">
-                  {analise.proxima_acao_sugerida}
+                  {analise.next_best_action.action}
                 </p>
+                {analise.next_best_action.suggested_message && (
+                  <div className="mt-3 p-2 bg-white rounded border border-orange-200">
+                    <p className="text-xs text-slate-500 mb-1">💬 Mensagem sugerida:</p>
+                    <p className="text-xs text-slate-700">{analise.next_best_action.suggested_message}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
