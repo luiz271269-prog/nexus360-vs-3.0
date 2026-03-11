@@ -664,7 +664,10 @@ Status: ${prontuarioObj.visao_geral ? 'COMPLETA' : 'PARCIAL'}
       // PRIORITY
       priority_score: priorityScore,
       priority_label: priorityLabel,
-      root_causes: (analiseDataV2.root_causes || []).map(r => r.cause || ''),
+      root_causes: (analiseDataV2.root_causes || []).map(r => 
+        typeof r === 'string' ? { cause: r, severity: 'medium', confidence: 0.7 } : 
+        { cause: r.cause || r.title || String(r), severity: r.severity || 'medium', confidence: r.confidence ?? 0.7 }
+      ),
       
       // ✅ FONTE DA VERDADE V3.1
       insights_v2: insightsV2,
