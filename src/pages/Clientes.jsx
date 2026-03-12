@@ -62,12 +62,14 @@ export default function Clientes() {
   const { data: contatosFidelizados = [], isLoading: isLoadingContatos } = useQuery({
     queryKey: ['contatosFidelizados'],
     queryFn: async () => {
-      const contatos = await base44.entities.Contact.filter({
-        tipo_contato: 'cliente',
-        atendente_fidelizado_vendas: { $exists: true, $ne: null }
-      }, '-updated_date', 500);
-      return contatos || [];
+      const contatos = await base44.entities.Contact.list('-updated_date', 1000);
+      return (contatos || []).filter(c => c.tipo_contato === 'cliente' && c.atendente_fidelizado_vendas);
     },
+  });
+
+  const { data: usuarios = [] } = useQuery({
+    queryKey: ['usuarios'],
+    queryFn: () => base44.entities.User.list(),
   });
 
   const { data: clientesScores = [] } = useQuery({

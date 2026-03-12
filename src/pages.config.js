@@ -49,6 +49,7 @@
  */
 import Agenda from './pages/Agenda';
 import AnaliseAssistenteIA from './pages/AnaliseAssistenteIA';
+import AnaliseContatosBanco from './pages/AnaliseContatosBanco';
 import AnaliseDetalhadaContato from './pages/AnaliseDetalhadaContato';
 import AnalisePlaybooksCritica from './pages/AnalisePlaybooksCritica';
 import AnalyticsAvancado from './pages/AnalyticsAvancado';
@@ -126,13 +127,13 @@ import Usuarios from './pages/Usuarios';
 import Vendas from './pages/Vendas';
 import Vendedores from './pages/Vendedores';
 import WhatsAppTemplates from './pages/WhatsAppTemplates';
-import AnaliseContatosBanco from './pages/AnaliseContatosBanco';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Agenda": Agenda,
     "AnaliseAssistenteIA": AnaliseAssistenteIA,
+    "AnaliseContatosBanco": AnaliseContatosBanco,
     "AnaliseDetalhadaContato": AnaliseDetalhadaContato,
     "AnalisePlaybooksCritica": AnalisePlaybooksCritica,
     "AnalyticsAvancado": AnalyticsAvancado,
@@ -210,7 +211,6 @@ export const PAGES = {
     "Vendas": Vendas,
     "Vendedores": Vendedores,
     "WhatsAppTemplates": WhatsAppTemplates,
-    "AnaliseContatosBanco": AnaliseContatosBanco,
 }
 
 export const pagesConfig = {
