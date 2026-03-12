@@ -554,7 +554,7 @@ export default function Clientes() {
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <th className="px-6 py-3 text-left font-semibold text-slate-700">Nome / Empresa</th>
+                          <th className="px-6 py-3 text-left font-semibold text-slate-700">Empresa / Nome</th>
                           <th className="px-6 py-3 text-left font-semibold text-slate-700">Telefone</th>
                           <th className="px-6 py-3 text-left font-semibold text-slate-700">Vendedor</th>
                           <th className="px-6 py-3 text-left font-semibold text-slate-700">Segmento</th>
