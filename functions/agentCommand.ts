@@ -30,6 +30,42 @@ const ANALYST_TOOLS = [
     }
   },
   {
+    name: 'execute_skill',
+    description: 'Executa uma skill registrada no sistema. Use quando o usuário pedir ação executável (limpar, atualizar, followup, etc).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        skill_name: {
+          type: 'string',
+          description: 'Nome da skill a executar'
+        },
+        parametros: {
+          type: 'object',
+          description: 'Parâmetros para a skill'
+        },
+        modo: {
+          type: 'string',
+          enum: ['copilot', 'autonomous_safe', 'critical', 'dry_run'],
+          description: 'Modo de execução'
+        }
+      },
+      required: ['skill_name']
+    }
+  },
+  {
+    name: 'list_skills',
+    description: 'Lista skills disponíveis no sistema. Use quando o usuário perguntar "o que você pode fazer", "quais skills", etc.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        categoria: {
+          type: 'string',
+          enum: ['automacao', 'analise', 'comunicacao', 'gestao_dados', 'inteligencia', 'sistema', 'todas']
+        }
+      }
+    }
+  },
+  {
     name: 'search_knowledge',
     description: 'Busca na base de conhecimento: produtos, preços, políticas, casos resolvidos.',
     input_schema: {
@@ -97,6 +133,30 @@ async function executeTool(base44, toolName, toolInput) {
       vezes_consultado: 0
     });
     return { saved: true, id: novo.id, titulo: toolInput.titulo, tipo: toolInput.tipo };
+  }
+
+  if (toolName === 'execute_skill') {
+    const resultado = await base44.asServiceRole.functions.invoke('superAgente', {
+      comando_texto: `executar ${toolInput.skill_name}`,
+      modo: toolInput.modo || 'copilot',
+      parametros: toolInput.parametros
+    });
+    return resultado.data || resultado;
+  }
+
+  if (toolName === 'list_skills') {
+    const filtro = toolInput.categoria && toolInput.categoria !== 'todas' ? { categoria: toolInput.categoria, ativa: true } : { ativa: true };
+    const skills = await base44.asServiceRole.entities.SkillRegistry.filter(filtro, '-created_date', 50);
+    return {
+      total: skills.length,
+      skills: skills.map(s => ({
+        nome: s.display_name,
+        categoria: s.categoria,
+        descricao: s.descricao,
+        risco: s.nivel_risco,
+        exemplo: s.exemplos_uso?.[0]?.comando
+      }))
+    };
   }
 
   return { error: `Tool desconhecida: ${toolName}` };
@@ -265,7 +325,10 @@ INSTRUÇÕES:
 1. Use query_database com filtros corretos baseados no schema acima.
 2. Use search_knowledge para produtos, preços, políticas.
 3. Use save_to_knowledge quando o usuário ENSINAR algo novo.
-4. Sempre cite dados reais. Seja objetivo, máximo 3 parágrafos.`;
+4. Use execute_skill quando o usuário pedir AÇÃO (limpar, atualizar, followup, executar).
+5. Use list_skills quando o usuário perguntar "o que você pode fazer", "quais skills".
+6. Sempre cite dados reais. Seja objetivo, máximo 3 parágrafos.
+7. Para ações executáveis, SEMPRE use execute_skill com modo apropriado (copilot para segurança, autonomous_safe para ações reversíveis).`;
 
         // ── Loop de Tool Use com Anthropic (Fallback Integrado) ────────
         let messages = [{ role: 'user', content: user_message }];
