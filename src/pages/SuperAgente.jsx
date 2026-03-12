@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -168,7 +168,7 @@ export default function SuperAgente({ usuario }) {
   };
 
   // Calcular KPIs da URA
-  const kpisURA = React.useMemo(() => {
+  const kpisURA = useMemo(() => {
     const execsURA = execucoes.filter(e => e.skill_name === 'pre_atendimento');
     if (execsURA.length === 0) return null;
 
@@ -193,7 +193,7 @@ export default function SuperAgente({ usuario }) {
   }, [execucoes]);
 
   // Sugestões rápidas baseadas nas skills
-  const sugestoesRapidas = React.useMemo(() => {
+  const sugestoesRapidas = useMemo(() => {
     return skills
       .filter(s => s.ativa && s.exemplos_uso && s.exemplos_uso.length > 0)
       .slice(0, 4)
