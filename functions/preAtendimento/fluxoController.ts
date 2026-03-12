@@ -103,8 +103,7 @@ export class FluxoController {
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         pre_atendimento_state: 'INIT',
         sector_id: null,
-        assigned_user_id: null,  // Liberta do atendente ausente
-        pre_atendimento_ativo: false  // FIX G5: limpar flag para evitar menu reaparecer
+        assigned_user_id: null  // Liberta do atendente ausente
       });
 
       thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);

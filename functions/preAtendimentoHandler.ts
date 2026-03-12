@@ -194,7 +194,8 @@ async function processarWAITING_STICKY_DECISION(base44, thread, contact, user_in
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       pre_atendimento_state: 'INIT',
       sector_id: null,
-      assigned_user_id: null
+      assigned_user_id: null,
+      pre_atendimento_ativo: false  // FIX G5: limpar flag para evitar menu reaparecer
     });
     thread = await base44.asServiceRole.entities.MessageThread.get(thread.id);
     return await processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, null, null);
