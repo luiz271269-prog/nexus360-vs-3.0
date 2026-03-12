@@ -261,7 +261,7 @@ export default function NexusChat({ isOpen, onToggle, agentContext = {}, agentSe
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="fixed bottom-24 right-6 w-[480px] h-[680px] bg-white rounded-2xl shadow-2xl border-2 border-purple-200 flex flex-col z-50"
+          className="fixed bottom-6 right-6 w-[min(480px,calc(100vw-48px))] h-[min(680px,calc(100vh-120px))] bg-white rounded-2xl shadow-2xl border-2 border-purple-200 flex flex-col z-50 overflow-hidden"
         >
           {/* Header */}
           <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 p-4 rounded-t-2xl flex items-center justify-between">
