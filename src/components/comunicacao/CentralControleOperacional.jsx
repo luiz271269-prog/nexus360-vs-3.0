@@ -344,8 +344,40 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
     : 0;
 
   const statusTempoResposta = tempoMedioResposta <= 5 ? 'excelente' :
-                               tempoMedioResposta <= 15 ? 'bom' :
-                               tempoMedioResposta <= 30 ? 'atencao' : 'critico';
+                                tempoMedioResposta <= 15 ? 'bom' :
+                                tempoMedioResposta <= 30 ? 'atencao' : 'critico';
+
+  // Atendentes (mover para cima)
+  const atendentesOnline = atendentes.filter(a => a.availability_status === 'online').length;
+  const atendentesTotal = atendentes.length;
+  const percentualAtendentesOnline = atendentesTotal > 0 
+    ? Math.round((atendentesOnline / atendentesTotal) * 100)
+    : 0;
+
+  // Carga de Trabalho (mover para cima)
+  const cargaTotal = threads.filter(t => t.status === 'aberta' && t.assigned_user_id).length;
+  const capacidadeTotal = atendentes.reduce((acc, a) => acc + (a.max_concurrent_conversations || 5), 0);
+  const percentualCarga = capacidadeTotal > 0
+    ? Math.round((cargaTotal / capacidadeTotal) * 100)
+    : 0;
+
+  const statusCarga = percentualCarga < 70 ? 'saudavel' :
+                      percentualCarga < 90 ? 'atencao' : 'critico';
+
+  // Score Geral (mover para cima ANTES do useEffect)
+  const scoreIntegracoes = (integracoesConectadas / Math.max(integracoesTotal, 1)) * 25;
+  const scoreTempoResposta = statusTempoResposta === 'excelente' ? 25 :
+                             statusTempoResposta === 'bom' ? 20 :
+                             statusTempoResposta === 'atencao' ? 10 : 5;
+  const scoreAtendentes = (atendentesOnline / Math.max(atendentesTotal, 1)) * 25;
+  const scoreCarga = statusCarga === 'saudavel' ? 25 :
+                     statusCarga === 'atencao' ? 15 : 5;
+
+  const scoreGeral = Math.round(scoreIntegracoes + scoreTempoResposta + scoreAtendentes + scoreCarga);
+
+  const statusGeral = scoreGeral >= 80 ? 'excelente' :
+                      scoreGeral >= 60 ? 'bom' :
+                      scoreGeral >= 40 ? 'atencao' : 'critico';
 
   // SkillExecution: rastrear status de controle operacional
   useEffect(() => {
@@ -379,23 +411,6 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
     })();
   }, [scoreGeral, statusGeral]);
 
-  // Atendentes
-  const atendentesOnline = atendentes.filter(a => a.availability_status === 'online').length;
-  const atendentesTotal = atendentes.length;
-  const percentualAtendentesOnline = atendentesTotal > 0 
-    ? Math.round((atendentesOnline / atendentesTotal) * 100)
-    : 0;
-
-  // Carga de Trabalho
-  const cargaTotal = threads.filter(t => t.status === 'aberta' && t.assigned_user_id).length;
-  const capacidadeTotal = atendentes.reduce((acc, a) => acc + (a.max_concurrent_conversations || 5), 0);
-  const percentualCarga = capacidadeTotal > 0
-    ? Math.round((cargaTotal / capacidadeTotal) * 100)
-    : 0;
-
-  const statusCarga = percentualCarga < 70 ? 'saudavel' :
-                      percentualCarga < 90 ? 'atencao' : 'critico';
-
   // Playbooks
   const playbooksAtivos = playbooks.filter(p => p.ativo).length;
   const execucoesAtivas = execucoes.filter(e => e.status === 'ativo' || e.status === 'waiting_follow_up').length;
@@ -410,21 +425,6 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
   const taxaSucessoPlaybooks = execucoesUltimas24h.length > 0
     ? Math.round((execucoesConcluidas / execucoesUltimas24h.length) * 100)
     : 0;
-
-  // Score Geral
-  const scoreIntegracoes = (integracoesConectadas / Math.max(integracoesTotal, 1)) * 25;
-  const scoreTempoResposta = statusTempoResposta === 'excelente' ? 25 :
-                             statusTempoResposta === 'bom' ? 20 :
-                             statusTempoResposta === 'atencao' ? 10 : 5;
-  const scoreAtendentes = (atendentesOnline / Math.max(atendentesTotal, 1)) * 25;
-  const scoreCarga = statusCarga === 'saudavel' ? 25 :
-                     statusCarga === 'atencao' ? 15 : 5;
-
-  const scoreGeral = Math.round(scoreIntegracoes + scoreTempoResposta + scoreAtendentes + scoreCarga);
-
-  const statusGeral = scoreGeral >= 80 ? 'excelente' :
-                      scoreGeral >= 60 ? 'bom' :
-                      scoreGeral >= 40 ? 'atencao' : 'critico';
 
   // ═══════════════════════════════════════════════════════
   // HANDLERS
