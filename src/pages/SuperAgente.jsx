@@ -1,34 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Zap, 
-  Play, 
-  Pause, 
-  Settings, 
-  TrendingUp, 
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Brain,
-  Shield,
-  Activity,
-  BarChart3
-} from 'lucide-react';
+import { Zap, Bot } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
 
-export default function SuperAgente() {
-  const [comandoInput, setComandoInput] = useState('');
+import CatalogoSkills from '@/components/super-agente/CatalogoSkills';
+import TerminalExecucao from '@/components/super-agente/TerminalExecucao';
+import MetricasSuperAgente from '@/components/super-agente/MetricasSuperAgente';
+
+export default function SuperAgente({ usuario }) {
+  const [comando, setComando] = useState('');
   const [modoExecucao, setModoExecucao] = useState('copilot');
-  const [executando, setExecutando] = useState(false);
-  const [resultado, setResultado] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [historico, setHistorico] = useState([]);
+  const [aguardandoConfirmacao, setAguardandoConfirmacao] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: skills = [], isLoading: loadingSkills } = useQuery({
@@ -47,350 +33,236 @@ export default function SuperAgente() {
     }
   });
 
-  const executarComando = async () => {
-    if (!comandoInput.trim()) {
-      toast.error('Digite um comando');
-      return;
-    }
+  const enviarComando = async () => {
+    if (!comando.trim()) return;
 
-    setExecutando(true);
-    setResultado(null);
+    // Adicionar mensagem do usuário ao histórico
+    const mensagemUser = {
+      tipo: 'user',
+      conteudo: comando,
+      timestamp: new Date()
+    };
+    setHistorico(prev => [...prev, mensagemUser]);
+
+    const comandoAtual = comando;
+    setComando('');
+    setLoading(true);
+    setAguardandoConfirmacao(null);
 
     try {
       const resposta = await base44.functions.invoke('superAgente', {
-        comando_texto: comandoInput,
+        comando_texto: comandoAtual,
         modo: modoExecucao
       });
 
-      setResultado(resposta.data || resposta);
-      
-      if (resposta.data?.success || resposta.success) {
-        toast.success('Comando executado com sucesso');
-      } else if (resposta.data?.requer_confirmacao || resposta.requer_confirmacao) {
-        toast.warning('Comando requer confirmação');
+      const res = resposta.data || resposta;
+
+      // Adicionar resposta do agente ao histórico
+      const mensagemAgent = {
+        tipo: 'agent',
+        conteudo: res.message || JSON.stringify(res, null, 2),
+        timestamp: new Date(),
+        sucesso: res.success,
+        skill_executada: res.skill_executada,
+        duracao_ms: res.duracao_ms,
+        requer_confirmacao: res.requer_confirmacao
+      };
+      setHistorico(prev => [...prev, mensagemAgent]);
+
+      // Se requer confirmação
+      if (res.requer_confirmacao) {
+        setAguardandoConfirmacao({
+          skill: res.skill,
+          plano: res.plano_execucao,
+          frase_confirmacao: res.frase_confirmacao,
+          nivel_risco: res.nivel_risco,
+          comando_original: comandoAtual
+        });
+        toast.warning('Confirmação necessária');
+      } else if (res.success) {
+        toast.success('Executado com sucesso');
       } else {
-        toast.error('Erro ao executar comando');
+        toast.error('Erro na execução');
       }
 
       queryClient.invalidateQueries({ queryKey: ['skill-execucoes'] });
       queryClient.invalidateQueries({ queryKey: ['skills'] });
 
     } catch (error) {
-      console.error('Erro ao executar comando:', error);
+      console.error('Erro ao executar:', error);
       toast.error('Erro: ' + error.message);
-      setResultado({ success: false, error: error.message });
+      
+      setHistorico(prev => [...prev, {
+        tipo: 'agent',
+        conteudo: `❌ Erro: ${error.message}`,
+        timestamp: new Date(),
+        sucesso: false
+      }]);
     } finally {
-      setExecutando(false);
+      setLoading(false);
     }
   };
 
-  const getRiscoColor = (nivel) => {
-    switch (nivel) {
-      case 'baixo': return 'bg-green-100 text-green-800';
-      case 'medio': return 'bg-yellow-100 text-yellow-800';
-      case 'alto': return 'bg-orange-100 text-orange-800';
-      case 'critico': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const confirmarExecucao = async (textoConfirmacao) => {
+    if (!aguardandoConfirmacao) return;
+
+    setLoading(true);
+
+    try {
+      const resposta = await base44.functions.invoke('superAgente', {
+        comando_texto: aguardandoConfirmacao.comando_original,
+        modo: modoExecucao,
+        confirmacao: textoConfirmacao
+      });
+
+      const res = resposta.data || resposta;
+
+      setHistorico(prev => [...prev, {
+        tipo: 'agent',
+        conteudo: res.message || JSON.stringify(res, null, 2),
+        timestamp: new Date(),
+        sucesso: res.success,
+        skill_executada: res.skill_executada,
+        duracao_ms: res.duracao_ms
+      }]);
+
+      if (res.success) {
+        toast.success('Ação confirmada e executada');
+        setAguardandoConfirmacao(null);
+      } else {
+        toast.error('Confirmação inválida');
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['skill-execucoes'] });
+
+    } catch (error) {
+      toast.error('Erro: ' + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getRiscoIcon = (nivel) => {
-    switch (nivel) {
-      case 'baixo': return <CheckCircle2 className="w-4 h-4" />;
-      case 'medio': return <AlertTriangle className="w-4 h-4" />;
-      case 'alto': return <AlertTriangle className="w-4 h-4" />;
-      case 'critico': return <Shield className="w-4 h-4" />;
-      default: return <Activity className="w-4 h-4" />;
+  const executarSkillDireta = (skill) => {
+    if (skill.exemplos_uso && skill.exemplos_uso.length > 0) {
+      setComando(skill.exemplos_uso[0].comando);
+    } else {
+      setComando(`executar ${skill.skill_name}`);
     }
   };
 
-  const getCategoriaColor = (categoria) => {
-    switch (categoria) {
-      case 'automacao': return 'bg-purple-100 text-purple-800';
-      case 'analise': return 'bg-blue-100 text-blue-800';
-      case 'comunicacao': return 'bg-green-100 text-green-800';
-      case 'gestao_dados': return 'bg-orange-100 text-orange-800';
-      case 'inteligencia': return 'bg-indigo-100 text-indigo-800';
-      case 'sistema': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-slate-100 text-slate-800';
+  const toggleSkillAtiva = async (skill) => {
+    if (usuario?.role !== 'admin') {
+      toast.error('Apenas admin pode ativar/desativar skills');
+      return;
+    }
+
+    try {
+      await base44.entities.SkillRegistry.update(skill.id, {
+        ativa: !skill.ativa
+      });
+      toast.success(`Skill ${skill.ativa ? 'desativada' : 'ativada'}`);
+      queryClient.invalidateQueries({ queryKey: ['skills'] });
+    } catch (error) {
+      toast.error('Erro ao atualizar skill');
     }
   };
+
+  // Calcular KPIs da URA
+  const kpisURA = React.useMemo(() => {
+    const execsURA = execucoes.filter(e => e.skill_name === 'pre_atendimento');
+    if (execsURA.length === 0) return null;
+
+    const metricas = execsURA.reduce((acc, exec) => {
+      acc.total++;
+      if (exec.metricas?.fast_track_usado) acc.fast_track++;
+      if (exec.metricas?.timeout_ocorreu) acc.abandonos++;
+      if (exec.metricas?.menu_mostrado) acc.menu++;
+      if (exec.metricas?.sticky_ativado) acc.sticky++;
+      acc.tempo_total += exec.duration_ms || 0;
+      return acc;
+    }, { total: 0, fast_track: 0, abandonos: 0, menu: 0, sticky: 0, tempo_total: 0 });
+
+    return {
+      total: metricas.total,
+      taxa_fast_track: (metricas.fast_track / metricas.total * 100).toFixed(1),
+      taxa_abandono: (metricas.abandonos / metricas.total * 100).toFixed(1),
+      taxa_menu: (metricas.menu / metricas.total * 100).toFixed(1),
+      taxa_sticky: (metricas.sticky / metricas.total * 100).toFixed(1),
+      tempo_medio_ms: Math.round(metricas.tempo_total / metricas.total)
+    };
+  }, [execucoes]);
+
+  // Sugestões rápidas baseadas nas skills
+  const sugestoesRapidas = React.useMemo(() => {
+    return skills
+      .filter(s => s.ativa && s.exemplos_uso && s.exemplos_uso.length > 0)
+      .slice(0, 4)
+      .map(s => s.exemplos_uso[0].comando);
+  }, [skills]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Zap className="w-7 h-7 text-white" />
-              </div>
-              Super Agente
-            </h1>
-            <p className="text-slate-600 mt-1">Sistema universal de automações inteligentes baseado em skills</p>
+    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-purple-50/20 to-indigo-50/20">
+      {/* Header Fixo */}
+      <div className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
+        <div className="flex items-center justify-between max-w-[1800px] mx-auto">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+              <Bot className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">
+                Super Agente Nexus360
+              </h1>
+              <p className="text-xs text-slate-600">
+                Orquestrador universal de skills com IA
+              </p>
+            </div>
           </div>
-          <Badge className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2">
-            {skills.length} Skills Ativas
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge className="bg-green-100 text-green-800 px-3 py-1">
+              <Zap className="w-3 h-3 mr-1" />
+              ONLINE
+            </Badge>
+            <Badge className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-3 py-1">
+              {skills.filter(s => s.ativa).length} Skills Ativas
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      {/* 3 Painéis Simultâneos */}
+      <div className="flex-1 flex gap-4 p-4 max-w-[1800px] mx-auto w-full min-h-0">
+        {/* PAINEL 1 — Catálogo (30%) */}
+        <div className="w-[30%] min-w-0">
+          <CatalogoSkills 
+            skills={skills}
+            onExecutar={executarSkillDireta}
+            onToggle={toggleSkillAtiva}
+            usuario={usuario}
+          />
         </div>
 
-        {/* Command Interface */}
-        <Card className="border-2 border-purple-200 shadow-xl">
-          <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="w-5 h-5 text-purple-600" />
-              Console de Comando
-            </CardTitle>
-            <CardDescription>
-              Digite comandos em linguagem natural. Ex: "listar clientes classe A", "followup orçamentos parados 7 dias"
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-6">
-            <div className="flex gap-3">
-              <Input
-                value={comandoInput}
-                onChange={(e) => setComandoInput(e.target.value)}
-                placeholder="Digite seu comando..."
-                className="flex-1 text-base"
-                onKeyPress={(e) => e.key === 'Enter' && executarComando()}
-                disabled={executando}
-              />
-              <select
-                value={modoExecucao}
-                onChange={(e) => setModoExecucao(e.target.value)}
-                className="px-4 py-2 border border-slate-300 rounded-lg bg-white"
-                disabled={executando}
-              >
-                <option value="copilot">Copilot (sugere)</option>
-                <option value="autonomous_safe">Autônomo Seguro</option>
-                <option value="dry_run">Simulação</option>
-                <option value="critical">Crítico (confirmação)</option>
-              </select>
-              <Button
-                onClick={executarComando}
-                disabled={executando || !comandoInput.trim()}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 px-6"
-              >
-                {executando ? (
-                  <>
-                    <Clock className="w-4 h-4 mr-2 animate-spin" />
-                    Executando...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 mr-2" />
-                    Executar
-                  </>
-                )}
-              </Button>
-            </div>
+        {/* PAINEL 2 — Terminal (40%) */}
+        <div className="flex-1 min-w-0">
+          <TerminalExecucao
+            historico={historico}
+            loading={loading}
+            aguardandoConfirmacao={aguardandoConfirmacao}
+            comando={comando}
+            setComando={setComando}
+            onEnviar={enviarComando}
+            onConfirmar={confirmarExecucao}
+            sugestoesRapidas={sugestoesRapidas}
+          />
+        </div>
 
-            {/* Resultado */}
-            {resultado && (
-              <div className={`p-4 rounded-lg border-2 ${
-                resultado.success ? 'bg-green-50 border-green-200' :
-                resultado.requer_confirmacao ? 'bg-yellow-50 border-yellow-200' :
-                'bg-red-50 border-red-200'
-              }`}>
-                <div className="flex items-start gap-3">
-                  {resultado.success ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
-                  ) : resultado.requer_confirmacao ? (
-                    <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
-                  ) : (
-                    <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
-                  )}
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm mb-2">
-                      {resultado.success ? '✓ Sucesso' :
-                       resultado.requer_confirmacao ? '⚠ Confirmação Necessária' :
-                       '✗ Erro'}
-                    </p>
-                    <p className="text-sm whitespace-pre-wrap">{resultado.message || resultado.plano_execucao}</p>
-                    {resultado.skill_executada && (
-                      <Badge className="mt-2 bg-white border border-slate-300">
-                        Skill: {resultado.skill_executada}
-                      </Badge>
-                    )}
-                    {resultado.duracao_ms && (
-                      <Badge className="mt-2 ml-2 bg-white border border-slate-300">
-                        {resultado.duracao_ms}ms
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Tabs */}
-        <Tabs defaultValue="skills" className="space-y-4">
-          <TabsList className="bg-white border border-slate-200">
-            <TabsTrigger value="skills">Skills Disponíveis</TabsTrigger>
-            <TabsTrigger value="execucoes">Histórico de Execuções</TabsTrigger>
-            <TabsTrigger value="metricas">Métricas de Performance</TabsTrigger>
-          </TabsList>
-
-          {/* Skills Tab */}
-          <TabsContent value="skills" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {skills.map((skill) => (
-                <Card key={skill.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          {skill.display_name}
-                          {skill.ativa ? (
-                            <CheckCircle2 className="w-4 h-4 text-green-500" />
-                          ) : (
-                            <Pause className="w-4 h-4 text-gray-400" />
-                          )}
-                        </CardTitle>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      <Badge className={getCategoriaColor(skill.categoria)}>
-                        {skill.categoria}
-                      </Badge>
-                      <Badge className={`${getRiscoColor(skill.nivel_risco)} flex items-center gap-1`}>
-                        {getRiscoIcon(skill.nivel_risco)}
-                        {skill.nivel_risco}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-slate-600 mb-3">{skill.descricao}</p>
-                    
-                    {skill.performance && (
-                      <div className="bg-slate-50 rounded-lg p-3 space-y-2">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-600">Taxa de Sucesso:</span>
-                          <span className="font-semibold text-green-600">
-                            {skill.performance.taxa_sucesso?.toFixed(1)}%
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-600">Execuções:</span>
-                          <span className="font-semibold">{skill.performance.total_execucoes}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-600">Tempo Médio:</span>
-                          <span className="font-semibold">{skill.performance.tempo_medio_ms}ms</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {skill.exemplos_uso && skill.exemplos_uso.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-slate-200">
-                        <p className="text-xs text-slate-500 mb-1">Exemplo:</p>
-                        <code className="text-xs bg-slate-100 px-2 py-1 rounded block">
-                          {skill.exemplos_uso[0].comando}
-                        </code>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* Execuções Tab */}
-          <TabsContent value="execucoes" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Histórico de Execuções</CardTitle>
-                <CardDescription>Últimas 50 execuções de skills</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {execucoes.map((exec) => (
-                    <div
-                      key={exec.id}
-                      className={`p-4 rounded-lg border ${
-                        exec.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-sm">{exec.skill_name}</span>
-                            <Badge className="text-xs">{exec.execution_mode}</Badge>
-                            {exec.success ? (
-                              <CheckCircle2 className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-red-600" />
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-600">
-                            {exec.created_date && format(new Date(exec.created_date), 'dd/MM/yyyy HH:mm:ss')}
-                          </p>
-                          {exec.error_message && (
-                            <p className="text-xs text-red-600 mt-1">{exec.error_message}</p>
-                          )}
-                        </div>
-                        {exec.duration_ms && (
-                          <Badge variant="outline" className="text-xs">
-                            {exec.duration_ms}ms
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Métricas Tab */}
-          <TabsContent value="metricas" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4" />
-                    Total de Execuções
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold text-purple-600">
-                    {execucoes.length}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4" />
-                    Taxa de Sucesso Geral
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold text-green-600">
-                    {((execucoes.filter(e => e.success).length / execucoes.length) * 100 || 0).toFixed(1)}%
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Activity className="w-4 h-4" />
-                    Skills Ativas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold text-indigo-600">
-                    {skills.filter(s => s.ativa).length}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
+        {/* PAINEL 3 — Métricas (30%) */}
+        <div className="w-[30%] min-w-0">
+          <MetricasSuperAgente
+            execucoes={execucoes}
+            kpisURA={kpisURA}
+          />
+        </div>
       </div>
     </div>
   );
