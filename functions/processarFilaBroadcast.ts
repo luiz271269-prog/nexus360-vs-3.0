@@ -16,7 +16,6 @@ Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
   const now = new Date();
-  const inicio = Date.now();
 
   try {
     console.log('[BROADCAST-WORKER] ▶️ Iniciando processamento...');
@@ -172,7 +171,7 @@ Deno.serve(async (req) => {
     ;(async () => {
       try {
         await base44.asServiceRole.entities.SkillExecution.create({
-          skill_name: 'processar_fila_broadcast',
+          skill_name: 'processar_fila_promocoes',
           triggered_by: 'automacao_agendada',
           execution_mode: 'autonomous_safe',
           context: {
@@ -186,7 +185,8 @@ Deno.serve(async (req) => {
             processados,
             erros,
             interrompido,
-            pendentes_restantes: pendentes
+            pendentes_restantes: pendentes,
+            taxa_sucesso: processados > 0 ? ((processados - erros) / processados) * 100 : 0
           }
         });
       } catch (e) {
@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
       erros,
       interrompido,
       pendentes_restantes: pendentes,
-      duracao_ms: Date.now() - inicio,
+      duracao_ms: Date.now() - _tsInicio,
       timestamp: now.toISOString()
     });
 
