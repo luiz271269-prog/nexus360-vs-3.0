@@ -1,8 +1,8 @@
 import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { InvokeLLM, UploadFile } from "@/integrations/Core";
 import { 
   CheckCircle, 
   XCircle, 
@@ -105,26 +105,27 @@ NUNCA deixe dados_extraidos vazio. Se necessário, crie um objeto com informaç�
 `;
 
       let dadosExtraidos = null;
+      const tsInicioDiagnostico = Date.now();
       try {
-        const resultadoIA = await InvokeLLM({
-          model: 'gemini_3_flash',
-          prompt: prompt,
-          file_urls: [fileUrl],
-          response_json_schema: {
-            type: "object",
-            properties: {
-              dados_extraidos: {
-                type: "array",
-                items: { type: "object", additionalProperties: true }
-              },
-              tipo_conteudo: { type: "string" },
-              campos_identificados: { type: "array", items: { type: "string" } },
-              confianca: { type: "number", minimum: 0, maximum: 100 },
-              observacoes: { type: "string" }
-            },
-            required: ["dados_extraidos"]
-          }
-        });
+       const resultadoIA = await base44.integrations.Core.InvokeLLM({
+         model: 'gemini_3_flash',
+         prompt: prompt,
+         file_urls: [fileUrl],
+         response_json_schema: {
+           type: "object",
+           properties: {
+             dados_extraidos: {
+               type: "array",
+               items: { type: "object", additionalProperties: true }
+             },
+             tipo_conteudo: { type: "string" },
+             campos_identificados: { type: "array", items: { type: "string" } },
+             confianca: { type: "number", minimum: 0, maximum: 100 },
+             observacoes: { type: "string" }
+           },
+           required: ["dados_extraidos"]
+         }
+       });
 
         if (resultadoIA && resultadoIA.dados_extraidos && Array.isArray(resultadoIA.dados_extraidos)) {
           dadosExtraidos = resultadoIA.dados_extraidos;
@@ -161,6 +162,36 @@ NUNCA deixe dados_extraidos vazio. Se necessário, crie um objeto com informaç�
       }
 
       setDiagnostico({...resultado});
+
+      // SkillExecution: registrar diagnóstico
+      ;(async () => {
+        try {
+          await base44.entities.SkillExecution.create({
+            skill_name: 'importacao_diagnostico_arquivo',
+            triggered_by: 'usuario_reprocessamento',
+            execution_mode: 'autonomous_safe',
+            context: {
+              tipo_arquivo: detectarTipoArquivo(arquivo),
+              nome_arquivo: arquivo?.nome,
+              resultado: resultado.sucesso ? 'sucesso' : 'falha_extracao'
+            },
+            success: resultado.sucesso,
+            error_message: resultado.sucesso ? null : resultado.erro_detalhado,
+            duration_ms: Date.now() - tsInicioDiagnostico,
+            metricas: resultado.sucesso ? {
+              registros_extraidos: resultado.dados_extraidos?.length || 0,
+              confianca: resultado.metadados_ia?.confianca || 0,
+              etapas_sucesso: resultado.etapas.filter(e => e.status === 'sucesso').length,
+              etapas_erro: resultado.etapas.filter(e => e.status === 'erro').length
+            } : {
+              etapas_executadas: resultado.etapas.length,
+              etapas_erro: resultado.etapas.filter(e => e.status === 'erro').length
+            }
+          }).catch(() => {});
+        } catch (e) {
+          console.warn('[diagnostico] SkillExecution falhou:', e.message);
+        }
+      })();
 
       // Chamar callback com resultado
       if (onResultado) {
