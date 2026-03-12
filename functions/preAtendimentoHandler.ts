@@ -440,6 +440,7 @@ Deno.serve(async (req) => {
     }
 
     const estadoAtual = thread.pre_atendimento_state || 'INIT';
+    const _tsInicio = Date.now(); // ✅ SB4: timestamp de início para duration_ms
     console.log('[PRE-ATENDIMENTO] Processando estado:', estadoAtual);
 
     let resultado;
@@ -474,6 +475,36 @@ Deno.serve(async (req) => {
         detalhes: { estado_inicial: estadoAtual, user_input: userInput, resultado }
       });
     } catch (e) {}
+
+    // ✅ SB4: Registrar no SkillExecution (fire-and-forget — não bloqueia resposta)
+    ;(async () => {
+      try {
+        await base44.asServiceRole.entities.SkillExecution.create({
+          skill_name: 'pre_atendimento',
+          triggered_by: 'inboundCore',
+          execution_mode: 'autonomous_safe',
+          context: {
+            thread_id: thread.id,
+            contact_id: contact.id,
+            estado_inicial: estadoAtual,
+            estado_final: resultado.proximo_estado || resultado.mode || estadoAtual,
+            confidence: intent_context?.confidence || null,
+            sector: thread.sector_id || null
+          },
+          success: resultado.success !== false,
+          duration_ms: Date.now() - _tsInicio,
+          metricas: {
+            fast_track_usado: !!(intent_context?.confidence >= 70),
+            sticky_ativado: !!(thread.sector_id && !intent_context),
+            atendente_alocado: !!(resultado.allocated),
+            enfileirado: !!(resultado.enqueued || resultado.waiting_queue || resultado.queued),
+            menu_mostrado: resultado.mode === 'menu_list'
+          }
+        });
+      } catch (e) {
+        console.warn('[PRE-ATENDIMENTO] SkillExecution log falhou (non-blocking):', e.message);
+      }
+    })();
 
     console.log('[PRE-ATENDIMENTO] ✅ Concluído:', resultado);
     return Response.json({ success: resultado.success !== false, estado_atual: estadoAtual, resultado }, { status: 200, headers });
