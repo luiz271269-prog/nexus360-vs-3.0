@@ -102,6 +102,74 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
     initialData: []
   });
 
+  const { data: skillExecutions = [] } = useQuery({
+    queryKey: ['skill-executions-controle'],
+    queryFn: async () => {
+      const ultima24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      return await base44.asServiceRole.entities.SkillExecution.filter(
+        { created_date: { $gte: ultima24h } },
+        '-created_date',
+        200
+      ).catch(() => []);
+    },
+    refetchInterval: 60000,
+    initialData: []
+  });
+
+  const { data: contatosSegmentados = {} } = useQuery({
+    queryKey: ['segmentos-controle'],
+    queryFn: async () => {
+      try {
+        const contatos = await base44.asServiceRole.entities.Contact.filter(
+          { segmento_atual: { $exists: true } },
+          '-last_analysis_at',
+          500
+        ).catch(() => []);
+        
+        return {
+          leads_quentes: contatos.filter(c => c.segmento_atual === 'lead_quente').length,
+          risco_churn: contatos.filter(c => c.segmento_atual === 'risco_churn').length,
+          leads_frios: contatos.filter(c => c.bucket_inactive === '90+').length,
+          sem_analise: contatos.filter(c => {
+            const h = c.last_analysis_at ? (Date.now() - new Date(c.last_analysis_at)) / 3600000 : Infinity;
+            return h > 6;
+          }).length,
+          cliente_ativo: contatos.filter(c => c.segmento_atual === 'cliente_ativo').length
+        };
+      } catch {
+        return { leads_quentes: 0, risco_churn: 0, leads_frios: 0, sem_analise: 0, cliente_ativo: 0 };
+      }
+    },
+    refetchInterval: 60000,
+    initialData: {}
+  });
+
+  const { data: agentStats = {} } = useQuery({
+    queryKey: ['agent-status-controle'],
+    queryFn: async () => {
+      try {
+        const ultima24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const runs = await base44.asServiceRole.entities.AgentRun.filter(
+          { created_date: { $gte: ultima24h } },
+          '-created_date',
+          100
+        ).catch(() => []);
+        
+        return {
+          total_ciclos: runs.length,
+          jarvis_ciclos: runs.filter(r => r.playbook_selected?.includes('thread.idle') || r.playbook_selected?.includes('jarvis')).length,
+          brain_ciclos: runs.filter(r => r.playbook_selected?.includes('nexus_brain')).length,
+          erros: runs.filter(r => r.status === 'falha' || r.status === 'erro').length,
+          ultimo_ciclo: runs[0]?.completed_at || null
+        };
+      } catch {
+        return { total_ciclos: 0, jarvis_ciclos: 0, brain_ciclos: 0, erros: 0, ultimo_ciclo: null };
+      }
+    },
+    refetchInterval: 30000,
+    initialData: {}
+  });
+
   const [filas, setFilas] = useState([]);
   const [estatisticasFilas, setEstatisticasFilas] = useState(null);
   const [loadingFilas, setLoadingFilas] = useState(true);
@@ -184,8 +252,40 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
     : 0;
 
   const statusTempoResposta = tempoMedioResposta <= 5 ? 'excelente' :
-                              tempoMedioResposta <= 15 ? 'bom' :
-                              tempoMedioResposta <= 30 ? 'atencao' : 'critico';
+                               tempoMedioResposta <= 15 ? 'bom' :
+                               tempoMedioResposta <= 30 ? 'atencao' : 'critico';
+
+  // SkillExecution: rastrear status de controle operacional
+  useEffect(() => {
+    ;(async () => {
+      try {
+        await base44.entities.SkillExecution.create({
+          skill_name: 'controle_operacional_painel',
+          triggered_by: 'sistema_monitor',
+          execution_mode: 'autonomous_safe',
+          context: {
+            integracao_whatsapp: statusIntegracoes,
+            conversas_abertas: conversasAbertas,
+            atendentes_online: atendentesOnline
+          },
+          success: statusGeral !== 'critico',
+          duration_ms: 0,
+          metricas: {
+            score_geral: scoreGeral,
+            integracao_status: statusIntegracoes,
+            tempo_resposta_min: tempoMedioResposta,
+            carga_trabalho_pct: percentualCarga,
+            taxa_sucesso_playbooks: taxaSucessoPlaybooks,
+            conversas_nao_atribuidas: conversasNaoAtribuidas,
+            fila_total: estatisticasFilas?.total_na_fila || 0,
+            agent_ciclos_24h: agentStats?.total_ciclos || 0
+          }
+        }).catch(() => {});
+      } catch (e) {
+        console.warn('[controle] SkillExecution falhou:', e.message);
+      }
+    })();
+  }, [scoreGeral, statusGeral]);
 
   // Atendentes
   const atendentesOnline = atendentes.filter(a => a.availability_status === 'online').length;
@@ -398,7 +498,12 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
             </div>
             <div>
               <p className="text-xs text-slate-500">Resp. Média</p>
-              <p className="text-sm font-bold text-white">{tempoMedioResposta}min</p>
+              <div className="flex items-center gap-2">
+                <p className={`text-sm font-bold ${tempoMedioResposta > 30 ? 'text-red-400' : tempoMedioResposta > 15 ? 'text-yellow-400' : 'text-white'}`}>
+                  {tempoMedioResposta}min
+                </p>
+                {tempoMedioResposta > 30 && <AlertTriangle className="w-4 h-4 text-red-500" />}
+              </div>
             </div>
           </div>
 
@@ -742,6 +847,68 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
               </TabsContent>
               ))}
             </Tabs>
+
+            {/* BLOCO: Contatos Inteligentes */}
+            <div className="mt-6 bg-slate-800/20 border border-slate-700/50 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <Target className="w-4 h-4 text-cyan-400" />
+                Contatos Inteligentes (24h)
+              </h4>
+              <div className="grid grid-cols-5 gap-3">
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Leads Quentes</p>
+                  <p className="text-2xl font-bold text-cyan-400">{contatosSegmentados.leads_quentes || 0}</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Risco Churn</p>
+                  <p className="text-2xl font-bold text-red-400">{contatosSegmentados.risco_churn || 0}</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Leads Frios (90+d)</p>
+                  <p className="text-2xl font-bold text-blue-400">{contatosSegmentados.leads_frios || 0}</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Sem Análise (6h+)</p>
+                  <p className="text-2xl font-bold text-amber-400">{contatosSegmentados.sem_analise || 0}</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Clientes Ativos</p>
+                  <p className="text-2xl font-bold text-green-400">{contatosSegmentados.cliente_ativo || 0}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* BLOCO: Agente IA (Jarvis/NexusBrain) */}
+            <div className="mt-4 bg-slate-800/20 border border-slate-700/50 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-400" />
+                Agente IA (24h)
+              </h4>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Ciclos Jarvis</p>
+                  <p className="text-2xl font-bold text-purple-400">{agentStats.jarvis_ciclos || 0}</p>
+                  <p className="text-xs text-slate-600 mt-1">execuções</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">NexusBrain</p>
+                  <p className="text-2xl font-bold text-indigo-400">{agentStats.brain_ciclos || 0}</p>
+                  <p className="text-xs text-slate-600 mt-1">ações</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Erros Agent</p>
+                  <p className={`text-2xl font-bold ${agentStats.erros > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    {agentStats.erros || 0}
+                  </p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Último Ciclo</p>
+                  <p className="text-xs text-slate-300 mt-2">
+                    {agentStats.ultimo_ciclo ? new Date(agentStats.ultimo_ciclo).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* RODAPÉ - AUTOMAÇÕES E PLAYBOOKS */}
         <div className="mt-6 grid grid-cols-3 gap-4">
