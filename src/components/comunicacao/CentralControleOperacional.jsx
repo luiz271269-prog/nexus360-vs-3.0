@@ -170,6 +170,98 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
     initialData: {}
   });
 
+  // CORREÇÃO 1: WorkQueueItem detalhado
+  const { data: workQueueStats = {} } = useQuery({
+    queryKey: ['work-queue-stats-controle'],
+    queryFn: async () => {
+      try {
+        const items = await base44.asServiceRole.entities.WorkQueueItem.filter(
+          { status: { $in: ['open', 'agendado'] } },
+          '-created_date',
+          200
+        ).catch(() => []);
+        
+        const temposEspera = items.map(i => {
+          if (!i.created_date) return 0;
+          return (Date.now() - new Date(i.created_date)) / 60000; // minutos
+        });
+        
+        return {
+          total: items.length,
+          conversas_sem_atendente: items.filter(i => i.tipo === 'conversas_sem_atendente').length,
+          alertas_jarvis: items.filter(i => i.tipo === 'alertas_jarvis').length,
+          orcamentos_parados: items.filter(i => i.tipo === 'orcamentos_parados').length,
+          critical: items.filter(i => i.severity === 'critical').length,
+          tempo_medio_min: temposEspera.length > 0 ? Math.round(temposEspera.reduce((a, b) => a + b, 0) / temposEspera.length) : 0
+        };
+      } catch {
+        return { total: 0, conversas_sem_atendente: 0, alertas_jarvis: 0, orcamentos_parados: 0, critical: 0, tempo_medio_min: 0 };
+      }
+    },
+    refetchInterval: 30000,
+    initialData: {}
+  });
+
+  // CORREÇÃO 2: Score breakdown por componente
+  const { data: scoreBreakdown = {} } = useQuery({
+    queryKey: ['score-breakdown-controle'],
+    queryFn: async () => {
+      try {
+        const healthChecks = await base44.asServiceRole.entities.SystemHealthCheck.filter(
+          { created_date: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() } },
+          '-created_date',
+          10
+        ).catch(() => []);
+        
+        const latest = healthChecks[0] || {};
+        const componentes = latest.componentes || {};
+        
+        return {
+          whatsapp_status: componentes.whatsapp || 'unknown',
+          playbook_status: componentes.playbook_engine || 'unknown',
+          ia_handler_status: componentes.ia_handler || 'unknown',
+          webhook_status: componentes.webhook || 'unknown',
+          score_components: {
+            whatsapp: componentes.whatsapp_score || 0,
+            playbook: componentes.playbook_score || 0,
+            ia: componentes.ia_score || 0,
+            webhook: componentes.webhook_score || 0
+          }
+        };
+      } catch {
+        return {};
+      }
+    },
+    refetchInterval: 60000,
+    initialData: {}
+  });
+
+  // CORREÇÃO 3: Mensagens de Agentes IA
+  const { data: agentMessages = {} } = useQuery({
+    queryKey: ['agent-messages-controle'],
+    queryFn: async () => {
+      try {
+        const ultima24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const msgs = await base44.asServiceRole.entities.Message.filter(
+          { created_date: { $gte: ultima24h } },
+          '-created_date',
+          500
+        ).catch(() => []);
+        
+        return {
+          nexus_brain_msgs: msgs.filter(m => m.sender_id === 'nexus_brain' || m.sender_id?.includes('nexus')).length,
+          claude_msgs: msgs.filter(m => m.sender_id === 'claude' || m.sender_id?.includes('claude')).length,
+          escaladas: msgs.filter(m => m.visibility === 'internal_only' && m.metadata?.escalacao_para_humano).length,
+          modo_atual: 'copilot' // Padrão seguro
+        };
+      } catch {
+        return { nexus_brain_msgs: 0, claude_msgs: 0, escaladas: 0, modo_atual: 'copilot' };
+      }
+    },
+    refetchInterval: 60000,
+    initialData: {}
+  });
+
   const [filas, setFilas] = useState([]);
   const [estatisticasFilas, setEstatisticasFilas] = useState(null);
   const [loadingFilas, setLoadingFilas] = useState(true);
@@ -906,6 +998,108 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
                   <p className="text-xs text-slate-300 mt-2">
                     {agentStats.ultimo_ciclo ? new Date(agentStats.ultimo_ciclo).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}
                   </p>
+                </div>
+              </div>
+            </div>
+
+            {/* CORREÇÃO 1: WorkQueueItem Detalhado */}
+            <div className="mt-4 bg-slate-800/20 border border-slate-700/50 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-orange-400" />
+                Fila de Trabalho (Detalhes)
+              </h4>
+              <div className="grid grid-cols-6 gap-3">
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Total</p>
+                  <p className={`text-2xl font-bold ${workQueueStats.total > 10 ? 'text-red-400' : 'text-blue-400'}`}>{workQueueStats.total || 0}</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Conversas</p>
+                  <p className="text-2xl font-bold text-red-400">{workQueueStats.conversas_sem_atendente || 0}</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Jarvis Alerts</p>
+                  <p className="text-2xl font-bold text-yellow-400">{workQueueStats.alertas_jarvis || 0}</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Orçamentos</p>
+                  <p className="text-2xl font-bold text-amber-400">{workQueueStats.orcamentos_parados || 0}</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Críticos</p>
+                  <p className={`text-2xl font-bold ${workQueueStats.critical > 0 ? 'text-red-500 animate-pulse' : 'text-green-400'}`}>{workQueueStats.critical || 0}</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Tempo Médio</p>
+                  <p className="text-2xl font-bold text-cyan-400">{workQueueStats.tempo_medio_min || 0}min</p>
+                </div>
+              </div>
+            </div>
+
+            {/* CORREÇÃO 2: Score Breakdown */}
+            <div className="mt-4 bg-slate-800/20 border border-slate-700/50 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-green-400" />
+                Score Breakdown (O que está reduzindo)
+              </h4>
+              <div className="grid grid-cols-4 gap-3">
+                <div className={`rounded-lg p-3 border ${scoreBreakdown.whatsapp_status === 'healthy' ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                  <p className="text-xs text-slate-500">WhatsApp</p>
+                  <p className={`text-lg font-bold ${scoreBreakdown.whatsapp_status === 'healthy' ? 'text-green-400' : 'text-red-400'}`}>
+                    {scoreBreakdown.score_components?.whatsapp || 0}%
+                  </p>
+                  <p className="text-xs mt-1">{scoreBreakdown.whatsapp_status === 'healthy' ? '✅' : '❌'}</p>
+                </div>
+                <div className={`rounded-lg p-3 border ${scoreBreakdown.playbook_status === 'healthy' ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                  <p className="text-xs text-slate-500">Playbook</p>
+                  <p className={`text-lg font-bold ${scoreBreakdown.playbook_status === 'healthy' ? 'text-green-400' : 'text-red-400'}`}>
+                    {scoreBreakdown.score_components?.playbook || 0}%
+                  </p>
+                  <p className="text-xs mt-1">{scoreBreakdown.playbook_status === 'healthy' ? '✅' : '⚠️'}</p>
+                </div>
+                <div className={`rounded-lg p-3 border ${scoreBreakdown.ia_handler_status === 'healthy' ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                  <p className="text-xs text-slate-500">IA Handler</p>
+                  <p className={`text-lg font-bold ${scoreBreakdown.ia_handler_status === 'healthy' ? 'text-green-400' : 'text-red-400'}`}>
+                    {scoreBreakdown.score_components?.ia || 0}%
+                  </p>
+                  <p className="text-xs mt-1">{scoreBreakdown.ia_handler_status === 'healthy' ? '✅' : '❌'}</p>
+                </div>
+                <div className={`rounded-lg p-3 border ${scoreBreakdown.webhook_status === 'healthy' ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                  <p className="text-xs text-slate-500">Webhook</p>
+                  <p className={`text-lg font-bold ${scoreBreakdown.webhook_status === 'healthy' ? 'text-green-400' : 'text-red-400'}`}>
+                    {scoreBreakdown.score_components?.webhook || 0}%
+                  </p>
+                  <p className="text-xs mt-1">{scoreBreakdown.webhook_status === 'healthy' ? '✅' : '❌'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* CORREÇÃO 3: Mensagens de Agentes IA */}
+            <div className="mt-4 bg-slate-800/20 border border-slate-700/50 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-indigo-400" />
+                Agentes IA Respondendo (24h)
+              </h4>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">NexusBrain Msgs</p>
+                  <p className="text-2xl font-bold text-indigo-400">{agentMessages.nexus_brain_msgs || 0}</p>
+                  <p className="text-xs text-slate-600 mt-1">enviadas</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Claude Msgs</p>
+                  <p className="text-2xl font-bold text-violet-400">{agentMessages.claude_msgs || 0}</p>
+                  <p className="text-xs text-slate-600 mt-1">enviadas</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Escaladas Humano</p>
+                  <p className={`text-2xl font-bold ${agentMessages.escaladas > 0 ? 'text-orange-400' : 'text-green-400'}`}>{agentMessages.escaladas || 0}</p>
+                  <p className="text-xs text-slate-600 mt-1">transferidas</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <p className="text-xs text-slate-500">Modo Atual</p>
+                  <p className="text-sm font-bold text-sky-400 mt-2">{agentMessages.modo_atual || 'copilot'}</p>
+                  <p className="text-xs text-slate-600 mt-2">IA supervisionada</p>
                 </div>
               </div>
             </div>
