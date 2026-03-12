@@ -272,6 +272,67 @@ Deno.serve(async (req) => {
         ? `\nMEMÓRIA DA ÚLTIMA SESSÃO:\n${memoriaAtual.conteudo}\nÚltima ação: ${memoriaAtual.ultima_acao || 'nenhuma'}`
         : '\nPrimeira sessão — sem histórico anterior.';
 
+      // ── PRÉ-ANÁLISE: Comandos Diretos de Skills ────────────────────
+      const msgLower = user_message.toLowerCase().trim();
+      
+      // Detectar "listar skills" / "o que você pode fazer"
+      if (msgLower.includes('listar skills') || msgLower.includes('skills disponíveis') || 
+          msgLower.includes('o que você pode fazer') || msgLower.includes('quais skills')) {
+        const skills = await base44.asServiceRole.entities.SkillRegistry.filter({ ativa: true }, '-created_date', 50);
+        const resposta = `🤖 **Skills Ativas no Sistema (${skills.length} total):**\n\n` + 
+          skills.map(s => `• **${s.display_name}** (${s.categoria})\n  _${s.descricao}_\n  Exemplo: "${s.exemplos_uso?.[0]?.comando || 'N/A'}"`).join('\n\n');
+        
+        return Response.json({
+          success: true,
+          response: resposta,
+          run_id: null,
+          agent_mode: 'direct_skill_list',
+          skills_count: skills.length
+        });
+      }
+
+      // Detectar "executar [skill]" / "rodar [skill]"
+      const matchExec = msgLower.match(/(?:executar|rodar|ativar|chamar)\s+(.+?)(?:\s+(?:com|usando|modo|em))?/);
+      if (matchExec) {
+        const skillNameSearch = matchExec[1].trim();
+        const skills = await base44.asServiceRole.entities.SkillRegistry.filter({ ativa: true }, '-created_date', 50);
+        const skillEncontrada = skills.find(s => 
+          s.skill_name.toLowerCase().includes(skillNameSearch) || 
+          s.display_name.toLowerCase().includes(skillNameSearch)
+        );
+
+        if (skillEncontrada) {
+          const requiresConfirmation = skillEncontrada.requer_confirmacao;
+          if (requiresConfirmation) {
+            return Response.json({
+              success: true,
+              response: `⚠️ **Skill "${skillEncontrada.display_name}"** requer confirmação.\n\n` +
+                `**Nível de Risco:** ${skillEncontrada.nivel_risco}\n` +
+                `**Descrição:** ${skillEncontrada.descricao}\n\n` +
+                `Para executar, digite:\n\`\`\`\n${skillEncontrada.frase_confirmacao}\n\`\`\``,
+              agent_mode: 'skill_confirmation_required',
+              skill_name: skillEncontrada.skill_name,
+              requires_confirmation: true
+            });
+          }
+
+          // Executar diretamente
+          const resultado = await base44.asServiceRole.functions.invoke('superAgente', {
+            comando_texto: `executar ${skillEncontrada.skill_name}`,
+            modo: skillEncontrada.modo_execucao_padrao || 'copilot',
+            parametros: {}
+          });
+
+          return Response.json({
+            success: true,
+            response: `✅ **Skill "${skillEncontrada.display_name}" executada.**\n\n${JSON.stringify(resultado.data || resultado, null, 2)}`,
+            run_id: null,
+            agent_mode: 'direct_skill_execution',
+            skill_name: skillEncontrada.skill_name
+          });
+        }
+      }
+
       const run = await base44.asServiceRole.entities.AgentRun.create({
         trigger_type: 'manual.invoke',
         trigger_event_id: `chat_${Date.now()}`,
