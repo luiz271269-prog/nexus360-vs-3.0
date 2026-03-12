@@ -8,6 +8,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 Deno.serve(async (req) => {
   const inicio = Date.now();
+  const metricas = {
+    paginas_analisadas: 0,
+    gargalos_encontrados: 0,
+    sugestoes_geradas: 0
+  };
 
   try {
     const base44 = createClientFromRequest(req);
@@ -17,107 +22,103 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { dias_analise = 7 } = await req.json().catch(() => ({}));
+    const { periodo_dias = 7, threshold_ms = 3000 } = await req.json().catch(() => ({}));
 
-    // Buscar logs de saúde recentes
-    const dataLimite = new Date(Date.now() - dias_analise * 24 * 60 * 60 * 1000);
-    const logs = await base44.asServiceRole.entities.SystemHealthLog.filter(
-      { created_date: { $gte: dataLimite.toISOString() } },
-      '-created_date',
-      500
-    );
+    // Buscar logs de saúde do sistema
+    const dataInicio = new Date();
+    dataInicio.setDate(dataInicio.getDate() - periodo_dias);
 
-    // Buscar audit logs para análise de acesso
-    const audits = await base44.asServiceRole.entities.AuditLog.filter(
-      { 
-        entity_tipo: 'page_view',
-        created_date: { $gte: dataLimite.toISOString() }
-      },
-      '-created_date',
-      1000
-    );
+    const healthLogs = await base44.asServiceRole.entities.SystemHealthLog.filter({
+      created_date: { $gte: dataInicio.toISOString() }
+    }, '-created_date', 500);
 
-    // Agregar por página
-    const paginasMap = {};
+    // Buscar logs de auditoria com tempos de resposta
+    const auditLogs = await base44.asServiceRole.entities.AuditLog.filter({
+      created_date: { $gte: dataInicio.toISOString() },
+      action: 'page_view'
+    }, '-created_date', 500);
+
+    metricas.paginas_analisadas = new Set([
+      ...healthLogs.map(l => l.dados_evento?.page),
+      ...auditLogs.map(l => l.entity_id)
+    ].filter(Boolean)).size;
+
+    // Analisar performance por página
+    const performanceMap = {};
     
-    audits.forEach(audit => {
-      const pagina = audit.dados_evento?.page || 'unknown';
-      if (!paginasMap[pagina]) {
-        paginasMap[pagina] = {
-          nome: pagina,
-          total_visitas: 0,
-          tempo_total_ms: 0,
-          erros: 0
+    healthLogs.forEach(log => {
+      if (log.dados_evento?.page && log.dados_evento?.load_time_ms) {
+        const pagina = log.dados_evento.page;
+        if (!performanceMap[pagina]) {
+          performanceMap[pagina] = {
+            nome: pagina,
+            tempos: [],
+            erros: 0
+          };
+        }
+        performanceMap[pagina].tempos.push(log.dados_evento.load_time_ms);
+      }
+    });
+
+    // Calcular médias e identificar gargalos
+    const gargalos = Object.values(performanceMap)
+      .map(p => {
+        const tempoMedio = p.tempos.reduce((a, b) => a + b, 0) / p.tempos.length;
+        const tempoMax = Math.max(...p.tempos);
+        return {
+          pagina: p.nome,
+          tempo_medio_ms: Math.round(tempoMedio),
+          tempo_max_ms: tempoMax,
+          total_carregamentos: p.tempos.length,
+          e_gargalo: tempoMedio > threshold_ms
         };
+      })
+      .filter(p => p.e_gargalo)
+      .sort((a, b) => b.tempo_medio_ms - a.tempo_medio_ms);
+
+    metricas.gargalos_encontrados = gargalos.length;
+
+    // Gerar sugestões de otimização
+    const sugestoes = gargalos.map(g => {
+      const sugestoesLista = [];
+      
+      if (g.tempo_medio_ms > 5000) {
+        sugestoesLista.push('Implementar lazy loading de componentes pesados');
+        sugestoesLista.push('Otimizar queries ao banco de dados');
       }
-      paginasMap[pagina].total_visitas++;
-      if (audit.dados_evento?.load_time_ms) {
-        paginasMap[pagina].tempo_total_ms += audit.dados_evento.load_time_ms;
+      
+      if (g.tempo_medio_ms > 3000) {
+        sugestoesLista.push('Adicionar cache de dados frequentes');
+        sugestoesLista.push('Reduzir número de chamadas API');
       }
-      if (audit.dados_evento?.error) {
-        paginasMap[pagina].erros++;
+      
+      if (g.total_carregamentos > 100) {
+        sugestoesLista.push('Página popular - considerar CDN para assets');
       }
+
+      metricas.sugestoes_geradas += sugestoesLista.length;
+
+      return {
+        pagina: g.pagina,
+        tempo_medio_ms: g.tempo_medio_ms,
+        severidade: g.tempo_medio_ms > 5000 ? 'critica' : g.tempo_medio_ms > 3000 ? 'alta' : 'media',
+        otimizacoes: sugestoesLista,
+        impacto_estimado: `Redução de ${Math.round((g.tempo_medio_ms - 1000) / g.tempo_medio_ms * 100)}% no tempo de carregamento`
+      };
     });
-
-    // Calcular métricas e identificar gargalos
-    const paginas = Object.values(paginasMap).map(p => ({
-      ...p,
-      tempo_medio_ms: p.total_visitas > 0 ? Math.round(p.tempo_total_ms / p.total_visitas) : 0,
-      taxa_erro: p.total_visitas > 0 ? (p.erros / p.total_visitas * 100).toFixed(1) : 0
-    }));
-
-    // Identificar problemas
-    const paginasLentas = paginas.filter(p => p.tempo_medio_ms > 3000).sort((a,b) => b.tempo_medio_ms - a.tempo_medio_ms);
-    const paginasComErros = paginas.filter(p => parseFloat(p.taxa_erro) > 5).sort((a,b) => b.taxa_erro - a.taxa_erro);
-
-    // Gerar recomendações
-    const recomendacoes = [];
-    
-    paginasLentas.forEach(p => {
-      recomendacoes.push({
-        pagina: p.nome,
-        problema: `Tempo médio de ${p.tempo_medio_ms}ms (>3s)`,
-        sugestoes: [
-          'Implementar lazy loading de componentes',
-          'Adicionar paginação se lista grande',
-          'Cachear queries pesadas com React Query',
-          'Otimizar imagens (webp, lazy loading)'
-        ]
-      });
-    });
-
-    paginasComErros.forEach(p => {
-      recomendacoes.push({
-        pagina: p.nome,
-        problema: `Taxa de erro ${p.taxa_erro}% (>5%)`,
-        sugestoes: [
-          'Verificar logs de runtime',
-          'Adicionar error boundaries',
-          'Validar dados antes de renderizar',
-          'Checar dependências ausentes'
-        ]
-      });
-    });
-
-    const resultado = {
-      success: true,
-      periodo_analise: `${dias_analise} dias`,
-      total_paginas_analisadas: paginas.length,
-      paginas_lentas: paginasLentas.length,
-      paginas_com_erros: paginasComErros.length,
-      top_5_lentas: paginasLentas.slice(0, 5),
-      top_5_erros: paginasComErros.slice(0, 5),
-      recomendacoes: recomendacoes.slice(0, 10),
-      metricas_gerais: {
-        tempo_medio_geral: Math.round(paginas.reduce((sum, p) => sum + p.tempo_medio_ms, 0) / paginas.length),
-        taxa_erro_geral: (paginas.reduce((sum, p) => sum + parseFloat(p.taxa_erro), 0) / paginas.length).toFixed(2)
-      }
-    };
 
     return Response.json({
       success: true,
-      resultado,
-      duration_ms: Date.now() - inicio
+      metricas,
+      duration_ms: Date.now() - inicio,
+      gargalos,
+      sugestoes_otimizacao: sugestoes,
+      resumo: {
+        total_paginas_lentas: gargalos.length,
+        tempo_medio_geral: gargalos.length > 0 ?
+          Math.round(gargalos.reduce((sum, g) => sum + g.tempo_medio_ms, 0) / gargalos.length) : 0,
+        impacto_usuarios: gargalos.reduce((sum, g) => sum + g.total_carregamentos, 0)
+      }
     });
 
   } catch (error) {
@@ -125,6 +126,7 @@ Deno.serve(async (req) => {
     return Response.json({
       success: false,
       error: error.message,
+      metricas,
       duration_ms: Date.now() - inicio
     }, { status: 500 });
   }

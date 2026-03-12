@@ -17,123 +17,123 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { periodo_dias = 7 } = await req.json().catch(() => ({}));
+    const { periodo_dias = 7, formato = 'json' } = await req.json().catch(() => ({}));
 
-    const dataLimite = new Date(Date.now() - periodo_dias * 24 * 60 * 60 * 1000);
+    // Calcular período
+    const dataInicio = new Date();
+    dataInicio.setDate(dataInicio.getDate() - periodo_dias);
+    const dataFim = new Date();
 
-    // Buscar dados
-    const [usuarios, audits, healthLogs] = await Promise.all([
-      base44.asServiceRole.entities.User.list('-created_date', 500),
-      base44.asServiceRole.entities.AuditLog.filter(
-        { created_date: { $gte: dataLimite.toISOString() } },
-        '-created_date',
-        2000
-      ),
-      base44.asServiceRole.entities.SystemHealthLog.filter(
-        { created_date: { $gte: dataLimite.toISOString() } },
-        '-created_date',
-        500
-      )
+    // 1. Buscar dados gerais
+    const [usuarios, auditLogs, healthLogs] = await Promise.all([
+      base44.asServiceRole.entities.User.list(),
+      base44.asServiceRole.entities.AuditLog.filter({
+        created_date: { $gte: dataInicio.toISOString() }
+      }, '-created_date', 1000),
+      base44.asServiceRole.entities.SystemHealthLog.filter({
+        created_date: { $gte: dataInicio.toISOString() }
+      }, '-created_date', 500)
     ]);
 
-    // Métricas de adoção
-    const usuariosAtivos = audits.reduce((set, a) => {
-      if (a.usuario_id) set.add(a.usuario_id);
-      return set;
-    }, new Set()).size;
+    // 2. Calcular KPIs principais
+    const usuariosAtivos = new Set(auditLogs.map(l => l.usuario_id).filter(Boolean));
+    const paginasAcessadas = new Set(auditLogs.map(l => l.entity_id || l.dados_evento?.page).filter(Boolean));
 
-    const taxaAdocao = usuarios.length > 0 ? 
-      (usuariosAtivos / usuarios.length * 100).toFixed(1) : 0;
+    const kpis = {
+      usuarios_totais: usuarios.length,
+      usuarios_ativos: usuariosAtivos.size,
+      taxa_adocao: `${(usuariosAtivos.size / usuarios.length * 100).toFixed(1)}%`,
+      total_acessos: auditLogs.length,
+      paginas_unicas: paginasAcessadas.size,
+      media_acessos_por_usuario: usuariosAtivos.size > 0 ?
+        Math.round(auditLogs.length / usuariosAtivos.size) : 0
+    };
 
-    // Páginas mais usadas
+    // 3. Top páginas por acesso
     const paginasMap = {};
-    audits.forEach(a => {
-      const pagina = a.dados_evento?.page || 'unknown';
+    auditLogs.forEach(log => {
+      const pagina = log.entity_id || log.dados_evento?.page || 'unknown';
       paginasMap[pagina] = (paginasMap[pagina] || 0) + 1;
     });
+
     const topPaginas = Object.entries(paginasMap)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 10)
-      .map(([nome, visitas]) => ({ nome, visitas }));
-
-    // Horários de pico
-    const horarioMap = {};
-    audits.forEach(a => {
-      if (a.created_date) {
-        const hora = new Date(a.created_date).getHours();
-        horarioMap[hora] = (horarioMap[hora] || 0) + 1;
-      }
-    });
-    const horarioPico = Object.entries(horarioMap)
-      .sort(([,a], [,b]) => b - a)[0];
-
-    // Dispositivos
-    const deviceMap = { mobile: 0, desktop: 0, unknown: 0 };
-    audits.forEach(a => {
-      const ua = a.dados_evento?.user_agent || '';
-      if (/mobile|android|iphone/i.test(ua)) deviceMap.mobile++;
-      else if (ua) deviceMap.desktop++;
-      else deviceMap.unknown++;
-    });
-
-    // Erros críticos
-    const errosCriticos = healthLogs
-      .filter(log => log.severity === 'error' || log.severity === 'critical')
+      .map(([nome, acessos]) => ({ nome, acessos }))
+      .sort((a, b) => b.acessos - a.acessos)
       .slice(0, 10);
 
-    // Insights e recomendações
+    // 4. Análise de dispositivos
+    const dispositivosMap = { desktop: 0, mobile: 0, tablet: 0 };
+    auditLogs.forEach(log => {
+      const ua = log.dados_evento?.user_agent || '';
+      if (ua.includes('Mobile')) dispositivosMap.mobile++;
+      else if (ua.includes('Tablet')) dispositivosMap.tablet++;
+      else dispositivosMap.desktop++;
+    });
+
+    // 5. Saúde do sistema
+    const errosCount = healthLogs.filter(l => 
+      l.dados_evento?.severity === 'error' || l.dados_evento?.status === 'error'
+    ).length;
+
+    const saudeGeral = {
+      total_logs: healthLogs.length,
+      erros: errosCount,
+      taxa_saude: `${((healthLogs.length - errosCount) / healthLogs.length * 100).toFixed(1)}%`
+    };
+
+    // 6. Insights e recomendações
     const insights = [];
-    
-    if (parseFloat(taxaAdocao) < 50) {
+
+    if (parseFloat(kpis.taxa_adocao) < 80) {
       insights.push({
-        tipo: 'alerta',
-        titulo: 'Baixa Adoção',
-        descricao: `Apenas ${taxaAdocao}% dos usuários ativos. Sugestão: enviar tutorial de onboarding.`
+        tipo: 'adocao_baixa',
+        severidade: 'alta',
+        mensagem: `Taxa de adoção de ${kpis.taxa_adocao} está abaixo do ideal (80%)`,
+        recomendacao: 'Considerar campanha de treinamento ou comunicação interna'
       });
     }
 
-    if (deviceMap.mobile > deviceMap.desktop) {
+    if (dispositivosMap.mobile / auditLogs.length > 0.3) {
       insights.push({
-        tipo: 'info',
-        titulo: 'Uso Mobile Predominante',
-        descricao: `${((deviceMap.mobile / (deviceMap.mobile + deviceMap.desktop)) * 100).toFixed(1)}% mobile. Priorizar responsividade.`
+        tipo: 'trafego_mobile_alto',
+        severidade: 'media',
+        mensagem: `${(dispositivosMap.mobile / auditLogs.length * 100).toFixed(1)}% do tráfego vem de mobile`,
+        recomendacao: 'Priorizar otimizações de responsividade mobile'
       });
     }
 
-    if (errosCriticos.length > 5) {
+    if (errosCount > healthLogs.length * 0.1) {
       insights.push({
-        tipo: 'urgente',
-        titulo: 'Erros Críticos Detectados',
-        descricao: `${errosCriticos.length} erros no período. Revisar logs imediatamente.`
+        tipo: 'alta_taxa_erro',
+        severidade: 'critica',
+        mensagem: `${(errosCount / healthLogs.length * 100).toFixed(1)}% dos logs são erros`,
+        recomendacao: 'Investigar e corrigir problemas de estabilidade urgentemente'
       });
     }
 
+    // 7. Montar relatório
     const relatorio = {
-      periodo: `${periodo_dias} dias`,
-      gerado_em: new Date().toISOString(),
-      metricas_chave: {
-        total_usuarios: usuarios.length,
-        usuarios_ativos: usuariosAtivos,
-        taxa_adocao: `${taxaAdocao}%`,
-        total_acessos: audits.length,
-        horario_pico: horarioPico ? `${horarioPico[0]}h (${horarioPico[1]} acessos)` : 'N/A'
+      metadata: {
+        periodo: `${dataInicio.toLocaleDateString()} a ${dataFim.toLocaleDateString()}`,
+        gerado_em: new Date().toISOString(),
+        gerado_por: user.full_name,
+        dias_analisados: periodo_dias
       },
-      distribuicao_dispositivos: {
-        mobile: deviceMap.mobile,
-        desktop: deviceMap.desktop,
-        percentual_mobile: `${((deviceMap.mobile / (deviceMap.mobile + deviceMap.desktop)) * 100).toFixed(1)}%`
-      },
-      top_paginas: topPaginas,
-      erros_criticos: errosCriticos.length,
+      kpis_principais: kpis,
+      top_10_paginas: topPaginas,
+      distribuicao_dispositivos: dispositivosMap,
+      saude_sistema: saudeGeral,
       insights,
-      recomendacoes: insights.map(i => i.descricao)
+      recomendacoes_priorizadas: insights
+        .filter(i => i.severidade === 'critica' || i.severidade === 'alta')
+        .map(i => i.recomendacao)
     };
 
     return Response.json({
       success: true,
-      relatorio,
       duration_ms: Date.now() - inicio,
-      message: `✅ Relatório de ${periodo_dias} dias gerado com ${insights.length} insights.`
+      relatorio,
+      formato
     });
 
   } catch (error) {
