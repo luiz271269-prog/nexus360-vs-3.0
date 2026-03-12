@@ -739,6 +739,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             </div>
           </div> :
 
+          <>
           {/* ── DESKTOP: Colunas horizontais ── */}
           <div className="hidden sm:flex flex-1 overflow-x-auto p-3 gap-3">
              {Object.entries(grupos).map(([nomeColuna, items]) =>
@@ -817,6 +818,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               );
             })()}
           </div>
+          </>
           }
       </div>
 
