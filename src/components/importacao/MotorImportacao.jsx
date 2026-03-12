@@ -177,6 +177,27 @@ export const processarArquivo = async (file, contexto = null) => {
   try {
     const tipoArquivo = detectarTipoArquivo(file);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    
+    // SkillExecution: rastrear extração de arquivo
+    ;(async () => {
+      try {
+        await base44.entities.SkillExecution.create({
+          skill_name: 'importacao_extracao_arquivo',
+          triggered_by: 'usuario_upload',
+          execution_mode: 'autonomous_safe',
+          context: {
+            tipo_arquivo: tipoArquivo,
+            nome_arquivo: file.name,
+            tamanho_bytes: file.size,
+            destino_contexto: contexto
+          },
+          success: false, // será atualizado ao final
+          duration_ms: 0 // será atualizado ao final
+        }).catch(() => {});
+      } catch (e) {
+        console.warn('[importacao] SkillExecution init falhou:', e.message);
+      }
+    })();
 
     const novoProcessamento = await base44.entities.ImportacaoDocumento.create({
       nome_arquivo: file.name,
@@ -204,7 +225,7 @@ export const processarArquivo = async (file, contexto = null) => {
       tipoPrincipal = classificacaoIA;
     }
 
-    const tempoTotal = Math.round((Date.now() - startTime) / 1000);
+    const tempoTotal = Date.now() - startTime;
 
     await base44.entities.ImportacaoDocumento.update(processamentoId, {
       status_processamento: 'revisao_manual',
@@ -212,9 +233,35 @@ export const processarArquivo = async (file, contexto = null) => {
       dados_extraidos: { dados_processados: resultadoExtracao.dados_extraidos },
       confianca_extracao: resultadoExtracao.confianca_extracao,
       observacoes_ia: resultadoExtracao.observacoes,
-      tempo_processamento: tempoTotal,
+      tempo_processamento: Math.round(tempoTotal / 1000),
       destino_dados: destinoFinal
     });
+
+    // SkillExecution: registrar sucesso da extração
+    ;(async () => {
+      try {
+        await base44.entities.SkillExecution.create({
+          skill_name: 'importacao_extracao_arquivo',
+          triggered_by: 'usuario_upload',
+          execution_mode: 'autonomous_safe',
+          context: {
+            tipo_arquivo: tipoArquivo,
+            nome_arquivo: file.name,
+            destino_final: destinoFinal,
+            classificacao_detectada: tipoPrincipal
+          },
+          success: true,
+          duration_ms: tempoTotal,
+          metricas: {
+            linhas_extraidas: resultadoExtracao.dados_extraidos.length,
+            confianca_extracao: resultadoExtracao.confianca_extracao || 80,
+            tipo_conteudo: resultadoExtracao.tipo_conteudo_detectado
+          }
+        }).catch(() => {});
+      } catch (e) {
+        console.warn('[importacao] SkillExecution sucesso falhou:', e.message);
+      }
+    })();
 
     return {
       dados: resultadoExtracao.dados_extraidos,
@@ -233,6 +280,30 @@ export const processarArquivo = async (file, contexto = null) => {
         erro_detalhado: `${error.message || 'Erro desconhecido'}. Arquivo: ${file.name}`
       });
     }
+
+    // SkillExecution: registrar falha
+    ;(async () => {
+      try {
+        await base44.entities.SkillExecution.create({
+          skill_name: 'importacao_extracao_arquivo',
+          triggered_by: 'usuario_upload',
+          execution_mode: 'autonomous_safe',
+          context: {
+            tipo_arquivo: detectarTipoArquivo(file),
+            nome_arquivo: file.name
+          },
+          success: false,
+          error_message: error.message,
+          duration_ms: Date.now() - startTime,
+          metricas: {
+            erro_tipo: error.constructor.name
+          }
+        }).catch(() => {});
+      } catch (e) {
+        console.warn('[importacao] SkillExecution erro falhou:', e.message);
+      }
+    })();
+
     throw error;
   }
 };
