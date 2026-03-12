@@ -563,36 +563,37 @@ export default function Clientes() {
                       </thead>
                       <tbody>
                         {contatosFidelizados.map((contato) => {
-                          const vendedorId = contato.data?.atendente_fidelizado_vendas;
-                          const vendedorNome = vendedores.find(v => String(v.value) === String(vendedorId))?.label || vendedorId || 'N/A';
-                          
+                          const userId = contato.atendente_fidelizado_vendas;
+                          const usuario = usuarios.find(u => u.id === userId);
+                          const vendedorNome = usuario?.full_name || userId || 'N/A';
+
                           return (
                             <tr key={contato.id} className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors">
                               <td className="px-6 py-4">
                                 <div>
-                                  <p className="font-medium text-slate-900">{contato.data?.nome || 'N/A'}</p>
-                                  <p className="text-xs text-slate-500">{contato.data?.empresa || ''}</p>
+                                  <p className="font-medium text-slate-900">{contato.nome || 'N/A'}</p>
+                                  <p className="text-xs text-slate-500">{contato.empresa || ''}</p>
                                 </div>
                               </td>
-                              <td className="px-6 py-4 text-slate-700">{contato.data?.telefone || '-'}</td>
+                              <td className="px-6 py-4 text-slate-700">{contato.telefone || '-'}</td>
                               <td className="px-6 py-4">
                                 <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">{vendedorNome}</Badge>
                               </td>
                               <td className="px-6 py-4">
-                                <Badge variant="outline">{contato.data?.segmento_atual || 'N/A'}</Badge>
+                                <Badge variant="outline">{contato.segmento_atual || 'N/A'}</Badge>
                               </td>
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-2">
                                   <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
                                     <div
                                       className={`h-full rounded-full ${
-                                        (contato.data?.score_engajamento || 0) >= 70 ? 'bg-green-500' :
-                                        (contato.data?.score_engajamento || 0) >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                                        (contato.score_engajamento || 0) >= 70 ? 'bg-green-500' :
+                                        (contato.score_engajamento || 0) >= 40 ? 'bg-yellow-500' : 'bg-red-500'
                                       }`}
-                                      style={{ width: `${Math.min(contato.data?.score_engajamento || 0, 100)}%` }}
+                                      style={{ width: `${Math.min(contato.score_engajamento || 0, 100)}%` }}
                                     />
                                   </div>
-                                  <span className="font-semibold text-slate-900">{contato.data?.score_engajamento || 0}</span>
+                                  <span className="font-semibold text-slate-900">{contato.score_engajamento || 0}</span>
                                 </div>
                               </td>
                             </tr>
