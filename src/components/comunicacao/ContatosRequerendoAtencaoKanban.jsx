@@ -630,49 +630,49 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
         {/* ✅ KANBAN COLUMNS */}
         <div className={`flex flex-col h-full min-h-0 transition-all ${chatAberto ? 'flex-1' : 'flex-1'}`}>
         {/* ✅ HEADER COM CONTROLES */}
-        <div className="flex-shrink-0 bg-slate-800 border-b-2 border-slate-700 p-3 space-y-2">
-          {/* Linha 1: Título + botões */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {onClose &&
-                <Button onClick={onClose} variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-white/20 text-white">
-                  <X className="w-4 h-4" />
-                </Button>
-              }
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-sm">
-                <AlertTriangle className="w-3.5 h-3.5 text-white" />
-              </div>
-              <div>
-                <h2 className="font-bold text-sm text-white">Contatos Urgentes</h2>
-                <p className="text-[10px] text-slate-400">{totalAlertas} requerem atenção</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="flex items-center gap-1 bg-slate-700 rounded px-2 py-1">
-                <Calendar className="w-3 h-3 text-slate-400" />
-                <Input
-                  type="number" min="1" max="90" value={diasInatividade}
-                  onChange={(e) => setDiasInatividade(Math.max(1, Math.min(90, parseInt(e.target.value) || 5)))}
-                  className="h-5 w-10 text-[10px] text-center bg-transparent border-0 text-white p-0 focus-visible:ring-0" />
-                <span className="text-[10px] text-slate-400">dias</span>
-                <button onClick={() => refetch()} className="text-[10px] text-amber-400 font-semibold hover:text-amber-300 ml-1">ok</button>
-              </div>
-              <Button onClick={() => setMostrarModalPromoAuto(true)} disabled={loading || totalAlertas === 0}
-                className="h-7 text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50 px-2">
-                <Sparkles className="w-3 h-3 mr-1" />Automático
-              </Button>
-              <Button onClick={abrirEnvioMassa} disabled={contatosSelecionados.length === 0}
-                className="h-7 text-xs bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md disabled:opacity-50 px-2">
-                <MessageSquare className="w-3 h-3 mr-1" />Massa
-              </Button>
-              <Button size="sm" variant="ghost" onClick={refetch} disabled={loading} className="h-7 w-7 p-0 hover:bg-white/20 text-white">
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-          </div>
+         <div className="flex-shrink-0 bg-slate-800 border-b-2 border-slate-700 p-2 sm:p-3 space-y-1.5 sm:space-y-2">
+           {/* Linha 1: Título + botões */}
+           <div className="flex items-center justify-between gap-1">
+             <div className="flex items-center gap-1.5 min-w-0">
+               {onClose &&
+                 <Button onClick={onClose} variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-white/20 text-white flex-shrink-0">
+                   <X className="w-3 h-3" />
+                 </Button>
+               }
+               <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-sm flex-shrink-0">
+                 <AlertTriangle className="w-3 h-3 text-white" />
+               </div>
+               <div className="min-w-0 flex-1">
+                 <h2 className="font-bold text-xs sm:text-sm text-white truncate">Contatos Urgentes</h2>
+                 <p className="text-[9px] text-slate-400">{totalAlertas} requerem atenção</p>
+               </div>
+             </div>
+             <div className="flex items-center gap-1 flex-shrink-0">
+               <div className="hidden sm:flex items-center gap-1 bg-slate-700 rounded px-2 py-1">
+                 <Calendar className="w-3 h-3 text-slate-400" />
+                 <Input
+                   type="number" min="1" max="90" value={diasInatividade}
+                   onChange={(e) => setDiasInatividade(Math.max(1, Math.min(90, parseInt(e.target.value) || 5)))}
+                   className="h-5 w-10 text-[10px] text-center bg-transparent border-0 text-white p-0 focus-visible:ring-0" />
+                 <span className="text-[10px] text-slate-400">dias</span>
+                 <button onClick={() => refetch()} className="text-[10px] text-amber-400 font-semibold hover:text-amber-300 ml-1">ok</button>
+               </div>
+               <Button onClick={() => setMostrarModalPromoAuto(true)} disabled={loading || totalAlertas === 0}
+                 className="h-6 text-[10px] sm:text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md disabled:opacity-50 px-1.5 sm:px-2 flex-shrink-0">
+                 <Sparkles className="w-2.5 h-2.5 mr-0.5 sm:mr-1 hidden sm:inline" />Auto
+               </Button>
+               <Button onClick={abrirEnvioMassa} disabled={contatosSelecionados.length === 0}
+                 className="h-6 text-[10px] sm:text-xs bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md disabled:opacity-50 px-1.5 sm:px-2 flex-shrink-0">
+                 <Send className="w-2.5 h-2.5 hidden sm:inline" />M
+               </Button>
+               <Button size="sm" variant="ghost" onClick={refetch} disabled={loading} className="h-6 w-6 p-0 hover:bg-white/20 text-white flex-shrink-0">
+                 <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+               </Button>
+             </div>
+           </div>
 
           {/* Linha 2: Cards ABC */}
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="hidden sm:grid grid-cols-4 gap-1.5">
             {[
               { key: 'todos', label: 'TOTAL', value: statsABC.total, accentColor: 'border-t-2 border-slate-500', valueColor: 'text-white', letter: null, tipos: statsABC.totalTipos },
               { key: 'A', label: 'CLASSE A — QUENTES', value: statsABC.classA, accentColor: 'border-t-2 border-green-400', valueColor: 'text-green-400', letter: 'A', letterColor: 'text-green-400/15', tipos: statsABC.tiposA },
@@ -697,7 +697,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
           </div>
 
           {/* Linha 3: Filtros de tipo + etiquetas */}
-          <div className="flex gap-1 flex-wrap items-center">
+          <div className="hidden sm:flex gap-1 flex-wrap items-center">
             {[
               { key: 'todos', label: '👥 Todos' },
               { key: 'lead', label: '🎯 Leads' },
@@ -738,9 +738,9 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             </div>
           </div> :
 
-          <div className="flex-1 overflow-x-auto p-3 gap-3 flex">
-            {Object.entries(grupos).map(([nomeColuna, items]) =>
-            <div key={nomeColuna} className="flex-shrink-0 w-64 rounded-lg overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-x-auto p-2 sm:p-3 gap-2 sm:gap-3 flex">
+             {Object.entries(grupos).map(([nomeColuna, items]) =>
+             <div key={nomeColuna} className="flex-shrink-0 w-56 sm:w-64 rounded-lg overflow-hidden flex flex-col">
                 {/* Header da Coluna - 14px */}
                 <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 rounded-t-lg shadow-md">
                   <div className="flex items-center justify-between gap-2">
@@ -783,7 +783,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
 
       {/* ✅ CHAT FLUTUANTE */}
       {chatAberto && (
-        <div className="fixed bottom-4 right-4 z-50 flex flex-col w-[420px] h-[600px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+        <div className="fixed bottom-2 right-2 sm:bottom-4 sm:right-4 z-50 flex flex-col w-[calc(100vw-16px)] sm:w-[420px] h-[calc(100vh-100px)] sm:h-[600px] max-h-[80vh] bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
           {/* Header da bolha */}
           <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-700">
             <div className="flex items-center gap-2">
