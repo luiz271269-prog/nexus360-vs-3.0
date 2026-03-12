@@ -18,6 +18,8 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'sdk_init_error' }, { status: 500 });
   }
 
+  const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
+
   console.log(`[${VERSION}] 🔄 Iniciando cálculo de scores ABC`);
 
   try {
@@ -98,6 +100,35 @@ Deno.serve(async (req) => {
     };
 
     console.log(`[${VERSION}] ✅ Cálculo concluído!`, resultado.resultado);
+
+    ;(async () => {
+      try {
+        const distribuicaoABC = contatos.reduce((acc, c) => {
+          const classe = c.classe_abc || 'none';
+          acc[classe] = (acc[classe] || 0) + 1;
+          return acc;
+        }, {});
+
+        await base44.asServiceRole.entities.SkillExecution.create({
+          skill_name: 'recalcular_scores_abc',
+          triggered_by: 'automacao_agendada',
+          execution_mode: 'autonomous_safe',
+          context: {
+            total_etiquetas: etiquetas.length,
+            etiquetas_abc_ativas: etiquetasABC.length,
+            total_contatos: contatos.length
+          },
+          success: true,
+          duration_ms: Date.now() - _tsInicio,
+          metricas: {
+            contatos_atualizados: contatosAtualizados,
+            distribuicao_abc: distribuicaoABC
+          }
+        });
+      } catch (e) {
+        console.warn('[calcularScoresABC] SkillExecution falhou (non-blocking):', e.message);
+      }
+    })();
 
     return Response.json(resultado);
 

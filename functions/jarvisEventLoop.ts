@@ -43,6 +43,7 @@ const getIdleThresholdMs = (thread) => {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
     const agora = new Date();
     const inicioCiclo = Date.now();
 
@@ -665,6 +666,37 @@ Deno.serve(async (req) => {
     }
 
     console.log('[NEXUS-AGENT v3] ✅ Ciclo concluído:', resultados);
+    
+    ;(async () => {
+      try {
+        await base44.asServiceRole.entities.SkillExecution.create({
+          skill_name: 'jarvis_event_loop',
+          triggered_by: 'automacao_agendada',
+          execution_mode: 'autonomous_safe',
+          context: {
+            threads_candidatas: threadsCandidatas.length,
+            threads_processadas: threadsParaProcessar.length,
+            cooldown_horas: cooldownHoras,
+            max_threads_ciclo: maxThreads
+          },
+          success: true,
+          duration_ms: Date.now() - _tsInicio,
+          metricas: {
+            contatos_processados: resultados.threads_alertadas,
+            playbooks_executados: resultados.followups_automaticos + resultados.alertas_internos,
+            alertas_enviados: resultados.alertas_internos,
+            followups_automaticos: resultados.followups_automaticos,
+            threads_ignoradas_cooldown: resultados.threads_ignoradas_cooldown,
+            orcamentos_processados: resultados.orcamentos_processados,
+            erros: resultados.erros,
+            etapa_concluida: 'step_2_3_5'
+          }
+        });
+      } catch (e) {
+        console.warn('[jarvisEventLoop] SkillExecution falhou (non-blocking):', e.message);
+      }
+    })();
+
     return Response.json({ success: true, versao: '3.0.0', resultados });
 
   } catch (error) {

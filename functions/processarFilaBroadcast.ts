@@ -14,6 +14,7 @@ const DELAY_ENTRE_ENVIOS_MS = 1_200; // 1.2s anti-rate-limit
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
+  const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
   const now = new Date();
   const inicio = Date.now();
 
@@ -167,6 +168,31 @@ Deno.serve(async (req) => {
     const pendentes = totalRestante.length;
 
     console.log(`[BROADCAST-WORKER] Concluído: ${processados} ✅ | ${erros} ❌ | ${pendentes > 0 ? 'há mais pendentes' : 'fila limpa'}`);
+
+    ;(async () => {
+      try {
+        await base44.asServiceRole.entities.SkillExecution.create({
+          skill_name: 'processar_fila_broadcast',
+          triggered_by: 'automacao_agendada',
+          execution_mode: 'autonomous_safe',
+          context: {
+            total_fila: items.length,
+            lote_maximo: LOTE_MAXIMO,
+            timeout_limite_ms: TIMEOUT_LIMITE_MS
+          },
+          success: true,
+          duration_ms: Date.now() - _tsInicio,
+          metricas: {
+            processados,
+            erros,
+            interrompido,
+            pendentes_restantes: pendentes
+          }
+        });
+      } catch (e) {
+        console.warn('[processarFilaBroadcast] SkillExecution falhou (non-blocking):', e.message);
+      }
+    })();
 
     return Response.json({
       success: true,
