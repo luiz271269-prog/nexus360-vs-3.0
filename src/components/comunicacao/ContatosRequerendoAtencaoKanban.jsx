@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertTriangle,
   Target,
@@ -738,43 +739,83 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             </div>
           </div> :
 
-          <div className="flex-1 overflow-x-auto p-2 sm:p-3 gap-2 sm:gap-3 flex">
+          {/* ── DESKTOP: Colunas horizontais ── */}
+          <div className="hidden sm:flex flex-1 overflow-x-auto p-3 gap-3">
              {Object.entries(grupos).map(([nomeColuna, items]) =>
-             <div key={nomeColuna} className="flex-shrink-0 w-56 sm:w-64 rounded-lg overflow-hidden flex flex-col">
-                {/* Header da Coluna - 14px */}
-                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 rounded-t-lg shadow-md">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-bold text-white">{nomeColuna}</span>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-white/30 text-white text-xs font-bold">
-                        {items.length}
-                      </Badge>
-                      {items.length > 0 &&
-                    <button
-                      onClick={() => toggleSelecionarGrupo(items)}
-                      className="text-white hover:bg-white/20 rounded px-2 py-1 transition-colors text-sm font-medium">
+             <div key={nomeColuna} className="flex-shrink-0 w-64 rounded-lg overflow-hidden flex flex-col">
+                 <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 rounded-t-lg shadow-md">
+                   <div className="flex items-center justify-between gap-2">
+                     <span className="text-sm font-bold text-white truncate">{nomeColuna}</span>
+                     <div className="flex items-center gap-2 flex-shrink-0">
+                       <Badge className="bg-white/30 text-white text-xs font-bold">{items.length}</Badge>
+                       {items.length > 0 &&
+                         <button onClick={() => toggleSelecionarGrupo(items)} className="text-white hover:bg-white/20 rounded px-2 py-1 transition-colors text-sm font-medium">
+                           {items.every((i) => contatosSelecionados.some((c) => (c.contact_id || c.id) === (i.contact_id || i.id))) ? '❌' : '✅'}
+                         </button>
+                       }
+                     </div>
+                   </div>
+                 </div>
+                 <div className="flex-1 overflow-y-auto p-1.5 space-y-1 scrollbar-custom bg-white rounded-b-lg shadow-sm border border-slate-200 border-t-0">
+                   {items.length === 0 ? <div className="text-center py-8 text-slate-400 text-xs">Sem contatos</div> : items.map(renderContatoCard)}
+                 </div>
+               </div>
+             )}
+           </div>
 
-                          {items.every((i) => contatosSelecionados.some((c) => (c.contact_id || c.id) === (i.contact_id || i.id))) ?
-                      '❌' :
-                      '✅'}
-                        </button>
-                    }
-                    </div>
+          {/* ── MOBILE: Abas por coluna ── */}
+          <div className="sm:hidden flex-1 flex flex-col min-h-0">
+            {(() => {
+              const gruposEntries = Object.entries(grupos);
+              const tabKeys = ['criticos', 'alta', 'prioritarios', 'monitorar'];
+              const defaultTab = gruposEntries.find(([, items]) => items.length > 0)?.[0] || gruposEntries[0]?.[0];
+
+              return (
+                <Tabs defaultValue={defaultTab} className="flex flex-col flex-1 min-h-0">
+                  <TabsList className="grid grid-cols-4 h-9 bg-slate-700 rounded-none flex-shrink-0 w-full">
+                    {gruposEntries.map(([nomeColuna, items]) => {
+                      const emoji = nomeColuna.startsWith('🔴') ? '🔴' : nomeColuna.startsWith('🟠') ? '🟠' : nomeColuna.startsWith('🟡') ? '🟡' : '🟢';
+                      return (
+                        <TabsTrigger
+                          key={nomeColuna}
+                          value={nomeColuna}
+                          className="text-[9px] px-0.5 py-1 text-slate-300 data-[state=active]:bg-slate-500 data-[state=active]:text-white flex flex-col items-center gap-0.5 h-full"
+                        >
+                          <span>{emoji}</span>
+                          {items.length > 0 && (
+                            <span className="bg-white/30 text-white text-[8px] font-bold rounded-full px-1 min-w-4 text-center">{items.length}</span>
+                          )}
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
+
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    {gruposEntries.map(([nomeColuna, items]) => (
+                      <TabsContent key={nomeColuna} value={nomeColuna} className="m-0 h-full flex flex-col">
+                        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-3 py-2 flex items-center justify-between flex-shrink-0">
+                          <span className="text-xs font-bold text-white truncate flex-1">{nomeColuna}</span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Badge className="bg-white/30 text-white text-xs font-bold">{items.length}</Badge>
+                            {items.length > 0 && (
+                              <button onClick={() => toggleSelecionarGrupo(items)} className="text-white hover:bg-white/20 rounded px-1.5 py-0.5 text-xs font-medium">
+                                {items.every((i) => contatosSelecionados.some((c) => (c.contact_id || c.id) === (i.contact_id || i.id))) ? '❌' : '✅'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto bg-white">
+                          {items.length === 0
+                            ? <div className="text-center py-12 text-slate-400 text-xs">Sem contatos</div>
+                            : items.map(renderContatoCard)
+                          }
+                        </div>
+                      </TabsContent>
+                    ))}
                   </div>
-                </div>
-
-                {/* Cards */}
-                <div className="flex-1 overflow-y-auto p-1.5 space-y-1 scrollbar-custom bg-white rounded-b-lg shadow-sm border border-slate-200 border-t-0">
-                  {items.length === 0 ?
-                <div className="text-center py-8 text-slate-400 text-xs">
-                      Sem contatos
-                    </div> :
-
-                items.map(renderContatoCard)
-                }
-                </div>
-              </div>
-            )}
+                </Tabs>
+              );
+            })()}
           </div>
           }
       </div>
