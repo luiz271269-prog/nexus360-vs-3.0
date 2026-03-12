@@ -207,7 +207,23 @@ export default function ChatSidebar({
 
     // A lista de threads que chega já foi filtrada pela lógica de `Comunicacao.jsx`.
     // O filtro aqui foi removido para evitar duplicidade e conflitos.
-    return threads;
+    // ✅ CORREÇÃO: Excluir threads internas incompletas (sem mensagens + sem participants válidos)
+    return threads.filter(t => {
+      if (!t) return false;
+
+      // Threads internas: EXIGIR pelo menos uma mensagem OU ter participants válidos com total_mensagens > 0
+      if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') {
+        // Se tem last_message_at, é válida
+        if (t.last_message_at) return true;
+        // Se total_mensagens > 0, é válida (compatibilidade legada)
+        if (t.total_mensagens > 0) return true;
+        // Senão, EXCLUIR threads internas sem mensagens
+        return false;
+      }
+
+      // Threads externas: manter todas
+      return true;
+    });
   }, [threads, usuarioAtual, integracoes]);
 
   const threadsSorted = React.useMemo(() => {
