@@ -571,8 +571,8 @@ export default function Clientes() {
                             <tr key={contato.id} className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors">
                               <td className="px-6 py-4">
                                 <div>
-                                  <p className="font-medium text-slate-900">{contato.nome || 'N/A'}</p>
-                                  <p className="text-xs text-slate-500">{contato.empresa || ''}</p>
+                                  <p className="font-medium text-slate-900">{contato.empresa || 'N/A'}</p>
+                                  <p className="text-xs text-slate-500">{contato.nome || ''}</p>
                                 </div>
                               </td>
                               <td className="px-6 py-4 text-slate-700">{contato.telefone || '-'}</td>
