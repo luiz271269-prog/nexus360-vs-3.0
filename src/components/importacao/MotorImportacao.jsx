@@ -44,48 +44,55 @@ const extrairDadosPlanilha = async (fileUrl, tipo, nomeArquivo) => {
   }
 
   // XLSX via SheetJS com ArrayBuffer correto
-  const response = await fetch(fileUrl);
-  if (!response.ok) throw new Error(`Falha ao baixar arquivo: ${response.status}`);
+  try {
+    const response = await fetch(fileUrl);
+    if (!response.ok) throw new Error(`Falha ao baixar arquivo: ${response.status}`);
 
-  const arrayBuffer = await response.arrayBuffer();
-  const uint8Array = new Uint8Array(arrayBuffer);
-  const workbook = XLSX.read(uint8Array, { type: 'array' });
+    const arrayBuffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const workbook = XLSX.read(uint8Array, { type: 'array' });
 
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) throw new Error('Nenhuma aba encontrada na planilha');
+    
+    const sheet = workbook.Sheets[sheetName];
 
-  // header:1 dá controle total sobre os cabeçalhos
-  const jsonData = XLSX.utils.sheet_to_json(sheet, {
-    header: 1,
-    defval: '',
-    blankrows: false
-  });
-
-  if (!jsonData || jsonData.length < 2) {
-    throw new Error('Planilha vazia ou sem dados suficientes');
-  }
-
-  const headers = jsonData[0].map(h => String(h || '').trim()).filter(h => h);
-  const rows = jsonData.slice(1);
-
-  const dadosExtraidos = rows
-    .filter(row => row.some(cell => cell !== '' && cell !== null && cell !== undefined))
-    .map(row => {
-      const obj = {};
-      headers.forEach((header, idx) => {
-        obj[header] = row[idx] !== undefined ? String(row[idx]) : '';
-      });
-      return obj;
+    // header:1 dá controle total sobre os cabeçalhos
+    const jsonData = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      defval: '',
+      blankrows: false
     });
 
-  if (dadosExtraidos.length === 0) throw new Error('Nenhum dado encontrado na planilha');
+    if (!jsonData || jsonData.length < 2) {
+      throw new Error('Planilha vazia ou sem dados suficientes');
+    }
 
-  return {
-    dados_extraidos: dadosExtraidos,
-    confianca_extracao: 95,
-    tipo_conteudo_detectado: 'excel_tabela',
-    observacoes: `${dadosExtraidos.length} linhas extraídas de ${headers.length} colunas (aba: ${sheetName})`
-  };
+    const headers = jsonData[0].map(h => String(h || '').trim()).filter(h => h);
+    const rows = jsonData.slice(1);
+
+    const dadosExtraidos = rows
+      .filter(row => row.some(cell => cell !== '' && cell !== null && cell !== undefined))
+      .map(row => {
+        const obj = {};
+        headers.forEach((header, idx) => {
+          obj[header] = row[idx] !== undefined ? String(row[idx]) : '';
+        });
+        return obj;
+      });
+
+    if (dadosExtraidos.length === 0) throw new Error('Nenhum dado encontrado na planilha');
+
+    return {
+      dados_extraidos: dadosExtraidos,
+      confianca_extracao: 95,
+      tipo_conteudo_detectado: 'excel_tabela',
+      observacoes: `${dadosExtraidos.length} linhas extraídas de ${headers.length} colunas (aba: ${sheetName})`
+    };
+  } catch (e) {
+    console.error(`[XLSX] Erro ao processar planilha: ${e.message}`);
+    throw new Error(`Unsupported file type: ${nomeArquivo}`);
+  }
 };
 
 // ─── Extração PDF/Imagem via Anthropic API (backend function) ────────────────
@@ -111,25 +118,37 @@ REGRAS: Identifique a tabela principal, extraia TODAS as linhas e colunas. NUNCA
 RETORNE APENAS JSON VÁLIDO com esta estrutura:
 {"dados_extraidos":[{"coluna1":"valor1"}],"confianca_extracao":85,"tipo_conteudo_detectado":"word_tabela","observacoes":"descrição"}`;
 
-  const resultado = await base44.integrations.Core.InvokeLLM({
-    prompt,
-    file_urls: [fileUrl],
-    response_json_schema: {
-      type: 'object',
-      properties: {
-        dados_extraidos: { type: 'array', items: { type: 'object', additionalProperties: true } },
-        confianca_extracao: { type: 'number' },
-        tipo_conteudo_detectado: { type: 'string' },
-        observacoes: { type: 'string' }
-      },
-      required: ['dados_extraidos']
-    }
-  });
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutos max
 
-  if (resultado?.dados_extraidos && Array.isArray(resultado.dados_extraidos)) {
-    return resultado;
+    const resultado = await base44.integrations.Core.InvokeLLM({
+      prompt,
+      file_urls: [fileUrl],
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          dados_extraidos: { type: 'array', items: { type: 'object', additionalProperties: true } },
+          confianca_extracao: { type: 'number' },
+          tipo_conteudo_detectado: { type: 'string' },
+          observacoes: { type: 'string' }
+        },
+        required: ['dados_extraidos']
+      }
+    });
+
+    clearTimeout(timeoutId);
+
+    if (resultado?.dados_extraidos && Array.isArray(resultado.dados_extraidos)) {
+      return resultado;
+    }
+    throw new Error('A IA não retornou um formato de dados válido.');
+  } catch (e) {
+    if (e.message?.includes('timed out') || e.message?.includes('timeout')) {
+      throw new Error(`Tempo limite excedido ao processar arquivo. Tente novamente ou divida o arquivo em partes menores.`);
+    }
+    throw e;
   }
-  throw new Error('A IA não retornou um formato de dados válido.');
 };
 
 // ─── Orquestrador principal de extração ─────────────────────────────────────
