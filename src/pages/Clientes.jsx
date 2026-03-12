@@ -565,7 +565,7 @@ export default function Clientes() {
                         {contatosFidelizados.map((contato) => {
                           const userId = contato.atendente_fidelizado_vendas;
                           const usuario = usuarios.find(u => u.id === userId || u.full_name === userId || u.email === userId);
-                          const vendedorNome = usuario?.full_name || userId || 'N/A';
+                          const vendedorNome = usuario?.full_name || 'Não identificado';
 
                           return (
                             <tr key={contato.id} className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors">
