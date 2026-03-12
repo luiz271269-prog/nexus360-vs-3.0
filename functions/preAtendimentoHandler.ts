@@ -75,21 +75,19 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
   console.log('[FLUXO] INIT | Input:', user_input?.content, '| IA:', intent_context ? 'Sim' : 'Não');
 
   // ════════════════════════════════════════════════════════════════
-  // [FIX 2] CONTEXTO VIA NEXUS BRAIN ANTES DO MENU
-  // Se contato tem histórico, buscar contexto antes de perguntar
+  // 🆕 SPRINT 0: SAUDAÇÃO AUTOMÁTICA (Cliente Novo)
   // ════════════════════════════════════════════════════════════════
-  let contextoHistorico = null;
-  if (!intent_context && contact?.id && thread?.last_message_at) {
-    console.log('[FLUXO] [FIX 2] Buscando contexto histórico para:', contact.nome);
-    try {
-      // Usar fire-and-forget do Brain para enriquecer a memória do contato
-      await base44.asServiceRole.functions.invoke('atualizarMemoriaContato', {
-        contact_id: contact.id,
-        thread_id: thread.id
-      }).catch(e => console.warn('[FLUXO] [FIX 2] Brain contexto falhou:', e.message));
-    } catch (e) {
-      console.warn('[FLUXO] [FIX 2] Erro ao chamar atualizarMemoriaContato:', e.message);
-    }
+  const precisaSaudacao = !thread.last_human_message_at && !thread.sector_id;
+  
+  if (precisaSaudacao && cfg.saudacao_cliente_novo) {
+    const primeiroNome = contact.nome?.split(' ')[0] || '';
+    const textoSaudacao = cfg.saudacao_cliente_novo
+      .replace('{{nome}}', primeiroNome)
+      .replace('{{empresa}}', cfg.nome_empresa || 'Sua Empresa')
+      .replace('{{produtos}}', cfg.apresentacao_empresa_produtos || 'nossos serviços');
+    
+    await enviarMensagem(base44, contact, whatsappIntegrationId, textoSaudacao);
+    console.log('[SAUDACAO] ✅ Mensagem de boas-vindas enviada para cliente novo');
   }
 
   // Fast-track via IA — Bug 5 fix: normalizar sector_slug para nome interno correto
@@ -99,7 +97,11 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
     'financeiro': 'financeiro', 'finance': 'financeiro',
     'fornecedor': 'fornecedor', 'fornecedores': 'fornecedor', 'compras': 'fornecedor',
   };
-  if (intent_context?.sector_slug && intent_context.confidence >= 70) {
+  
+  // 🆕 THRESHOLD CONFIGURÁVEL (G2)
+  const thresholdFastTrack = Number(cfg.threshold_fasttrack || 70);
+  
+  if (intent_context?.sector_slug && intent_context.confidence >= thresholdFastTrack) {
     const setorNormalizado = SLUG_NORMALIZER[intent_context.sector_slug.toLowerCase()] || intent_context.sector_slug;
     const msg = `✅ Entendi! Vou te direcionar para *${setorNormalizado.toUpperCase()}*.`;
     const enviou = await enviarMensagem(base44, contact, whatsappIntegrationId, msg);
@@ -292,8 +294,26 @@ async function processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, user_i
 
     if (rota.data?.success && rota.data?.atendente_id) {
       const atendenteNome = rota.data.atendente_nome || 'um atendente';
-      const enviado = await enviarMensagem(base44, contact, whatsappIntegrationId, `🥳 Encontrei o atendente *${atendenteNome}* para você! Transferindo...`);
+      
+      // 🆕 SPRINT 0: MENSAGEM HUMANIZADA PÓS-ROTEAMENTO
+      let msgApresentacao = `🥳 Encontrei o atendente *${atendenteNome}* para você! Transferindo...`;
+      
+      // Carregar config do handler principal
+      const cfgLocal = await loadConfig(base44);
+      if (cfgLocal.msg_apresentacao_atendente) {
+        const primeiroNomeCliente = contact.nome?.split(' ')[0] || 'você';
+        const primeiroNomeAtendente = atendenteNome.split(' ')[0];
+        const setorHumanizado = setor === 'assistencia' ? 'suporte' : (setor || 'atendimento');
+        
+        msgApresentacao = cfgLocal.msg_apresentacao_atendente
+          .replace('{{nome_cliente}}', primeiroNomeCliente)
+          .replace('{{atendente}}', primeiroNomeAtendente)
+          .replace('{{setor}}', setorHumanizado);
+      }
+      
+      const enviado = await enviarMensagem(base44, contact, whatsappIntegrationId, msgApresentacao);
       if (!enviado) console.error('[PRE-ATENDIMENTO] ⚠️ Msg atribuição falhou, mas agente FOI atribuído — completando mesmo assim');
+      
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         pre_atendimento_state: 'COMPLETED',
         pre_atendimento_ativo: false,
