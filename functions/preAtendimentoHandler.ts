@@ -8,6 +8,23 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 const PRE_ATENDIMENTO_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos (ajustável)
 
+// Carregar configuração da empresa
+async function loadConfig(base44) {
+  try {
+    const configs = await base44.asServiceRole.entities.ConfiguracaoSistema.filter(
+      { ativa: true }, 'chave', 100
+    );
+    const map = {};
+    for (const c of configs) {
+      map[c.chave] = c.valor?.value || null;
+    }
+    return map;
+  } catch (e) {
+    console.warn('[CONFIG] Falha ao carregar configs:', e.message);
+    return {};
+  }
+}
+
 // --- Inline: emojiHelper (processTextWithEmojis only) ---
 function processTextWithEmojis(text) {
   if (!text || typeof text !== 'string') return '';
@@ -54,7 +71,7 @@ async function atualizarEstado(base44, threadId, novoEstado, setorId = undefined
 }
 
 // --- Inline: FluxoController ---
-async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, user_input = null, intent_context = null) {
+async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationId, user_input = null, intent_context = null, cfg = {}) {
   console.log('[FLUXO] INIT | Input:', user_input?.content, '| IA:', intent_context ? 'Sim' : 'Não');
 
   // ════════════════════════════════════════════════════════════════
@@ -126,6 +143,7 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
   const horaMenu = new Date().getHours();
   const saudacaoMenu = horaMenu < 12 ? 'Bom dia' : (horaMenu < 18 ? 'Boa tarde' : 'Boa noite');
   const descricaoMenu = `👋 Olá${nomeMenu ? ` ${nomeMenu}` : ''}! ${saudacaoMenu}! Estou aqui para te conectar com a equipe certa. 🎯`;
+  const nomeEmpresa = cfg?.nome_empresa || 'Sua Empresa';
   let menuEnviado = false;
   try {
     const res = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
@@ -135,7 +153,7 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
       mensagem: descricaoMenu,
       listTitle: '👋 Como podemos te ajudar?',
       listButtonText: 'Ver opções',
-      listFooter: 'Liesch Informática',
+      listFooter: nomeEmpresa,
       listSectionTitle: 'Setores disponíveis',
       interactive_buttons: [
         { rowId: 'setor_vendas',       title: '🛒 Vendas',          description: 'Orçamentos e compras' },
@@ -360,6 +378,9 @@ Deno.serve(async (req) => {
 
     console.log('[PRE-ATENDIMENTO] Thread:', thread.id, '| Estado:', thread.pre_atendimento_state);
 
+    // Carregar configuração (para nome da empresa no menu)
+    const cfg = await loadConfig(base44);
+
     // Política de libertação
     if (['COMPLETED', 'CANCELLED', 'TIMEOUT'].includes(thread.pre_atendimento_state)) {
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
@@ -403,7 +424,7 @@ Deno.serve(async (req) => {
     let resultado;
     switch (estadoAtual) {
       case 'INIT':
-        resultado = await processarEstadoINIT(base44, thread, contact, whatsappIntegration.id, userInput, intent_context);
+        resultado = await processarEstadoINIT(base44, thread, contact, whatsappIntegration.id, userInput, intent_context, cfg);
         break;
       case 'WAITING_SECTOR_CHOICE':
         resultado = await processarWAITING_SECTOR_CHOICE(base44, thread, contact, userInput, whatsappIntegration.id);
