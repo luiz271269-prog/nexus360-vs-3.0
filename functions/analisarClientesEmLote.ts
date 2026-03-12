@@ -9,6 +9,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
     
     // Tentar autenticação (pode não ter em automações scheduled)
     let user = null;
@@ -292,6 +293,36 @@ Deno.serve(async (req) => {
         }
       };
       
+      ;(async () => {
+        try {
+          await base44.asServiceRole.entities.SkillExecution.create({
+            skill_name: 'analisar_contatos_priorizacao',
+            triggered_by: 'user_action',
+            execution_mode: 'copilot',
+            context: {
+              modo: 'priorizacao',
+              total_contatos_base: contatos.length,
+              dias_sem_mensagem: diasSemMensagem,
+              min_deal_risk: minDealRisk,
+              bucket_inactive,
+              tipo_contato: tipo
+            },
+            success: true,
+            duration_ms: Date.now() - _tsInicio,
+            metricas: {
+              contatos_retornados: clientesEnriquecidos.length,
+              criticos: stats.criticos,
+              altos: stats.altos,
+              com_analise_valida: clientesEnriquecidos.filter(c => c.status === 'ok').length,
+              sem_analise: clientesEnriquecidos.filter(c => c.status === 'no_analysis').length,
+              distribuicao_buckets: stats.porBucket
+            }
+          });
+        } catch (e) {
+          console.warn('[analisarClientesEmLote] SkillExecution falhou (non-blocking):', e.message);
+        }
+      })();
+      
       return Response.json({
         success: true,
         modo: 'priorizacao',
@@ -383,6 +414,32 @@ Deno.serve(async (req) => {
         });
       }
     }
+    
+    ;(async () => {
+      try {
+        await base44.asServiceRole.entities.SkillExecution.create({
+          skill_name: 'analise_diaria_contatos',
+          triggered_by: 'automacao_agendada',
+          execution_mode: 'autonomous_safe',
+          context: {
+            modo: 'scheduled',
+            limit,
+            priorizar_ativos,
+            tipo
+          },
+          success: true,
+          duration_ms: Date.now() - _tsInicio,
+          metricas: {
+            contatos_analisados: resultados.total_processados,
+            analises_criadas: resultados.analises_criadas,
+            analises_puladas: resultados.analises_puladas,
+            erros: resultados.erros.length
+          }
+        });
+      } catch (e) {
+        console.warn('[analisarClientesEmLote] SkillExecution falhou (non-blocking):', e.message);
+      }
+    })();
     
     return Response.json({
       success: true,
