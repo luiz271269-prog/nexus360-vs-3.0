@@ -251,7 +251,8 @@ export default function Layout({ children, currentPageName }) {
     { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" },
     { name: "Ferramentas de Migração", icon: Activity, page: "FerramentasMigracao" },
     { name: "Auditoria", icon: Shield, page: "Auditoria" },
-    { name: "Configuração do Sistema", icon: Settings, page: "ConfiguracaoIA" }
+    { name: "Configuração do Sistema", icon: Settings, page: "ConfiguracaoIA" },
+    { name: "Super Agente", icon: Zap, page: "SuperAgente" }
     // ⚠️ DEPRECATED: TagManager removido do menu - usar GerenciadorEtiquetasUnificado em Automações
   ];
 

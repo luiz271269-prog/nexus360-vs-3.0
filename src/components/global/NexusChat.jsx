@@ -58,13 +58,17 @@ export default function NexusChat({ isOpen, onToggle, agentContext = {}, agentSe
           `• 🎓 Orientação sobre funcionalidades do sistema\n` +
           `• 🔧 Diagnóstico e solução de erros técnicos\n` +
           `• 💬 Gestão de comunicação e threads\n` +
-          `• 🌐 Pesquisas externas na internet (notícias, dados atualizados, etc)\n\n` +
+          `• 🌐 Pesquisas externas na internet (notícias, dados atualizados, etc)\n` +
+          `• ⚡ **SUPER AGENTE**: Executo skills automatizadas em 3 modos (copilot, autônomo seguro, crítico)\n\n` +
           `**💡 Exemplos do que posso fazer:**\n` +
           `"Quais clientes não foram contatados esta semana?"\n` +
           `"Analise meu desempenho de vendas"\n` +
           `"Por que esta thread não aparece?"\n` +
           `"Sugira ações para orçamentos parados"\n` +
-          `"Encontre conversas urgentes não atribuídas"\n\n` +
+          `"Encontre conversas urgentes não atribuídas"\n` +
+          `"Listar skills disponíveis"\n` +
+          `"Executar followup orçamentos parados 7 dias"\n` +
+          `"Limpar dados de teste (modo simulação)"\n\n` +
           `Tenho acesso completo aos dados do sistema. Como posso ajudar?`
         );
       }
