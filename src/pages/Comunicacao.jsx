@@ -39,7 +39,7 @@ import {
 "../components/lib/userMatcher";
 import { getUserDisplayName } from "../components/lib/userHelpers";
 import * as permissionsService from "../components/lib/permissionsService";
-import { filtrarThreadsComVisibilidade } from "../components/comunicacao/utils/threadFilters";
+import { filtrarThreadsComVisibilidade } from "@/components/comunicacao/utils/threadFilters";
 
 // Funções específicas que ainda não foram migradas
 import {
