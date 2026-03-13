@@ -60,13 +60,13 @@ Deno.serve(async (req) => {
     
     const totalAnalisadas = threadsOrfas.length;
 
-    console.log(`[ATRIBUIDOR] Encontradas ${threadsOrfas.length} threads órfãs (de ${todasThreads.length} total)`);
+    console.log(`[ATRIBUIDOR] Encontradas ${threadsOrfas.length} threads órfãs`);
 
     if (threadsOrfas.length === 0) {
       return Response.json({
         success: true,
         message: 'Nenhuma thread órfã encontrada',
-        total_analisadas: todasThreads.length,
+        total_analisadas: totalAnalisadas,
         total_orfas: 0,
         atribuicoes: []
       });
