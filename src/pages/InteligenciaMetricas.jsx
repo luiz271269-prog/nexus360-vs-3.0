@@ -4,6 +4,7 @@ import { useContatosInteligentes } from '../components/hooks/useContatosIntelige
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import ModalDetalhesMetricas from '../components/inteligencia/ModalDetalhesMetricas';
 import {
   Activity,
   Brain,
@@ -29,6 +30,10 @@ export default function InteligenciaMetricas() {
   const [automacoes, setAutomacoes] = useState([]);
   const [skills, setSkills] = useState([]);
   const [agentes, setAgentes] = useState([]);
+  
+  // Modais
+  const [modalAberto, setModalAberto] = useState(null);
+  const [dadosModal, setDadosModal] = useState([]);
 
   const { clientes, estatisticas, totalUrgentes, criticos } = useContatosInteligentes(usuario, {
     tipo: ['lead', 'cliente'],
@@ -52,6 +57,11 @@ export default function InteligenciaMetricas() {
     };
     init();
   }, []);
+
+  const abrirModal = (tipo, dados = []) => {
+    setModalAberto(tipo);
+    setDadosModal(dados);
+  };
 
   const carregarMetricas = async () => {
     setLoading(true);
@@ -261,7 +271,10 @@ export default function InteligenciaMetricas() {
 
         {/* Cards principais - Camada 3 (Priorização) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+          <Card 
+            className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => abrirModal('analises')}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-purple-700 flex items-center gap-2">
                 <Activity className="w-4 h-4" />
@@ -278,7 +291,10 @@ export default function InteligenciaMetricas() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+          <Card 
+            className="bg-gradient-to-br from-red-50 to-red-100 border-red-200 cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => abrirModal('urgentes', criticos)}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-red-700 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4" />
@@ -295,7 +311,10 @@ export default function InteligenciaMetricas() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+          <Card 
+            className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => abrirModal('alertas')}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-orange-700 flex items-center gap-2">
                 <Zap className="w-4 h-4" />
@@ -312,7 +331,10 @@ export default function InteligenciaMetricas() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <Card 
+            className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => abrirModal('cobertura')}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
                 <Target className="w-4 h-4" />
@@ -331,7 +353,7 @@ export default function InteligenciaMetricas() {
         </div>
 
         {/* Volume de mensagens */}
-        <Card className="mb-6">
+        <Card className="mb-6 cursor-pointer hover:shadow-lg transition-shadow" onClick={() => abrirModal('mensagens')}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="w-5 h-5 text-slate-600" />
@@ -364,7 +386,7 @@ export default function InteligenciaMetricas() {
 
         {/* Scores Médios - Camada 1 (Análise) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => abrirModal('scores')}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-slate-600" />
@@ -395,7 +417,13 @@ export default function InteligenciaMetricas() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => {
+            const dados = Object.entries(metricas?.porStage || {}).map(([stage, count]) => ({
+              name: stage.replace(/_/g, ' '),
+              count
+            }));
+            abrirModal('estagio', dados);
+          }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-slate-600" />
@@ -422,7 +450,15 @@ export default function InteligenciaMetricas() {
 
         {/* Estatísticas por Prioridade - Camada 3 */}
         {estatisticas && (
-          <Card className="mb-6">
+          <Card className="mb-6 cursor-pointer hover:shadow-lg transition-shadow" onClick={() => {
+            const dados = [
+              { name: 'Críticos', count: estatisticas.porPrioridade?.CRITICO || 0 },
+              { name: 'Alta', count: estatisticas.porPrioridade?.ALTO || 0 },
+              { name: 'Média', count: estatisticas.porPrioridade?.MEDIO || 0 },
+              { name: 'Baixa', count: estatisticas.porPrioridade?.BAIXO || 0 }
+            ];
+            abrirModal('prioridade', dados);
+          }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-slate-600" />
@@ -463,7 +499,7 @@ export default function InteligenciaMetricas() {
         {/* Automações em Tempo Real */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Automações */}
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => abrirModal('automacoes', automacoes)}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Workflow className="w-5 h-5 text-blue-600" />
@@ -498,7 +534,7 @@ export default function InteligenciaMetricas() {
           </Card>
 
           {/* Skills */}
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => abrirModal('skills', skills)}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Cpu className="w-5 h-5 text-purple-600" />
@@ -533,7 +569,7 @@ export default function InteligenciaMetricas() {
           </Card>
 
           {/* Agentes */}
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => abrirModal('agentes', agentes)}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Bot className="w-5 h-5 text-green-600" />
@@ -569,6 +605,138 @@ export default function InteligenciaMetricas() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Modais de Detalhes */}
+        <ModalDetalhesMetricas
+          isOpen={modalAberto === 'analises'}
+          onClose={() => setModalAberto(null)}
+          titulo="Análises (24h)"
+          cor="purple"
+          dados={[]}
+          renderRow={() => <span className="text-sm">Total de {metricas?.totalAnalises24h || 0} análises com {metricas?.taxaSucesso || 0}% de sucesso</span>}
+        />
+
+        <ModalDetalhesMetricas
+          isOpen={modalAberto === 'urgentes'}
+          onClose={() => setModalAberto(null)}
+          titulo="Contatos Urgentes"
+          cor="red"
+          dados={criticos}
+          renderRow={(item) => (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-700">{item.nome || item.name || 'Contato'}</span>
+              <Badge className="bg-red-600 text-white text-[10px]">Crítico</Badge>
+            </div>
+          )}
+        />
+
+        <ModalDetalhesMetricas
+          isOpen={modalAberto === 'alertas'}
+          onClose={() => setModalAberto(null)}
+          titulo="Alertas Ativos"
+          cor="orange"
+          dados={[]}
+          renderRow={() => <span className="text-sm">Total de {metricas?.alertasAtivos || 0} alertas requerendo ação</span>}
+        />
+
+        <ModalDetalhesMetricas
+          isOpen={modalAberto === 'cobertura'}
+          onClose={() => setModalAberto(null)}
+          titulo="Cobertura de Análises"
+          cor="blue"
+          dados={[]}
+          renderRow={() => (
+            <div className="text-sm text-slate-700">
+              <p>{metricas?.contatosComAnalise || 0} de {metricas?.contatosAtivos || 0} contatos analisados</p>
+              <p className="text-xs text-slate-500 mt-1">Taxa: {metricas?.taxaCobertura || 0}%</p>
+            </div>
+          )}
+        />
+
+        <ModalDetalhesMetricas
+          isOpen={modalAberto === 'mensagens'}
+          onClose={() => setModalAberto(null)}
+          titulo="Volume de Mensagens (24h)"
+          cor="blue"
+          dados={[
+            { name: 'Total', count: metricas?.volumeMensagens?.total || 0 },
+            { name: 'Enviadas', count: metricas?.volumeMensagens?.enviadas || 0 },
+            { name: 'Recebidas', count: metricas?.volumeMensagens?.recebidas || 0 }
+          ]}
+        />
+
+        <ModalDetalhesMetricas
+          isOpen={modalAberto === 'scores'}
+          onClose={() => setModalAberto(null)}
+          titulo="Scores Médios (IA)"
+          cor="purple"
+          dados={[
+            { name: 'Risco de Perda', count: metricas?.scoresMedios?.deal_risk || 0 },
+            { name: 'Intenção de Compra', count: metricas?.scoresMedios?.buy_intent || 0 },
+            { name: 'Engajamento', count: metricas?.scoresMedios?.engagement || 0 },
+            { name: 'Saúde da Conta', count: metricas?.scoresMedios?.health || 0 }
+          ]}
+        />
+
+        <ModalDetalhesMetricas
+          isOpen={modalAberto === 'estagio'}
+          onClose={() => setModalAberto(null)}
+          titulo="Distribuição por Estágio"
+          cor="purple"
+          dados={dadosModal}
+        />
+
+        <ModalDetalhesMetricas
+          isOpen={modalAberto === 'prioridade'}
+          onClose={() => setModalAberto(null)}
+          titulo="Distribuição por Prioridade"
+          cor="blue"
+          dados={dadosModal}
+        />
+
+        <ModalDetalhesMetricas
+          isOpen={modalAberto === 'automacoes'}
+          onClose={() => setModalAberto(null)}
+          titulo="Automações Ativas"
+          cor="blue"
+          dados={automacoes}
+          renderRow={(item) => (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-700">{item.name || item.titulo || 'Automação'}</span>
+              <Badge className="bg-blue-100 text-blue-800 text-[10px]">Ativa</Badge>
+            </div>
+          )}
+        />
+
+        <ModalDetalhesMetricas
+          isOpen={modalAberto === 'skills'}
+          onClose={() => setModalAberto(null)}
+          titulo="Skills Executando"
+          cor="purple"
+          dados={skills}
+          renderRow={(item) => (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-700">{item.skill_name || item.name || 'Skill'}</span>
+              <Badge className="bg-purple-100 text-purple-800 text-[10px]">{item.status || 'Ativa'}</Badge>
+            </div>
+          )}
+        />
+
+        <ModalDetalhesMetricas
+          isOpen={modalAberto === 'agentes'}
+          onClose={() => setModalAberto(null)}
+          titulo="Agentes Operacionais"
+          cor="blue"
+          dados={agentes}
+          renderRow={(item) => (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-700">{item.agent_name || item.name || 'Agent'}</span>
+              <Badge className={`text-[10px] ${item.status === 'processando' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>
+                {item.status === 'processando' ? 'Processando' : 'Online'}
+              </Badge>
+            </div>
+          )}
+        />
       </div>
     </div>
   );
