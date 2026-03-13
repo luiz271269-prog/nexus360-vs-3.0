@@ -24,14 +24,56 @@ export default function ComentariosInternos({
 
   const queryClient = useQueryClient();
 
+  // Estado para gerenciar thread de comentários
+  const [threadComentarios, setThreadComentarios] = useState(null);
+
+  // Buscar ou criar thread de comentários ao abrir
+  useEffect(() => {
+    if (!aberto || !messageId) return;
+
+    const criarThreadComentarios = async () => {
+      try {
+        // Usar threadId_comentarios como identificador único
+        const threadIdComentario = `${messageId}_comentarios`;
+        
+        // Buscar threads existentes com esse padrão
+        const threadsExistentes = await base44.entities.MessageThread.filter({
+          group_name: threadIdComentario
+        }, '-updated_date', 1);
+
+        let threadId;
+        if (threadsExistentes.length > 0) {
+          threadId = threadsExistentes[0].id;
+        } else {
+          // Criar nova thread interna de comentários
+          const novaThread = await base44.entities.MessageThread.create({
+            thread_type: 'team_internal',
+            group_name: threadIdComentario,
+            is_group_chat: true,
+            participants: [usuarioAtual.id],
+            status: 'aberta',
+            channel: 'interno'
+          });
+          threadId = novaThread.id;
+        }
+        
+        setThreadComentarios(threadId);
+      } catch (err) {
+        console.error('[COMENTARIOS] Erro ao criar thread:', err);
+      }
+    };
+
+    criarThreadComentarios();
+  }, [aberto, messageId, usuarioAtual.id]);
+
   // Buscar comentários vinculados à mensagem
   const { data: comentarios = [] } = useQuery({
-    queryKey: ['comentarios-internos', messageId],
+    queryKey: ['comentarios-internos', threadComentarios],
     queryFn: () => {
-      if (!messageId) return [];
+      if (!threadComentarios) return [];
       return base44.entities.Message.filter(
         { 
-          thread_id: `comentario_${messageId}`,
+          thread_id: threadComentarios,
           channel: 'interno',
           sender_type: 'user'
         },
@@ -39,33 +81,30 @@ export default function ComentariosInternos({
         50
       ).catch(() => []);
     },
-    enabled: !!messageId,
+    enabled: !!threadComentarios,
     staleTime: 10000
   });
 
   // Subscribe a atualizações em tempo real
   useEffect(() => {
-    if (!messageId) return;
+    if (!threadComentarios) return;
 
     const unsubscribe = base44.entities.Message.subscribe((event) => {
-      if (event.thread_id?.includes(messageId)) {
-        queryClient.invalidateQueries({ queryKey: ['comentarios-internos', messageId] });
+      if (event.thread_id === threadComentarios) {
+        queryClient.invalidateQueries({ queryKey: ['comentarios-internos', threadComentarios] });
       }
     });
 
     return unsubscribe;
-  }, [messageId, queryClient]);
+  }, [threadComentarios, queryClient]);
 
   const handleEnviarComentario = async () => {
-    if (!comentarioAtual.trim()) return;
+    if (!comentarioAtual.trim() || !threadComentarios) return;
 
     setEnviando(true);
     try {
-      // Criar nova thread interna virtual para comentários desta mensagem
-      const threadCommentId = `comentario_${messageId}`;
-      
       await base44.entities.Message.create({
-        thread_id: threadCommentId,
+        thread_id: threadComentarios,
         sender_id: usuarioAtual.id,
         sender_type: 'user',
         recipient_id: null,
@@ -77,13 +116,12 @@ export default function ComentariosInternos({
         sent_at: new Date().toISOString(),
         metadata: {
           is_internal_message: true,
-          comentario_da_mensagem: messageId,
-          usuario_nome: usuarioAtual.full_name || usuarioAtual.email
+          comentario_da_mensagem: messageId
         }
       });
 
       setComentarioAtual("");
-      queryClient.invalidateQueries({ queryKey: ['comentarios-internos', messageId] });
+      queryClient.invalidateQueries({ queryKey: ['comentarios-internos', threadComentarios] });
       toast.success('💬 Comentário adicionado!');
       
       if (onCommentAdded) onCommentAdded();
