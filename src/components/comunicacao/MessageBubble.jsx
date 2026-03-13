@@ -530,6 +530,26 @@ export default React.memo(function MessageBubble({
     });
   };
 
+  const toggleSetorSelecionado = (setor) => {
+    setSetoresSelecionados((prev) => {
+      if (prev.includes(setor)) {
+        return prev.filter((s) => s !== setor);
+      } else {
+        return [...prev, setor];
+      }
+    });
+  };
+
+  const toggleGrupoSelecionado = (grupo) => {
+    setGruposSelecionados((prev) => {
+      if (prev.includes(grupo.id)) {
+        return prev.filter((id) => id !== grupo.id);
+      } else {
+        return [...prev, grupo.id];
+      }
+    });
+  };
+
   const handleEncaminhar = async () => {
     // ✅ Encaminhar para CONTATOS EXTERNOS (WhatsApp)
     if (tipoDestinatario === 'contatos') {
