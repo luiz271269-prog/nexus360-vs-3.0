@@ -1,11 +1,11 @@
 # 🧠 PROMPTS PROFISSIONAIS DE ANÁLISE DE SISTEMA
-## Base44 — Plataforma CRM NexusEngine
+**Base44 — Plataforma CRM NexusEngine**
 
 ---
 
 ## 📌 PROMPT 1 — ANÁLISE COMPLETA DE ENTIDADES E FUNÇÕES
 
-Use este prompt para analisar qualquer módulo/página do sistema e mapear como os dados fluem.
+**Use este prompt para analisar qualquer módulo/página do sistema e mapear como os dados fluem.**
 
 ```
 Você é um arquiteto de software sênior especializado em análise de sistemas CRM/SaaS construídos com React + Base44.
@@ -88,518 +88,368 @@ Para cada problema encontrado:
 
 ## 🔄 PROMPT 2 — SISTEMA DE IMPORTAÇÃO ETL (Extrair → Transformar → Carregar)
 
-Use este prompt para analisar ou melhorar processos de importação de dados.
+**Use para debugar fluxos de dados em massa, integrações e pipelines de sincronização.**
 
 ```
-Você é um especialista em pipelines ETL e integração de dados para sistemas CRM.
+Você é um especialista em ETL (Extract, Transform, Load) para sistemas SaaS.
 
-Preciso analisar o processo de IMPORTAÇÃO DE DADOS para: [TIPO_DE_DADO]
+Analise o seguinte fluxo de importação/sincronização: [DESCREVER_FLUXO]
 
-## CONTEXTO
-- Fonte de dados: [CSV/Excel/API/JSON/outro]
-- Destino: [Nome da Entidade Base44]
-- Volume estimado: [N registros]
-- Frequência: [uma vez/diária/semanal/contínuo]
-- Usuários afetados: [Quem usa este dado?]
+## ANÁLISE DO FLUXO ETL
 
-## ANÁLISE SOLICITADA
+### FASE 1 - EXTRAIR (Extract)
+1. Fonte de dados (arquivo, API, webhook, banco)
+2. Validação inicial do payload
+3. Tratamento de erros na leitura
+4. Armazenamento temporário (se houver)
+5. Deduplicação de entrada
 
-### 1. ESTÁGIOS ETL
+### FASE 2 - TRANSFORMAR (Transform)
+1. Normalização de dados (tipos, formatos, valores)
+2. Enriquecimento (joinar com dados existentes, IA, cálculos)
+3. Validação contra schema
+4. Mapeamento de campos (origem → destino)
+5. Detecção de conflitos/duplicatas no banco
+6. Aplicação de regras de negócio
 
-#### EXTRACT (Extração)
-- Como os dados são obtidos? (upload, API, scheduled task)
-- Formato original dos dados
-- Validações na origem
-- Tratamento de erros na origem
+### FASE 3 - CARREGAR (Load)
+1. Transação preparada
+2. Inserção em batch vs. individual
+3. Validação de integridade referencial
+4. Rollback em caso de erro
+5. Logging de sucesso/falha
+6. Notificações disparadas
 
-#### TRANSFORM (Transformação)
-- Mapeamento campo-a-campo (tabela)
-- Normalizações necessárias (formatting, deduplicação, encoding)
-- Enriquecimento de dados (lookups, joins, cálculos)
-- Regras de validação (obrigatórios, ranges, tipos)
-- Limpeza de dados (NULLs, valores inválidos)
+### MAPA DO FLUXO (ASCII)
+```
+[Fonte] → [Validação] → [Transformação] → [Deduplicação] → [Carregar] → [Resultado]
+```
 
-#### LOAD (Carregamento)
-- Estratégia: INSERT / UPSERT / REPLACE
-- Chave de identificação única (deduplication key)
-- Ordem de carregamento (dependências)
-- Rollback em caso de falha
-- Logging de resultados
+### TABELA: Transformações Por Campo
+| Campo Origem | Campo Destino | Transformação | Validação | Fallback |
+|--------------|---------------|---------------|-----------|----------|
+| ...          | ...           | ...           | ...       | ...      |
 
-### 2. FLUXO PASSO A PASSO
-1. Usuário faz upload / Sistema dispara extração
-2. Validações básicas de arquivo
-3. Parser transforma para schema intermediário
-4. Deduplicação de registros
-5. Lookups/enriquecimentos
-6. Inserção no banco (com transação)
-7. Auditoria + notificação ao usuário
+### PONTOS DE FALHA E HANDLERS
+| # | Ponto | Tipo de Erro | Handler Atual | Handler Ideal |
+|---|-------|--------------|---------------|--------------|
 
-### 3. MAPEAMENTO CAMPO ORIGEM → CAMPO DESTINO
-| Campo Original | Tipo Original | Campo Destino | Tipo Destino | Transformação |
-|---|---|---|---|---|
-| ... | ... | ... | ... | ... |
+### PERFORMANCE & VOLUME
+- Volume esperado: [N] registros/hora
+- Tempo de processamento: [T]ms/registro
+- Lote máximo processado simultaneamente: [SIZE]
+- Gargalos identificados: [LIST]
 
-### 4. REGRAS DE VALIDAÇÃO
-| Campo | Obrigatório | Tipo | Range/Enum | Mensagem Erro |
-|---|---|---|---|---|
-| ... | Sim/Não | ... | ... | ... |
-
-### 5. TRATAMENTO DE ERROS
-- Erro em campo X: [que faz?]
-- Arquivo vazio: [que faz?]
-- Duplicata detectada: [que faz?]
-- Erro na inserção: [rollback?]
-
-### 6. AUDITORIA E LOGGING
-- O quê é registrado?
-- Onde é armazenado?
-- Quem pode acessar?
-- Retenção de logs
-
-### 7. PROBLEMAS ATUAIS E SOLUÇÕES
-| # | Problema | Causa Raiz | Impacto | Solução |
-|---|---|---|---|---|
-
-### 8. AUTOMAÇÃO SUGERIDA
-- [Função] que processa importação automaticamente?
-- [Scheduler] rodando em que horário?
-- [Alertas] em caso de falha?
+### VALIDAÇÃO FINAL
+- Registros lidos: [COUNT]
+- Registros transformados com sucesso: [COUNT]
+- Registros carregados: [COUNT]
+- Taxa de erro: [%]
+- Dados órfãos/duplicados: [COUNT]
 ```
 
 ---
 
-## 🧠 PROMPT 3 — ANÁLISE IA / SEGMENTAÇÃO E COMPORTAMENTO
+## 🧬 PROMPT 3 — ANÁLISE DE IA E SEGMENTAÇÃO
 
-Use este prompt para analisar como a IA está sendo usada no sistema.
+**Use para entender como a IA está sendo usada, segmentações aplicadas, comportamentos rastreados.**
 
 ```
-Você é especialista em machine learning e segmentação de clientes para CRM.
+Você é um especialista em análise comportamental e segmentação de clientes usando IA.
 
-Preciso analisar como a IA está sendo usada para: [FUNCIONALIDADE]
+Analise o seguinte aspecto de IA do sistema: [DESCREVER_ASPECTO]
 
-## CONTEXTO
-- Módulo/página: [Nome]
-- Usuários afetados: [Quem usa?]
-- Dados utilizados: [Quais entidades?]
-- Freqüência de execução: [Quando roda?]
+## ANÁLISE DE IA
 
-## ANÁLISE SOLICITADA
+### 1. CHAMADAS A IA IDENTIFICADAS
+Para cada chamada a InvokeLLM():
+- Onde é invocada (arquivo:linha)
+- Prompt exato enviado
+- Modelo usado (gpt-4, gemini, etc.)
+- Schema JSON de resposta esperado
+- Fallback se falhar
+- Cache implementado? (sim/não)
 
-### 1. MAPA DE CHAMADAS A IA
-Para cada chamada a InvokeLLM() ou ExtractDataFromUploadedFile():
-- Nome da função que chama
-- Quando é chamada (trigger)
-- Qual é o PROMPT (incluir prompt exato)
-- Schema JSON esperado (se houver)
-- Modelo usado (gpt-4, claude, gemini, etc)
-- Timeout e retry policy
+### 2. SEGMENTAÇÃO AUTOMÁTICA
+Quais campos de segmento existem:
+| Campo | Valores Possíveis | Lógica de Atribuição | Frequência Recalc. |
+|-------|-------------------|----------------------|-------------------|
+| ...   | ...               | ...                  | ...                |
 
-### 2. DADOS ENVIADOS PARA A IA
-- Quais campos da entidade são enviados?
-- Tamanho típico do payload
-- Informações sensíveis sendo enviadas? (PII/GDPR)
-- Como os dados são sanitizados?
+### 3. SCORING E PRIORIZAÇÃO
+- Scores calculados (engagement, churn_risk, etc.)
+- Fórmula usada
+- Onde é atualizado
+- Frequência de recálculo
+- Influência em roteamento/automações
 
-### 3. RESULTADOS PROCESSADOS
-- O resultado é armazenado no banco? Onde?
-- Como o resultado é validado?
-- O que acontece se a IA retorna erro ou formato inválido?
-- Há fallen back para valores padrão?
+### 4. BEHAVIORAL TRACKING
+Comportamentos monitorados:
+- Inatividade (threshold: [N] dias)
+- Engajamento (métrica: [DESC])
+- Padrões de compra (análise: [DESC])
+- Churn indicators (sinais: [LIST])
 
-### 4. SEGMENTAÇÃO AUTOMÁTICA
-Se há segmentação de contatos:
-- Quais atributos definem cada segmento?
-- Como os scores são calculados?
-- Atualização em tempo real ou batch?
-- Histórico de mudanças de segmento?
+### 5. FEEDBACK LOOP IA
+```
+[Ação do Usuário] → [IA Analisa] → [Sugestão] → [User Feedback] → [IA Melhora]
+```
 
-### 5. ANÁLISE COMPORTAMENTAL
-- Quais comportamentos estão sendo rastreados?
-- Como são agregados (média, soma, contagem)?
-- Períodos de análise (últimas 24h, 7d, 30d, etc)
-- Correlações identificadas?
+Como o feedback está sendo capturado?
+Como a IA usa esse feedback?
 
-### 6. IMPACTO NOS DADOS
-| Campo Modificado | Freq. Atualização | Origem da Mudança | Implicações |
-|---|---|---|---|
+### 6. GAPS NA SEGMENTAÇÃO
+| # | Comportamento Não Rastreado | Impacto | Solução |
+|---|------------------------------|---------|---------|
 
-### 7. ACURÁCIA E MONITORAMENTO
-- Como você mede se a IA está funcionando corretamente?
-- Há validação manual de resultados?
-- Há alertas para anomalias?
-- Como os falsos positivos são tratados?
-
-### 8. CONFORMIDADE E TRANSPARÊNCIA
-- Há consentimento do usuário para análise IA?
-- GDPR/LGPD compliance?
-- Os usuários sabem que IA está analisando seus dados?
-- Pode ser desativado?
-
-### 9. PROBLEMAS IDENTIFICADOS
-| # | Problema | Manifestação | Causas | Impacto |
-|---|---|---|---|---|
+### 7. COMPLIANCE & PRIVACIDADE
+- Dados pessoais sendo enviados à IA? (lista de campos)
+- LGPD/GDPR compliance validado?
+- Retenção de prompt/resposta (sim/não, duração)
 ```
 
 ---
 
-## 🌐 PROMPT 4 — WEBHOOKS E INTEGRAÇÕES EXTERNAS
+## 🔌 PROMPT 4 — ANÁLISE DE WEBHOOKS E INTEGRAÇÕES
 
-Use este prompt para analisar fluxos de webhook e integrações.
-
-```
-Você é especialista em arquitetura de integrações e webhooks em sistemas distribuídos.
-
-Preciso analisar a integração/webhook: [NOME_DA_INTEGRACAO]
-
-## CONTEXTO
-- Sistema externo: [Nome/URL]
-- Direção: [entrada/saída/bidirecional]
-- Frequência de eventos: [aproximada]
-- Criticidade: [baixa/média/alta/crítica]
-
-## ANÁLISE SOLICITADA
-
-### 1. DIAGRAMA DE FLUXO
-```
-[SISTEMA EXTERNO] 
-    ↓ (evento/webhook)
-[RECEPTOR WEBHOOK - função backend]
-    ↓ (parse + validação)
-[PROCESSAMENTO/TRANSFORMAÇÃO]
-    ↓ (update entidades)
-[BASE DE DADOS]
-    ↓ (dispara automação?)
-[NOTIFICAÇÃO AO USUÁRIO / AÇÃO POSTERIOR]
-```
-
-### 2. DETALHES DO WEBHOOK
-- URL do endpoint: [aonde recebe?]
-- Método HTTP: [GET/POST/PUT?]
-- Autenticação: [nenhuma/Basic/Bearer token/Signature?]
-- Headers esperados
-- Content-Type esperado
-- Timeout configurado
-- Retry policy
-
-### 3. PAYLOAD DO WEBHOOK
-- Estrutura JSON esperada (exemplo real)
-- Campos obrigatórios
-- Tamanho típico do payload
-- Frequência de chegada (picos?)
-- Tratamento de duplicatas
-
-### 4. PROCESSAMENTO
-- Validações de assinatura (hmac, jwt, etc)
-- Transformação do payload para schema interno
-- Qual entidade é atualizada?
-- Transação atômica ou multi-step?
-- Rollback policy em caso de falha
-
-### 5. AUTOMAÇÕES DISPARADAS
-Se o webhook dispara automações:
-- Qual automação? (nome, tipo)
-- Depois de quantos segundos dispara?
-- Pode falhar e ser retentado?
-
-### 6. ERRO HANDLING
-| Cenário | O que faz |
-|---|---|
-| Payload inválido | ... |
-| Validação falha | ... |
-| BD indisponível | ... |
-| Timeout | ... |
-| Duplicata | ... |
-
-### 7. LOGGING E AUDITORIA
-- Tudo é registrado? (sim/não)
-- Tempo de retenção de logs
-- O que é loggado? (payload completo ou sanitizado?)
-- Como visualizar histórico?
-
-### 8. SEGURANÇA
-- Token/Secret está em secret manager?
-- IP whitelist configurado?
-- Rate limiting ativo?
-- Validate CORS headers?
-- GDPR compliance se há PII?
-
-### 9. MONITORAMENTO
-- Qual é a latência típica?
-- Há alertas em caso de falha?
-- Dashboard de eventos recebidos?
-- Como você sabe se o webhook parou de funcionar?
-
-### 10. PROBLEMAS ATUAIS
-| # | Problema | Evidência | Causa Suspeita | Solução Proposta |
-|---|---|---|---|---|
-```
-
----
-
-## 🎯 PROMPT 5 — MELHORIA DE PROMPTS IA JÁ EXISTENTES
-
-Use este prompt para revisar e melhorar prompts que já estão em uso.
+**Use para debugar fluxos orientados a eventos, webhooks de terceiros, sincronizações em tempo real.**
 
 ```
-Você é especialista em prompt engineering para LLMs.
+Você é um especialista em webhooks, eventos e integrações de APIs.
 
-Preciso revisar e melhorar o seguinte PROMPT DE IA:
+Analise o seguinte fluxo de webhook/integração: [DESCREVER_WEBHOOK]
 
-## PROMPT ATUAL
-[Cole AQUI O PROMPT INTEIRO]
+## ANÁLISE DE WEBHOOK/INTEGRAÇÃO
 
-## CONTEXTO
-- Função backend: [nome]
-- Objetivo: [o que o prompt tenta conseguir?]
-- Dados de entrada: [quais campos/variáveis são passados?]
-- Formato esperado de saída: [texto/JSON/outro?]
-- Taxa de sucesso/acurácia: [~X%?]
-- Problemas relatados: [o que não funciona?]
+### 1. CONFIGURAÇÃO DO WEBHOOK
+- URL do webhook: [URL]
+- Provedor: [PROVIDER] (Z-API, W-API, Meta, etc.)
+- Evento disparador: [EVENT]
+- Autenticação: [TOKEN/SIGNATURE_VALIDATION]
+- Headers necessários: [LIST]
+- Payload esperado: [SCHEMA_JSON]
 
-## ANÁLISE SOLICITADA
-
-### 1. ANÁLISE DO PROMPT ATUAL
-- Clareza: [muito claro / razoável / confuso]
-- Especificidade: [muito específico / genérico demais]
-- Estrutura: [bem organizado / caótico]
-- Instruções contraditórias? [sim/não, quais?]
-
-### 2. PROBLEMAS IDENTIFICADOS
-| # | Problema | Linha do Prompt | Impacto | Recomendação |
-|---|---|---|---|---|
-
-### 3. PROMPT MELHORADO
-[ESCREVA O NOVO PROMPT AQUI, COM:
-- Instruções mais claras
-- Exemplos inclusos (few-shot)
-- Formato de saída explícito
-- Casos edge case mencionados
-]
-
-### 4. VALIDAÇÃO DO NOVO PROMPT
-- Testar com [casos de teste específicos]
-- Resultado esperado: [o quê?]
-- Como medir sucesso: [métrica?]
-
-### 5. MUDANÇAS PRINCIPAIS
-- [Mudança 1]
-- [Mudança 2]
-- [Mudança 3]
-
-### 6. PRÓXIMOS PASSOS
-- Deploy em [dev/prod?]
-- A/B test contra prompt antigo? [sim/não]
-- Monitoramento de mudanças? [como?]
-```
-
----
-
-## 🐛 PROMPT 6 — DEPURAÇÃO / BUG - ANÁLISE DE CAUSA RAIZ
-
-Use este prompt quando há um bug confirmado e você precisa entender a causa.
-
-```
-Você é especialista em debug e análise de causa raiz em sistemas CRM.
-
-Preciso investigar o seguinte BUG:
-
-## DESCRIÇÃO DO BUG
-- O quê está acontecendo: [descrição do comportamento errado]
-- O que deveria acontecer: [comportamento esperado]
-- Frequência: [sempre / intermitente / uma única vez]
-- Quando começou: [data?]
-- Quantos usuários afetados: [um / vários / todos]
-
-## CONTEXTO
-- Página/função afetada: [nome]
-- Ações antes do bug: [passo a passo reproduzir]
-- Dados de exemplo: [valores específicos que causam?]
-- Mensagem de erro: [completa]
-- Logs relevantes: [cole aqui]
-
-## ANÁLISE SOLICITADA
-
-### 1. REPRODUZIR O BUG
-Passos EXATOS para reproduzir:
-1. [Passo 1]
-2. [Passo 2]
-3. [Resultado errado]
-
-### 2. MAPA TÉCNICO (Onde falha?)
-```
-[FRONTEND]
-  ↓
-[FUNÇÃO X]
-  ↓
-[CHAMADA À API/BD]
-  ↓ (aqui falha?)
-[BACKEND]
-  ↓
-[PROCESSAMENTO]
-  ↓
-[BD UPDATE]
-```
-
-### 3. ANÁLISE DE LOGS
-- Log do frontend: [o quê mostra?]
-- Log do backend: [o quê mostra?]
-- Errors na rede: [há?]
-- Estado do banco: [está OK?]
-
-### 4. RAIZ POSSÍVEIS (Causa)
-| # | Causa Possível | Evidência | Probabilidade | Como Testar |
-|---|---|---|---|---|
-| 1 | ... | ... | Alta/Média/Baixa | ... |
-
-### 5. ANÁLISE DETALHADA DA CAUSA MAIS PROVÁVEL
-- Código responsável: [arquivo:linha]
-- Exato o quê está errado: [explicação técnica]
-- Por que falha: [por quê o código tem bug?]
-- Quando começou: [mudança recente?]
-
-### 6. TESTES ANTERIORES
-- Teste com dados diferentes: [resultado?]
-- Teste com navegador diferente: [resultado?]
-- Teste em dev vs prod: [diferença?]
-- Teste desabilitando cache: [muda?]
-
-### 7. POSSÍVEIS CORREÇÕES
-| # | Solução | Pros | Contras | Risco |
-|---|---|---|---|---|
-| 1 | ... | ... | ... | Baixo/Médio/Alto |
-
-### 8. SOLUÇÃO RECOMENDADA
-[Qual das soluções acima é a melhor?]
-[Por quê?]
-[Código da correção]
-
-### 9. TESTES PÓS-CORREÇÃO
-- [Teste 1 que valida a correção]
-- [Teste 2]
-- [Teste 3]
-
-### 10. IMPACTO DA CORREÇÃO
-- Outras partes do código afetadas? [sim/não, quais?]
-- Backward compatibility? [quebra?]
-- Performance impact? [sim/não]
-- Precisa de migração de dados? [sim/não]
-```
-
----
-
-## 🎓 COMO USAR ESTES PROMPTS
-
-1. **Escolha o prompt** que corresponde ao seu problema
-2. **Preencha os espaços** [ASSIM] com informações específicas
-3. **Cole o prompt completo** na IA (aqui ou em ChatGPT)
-4. **Execute a análise** e obtenha insights estruturados
-
----
-
-## 📋 MATRIZ DE DECISÃO — QUAL PROMPT USAR?
-
-| Você Quer Fazer | Use Prompt | Por Quê |
-|---|---|---|
-| Entender todo fluxo de um módulo | #1 | Análise completa end-to-end |
-| Importar dados em massa | #2 | ETL passo a passo |
-| Entender como IA funciona | #3 | Análise de AI/ML |
-| Integrar API/webhook externo | #4 | Integração segura |
-| Prompt não funciona bem | #5 | Melhorar LLM output |
-| App tem um bug | #6 | Encontrar causa raiz |
-
----
-
-## 🚀 EXEMPLO COMPLETO — Caso Real: Bug em Encaminhamento de Mensagens
-
-Veja como aplicar o **PROMPT 6** ao erro descoberto anteriormente:
-
-### Contexto do Bug Repl:
-```
-BUG: "Usuário não encontrado" 
-Ocorre: Automação "Watchdog - Ativar Threads Tipo A"
-Frequência: 100% das vezes (falha sempre)
-Afetados: Todas as threads internas sendo criadas
-```
-
-### Aplicando Prompt #6:
-
-#### 1. REPRODUZIR O BUG
-```
-1. Encaminhar mensagem para usuário interno via MessageBubble
-2. Dialog seleciona "usuário 1:1 interno"
-3. Chama getOrCreateInternalThread(userId)
-4. Watchdog tenta processar thread
-5. ERRO: "Usuário não encontrado"
-```
-
-#### 2. MAPA TÉCNICO
-```
-[MessageBubble (React)]
-  ↓ (usuário clica "Encaminhar")
-[handleEncaminhar()] 
-  ↓ (chama sendInternalMessage)
-[sendInternalMessage Backend]
-  ↓ (cria Message com channel=interno)
-[DB: Message.create()] ← Aqui salva? Sim
-  ↓ 
-[Watchdog roda 30min depois]
-  ↓
-[Tenta resolver user_id de thread 1:1]
-  ✗ ERRO: user_id não existe em User entity
-```
-
-#### 3. ANÁLISE DE LOGS
-```
-Frontend: OK (dialog funciona)
-Backend sendInternalMessage: OK (message criada)
-Watchdog: ❌ ERRO "target_user_id not found in User entity"
-```
-
-#### 4. RAIZ POSSÍVEIS
-| Causa | Evidência | Probabilidade |
-|---|---|---|
-| User foi deletado | Watchdog tenta buscar User.get(userId) e falha | ALTA |
-| User ID inválido no MessageThread.participants | participants: [id1, id2_invalido] | ALTA |
-| Race condition: User criado mas falha na insert | Raro | BAIXA |
-
-#### 5. CAUSA RAIZ PROVÁVEL
-**Arquivo:** `getOrCreateInternalThread.js:76`
+### 2. RECEPÇÃO E VALIDAÇÃO
 ```javascript
-const targetUser = await base44.asServiceRole.entities.User.get(target_user_id);
-if (!targetUser) {
-  return { error: 'Usuário de destino não encontrado' };
-}
+// Validação do webhook:
+1. Validar assinatura/token (segurança)
+2. Validar payload contra schema
+3. Validar timestamps (replay attacks)
+4. Desduplicação por messageId
+5. Rate limiting (se necessário)
 ```
 
-**Por quê falha:**
-- Um usuário foi deletado DEPOIS que a thread foi criada
-- MessageThread ainda referencia o usuário deletado em `participants: [id1, id_deletado]`
-- Watchdog tenta reativar thread, chama getOrCreateInternalThread again
-- Tenta buscar usuário deletado → erro "not found"
+### 3. PROCESSAMENTO DO EVENTO
+Fluxo passo a passo:
+1. Evento recebido
+2. Payload normalizado
+3. Entidade encontrada/criada
+4. Lógica de negócio aplicada
+5. Efeito colateral (notificação, automação, etc.)
+6. Resposta retornada
 
-#### 6. SOLUÇÃO RECOMENDADA
-```javascript
-// Adicionar validação em getOrCreateInternalThread:
-const targetUser = await base44.asServiceRole.entities.User.get(target_user_id);
-if (!targetUser) {
-  // Ao invés de retornar erro, LIMPAR thread órfã
-  await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-    status: 'arquivada'  // ou deletar
-  });
-  
-  return { 
-    error: 'Usuário de destino não encontrado (thread fechada)',
-    thread_archived: true 
-  };
-}
+### 4. MAPA DE EVENTOS
+| Evento | Trigger | Processamento | Resultado | Fallback |
+|--------|---------|---------------|-----------|----------|
+| ...    | ...     | ...           | ...       | ...      |
+
+### 5. ARQUITETURA DO WEBHOOK
+```
+[Provedor] → [HTTP POST] → [Validação] → [Processamento] → [Resposta 200]
+                                    ↓
+                            [Banco de Dados]
+                                    ↓
+                            [Notificações/Automações]
 ```
 
-#### 7. TESTES PÓS-CORREÇÃO
-- Deletar um usuário
-- Confirmar que threads com esse usuário são automaticamente arquivadas
-- Watchdog não gera mais erro para threads órfãs
+### 6. TRATAMENTO DE ERROS
+| # | Tipo de Erro | Tratamento Atual | Retry? | DLQ? |
+|---|--------------|------------------|--------|------|
+| ...| ...          | ...              | ...    | ...  |
+
+### 7. MONITORAMENTO
+- Logs de webhook: [LOCALIZAÇÃO]
+- Métricas rastreadas: [LIST]
+- Alertas configurados: [LIST]
+- SLA esperado: [ms/s]
+
+### 8. GAPS E PROBLEMAS
+| # | Problema | Impacto | Arquivo | Solução |
+|---|----------|---------|---------|---------|
+```
 
 ---
 
-**Pronto para usar!** 🎯
+## ✨ PROMPT 5 — MELHORIA DE PROMPTS IA
+
+**Use para revisar e aprimorar prompts que já existem no sistema.**
+
+```
+Você é um especialista em prompt engineering para sistemas CRM.
+
+Analise e melhore o seguinte prompt IA do sistema: [COPIAR_PROMPT_EXATO]
+
+## ANÁLISE DO PROMPT
+
+### 1. ESTRUTURA ATUAL
+- Tipo de prompt: (classificação, geração, análise, extração, etc.)
+- Modelo alvo: [GPT-4, Gemini, etc.]
+- Contexto fornecido: [DESCREVER]
+- Instruções: [DESCREVER]
+- Saída esperada: [DESCREVER]
+
+### 2. QUALIDADE DA INSTRUÇÃO
+Checklist:
+- [ ] Objetivo está claro?
+- [ ] Contexto é suficiente?
+- [ ] Formato de resposta está definido?
+- [ ] Exemplos inclusos (few-shot)?
+- [ ] Casos extremos considerados?
+- [ ] Há contradições nas instruções?
+
+### 3. PROBLEMAS IDENTIFICADOS
+| # | Problema | Severidade | Exemplo de Falha | Fix |
+|---|----------|-----------|------------------|-----|
+
+### 4. PROMPT MELHORADO
+```
+[VERSÃO OTIMIZADA DO PROMPT]
+```
+
+### 5. MUDANÇAS EXPLICADAS
+- Adição: [O QUÊ e POR QUÊ]
+- Remoção: [O QUÊ e POR QUÊ]
+- Reordenação: [O QUÊ e POR QUÊ]
+
+### 6. TESTE COMPARATIVO
+Testar ambos (original vs. otimizado) com:
+- Exemplo 1: [DESCREVER]
+- Exemplo 2: [DESCREVER]
+- Exemplo 3: [DESCREVER]
+
+### 7. MÉTRICA DE MELHORIA
+- Taxa de sucesso (antes): [%]
+- Taxa de sucesso (depois): [%]
+- Latência (antes): [ms]
+- Latência (depois): [ms]
+- Custo por requisição (antes): [$]
+- Custo por requisição (depois): [$]
+```
+
+---
+
+## 🐛 PROMPT 6 — DEPURAÇÃO E BUG ANALYSIS (Causa Raiz)
+
+**Use para investigar bugs, quebras, comportamentos inesperados e aplicar correções cirúrgicas.**
+
+```
+Você é um especialista em debugging e root cause analysis.
+
+Investigar o seguinte problema: [DESCREVER_BUG]
+
+## ANÁLISE DO BUG
+
+### 1. REPRODUÇÃO
+- Passos exatos para reproduzir:
+  1. [PASSO 1]
+  2. [PASSO 2]
+  3. [PASSO 3]
+- Ocorre sempre? (sim/não/intermitente)
+- Ambiente: (dev/prod/ambos)
+- Browser/versão: [INFO]
+
+### 2. SINTOMAS OBSERVADOS
+- Comportamento esperado: [DESCREVER]
+- Comportamento atual: [DESCREVER]
+- Logs de erro: [COPIAR_LOGS_EXATOS]
+- Console warnings: [COPIAR]
+- Network errors: [COPIAR]
+
+### 3. ESCOPO DO PROBLEMA
+```
+Afetado:
+- Entidades: [LIST]
+- Funções: [LIST]
+- Componentes: [LIST]
+- Usuários: [QUEM]
+- Dados: [QUANTO]
+```
+
+### 4. ANÁLISE DE CAUSA RAIZ (5 Porquês)
+```
+1. POR QUÊ? [OBSERVAÇÃO 1]
+2. POR QUÊ? [OBSERVAÇÃO 2]
+3. POR QUÊ? [OBSERVAÇÃO 3]
+4. POR QUÊ? [OBSERVAÇÃO 4]
+5. POR QUÊ? [CAUSA RAIZ] ← AQUI
+```
+
+### 5. TIMELINE DO BUG
+- Quando começou: [DATA]
+- Última mudança de código: [COMMIT]
+- Relacionado a:
+  - Deploy? (sim/não, qual versão)
+  - Mudança de dados? (sim/não, qual mudança)
+  - Alteração de entidade? (sim/não, qual campo)
+
+### 6. CÓDIGO PROBLEMA
+Arquivo: [CAMINHO]
+Linhas: [START-END]
+```javascript
+[COPIAR CÓDIGO PROBLEMÁTICO]
+```
+
+### 7. DIAGNÓSTICO
+| # | Hipótese | Evidência | Validado? |
+|---|----------|-----------|-----------|
+| 1 | ...      | ...       | ✅/❌     |
+| 2 | ...      | ...       | ✅/❌     |
+| 3 | ...      | ...       | ✅/❌     |
+
+### 8. SOLUÇÃO (Cirúrgica)
+**Antes:**
+```javascript
+[CÓDIGO ATUAL]
+```
+
+**Depois:**
+```javascript
+[CÓDIGO CORRIGIDO]
+```
+
+**Mudanças:**
+- [O QUÊ foi alterado]
+- [POR QUÊ esta mudança corrige]
+- [EFEITOS COLATERAIS esperados]
+
+### 9. VALIDAÇÃO PÓS-FIX
+- [ ] Bug reproduzido novamente?
+- [ ] Testes unitários adicionados?
+- [ ] Regressão em outros módulos? (testar [LIST])
+- [ ] Performance afetada? (baseline: [ms], novo: [ms])
+- [ ] Documentação atualizada?
+
+### 10. LIÇÕES APRENDIDAS
+- Como evitar este bug no futuro?
+- Qual padrão deveria ser adotado?
+- Há código smells relacionado?
+```
+
+---
+
+## 📋 RESUMO RÁPIDO
+
+| # | Prompt | Quando Usar | Saída Esperada |
+|---|--------|------------|----------------|
+| 1️⃣ | Análise Completa | Debugar módulo novo ou complexo | Mapa arquitetural + gaps |
+| 2️⃣ | ETL | Fluxos de dados em massa | Diagrama ETL + validações |
+| 3️⃣ | IA & Segmentação | Entender scores/behaviors | Behavioral map + gaps IA |
+| 4️⃣ | Webhooks | Integrações quebrando | Diagrama webhook + tratamento erros |
+| 5️⃣ | Melhoria Prompts | Prompts retornando lixo | Prompt otimizado + métricas |
+| 6️⃣ | Bug Analysis | App quebrado/comportamento estranho | Causa raiz + solução cirúrgica |
+
+---
+
+**Usar estes prompts em sequência: 1 → 2 → 3 → 4 → 5 → 6**
+
+**Cada prompt foi desenhado para ser copiado 100% e colado em uma conversa com Claude/ChatGPT.**
