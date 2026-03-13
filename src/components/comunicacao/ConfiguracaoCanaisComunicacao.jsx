@@ -122,7 +122,7 @@ const PROVIDERS = {
     cor: "sky",
     baseUrl: "https://graph.facebook.com/v21.0",
     requerClientToken: false,
-    webhookFn: "webhookWatsZapi",
+    webhookFn: "webhookFinalZapi",
     testarFn: null,
     icon: WhatsAppLogo,
     tipo: "whatsapp",
