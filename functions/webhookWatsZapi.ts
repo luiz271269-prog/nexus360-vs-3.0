@@ -13,7 +13,7 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
   try {
@@ -65,29 +65,29 @@ Deno.serve(async (req) => {
       return Response.json({ status: 'ignored' }, { status: 200 });
     }
 
-    // ✅ P0 FIX: Delegar via invoke interno (não HTTP proxy)
+    // ✅ Delegar para webhookFinalZapi via invoke interno (não HTTP)
     if (type === 'ReceivedCallback' || type === 'MessageStatusCallback') {
       try {
-        console.log(`[webhookWatsZapi] 🔄 Delegando ${type} para webhookFinalZapi via invoke interno`);
+        console.log(`[webhookWatsZapi] 🔀 Delegando ${type} para webhookFinalZapi via invoke interno`);
         
-        // ✅ CORRETO: invoke interno - sem HTTP, sem necessidade de auth
+        // ✅ INVOKE INTERNO - sem HTTP, sem auth necessária
         const resultado = await base44.asServiceRole.functions.invoke(
           'webhookFinalZapi',
-          payload  // ← passa payload completo direto
+          payload
         );
-
-        console.log(`[webhookWatsZapi] ✅ Delegação concluída: ${resultado?.status || 'ok'}`);
+        
+        console.log(`[webhookWatsZapi] ✅ Delegado com sucesso: ${type}`);
         
         return Response.json({ 
           status: 'delegated',
-          result: resultado,
-          timestamp: new Date().toISOString()
+          messageId: payload.messageId,
+          result: resultado
         }, { status: 200 });
       } catch (error) {
         console.error('[webhookWatsZapi] ❌ Erro ao delegar:', error);
         return Response.json({ 
-          error: 'Erro ao processar',
-          details: error.message 
+          error: 'Erro ao delegar',
+          message: error.message 
         }, { status: 500 });
       }
     }

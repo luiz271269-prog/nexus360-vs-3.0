@@ -71,8 +71,8 @@ Deno.serve(async (req) => {
   }
 
   const base44 = createClientFromRequest(req);
-  let payload;
   
+  let payload;
   try {
     payload = await req.json();
   } catch (e) {
