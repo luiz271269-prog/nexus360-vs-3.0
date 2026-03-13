@@ -89,7 +89,7 @@ const PROVIDERS = {
     cor: "blue",
     baseUrl: "https://api.z-api.io",
     requerClientToken: true,
-    webhookFn: "webhookWatsZapi",
+    webhookFn: "webhookFinalZapi",
     testarFn: "testarConexaoWhatsApp",
     icon: WhatsAppLogo,
     tipo: "whatsapp",
