@@ -345,6 +345,7 @@ export default React.memo(function MessageBubble({
 
   const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
   const [buscaContato, setBuscaContato] = React.useState("");
+  const [tipoEncaminhamento, setTipoEncaminhamento] = React.useState('contatos'); // 'contatos' | 'internos'
 
   const queryClient = useQueryClient();
 
@@ -398,11 +399,10 @@ export default React.memo(function MessageBubble({
     }
   };
 
-  // ✅ BUSCA SOB DEMANDA - Query reativa baseada no termo de busca
+  // ✅ BUSCA CONTATOS EXTERNOS
   const { data: contatos = [], isLoading: carregandoContatos } = useQuery({
     queryKey: ['contatos-encaminhar', buscaContato],
     queryFn: async () => {
-      // ✅ Só buscar se termo tiver pelo menos 2 caracteres
       if (!buscaContato || buscaContato.trim().length < 2) return [];
 
       const normalizarTexto = (t) => {
@@ -413,10 +413,8 @@ export default React.memo(function MessageBubble({
       const termoBusca = normalizarTexto(buscaContato);
       const termoNumeros = buscaContato.replace(/\D/g, '');
 
-      // Buscar todos os contatos do banco
       const todosContatos = await base44.entities.Contact.list('-ultima_interacao', 1000);
 
-      // Filtrar e ordenar por relevância
       const contatosValidos = todosContatos.
       filter((c) => {
         if (!c || c.bloqueado || !c.telefone) return false;
@@ -432,7 +430,6 @@ export default React.memo(function MessageBubble({
         termoNumeros.length >= 3 && telefone.includes(termoNumeros);
       }).
       sort((a, b) => {
-        // Ordenar por relevância
         const nomeA = normalizarTexto(a.nome || '');
         const nomeB = normalizarTexto(b.nome || '');
 
@@ -444,7 +441,35 @@ export default React.memo(function MessageBubble({
 
       return contatosValidos;
     },
-    enabled: mostrarDialogEncaminhar && buscaContato.trim().length >= 2,
+    enabled: mostrarDialogEncaminhar && tipoEncaminhamento === 'contatos' && buscaContato.trim().length >= 2,
+    staleTime: 30000
+  });
+
+  // ✅ BUSCA USUÁRIOS INTERNOS
+  const { data: usuariosInternos = [], isLoading: carregandoInternos } = useQuery({
+    queryKey: ['usuarios-encaminhar', buscaContato],
+    queryFn: async () => {
+      if (!buscaContato || buscaContato.trim().length < 2) return [];
+
+      const normalizarTexto = (t) => {
+        if (!t) return '';
+        return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      };
+
+      const termoBusca = normalizarTexto(buscaContato);
+      const todosUsuarios = await base44.entities.User.list('-created_date', 200);
+
+      return todosUsuarios.filter((u) => {
+        if (!u || u.id === usuarioAtual?.id) return false;
+
+        const nome = normalizarTexto(u.full_name || '');
+        const email = normalizarTexto(u.email || '');
+        const setor = normalizarTexto(u.attendant_sector || '');
+
+        return nome.includes(termoBusca) || email.includes(termoBusca) || setor.includes(termoBusca);
+      });
+    },
+    enabled: mostrarDialogEncaminhar && tipoEncaminhamento === 'internos' && buscaContato.trim().length >= 2,
     staleTime: 30000
   });
 
@@ -460,13 +485,7 @@ export default React.memo(function MessageBubble({
 
   const handleEncaminhar = async () => {
     if (contatosSelecionados.length === 0) {
-      toast.error("Selecione pelo menos um contato");
-      return;
-    }
-
-    const integrationId = thread?.whatsapp_integration_id;
-    if (!integrationId) {
-      toast.error("❌ Não foi possível determinar a integração do WhatsApp");
+      toast.error(tipoEncaminhamento === 'internos' ? "Selecione pelo menos um usuário" : "Selecione pelo menos um contato");
       return;
     }
 
@@ -475,34 +494,80 @@ export default React.memo(function MessageBubble({
       let sucessos = 0;
       let erros = 0;
 
-      for (const contatoId of contatosSelecionados) {
-        const contato = contatos.find((c) => c.id === contatoId);
-        if (!contato) {
-          console.error(`[BUBBLE] Contato ${contatoId} não encontrado`);
-          erros++;
-          continue;
+      // ✅ ENCAMINHAR PARA CONTATOS EXTERNOS (WhatsApp)
+      if (tipoEncaminhamento === 'contatos') {
+        const integrationId = thread?.whatsapp_integration_id;
+        if (!integrationId) {
+          toast.error("❌ Não foi possível determinar a integração do WhatsApp");
+          setEncaminhando(false);
+          return;
         }
 
-        try {
-          const resultado = await base44.functions.invoke('encaminharMensagem', {
-            message_id: message.id,
-            target_phone: contato.telefone,
-            integration_id: integrationId
-          });
+        for (const contatoId of contatosSelecionados) {
+          const contato = contatos.find((c) => c.id === contatoId);
+          if (!contato) {
+            erros++;
+            continue;
+          }
 
-          if (resultado.data.success) {
-            sucessos++;
-          } else {
+          try {
+            const resultado = await base44.functions.invoke('encaminharMensagem', {
+              message_id: message.id,
+              target_phone: contato.telefone,
+              integration_id: integrationId
+            });
+
+            if (resultado.data.success) {
+              sucessos++;
+            } else {
+              erros++;
+            }
+          } catch (error) {
+            console.error(`[BUBBLE] Erro ao encaminhar para ${contato.nome}:`, error);
             erros++;
           }
-        } catch (error) {
-          console.error(`[BUBBLE] Erro ao encaminhar para ${contato.nome}:`, error);
-          erros++;
+        }
+      }
+
+      // ✅ ENCAMINHAR PARA USUÁRIOS INTERNOS (sendInternalMessage)
+      if (tipoEncaminhamento === 'internos') {
+        for (const userId of contatosSelecionados) {
+          const usuario = usuariosInternos.find((u) => u.id === userId);
+          if (!usuario) {
+            erros++;
+            continue;
+          }
+
+          try {
+            // Buscar/criar thread 1:1 com o usuário
+            const resultado = await base44.functions.invoke('getOrCreateInternalThread', {
+              user_ids: [usuarioAtual.id, userId]
+            });
+
+            if (!resultado?.data?.thread_id) {
+              erros++;
+              continue;
+            }
+
+            // Enviar mensagem interna
+            await base44.functions.invoke('sendInternalMessage', {
+              thread_id: resultado.data.thread_id,
+              content: message.content || '[Mensagem encaminhada]',
+              media_type: message.media_type || 'none',
+              media_url: message.media_url || null,
+              media_caption: message.media_caption || null
+            });
+
+            sucessos++;
+          } catch (error) {
+            console.error(`[BUBBLE] Erro ao encaminhar para ${usuario.full_name}:`, error);
+            erros++;
+          }
         }
       }
 
       if (sucessos > 0) {
-        toast.success(`✅ Mensagem encaminhada para ${sucessos} contato(s)!`);
+        toast.success(`✅ Mensagem encaminhada para ${sucessos} ${tipoEncaminhamento === 'internos' ? 'usuário(s)' : 'contato(s)'}!`);
       }
 
       if (erros > 0) {
@@ -920,9 +985,10 @@ export default React.memo(function MessageBubble({
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        setMostrarDialogEncaminhar(true);
-                        setContatosSelecionados([]);
-                        setBuscaContato("");
+                       setMostrarDialogEncaminhar(true);
+                       setContatosSelecionados([]);
+                       setBuscaContato("");
+                       setTipoEncaminhamento('contatos');
                       }}
                       disabled={encaminhando}
                       className={cn(
@@ -1467,15 +1533,53 @@ export default React.memo(function MessageBubble({
               Encaminhar Mensagem
             </DialogTitle>
             <DialogDescription>
-              Selecione os contatos que devem receber esta mensagem
+              Escolha o tipo de destinatário e selecione quem deve receber
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* ✅ ABAS: Contatos vs Internos */}
+            <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
+              <button
+                onClick={() => {
+                  setTipoEncaminhamento('contatos');
+                  setContatosSelecionados([]);
+                  setBuscaContato("");
+                }}
+                className={cn(
+                  "flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all",
+                  tipoEncaminhamento === 'contatos'
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                )}>
+                <div className="flex items-center justify-center gap-2">
+                  <User className="w-4 h-4" />
+                  Contatos
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  setTipoEncaminhamento('internos');
+                  setContatosSelecionados([]);
+                  setBuscaContato("");
+                }}
+                className={cn(
+                  "flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all",
+                  tipoEncaminhamento === 'internos'
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                )}>
+                <div className="flex items-center justify-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Internos
+                </div>
+              </button>
+            </div>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <Input
-                placeholder="Buscar contato..."
+                placeholder={tipoEncaminhamento === 'internos' ? "Buscar usuário..." : "Buscar contato..."}
                 value={buscaContato}
                 onChange={(e) => setBuscaContato(e.target.value)}
                 className="pl-10" />
@@ -1517,17 +1621,18 @@ export default React.memo(function MessageBubble({
                   <p className="text-sm font-medium">Digite para buscar</p>
                   <p className="text-xs text-slate-400 mt-1">Mínimo 2 caracteres</p>
                 </div> :
-              carregandoContatos ?
+              (tipoEncaminhamento === 'contatos' ? carregandoContatos : carregandoInternos) ?
               <div className="flex items-center justify-center h-full">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
                 </div> :
-              contatos.length === 0 ?
+              (tipoEncaminhamento === 'contatos' ? contatos.length : usuariosInternos.length) === 0 ?
               <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                  <p className="text-sm">Nenhum contato encontrado</p>
+                  <p className="text-sm">Nenhum {tipoEncaminhamento === 'internos' ? 'usuário' : 'contato'} encontrado</p>
                 </div> :
 
               <div className="p-2">
-                  {contatos.map((contato) => {
+                  {/* LISTA DE CONTATOS */}
+                  {tipoEncaminhamento === 'contatos' && contatos.map((contato) => {
                   const selecionado = contatosSelecionados.includes(contato.id);
 
                   // ✅ Nome formatado: Empresa + Cargo + Nome (igual sidebar)
@@ -1575,6 +1680,40 @@ export default React.memo(function MessageBubble({
                               {nomeExibicao}
                             </p>
                             <p className="text-sm text-slate-500 truncate">{contato.telefone}</p>
+                          </div>
+                        </button>);
+
+                })}
+
+                  {/* LISTA DE USUÁRIOS INTERNOS */}
+                  {tipoEncaminhamento === 'internos' && usuariosInternos.map((usuario) => {
+                  const selecionado = contatosSelecionados.includes(usuario.id);
+                  const nomeExibicao = usuario.display_name || usuario.full_name || usuario.email;
+                  const setorUsuario = usuario.attendant_sector || 'geral';
+
+                  return (
+                    <button
+                      key={usuario.id}
+                      onClick={() => toggleContatoSelecionado(usuario)}
+                      className={cn(
+                        "w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors",
+                        selecionado && "bg-purple-50 hover:bg-purple-100"
+                      )}>
+
+                          <div className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0",
+                        selecionado ? "bg-purple-600" : "bg-slate-400"
+                      )}>
+                            {selecionado ?
+                        <Check className="w-5 h-5" /> :
+                        nomeExibicao.charAt(0)?.toUpperCase() || '?'
+                        }
+                          </div>
+                          <div className="flex-1 text-left min-w-0">
+                            <p className="font-medium text-slate-900 truncate">
+                              {nomeExibicao}
+                            </p>
+                            <p className="text-sm text-slate-500 truncate">{setorUsuario}</p>
                           </div>
                         </button>);
 
