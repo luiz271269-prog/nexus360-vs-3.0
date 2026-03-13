@@ -276,9 +276,12 @@ async function processarWAITING_SECTOR_CHOICE(base44, thread, contact, user_inpu
     return await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system' }, whatsappIntegrationId);
   }
 
-  const invalidOk = await enviarMensagem(base44, contact, whatsappIntegrationId, "❌ Opção inválida. Digite o número ou nome do setor.\n\n" + construirMenuBoasVindas(contact.nome));
+  // 🆕 FIX A: Em WAITING_SECTOR_CHOICE, reenviar menu em vez de falhar
+  const menuRetentiva = construirMenuBoasVindas(contact.nome);
+  const invalidOk = await enviarMensagem(base44, contact, whatsappIntegrationId, "❌ Opção inválida. Digite o número ou nome do setor.\n\n" + menuRetentiva);
   if (!invalidOk) return { success: false, mode: 'invalid_option_send_failed' };
-  return { success: false };
+  // ✅ Mantém estado e retorna sucesso (evita loop infinito de falhas)
+  return { success: true, mode: 'invalid_option_retry', estado_mantido: 'WAITING_SECTOR_CHOICE' };
 }
 
 async function processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, user_input, whatsappIntegrationId) {
