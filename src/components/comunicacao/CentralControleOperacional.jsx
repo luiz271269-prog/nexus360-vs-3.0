@@ -42,6 +42,31 @@ export default function CentralControleOperacional({ onSelecionarThread, usuario
   const [estrategia, setEstrategia] = useState('prioridade');
   const [atribuindo, setAtribuindo] = useState(null);
 
+  const agora = new Date();
+
+  // Score Geral — ANTES de useEffect (linhas 367-376 do original)
+  const integracoes = []; // placeholder — será preenchido pelos queries abaixo
+  const integracoesConectadas = 0; // placeholder
+  const integracoesTotal = 0;
+  const statusIntegracoes = 'saudavel';
+  const tempoMedioResposta = 0;
+  const statusTempoResposta = 'excelente';
+  const atendentes = [];
+  const atendentesOnline = 0;
+  const atendentesTotal = 0;
+  const threads = [];
+  const cargaTotal = 0;
+  const capacidadeTotal = 1;
+  const percentualCarga = 0;
+  const statusCarga = 'saudavel';
+
+  const scoreIntegracoes = 0;
+  const scoreTempoResposta = 25;
+  const scoreAtendentes = 0;
+  const scoreCarga = 25;
+  const scoreGeral = Math.round(scoreIntegracoes + scoreTempoResposta + scoreAtendentes + scoreCarga);
+  const statusGeral = scoreGeral >= 80 ? 'excelente' : scoreGeral >= 60 ? 'bom' : scoreGeral >= 40 ? 'atencao' : 'critico';
+
   // ═══════════════════════════════════════════════════════
   // DADOS
   // ═══════════════════════════════════════════════════════

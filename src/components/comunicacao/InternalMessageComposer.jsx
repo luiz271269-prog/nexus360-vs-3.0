@@ -257,7 +257,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="w-[98vw] sm:max-w-4xl max-h-[95vh] sm:h-[85vh] sm:max-h-[90vh] flex flex-col p-3 sm:p-6">
+        <DialogContent className="w-[98vw] sm:max-w-4xl max-h-[95vh] sm:h-[85vh] sm:max-h-[95vh] flex flex-col p-3 sm:p-6">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-slate-800">
               <div className="flex items-center gap-3 min-w-0">
@@ -561,7 +561,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                 </TabsList>
 
                 <div className="flex-1 min-h-0 overflow-y-auto">
-                   <TabsContent value="usuarios" className="m-0 p-2 min-h-full">
+                   <TabsContent value="usuarios" className="m-0 p-2 sm:p-4 min-h-full">
                      <div className="space-y-1">
                       {loadingUsers ? (
                         <div className="flex items-center justify-center py-8">
@@ -580,6 +580,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                           <button
                             key={usuario.id}
                             onClick={(e) => { e.stopPropagation(); toggleUser(usuario.id); }}
+                            onTouchEnd={(e) => { e.stopPropagation(); toggleUser(usuario.id); }}
                             className={`w-full flex items-center gap-2 px-3 py-3 rounded-lg transition-all text-left border text-xs ${
                               isSelected ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' : 'hover:bg-slate-50 border-transparent hover:border-slate-200'
                             }`}
