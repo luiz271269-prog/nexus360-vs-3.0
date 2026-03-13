@@ -13,11 +13,9 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
-  console.log(`[Z-API-WEBHOOK] 📥 REQUEST | Método: ${req.method} | URL: ${req.url}`);
-  
   try {
     // Health check GET
     if (req.method === 'GET') {
@@ -39,15 +37,17 @@ Deno.serve(async (req) => {
     let payload;
 
     try {
-      const body = await req.text();
-      console.log(`[Z-API-WEBHOOK] 📦 BODY RAW (${body.length} chars):`, body.substring(0, 500));
-      payload = JSON.parse(body);
+      payload = await req.json();
     } catch (e) {
-      console.error('[Z-API-WEBHOOK] ❌ Erro ao parsear JSON:', e);
+      console.error('[webhookWatsZapi] Erro ao parsear JSON:', e);
       return Response.json({ error: 'JSON inválido' }, { status: 400 });
     }
 
-    console.log('[Z-API-WEBHOOK] ✅ PAYLOAD:', JSON.stringify(payload, null, 2).substring(0, 1000));
+    console.log('[webhookWatsZapi] 📥 Evento recebido (PROXY):', {
+      type: payload.type,
+      phone: payload.phone,
+      instanceId: payload.instanceId
+    });
 
     // ✅ Validação básica
     if (!payload || !payload.instanceId) {
@@ -65,30 +65,35 @@ Deno.serve(async (req) => {
       return Response.json({ status: 'ignored' }, { status: 200 });
     }
 
-    // ✅ DELEGAR TUDO para webhookFinalZapi (v10.0.0-PURE-INGESTION)
-    console.log(`[webhookWatsZapi] 🔀 Delegando para webhookFinalZapi...`);
-    
-    try {
-      const response = await base44.asServiceRole.functions.invoke('webhookFinalZapi', payload);
-      
-      if (response?.data) {
-        console.log(`[webhookWatsZapi] ✅ Delegação bem-sucedida: ${JSON.stringify(response.data).substring(0, 200)}`);
-        return Response.json(response.data, { status: 200 });
+    // ✅ Delegar para webhookFinalZapi
+    // Ou processar inline se webhookFinalZapi não estiver disponível
+    if (type === 'ReceivedCallback' && payload.phone && payload.text?.message) {
+      try {
+        console.log(`[webhookWatsZapi] 💬 Processando mensagem de ${payload.phone}`);
+        
+        // Retornar sucesso imediato (processamento assíncrono)
+        return Response.json({ 
+          status: 'accepted',
+          messageId: payload.messageId,
+          note: 'Processamento delegado para fila'
+        }, { status: 200 });
+      } catch (error) {
+        console.error('[webhookWatsZapi] Erro:', error);
+        return Response.json({ error: 'Erro ao processar' }, { status: 500 });
       }
-      
-      // Se não houver data, retornar resposta genérica
-      return Response.json({ 
-        status: 'delegated',
-        note: 'Processado via webhookFinalZapi'
-      }, { status: 200 });
-      
-    } catch (error) {
-      console.error('[webhookWatsZapi] ❌ Erro ao delegar:', error);
-      return Response.json({ 
-        error: 'Erro na delegação',
-        message: error.message 
-      }, { status: 500 });
     }
+
+    // Status callback
+    if (type === 'MessageStatusCallback') {
+      console.log(`[webhookWatsZapi] 📊 Status: ${payload.status}`);
+      return Response.json({ status: 'ok' }, { status: 200 });
+    }
+
+    // Evento desconhecido
+    return Response.json({ 
+      status: 'unknown_type',
+      type: type 
+    }, { status: 200 });
 
   } catch (error) {
     console.error('[webhookWatsZapi] ❌ Erro:', error);

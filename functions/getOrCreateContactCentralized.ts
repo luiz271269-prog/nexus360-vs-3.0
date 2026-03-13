@@ -120,8 +120,7 @@ Deno.serve(async (req) => {
         console.log(`[${VERSION}] ✅ ENCONTRADO por telefone_canonico="${canonico}" | ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
       }
     } catch (e) {
-      console.error(`[${VERSION}] ❌ ERRO busca telefone_canonico:`, e.message);
-      // Continuar para próximas tentativas (fallback para telefone normal)
+      console.warn(`[${VERSION}] ⚠️ Erro busca telefone_canonico:`, e.message);
     }
 
     // ═══════════════════════════════════════════════════════════════
