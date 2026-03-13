@@ -43,6 +43,7 @@ import {
 import UsuarioDisplay from './UsuarioDisplay';
 import { sanitizeEmojis } from '../lib/emojiSanitizer';
 import EtiquetaFaseDialog from './EtiquetaFaseDialog';
+import ComentariosInternos from './ComentariosInternos';
 
 // Player de áudio: nativo + botão de velocidade
 const AudioPlayer = ({ src }) => {
@@ -1030,6 +1031,17 @@ export default React.memo(function MessageBubble({
                       <TooltipContent side="top">Responder</TooltipContent>
                     </Tooltip>
                 }
+
+                  {/* 💬 COMENTÁRIOS INTERNOS - Anexado à mensagem */}
+                  {!isOwn && (
+                    <ComentariosInternos
+                      messageId={message.id}
+                      usuarioAtual={usuarioAtual}
+                      contato={contato}
+                      atendentes={atendentes}
+                      hasPermission={usuarioAtual?.role === 'admin' || ['gerente', 'coordenador'].includes(usuarioAtual?.attendant_role)}
+                    />
+                  )}
 
                   {/* ✅ NEXUS360: Encaminhar validado */}
                   {podeEncaminhar &&
