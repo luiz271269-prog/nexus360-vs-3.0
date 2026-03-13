@@ -274,15 +274,21 @@ Deno.serve(async (req) => {
             console.warn(`[NEXUS-AGENT v3.2] ⚠️ Brain falhou, fallback alerta interno: ${brainErr.message}`);
           }
 
-          // Fallback: alerta interno clássico se brain não agiu
-          if (acaoExecutada === 'nenhuma') {
-            try {
-              const internalResult = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
-                target_user_id: thread.assigned_user_id
-              });
-              const internalThread = internalResult?.data?.thread || internalResult?.thread;
+          // Fallback: alerta interno direto para thread de setor (evita criar 1:1 extras)
+           if (acaoExecutada === 'nenhuma') {
+             try {
+               // Buscar thread de setor do usuário (mais limpo que 1:1)
+               const usuarioAtribuido = await base44.asServiceRole.entities.User.get(thread.assigned_user_id).catch(() => null);
+               const setorUsuario = usuarioAtribuido?.attendant_sector || 'geral';
 
-              if (internalThread?.id) {
+               const sectorThreads = await base44.asServiceRole.entities.MessageThread.filter({
+                 thread_type: 'sector_group',
+                 sector_key: `sector:${setorUsuario}`
+               }, '-created_date', 1).catch(() => []);
+
+               const internalThread = sectorThreads.length > 0 ? sectorThreads[0] : null;
+
+               if (internalThread?.id) {
                 const duasHorasAtras = new Date(agora.getTime() - 2 * 60 * 60 * 1000);
                 const alertasRecentes = await base44.asServiceRole.entities.Message.filter({
                   thread_id: internalThread.id,
