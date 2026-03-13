@@ -345,8 +345,10 @@ export default React.memo(function MessageBubble({
 
   const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
   const [buscaContato, setBuscaContato] = React.useState("");
-  const [tipoDestinatario, setTipoDestinatario] = React.useState('contatos'); // 'contatos' ou 'internos'
+  const [tipoDestinatario, setTipoDestinatario] = React.useState('contatos'); // 'contatos', 'internos', 'setores', 'grupos'
   const [usuariosInternosSelecionados, setUsuariosInternosSelecionados] = React.useState([]);
+  const [setoresSelecionados, setSetoresSelecionados] = React.useState([]);
+  const [gruposSelecionados, setGruposSelecionados] = React.useState([]);
 
   const queryClient = useQueryClient();
 
