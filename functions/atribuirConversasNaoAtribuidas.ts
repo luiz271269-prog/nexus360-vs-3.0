@@ -44,22 +44,21 @@ Deno.serve(async (req) => {
 
     console.log(`[ATRIBUIDOR] Iniciando... dry_run=${dryRun}, limite=${limite}, dias=${diasAtras}`);
 
-    // 1. Buscar threads não atribuídas
+    // 1. Buscar threads não atribuídas — BUSCAR DIRETO COM FILTRO para evitar O(n) em cima de 500
     const dataLimite = new Date();
     dataLimite.setDate(dataLimite.getDate() - diasAtras);
 
-    const todasThreads = await base44.asServiceRole.entities.MessageThread.filter(
-      {},
+    // ✅ FIX WATCHDOG: Buscar diretamente threads sem assigned_user_id
+    const threadsOrfas = await base44.asServiceRole.entities.MessageThread.filter(
+      {
+        assigned_user_id: { $exists: false },
+        updated_date: { $gte: dataLimite.toISOString() }
+      },
       '-updated_date',
-      500
+      limite + 100 // Buffer para segurança
     );
-
-    // Filtrar threads órfãs (sem atribuição)
-    const threadsOrfas = todasThreads.filter(t => 
-      !t.assigned_user_id && 
-      !t.assigned_user_email &&
-      new Date(t.updated_date || t.created_date) >= dataLimite
-    ).slice(0, limite);
+    
+    const totalAnalisadas = threadsOrfas.length;
 
     console.log(`[ATRIBUIDOR] Encontradas ${threadsOrfas.length} threads órfãs (de ${todasThreads.length} total)`);
 
