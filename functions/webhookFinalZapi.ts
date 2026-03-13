@@ -412,8 +412,6 @@ Deno.serve(async (req) => {
       return jsonServerError({ success: false, error: 'sdk_init_error' });
     }
 
-    const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
-
     let payload;
     try {
       const body = await req.text();
@@ -622,6 +620,7 @@ async function handleMessageUpdate(dados, base44) {
 
 async function handleMessage(dados, payloadBruto, base44) {
     const inicio = Date.now();
+    const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
     const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
     console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
@@ -1080,28 +1079,26 @@ async function handleMessage(dados, payloadBruto, base44) {
   const duracao = Date.now() - inicio;
   console.log(`[${VERSION}] ✅ SUCESSO! Msg: ${mensagem.id} | De: ${dados.from} | Int: ${integracaoId} | ${duracao}ms`);
 
-  // ✅ SKILL EXECUTION - Fire-and-forget (não bloqueia webhook)
+  // SkillExecution - Fire-and-forget
   ;(async () => {
     try {
       await base44.asServiceRole.entities.SkillExecution.create({
-        skill_name: 'webhook_inbound_zapi',
+        skill_name: 'webhook_zapi_inbound',
         triggered_by: 'webhook',
         execution_mode: 'autonomous_safe',
         context: {
           integration_id: integracaoId,
-          canal: integracaoInfo?.nome || 'z-api',
-          numero_canal: integracaoInfo?.numero || connectedPhone,
-          contact_id: contato.id,
-          thread_id: thread.id
+          canal: integracaoInfo?.numero || connectedPhone,
+          telefone_origem: dados.from,
+          media_type: dados.mediaType
         },
         success: true,
         duration_ms: Date.now() - _tsInicio,
         metricas: {
-          mensagens_recebidas: 1,
-          media_type: dados.mediaType,
+          mensagens_processadas: 1,
           midia_persistida: midiaPersistida ? 1 : 0,
-          contact_action: contato._action || 'existing',
-          thread_messages_total: thread.total_mensagens || 1
+          auto_merge_executado: threadCanonica ? 1 : 0,
+          tempo_total_ms: duracao
         }
       });
     } catch (e) {

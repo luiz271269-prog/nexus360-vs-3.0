@@ -576,6 +576,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
 
   const inicio = Date.now();
+  const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
 
   // DEDUPLICAÇÃO por messageId
   if (dados.messageId) {
@@ -938,28 +939,26 @@ async function handleMessage(dados, payloadBruto, base44) {
   const duracao = Date.now() - inicio;
   console.log(`[WAPI] ✅ SUCESSO! Mensagem: ${mensagem.id} | Tópico: ${thread.id} | ${duracao}ms`);
 
-  // ✅ SKILL EXECUTION - Fire-and-forget (não bloqueia webhook)
+  // SkillExecution - Fire-and-forget
   ;(async () => {
     try {
       await base44.asServiceRole.entities.SkillExecution.create({
-        skill_name: 'webhook_inbound_wapi',
+        skill_name: 'webhook_wapi_inbound',
         triggered_by: 'webhook',
         execution_mode: 'autonomous_safe',
         context: {
           integration_id: integracaoId,
-          canal: integracaoInfo?.nome || 'w-api',
-          numero_canal: integracaoInfo?.numero || connectedPhone,
-          contact_id: contato.id,
-          thread_id: thread.id
+          canal: integracaoInfo?.numero || connectedPhone,
+          telefone_origem: dados.from,
+          media_type: dados.mediaType
         },
         success: true,
         duration_ms: Date.now() - _tsInicio,
         metricas: {
-          mensagens_recebidas: 1,
-          media_type: dados.mediaType,
-          download_queued: dados.downloadSpec ? 1 : 0,
-          contact_action: contato._action || 'existing',
-          thread_messages_total: thread.total_mensagens || 1
+          mensagens_processadas: 1,
+          worker_midia_disparado: dados.downloadSpec ? 1 : 0,
+          auto_merge_executado: threadCanonica ? 1 : 0,
+          tempo_total_ms: duracao
         }
       });
     } catch (e) {
@@ -1014,8 +1013,6 @@ Deno.serve(async (req) => {
     console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
     return jsonErr(`auth_error: ${e.message}`, 500);
   }
-
-  const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
 
   let payload;
   try {
