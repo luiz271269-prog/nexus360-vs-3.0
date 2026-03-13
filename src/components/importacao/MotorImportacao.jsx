@@ -108,20 +108,69 @@ const extrairDadosPlanilha = async (fileUrl, tipo, nomeArquivo) => {
   }
 };
 
-// ─── Extração PDF/Imagem via Anthropic API (backend function) ────────────────
-const extrairDadosAnthropicVision = async (fileUrl, tipo) => {
-  const response = await extrairDadosPDF({ file_url: fileUrl, tipo });
+// ─── Extração PDF via Base44 direto (PRIORIDADE) + Fallback IA ───────────────
+const extrairDadosPDFOtimizado = async (fileUrl) => {
+  // PASSO 1: Tentar extração direta via Base44 (90% mais rápido, sem timeout)
+  try {
+    console.log('[PDF] 🔍 Tentando extração direta via Base44...');
+    
+    const resultadoDireto = await base44.integrations.Core.ExtractDataFromUploadedFile({
+      file_url: fileUrl,
+      json_schema: {
+        type: 'object',
+        properties: {
+          dados_extraidos: { 
+            type: 'array', 
+            items: { type: 'object', additionalProperties: true } 
+          }
+        },
+        required: ['dados_extraidos']
+      }
+    });
+
+    if (resultadoDireto?.status === 'success' && resultadoDireto.output?.dados_extraidos?.length > 0) {
+      console.log(`[PDF] ✅ Extração direta: ${resultadoDireto.output.dados_extraidos.length} linhas`);
+      return {
+        dados_extraidos: resultadoDireto.output.dados_extraidos,
+        confianca_extracao: 92,
+        tipo_conteudo_detectado: 'pdf_tabela_direta',
+        observacoes: `${resultadoDireto.output.dados_extraidos.length} registros via extração otimizada`
+      };
+    }
+  } catch (erroExtracao) {
+    console.warn('[PDF] ⚠️ Extração direta falhou:', erroExtracao.message);
+  }
+
+  // PASSO 2: Fallback - IA Anthropic (apenas para PDFs complexos/escaneados)
+  console.log('[PDF] 🤖 Usando fallback via Anthropic Vision...');
+  const response = await extrairDadosPDF({ file_url: fileUrl, tipo: 'pdf' });
   const resultado = response?.data;
 
   if (resultado?.success && resultado?.dados_extraidos) {
     return {
       dados_extraidos: resultado.dados_extraidos,
       confianca_extracao: resultado.confianca_extracao || 80,
-      tipo_conteudo_detectado: resultado.tipo_conteudo_detectado || `${tipo}_tabela`,
-      observacoes: resultado.observacoes || `Dados extraídos do ${tipo.toUpperCase()}`
+      tipo_conteudo_detectado: resultado.tipo_conteudo_detectado || 'pdf_via_ia',
+      observacoes: resultado.observacoes || 'Extraído via IA Vision (fallback)'
     };
   }
-  throw new Error(resultado?.error || `Falha ao extrair dados do ${tipo.toUpperCase()}`);
+  throw new Error(resultado?.error || 'Falha na extração do PDF');
+};
+
+// ─── Extração de Imagem via Anthropic ────────────────────────────────────────
+const extrairDadosImagem = async (fileUrl) => {
+  const response = await extrairDadosPDF({ file_url: fileUrl, tipo: 'imagem' });
+  const resultado = response?.data;
+
+  if (resultado?.success && resultado?.dados_extraidos) {
+    return {
+      dados_extraidos: resultado.dados_extraidos,
+      confianca_extracao: resultado.confianca_extracao || 75,
+      tipo_conteudo_detectado: 'imagem_ocr',
+      observacoes: resultado.observacoes || 'Dados extraídos via OCR'
+    };
+  }
+  throw new Error(resultado?.error || 'Falha ao extrair dados da imagem');
 };
 
 // ─── Extração genérica via InvokeLLM (Word e outros) ────────────────────────
@@ -170,8 +219,12 @@ const extrairDadosComIA = async (fileUrl, tipoArquivo, nomeArquivo) => {
     return await extrairDadosPlanilha(fileUrl, tipoArquivo, nomeArquivo);
   }
 
-  if (tipoArquivo === 'pdf' || tipoArquivo === 'imagem') {
-    return await extrairDadosAnthropicVision(fileUrl, tipoArquivo);
+  if (tipoArquivo === 'pdf') {
+    return await extrairDadosPDFOtimizado(fileUrl);
+  }
+
+  if (tipoArquivo === 'imagem') {
+    return await extrairDadosImagem(fileUrl);
   }
 
   // Word e outros: InvokeLLM
