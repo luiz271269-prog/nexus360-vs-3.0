@@ -147,6 +147,7 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
   const descricaoMenu = `👋 Olá${nomeMenu ? ` ${nomeMenu}` : ''}! ${saudacaoMenu}! Estou aqui para te conectar com a equipe certa. 🎯`;
   const nomeEmpresa = cfg?.nome_empresa || 'Sua Empresa';
   let menuEnviado = false;
+  let erroMenuInterativo = null;
   try {
     const res = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
       integration_id: whatsappIntegrationId,
@@ -169,6 +170,18 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
     menuEnviado = res?.data?.success !== false;
   } catch (e) {
     console.error('[PRE-ATENDIMENTO] Falha ao enviar list menu:', e.message);
+    erroMenuInterativo = e.message;
+  }
+  
+  // 🆕 FIX B: Se menu interativo falhou, tentar fallback com texto simples
+  if (!menuEnviado && erroMenuInterativo) {
+    console.warn('[PRE-ATENDIMENTO] Tentando fallback texto simples após falha do menu interativo');
+    const textoFallback = construirMenuBoasVindas(contact.nome);
+    const fallbackOk = await enviarMensagem(base44, contact, whatsappIntegrationId, textoFallback);
+    if (fallbackOk) {
+      await atualizarEstado(base44, thread.id, 'WAITING_SECTOR_CHOICE');
+      return { success: true, mode: 'menu_fallback_texto', error_message: erroMenuInterativo };
+    }
   }
   
   // Bug #9 fix: condicionar avanço de estado ao sucesso do envio
@@ -176,8 +189,8 @@ async function processarEstadoINIT(base44, thread, contact, whatsappIntegrationI
     await atualizarEstado(base44, thread.id, 'WAITING_SECTOR_CHOICE');
     return { success: true, mode: 'menu_list' };
   } else {
-    console.error('[PRE-ATENDIMENTO] ⚠️ Menu não enviado, mantendo INIT para retry');
-    return { success: false, mode: 'menu_send_failed' };
+    console.error('[PRE-ATENDIMENTO] ⚠️ Menu não enviado (nem fallback), mantendo INIT para retry');
+    return { success: false, mode: 'menu_send_failed', error_message: erroMenuInterativo };
   }
 }
 
