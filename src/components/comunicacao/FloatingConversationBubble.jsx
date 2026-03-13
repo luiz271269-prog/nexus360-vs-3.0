@@ -72,18 +72,41 @@ export default function FloatingConversationBubble({
 
   const selecionarUsuario = async (usuario) => {
     try {
-      const res = await base44.functions.invoke('getOrCreateInternalThread', {
-        user_ids: [usuarioAtual.id, usuario.id]
+      // ✅ Criar thread interna diretamente via SDK em vez de function
+      const pair_key = [usuarioAtual.id, usuario.id].sort().join(':');
+      
+      // Buscar ou criar thread 1:1
+      const threadsExistentes = await base44.entities.MessageThread.filter({
+        thread_type: 'team_internal',
+        pair_key: pair_key
       });
-      const threadId = res?.data?.thread_id || res?.data?.thread?.id || res?.data?.id;
+      
+      let threadId;
+      if (threadsExistentes.length > 0) {
+        threadId = threadsExistentes[0].id;
+      } else {
+        // Criar nova thread 1:1
+        const novaThread = await base44.entities.MessageThread.create({
+          thread_type: 'team_internal',
+          pair_key: pair_key,
+          participants: [usuarioAtual.id, usuario.id],
+          is_canonical: true,
+          is_group_chat: false,
+          status: 'aberta',
+          channel: 'interno'
+        });
+        threadId = novaThread.id;
+      }
+      
       if (threadId) {
         const thread = { id: threadId, ...usuario };
         setThreadInterna(thread);
         setUsuarioSelecionado(usuario);
+        toast.success(`💬 Conversa com ${usuario.full_name || usuario.email} aberta`);
       }
     } catch (err) {
       console.error('[BUBBLE] Erro ao criar thread:', err);
-      toast.error('Erro ao abrir conversa');
+      toast.error('Erro ao abrir conversa: ' + (err.message || 'Tente novamente'));
     }
   };
 
