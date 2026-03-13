@@ -16,13 +16,19 @@ import {
   AlertTriangle,
   BarChart3,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  Workflow,
+  Bot,
+  Cpu
 } from 'lucide-react';
 
 export default function InteligenciaMetricas() {
   const [usuario, setUsuario] = useState(null);
   const [metricas, setMetricas] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [automacoes, setAutomacoes] = useState([]);
+  const [skills, setSkills] = useState([]);
+  const [agentes, setAgentes] = useState([]);
 
   const { clientes, estatisticas, totalUrgentes, criticos } = useContatosInteligentes(usuario, {
     tipo: ['lead', 'cliente'],
@@ -137,6 +143,17 @@ export default function InteligenciaMetricas() {
         enviadas: mensagens24h.filter(m => m.sender_type === 'user').length,
         recebidas: mensagens24h.filter(m => m.sender_type === 'contact').length
       };
+
+      // Buscar automações, skills e agentes
+      const [automacoesData, skillsData, agentesData] = await Promise.all([
+        base44.entities.AutomationRule?.filter?.({ ativa: true }, '-created_date', 50).catch(() => []) || [],
+        base44.entities.SkillExecution?.filter?.({ status: 'ativo' }, '-created_date', 50).catch(() => []) || [],
+        base44.entities.AgentRun?.filter?.({ status: { $in: ['processando', 'sucesso'] } }, '-created_date', 50).catch(() => []) || []
+      ]);
+      
+      setAutomacoes(automacoesData || []);
+      setSkills(skillsData || []);
+      setAgentes(agentesData || []);
 
       console.log('[METRICAS] 📊 Dados carregados:', {
         analises24h: totalAnalises24h,
