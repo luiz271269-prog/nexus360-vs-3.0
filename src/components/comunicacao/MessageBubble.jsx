@@ -43,7 +43,6 @@ import {
 import UsuarioDisplay from './UsuarioDisplay';
 import { sanitizeEmojis } from '../lib/emojiSanitizer';
 import EtiquetaFaseDialog from './EtiquetaFaseDialog';
-import ModalEncaminharMensagem from './ModalEncaminharMensagem';
 
 // Player de áudio: nativo + botão de velocidade
 const AudioPlayer = ({ src }) => {
@@ -346,10 +345,7 @@ export default React.memo(function MessageBubble({
 
   const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
   const [buscaContato, setBuscaContato] = React.useState("");
-  const [tipoDestinatario, setTipoDestinatario] = React.useState('contatos'); // 'contatos', 'internos', 'setores', 'grupos'
-  const [usuariosInternosSelecionados, setUsuariosInternosSelecionados] = React.useState([]);
-  const [setoresSelecionados, setSetoresSelecionados] = React.useState([]);
-  const [gruposSelecionados, setGruposSelecionados] = React.useState([]);
+  const [tipoEncaminhamento, setTipoEncaminhamento] = React.useState('contatos'); // 'contatos' | 'internos'
 
   const queryClient = useQueryClient();
 
@@ -403,11 +399,10 @@ export default React.memo(function MessageBubble({
     }
   };
 
-  // ✅ BUSCA SOB DEMANDA - Query reativa baseada no termo de busca
+  // ✅ BUSCA CONTATOS EXTERNOS
   const { data: contatos = [], isLoading: carregandoContatos } = useQuery({
     queryKey: ['contatos-encaminhar', buscaContato],
     queryFn: async () => {
-      // ✅ Só buscar se termo tiver pelo menos 2 caracteres
       if (!buscaContato || buscaContato.trim().length < 2) return [];
 
       const normalizarTexto = (t) => {
@@ -418,10 +413,8 @@ export default React.memo(function MessageBubble({
       const termoBusca = normalizarTexto(buscaContato);
       const termoNumeros = buscaContato.replace(/\D/g, '');
 
-      // Buscar todos os contatos do banco
       const todosContatos = await base44.entities.Contact.list('-ultima_interacao', 1000);
 
-      // Filtrar e ordenar por relevância
       const contatosValidos = todosContatos.
       filter((c) => {
         if (!c || c.bloqueado || !c.telefone) return false;
@@ -437,7 +430,6 @@ export default React.memo(function MessageBubble({
         termoNumeros.length >= 3 && telefone.includes(termoNumeros);
       }).
       sort((a, b) => {
-        // Ordenar por relevância
         const nomeA = normalizarTexto(a.nome || '');
         const nomeB = normalizarTexto(b.nome || '');
 
@@ -449,13 +441,13 @@ export default React.memo(function MessageBubble({
 
       return contatosValidos;
     },
-    enabled: mostrarDialogEncaminhar && tipoDestinatario === 'contatos' && buscaContato.trim().length >= 2,
+    enabled: mostrarDialogEncaminhar && tipoEncaminhamento === 'contatos' && buscaContato.trim().length >= 2,
     staleTime: 30000
   });
 
-  // ✅ BUSCA DE USUÁRIOS INTERNOS
-  const { data: usuariosInternos = [], isLoading: carregandoUsuarios } = useQuery({
-    queryKey: ['usuarios-internos-encaminhar', buscaContato],
+  // ✅ BUSCA USUÁRIOS INTERNOS
+  const { data: usuariosInternos = [], isLoading: carregandoInternos } = useQuery({
+    queryKey: ['usuarios-encaminhar', buscaContato],
     queryFn: async () => {
       if (!buscaContato || buscaContato.trim().length < 2) return [];
 
@@ -465,49 +457,19 @@ export default React.memo(function MessageBubble({
       };
 
       const termoBusca = normalizarTexto(buscaContato);
-      const todosUsuarios = await base44.entities.User.list('-created_date', 100);
+      const todosUsuarios = await base44.entities.User.list('-created_date', 200);
 
       return todosUsuarios.filter((u) => {
-        if (!u || u.id === usuarioAtual?.id) return false; // Não mostrar si mesmo
-        const nome = normalizarTexto(u.full_name || u.display_name || '');
+        if (!u || u.id === usuarioAtual?.id) return false;
+
+        const nome = normalizarTexto(u.full_name || '');
         const email = normalizarTexto(u.email || '');
         const setor = normalizarTexto(u.attendant_sector || '');
 
         return nome.includes(termoBusca) || email.includes(termoBusca) || setor.includes(termoBusca);
       });
     },
-    enabled: mostrarDialogEncaminhar && tipoDestinatario === 'internos' && buscaContato.trim().length >= 2,
-    staleTime: 30000
-  });
-
-  // ✅ BUSCA DE SETORES
-  const setoresList = ['vendas', 'assistencia', 'financeiro', 'fornecedor', 'geral'];
-  const { data: setoresEncontrados = [] } = useQuery({
-    queryKey: ['setores-encaminhar', buscaContato],
-    queryFn: async () => {
-      if (!buscaContato || buscaContato.trim().length < 2) return [];
-      const normalizarTexto = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const termoBusca = normalizarTexto(buscaContato);
-      return setoresList.filter((setor) => normalizarTexto(setor).includes(termoBusca));
-    },
-    enabled: mostrarDialogEncaminhar && tipoDestinatario === 'setores' && buscaContato.trim().length >= 1,
-    staleTime: 30000
-  });
-
-  // ✅ BUSCA DE GRUPOS (SECTOR_GROUP)
-  const { data: gruposEncontrados = [], isLoading: carregandoGrupos } = useQuery({
-    queryKey: ['grupos-encaminhar', buscaContato],
-    queryFn: async () => {
-      if (!buscaContato || buscaContato.trim().length < 2) return [];
-      const normalizarTexto = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const termoBusca = normalizarTexto(buscaContato);
-      const todosGrupos = await base44.entities.MessageThread.filter({ thread_type: 'sector_group' }, '-created_date', 50);
-      return todosGrupos.filter((grupo) => {
-        const nome = normalizarTexto(grupo.group_name || '');
-        return nome.includes(termoBusca);
-      });
-    },
-    enabled: mostrarDialogEncaminhar && tipoDestinatario === 'grupos' && buscaContato.trim().length >= 2,
+    enabled: mostrarDialogEncaminhar && tipoEncaminhamento === 'internos' && buscaContato.trim().length >= 2,
     staleTime: 30000
   });
 
@@ -521,59 +483,29 @@ export default React.memo(function MessageBubble({
     });
   };
 
-  const toggleUsuarioSelecionado = (usuario) => {
-    setUsuariosInternosSelecionados((prev) => {
-      if (prev.includes(usuario.id)) {
-        return prev.filter((id) => id !== usuario.id);
-      } else {
-        return [...prev, usuario.id];
-      }
-    });
-  };
-
-  const toggleSetorSelecionado = (setor) => {
-    setSetoresSelecionados((prev) => {
-      if (prev.includes(setor)) {
-        return prev.filter((s) => s !== setor);
-      } else {
-        return [...prev, setor];
-      }
-    });
-  };
-
-  const toggleGrupoSelecionado = (grupo) => {
-    setGruposSelecionados((prev) => {
-      if (prev.includes(grupo.id)) {
-        return prev.filter((id) => id !== grupo.id);
-      } else {
-        return [...prev, grupo.id];
-      }
-    });
-  };
-
   const handleEncaminhar = async () => {
-    // ✅ Encaminhar para CONTATOS EXTERNOS (WhatsApp)
-    if (tipoDestinatario === 'contatos') {
-      if (contatosSelecionados.length === 0) {
-        toast.error("Selecione pelo menos um contato");
-        return;
-      }
+    if (contatosSelecionados.length === 0) {
+      toast.error(tipoEncaminhamento === 'internos' ? "Selecione pelo menos um usuário" : "Selecione pelo menos um contato");
+      return;
+    }
 
-      const integrationId = thread?.whatsapp_integration_id;
-      if (!integrationId) {
-        toast.error("❌ Não foi possível determinar a integração do WhatsApp");
-        return;
-      }
+    setEncaminhando(true);
+    try {
+      let sucessos = 0;
+      let erros = 0;
 
-      setEncaminhando(true);
-      try {
-        let sucessos = 0;
-        let erros = 0;
+      // ✅ ENCAMINHAR PARA CONTATOS EXTERNOS (WhatsApp)
+      if (tipoEncaminhamento === 'contatos') {
+        const integrationId = thread?.whatsapp_integration_id;
+        if (!integrationId) {
+          toast.error("❌ Não foi possível determinar a integração do WhatsApp");
+          setEncaminhando(false);
+          return;
+        }
 
         for (const contatoId of contatosSelecionados) {
           const contato = contatos.find((c) => c.id === contatoId);
           if (!contato) {
-            console.error(`[BUBBLE] Contato ${contatoId} não encontrado`);
             erros++;
             continue;
           }
@@ -595,57 +527,32 @@ export default React.memo(function MessageBubble({
             erros++;
           }
         }
-
-        if (sucessos > 0) {
-          toast.success(`✅ Mensagem encaminhada para ${sucessos} contato(s) externo(s)!`);
-        }
-
-        if (erros > 0) {
-          toast.error(`❌ ${erros} encaminhamento(s) falharam`);
-        }
-
-        setMostrarDialogEncaminhar(false);
-        setContatosSelecionados([]);
-        setBuscaContato("");
-      } catch (error) {
-        console.error('[BUBBLE] Erro ao encaminhar:', error);
-        toast.error(`Erro: ${error.message}`);
-      } finally {
-        setEncaminhando(false);
-      }
-      return;
-    }
-
-    // ✅ Encaminhar para USUÁRIOS INTERNOS (threads internas)
-    if (tipoDestinatario === 'internos') {
-      if (usuariosInternosSelecionados.length === 0) {
-        toast.error("Selecione pelo menos um usuário interno");
-        return;
       }
 
-      setEncaminhando(true);
-      try {
-        let sucessos = 0;
-        let erros = 0;
+      // ✅ ENCAMINHAR PARA USUÁRIOS INTERNOS (sendInternalMessage)
+      if (tipoEncaminhamento === 'internos') {
+        for (const userId of contatosSelecionados) {
+          const usuario = usuariosInternos.find((u) => u.id === userId);
+          if (!usuario) {
+            erros++;
+            continue;
+          }
 
-        for (const userId of usuariosInternosSelecionados) {
           try {
-            // Criar/buscar thread interna com o usuário
+            // Buscar/criar thread 1:1 com o usuário
             const resultado = await base44.functions.invoke('getOrCreateInternalThread', {
               user_ids: [usuarioAtual.id, userId]
             });
 
-            if (!resultado?.data?.success || !resultado?.data?.thread) {
+            if (!resultado?.data?.thread_id) {
               erros++;
               continue;
             }
 
-            const threadInterna = resultado.data.thread;
-
-            // Enviar mensagem encaminhada
+            // Enviar mensagem interna
             await base44.functions.invoke('sendInternalMessage', {
-              thread_id: threadInterna.id,
-              content: `[Encaminhado]\n${message.content || '[Mídia]'}`,
+              thread_id: resultado.data.thread_id,
+              content: message.content || '[Mensagem encaminhada]',
               media_type: message.media_type || 'none',
               media_url: message.media_url || null,
               media_caption: message.media_caption || null
@@ -653,144 +560,28 @@ export default React.memo(function MessageBubble({
 
             sucessos++;
           } catch (error) {
-            console.error(`[BUBBLE] Erro ao encaminhar para usuário interno:`, error);
+            console.error(`[BUBBLE] Erro ao encaminhar para ${usuario.full_name}:`, error);
             erros++;
           }
         }
-
-        if (sucessos > 0) {
-          toast.success(`✅ Mensagem encaminhada para ${sucessos} usuário(s) interno(s)!`);
-          queryClient.invalidateQueries({ queryKey: ['threads'] });
-          queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
-        }
-
-        if (erros > 0) {
-          toast.error(`❌ ${erros} encaminhamento(s) falharam`);
-        }
-
-        setMostrarDialogEncaminhar(false);
-        setUsuariosInternosSelecionados([]);
-        setBuscaContato("");
-      } catch (error) {
-        console.error('[BUBBLE] Erro ao encaminhar internamente:', error);
-        toast.error(`Erro: ${error.message}`);
-      } finally {
-        setEncaminhando(false);
-      }
-      return;
-    }
-
-    // ✅ Encaminhar para SETORES
-    if (tipoDestinatario === 'setores') {
-      if (setoresSelecionados.length === 0) {
-        toast.error("Selecione pelo menos um setor");
-        return;
       }
 
-      setEncaminhando(true);
-      try {
-        let sucessos = 0;
-        let erros = 0;
-
-        for (const setor of setoresSelecionados) {
-          try {
-            // Buscar ou criar thread do setor
-            const resultado = await base44.functions.invoke('getOrCreateSectorThread', {
-              sector_id: setor
-            });
-
-            if (!resultado?.data?.success || !resultado?.data?.thread) {
-              erros++;
-              continue;
-            }
-
-            const threadSetor = resultado.data.thread;
-
-            // Enviar mensagem encaminhada
-            await base44.functions.invoke('sendInternalMessage', {
-              thread_id: threadSetor.id,
-              content: `[Encaminhado]\n${message.content || '[Mídia]'}`,
-              media_type: message.media_type || 'none',
-              media_url: message.media_url || null,
-              media_caption: message.media_caption || null
-            });
-
-            sucessos++;
-          } catch (error) {
-            console.error(`[BUBBLE] Erro ao encaminhar para setor:`, error);
-            erros++;
-          }
-        }
-
-        if (sucessos > 0) {
-          toast.success(`✅ Mensagem encaminhada para ${sucessos} setor(es)!`);
-          queryClient.invalidateQueries({ queryKey: ['threads'] });
-        }
-
-        if (erros > 0) {
-          toast.error(`❌ ${erros} encaminhamento(s) falharam`);
-        }
-
-        setMostrarDialogEncaminhar(false);
-        setSetoresSelecionados([]);
-        setBuscaContato("");
-      } catch (error) {
-        console.error('[BUBBLE] Erro ao encaminhar para setor:', error);
-        toast.error(`Erro: ${error.message}`);
-      } finally {
-        setEncaminhando(false);
-      }
-      return;
-    }
-
-    // ✅ Encaminhar para GRUPOS
-    if (tipoDestinatario === 'grupos') {
-      if (gruposSelecionados.length === 0) {
-        toast.error("Selecione pelo menos um grupo");
-        return;
+      if (sucessos > 0) {
+        toast.success(`✅ Mensagem encaminhada para ${sucessos} ${tipoEncaminhamento === 'internos' ? 'usuário(s)' : 'contato(s)'}!`);
       }
 
-      setEncaminhando(true);
-      try {
-        let sucessos = 0;
-        let erros = 0;
-
-        for (const grupoId of gruposSelecionados) {
-          try {
-            // Enviar mensagem encaminhada para o grupo
-            await base44.functions.invoke('sendInternalMessage', {
-              thread_id: grupoId,
-              content: `[Encaminhado]\n${message.content || '[Mídia]'}`,
-              media_type: message.media_type || 'none',
-              media_url: message.media_url || null,
-              media_caption: message.media_caption || null
-            });
-
-            sucessos++;
-          } catch (error) {
-            console.error(`[BUBBLE] Erro ao encaminhar para grupo:`, error);
-            erros++;
-          }
-        }
-
-        if (sucessos > 0) {
-          toast.success(`✅ Mensagem encaminhada para ${sucessos} grupo(s)!`);
-          queryClient.invalidateQueries({ queryKey: ['threads'] });
-        }
-
-        if (erros > 0) {
-          toast.error(`❌ ${erros} encaminhamento(s) falharam`);
-        }
-
-        setMostrarDialogEncaminhar(false);
-        setGruposSelecionados([]);
-        setBuscaContato("");
-      } catch (error) {
-        console.error('[BUBBLE] Erro ao encaminhar para grupo:', error);
-        toast.error(`Erro: ${error.message}`);
-      } finally {
-        setEncaminhando(false);
+      if (erros > 0) {
+        toast.error(`❌ ${erros} encaminhamento(s) falharam`);
       }
+
+      setMostrarDialogEncaminhar(false);
+      setContatosSelecionados([]);
+      setBuscaContato("");
+    } catch (error) {
+      console.error('[BUBBLE] Erro ao encaminhar:', error);
+      toast.error(`Erro: ${error.message}`);
+    } finally {
+      setEncaminhando(false);
     }
   };
 
@@ -1194,9 +985,10 @@ export default React.memo(function MessageBubble({
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        setMostrarDialogEncaminhar(true);
-                        setContatosSelecionados([]);
-                        setBuscaContato("");
+                       setMostrarDialogEncaminhar(true);
+                       setContatosSelecionados([]);
+                       setBuscaContato("");
+                       setTipoEncaminhamento('contatos');
                       }}
                       disabled={encaminhando}
                       className={cn(
@@ -1741,56 +1533,60 @@ export default React.memo(function MessageBubble({
               Encaminhar Mensagem
             </DialogTitle>
             <DialogDescription>
-              Escolha o destino e selecione os destinatários
+              Escolha o tipo de destinatário e selecione quem deve receber
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* ✅ ABAS: Contatos Externos vs Usuários Internos */}
+            {/* ✅ ABAS: Contatos vs Internos */}
             <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
               <button
                 onClick={() => {
-                  setTipoDestinatario('contatos');
-                  setUsuariosInternosSelecionados([]);
-                  setBuscaContato("");
-                }}
-                className={cn(
-                  "flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all",
-                  tipoDestinatario === 'contatos'
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
-                )}>
-                <User className="w-4 h-4 inline mr-2" />
-                Contatos
-              </button>
-              <button
-                onClick={() => {
-                  setTipoDestinatario('internos');
+                  setTipoEncaminhamento('contatos');
                   setContatosSelecionados([]);
                   setBuscaContato("");
                 }}
                 className={cn(
                   "flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all",
-                  tipoDestinatario === 'internos'
+                  tipoEncaminhamento === 'contatos'
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                )}>
+                <div className="flex items-center justify-center gap-2">
+                  <User className="w-4 h-4" />
+                  Contatos
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  setTipoEncaminhamento('internos');
+                  setContatosSelecionados([]);
+                  setBuscaContato("");
+                }}
+                className={cn(
+                  "flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all",
+                  tipoEncaminhamento === 'internos'
                     ? "bg-white text-purple-600 shadow-sm"
                     : "text-slate-600 hover:text-slate-900"
                 )}>
-                <Users className="w-4 h-4 inline mr-2" />
-                Internos
+                <div className="flex items-center justify-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Internos
+                </div>
               </button>
             </div>
 
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <Input
-                placeholder={tipoDestinatario === 'contatos' ? "Buscar contato..." : "Buscar usuário..."}
+                placeholder={tipoEncaminhamento === 'internos' ? "Buscar usuário..." : "Buscar contato..."}
                 value={buscaContato}
                 onChange={(e) => setBuscaContato(e.target.value)}
                 className="pl-10" />
+
             </div>
 
-            {/* Chips de Selecionados - CONTATOS */}
-            {tipoDestinatario === 'contatos' && contatosSelecionados.length > 0 &&
+            {contatosSelecionados.length > 0 &&
             <div className="flex flex-wrap gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 {contatosSelecionados.map((contatoId) => {
                 const contato = contatos.find((c) => c.id === contatoId);
@@ -1801,6 +1597,7 @@ export default React.memo(function MessageBubble({
                     key={contato.id}
                     variant="secondary"
                     className="bg-blue-100 text-blue-800 gap-1">
+
                       {contato.nome || contato.telefone}
                       <button
                       onClick={(e) => {
@@ -1808,35 +1605,11 @@ export default React.memo(function MessageBubble({
                         toggleContatoSelecionado(contato);
                       }}
                       className="ml-1 hover:bg-blue-200 rounded-full p-0.5">
+
                         ×
                       </button>
                     </Badge>);
-              })}
-              </div>
-            }
 
-            {/* Chips de Selecionados - INTERNOS */}
-            {tipoDestinatario === 'internos' && usuariosInternosSelecionados.length > 0 &&
-            <div className="flex flex-wrap gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                {usuariosInternosSelecionados.map((userId) => {
-                const user = usuariosInternos.find((u) => u.id === userId);
-                if (!user) return null;
-
-                return (
-                  <Badge
-                    key={user.id}
-                    variant="secondary"
-                    className="bg-purple-100 text-purple-800 gap-1">
-                      {user.display_name || user.full_name || user.email}
-                      <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleUsuarioSelecionado(user);
-                      }}
-                      className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
-                        ×
-                      </button>
-                    </Badge>);
               })}
               </div>
             }
@@ -1848,26 +1621,18 @@ export default React.memo(function MessageBubble({
                   <p className="text-sm font-medium">Digite para buscar</p>
                   <p className="text-xs text-slate-400 mt-1">Mínimo 2 caracteres</p>
                 </div> :
-              tipoDestinatario === 'contatos' && carregandoContatos ?
+              (tipoEncaminhamento === 'contatos' ? carregandoContatos : carregandoInternos) ?
               <div className="flex items-center justify-center h-full">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
                 </div> :
-              tipoDestinatario === 'internos' && carregandoUsuarios ?
-              <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-                </div> :
-              tipoDestinatario === 'contatos' && contatos.length === 0 ?
+              (tipoEncaminhamento === 'contatos' ? contatos.length : usuariosInternos.length) === 0 ?
               <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                  <p className="text-sm">Nenhum contato encontrado</p>
-                </div> :
-              tipoDestinatario === 'internos' && usuariosInternos.length === 0 ?
-              <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                  <p className="text-sm">Nenhum usuário encontrado</p>
+                  <p className="text-sm">Nenhum {tipoEncaminhamento === 'internos' ? 'usuário' : 'contato'} encontrado</p>
                 </div> :
 
               <div className="p-2">
-                  {/* LISTA DE CONTATOS EXTERNOS */}
-                  {tipoDestinatario === 'contatos' && contatos.map((contato) => {
+                  {/* LISTA DE CONTATOS */}
+                  {tipoEncaminhamento === 'contatos' && contatos.map((contato) => {
                   const selecionado = contatosSelecionados.includes(contato.id);
 
                   // ✅ Nome formatado: Empresa + Cargo + Nome (igual sidebar)
@@ -1889,6 +1654,7 @@ export default React.memo(function MessageBubble({
                         "w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors",
                         selecionado && "bg-blue-50 hover:bg-blue-100"
                       )}>
+
                           <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden",
                         selecionado ? "bg-blue-600" : "bg-slate-400"
@@ -1904,6 +1670,8 @@ export default React.memo(function MessageBubble({
                             e.target.style.display = 'none';
                             e.target.parentElement.textContent = nomeExibicao.charAt(0).toUpperCase();
                           }} /> :
+
+
                         nomeExibicao.charAt(0)?.toUpperCase() || '?'
                         }
                           </div>
@@ -1914,37 +1682,41 @@ export default React.memo(function MessageBubble({
                             <p className="text-sm text-slate-500 truncate">{contato.telefone}</p>
                           </div>
                         </button>);
+
                 })}
 
                   {/* LISTA DE USUÁRIOS INTERNOS */}
-                  {tipoDestinatario === 'internos' && usuariosInternos.map((user) => {
-                  const selecionado = usuariosInternosSelecionados.includes(user.id);
-                  const nomeExibicao = user.display_name || user.full_name || user.email;
-                  const setor = user.attendant_sector || 'geral';
+                  {tipoEncaminhamento === 'internos' && usuariosInternos.map((usuario) => {
+                  const selecionado = contatosSelecionados.includes(usuario.id);
+                  const nomeExibicao = usuario.display_name || usuario.full_name || usuario.email;
+                  const setorUsuario = usuario.attendant_sector || 'geral';
 
                   return (
                     <button
-                      key={user.id}
-                      onClick={() => toggleUsuarioSelecionado(user)}
+                      key={usuario.id}
+                      onClick={() => toggleContatoSelecionado(usuario)}
                       className={cn(
                         "w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors",
                         selecionado && "bg-purple-50 hover:bg-purple-100"
                       )}>
+
                           <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0",
                         selecionado ? "bg-purple-600" : "bg-slate-400"
                       )}>
-                            {selecionado ? <Check className="w-5 h-5" /> : nomeExibicao.charAt(0)?.toUpperCase() || '?'}
+                            {selecionado ?
+                        <Check className="w-5 h-5" /> :
+                        nomeExibicao.charAt(0)?.toUpperCase() || '?'
+                        }
                           </div>
                           <div className="flex-1 text-left min-w-0">
                             <p className="font-medium text-slate-900 truncate">
                               {nomeExibicao}
                             </p>
-                            <p className="text-xs text-slate-500 truncate">
-                              {setor} • {user.attendant_role || 'pleno'}
-                            </p>
+                            <p className="text-sm text-slate-500 truncate">{setorUsuario}</p>
                           </div>
                         </button>);
+
                 })}
                 </div>
               }
@@ -1957,22 +1729,22 @@ export default React.memo(function MessageBubble({
               onClick={() => {
                 setMostrarDialogEncaminhar(false);
                 setContatosSelecionados([]);
-                setUsuariosInternosSelecionados([]);
                 setBuscaContato("");
               }}>
+
               Cancelar
             </Button>
             <Button
               onClick={handleEncaminhar}
-              disabled={(tipoDestinatario === 'contatos' && contatosSelecionados.length === 0) || 
-                       (tipoDestinatario === 'internos' && usuariosInternosSelecionados.length === 0) || 
-                       encaminhando}
-              className={tipoDestinatario === 'internos' ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}>
+              disabled={contatosSelecionados.length === 0 || encaminhando}
+              className="bg-blue-600 hover:bg-blue-700">
+
               {encaminhando ?
               <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Encaminhando...
                 </> :
+
               <>
                   Encaminhar
                   <ArrowRight className="w-4 h-4 ml-2" />
