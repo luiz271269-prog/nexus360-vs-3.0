@@ -8,7 +8,7 @@
  * Extração necessária pois Comunicacao.jsx atingiu 2662 linhas (limite 2000)
  * ═══════════════════════════════════════════════════════════════════════
  */
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import * as permissionsService from '../lib/permissionsService';
 import { podeVerThreadInterna } from '../lib/internalThreadsService';
 import { normalizarTelefone } from '../lib/phoneUtils';
