@@ -445,9 +445,9 @@ export default React.memo(function MessageBubble({
     staleTime: 30000
   });
 
-  // ✅ BUSCA USUÁRIOS INTERNOS
+  // ✅ BUSCA INTERNOS: Usuários 1:1 + Setores + Grupos
   const { data: usuariosInternos = [], isLoading: carregandoInternos } = useQuery({
-    queryKey: ['usuarios-encaminhar', buscaContato],
+    queryKey: ['internos-encaminhar', buscaContato],
     queryFn: async () => {
       if (!buscaContato || buscaContato.trim().length < 2) return [];
 
@@ -457,17 +457,61 @@ export default React.memo(function MessageBubble({
       };
 
       const termoBusca = normalizarTexto(buscaContato);
+      const resultados = [];
+
+      // 1. Usuários individuais (para threads 1:1)
       const todosUsuarios = await base44.entities.User.list('-created_date', 200);
-
-      return todosUsuarios.filter((u) => {
-        if (!u || u.id === usuarioAtual?.id) return false;
-
-        const nome = normalizarTexto(u.full_name || '');
+      todosUsuarios.forEach((u) => {
+        if (!u || u.id === usuarioAtual?.id) return;
+        const nome = normalizarTexto(u.display_name || u.full_name || '');
         const email = normalizarTexto(u.email || '');
         const setor = normalizarTexto(u.attendant_sector || '');
-
-        return nome.includes(termoBusca) || email.includes(termoBusca) || setor.includes(termoBusca);
+        if (nome.includes(termoBusca) || email.includes(termoBusca) || setor.includes(termoBusca)) {
+          resultados.push({
+            id: u.id,
+            nome_exibicao: u.display_name || u.full_name || u.email,
+            subtitulo: u.attendant_sector || 'geral',
+            _tipo: 'user'
+          });
+        }
       });
+
+      // 2. Grupos de setor (sector_group) - sempre existem, não precisam ser criados
+      const setores = await base44.entities.MessageThread.filter(
+        { thread_type: 'sector_group', status: 'aberta' }, '-updated_date', 50
+      );
+      setores.forEach((t) => {
+        const nome = normalizarTexto(t.group_name || t.sector_key || '');
+        if (nome.includes(termoBusca) || 'setor'.includes(termoBusca)) {
+          const nomeExibicao = t.group_name || t.sector_key?.replace('sector:', '') || 'Setor';
+          resultados.push({
+            id: t.id,
+            nome_exibicao: `🏢 ${nomeExibicao}`,
+            subtitulo: `Setor • ${t.participants?.length || 0} membros`,
+            _tipo: 'sector_group',
+            _thread_id: t.id
+          });
+        }
+      });
+
+      // 3. Grupos internos (team_internal com is_group_chat)
+      const grupos = await base44.entities.MessageThread.filter(
+        { thread_type: 'team_internal', is_group_chat: true, status: 'aberta' }, '-updated_date', 50
+      );
+      grupos.forEach((t) => {
+        const nome = normalizarTexto(t.group_name || '');
+        if (nome.includes(termoBusca) || 'grupo'.includes(termoBusca)) {
+          resultados.push({
+            id: t.id,
+            nome_exibicao: `👥 ${t.group_name || 'Grupo'}`,
+            subtitulo: `Grupo • ${t.participants?.length || 0} membros`,
+            _tipo: 'team_group',
+            _thread_id: t.id
+          });
+        }
+      });
+
+      return resultados;
     },
     enabled: mostrarDialogEncaminhar && tipoEncaminhamento === 'internos' && buscaContato.trim().length >= 2,
     staleTime: 30000
@@ -529,38 +573,47 @@ export default React.memo(function MessageBubble({
         }
       }
 
-      // ✅ ENCAMINHAR PARA USUÁRIOS INTERNOS (sendInternalMessage)
+      // ✅ ENCAMINHAR PARA INTERNOS (usuário 1:1 / setor / grupo)
       if (tipoEncaminhamento === 'internos') {
-        for (const userId of contatosSelecionados) {
-          const usuario = usuariosInternos.find((u) => u.id === userId);
-          if (!usuario) {
-            erros++;
-            continue;
-          }
+        // Conteúdo a encaminhar — marca origem claramente
+        const contentEncaminhado = message.content ? `↩ ${message.content}` : '[Mensagem encaminhada]';
+        const mediaType = message.media_type && message.media_type !== 'none' ? message.media_type : 'none';
+        const mediaUrl = message.media_url || null;
+        const mediaCaption = message.media_caption || null;
+
+        for (const itemId of contatosSelecionados) {
+          const item = usuariosInternos.find((u) => u.id === itemId);
+          if (!item) { erros++; continue; }
 
           try {
-            // Buscar/criar thread 1:1 com o usuário
-            const resultado = await base44.functions.invoke('getOrCreateInternalThread', {
-              user_ids: [usuarioAtual.id, userId]
-            });
+            let threadId = null;
 
-            if (!resultado?.data?.thread_id) {
-              erros++;
-              continue;
+            if (item._tipo === 'user') {
+              // 1:1 — buscar/criar thread com o usuário
+              const res = await base44.functions.invoke('getOrCreateInternalThread', {
+                user_ids: [usuarioAtual.id, itemId]
+              });
+              // Suporta retorno: { thread_id } ou { thread: { id } } ou { id }
+              threadId = res?.data?.thread_id || res?.data?.thread?.id || res?.data?.id;
+            } else {
+              // sector_group ou team_group — thread já existe, usar direto
+              threadId = item._thread_id;
             }
 
-            // Enviar mensagem interna
+            if (!threadId) { erros++; continue; }
+
+            // ✅ Mesmo padrão de sendInternalMessage já em produção
             await base44.functions.invoke('sendInternalMessage', {
-              thread_id: resultado.data.thread_id,
-              content: message.content || '[Mensagem encaminhada]',
-              media_type: message.media_type || 'none',
-              media_url: message.media_url || null,
-              media_caption: message.media_caption || null
+              thread_id: threadId,
+              content: contentEncaminhado,
+              media_type: mediaType,
+              media_url: mediaUrl,
+              media_caption: mediaCaption
             });
 
             sucessos++;
           } catch (error) {
-            console.error(`[BUBBLE] Erro ao encaminhar para ${usuario.full_name}:`, error);
+            console.error(`[BUBBLE] Erro ao encaminhar para ${item.nome_exibicao}:`, error);
             erros++;
           }
         }
@@ -1587,29 +1640,35 @@ export default React.memo(function MessageBubble({
             </div>
 
             {contatosSelecionados.length > 0 &&
-            <div className="flex flex-wrap gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                {contatosSelecionados.map((contatoId) => {
-                const contato = contatos.find((c) => c.id === contatoId);
-                if (!contato) return null;
+            <div className={cn(
+              "flex flex-wrap gap-2 p-3 rounded-lg border",
+              tipoEncaminhamento === 'internos' ? "bg-purple-50 border-purple-200" : "bg-blue-50 border-blue-200"
+            )}>
+                {contatosSelecionados.map((itemId) => {
+                // Buscar nome do selecionado no dataset correto
+                const item = tipoEncaminhamento === 'internos'
+                  ? usuariosInternos.find((u) => u.id === itemId)
+                  : contatos.find((c) => c.id === itemId);
+                if (!item) return null;
+                const nomeChip = tipoEncaminhamento === 'internos'
+                  ? item.nome_exibicao
+                  : (item.nome || item.telefone);
 
                 return (
                   <Badge
-                    key={contato.id}
+                    key={itemId}
                     variant="secondary"
-                    className="bg-blue-100 text-blue-800 gap-1">
-
-                      {contato.nome || contato.telefone}
+                    className={tipoEncaminhamento === 'internos' ? "bg-purple-100 text-purple-800 gap-1" : "bg-blue-100 text-blue-800 gap-1"}>
+                      {nomeChip}
                       <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleContatoSelecionado(contato);
+                        toggleContatoSelecionado(item);
                       }}
-                      className="ml-1 hover:bg-blue-200 rounded-full p-0.5">
-
+                      className="ml-1 hover:bg-white/50 rounded-full p-0.5">
                         ×
                       </button>
                     </Badge>);
-
               })}
               </div>
             }
@@ -1685,35 +1744,34 @@ export default React.memo(function MessageBubble({
 
                 })}
 
-                  {/* LISTA DE USUÁRIOS INTERNOS */}
-                  {tipoEncaminhamento === 'internos' && usuariosInternos.map((usuario) => {
-                  const selecionado = contatosSelecionados.includes(usuario.id);
-                  const nomeExibicao = usuario.display_name || usuario.full_name || usuario.email;
-                  const setorUsuario = usuario.attendant_sector || 'geral';
+                  {/* LISTA DE INTERNOS: Usuários / Setores / Grupos */}
+                  {tipoEncaminhamento === 'internos' && usuariosInternos.map((item) => {
+                  const selecionado = contatosSelecionados.includes(item.id);
+                  const isGroup = item._tipo === 'sector_group' || item._tipo === 'team_group';
 
                   return (
                     <button
-                      key={usuario.id}
-                      onClick={() => toggleContatoSelecionado(usuario)}
+                      key={item.id}
+                      onClick={() => toggleContatoSelecionado(item)}
                       className={cn(
                         "w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors",
                         selecionado && "bg-purple-50 hover:bg-purple-100"
                       )}>
 
                           <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0",
-                        selecionado ? "bg-purple-600" : "bg-slate-400"
+                        "w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 text-sm",
+                        selecionado ? "bg-purple-600" : isGroup ? "bg-indigo-500" : "bg-slate-400"
                       )}>
                             {selecionado ?
                         <Check className="w-5 h-5" /> :
-                        nomeExibicao.charAt(0)?.toUpperCase() || '?'
+                        item.nome_exibicao.charAt(0)?.toUpperCase() || '?'
                         }
                           </div>
                           <div className="flex-1 text-left min-w-0">
                             <p className="font-medium text-slate-900 truncate">
-                              {nomeExibicao}
+                              {item.nome_exibicao}
                             </p>
-                            <p className="text-sm text-slate-500 truncate">{setorUsuario}</p>
+                            <p className="text-xs text-slate-500 truncate">{item.subtitulo}</p>
                           </div>
                         </button>);
 
@@ -1737,7 +1795,7 @@ export default React.memo(function MessageBubble({
             <Button
               onClick={handleEncaminhar}
               disabled={contatosSelecionados.length === 0 || encaminhando}
-              className="bg-blue-600 hover:bg-blue-700">
+              className={tipoEncaminhamento === 'internos' ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}>
 
               {encaminhando ?
               <>
