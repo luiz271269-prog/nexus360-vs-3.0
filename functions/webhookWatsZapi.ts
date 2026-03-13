@@ -39,17 +39,15 @@ Deno.serve(async (req) => {
     let payload;
 
     try {
-      payload = await req.json();
+      const body = await req.text();
+      console.log(`[Z-API-WEBHOOK] 📦 BODY RAW (${body.length} chars):`, body.substring(0, 500));
+      payload = JSON.parse(body);
     } catch (e) {
-      console.error('[webhookWatsZapi] Erro ao parsear JSON:', e);
+      console.error('[Z-API-WEBHOOK] ❌ Erro ao parsear JSON:', e);
       return Response.json({ error: 'JSON inválido' }, { status: 400 });
     }
 
-    console.log('[webhookWatsZapi] 📥 Evento recebido (PROXY):', {
-      type: payload.type,
-      phone: payload.phone,
-      instanceId: payload.instanceId
-    });
+    console.log('[Z-API-WEBHOOK] ✅ PAYLOAD:', JSON.stringify(payload, null, 2).substring(0, 1000));
 
     // ✅ Validação básica
     if (!payload || !payload.instanceId) {
