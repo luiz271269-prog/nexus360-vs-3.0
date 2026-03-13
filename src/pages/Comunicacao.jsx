@@ -39,7 +39,6 @@ import {
 "../components/lib/userMatcher";
 import { getUserDisplayName } from "../components/lib/userHelpers";
 import * as permissionsService from "../components/lib/permissionsService";
-import { filtrarThreadsComVisibilidade } from "@/components/comunicacao/utils/threadFilters.js";
 
 // Funções específicas que ainda não foram migradas
 import {
@@ -1596,24 +1595,274 @@ export default function Comunicacao() {
     // (Usando threadsUnicas - permite múltiplos canais por contato)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    // ✅ USAR MÓDULO DE FILTROS
-    const { threadsFiltrados } = filtrarThreadsComVisibilidade({
-      threads: threadsUnicas,
-      contatosMap,
-      usuario,
-      userPermissions,
-      effectiveScope,
-      threadsNaoAtribuidasVisiveis,
-      selectedAttendantId,
-      selectedIntegrationId,
-      selectedCategoria: categoriasSet ? 'custom' : 'all',
-      selectedTipoContato,
-      selectedTagContato,
-      debouncedSearchTerm,
-      categoriasSet,
-      matchBuscaGoogle,
-      isAdmin,
-      atendentes
+    // 🔍 LOGS DETALHADOS: Rastrear onde cada thread é bloqueada
+    const logsFiltragem = [];
+
+    const threadsFiltrados = threadsUnicas.filter((thread) => {
+      const logThread = (etapa, passou, motivo = '') => {
+        // ✅ OT #3: Blindagem de Logs em Produção (só aloca se DEBUG ativo)
+        if (!DEBUG_VIS) return;
+
+        logsFiltragem.push({
+          threadId: thread.id.substring(0, 8),
+          contactId: thread.contact_id?.substring(0, 8),
+          etapa,
+          passou,
+          motivo,
+          timestamp: new Date().toISOString()
+        });
+      };
+
+      // 🔍 DIAGNÓSTICO: Identificar threads de usuários que também são contatos
+      const isThreadDeUsuarioQueEContato = DEBUG_VIS && thread.contact_id && contatos.find((c) => {
+        const atendenteMatch = atendentes.find((a) =>
+        a.email?.toLowerCase() === c.email?.toLowerCase() ||
+        a.full_name?.toLowerCase() === c.nome?.toLowerCase()
+        );
+        return atendenteMatch && c.id === thread.contact_id;
+      });
+
+      if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+        const contato = contatosMap.get(thread.contact_id);
+        console.log('[COMUNICACAO] 🔍 THREAD DE USUÁRIO-CONTATO:', {
+          thread_id: thread.id.substring(0, 8),
+          thread_type: thread.thread_type,
+          contact_id: thread.contact_id?.substring(0, 8),
+          contato_nome: contato?.nome,
+          contato_email: contato?.email,
+          integration_id: thread.whatsapp_integration_id?.substring(0, 8),
+          unread_count: thread.unread_count,
+          assigned_user_id: thread.assigned_user_id?.substring(0, 8)
+        });
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // ✅ USUÁRIOS INTERNOS - SAGRADOS: Mostrar se usuário participa (grupo/setor)
+      // ═════════════════════════════════════════════════════════════════════════════
+      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+        const visInterna = podeVerThreadInterna(thread, usuario);
+        const motivo = visInterna 
+          ? (thread.thread_type === 'sector_group' ? 'Participante do setor' : 'Participante do chat 1:1')
+          : 'Não é participante';
+        logThread('Thread Interna Recebida', visInterna, motivo);
+        return visInterna;
+      }
+
+      // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS (contact_external)
+
+      const contato = contatosMap.get(thread.contact_id);
+
+      if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+        console.log('[COMUNICACAO] 🔍 USUÁRIO-CONTATO - Contato:', contato ? {
+          id: contato.id.substring(0, 8),
+          nome: contato.nome,
+          email: contato.email,
+          tipo_contato: contato.tipo_contato
+        } : 'NÃO ENCONTRADO');
+      }
+
+      if (!contato && thread.contact_id && !isFilterUnassigned) {
+        logThread('Contato Existe', true, 'Contato aguardando hidratação (Fail-Safe)');
+        if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+          console.log('[COMUNICACAO] ⚠️ USUÁRIO-CONTATO - Contato não hidratado, mas thread passa (Fail-Safe)');
+        }
+      } else if (!contato && !thread.contact_id && !isFilterUnassigned) {
+        logThread('Contato Existe', false, 'Thread órfã sem contact_id (bloqueado exceto em não atribuídas)');
+        if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+          console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por ser órfã de verdade (sem contact_id)');
+        }
+        return false;
+      }
+
+      logThread('Contato Existe', true, contato ? 'Contato encontrado' : 'Fail-Safe ativado');
+
+      if (thread.contact_id) {
+        threadsComContatoIds.add(thread.contact_id);
+      }
+
+      // Enriquecer thread com contato para a função de visibilidade
+      const threadComContato = { ...thread, contato };
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // MODO BUSCA: Sem VISIBILITY_MATRIX — mostrar tudo que o banco retornou
+      // O bloqueio de acesso acontece apenas ao ABRIR a conversa (modal de permissão)
+      // ═══════════════════════════════════════════════════════════════════════
+      if (modoBusca) {
+        if (!contato || !matchBuscaGoogle(contato, debouncedSearchTerm)) {
+          logThread('Modo Busca - Match', false, 'Não match com termo de busca');
+          return false;
+        }
+
+        logThread('Modo Busca - Match', true, 'Match encontrado');
+
+        if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
+          logThread('Modo Busca - Tipo', false, `Tipo diferente (esperado: ${selectedTipoContato}, atual: ${contato.tipo_contato})`);
+          return false;
+        }
+        logThread('Modo Busca - Tipo', true, 'Tipo OK');
+
+        if (selectedTagContato && selectedTagContato !== 'all') {
+          const tags = contato.tags || [];
+          if (!tags.includes(selectedTagContato)) {
+            logThread('Modo Busca - Tag', false, `Tag não encontrada (esperado: ${selectedTagContato})`);
+            return false;
+          }
+        }
+        logThread('Modo Busca - Tag', true, 'Tag OK');
+
+        return true;
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // MODO NORMAL (sem busca): Aplicar regras estritas de visibilidade
+      // ═══════════════════════════════════════════════════════════════════════
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // ✅ FILTRO "NÃO ATRIBUÍDAS" vs "NÃO ADICIONADAS"
+      // Threads internas são SAGRADAS - já passaram por sua lógica própria acima
+      // ═══════════════════════════════════════════════════════════════════════
+
+      // ✅ NOVO: Filtro "Não Adicionadas" (contact_id === NULL)
+      if (filterScope === 'nao_adicionado') {
+        // ✅ Threads internas não se aplicam (não têm contact_id por definição)
+        if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+          logThread('Filtro Não Adicionadas', false, 'Thread interna (não se aplica)');
+          return false;
+        }
+
+        // ✅ Apenas threads SEM contact_id passam
+        if (thread.contact_id) {
+          logThread('Filtro Não Adicionadas', false, 'Thread tem contact_id (não é órfã)');
+          return false;
+        }
+
+        logThread('Filtro Não Adicionadas', true, 'Thread órfã (contact_id == null)');
+        return true; // ✅ Pula outros filtros (thread órfã não tem contato para filtrar)
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // ✅ CRÍTICO: Filtros SEMPRE aplicados (INDEPENDENTE do escopo ou busca)
+      // ═══════════════════════════════════════════════════════════════════════
+
+      // Filtro de INTEGRAÇÃO (threads externas)
+      if (selectedIntegrationId && selectedIntegrationId !== 'all') {
+        // ✅ Threads internas não têm integração WhatsApp (pular)
+        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+          // ✅ FIX: Verificar origin_integration_ids[] para threads canônicas unificadas
+          const integrationIds = thread.origin_integration_ids?.length > 0 ?
+          thread.origin_integration_ids :
+          [thread.whatsapp_integration_id];
+
+          if (!integrationIds.includes(selectedIntegrationId)) {
+            logThread('Filtro Integração', false, `Integração não encontrada (esperado: ${selectedIntegrationId}, atual: ${integrationIds.join(', ')})`);
+            return false;
+          }
+          logThread('Filtro Integração', true, 'Integração OK (verificou origin_integration_ids)');
+        }
+      }
+
+      // Filtro de ATENDENTE
+      if (selectedAttendantId && selectedAttendantId !== 'all') {
+        if (thread.assigned_user_id !== selectedAttendantId) {
+          logThread('Filtro Atendente', false, `Atendente diferente (esperado: ${selectedAttendantId}, atual: ${thread.assigned_user_id})`);
+          return false;
+        }
+        logThread('Filtro Atendente', true, 'Atendente OK');
+      }
+
+      // Filtro de CATEGORIA (threads externas)
+      if (categoriasSet && !(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+        if (!categoriasSet.has(thread.id)) {
+          logThread('Filtro Categoria', false, 'Thread não tem mensagem com categoria selecionada');
+          return false;
+        }
+        logThread('Filtro Categoria', true, 'Thread tem mensagem com categoria');
+      }
+
+      // Filtro de TIPO DE CONTATO (threads externas)
+      if (selectedTipoContato && selectedTipoContato !== 'all' && contato) {
+        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+          if (contato.tipo_contato !== selectedTipoContato) {
+            logThread('Filtro Tipo Contato', false, `Tipo diferente (esperado: ${selectedTipoContato}, atual: ${contato.tipo_contato})`);
+            return false;
+          }
+          logThread('Filtro Tipo Contato', true, 'Tipo OK');
+        }
+      }
+
+      // Filtro de TAG (threads externas)
+      if (selectedTagContato && selectedTagContato !== 'all' && contato) {
+        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+          const tags = contato.tags || [];
+          if (!tags.includes(selectedTagContato)) {
+            logThread('Filtro Tag', false, `Tag não encontrada (esperado: ${selectedTagContato})`);
+            return false;
+          }
+          logThread('Filtro Tag', true, 'Tag OK');
+        }
+      }
+
+      if (isFilterUnassigned) {
+        // ✅ CURTO-CIRCUITO: Threads internas NUNCA são bloqueadas por escopo
+        // (visibilidade delas já foi decidida por participação/admin acima)
+        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+          // ✅ APENAS para threads EXTERNAS: verificar Set de não atribuídas visíveis
+          if (!threadsNaoAtribuidasVisiveis.has(thread.id)) {
+            logThread('Filtro Não Atribuídas', false, 'Thread não está no Set de não atribuídas visíveis');
+            if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+              console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro não atribuídas');
+            }
+            return false;
+          }
+
+          logThread('Filtro Não Atribuídas', true, 'Thread está no Set');
+        } else {
+          // ✅ Threads internas passam direto (já foram validadas acima)
+          logThread('Filtro Não Atribuídas', true, 'Thread interna (ignorada pelo escopo)');
+        }
+      } else {
+        // ✅ NEXUS360: Usar canUserSeeThreadBase + aplicar escopo
+        const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
+        if (!podeVerBase) {
+          logThread('Visibilidade Base (Nexus360)', false, 'Bloqueado pela VISIBILITY_MATRIX');
+
+
+
+          if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+            console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO pela VISIBILITY_MATRIX:', {
+              thread_id: thread.id.substring(0, 8),
+              thread_type: thread.thread_type,
+              contato_nome: contato?.nome,
+              userPermissions_resumo: {
+                role: userPermissions.role,
+                isAdmin: userPermissions.isAdmin,
+                attendant_sector: userPermissions.attendant_sector,
+                integracoes_visiveis: userPermissions.integracoes_visiveis?.length
+              }
+            });
+          }
+          return false;
+        }
+
+        // Aplicar filtro de escopo (my/unassigned/all)
+        if (filtros.scope && filtros.scope !== 'all') {
+          const escopoConfig = { id: filtros.scope, regra: filtros.scope === 'my' ? 'atribuido_ou_fidelizado' : 'sem_assigned_user_id' };
+          const threadsComEscopo = permissionsService.aplicarFiltroEscopo([thread], escopoConfig, userPermissions);
+          if (threadsComEscopo.length === 0) {
+            logThread('Filtro Escopo', false, `Não passou no escopo ${filtros.scope}`);
+            return false;
+          }
+        }
+
+        logThread('Visibilidade Nexus360', true, 'Passou VISIBILITY_MATRIX + escopo');
+      }
+
+      if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
+        console.log('[COMUNICACAO] ✅ USUÁRIO-CONTATO - PASSOU em todos os filtros!');
+      }
+
+      logThread('✅ APROVADA', true, 'Passou em todos os filtros');
+      return true;
     });
 
 

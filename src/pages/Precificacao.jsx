@@ -1,9 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { Brain, Calculator, Loader2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
-import { base44 } from "@/api/base44Client";
 import { Produto } from "@/entities/Produto";
 import { ImportHistory } from "@/entities/ImportHistory";
 import { InvokeLLM, UploadFile } from "@/integrations/Core";
@@ -145,11 +145,7 @@ export default function Precificacao() {
         aiParams.prompt += `\n\n**DADOS PARA ANÁLISE:**\n${sourceContent}`;
       }
 
-      const result = await InvokeLLM({
-        ...aiParams,
-        model: 'gemini_3_flash',
-        add_context_from_internet: true
-      });
+      const result = await InvokeLLM(aiParams);
 
       if (!result || !result.produtos || result.produtos.length === 0) {
         throw new Error('Nenhum produto comercial foi identificado nos dados fornecidos.');
@@ -202,30 +198,7 @@ export default function Precificacao() {
     }
     setProcessing(true);
     try {
-      // P1: Deduplicação antes de salvar
-      const produtosExistentes = await Produto.list();
-      const produtosNovos = processedProducts.filter(novo => {
-        const duplicado = produtosExistentes.find(existente => 
-          (existente.codigo && novo.codigo && existente.codigo === novo.codigo) ||
-          (existente.nome?.toLowerCase().trim() === novo.nome?.toLowerCase().trim())
-        );
-        if (duplicado) {
-          console.warn(`⚠️ Produto duplicado ignorado: ${novo.nome} (código: ${novo.codigo})`);
-        }
-        return !duplicado;
-      });
-
-      if (produtosNovos.length === 0) {
-        toast.warning('Todos os produtos já existem no cadastro. Nenhum item foi importado.');
-        setProcessing(false);
-        return;
-      }
-
-      if (produtosNovos.length < processedProducts.length) {
-        toast.info(`${processedProducts.length - produtosNovos.length} duplicado(s) ignorado(s).`);
-      }
-
-      const produtosParaCriar = produtosNovos.map(p => ({
+      const produtosParaCriar = processedProducts.map(p => ({
         codigo: p.codigo || `AUTO-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
         nome: p.nome || `${p.marca || 'Produto'} ${p.modelo || ''}`.trim() || 'Produto Sem Nome', 
         descricao: p.descricao || `${p.tipo_produto || ''} ${p.configuracao || ''}`.trim() || '',
@@ -259,36 +232,11 @@ export default function Precificacao() {
       // If `base44` is intended to be the new way to access entities, its import or declaration must be added.
       await Produto.bulkCreate(produtosParaCriar);
 
-      // SkillExecution: rastrear importação bem-sucedida
-      ;(async () => {
-        try {
-          await base44.entities.SkillExecution.create({
-            skill_name: 'importacao_produtos_ia',
-            triggered_by: 'user_action',
-            execution_mode: 'copilot',
-            context: {
-              fornecedor: configPrecificacao.fornecedor,
-              origem: dadosOriginais?.origem || 'manual'
-            },
-            success: true,
-            duration_ms: 0,
-            metricas: {
-              produtos_extraidos: processedProducts.length,
-              produtos_salvos: produtosParaCriar.length,
-              duplicados_ignorados: processedProducts.length - produtosParaCriar.length,
-              modelo_ia: 'gemini_3_flash'
-            }
-          });
-        } catch (e) {
-          console.warn('[Precificacao] SkillExecution falhou:', e.message);
-        }
-      })();
-
       await ImportHistory.create({
         tipo_importacao: 'produtos',
-        total_registros: processedProducts.length,
+        total_registros: produtosParaCriar.length,
         sucessos: produtosParaCriar.length,
-        erros: processedProducts.length - produtosParaCriar.length,
+        erros: 0,
         detalhes: {
           fonte: dadosOriginais?.origem || 'Manual',
           link_origem: configPrecificacao.linkPagina,

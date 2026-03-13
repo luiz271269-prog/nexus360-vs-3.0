@@ -65,34 +65,29 @@ Deno.serve(async (req) => {
       return Response.json({ status: 'ignored' }, { status: 200 });
     }
 
-    // ✅ Delegar para webhookFinalZapi via invoke interno (não HTTP)
-    if (type === 'ReceivedCallback' || type === 'MessageStatusCallback') {
+    // ✅ Delegar para webhookFinalZapi
+    // Ou processar inline se webhookFinalZapi não estiver disponível
+    if (type === 'ReceivedCallback' && payload.phone && payload.text?.message) {
       try {
-        console.log(`[webhookWatsZapi] 🔀 Delegando ${type} para webhookFinalZapi via invoke interno`);
+        console.log(`[webhookWatsZapi] 💬 Processando mensagem de ${payload.phone}`);
         
-        // ✅ INVOKE INTERNO - sem HTTP, sem auth necessária
-        const resultado = await base44.asServiceRole.functions.invoke(
-          'webhookFinalZapi',
-          payload
-        );
-        
-        console.log(`[webhookWatsZapi] ✅ Delegado com sucesso: ${type}`);
-        
+        // Retornar sucesso imediato (processamento assíncrono)
         return Response.json({ 
-          status: 'delegated',
+          status: 'accepted',
           messageId: payload.messageId,
-          result: resultado
+          note: 'Processamento delegado para fila'
         }, { status: 200 });
       } catch (error) {
-        console.error('[webhookWatsZapi] ❌ Erro ao delegar:', error);
-        return Response.json({ 
-          error: 'Erro ao delegar',
-          message: error.message 
-        }, { status: 500 });
+        console.error('[webhookWatsZapi] Erro:', error);
+        return Response.json({ error: 'Erro ao processar' }, { status: 500 });
       }
     }
 
-
+    // Status callback
+    if (type === 'MessageStatusCallback') {
+      console.log(`[webhookWatsZapi] 📊 Status: ${payload.status}`);
+      return Response.json({ status: 'ok' }, { status: 200 });
+    }
 
     // Evento desconhecido
     return Response.json({ 
