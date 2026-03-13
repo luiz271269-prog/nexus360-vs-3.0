@@ -49,7 +49,20 @@ const extrairDadosPlanilha = async (fileUrl, tipo, nomeArquivo) => {
     if (!response.ok) throw new Error(`Falha ao baixar arquivo: ${response.status}`);
 
     const arrayBuffer = await response.arrayBuffer();
+    
+    // Validar se é realmente um arquivo Excel válido
+    if (arrayBuffer.byteLength < 100) {
+      throw new Error('Arquivo corrompido ou vazio');
+    }
+    
     const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Verificar assinatura de arquivo XLSX (PK zip signature)
+    const isValidXLSX = uint8Array[0] === 0x50 && uint8Array[1] === 0x4B;
+    if (!isValidXLSX) {
+      throw new Error('Arquivo não é um Excel válido (.xlsx). Verifique se o arquivo não está corrompido.');
+    }
+    
     const workbook = XLSX.read(uint8Array, { type: 'array' });
 
     const sheetName = workbook.SheetNames[0];

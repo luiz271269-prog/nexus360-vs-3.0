@@ -17,6 +17,13 @@ Deno.serve(async (req) => {
     if (!fileResponse.ok) throw new Error(`Não foi possível baixar o arquivo: ${fileResponse.status}`);
 
     const buffer = await fileResponse.arrayBuffer();
+    const fileSizeMB = buffer.byteLength / (1024 * 1024);
+    
+    // Limite de 10MB para PDFs (evita timeout)
+    if (fileSizeMB > 10) {
+      throw new Error(`Arquivo muito grande (${fileSizeMB.toFixed(1)}MB). PDFs acima de 10MB não são suportados. Divida o arquivo em partes menores ou use planilhas.`);
+    }
+    
     const bytes = new Uint8Array(buffer);
     let binary = '';
     const chunkSize = 8192;
@@ -78,7 +85,13 @@ RETORNE APENAS JSON VÁLIDO (sem markdown, sem explicações), com esta estrutur
 
     if (!anthropicResponse.ok) {
       const errBody = await anthropicResponse.text();
-      throw new Error(`Anthropic API erro ${anthropicResponse.status}: ${errBody}`);
+      
+      // Erro 400/413 = arquivo muito grande
+      if (anthropicResponse.status === 400 || anthropicResponse.status === 413) {
+        throw new Error(`Arquivo muito grande para processamento. Tente dividir o PDF em partes menores (máx 10MB/20 páginas).`);
+      }
+      
+      throw new Error(`Erro na IA (${anthropicResponse.status}): ${errBody.substring(0, 200)}`);
     }
 
     const anthropicData = await anthropicResponse.json();
