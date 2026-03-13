@@ -479,6 +479,37 @@ export default React.memo(function MessageBubble({
     staleTime: 30000
   });
 
+  // ✅ BUSCA DE SETORES
+  const setoresList = ['vendas', 'assistencia', 'financeiro', 'fornecedor', 'geral'];
+  const { data: setoresEncontrados = [] } = useQuery({
+    queryKey: ['setores-encaminhar', buscaContato],
+    queryFn: async () => {
+      if (!buscaContato || buscaContato.trim().length < 2) return [];
+      const normalizarTexto = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const termoBusca = normalizarTexto(buscaContato);
+      return setoresList.filter((setor) => normalizarTexto(setor).includes(termoBusca));
+    },
+    enabled: mostrarDialogEncaminhar && tipoDestinatario === 'setores' && buscaContato.trim().length >= 1,
+    staleTime: 30000
+  });
+
+  // ✅ BUSCA DE GRUPOS (SECTOR_GROUP)
+  const { data: gruposEncontrados = [], isLoading: carregandoGrupos } = useQuery({
+    queryKey: ['grupos-encaminhar', buscaContato],
+    queryFn: async () => {
+      if (!buscaContato || buscaContato.trim().length < 2) return [];
+      const normalizarTexto = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const termoBusca = normalizarTexto(buscaContato);
+      const todosGrupos = await base44.entities.MessageThread.filter({ thread_type: 'sector_group' }, '-created_date', 50);
+      return todosGrupos.filter((grupo) => {
+        const nome = normalizarTexto(grupo.group_name || '');
+        return nome.includes(termoBusca);
+      });
+    },
+    enabled: mostrarDialogEncaminhar && tipoDestinatario === 'grupos' && buscaContato.trim().length >= 2,
+    staleTime: 30000
+  });
+
   const toggleContatoSelecionado = (contato) => {
     setContatosSelecionados((prev) => {
       if (prev.includes(contato.id)) {
