@@ -938,6 +938,35 @@ async function handleMessage(dados, payloadBruto, base44) {
   const duracao = Date.now() - inicio;
   console.log(`[WAPI] ✅ SUCESSO! Mensagem: ${mensagem.id} | Tópico: ${thread.id} | ${duracao}ms`);
 
+  // ✅ SKILL EXECUTION - Fire-and-forget (não bloqueia webhook)
+  ;(async () => {
+    try {
+      await base44.asServiceRole.entities.SkillExecution.create({
+        skill_name: 'webhook_inbound_wapi',
+        triggered_by: 'webhook',
+        execution_mode: 'autonomous_safe',
+        context: {
+          integration_id: integracaoId,
+          canal: integracaoInfo?.nome || 'w-api',
+          numero_canal: integracaoInfo?.numero || connectedPhone,
+          contact_id: contato.id,
+          thread_id: thread.id
+        },
+        success: true,
+        duration_ms: Date.now() - _tsInicio,
+        metricas: {
+          mensagens_recebidas: 1,
+          media_type: dados.mediaType,
+          download_queued: dados.downloadSpec ? 1 : 0,
+          contact_action: contato._action || 'existing',
+          thread_messages_total: thread.total_mensagens || 1
+        }
+      });
+    } catch (e) {
+      console.warn('[webhookWapi] SkillExecution falhou (non-blocking):', e.message);
+    }
+  })();
+
   return jsonOk({
     message_id: mensagem.id,
     contact_id: contato.id,
@@ -985,6 +1014,8 @@ Deno.serve(async (req) => {
     console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
     return jsonErr(`auth_error: ${e.message}`, 500);
   }
+
+  const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
 
   let payload;
   try {
