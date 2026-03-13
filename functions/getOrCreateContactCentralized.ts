@@ -70,19 +70,13 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'method_not_allowed' }, { status: 405 });
   }
 
-  let base44;
-  try {
-    base44 = createClientFromRequest(req.clone());
-  } catch (e) {
-    console.error(`[${VERSION}] ❌ SDK init error:`, e.message);
-    return Response.json({ success: false, error: 'sdk_init_error' }, { status: 500 });
-  }
-
+  const base44 = createClientFromRequest(req);
   let payload;
+  
   try {
-    const body = await req.text();
-    payload = JSON.parse(body);
+    payload = await req.json();
   } catch (e) {
+    console.error(`[${VERSION}] ❌ JSON parse error:`, e.message);
     return Response.json({ success: false, error: 'invalid_json' }, { status: 400 });
   }
 

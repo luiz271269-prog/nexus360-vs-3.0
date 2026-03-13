@@ -13,7 +13,7 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 Deno.serve(async (req) => {
   try {
@@ -65,29 +65,34 @@ Deno.serve(async (req) => {
       return Response.json({ status: 'ignored' }, { status: 200 });
     }
 
-    // ✅ Delegar para webhookFinalZapi
-    // Ou processar inline se webhookFinalZapi não estiver disponível
-    if (type === 'ReceivedCallback' && payload.phone && payload.text?.message) {
+    // ✅ P0 FIX: Delegar via invoke interno (não HTTP proxy)
+    if (type === 'ReceivedCallback' || type === 'MessageStatusCallback') {
       try {
-        console.log(`[webhookWatsZapi] 💬 Processando mensagem de ${payload.phone}`);
+        console.log(`[webhookWatsZapi] 🔄 Delegando ${type} para webhookFinalZapi via invoke interno`);
         
-        // Retornar sucesso imediato (processamento assíncrono)
+        // ✅ CORRETO: invoke interno - sem HTTP, sem necessidade de auth
+        const resultado = await base44.asServiceRole.functions.invoke(
+          'webhookFinalZapi',
+          payload  // ← passa payload completo direto
+        );
+
+        console.log(`[webhookWatsZapi] ✅ Delegação concluída: ${resultado?.status || 'ok'}`);
+        
         return Response.json({ 
-          status: 'accepted',
-          messageId: payload.messageId,
-          note: 'Processamento delegado para fila'
+          status: 'delegated',
+          result: resultado,
+          timestamp: new Date().toISOString()
         }, { status: 200 });
       } catch (error) {
-        console.error('[webhookWatsZapi] Erro:', error);
-        return Response.json({ error: 'Erro ao processar' }, { status: 500 });
+        console.error('[webhookWatsZapi] ❌ Erro ao delegar:', error);
+        return Response.json({ 
+          error: 'Erro ao processar',
+          details: error.message 
+        }, { status: 500 });
       }
     }
 
-    // Status callback
-    if (type === 'MessageStatusCallback') {
-      console.log(`[webhookWatsZapi] 📊 Status: ${payload.status}`);
-      return Response.json({ status: 'ok' }, { status: 200 });
-    }
+
 
     // Evento desconhecido
     return Response.json({ 
