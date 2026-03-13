@@ -56,6 +56,7 @@ import {
   verificarPermissaoUsuario } from
 "./MotorRoteamentoAtendimento";
 import { useEtiquetasContato } from "./SeletorEtiquetasContato";
+import { filtrarThreadsInternasValidas } from "../lib/threadFilterUtils";
 import { Button } from "@/components/ui/button";
 import { 
   contatoFidelizadoAoUsuario, 
@@ -213,10 +214,6 @@ export default function ChatSidebar({
 
       // Threads internas: EXIGIR pelo menos uma mensagem OU ter participants válidos com total_mensagens > 0
       if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') {
-        // ✅ FILTRO CRÍTICO: Excluir threads com contas de serviço (service_*)
-        if (t.participants?.some(p => typeof p === 'string' && p.startsWith('service_'))) {
-          return false;
-        }
         // Se tem last_message_at, é válida
         if (t.last_message_at) return true;
         // Se total_mensagens > 0, é válida (compatibilidade legada)
