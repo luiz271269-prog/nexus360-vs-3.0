@@ -450,10 +450,16 @@ Deno.serve(async (req) => {
           }
 
           if (vendedores.length > 0) {
-            const internalResult = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
-              target_user_id: vendedores[0].id
-            }).catch(() => null);
-            const internalThread = internalResult?.data?.thread;
+            // ✅ FIX: usar sector_group (padrão STEP 2) em vez de criar 1:1 service_*
+            const vendedorData = vendedores[0];
+            const setorVendedor = vendedorData?.attendant_sector || 'vendas'; // default: vendas para alertas de orçamento
+
+            const sectorThreads = await base44.asServiceRole.entities.MessageThread.filter({
+              thread_type: 'sector_group',
+              sector_key: `sector:${setorVendedor}`
+            }, '-created_date', 1).catch(() => []);
+
+            const internalThread = sectorThreads.length > 0 ? sectorThreads[0] : null;
             if (internalThread?.id) {
               await base44.asServiceRole.entities.Message.create({
                 thread_id: internalThread.id,
