@@ -659,6 +659,8 @@ export default React.memo(function MessageBubble({
 
         if (sucessos > 0) {
           toast.success(`✅ Mensagem encaminhada para ${sucessos} usuário(s) interno(s)!`);
+          queryClient.invalidateQueries({ queryKey: ['threads'] });
+          queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
         }
 
         if (erros > 0) {
@@ -670,6 +672,120 @@ export default React.memo(function MessageBubble({
         setBuscaContato("");
       } catch (error) {
         console.error('[BUBBLE] Erro ao encaminhar internamente:', error);
+        toast.error(`Erro: ${error.message}`);
+      } finally {
+        setEncaminhando(false);
+      }
+      return;
+    }
+
+    // ✅ Encaminhar para SETORES
+    if (tipoDestinatario === 'setores') {
+      if (setoresSelecionados.length === 0) {
+        toast.error("Selecione pelo menos um setor");
+        return;
+      }
+
+      setEncaminhando(true);
+      try {
+        let sucessos = 0;
+        let erros = 0;
+
+        for (const setor of setoresSelecionados) {
+          try {
+            // Buscar ou criar thread do setor
+            const resultado = await base44.functions.invoke('getOrCreateSectorThread', {
+              sector_id: setor
+            });
+
+            if (!resultado?.data?.success || !resultado?.data?.thread) {
+              erros++;
+              continue;
+            }
+
+            const threadSetor = resultado.data.thread;
+
+            // Enviar mensagem encaminhada
+            await base44.functions.invoke('sendInternalMessage', {
+              thread_id: threadSetor.id,
+              content: `[Encaminhado]\n${message.content || '[Mídia]'}`,
+              media_type: message.media_type || 'none',
+              media_url: message.media_url || null,
+              media_caption: message.media_caption || null
+            });
+
+            sucessos++;
+          } catch (error) {
+            console.error(`[BUBBLE] Erro ao encaminhar para setor:`, error);
+            erros++;
+          }
+        }
+
+        if (sucessos > 0) {
+          toast.success(`✅ Mensagem encaminhada para ${sucessos} setor(es)!`);
+          queryClient.invalidateQueries({ queryKey: ['threads'] });
+        }
+
+        if (erros > 0) {
+          toast.error(`❌ ${erros} encaminhamento(s) falharam`);
+        }
+
+        setMostrarDialogEncaminhar(false);
+        setSetoresSelecionados([]);
+        setBuscaContato("");
+      } catch (error) {
+        console.error('[BUBBLE] Erro ao encaminhar para setor:', error);
+        toast.error(`Erro: ${error.message}`);
+      } finally {
+        setEncaminhando(false);
+      }
+      return;
+    }
+
+    // ✅ Encaminhar para GRUPOS
+    if (tipoDestinatario === 'grupos') {
+      if (gruposSelecionados.length === 0) {
+        toast.error("Selecione pelo menos um grupo");
+        return;
+      }
+
+      setEncaminhando(true);
+      try {
+        let sucessos = 0;
+        let erros = 0;
+
+        for (const grupoId of gruposSelecionados) {
+          try {
+            // Enviar mensagem encaminhada para o grupo
+            await base44.functions.invoke('sendInternalMessage', {
+              thread_id: grupoId,
+              content: `[Encaminhado]\n${message.content || '[Mídia]'}`,
+              media_type: message.media_type || 'none',
+              media_url: message.media_url || null,
+              media_caption: message.media_caption || null
+            });
+
+            sucessos++;
+          } catch (error) {
+            console.error(`[BUBBLE] Erro ao encaminhar para grupo:`, error);
+            erros++;
+          }
+        }
+
+        if (sucessos > 0) {
+          toast.success(`✅ Mensagem encaminhada para ${sucessos} grupo(s)!`);
+          queryClient.invalidateQueries({ queryKey: ['threads'] });
+        }
+
+        if (erros > 0) {
+          toast.error(`❌ ${erros} encaminhamento(s) falharam`);
+        }
+
+        setMostrarDialogEncaminhar(false);
+        setGruposSelecionados([]);
+        setBuscaContato("");
+      } catch (error) {
+        console.error('[BUBBLE] Erro ao encaminhar para grupo:', error);
         toast.error(`Erro: ${error.message}`);
       } finally {
         setEncaminhando(false);
