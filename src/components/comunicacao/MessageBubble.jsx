@@ -345,10 +345,8 @@ export default React.memo(function MessageBubble({
 
   const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
   const [buscaContato, setBuscaContato] = React.useState("");
-  const [tipoDestinatario, setTipoDestinatario] = React.useState('contatos'); // 'contatos', 'internos', 'setores', 'grupos'
+  const [tipoDestinatario, setTipoDestinatario] = React.useState('contatos'); // 'contatos' ou 'internos'
   const [usuariosInternosSelecionados, setUsuariosInternosSelecionados] = React.useState([]);
-  const [setoresSelecionados, setSetoresSelecionados] = React.useState([]);
-  const [gruposSelecionados, setGruposSelecionados] = React.useState([]);
 
   const queryClient = useQueryClient();
 
@@ -479,37 +477,6 @@ export default React.memo(function MessageBubble({
     staleTime: 30000
   });
 
-  // ✅ BUSCA DE SETORES
-  const setoresList = ['vendas', 'assistencia', 'financeiro', 'fornecedor', 'geral'];
-  const { data: setoresEncontrados = [] } = useQuery({
-    queryKey: ['setores-encaminhar', buscaContato],
-    queryFn: async () => {
-      if (!buscaContato || buscaContato.trim().length < 2) return [];
-      const normalizarTexto = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const termoBusca = normalizarTexto(buscaContato);
-      return setoresList.filter((setor) => normalizarTexto(setor).includes(termoBusca));
-    },
-    enabled: mostrarDialogEncaminhar && tipoDestinatario === 'setores' && buscaContato.trim().length >= 1,
-    staleTime: 30000
-  });
-
-  // ✅ BUSCA DE GRUPOS (SECTOR_GROUP)
-  const { data: gruposEncontrados = [], isLoading: carregandoGrupos } = useQuery({
-    queryKey: ['grupos-encaminhar', buscaContato],
-    queryFn: async () => {
-      if (!buscaContato || buscaContato.trim().length < 2) return [];
-      const normalizarTexto = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const termoBusca = normalizarTexto(buscaContato);
-      const todosGrupos = await base44.entities.MessageThread.filter({ thread_type: 'sector_group' }, '-created_date', 50);
-      return todosGrupos.filter((grupo) => {
-        const nome = normalizarTexto(grupo.group_name || '');
-        return nome.includes(termoBusca);
-      });
-    },
-    enabled: mostrarDialogEncaminhar && tipoDestinatario === 'grupos' && buscaContato.trim().length >= 2,
-    staleTime: 30000
-  });
-
   const toggleContatoSelecionado = (contato) => {
     setContatosSelecionados((prev) => {
       if (prev.includes(contato.id)) {
@@ -526,26 +493,6 @@ export default React.memo(function MessageBubble({
         return prev.filter((id) => id !== usuario.id);
       } else {
         return [...prev, usuario.id];
-      }
-    });
-  };
-
-  const toggleSetorSelecionado = (setor) => {
-    setSetoresSelecionados((prev) => {
-      if (prev.includes(setor)) {
-        return prev.filter((s) => s !== setor);
-      } else {
-        return [...prev, setor];
-      }
-    });
-  };
-
-  const toggleGrupoSelecionado = (grupo) => {
-    setGruposSelecionados((prev) => {
-      if (prev.includes(grupo.id)) {
-        return prev.filter((id) => id !== grupo.id);
-      } else {
-        return [...prev, grupo.id];
       }
     });
   };
@@ -659,8 +606,6 @@ export default React.memo(function MessageBubble({
 
         if (sucessos > 0) {
           toast.success(`✅ Mensagem encaminhada para ${sucessos} usuário(s) interno(s)!`);
-          queryClient.invalidateQueries({ queryKey: ['threads'] });
-          queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
         }
 
         if (erros > 0) {
@@ -672,120 +617,6 @@ export default React.memo(function MessageBubble({
         setBuscaContato("");
       } catch (error) {
         console.error('[BUBBLE] Erro ao encaminhar internamente:', error);
-        toast.error(`Erro: ${error.message}`);
-      } finally {
-        setEncaminhando(false);
-      }
-      return;
-    }
-
-    // ✅ Encaminhar para SETORES
-    if (tipoDestinatario === 'setores') {
-      if (setoresSelecionados.length === 0) {
-        toast.error("Selecione pelo menos um setor");
-        return;
-      }
-
-      setEncaminhando(true);
-      try {
-        let sucessos = 0;
-        let erros = 0;
-
-        for (const setor of setoresSelecionados) {
-          try {
-            // Buscar ou criar thread do setor
-            const resultado = await base44.functions.invoke('getOrCreateSectorThread', {
-              sector_id: setor
-            });
-
-            if (!resultado?.data?.success || !resultado?.data?.thread) {
-              erros++;
-              continue;
-            }
-
-            const threadSetor = resultado.data.thread;
-
-            // Enviar mensagem encaminhada
-            await base44.functions.invoke('sendInternalMessage', {
-              thread_id: threadSetor.id,
-              content: `[Encaminhado]\n${message.content || '[Mídia]'}`,
-              media_type: message.media_type || 'none',
-              media_url: message.media_url || null,
-              media_caption: message.media_caption || null
-            });
-
-            sucessos++;
-          } catch (error) {
-            console.error(`[BUBBLE] Erro ao encaminhar para setor:`, error);
-            erros++;
-          }
-        }
-
-        if (sucessos > 0) {
-          toast.success(`✅ Mensagem encaminhada para ${sucessos} setor(es)!`);
-          queryClient.invalidateQueries({ queryKey: ['threads'] });
-        }
-
-        if (erros > 0) {
-          toast.error(`❌ ${erros} encaminhamento(s) falharam`);
-        }
-
-        setMostrarDialogEncaminhar(false);
-        setSetoresSelecionados([]);
-        setBuscaContato("");
-      } catch (error) {
-        console.error('[BUBBLE] Erro ao encaminhar para setor:', error);
-        toast.error(`Erro: ${error.message}`);
-      } finally {
-        setEncaminhando(false);
-      }
-      return;
-    }
-
-    // ✅ Encaminhar para GRUPOS
-    if (tipoDestinatario === 'grupos') {
-      if (gruposSelecionados.length === 0) {
-        toast.error("Selecione pelo menos um grupo");
-        return;
-      }
-
-      setEncaminhando(true);
-      try {
-        let sucessos = 0;
-        let erros = 0;
-
-        for (const grupoId of gruposSelecionados) {
-          try {
-            // Enviar mensagem encaminhada para o grupo
-            await base44.functions.invoke('sendInternalMessage', {
-              thread_id: grupoId,
-              content: `[Encaminhado]\n${message.content || '[Mídia]'}`,
-              media_type: message.media_type || 'none',
-              media_url: message.media_url || null,
-              media_caption: message.media_caption || null
-            });
-
-            sucessos++;
-          } catch (error) {
-            console.error(`[BUBBLE] Erro ao encaminhar para grupo:`, error);
-            erros++;
-          }
-        }
-
-        if (sucessos > 0) {
-          toast.success(`✅ Mensagem encaminhada para ${sucessos} grupo(s)!`);
-          queryClient.invalidateQueries({ queryKey: ['threads'] });
-        }
-
-        if (erros > 0) {
-          toast.error(`❌ ${erros} encaminhamento(s) falharam`);
-        }
-
-        setMostrarDialogEncaminhar(false);
-        setGruposSelecionados([]);
-        setBuscaContato("");
-      } catch (error) {
-        console.error('[BUBBLE] Erro ao encaminhar para grupo:', error);
         toast.error(`Erro: ${error.message}`);
       } finally {
         setEncaminhando(false);
