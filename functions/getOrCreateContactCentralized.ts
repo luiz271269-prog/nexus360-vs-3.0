@@ -120,14 +120,8 @@ Deno.serve(async (req) => {
         console.log(`[${VERSION}] ✅ ENCONTRADO por telefone_canonico="${canonico}" | ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
       }
     } catch (e) {
-      console.error(`[${VERSION}] ❌ ERRO CRÍTICO busca telefone_canonico:`, e.message, e.stack);
-      // Retornar erro 500 imediatamente para diagnóstico
-      return Response.json({ 
-        success: false, 
-        error: 'filter_canonico_failed', 
-        details: e.message,
-        stack: e.stack 
-      }, { status: 500 });
+      console.error(`[${VERSION}] ❌ ERRO busca telefone_canonico:`, e.message);
+      // Continuar para próximas tentativas (fallback para telefone normal)
     }
 
     // ═══════════════════════════════════════════════════════════════
