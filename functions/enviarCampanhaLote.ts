@@ -273,7 +273,19 @@ Deno.serve(async (req) => {
       }
       const promo = promocoes[0];
 
-      for (const contato of contatos) {
+      // ✅ DEDUPLICAÇÃO: Verificar contatos já receberam esta promo recentemente
+      const contatosFiltrados = contatos.filter(c => {
+        const jaRecebeu = (c.last_promo_ids || []).includes(promo.id);
+        const emCooldown = c.last_any_promo_sent_at ? 
+          (Date.now() - new Date(c.last_any_promo_sent_at).getTime()) < 12 * 60 * 60 * 1000 : // 12h cooldown
+          false;
+        
+        return !jaRecebeu && !emCooldown;
+      });
+
+      console.log(`[CAMPANHA-LOTE] Deduplicação: ${contatos.length} → ${contatosFiltrados.length} contatos (removidos duplicados)`);
+
+      for (const contato of contatosFiltrados) {
         try {
           if (!contato.telefone) {
             resultados.push({ contact_id: contato.id, nome: contato.nome, status: 'erro', motivo: 'Sem telefone' });
