@@ -998,10 +998,11 @@ export default React.memo(function MessageBubble({
 
           <div className={cn(
             "rounded-lg relative shadow-sm",
-            // 🎨 CORES TIPO WHATSAPP: Internas (azul claro suave) vs Externas (verde claro)
-            thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno' ?
-            isOwn ? "bg-[#cfe9ff] border border-blue-200" : "bg-white border border-slate-200" :
-            isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200",
+            // 🎨 CORES THREADS INTERNAS vs EXTERNAS
+            isThreadInterna ?
+              isOwn ? "bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-l-4 border-l-blue-600" : "bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-r-4 border-r-purple-600"
+            :
+              isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200",
             selecionada ? 'ring-2 ring-blue-500' : '',
             message.media_url && message.media_type !== 'none' ? '' : 'px-3 py-1.5'
           )}
