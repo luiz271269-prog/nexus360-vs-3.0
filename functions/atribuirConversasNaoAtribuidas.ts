@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
       message: dryRun 
         ? `Simulação concluída. ${atribuicoes.length} threads seriam atribuídas.`
         : `Execução concluída. ${atribuicoes.length} threads foram atribuídas.`,
-      total_analisadas: todasThreads.length,
+      total_analisadas: totalAnalisadas,
       total_orfas: threadsOrfas.length,
       total_atribuidas: atribuicoes.length,
       total_erros: erros.length,
