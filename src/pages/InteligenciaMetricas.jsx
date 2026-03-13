@@ -422,7 +422,7 @@ export default function InteligenciaMetricas() {
 
         {/* Estatísticas por Prioridade - Camada 3 */}
         {estatisticas && (
-          <Card>
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-slate-600" />
@@ -459,6 +459,116 @@ export default function InteligenciaMetricas() {
             </CardContent>
           </Card>
         )}
+
+        {/* Automações em Tempo Real */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* Automações */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Workflow className="w-5 h-5 text-blue-600" />
+                Automações Ativas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {automacoes.length > 0 ? (
+                  <>
+                    <div className="text-center py-4 bg-blue-50 rounded-lg">
+                      <p className="text-3xl font-bold text-blue-600">{automacoes.length}</p>
+                      <p className="text-xs text-blue-600 mt-1">Rodando agora</p>
+                    </div>
+                    <div className="text-xs space-y-1 max-h-48 overflow-y-auto">
+                      {automacoes.slice(0, 10).map(auto => (
+                        <div key={auto.id} className="flex items-center justify-between p-2 bg-slate-50 rounded border-l-2 border-blue-500">
+                          <span className="text-slate-700 truncate">{auto.name || 'Auto'}</span>
+                          <Badge className="bg-blue-100 text-blue-800 text-[10px]">✓</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-slate-500">
+                    <Workflow className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs">Nenhuma automação ativa</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Skills */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Cpu className="w-5 h-5 text-purple-600" />
+                Skills Executando
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {skills.length > 0 ? (
+                  <>
+                    <div className="text-center py-4 bg-purple-50 rounded-lg">
+                      <p className="text-3xl font-bold text-purple-600">{skills.length}</p>
+                      <p className="text-xs text-purple-600 mt-1">Em execução</p>
+                    </div>
+                    <div className="text-xs space-y-1 max-h-48 overflow-y-auto">
+                      {skills.slice(0, 10).map(skill => (
+                        <div key={skill.id} className="flex items-center justify-between p-2 bg-slate-50 rounded border-l-2 border-purple-500">
+                          <span className="text-slate-700 truncate">{skill.skill_name || 'Skill'}</span>
+                          <Badge className="bg-purple-100 text-purple-800 text-[10px]">⚡</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-slate-500">
+                    <Cpu className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs">Nenhuma skill ativa</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Agentes */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Bot className="w-5 h-5 text-green-600" />
+                Agentes Operacionais
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {agentes.length > 0 ? (
+                  <>
+                    <div className="text-center py-4 bg-green-50 rounded-lg">
+                      <p className="text-3xl font-bold text-green-600">{agentes.length}</p>
+                      <p className="text-xs text-green-600 mt-1">Online</p>
+                    </div>
+                    <div className="text-xs space-y-1 max-h-48 overflow-y-auto">
+                      {agentes.slice(0, 10).map(agent => (
+                        <div key={agent.id} className="flex items-center justify-between p-2 bg-slate-50 rounded border-l-2 border-green-500">
+                          <span className="text-slate-700 truncate">{agent.agent_name || 'Agent'}</span>
+                          <Badge className={`text-[10px] ${agent.status === 'processando' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>
+                            {agent.status === 'processando' ? '🔄' : '✓'}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-slate-500">
+                    <Bot className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs">Nenhum agente ativo</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
