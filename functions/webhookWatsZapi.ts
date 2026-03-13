@@ -16,6 +16,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 Deno.serve(async (req) => {
+  console.log(`[Z-API-WEBHOOK] 📥 REQUEST | Método: ${req.method} | URL: ${req.url}`);
+  
   try {
     // Health check GET
     if (req.method === 'GET') {
