@@ -349,8 +349,21 @@ Deno.serve(async (req) => {
             pre_atendimento_ativo: false
           });
 
+          // ✅ Atualizar histórico de promoções (últimas 3) + cooldown
+          const lastPromoIds = (contato.last_promo_ids || []).slice(-2); // Manter últimas 2
+          lastPromoIds.unshift(promo.id); // Adicionar nova no início
+
           await base44.asServiceRole.entities.Contact.update(contato.id, {
-            last_any_promo_sent_at: now.toISOString()
+            last_any_promo_sent_at: now.toISOString(),
+            last_promo_ids: lastPromoIds,
+            last_campaign_sent_at: {
+              ...(contato.last_campaign_sent_at || {}),
+              [promo.id]: now.toISOString()
+            },
+            promocoes_recebidas: {
+              ...(contato.promocoes_recebidas || {}),
+              [promo.id]: ((contato.promocoes_recebidas?.[promo.id] || 0) + 1)
+            }
           });
 
           // Enfileirar promoção com delay
