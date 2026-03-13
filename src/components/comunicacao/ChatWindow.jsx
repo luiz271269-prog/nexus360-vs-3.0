@@ -77,6 +77,7 @@ import MessageInput from './MessageInput';
 import AlertaPedidoTransferencia from './AlertaPedidoTransferencia';
 import useScrollPaginacao from './useScrollPaginacao';
 import NexusBrainSuggestions from './NexusBrainSuggestions';
+import FloatingConversationBubble from './FloatingConversationBubble';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Contagem de não lidas (externo + interno)
@@ -1412,7 +1413,8 @@ export default function ChatWindow({
     return name.substring(0, 2).toUpperCase();
   };
 
-  const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
+  const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor' ||
+    ['gerente', 'coordenador'].includes(usuario?.attendant_role);
   const canManageConversation = isManager || thread?.assigned_user_id === usuario?.id || !thread?.assigned_user_id;
 
   return (
@@ -1897,6 +1899,17 @@ export default function ChatWindow({
             onAtualizarMensagens();
           }
         }} />
+
+      {/* 💬 BOLHA FLUTUANTE - CONVERSA INTERNA SOBRE O CONTATO */}
+      {thread?.thread_type === 'contact_external' && isManager && (
+        <FloatingConversationBubble
+          threadId={thread?.id}
+          contato={contatoCompleto}
+          usuarioAtual={usuario}
+          atendentes={atendentes}
+          hasPermission={isManager}
+        />
+      )}
 
       {/* MODAL DE COMPARTILHAMENTO */}
       <AtribuirConversaModal
