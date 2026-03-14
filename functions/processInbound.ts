@@ -307,66 +307,41 @@ Deno.serve(async (req) => {
   else if (!thread.assigned_user_id) shouldDispatch = true;
 
   if (shouldDispatch) {
-    result.pipeline.push('ura_dispatch');
-    // Verificar playbook ativo
-    try {
-      const playbooks = await base44.asServiceRole.entities.FlowTemplate.filter({
-        is_pre_atendimento_padrao: true,
-        ativo: true
-      }, '-created_date', 1);
-
-      if (!playbooks?.length) {
-        console.log(`[${VERSION}] 🚫 Sem playbook ativo - bloqueando URA`);
-        result.actions.push('ura_blocked_no_playbook');
-        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, stop: true, reason: 'pre_atendimento_desativado' });
-      }
-    } catch (e) {
-      console.warn(`[${VERSION}] ⚠️ Erro ao verificar playbooks:`, e.message);
-    }
-
+    result.pipeline.push('skill_primeiro_contato_autonomo');
+    
     // ════════════════════════════════════════════════════════════════
-    // [INBOUND-GATE] CAMADA 4 — COOLDOWN DE URA (2 minutos)
-    // Foto + legenda chegam como 2 webhooks: sem cooldown, URA dispara 2x.
-    // Se sistema já enviou uma mensagem automática nesta thread nos últimos
-    // 2 minutos, não dispara URA novamente.
+    // 🆕 PRIMEIRO ATENDIMENTO SEMPRE AUTÔNOMO (sem menu)
+    // Skill detecta intenção via IA, atribui setor+atendente e envia boas-vindas
     // ════════════════════════════════════════════════════════════════
     try {
-      const doisMinAtras = new Date(Date.now() - 120_000).toISOString();
-      const uraRecente = await base44.asServiceRole.entities.Message.filter({
-        thread_id: thread.id,
-        sender_type: 'user',
-        created_date: { $gte: doisMinAtras }
-      }, '-created_date', 1);
-
-      if (uraRecente && uraRecente.length > 0) {
-        console.log(`[INBOUND-GATE] ⏭️ CAMADA 4 COOLDOWN: URA já enviada há menos de 2min (msg=${uraRecente[0].id}) — bloqueando`);
-        result.actions.push('ura_cooldown_blocked');
-        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, stop: true, reason: 'ura_cooldown_2min' });
-      }
-      console.log(`[INBOUND-GATE] ✅ CAMADA 4: Cooldown OK — URA pode disparar`);
-    } catch (e) {
-      console.warn(`[INBOUND-GATE] ⚠️ Erro cooldown URA (prosseguindo):`, e.message);
-    }
-
-    try {
-      await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
+      console.log(`[${VERSION}] 🤖 Primeira mensagem sem atendente → skill autônoma direto`);
+      
+      await base44.asServiceRole.functions.invoke('skillPrimeiroContatoAutonomo', {
         thread_id: thread.id,
         contact_id: contact.id,
-        whatsapp_integration_id: integration?.id,
-        user_input: { type: 'text', content: messageContent || '', id: null },
-        intent_context: null,
-        is_new_cycle: novoCiclo,
-        provider,
-        whatsappIntegration: integration
+        force_retry: false
       });
-      result.actions.push('ura_dispatched');
-      console.log(`[${VERSION}] ✅ preAtendimentoHandler invocado`);
+      
+      result.actions.push('skill_autonoma_acionada');
+      return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, handled_by: 'skill_autonoma' });
+      
     } catch (e) {
-      console.error(`[${VERSION}] ❌ Erro ao disparar URA:`, e.message);
-      result.actions.push('ura_dispatch_failed');
+      console.error(`[${VERSION}] ❌ Skill autônoma falhou:`, e.message);
+      result.actions.push('skill_autonoma_falhou');
+      
+      // Fallback: enfileirar para atendimento manual
+      await base44.asServiceRole.entities.WorkQueueItem.create({
+        contact_id: contact.id,
+        thread_id: thread.id,
+        tipo: 'manual',
+        reason: 'skill_falhou',
+        severity: 'high',
+        status: 'open',
+        notes: `Skill autônoma falhou. Mensagem cliente: "${messageContent}"`
+      }).catch(() => {});
+      
+      return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, fallback: 'enfileirado_manual' });
     }
-
-    return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, handled_by_ura: true });
   }
 
   // NEXUS BRAIN: Agente autônomo — percepção → decisão → ação
