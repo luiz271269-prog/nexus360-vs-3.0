@@ -242,14 +242,26 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false)
     let metodoDeteccao = 'keywords';
     
     // STEP 1: Pattern Matcher primeiro (sem LLM)
-    const { detectarPorPattern, normalizarTexto } = require('./lib/intencaoPatternMatcher');
-    const resultadoPattern = detectarPorPattern(textoCompleto);
+    // Padrões inline para evitar imports complexos em Deno
+    const PATTERNS_RAPIDOS = {
+      vendas: /orcamento|orçamento|cotacao|cotação|preco|preço|quanto custa|tabela|produto|comprar|vender/i,
+      financeiro: /boleto|fatura|nota fiscal|nf|pagamento|cobranca|cobrança|vencimento|atrasado|dinheiro|pagou|pagar/i,
+      assistencia: /defeito|quebrou|nao funciona|não funciona|conserto|reparo|problema|bug|erro|nao liga|não liga|travado|lento/i,
+      fornecedor: /fornecedor|fornecimento|compras|pedido|cotacao|cotação|estoque|entrega/i
+    };
     
-    if (resultadoPattern) {
+    let setorPattern = null;
+    for (const [setor, regex] of Object.entries(PATTERNS_RAPIDOS)) {
+      if (regex.test(textoCompleto)) {
+        setorPattern = { setor, confidence: 0.95 };
+        break;
+      }
+    }
+    if (setorPattern) {
       analiseIA = {
-        setor: resultadoPattern.setor,
-        confidence: resultadoPattern.confidence,
-        intencao: resultadoPattern.pattern,
+        setor: setorPattern.setor,
+        confidence: setorPattern.confidence,
+        intencao: 'pattern_detected',
         tipo_contato: contact.tipo_contato || 'novo'
       };
       metodoDeteccao = 'pattern_match';

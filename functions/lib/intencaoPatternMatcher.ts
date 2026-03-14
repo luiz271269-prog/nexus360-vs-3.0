@@ -70,8 +70,4 @@ function normalizarTexto(texto) {
     .replace(/\s+/g, ' ');
 }
 
-module.exports = {
-  detectarPorPattern,
-  normalizarTexto,
-  PATTERNS
-};
+export { detectarPorPattern, normalizarTexto, PATTERNS };
