@@ -484,12 +484,12 @@ Deno.serve(async (req) => {
     }
 
     // 3b-EARLY. Enviados >4h <24h → WhatsApp automático ao cliente + status negociando
-    const quatroHorasAtras = new Date(agora.getTime() - 4 * 60 * 60 * 1000);
+    const quatroHorasOrcamento = new Date(agora.getTime() - 4 * 60 * 60 * 1000);
     const vintequatroHorasAtras = new Date(agora.getTime() - 24 * 60 * 60 * 1000);
 
     const orcamentosEnviados4h = await base44.asServiceRole.entities.Orcamento.filter({
       status: 'enviado',
-      updated_date: { $lt: quatroHorasAtras.toISOString(), $gte: vintequatroHorasAtras.toISOString() }
+      updated_date: { $lt: quatroHorasOrcamento.toISOString(), $gte: vintequatroHorasAtras.toISOString() }
     }, '-updated_date', 10);
 
     for (const orc of orcamentosEnviados4h) {
