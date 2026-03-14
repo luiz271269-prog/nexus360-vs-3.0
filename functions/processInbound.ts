@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 6. NOVO CICLO E DECISÃO URA
+  // 6. NOVO CICLO E DECISÃO: PRÉ-ATENDIMENTO vs SKILL AUTÔNOMA
   result.pipeline.push('cycle_detection');
   const novoCiclo = detectNovoCiclo(thread.last_inbound_at);
   const isUraActive = thread.pre_atendimento_ativo === true;
@@ -307,42 +307,86 @@ Deno.serve(async (req) => {
   else if (!thread.assigned_user_id) shouldDispatch = true;
 
   if (shouldDispatch) {
-    result.pipeline.push('skill_primeiro_contato_autonomo');
+    // DECISÃO: Pré-atendimento clássico OU skill autônoma?
+    // Se é novo contato E sem atendente → menu completo
+    // Se tem intenção clara → direto para atribuição
     
-    // ════════════════════════════════════════════════════════════════
-    // 🆕 PRIMEIRO ATENDIMENTO SEMPRE AUTÔNOMO (sem menu)
-    // Skill detecta intenção via IA, atribui setor+atendente e envia boas-vindas
-    // ════════════════════════════════════════════════════════════════
-    try {
-      console.log(`[${VERSION}] 🤖 Primeira mensagem sem atendente → skill autônoma direto`);
-      
-      await base44.asServiceRole.functions.invoke('skillPrimeiroContatoAutonomo', {
-        thread_id: thread.id,
-        contact_id: contact.id,
-        force_retry: false
-      });
-      
-      result.actions.push('skill_autonoma_acionada');
-      return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, handled_by: 'skill_autonoma' });
-      
-    } catch (e) {
-      console.error(`[${VERSION}] ❌ Skill autônoma falhou:`, e.message);
-      result.actions.push('skill_autonoma_falhou');
-      
-      // Fallback: enfileirar para atendimento manual
-      await base44.asServiceRole.entities.WorkQueueItem.create({
-        contact_id: contact.id,
-        thread_id: thread.id,
-        tipo: 'manual',
-        reason: 'skill_falhou',
-        severity: 'high',
-        status: 'open',
-        notes: `Skill autônoma falhou. Mensagem cliente: "${messageContent}"`
-      }).catch(() => {});
-      
-      return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, fallback: 'enfileirado_manual' });
+    const temAtendente = !!thread.assigned_user_id;
+    const ehPrimeiraMsg = !thread.last_human_message_at;
+    
+    if (!temAtendente && !ehPrimeiraMsg) {
+      // Contato voltou → pré-atendimento com sticky (memória)
+      result.pipeline.push('pre_atendimento_sticky');
+      console.log(`[${VERSION}] 🔄 Contato recorrente → pré-atendimento com contexto`);
+    } else if (!temAtendente && ehPrimeiraMsg) {
+      // Primeiro contato novo → usar skill autônoma para eficiência
+      result.pipeline.push('skill_primeiro_contato_autonomo');
+    
+      // ════════════════════════════════════════════════════════════════
+      // 🆕 PRIMEIRO ATENDIMENTO: SKILL AUTÔNOMA (eficiente + boas-vindas)
+      // Detecta intenção → atribui atendente → envia mensagem de boas-vindas
+      // ════════════════════════════════════════════════════════════════
+      try {
+        console.log(`[${VERSION}] 🤖 Primeiro contato → skill autônoma`);
+        
+        await base44.asServiceRole.functions.invoke('skillPrimeiroContatoAutonomo', {
+          thread_id: thread.id,
+          contact_id: contact.id,
+          force_retry: false
+        });
+        
+        result.actions.push('skill_autonoma_acionada');
+        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, handled_by: 'skill_autonoma' });
+        
+      } catch (e) {
+        console.error(`[${VERSION}] ❌ Skill autônoma falhou:`, e.message);
+        result.actions.push('skill_autonoma_falhou');
+        
+        // Fallback: pré-atendimento clássico com menu
+        console.log(`[${VERSION}] ⏸️ Fallback: acionando pré-atendimento menu`);
+        try {
+          await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
+            thread_id: thread.id,
+            contact_id: contact.id,
+            whatsapp_integration_id: thread.whatsapp_integration_id,
+            user_input: { type: 'system', content: '' }
+          });
+          result.actions.push('pre_atendimento_fallback');
+        } catch (uraErr) {
+          console.error(`[${VERSION}] ❌ Pré-atendimento também falhou:`, uraErr.message);
+          // Última opção: enfileirar
+          await base44.asServiceRole.entities.WorkQueueItem.create({
+            contact_id: contact.id,
+            thread_id: thread.id,
+            tipo: 'manual',
+            reason: 'ambas_habilidades_falharam',
+            severity: 'high',
+            status: 'open',
+            notes: `Skill + pré-atendimento falharam. Mensagem: "${messageContent}"`
+          }).catch(() => {});
+        }
+        
+        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, fallback: 'triggered' });
+      }
+    } else if (isHumanDormant) {
+      // ════════════════════════════════════════════════════════════════
+      // HUMANO DORMINDO: Reativar com pré-atendimento menu
+      // ════════════════════════════════════════════════════════════════
+      result.pipeline.push('pre_atendimento_reativacao');
+      try {
+        console.log(`[${VERSION}] 😴 Atendente dormindo → menu pré-atendimento`);
+        await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
+          thread_id: thread.id,
+          contact_id: contact.id,
+          whatsapp_integration_id: thread.whatsapp_integration_id,
+          user_input: { type: 'system', content: '' }
+        });
+        result.actions.push('pre_atendimento_reativacao_acionado');
+        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
+      } catch (e) {
+        console.error(`[${VERSION}] ❌ Pré-atendimento reativação falhou:`, e.message);
+      }
     }
-  }
 
   // NEXUS BRAIN: Agente autônomo — percepção → decisão → ação
   result.pipeline.push('nexus_brain');
