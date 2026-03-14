@@ -230,10 +230,12 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false)
     // ══════════════════════════════════════════════════════════════════
     // STEP 3: Análise de intenção com LLM + confidence score
     // ══════════════════════════════════════════════════════════════════
+    // Limitar contexto a 500 chars (otimização de custo)
     const textoCompleto = mensagens
       .map(m => m.content)
       .filter(Boolean)
-      .join(' ');
+      .join(' ')
+      .substring(0, 500);
 
     const tsAnalise = Date.now();
     let analiseIA = null;
