@@ -230,12 +230,15 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false)
     // ══════════════════════════════════════════════════════════════════
     // STEP 3: Análise de intenção com LLM + confidence score
     // ══════════════════════════════════════════════════════════════════
-    // Limitar contexto a 500 chars (otimização de custo)
-    const textoCompleto = mensagens
+    // Limitar contexto a 500 chars FINAIS (mais relevantes)
+    let textoCompleto = mensagens
       .map(m => m.content)
       .filter(Boolean)
-      .join(' ')
-      .substring(0, 500);
+      .join(' ');
+    
+    if (textoCompleto.length > 500) {
+      textoCompleto = textoCompleto.slice(-500); // Últimos 500 chars
+    }
 
     const tsAnalise = Date.now();
     let analiseIA = null;
