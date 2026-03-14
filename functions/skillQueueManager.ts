@@ -1,195 +1,235 @@
 // ============================================================================
-// SKILL 3 — QUEUE MANAGER v1.0
-// Objetivo: Manter conversa VIVA quando sem atendente
-//           + Sort inteligente por carga + Contexto para atendente
+// SKILL 03 — QUEUE MANAGER v1.1
+// ============================================================================
+// Objetivo: Buscar atendente fidelizado → menor carga → fallback setor geral
+// Sem atendente: enfileira + pergunta qualificadora + boas-vindas LLM
 // ============================================================================
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204 });
+interface QueuePayload {
+  thread_id: string;
+  contact_id: string;
+  integration_id: string;
+  sector_id: string;
+}
+
+const PERGUNTAS_QUALIFICADORA = {
+  vendas: '📦 Qual produto ou serviço você está procurando?',
+  assistencia: '🔧 Pode descrever o problema em detalhes?',
+  financeiro: '💳 É sobre um boleto, fatura ou débito?',
+  fornecedor: '🤝 Qual é o interesse de parceria?'
+};
+
+async function buscarMelhorAtendente(base44: any, setor: string, contact: any): Promise<any> {
+  // 1º: atendente fidelizado
+  const campofidelizado = `atendente_fidelizado_${setor}`;
+  if (contact[campofidelizado]) {
+    try {
+      const user = await base44.asServiceRole.entities.User.get(contact[campofidelizado]);
+      if (user && user.availability_status === 'online') {
+        return user;
+      }
+    } catch (e) {
+      console.warn('[QUEUE] Atendente fidelizado indisponível:', (e as any).message);
+    }
   }
 
-  const base44 = createClientFromRequest(req);
-  const startTime = Date.now();
-  const payload = await req.json().catch(() => ({}));
-  const { thread, contact, intencaoResult } = payload;
+  // 2º: menor carga no setor
+  try {
+    const usuarios = await base44.asServiceRole.entities.User.filter(
+      {
+        attendant_sector: setor,
+        is_whatsapp_attendant: true
+      },
+      'current_conversations_count',
+      20
+    );
+
+    if (usuarios?.length > 0) {
+      // Sort duplo: status (online first) + carga
+      const sorted = usuarios.sort((a: any, b: any) => {
+        const statusA = a.availability_status === 'online' ? 0 : 1;
+        const statusB = b.availability_status === 'online' ? 0 : 1;
+        if (statusA !== statusB) return statusA - statusB;
+        return (a.current_conversations_count || 0) - (b.current_conversations_count || 0);
+      });
+      return sorted[0];
+    }
+  } catch (e) {
+    console.warn('[QUEUE] Erro ao buscar por setor:', (e as any).message);
+  }
+
+  // 3º: fallback setor geral
+  try {
+    const usuarios = await base44.asServiceRole.entities.User.filter(
+      {
+        attendant_sector: 'geral',
+        is_whatsapp_attendant: true
+      },
+      'current_conversations_count',
+      10
+    );
+    if (usuarios?.length > 0) {
+      return usuarios[0];
+    }
+  } catch (e) {
+    console.warn('[QUEUE] Fallback geral falhou:', (e as any).message);
+  }
+
+  return null;
+}
+
+async function gerarBoasVindas(base44: any, contact: any, setor: string, atendente: any): Promise<string> {
+  try {
+    const primeiroNome = (contact.nome || '').split(' ')[0];
+    const nomeAtendente = atendente?.full_name || 'da equipe';
+
+    const respLLM = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      model: 'gemini_3_flash',
+      prompt: `Gere uma boas-vindas específica para o atendimento em ${setor}:
+Cliente: ${primeiroNome}
+Atendente: ${nomeAtendente}
+Tipo: ${contact.tipo_contato || 'novo'}
+
+Máximo 2 linhas, máximo 1 emoji, tom profissional mas humano.
+Reconheça o contato e confirme que será ajudado agora.`,
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          mensagem: { type: 'string' }
+        }
+      }
+    });
+
+    return (respLLM as any).mensagem || '';
+  } catch (e) {
+    console.warn('[QUEUE] LLM falhou, usando fallback inline:', (e as any).message);
+    const primeiroNome = (contact.nome || '').split(' ')[0];
+    return `Olá ${primeiroNome}! ${contact.tipo_contato === 'cliente' ? 'Que bom ter você de volta.' : 'Bem-vindo!'} Vou te ajudar agora! 😊`;
+  }
+}
+
+Deno.serve(async (req) => {
+  const headers = { 'Content-Type': 'application/json' };
+
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers });
+  }
+
+  const tsInicio = Date.now();
 
   try {
-    const setor = intencaoResult?.setor || thread.sector_id || 'vendas';
-    const tipoContato = intencaoResult?.tipo_contato || contact.tipo_contato || 'novo';
-    const primeiroNome = (contact.nome || 'cliente').split(' ')[0];
+    const base44 = createClientFromRequest(req);
+    const payload: QueuePayload = await req.json();
+    const { thread_id, contact_id, integration_id, sector_id } = payload;
 
-    // STEP 1: Atendente fidelizado (prioridade maxima)
-    let atendenteEscolhido = null;
-    const campoFidelizado = {
-      vendas: 'atendente_fidelizado_vendas',
-      assistencia: 'atendente_fidelizado_assistencia',
-      financeiro: 'atendente_fidelizado_financeiro',
-      fornecedor: 'atendente_fidelizado_fornecedor'
-    }[setor];
-
-    if (contact[campoFidelizado]) {
-      atendenteEscolhido = await base44.asServiceRole.entities.User
-        .get(contact[campoFidelizado])
-        .catch(() => null);
+    if (!thread_id || !contact_id || !sector_id) {
+      return Response.json(
+        { success: false, error: 'Campos obrigatórios ausentes' },
+        { status: 400, headers }
+      );
     }
 
-    // STEP 2: Buscar melhor por carga (se nao tem fidelizado)
-    if (!atendenteEscolhido) {
-      const usuarios = await base44.asServiceRole.entities.User.filter(
-        { attendant_sector: setor },
-        null,
-        20
-      ).catch(() => []);
+    const contact = await base44.asServiceRole.entities.Contact.get(contact_id);
+    const setor = sector_id || 'vendas';
 
-      if (usuarios.length > 0) {
-        // Calcular carga real
-        const cargas = await Promise.all(
-          usuarios.map(async (u) => {
-            const ativas = await base44.asServiceRole.entities.MessageThread.filter(
-              { assigned_user_id: u.id, status: 'aberta' },
-              null,
-              100
-            ).catch(() => []);
+    // Buscar melhor atendente
+    const atendente = await buscarMelhorAtendente(base44, setor, contact);
 
-            const minutosOcioso = u.last_assignment_at
-              ? (Date.now() - new Date(u.last_assignment_at).getTime()) / 60000
-              : 999;
+    // CENÁRIO 1: Atendente disponível → atribuir + boas-vindas
+    if (atendente) {
+      console.log(`[QUEUE] ✅ Atendente encontrado: ${atendente.full_name}`);
 
-            const prioridadeCliente = contact.is_vip ? 5 : (contact.classe_abc === 'A' ? 3 : 0);
-            const score = (ativas.length * 10) - (Math.min(minutosOcioso, 60) * 0.5) - prioridadeCliente;
+      const boasVindas = await gerarBoasVindas(base44, contact, setor, atendente);
 
-            return { usuario: u, carga: ativas.length, score };
-          })
-        );
-
-        cargas.sort((a, b) => a.score - b.score);
-        atendenteEscolhido = cargas[0]?.usuario || null;
-      }
-    }
-
-    // STEP 3: Atribuir se encontrado
-    if (atendenteEscolhido) {
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        assigned_user_id: atendenteEscolhido.id,
+      // Atualizar thread
+      await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+        assigned_user_id: atendente.id,
+        sector_id: setor,
         routing_stage: 'ASSIGNED',
-        entrou_na_fila_em: null
-      });
+        atendentes_historico: [atendente.id]
+      }).catch(() => {});
 
-      // Registrar historico
-      const historico = thread.atendentes_historico || [];
-      if (!historico.includes(atendenteEscolhido.id)) {
-        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-          atendentes_historico: [...historico, atendenteEscolhido.id]
-        }).catch(() => null);
-      }
-
-      // Notificar setor
-      const sectorThreads = await base44.asServiceRole.entities.MessageThread.filter(
-        { thread_type: 'sector_group', sector_key: `sector:${setor}` },
-        '-created_date',
-        1
-      ).catch(() => []);
-
-      if (sectorThreads[0]?.id) {
-        await base44.asServiceRole.entities.Message.create({
-          thread_id: sectorThreads[0].id,
-          sender_id: 'nexus_agent',
-          sender_type: 'user',
-          content: `Nova conversa: ${contact.nome} (${tipoContato}) para ${atendenteEscolhido.full_name}`,
-          channel: 'interno',
-          visibility: 'internal_only'
-        }).catch(() => null);
+      // Enviar mensagem de boas-vindas
+      if (boasVindas && thread_id && integration_id) {
+        try {
+          await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+            integration_id,
+            numero_destino: contact.telefone,
+            mensagem: boasVindas
+          }).catch(() => {});
+        } catch (e) {
+          console.warn('[QUEUE] Erro ao enviar boas-vindas:', (e as any).message);
+        }
       }
 
       return Response.json({
         success: true,
-        atendente_atribuido: true,
-        atendente_id: atendenteEscolhido.id,
-        setor
-      });
+        action: 'assigned',
+        atendente_id: atendente.id,
+        atendente_nome: atendente.full_name,
+        duration_ms: Date.now() - tsInicio
+      }, { headers });
     }
 
-    // STEP 4: Sem atendente - entrar fila + contextualizar
-    const agora = new Date().toISOString();
+    // CENÁRIO 2: Sem atendente → enfileira + contexto
+    console.log(`[QUEUE] 📋 Sem atendente, enfileirando...`);
 
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-      routing_stage: 'ROUTED',
-      entrou_na_fila_em: agora
-    });
+    const perguntaQualificadora = PERGUNTAS_QUALIFICADORA[setor as keyof typeof PERGUNTAS_QUALIFICADORA] || PERGUNTAS_QUALIFICADORA.vendas;
 
-    // WorkQueueItem
+    // Criar WorkQueueItem
     await base44.asServiceRole.entities.WorkQueueItem.create({
+      contact_id,
+      thread_id,
       tipo: 'manual',
-      contact_id: contact.id,
-      thread_id: thread.id,
-      reason: 'urgente',
+      reason: 'sem_atendente_disponivel',
       severity: contact.is_vip ? 'critical' : 'high',
-      owner_sector_id: setor,
       status: 'open',
-      notes: `Aguardando atendente de ${setor} desde ${agora}`
-    });
+      owner_sector_id: setor,
+      notes: `Contato: ${contact.nome}\nTipo: ${contact.tipo_contato}\nPerguntar: ${perguntaQualificadora}`
+    }).catch(() => {});
 
-    // Mensagem contexto
-    const perguntaContexto = {
-      vendas: 'Qual produto ou configuracao voce procura?',
-      assistencia: 'Pode descrever o problema?',
-      financeiro: 'Qual pedido ou nota fiscal?',
-      fornecedor: 'Qual empresa e tipo de produto?'
-    }[setor] || 'Mais detalhes para agilizar?';
+    // Atualizar thread
+    await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+      sector_id: setor,
+      routing_stage: 'ROUTED',
+      entrou_na_fila_em: new Date().toISOString()
+    }).catch(() => {});
 
-    const msgFila = `Ola, ${primeiroNome}! Direcionando para equipe de ${setor}. ${perguntaContexto}\nAssim que um atendente ficar disponivel, tera suas informacoes!`;
+    // Enviar pergunta qualificadora
+    try {
+      const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
+      if (integracao?.instance_id_provider && integracao?.api_key_provider) {
+        const telefoneLimpo = (contact.telefone || '').replace(/\D/g, '');
+        const telefoneE164 = telefoneLimpo.startsWith('55') ? `+${telefoneLimpo}` : `+55${telefoneLimpo}`;
 
-    // Enviar WhatsApp
-    const integracaoData = await base44.asServiceRole.entities.WhatsAppIntegration
-      .get(thread.whatsapp_integration_id)
-      .catch(() => null);
-
-    if (integracaoData?.instance_id) {
-      const telefoneLimpo = (contact.telefone || '').replace(/\D/g, '');
-      const telefoneE164 = telefoneLimpo.startsWith('55') ? `+${telefoneLimpo}` : `+55${telefoneLimpo}`;
-
-      await fetch(`https://api.z-api.io/instances/${integracaoData.instance_id}/token/${integracaoData.api_key_provider}/send-text`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: telefoneE164, message: msgFila })
-      }).catch(() => null);
-
-      await base44.asServiceRole.entities.Message.create({
-        thread_id: thread.id,
-        sender_id: 'nexus_agent',
-        sender_type: 'user',
-        recipient_id: contact.id,
-        recipient_type: 'contact',
-        content: msgFila,
-        channel: 'whatsapp',
-        status: 'enviada',
-        sent_at: new Date().toISOString(),
-        visibility: 'public_to_customer'
-      }).catch(() => null);
+        await fetch(
+          `https://api.z-api.io/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: telefoneE164, message: perguntaQualificadora })
+          }
+        ).then(r => r.json()).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[QUEUE] Erro ao enviar pergunta:', (e as any).message);
     }
-
-    // Log
-    await base44.asServiceRole.entities.SkillExecution.create({
-      skill_name: 'skillQueueManager',
-      triggered_by: 'processInbound',
-      execution_mode: 'autonomous_safe',
-      success: true,
-      duration_ms: Date.now() - startTime,
-      metricas: { enfileirado: true, sector: setor }
-    }).catch(() => null);
 
     return Response.json({
       success: true,
-      atendente_atribuido: false,
-      enfileirado: true,
-      setor
-    });
+      action: 'queued',
+      sector_id: setor,
+      pergunta_qualificadora: perguntaQualificadora,
+      duration_ms: Date.now() - tsInicio
+    }, { headers });
 
   } catch (error) {
-    console.error('[QUEUE] Erro:', error.message);
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[QUEUE] Erro:', error);
+    return Response.json(
+      { success: false, error: (error as any).message },
+      { status: 500, headers }
+    );
   }
 });
