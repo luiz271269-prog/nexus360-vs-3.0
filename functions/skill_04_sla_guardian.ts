@@ -154,10 +154,10 @@ Deno.serve(async (req) => {
           notes: `🚨 SLA Guardian: Thread esperando >15 min na fila. Escalação para supervisor.`
         });
 
-        const msgEscala = `🚨 Desculpa pela espera! Estou escalando para meu supervisor. Um momento!`;
+        const msgEscala = `Desculpa pela espera! Estou escalando para meu supervisor. Um momento!`;
         if (await enviarMsgQueWpp(base44, thread, msgEscala)) {
           resultados.escalacoes++;
-          console.log(`[SLA] 🚨 Escalação criada para thread ${thread.id}`);
+          console.log(`[SLA] Escalacao criada para thread ${thread.id}`);
         }
       } catch (e) {
         console.error(`[SLA] ❌ Erro ao escalar:`, e.message);
