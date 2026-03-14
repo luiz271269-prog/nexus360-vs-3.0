@@ -48,6 +48,15 @@ Deno.serve(async (req) => {
             }, { status: 400, headers: corsHeaders });
         }
 
+        // 🛡️ GUARDRAIL: Bloquear IDs de service accounts que não existem no User
+        if (target_user_id.startsWith('service_')) {
+            console.error(`[GET-OR-CREATE-THREAD] 🚫 Tentativa de criar thread com service account inválido: ${target_user_id}`);
+            return Response.json({ 
+                error: 'Não é possível criar threads com service accounts. Use sector_group ou user_id válido.',
+                invalid_target: target_user_id
+            }, { status: 400, headers: corsHeaders });
+        }
+
         // 2. Geração da Chave Única (O(1) lookup)
         const pairKey = generatePairKey(user.id, target_user_id);
         
