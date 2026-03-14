@@ -151,6 +151,16 @@ Deno.serve(async (req) => {
         atendentes_historico: [atendente.id]
       }).catch(() => {});
 
+      // 🆕 GAP-D: Briefing via Brain ao atendente (fire-and-forget)
+      base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+        thread_id: thread_id,
+        contact_id: contact_id,
+        integration_id: integration_id,
+        trigger: 'queue_assignment',
+        message_content: `[BRIEFING AUTOMÁTICO] Novo contato atribuído: ${contact.nome} (${contact.tipo_contato}). Setor: ${setor}. Prepare um resumo contextual e sugestões para o atendimento.`,
+        mode: 'copilot'
+      }).catch(e => console.warn('[QUEUE] Brain briefing falhou (não-bloqueante):', (e as any).message));
+
       // Enviar mensagem de boas-vindas
       if (boasVindas && thread_id && integration_id) {
         try {
@@ -169,6 +179,7 @@ Deno.serve(async (req) => {
         action: 'assigned',
         atendente_id: atendente.id,
         atendente_nome: atendente.full_name,
+        briefing_brain_triggered: true,
         duration_ms: Date.now() - tsInicio
       }, { headers });
     }
