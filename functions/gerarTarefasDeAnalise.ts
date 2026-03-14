@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Registrar execução
+    // Registrar execução (try-catch isolado, non-blocking)
     try {
       await base44.asServiceRole.entities.SkillExecution.create({
         skill_name: 'gerar_tarefas_de_analise',
@@ -158,10 +158,13 @@ Deno.serve(async (req) => {
         },
         success: resultado.erros === 0,
         duration_ms: Date.now() - tsInicio,
-        metricas: resultado
-      }).catch(() => {});
+        metricas: {
+          tarefas_criadas: resultado.tarefas_criadas,
+          analises_processadas: resultado.analises_processadas
+        }
+      });
     } catch (e) {
-      console.warn('[gerarTarefas] SkillExecution falhou:', e.message);
+      console.warn('[gerarTarefas] SkillExecution falhou (non-blocking):', e.message);
     }
 
     console.log(`[gerarTarefas] ✅ Ciclo concluído:`, resultado);
@@ -170,7 +173,9 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('[gerarTarefas] ❌ Erro geral:', error.message);
     
-    // Registrar erro no SkillExecution
+    const base44 = createClientFromRequest(req);
+    
+    // Registrar erro no SkillExecution (isolado, non-blocking)
     try {
       await base44.asServiceRole.entities.SkillExecution.create({
         skill_name: 'gerar_tarefas_de_analise',
@@ -178,10 +183,10 @@ Deno.serve(async (req) => {
         execution_mode: 'autonomous_safe',
         success: false,
         duration_ms: Date.now() - tsInicio,
-        error_message: error.message
-      }).catch(() => {});
+        error_message: error?.message || String(error)
+      });
     } catch (e) {
-      console.warn('[gerarTarefas] SkillExecution de erro falhou:', e.message);
+      console.warn('[gerarTarefas] SkillExecution de erro falhou (non-blocking):', e.message);
     }
     
     return Response.json(
