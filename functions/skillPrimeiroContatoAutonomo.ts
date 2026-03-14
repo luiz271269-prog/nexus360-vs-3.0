@@ -328,11 +328,12 @@ Regras:
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // STEP 5: Atribuir atendente
+    // STEP 5: Atribuir atendente + routing_stage
     // ══════════════════════════════════════════════════════════════════
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       assigned_user_id: atendente.id,
       sector_id: setorDetectado,
+      routing_stage: 'COMPLETED',
       pre_atendimento_state: 'COMPLETED',
       pre_atendimento_ativo: false,
       pre_atendimento_completed_at: new Date().toISOString(),
