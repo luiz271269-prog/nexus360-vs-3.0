@@ -399,39 +399,20 @@ Deno.serve(async (req) => {
         });
         result.actions.push('pre_atendimento_fallback');
         return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, fallback: 'ura_menu' });
-        
-        result.actions.push('skill_autonoma_acionada');
-        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, handled_by: 'skill_autonoma' });
-        
       } catch (e) {
-        console.error(`[${VERSION}] ❌ Skill autônoma falhou:`, e.message);
-        result.actions.push('skill_autonoma_falhou');
-        
-        // Fallback: pré-atendimento clássico com menu
-        console.log(`[${VERSION}] ⏸️ Fallback: acionando pré-atendimento menu`);
-        try {
-          await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
-            thread_id: thread.id,
-            contact_id: contact.id,
-            whatsapp_integration_id: thread.whatsapp_integration_id,
-            user_input: { type: 'system', content: '' }
-          });
-          result.actions.push('pre_atendimento_fallback');
-        } catch (uraErr) {
-          console.error(`[${VERSION}] ❌ Pré-atendimento também falhou:`, uraErr.message);
-          // Última opção: enfileirar
-          await base44.asServiceRole.entities.WorkQueueItem.create({
-            contact_id: contact.id,
-            thread_id: thread.id,
-            tipo: 'manual',
-            reason: 'ambas_habilidades_falharam',
-            severity: 'high',
-            status: 'open',
-            notes: `Skill + pré-atendimento falharam. Mensagem: "${messageContent}"`
-          }).catch(() => {});
-        }
-        
-        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, fallback: 'triggered' });
+        console.error(`[${VERSION}] ❌ Orquestrador falhou: ${e.message}`);
+        result.actions.push('orquestrador_critico_erro');
+        // Enfileirar como fallback final
+        await base44.asServiceRole.entities.WorkQueueItem.create({
+          contact_id: contact.id,
+          thread_id: thread.id,
+          tipo: 'manual',
+          reason: 'orquestrador_falhou',
+          severity: 'high',
+          status: 'open',
+          notes: `Orquestrador crítico erro: ${e.message}`
+        }).catch(() => {});
+        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, fallback: 'enfileirado' });
       }
     } else if (isHumanDormant) {
       // ════════════════════════════════════════════════════════════════
