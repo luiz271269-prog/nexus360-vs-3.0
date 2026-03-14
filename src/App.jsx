@@ -47,32 +47,33 @@ const AuthenticatedApp = () => {
     <>
       <NavigationTracker />
       <Routes>
-      <Route path="/" element={
-        <LayoutWrapper currentPageName={mainPageKey}>
-          <MainPage />
-        </LayoutWrapper>
-      } />
-      {Object.entries(Pages).map(([path, Page]) => (
-        <Route
-          key={path}
-          path={`/${path}`}
-          element={
-            <LayoutWrapper currentPageName={path}>
-              <Page />
-            </LayoutWrapper>
-          }
-        />
-      ))}
-      <Route 
-        path="/SuperAgente" 
-        element={
-          <LayoutWrapper currentPageName="SuperAgente">
-            <SuperAgente />
+        <Route path="/" element={
+          <LayoutWrapper currentPageName={mainPageKey}>
+            <MainPage />
           </LayoutWrapper>
-        } 
-      />
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
+        } />
+        {Object.entries(Pages).map(([path, Page]) => (
+          <Route
+            key={path}
+            path={`/${path}`}
+            element={
+              <LayoutWrapper currentPageName={path}>
+                <Page />
+              </LayoutWrapper>
+            }
+          />
+        ))}
+        <Route 
+          path="/SuperAgente" 
+          element={
+            <LayoutWrapper currentPageName="SuperAgente">
+              <SuperAgente />
+            </LayoutWrapper>
+          } 
+        />
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    </>
   );
 };
 
