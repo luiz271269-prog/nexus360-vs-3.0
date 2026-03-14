@@ -11,24 +11,57 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 const SETOR_MAP = {
-  'vendas': ['venda', 'comprar', 'orçamento', 'preço', 'cotação', 'produto', 'pc', 'notebook', 'gamer'],
-  'assistencia': ['suporte', 'problema', 'defeito', 'conserto', 'não funciona', 'garantia', 'assistência'],
-  'financeiro': ['boleto', 'pagamento', 'fatura', 'parcela', 'financeiro', 'cobrança'],
-  'fornecedor': ['fornecedor', 'compras', 'parceria', 'distribuidor']
+  'vendas': ['venda', 'comprar', 'orçamento', 'preço', 'cotação', 'produto', 'pc', 'notebook', 'gamer', 'quanto custa', 'valor'],
+  'assistencia': ['suporte', 'problema', 'defeito', 'conserto', 'não funciona', 'garantia', 'assistência', 'quebrou', 'ajuda'],
+  'financeiro': ['boleto', 'pagamento', 'fatura', 'parcela', 'financeiro', 'cobrança', 'vencimento', 'pagar'],
+  'fornecedor': ['fornecedor', 'compras', 'parceria', 'distribuidor', 'fornecer', 'nota fiscal']
 };
 
-function detectarSetorPorIntencao(mensagem) {
+const TIPO_CONTATO_MAP = {
+  'cliente': ['já comprei', 'sou cliente', 'comprei', 'pedido anterior', 'última compra', 'meu pedido'],
+  'fornecedor': ['fornecedor', 'fornecer', 'vender para vocês', 'representante', 'distribuidora', 'sou fornecedor'],
+  'parceiro': ['parceria', 'representar', 'revenda', 'distribuir', 'parceiro comercial'],
+  'lead': ['interesse', 'gostaria', 'quero saber', 'informação', 'como funciona', 'preciso']
+};
+
+function detectarSetorPorIntencao(mensagem, tipoContato = 'novo') {
   const texto = mensagem.toLowerCase().trim();
   
-  // Match exato de palavras-chave
-  for (const [setor, palavras] of Object.entries(SETOR_MAP)) {
-    if (palavras.some(p => texto.includes(p))) {
-      return setor;
-    }
+  // Fornecedores → setor fixo
+  if (tipoContato === 'fornecedor') return 'fornecedor';
+  
+  // Parceiros → vendas (negociação)
+  if (tipoContato === 'parceiro') return 'vendas';
+  
+  // Clientes existentes → análise contextual
+  if (tipoContato === 'cliente') {
+    // Problema/defeito → assistência
+    if (SETOR_MAP.assistencia.some(kw => texto.includes(kw))) return 'assistencia';
+    // Pagamento → financeiro
+    if (SETOR_MAP.financeiro.some(kw => texto.includes(kw))) return 'financeiro';
+    // Default cliente → vendas (nova compra)
+    return 'vendas';
   }
   
-  // Fallback: vendas (maioria dos leads)
-  return 'vendas';
+  // Novos/Leads → detecção por keywords
+  for (const [setor, palavras] of Object.entries(SETOR_MAP)) {
+    if (palavras.some(p => texto.includes(p))) return setor;
+  }
+  
+  return 'vendas'; // Default
+}
+
+function detectarTipoContato(mensagem, tipoAtual) {
+  // Se já classificado e não é 'novo', manter
+  if (tipoAtual && tipoAtual !== 'novo') return tipoAtual;
+  
+  const texto = mensagem.toLowerCase().trim();
+  
+  for (const [tipo, palavras] of Object.entries(TIPO_CONTATO_MAP)) {
+    if (palavras.some(kw => texto.includes(kw))) return tipo;
+  }
+  
+  return 'lead'; // Default: tratar como lead
 }
 
 async function buscarAtendenteDisponivel(base44, setor) {
@@ -195,15 +228,24 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false)
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // STEP 3: Identificar intenção do contato
+    // STEP 3: Identificar tipo de contato + setor
     // ══════════════════════════════════════════════════════════════════
     const textoCompleto = mensagens
       .map(m => m.content)
       .filter(Boolean)
       .join(' ');
 
-    const setorDetectado = detectarSetorPorIntencao(textoCompleto);
-    console.log(`[SKILL-PRIMEIRO-CONTATO] 🎯 Setor detectado: ${setorDetectado} (texto: "${textoCompleto.substring(0, 50)}")`);
+    const tipoContatoAtualizado = detectarTipoContato(textoCompleto, contact.tipo_contato);
+    const setorDetectado = detectarSetorPorIntencao(textoCompleto, tipoContatoAtualizado);
+    
+    console.log(`[SKILL-PRIMEIRO-CONTATO] 🎯 Tipo: ${tipoContatoAtualizado} | Setor: ${setorDetectado}`);
+
+    // Atualizar tipo se mudou
+    if (tipoContatoAtualizado !== contact.tipo_contato) {
+      await base44.asServiceRole.entities.Contact.update(contact.id, {
+        tipo_contato: tipoContatoAtualizado
+      });
+    }
 
     // ══════════════════════════════════════════════════════════════════
     // STEP 4: Buscar atendente disponível
@@ -259,17 +301,25 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false)
     try {
       const prompt = `Você é o atendente ${atendente.full_name || 'da equipe'} de ${setorDetectado}.
 
-Cliente novo "${contact.nome}" enviou:
-"${textoCompleto}"
+TIPO DE CONTATO: ${tipoContatoAtualizado}
+Cliente: ${contact.nome}
+Mensagem: "${textoCompleto}"
 
-Gere uma mensagem de boas-vindas CURTA (máximo 2 linhas) e profissional que:
-1. Cumprimente pelo nome
-2. Mostre que entendeu o pedido
-3. Ofereça ajuda
+Gere boas-vindas ESPECÍFICAS para o tipo:
 
-Exemplo: "Olá Kauã! Vi que você quer montar um PC gamer. Vou te ajudar a encontrar as melhores opções! 🎮"
+NOVO/LEAD → Saudação calorosa + validar interesse + oferecer ajuda
+  Ex: "Olá João! Vi que você quer montar um PC gamer. Vou te ajudar a encontrar as melhores opções! 🎮"
 
-NÃO use emojis em excesso. Tom: profissional mas amigável.`;
+CLIENTE → Reconhecer relacionamento + agradecer preferência + resolver demanda
+  Ex: "Olá Maria! Que bom ter você de volta. Vou te ajudar com [assunto] agora mesmo!"
+
+FORNECEDOR → Tom profissional + agradecer contato + processo de fornecimento
+  Ex: "Olá! Obrigado pelo contato. Vou direcionar sua solicitação para nossa equipe de compras."
+
+PARCEIRO → Tom colaborativo + valorizar parceria + abrir conversa comercial
+  Ex: "Olá Pedro! Ótimo ter você aqui. Vamos conversar sobre a parceria!"
+
+Regras: máximo 2 linhas, máximo 1 emoji, tom profissional mas humano.`;
 
       const resposta = await base44.asServiceRole.integrations.Core.InvokeLLM({
         prompt,
@@ -279,7 +329,22 @@ NÃO use emojis em excesso. Tom: profissional mas amigável.`;
       mensagemBoasVindas = typeof resposta === 'string' ? resposta : resposta?.text || null;
     } catch (e) {
       console.warn('[SKILL-PRIMEIRO-CONTATO] ⚠️ IA falhou, usando fallback:', e.message);
-      mensagemBoasVindas = `Olá ${contact.nome}! Obrigado pelo contato. Vou te atender agora! 😊`;
+      
+      // Fallback contextualizado
+      const primeiroNome = contact.nome?.split(' ')[0] || '';
+      switch(tipoContatoAtualizado) {
+        case 'cliente':
+          mensagemBoasVindas = `Olá${primeiroNome ? ' ' + primeiroNome : ''}! Que bom ter você de volta. Como posso ajudar? 😊`;
+          break;
+        case 'fornecedor':
+          mensagemBoasVindas = `Olá! Obrigado pelo contato. Vou direcionar para nossa equipe de compras.`;
+          break;
+        case 'parceiro':
+          mensagemBoasVindas = `Olá${primeiroNome ? ' ' + primeiroNome : ''}! Ótimo ter você aqui. Vamos conversar!`;
+          break;
+        default:
+          mensagemBoasVindas = `Olá${primeiroNome ? ' ' + primeiroNome : ''}! Seja bem-vindo(a). Estou aqui para te ajudar! 😊`;
+      }
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -332,22 +397,30 @@ NÃO use emojis em excesso. Tom: profissional mas amigável.`;
     // ══════════════════════════════════════════════════════════════════
     await base44.asServiceRole.entities.SkillExecution.create({
       skill_name: 'primeiro_contato_autonomo',
-      triggered_by: 'menu_falhou',
+      triggered_by: 'inbound_automatico',
       execution_mode: 'autonomous_safe',
       context: {
         thread_id: thread.id,
         contact_id: contact.id,
+        tipo_contato: tipoContatoAtualizado,
         setor_detectado: setorDetectado,
         atendente_atribuido: atendente.id,
         mensagem_enviada: !!mensagemBoasVindas
       },
       success: true,
-      duration_ms: Date.now() - tsInicio
+      duration_ms: Date.now() - tsInicio,
+      metricas: {
+        tipo_detectado: tipoContatoAtualizado !== contact.tipo_contato,
+        setor_correto: setorDetectado,
+        atendente_disponivel: true,
+        mensagem_personalizada: true
+      }
     }).catch(() => {});
 
   return {
     success: true,
     action: 'primeiro_contato_completado',
+    tipo_contato: tipoContatoAtualizado,
     setor_detectado: setorDetectado,
     atendente_atribuido: atendente.full_name,
     mensagem_enviada: mensagemBoasVindas
