@@ -71,19 +71,84 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { thread_id, contact_id, force_retry } = await req.json();
+    const payload = await req.json().catch(() => ({}));
+    const { thread_id, contact_id, force_retry, batch_mode } = payload;
 
+    // ══════════════════════════════════════════════════════════════════
+    // MODO BATCH: Processar todas as threads travadas
+    // ══════════════════════════════════════════════════════════════════
+    if (batch_mode) {
+      const threadsTravadas = await base44.asServiceRole.entities.MessageThread.filter({
+        thread_type: 'contact_external',
+        assigned_user_id: { $exists: false },
+        pre_atendimento_state: { $in: ['WAITING_SECTOR_CHOICE', 'WAITING_QUEUE_DECISION', 'TIMEOUT'] },
+        status: 'aberta'
+      }, '-last_message_at', 20);
+
+      const resultados = {
+        processadas: 0,
+        resgatadas: 0,
+        enfileiradas: 0,
+        erros: 0
+      };
+
+      for (const thread of threadsTravadas) {
+        try {
+          const resultado = await processarThread(base44, thread.id, tsInicio);
+          resultados.processadas++;
+          if (resultado.action === 'primeiro_contato_completado') resultados.resgatadas++;
+          if (resultado.action === 'enfileirado') resultados.enfileiradas++;
+        } catch (err) {
+          console.error(`[SKILL-BATCH] Erro thread ${thread.id}:`, err.message);
+          resultados.erros++;
+        }
+      }
+
+      return Response.json({
+        success: true,
+        batch_mode: true,
+        resultados
+      }, { headers });
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // MODO INDIVIDUAL: Processar thread específica
+    // ══════════════════════════════════════════════════════════════════
     if (!thread_id) {
       return Response.json(
-        { success: false, error: 'thread_id obrigatório' },
+        { success: false, error: 'thread_id obrigatório (ou use batch_mode: true)' },
         { status: 400, headers }
       );
     }
 
-    // ══════════════════════════════════════════════════════════════════
-    // STEP 1: Validar se precisa de resgate
-    // ══════════════════════════════════════════════════════════════════
-    const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+    const resultado = await processarThread(base44, thread_id, tsInicio, force_retry);
+    return Response.json(resultado, { headers });
+
+  } catch (error) {
+    console.error('[SKILL-PRIMEIRO-CONTATO] ❌ Erro:', error.message);
+
+    const base44 = createClientFromRequest(req);
+    await base44.asServiceRole.entities.SkillExecution.create({
+      skill_name: 'primeiro_contato_autonomo',
+      triggered_by: 'menu_falhou',
+      execution_mode: 'autonomous_safe',
+      success: false,
+      error_message: error.message,
+      duration_ms: Date.now() - tsInicio
+    }).catch(() => {});
+
+    return Response.json({
+      success: false,
+      error: error.message
+    }, { status: 500, headers });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// Função principal de processamento
+// ══════════════════════════════════════════════════════════════════════
+async function processarThread(base44, thread_id, tsInicio, force_retry = false) {
+  const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
 
     // Só atua em threads SEM atendente ou em estado de pré-atendimento travado
     const precisaResgate = 
@@ -273,30 +338,11 @@ NÃO use emojis em excesso. Tom: profissional mas amigável.`;
       duration_ms: Date.now() - tsInicio
     }).catch(() => {});
 
-    return Response.json({
-      success: true,
-      action: 'primeiro_contato_completado',
-      setor_detectado: setorDetectado,
-      atendente_atribuido: atendente.full_name,
-      mensagem_enviada: mensagemBoasVindas
-    }, { headers });
-
-  } catch (error) {
-    console.error('[SKILL-PRIMEIRO-CONTATO] ❌ Erro:', error.message);
-
-    const base44 = createClientFromRequest(req);
-    await base44.asServiceRole.entities.SkillExecution.create({
-      skill_name: 'primeiro_contato_autonomo',
-      triggered_by: 'menu_falhou',
-      execution_mode: 'autonomous_safe',
-      success: false,
-      error_message: error.message,
-      duration_ms: Date.now() - tsInicio
-    }).catch(() => {});
-
-    return Response.json({
-      success: false,
-      error: error.message
-    }, { status: 500, headers });
-  }
-});
+  return {
+    success: true,
+    action: 'primeiro_contato_completado',
+    setor_detectado: setorDetectado,
+    atendente_atribuido: atendente.full_name,
+    mensagem_enviada: mensagemBoasVindas
+  };
+}
