@@ -279,14 +279,37 @@ Deno.serve(async (req) => {
              try {
                // Buscar thread de setor do usuário (mais limpo que 1:1)
                const usuarioAtribuido = await base44.asServiceRole.entities.User.get(thread.assigned_user_id).catch(() => null);
-               const setorUsuario = usuarioAtribuido?.attendant_sector || 'geral';
+               
+               if (!usuarioAtribuido) {
+                 console.warn(`[NEXUS-AGENT v3.2] ⚠️ Usuário ${thread.assigned_user_id} não encontrado — pulando alerta`);
+                 acaoExecutada = 'ignorado_usuario_invalido';
+                 continue;
+               }
 
+               const setorUsuario = usuarioAtribuido.attendant_sector || 'geral';
+
+               let internalThread = null;
                const sectorThreads = await base44.asServiceRole.entities.MessageThread.filter({
                  thread_type: 'sector_group',
                  sector_key: `sector:${setorUsuario}`
                }, '-created_date', 1).catch(() => []);
 
-               const internalThread = sectorThreads.length > 0 ? sectorThreads[0] : null;
+               if (sectorThreads.length > 0) {
+                 internalThread = sectorThreads[0];
+               } else {
+                 // 🛡️ CRIAR thread de setor via função validada (evita service_* orphans)
+                 console.log(`[NEXUS-AGENT v3.2] 🆕 Thread de setor ${setorUsuario} não existe — criando via getOrCreateSectorThread`);
+                 try {
+                   const resultado = await base44.asServiceRole.functions.invoke('getOrCreateSectorThread', { 
+                     sector_name: setorUsuario 
+                   });
+                   internalThread = resultado?.data?.thread || resultado?.thread || null;
+                 } catch (createErr) {
+                   console.error(`[NEXUS-AGENT v3.2] ❌ Erro ao criar thread de setor: ${createErr.message}`);
+                   acaoExecutada = 'erro_criar_thread_setor';
+                   continue;
+                 }
+               }
 
                if (internalThread?.id) {
                 const duasHorasAtras = new Date(agora.getTime() - 2 * 60 * 60 * 1000);
