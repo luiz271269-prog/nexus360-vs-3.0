@@ -241,11 +241,27 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false)
     let analiseIA = null;
     let metodoDeteccao = 'keywords';
     
-    // Tentar análise via LLM primeiro
-    try {
-      const respLLM = await base44.asServiceRole.integrations.Core.InvokeLLM({
-        model: 'gemini_3_flash',
-        prompt: `Analise a mensagem do cliente e classifique:
+    // STEP 1: Pattern Matcher primeiro (sem LLM)
+    const { detectarPorPattern, normalizarTexto } = require('./lib/intencaoPatternMatcher');
+    const resultadoPattern = detectarPorPattern(textoCompleto);
+    
+    if (resultadoPattern) {
+      analiseIA = {
+        setor: resultadoPattern.setor,
+        confidence: resultadoPattern.confidence,
+        intencao: resultadoPattern.pattern,
+        tipo_contato: contact.tipo_contato || 'novo'
+      };
+      metodoDeteccao = 'pattern_match';
+      console.log(`[SKILL-PRIMEIRO-CONTATO] 🎯 Pattern Match: ${analiseIA.setor} (${(analiseIA.confidence * 100).toFixed(0)}%)`);
+    }
+    
+    // STEP 2: LLM só se pattern não detectou (condição de confiança)
+    if (!analiseIA || analiseIA.confidence < 0.75) {
+      try {
+        const respLLM = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          model: 'gemini_3_flash',
+          prompt: `Analise a mensagem do cliente e classifique:
 
 MENSAGEM: "${textoCompleto}"
 TIPO ATUAL: ${contact.tipo_contato || 'novo'}
@@ -261,22 +277,31 @@ Regras:
 - Cliente com problema → "assistencia"
 - Cliente com boleto → "financeiro"
 - Lead novo → "vendas"`,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            intencao: { type: 'string' },
-            setor: { type: 'string' },
-            tipo_contato: { type: 'string' },
-            confidence: { type: 'number' }
+          response_json_schema: {
+            type: 'object',
+            properties: {
+              intencao: { type: 'string' },
+              setor: { type: 'string' },
+              tipo_contato: { type: 'string' },
+              confidence: { type: 'number' }
+            }
           }
-        }
-      });
-      
-      analiseIA = respLLM;
-      metodoDeteccao = 'llm';
-      console.log(`[SKILL-PRIMEIRO-CONTATO] 🧠 LLM: ${analiseIA.setor} (${(analiseIA.confidence * 100).toFixed(0)}%)`);
-    } catch (e) {
-      console.warn('[SKILL-PRIMEIRO-CONTATO] ⚠️ LLM falhou, usando keywords:', e.message);
+        });
+        
+        analiseIA = respLLM;
+        metodoDeteccao = 'llm';
+        console.log(`[SKILL-PRIMEIRO-CONTATO] 🧠 LLM: ${analiseIA.setor} (${(analiseIA.confidence * 100).toFixed(0)}%)`);
+      } catch (e) {
+        console.warn('[SKILL-PRIMEIRO-CONTATO] ⚠️ LLM falhou, usando padrão seguro:', e.message);
+        // Fallback conservador
+        analiseIA = {
+          setor: 'vendas',
+          confidence: 0.5,
+          intencao: 'fallback_desconhecido',
+          tipo_contato: contact.tipo_contato || 'novo'
+        };
+        metodoDeteccao = 'fallback';
+      }
     }
 
     // Fallback para keywords se LLM falhou
