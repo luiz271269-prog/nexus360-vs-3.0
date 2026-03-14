@@ -128,10 +128,10 @@ Deno.serve(async (req) => {
       }, '-created_date', 1).catch(() => []);
 
       if (!jaofereceu || jaofereceu.length === 0) {
-        const msgAlternativa = `📞 Se ficar muito tempo, posso agendar uma ligação para você no horário que quiser. Quer?`;
+        const msgAlternativa = `Se ficar muito tempo, posso agendar uma ligacao para voce. Quer?`;
         if (await enviarMsgQueWpp(base44, thread, msgAlternativa)) {
           resultados.alternativas_oferecidas++;
-          console.log(`[SLA] ✅ Alternativa oferecida para thread ${thread.id}`);
+          console.log(`[SLA] Alternativa oferecida para thread ${thread.id}`);
         }
       }
     }
