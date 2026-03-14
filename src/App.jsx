@@ -81,7 +81,6 @@ function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <Router>
-          <NavigationTracker />
           <AuthenticatedApp />
         </Router>
         <Toaster />
@@ -90,5 +89,19 @@ function App() {
     </AuthProvider>
   )
 }
+
+// NavigationTracker moved inside AuthenticatedApp to use useAuth
+const AppWithNavigation = () => (
+  <AuthProvider>
+    <QueryClientProvider client={queryClientInstance}>
+      <Router>
+        <NavigationTracker />
+        <AuthenticatedApp />
+      </Router>
+      <Toaster />
+      <VisualEditAgent />
+    </QueryClientProvider>
+  </AuthProvider>
+)
 
 export default App
