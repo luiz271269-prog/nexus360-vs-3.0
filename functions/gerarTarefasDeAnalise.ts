@@ -45,15 +45,22 @@ Deno.serve(async (req) => {
       erros: 0
     };
 
-    // 1️⃣ Buscar análises CRITICO/ALTO com next_best_action
+    // 1️⃣ Buscar análises CRITICO/ALTO com next_best_action (limite reduzido para 5)
     const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter({
       priority_label: { $in: ['CRITICO', 'ALTO'] },
       contact_id: { $exists: true }
-    }, '-analyzed_at', 100).catch(() => []);
+    }, '-analyzed_at', 5).catch(() => []);
 
     console.log(`[gerarTarefasDeAnalise] 📊 ${analises.length} análises CRITICO/ALTO encontradas`);
 
+    const TIMEOUT_MS = 25000; // 25 segundos
     for (const analise of analises) {
+      // Guard de timeout
+      if (Date.now() - tsInicio > TIMEOUT_MS) {
+        console.warn(`[gerarTarefas] ⏱️ Timeout de ${TIMEOUT_MS}ms atingido — abortando loop`);
+        break;
+      }
+
       try {
         resultado.analises_processadas++;
 
@@ -162,6 +169,21 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('[gerarTarefas] ❌ Erro geral:', error.message);
+    
+    // Registrar erro no SkillExecution
+    try {
+      await base44.asServiceRole.entities.SkillExecution.create({
+        skill_name: 'gerar_tarefas_de_analise',
+        triggered_by: 'automacao_agendada',
+        execution_mode: 'autonomous_safe',
+        success: false,
+        duration_ms: Date.now() - tsInicio,
+        error_message: error.message
+      }).catch(() => {});
+    } catch (e) {
+      console.warn('[gerarTarefas] SkillExecution de erro falhou:', e.message);
+    }
+    
     return Response.json(
       { success: false, error: error.message },
       { status: 500, headers: corsHeaders }
