@@ -270,6 +270,7 @@ export class FluxoController {
   static async atualizarEstado(base44, threadId, novoEstado, setorId = undefined) {
       const updateData = {
           pre_atendimento_state: novoEstado,
+          pre_atendimento_ativo: true,
           pre_atendimento_last_interaction: new Date().toISOString(),
           pre_atendimento_timeout_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() 
       };

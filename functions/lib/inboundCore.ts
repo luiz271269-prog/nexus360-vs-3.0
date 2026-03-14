@@ -420,18 +420,8 @@ export async function processInboundEvent(params) {
   }
   // 3. O CASO CRÍTICO: Humano existe mas está em silêncio (>2h)
   else if (isHumanDormant) {
-      console.log('[CORE] 🧠 Humano ausente. Analisando se devo intervir...');
-      
-      // Heurística rápida: Mensagens curtas sem pergunta ("ok", "tá", "valeu")
-      // geralmente não exigem que o robô acorde.
-      if (userInput.content.length < 5 && !userInput.content.includes('?')) {
-           console.log('[CORE] 🤫 Mensagem curta/passiva. Mantendo silêncio.');
-           shouldDispatch = false;
-      } else {
-           // Mensagem complexa: O cliente quer atenção. Robô assume.
-           console.log('[CORE] 🔔 Cliente demandando atenção com humano ausente. URA assume.');
-           shouldDispatch = true; 
-      }
+      console.log('[CORE] 🔔 Humano ausente. URA assume.');
+      shouldDispatch = true;
   }
   // 4. Sem humano e sem URA (limbo) -> Chama URA
   else if (!thread.assigned_user_id) {
