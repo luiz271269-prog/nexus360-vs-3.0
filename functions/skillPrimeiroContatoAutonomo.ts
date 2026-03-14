@@ -61,10 +61,17 @@ Deno.serve(async (req) => {
 
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+    
+    // Permitir chamada sem autenticação para automação agendada
+    let user = null;
+    try {
+      user = await base44.auth.me();
+    } catch (e) {
+      console.log('[SKILL-PRIMEIRO-CONTATO] Executando em modo automação (sem user auth)');
+    }
 
-    // Admin-only (automação ou comando manual)
-    if (user?.role !== 'admin') {
+    // Admin-only OU automação
+    if (user && user.role !== 'admin') {
       return Response.json(
         { success: false, error: 'Forbidden: Admin access required' },
         { status: 403, headers }
