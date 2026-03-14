@@ -203,7 +203,7 @@ async function distribuirPorCarga(base44, thread, contact, atendentes, origem) {
     const segmentWeights = { 'A': 3, 'B': 2, 'C': 1 };
     const segmentWeight = segmentWeights[contact.client_segment] || 1;
 
-    // Calcular score ponderado para cada atendente
+    // Calcular score ponderado MULTI-CRITÉRIO para cada atendente
     const scoresAtendentes = atendentes.map(atendente => {
       const cargaAtual = atendente.current_conversations_count || 0;
       const capacidadeMax = atendente.max_concurrent_conversations || 5;
@@ -213,15 +213,42 @@ async function distribuirPorCarga(base44, thread, contact, atendentes, origem) {
         return { atendente, score: Infinity };
       }
 
-      // Score ponderado: carga atual × peso do segmento
-      // Quanto MENOR o score, melhor (menos carga)
-      const score = cargaAtual * segmentWeight;
+      // ══════════════════════════════════════════════════════════════
+      // SCORE MULTI-CRITÉRIO (baseado no estudo)
+      // ══════════════════════════════════════════════════════════════
+      
+      // 1. Carga atual (40% do peso) — quanto menos conversas, melhor
+      const scoreCarga = (1 / (cargaAtual + 1)) * 0.4;
+      
+      // 2. Tempo desde último atendimento (20% do peso) — distribuir equitativamente
+      const minutosDesdeUltimo = atendente.last_assignment_at 
+        ? (Date.now() - new Date(atendente.last_assignment_at).getTime()) / 60000 
+        : 999; // Se nunca atendeu, prioriza
+      const scoreTempoNormalizado = Math.min(minutosDesdeUltimo / 30, 1.0) * 0.2; // 0-30min → 0.0-0.2
+      
+      // 3. Disponibilidade (20% do peso)
+      const scoreDisponibilidade = atendente.availability_status === 'online' ? 0.2 : 0.0;
+      
+      // 4. Prioridade do cliente (20% do peso) — cliente_score do contato
+      const clienteScore = contact.cliente_score || contact.score_engajamento || 0;
+      const scorePrioridadeCliente = (clienteScore / 100) * 0.2;
+      
+      // Score final (quanto MAIOR, melhor)
+      const scoreFinal = scoreCarga + scoreTempoNormalizado + scoreDisponibilidade + scorePrioridadeCliente;
 
-      return { atendente, score, cargaAtual, capacidadeMax };
+      return { 
+        atendente, 
+        score: scoreFinal, 
+        cargaAtual, 
+        capacidadeMax,
+        minutosDesdeUltimo,
+        clienteScore,
+        breakdown: { scoreCarga, scoreTempoNormalizado, scoreDisponibilidade, scorePrioridadeCliente }
+      };
     });
 
-    // Ordenar por menor score (menos carga ponderada)
-    scoresAtendentes.sort((a, b) => a.score - b.score);
+    // Ordenar por MAIOR score (melhor balanceamento)
+    scoresAtendentes.sort((a, b) => b.score - a.score);
 
     const melhorAtendente = scoresAtendentes[0];
 
@@ -250,12 +277,13 @@ async function distribuirPorCarga(base44, thread, contact, atendentes, origem) {
       mode: 'copilot'
     }).catch(e => console.warn('[ROTEAMENTO] Briefing falhou (não afeta atribuição):', e.message));
 
-    // Atualizar contagem do atendente
+    // Atualizar contagem + timestamp do atendente
     await base44.asServiceRole.entities.User.update(melhorAtendente.atendente.id, {
-      current_conversations_count: melhorAtendente.cargaAtual + 1
+      current_conversations_count: melhorAtendente.cargaAtual + 1,
+      last_assignment_at: new Date().toISOString()
     });
 
-    // Log de automação
+    // Log de automação com breakdown completo
     await base44.asServiceRole.entities.AutomationLog.create({
       acao: 'roteamento_distribuido',
       thread_id: thread.id,
@@ -265,10 +293,13 @@ async function distribuirPorCarga(base44, thread, contact, atendentes, origem) {
         atendente_id: melhorAtendente.atendente.id,
         atendente_nome: melhorAtendente.atendente.full_name,
         origem,
-        score_calculado: melhorAtendente.score,
+        score_final: melhorAtendente.score,
+        score_breakdown: melhorAtendente.breakdown,
         carga_antes: melhorAtendente.cargaAtual,
         carga_depois: melhorAtendente.cargaAtual + 1,
         capacidade_max: melhorAtendente.capacidadeMax,
+        minutos_desde_ultimo: melhorAtendente.minutosDesdeUltimo,
+        cliente_score: melhorAtendente.clienteScore,
         segment_weight: segmentWeight,
         total_candidatos: atendentes.length
       }

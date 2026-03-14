@@ -228,17 +228,62 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false)
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // STEP 3: Identificar tipo de contato + setor
+    // STEP 3: Análise de intenção com LLM + confidence score
     // ══════════════════════════════════════════════════════════════════
     const textoCompleto = mensagens
       .map(m => m.content)
       .filter(Boolean)
       .join(' ');
 
-    const tipoContatoAtualizado = detectarTipoContato(textoCompleto, contact.tipo_contato);
-    const setorDetectado = detectarSetorPorIntencao(textoCompleto, tipoContatoAtualizado);
+    const tsAnalise = Date.now();
+    let analiseIA = null;
+    let metodoDeteccao = 'keywords';
     
-    console.log(`[SKILL-PRIMEIRO-CONTATO] 🎯 Tipo: ${tipoContatoAtualizado} | Setor: ${setorDetectado}`);
+    // Tentar análise via LLM primeiro
+    try {
+      const respLLM = await base44.asServiceRole.integrations.Core.InvokeLLM({
+        model: 'gemini_3_flash',
+        prompt: `Analise a mensagem do cliente e classifique:
+
+MENSAGEM: "${textoCompleto}"
+TIPO ATUAL: ${contact.tipo_contato || 'novo'}
+
+Retorne JSON estruturado com:
+- intencao: descrição curta da intenção (ex: "compra_pc_gamer", "suporte_defeito")
+- setor: "vendas" | "assistencia" | "financeiro" | "fornecedor"
+- tipo_contato: "lead" | "cliente" | "fornecedor" | "parceiro"
+- confidence: 0.0 a 1.0 (confiança da classificação)
+
+Regras:
+- Fornecedor → setor sempre "fornecedor"
+- Cliente com problema → "assistencia"
+- Cliente com boleto → "financeiro"
+- Lead novo → "vendas"`,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            intencao: { type: 'string' },
+            setor: { type: 'string' },
+            tipo_contato: { type: 'string' },
+            confidence: { type: 'number' }
+          }
+        }
+      });
+      
+      analiseIA = respLLM;
+      metodoDeteccao = 'llm';
+      console.log(`[SKILL-PRIMEIRO-CONTATO] 🧠 LLM: ${analiseIA.setor} (${(analiseIA.confidence * 100).toFixed(0)}%)`);
+    } catch (e) {
+      console.warn('[SKILL-PRIMEIRO-CONTATO] ⚠️ LLM falhou, usando keywords:', e.message);
+    }
+
+    // Fallback para keywords se LLM falhou
+    const tipoContatoAtualizado = analiseIA?.tipo_contato || detectarTipoContato(textoCompleto, contact.tipo_contato);
+    const setorDetectado = analiseIA?.setor || detectarSetorPorIntencao(textoCompleto, tipoContatoAtualizado);
+    const confidence = analiseIA?.confidence || 0.8; // Keywords = 80% confiança
+    const intencaoDetectada = analiseIA?.intencao || 'intent_keywords';
+    
+    console.log(`[SKILL-PRIMEIRO-CONTATO] 🎯 Tipo: ${tipoContatoAtualizado} | Setor: ${setorDetectado} | Conf: ${(confidence * 100).toFixed(0)}%`);
 
     // Atualizar tipo se mudou
     if (tipoContatoAtualizado !== contact.tipo_contato) {
@@ -393,8 +438,34 @@ Regras: máximo 2 linhas, máximo 1 emoji, tom profissional mas humano.`;
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // STEP 8: Registrar execução
+    // STEP 8: Registrar IntentDetection + SkillExecution
     // ══════════════════════════════════════════════════════════════════
+    
+    // Carregar threshold configurável
+    let thresholdConfig = 0.60;
+    try {
+      const configs = await base44.asServiceRole.entities.ConfiguracaoSistema.filter({ chave: 'ai_router_confidence_threshold' }, 'chave', 1);
+      if (configs.length > 0) {
+        thresholdConfig = configs[0].valor?.value || 0.60;
+      }
+    } catch (e) {}
+    
+    // Registrar análise de intenção
+    await base44.asServiceRole.entities.IntentDetection.create({
+      thread_id: thread.id,
+      contact_id: contact.id,
+      mensagem_analisada: textoCompleto,
+      intencao_detectada: intencaoDetectada,
+      setor_detectado: setorDetectado,
+      tipo_contato_detectado: tipoContatoAtualizado,
+      confidence: confidence,
+      modelo_usado: metodoDeteccao === 'llm' ? 'gemini_3_flash' : 'keywords',
+      metodo_deteccao: metodoDeteccao,
+      threshold_aplicado: thresholdConfig,
+      resultado_roteamento: confidence >= thresholdConfig ? 'auto_roteado' : 'menu_fallback',
+      tempo_processamento_ms: Date.now() - tsAnalise
+    }).catch(() => {});
+    
     await base44.asServiceRole.entities.SkillExecution.create({
       skill_name: 'primeiro_contato_autonomo',
       triggered_by: 'inbound_automatico',
@@ -404,6 +475,8 @@ Regras: máximo 2 linhas, máximo 1 emoji, tom profissional mas humano.`;
         contact_id: contact.id,
         tipo_contato: tipoContatoAtualizado,
         setor_detectado: setorDetectado,
+        confidence: confidence,
+        metodo: metodoDeteccao,
         atendente_atribuido: atendente.id,
         mensagem_enviada: !!mensagemBoasVindas
       },
@@ -412,6 +485,8 @@ Regras: máximo 2 linhas, máximo 1 emoji, tom profissional mas humano.`;
       metricas: {
         tipo_detectado: tipoContatoAtualizado !== contact.tipo_contato,
         setor_correto: setorDetectado,
+        confidence_score: confidence,
+        metodo_deteccao: metodoDeteccao,
         atendente_disponivel: true,
         mensagem_personalizada: true
       }
