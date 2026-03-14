@@ -289,12 +289,56 @@ async function processarWAITING_SECTOR_CHOICE(base44, thread, contact, user_inpu
     return await processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, { type: 'system' }, whatsappIntegrationId);
   }
 
-  // 🆕 FIX A: Em WAITING_SECTOR_CHOICE, reenviar menu em vez de falhar
+  // 🆕 FIX A: Contador de tentativas inválidas + trigger skill autônoma
+  const tentativasInvalidas = (thread.metadata?.tentativas_invalidas || 0) + 1;
+  
+  if (tentativasInvalidas >= 2) {
+    // 🚀 Após 2 falhas, acionar skill de primeiro contato autônomo
+    console.log(`[PRE-ATENDIMENTO] 🤖 ${tentativasInvalidas} tentativas inválidas — acionando skill autônoma`);
+    
+    try {
+      await base44.asServiceRole.functions.invoke('skillPrimeiroContatoAutonomo', {
+        thread_id: thread.id,
+        contact_id: contact.id,
+        force_retry: true
+      });
+      
+      return { 
+        success: true, 
+        mode: 'rescued_by_autonomous_skill', 
+        tentativas: tentativasInvalidas 
+      };
+    } catch (skillErr) {
+      console.error('[PRE-ATENDIMENTO] ❌ Skill autônoma falhou:', skillErr.message);
+      // Fallback para enfileirar manualmente
+      await base44.asServiceRole.entities.WorkQueueItem.create({
+        contact_id: contact.id,
+        thread_id: thread.id,
+        tipo: 'manual',
+        reason: 'menu_falhou_skill_falhou',
+        severity: 'high',
+        status: 'open',
+        notes: `Primeiro contato com menu quebrado. Skill autônoma falhou. Texto: "${entrada}"`
+      });
+      
+      return { success: true, mode: 'fallback_enqueued_manual' };
+    }
+  }
+  
+  // Primeira tentativa: reenviar menu
+  await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+    metadata: { 
+      ...(thread.metadata || {}), 
+      tentativas_invalidas: tentativasInvalidas,
+      ultima_tentativa_at: new Date().toISOString()
+    }
+  });
+  
   const menuRetentiva = construirMenuBoasVindas(contact.nome);
   const invalidOk = await enviarMensagem(base44, contact, whatsappIntegrationId, "❌ Opção inválida. Digite o número ou nome do setor.\n\n" + menuRetentiva);
   if (!invalidOk) return { success: false, mode: 'invalid_option_send_failed' };
-  // ✅ Mantém estado e retorna sucesso (evita loop infinito de falhas)
-  return { success: true, mode: 'invalid_option_retry', estado_mantido: 'WAITING_SECTOR_CHOICE' };
+  
+  return { success: true, mode: 'invalid_option_retry', tentativas: tentativasInvalidas };
 }
 
 async function processarWAITING_ATTENDANT_CHOICE(base44, thread, contact, user_input, whatsappIntegrationId) {
