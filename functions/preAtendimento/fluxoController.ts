@@ -5,7 +5,7 @@
  * ╚══════════════════════════════════════════════════════════════╝
  */
 
-import { MenuBuilder } from './menuBuilder.js';
+import { MenuBuilder } from '../preAtendimento/menuBuilder.js';
 import { processTextWithEmojis } from '../lib/emojiHelper.js';
 
 export class FluxoController {

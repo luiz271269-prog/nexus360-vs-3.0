@@ -488,7 +488,7 @@ export async function processInboundEvent(params) {
 // 📤 HELPER DE ENVIO
 // =================================================================
 
-import { processTextWithEmojis, emojiDebug } from './emojiHelper.js';
+import { processTextWithEmojis, emojiDebug } from '../lib/emojiHelper.js';
 
 async function enviarMensagem(params) {
   const { base44, integration, contact, message, provider, thread } = params;
