@@ -606,6 +606,19 @@ export default function InteligenciaMetricas() {
           </Card>
         </div>
 
+        {/* Nova aba: Métricas do Jarvis */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bot className="w-5 h-5 text-cyan-600" />
+              Métricas do Jarvis - Agente Autônomo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MetricasJarvis />
+          </CardContent>
+        </Card>
+
         {/* Modais de Detalhes */}
         <ModalDetalhesMetricas
           isOpen={modalAberto === 'analises'}

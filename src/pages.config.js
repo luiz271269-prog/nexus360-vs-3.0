@@ -112,6 +112,7 @@ import Produtos from './pages/Produtos';
 import Promocoes from './pages/Promocoes';
 import RoteamentoInteligente from './pages/RoteamentoInteligente';
 import SetupWizard from './pages/SetupWizard';
+import SuperAgente from './pages/SuperAgente';
 import SystemHealth from './pages/SystemHealth';
 import TesteFluxoControlado from './pages/TesteFluxoControlado';
 import TesteOndeEstaaThread from './pages/TesteOndeEstaaThread';
@@ -196,6 +197,7 @@ export const PAGES = {
     "Promocoes": Promocoes,
     "RoteamentoInteligente": RoteamentoInteligente,
     "SetupWizard": SetupWizard,
+    "SuperAgente": SuperAgente,
     "SystemHealth": SystemHealth,
     "TesteFluxoControlado": TesteFluxoControlado,
     "TesteOndeEstaaThread": TesteOndeEstaaThread,
