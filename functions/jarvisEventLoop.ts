@@ -86,6 +86,8 @@ Deno.serve(async (req) => {
     const idleThreshold = new Date(agora.getTime() - 30 * 60 * 1000); // mínimo 30min
 
     const threadsCandidatas = await base44.asServiceRole.entities.MessageThread.filter({
+      thread_type: 'contact_external',
+      is_canonical: true,
       last_message_sender: 'contact',
       last_message_at: { $lt: idleThreshold.toISOString() },
       assigned_user_id: { $exists: true },
