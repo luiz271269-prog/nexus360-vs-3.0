@@ -314,6 +314,7 @@ Regras:
 
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         sector_id: setorDetectado,
+        routing_stage: 'ROUTED',
         pre_atendimento_state: 'WAITING_ATTENDANT_CHOICE',
         pre_atendimento_ativo: false
       });
