@@ -483,7 +483,99 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3b. Enviados >7 dias → TarefaInteligente (comportamento original mantido)
+    // 3b-EARLY. Enviados >4h <24h → WhatsApp automático ao cliente + status negociando
+    const quatroHorasAtras = new Date(agora.getTime() - 4 * 60 * 60 * 1000);
+    const vintequatroHorasAtras = new Date(agora.getTime() - 24 * 60 * 60 * 1000);
+
+    const orcamentosEnviados4h = await base44.asServiceRole.entities.Orcamento.filter({
+      status: 'enviado',
+      updated_date: { $lt: quatroHorasAtras.toISOString(), $gte: vintequatroHorasAtras.toISOString() }
+    }, '-updated_date', 10);
+
+    for (const orc of orcamentosEnviados4h) {
+      try {
+        // Buscar thread do cliente (via contact_id ou cliente_id)
+        let clienteThread = null;
+        if (orc.contact_id) {
+          const threads = await base44.asServiceRole.entities.MessageThread.filter({
+            contact_id: orc.contact_id,
+            thread_type: 'contact_external',
+            status: 'aberta'
+          }, '-last_message_at', 1).catch(() => []);
+          clienteThread = threads[0] || null;
+        }
+
+        if (clienteThread?.whatsapp_integration_id && clienteThread.contact_id) {
+          // Buscar contato para telefone
+          const contato = await base44.asServiceRole.entities.Contact.get(clienteThread.contact_id).catch(() => null);
+
+          if (contato?.telefone) {
+            const msgFollowUp = `Olá${contato.nome ? ' ' + contato.nome.split(' ')[0] : ''}! Enviei o orçamento há algumas horas. Conseguiu visualizar? Estou à disposição para esclarecer qualquer dúvida 😊`;
+
+            const respEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+              integration_id: clienteThread.whatsapp_integration_id,
+              numero_destino: contato.telefone,
+              mensagem: msgFollowUp
+            }).catch(e => ({ data: { success: false, error: e.message } }));
+
+            if (respEnvio.data?.success) {
+              // Salvar mensagem no histórico
+              await base44.asServiceRole.entities.Message.create({
+                thread_id: clienteThread.id,
+                sender_id: 'nexus_agent',
+                sender_type: 'user',
+                content: msgFollowUp,
+                channel: 'whatsapp',
+                status: 'enviada',
+                sent_at: agora.toISOString(),
+                visibility: 'public_to_customer',
+                metadata: {
+                  is_ai_response: true,
+                  ai_agent: 'jarvisEventLoop',
+                  trigger: 'orcamento_4h_sem_resposta',
+                  orcamento_id: orc.id
+                }
+              }).catch(() => {});
+
+              // Atualizar thread
+              await base44.asServiceRole.entities.MessageThread.update(clienteThread.id, {
+                last_message_at: agora.toISOString(),
+                last_outbound_at: agora.toISOString(),
+                last_message_sender: 'user',
+                last_message_content: msgFollowUp.substring(0, 100)
+              }).catch(() => {});
+
+              console.log(`[JARVIS-3B-EARLY] ✅ Follow-up enviado → ${orc.cliente_nome} (orçamento ${orc.numero_orcamento || orc.id})`);
+            }
+          }
+
+          // Atualizar status orçamento → negociando (independente do envio)
+          await base44.asServiceRole.entities.Orcamento.update(orc.id, {
+            status: 'negociando'
+          }).catch(() => {});
+
+          // Criar TarefaInteligente alta prioridade
+          await base44.asServiceRole.entities.TarefaInteligente.create({
+            titulo: `Orçamento aguardando resposta: ${orc.numero_orcamento || orc.id}`,
+            descricao: `Cliente ${orc.cliente_nome} recebeu orçamento há 4h sem retorno. Follow-up automático enviado.`,
+            tipo_tarefa: 'follow_up_orcamento_urgente',
+            prioridade: 'alta',
+            cliente_nome: orc.cliente_nome,
+            orcamento_id: orc.id,
+            vendedor_responsavel: orc.vendedor,
+            data_prazo: agora.toISOString(),
+            contexto_ia: { motivo_criacao: 'Jarvis STEP 3b-early — orçamento enviado 4h sem resposta', criado_por: 'nexus_agent' }
+          }).catch(() => {});
+
+          resultados.orcamentos_processados++;
+        }
+      } catch (err) {
+        console.error('[JARVIS-3B-EARLY] Erro:', err.message);
+        resultados.erros++;
+      }
+    }
+
+    // 3b-LATE. Enviados >7 dias → TarefaInteligente crítica (fallback se automático de 4h não funcionou)
     const orcamentosParados = await base44.asServiceRole.entities.Orcamento.filter({
       status: 'enviado',
       updated_date: { $lt: seteDiasAtras.toISOString() }
@@ -492,15 +584,15 @@ Deno.serve(async (req) => {
     for (const orc of orcamentosParados) {
       try {
         await base44.asServiceRole.entities.TarefaInteligente.create({
-          titulo: `Follow-up: Orçamento ${orc.numero_orcamento || orc.id}`,
+          titulo: `Follow-up CRÍTICO: Orçamento ${orc.numero_orcamento || orc.id}`,
           descricao: `Orçamento de R$ ${orc.valor_total?.toLocaleString('pt-BR')} parado há 7+ dias sem resposta`,
           tipo_tarefa: 'follow_up_orcamento',
-          prioridade: 'alta',
+          prioridade: 'critica',
           cliente_nome: orc.cliente_nome,
           orcamento_id: orc.id,
           vendedor_responsavel: orc.vendedor,
           data_prazo: agora.toISOString(),
-          contexto_ia: { motivo_criacao: 'NexusAgent v3.1 — orçamento parado', criado_por: 'nexus_agent' }
+          contexto_ia: { motivo_criacao: 'NexusAgent v3.1 — orçamento parado 7d', criado_por: 'nexus_agent' }
         });
         resultados.orcamentos_processados++;
       } catch (err) {
