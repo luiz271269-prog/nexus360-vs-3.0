@@ -385,8 +385,11 @@ Deno.serve(async (req) => {
         return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
       } catch (e) {
         console.error(`[${VERSION}] ❌ Pré-atendimento reativação falhou:`, e.message);
+        result.actions.push('pre_atendimento_reativacao_falhou');
       }
+      return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
     }
+  }
 
   // NEXUS BRAIN: Agente autônomo — percepção → decisão → ação
   result.pipeline.push('nexus_brain');
