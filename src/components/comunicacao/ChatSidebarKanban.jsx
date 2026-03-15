@@ -216,9 +216,13 @@ function ThreadRowSidebar({ thread, isAtiva, usuarioAtual, atendentes, integraco
           {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
           {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
           <span className="truncate">{thread.last_message_content || 'Sem mensagens'}</span>
-          {thread.last_message_sender_name && (
-            <span className="text-[9px] text-slate-400 italic flex-shrink-0">~ {thread.last_message_sender_name.split(' ')[0]}</span>
-          )}
+          {thread.last_message_sender_name && (() => {
+            // Suprimir nomes internos técnicos (sem espaço, letras+números, nomes de instância)
+            const nome = thread.last_message_sender_name;
+            const ehNomeTecnico = /^[a-z0-9_-]+$/i.test(nome) && !nome.includes(' ');
+            if (ehNomeTecnico) return null;
+            return <span className="text-[9px] text-slate-400 italic flex-shrink-0">~ {nome.split(' ')[0]}</span>;
+          })()}
         </p>
         <div className="flex items-center gap-1 mt-0.5 flex-wrap">
           <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${tipoCfg.bg} shadow-sm`}>
