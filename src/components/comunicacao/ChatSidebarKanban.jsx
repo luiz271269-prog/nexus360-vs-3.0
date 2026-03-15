@@ -215,10 +215,14 @@ function ThreadRowSidebar({ thread, isAtiva, usuarioAtual, atendentes, integraco
           {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
           {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
           {thread.last_media_type === 'document' && <FileText className="w-3 h-3 text-orange-500 flex-shrink-0" />}
-          <span className="truncate">{thread.last_message_content || 'Sem mensagens'}</span>
+          <span className="truncate">{(() => {
+             const c = thread.last_message_content;
+             if (c && /^(⏰|✅ Tarefa|💬 Lembrete|🔔 Lembrete|🤖 Sistema|📊)/.test(c)) return 'Nova mensagem';
+             return c || 'Sem mensagens';
+           })()}</span>
           {thread.last_message_sender_name && (() => {
-            // Suprimir nomes internos técnicos (sem espaço, letras+números, nomes de instância)
-            const nome = thread.last_message_sender_name;
+           // Suprimir nomes internos técnicos (sem espaço, letras+números, nomes de instância)
+           const nome = thread.last_message_sender_name;
             const ehNomeTecnico = /^[a-z0-9_-]+$/i.test(nome) && !nome.includes(' ');
             if (ehNomeTecnico) return null;
             return <span className="text-[9px] text-slate-400 italic flex-shrink-0">~ {nome.split(' ')[0]}</span>;
