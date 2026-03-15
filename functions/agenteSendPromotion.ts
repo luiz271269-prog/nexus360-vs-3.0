@@ -66,15 +66,21 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, reason: 'whatsapp_status_invalido' });
   }
 
-  // GUARDA META: Janela de 24h — só enviar mensagem livre dentro da janela de conversa ativa
+  // GUARDA META: Janela de 24h — verificar via janela_24h_expira_em ou calcular por last_inbound_at
   const threads24h = await base44.asServiceRole.entities.MessageThread.filter({
     contact_id: contact.id, is_canonical: true
   }, '-created_date', 1);
   const t24 = threads24h[0];
-  const vinteQuatroHorasAtras = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const lastInboundT = t24?.last_inbound_at ? new Date(t24.last_inbound_at) : null;
-  if (!lastInboundT || lastInboundT < vinteQuatroHorasAtras) {
-    return Response.json({ success: false, reason: 'fora_janela_24h_meta', detail: 'Último inbound do contato há mais de 24h. Use template aprovado.' });
+  const janelaExpiraEm = t24?.janela_24h_expira_em
+    ? new Date(t24.janela_24h_expira_em)
+    : (t24?.last_inbound_at ? new Date(new Date(t24.last_inbound_at).getTime() + 24 * 60 * 60 * 1000) : null);
+
+  if (!janelaExpiraEm || new Date() > janelaExpiraEm) {
+    return Response.json({
+      success: false,
+      reason: 'janela_24h_expirada',
+      message: 'Fora da janela de 24h. Use template HSM aprovado para este contato.'
+    }, { status: 403 });
   }
 
   // Buscar integração WhatsApp

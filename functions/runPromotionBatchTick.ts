@@ -36,8 +36,12 @@ Deno.serve(async (req) => {
 
     // Buscar threads INATIVAS há 36h+ (last_message_at considera qualquer mensagem)
     const inactiveSince = THIRTY_SIX_HOURS_AGO(now).toISOString();
+    // GUARDA META: batch só para contatos que interagiram nos últimos 7 dias (lista quente)
+    // Lista fria (>7d sem inbound) exige template HSM aprovado — não implementado aqui
+    const seteDiasAtras = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const threads = await base44.asServiceRole.entities.MessageThread.filter({
       last_message_at: { $lte: inactiveSince },
+      last_inbound_at: { $gte: seteDiasAtras },
       thread_type: 'contact_external'
     }, '-last_message_at', 200);
 

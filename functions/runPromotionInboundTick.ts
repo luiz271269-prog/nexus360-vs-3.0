@@ -146,6 +146,18 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // GUARDA META: Janela de 24h — verificar se ainda está dentro da janela ativa
+        const janelaExpiraEm = thread.janela_24h_expira_em
+          ? new Date(thread.janela_24h_expira_em)
+          : (lastInbound ? new Date(lastInbound.getTime() + 24 * 60 * 60 * 1000) : null);
+
+        if (!janelaExpiraEm || now > janelaExpiraEm) {
+          console.log(`[PROMO-INBOUND] ⛔ Janela 24h expirada para ${contact.nome} — pulando`);
+          skipped++;
+          reasons['janela_expirada'] = (reasons['janela_expirada'] || 0) + 1;
+          continue;
+        }
+
         // ENVIAR
         await sendPromotion(base44, { 
           contact, 
