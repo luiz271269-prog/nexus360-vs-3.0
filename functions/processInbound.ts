@@ -329,134 +329,31 @@ Deno.serve(async (req) => {
   else if (!thread.assigned_user_id) shouldDispatch = true;
 
   if (shouldDispatch) {
-    // DECISÃO: Pré-atendimento clássico OU skill autônoma?
-    // Se é novo contato E sem atendente → menu completo
-    // Se tem intenção clara → direto para atribuição
-    
-    const temAtendente = !!thread.assigned_user_id;
-    const ehPrimeiraMsg = !thread.last_human_message_at;
-    
-    if (!temAtendente && !ehPrimeiraMsg) {
-      // Contato voltou → pré-atendimento com sticky (memória)
-      result.pipeline.push('pre_atendimento_sticky');
-      console.log(`[${VERSION}] 🔄 Contato recorrente → pré-atendimento com contexto`);
-    } else if (!temAtendente && ehPrimeiraMsg) {
-      // Primeiro contato novo → ORQUESTRADOR (4 skills de pré-atendimento)
-      result.pipeline.push('orquestrador_skills_pre_atendimento');
-    
-      // ════════════════════════════════════════════════════════════════
-      // 🆕 ORQUESTRADOR: 4 Skills de Pré-Atendimento (novo fluxo)
-      // 1. ACK Imediato (fire-and-forget)
-      // 2. Intent Router (detecta setor)
-      // 3. Queue Manager (atribui atendente)
-      // 4. SLA Guardian (monitora via cron)
-      // ════════════════════════════════════════════════════════════════
-      try {
-        console.log(`[${VERSION}] 🎯 Orquestrador: ativando 4 skills para novo contato`);
-        
-        // 1️⃣ ACK Imediato — fire-and-forget (não bloqueia)
-        base44.asServiceRole.functions.invoke('skillACKImediato', {
-          thread_id: thread.id,
-          contact_id: contact.id,
-          integration_id: integration?.id,
-          message_content: messageContent
-        }).catch(e => console.warn(`[${VERSION}] ⚠️ ACK falhou: ${e.message}`));
-        result.actions.push('skill_ack_triggered');
-        
-        // 2️⃣ Intent Router — detectar setor
-        let routerResult = null;
-        try {
-          const routerResp = await base44.asServiceRole.functions.invoke('skillIntentRouter', {
-            thread_id: thread.id,
-            contact_id: contact.id,
-            message_content: messageContent
-          });
-          routerResult = routerResp?.data || routerResp;
-          console.log(`[${VERSION}] 📊 Intent Router: setor=${routerResult?.setor}, confidence=${routerResult?.confidence}`);
-          result.actions.push('skill_router_executed');
-        } catch (e) {
-          console.warn(`[${VERSION}] ⚠️ Intent Router falhou: ${e.message}`);
-          result.actions.push('skill_router_failed');
-        }
-        
-        // 3️⃣ Queue Manager — atribuir ou enfileirar
-        if (routerResult?.deve_auto_rotear && routerResult?.confidence >= 0.6) {
-          try {
-            const queueResp = await base44.asServiceRole.functions.invoke('skillQueueManager', {
-              thread_id: thread.id,
-              contact_id: contact.id,
-              integration_id: integration?.id,
-              setor: routerResult.setor,
-              intencao: routerResult.intencao,
-              confidence: routerResult.confidence,
-              tipo_contato: routerResult.tipo_contato
-            });
-            console.log(`[${VERSION}] ✅ Queue Manager: atribui ou enfileira`);
-            result.actions.push('skill_queue_executed');
-            
-            // Sucesso → orquestrador finalizou
-            result.actions.push('orquestrador_sucesso');
-            return Response.json({ 
-              success: true, 
-              pipeline: result.pipeline, 
-              actions: result.actions, 
-              handled_by: 'orquestrador_4skills' 
-            });
-          } catch (e) {
-            console.warn(`[${VERSION}] ⚠️ Queue Manager falhou: ${e.message}`);
-            result.actions.push('skill_queue_failed');
-          }
-        } else {
-          console.log(`[${VERSION}] ⏭️ Confidence baixa ou falha Router → fallback URA`);
-          result.actions.push('router_confidence_baixa_fallback');
-        }
-        
-        // Se chegou aqui: algum skill falhou ou confidence baixa → fallback URA
-        console.log(`[${VERSION}] ⏸️ Fallback: acionando pré-atendimento menu`);
-        await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
-          thread_id: thread.id,
-          contact_id: contact.id,
-          whatsapp_integration_id: thread.whatsapp_integration_id,
-          user_input: { type: 'system', content: '' }
-        });
-        result.actions.push('pre_atendimento_fallback');
-        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, fallback: 'ura_menu' });
-      } catch (e) {
-        console.error(`[${VERSION}] ❌ Orquestrador falhou: ${e.message}`);
-        result.actions.push('orquestrador_critico_erro');
-        // Enfileirar como fallback final
-        await base44.asServiceRole.entities.WorkQueueItem.create({
-          contact_id: contact.id,
-          thread_id: thread.id,
-          tipo: 'manual',
-          reason: 'orquestrador_falhou',
-          severity: 'high',
-          status: 'open',
-          notes: `Orquestrador crítico erro: ${e.message}`
-        }).catch(() => {});
-        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, fallback: 'enfileirado' });
-      }
-    } else if (isHumanDormant) {
-      // ════════════════════════════════════════════════════════════════
-      // HUMANO DORMINDO: Reativar com pré-atendimento menu
-      // ════════════════════════════════════════════════════════════════
-      result.pipeline.push('pre_atendimento_reativacao');
-      try {
-        console.log(`[${VERSION}] 😴 Atendente dormindo → menu pré-atendimento`);
-        await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
-          thread_id: thread.id,
-          contact_id: contact.id,
-          whatsapp_integration_id: thread.whatsapp_integration_id,
-          user_input: { type: 'system', content: '' }
-        });
-        result.actions.push('pre_atendimento_reativacao_acionado');
-        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
-      } catch (e) {
-        console.error(`[${VERSION}] ❌ Pré-atendimento reativação falhou:`, e.message);
-        result.actions.push('pre_atendimento_reativacao_falhou');
-      }
-      return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
+    result.pipeline.push('pre_atendimento_dispatch');
+    console.log(`[${VERSION}] 🎯 Despachando para preAtendimentoHandler (URA ativa=${isUraActive}, novoCiclo=${novoCiclo}, dormant=${isHumanDormant})`);
+    try {
+      await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
+        thread_id: thread.id,
+        contact_id: contact.id,
+        whatsapp_integration_id: integration?.id || thread.whatsapp_integration_id,
+        user_input: { type: 'text', content: messageContent || '' }
+      });
+      result.actions.push('pre_atendimento_acionado');
+    } catch (e) {
+      console.error(`[${VERSION}] ❌ preAtendimentoHandler falhou: ${e.message}`);
+      result.actions.push('pre_atendimento_falhou');
+      // Fallback: enfileirar para atendimento manual
+      await base44.asServiceRole.entities.WorkQueueItem.create({
+        contact_id: contact.id,
+        thread_id: thread.id,
+        tipo: 'manual',
+        reason: 'pre_atendimento_falhou',
+        severity: 'high',
+        status: 'open',
+        notes: `preAtendimentoHandler falhou: ${e.message}`
+      }).catch(() => {});
     }
+    return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
   }
 
   // NEXUS BRAIN: Agente autônomo — percepção → decisão → ação
