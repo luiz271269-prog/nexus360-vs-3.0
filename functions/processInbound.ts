@@ -299,9 +299,26 @@ Deno.serve(async (req) => {
 
   // 6. NOVO CICLO E DECISÃO: PRÉ-ATENDIMENTO vs SKILL AUTÔNOMA
   result.pipeline.push('cycle_detection');
-  const novoCiclo = detectNovoCiclo(thread.last_inbound_at);
+  const novoCiclo = novoCicloPreCheck; // já calculado acima
   const isUraActive = thread.pre_atendimento_ativo === true;
   const isHumanDormant = thread.assigned_user_id && !humanoAtivo(thread, 2);
+
+  // Se é novo ciclo com thread contextualizada: resetar estado para forçar menu
+  if (novoCiclo && thread?.assigned_user_id && thread?.sector_id) {
+    console.log(`[${VERSION}] 🔄 NOVO CICLO com thread contextualizada → resetando estado para pré-atendimento`);
+    try {
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        pre_atendimento_ativo: false,
+        pre_atendimento_state: 'INIT',
+        assigned_user_id: null,
+        sector_id: null
+      });
+      thread = { ...thread, pre_atendimento_ativo: false, pre_atendimento_state: 'INIT', assigned_user_id: null, sector_id: null };
+    } catch (e) {
+      console.warn(`[${VERSION}] ⚠️ Erro ao resetar thread para novo ciclo:`, e.message);
+    }
+    result.actions.push('thread_reset_new_cycle');
+  }
 
   let shouldDispatch = false;
   if (isUraActive) shouldDispatch = true;
