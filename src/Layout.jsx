@@ -7,35 +7,22 @@ import {
   BarChart3,
   Users,
   Target,
-  FileText,
-  TrendingUp,
   Upload,
   Menu,
   X,
-  ShoppingCart,
   Briefcase,
   Brain,
   MessageSquare,
-  Bot,
   Zap,
-  CalendarCheck,
-  BrainCircuit,
-  Home,
-  UserCheck,
-  DollarSign,
   Calendar,
   Sparkles,
   Settings,
-  Calculator,
   Building2,
   Package,
-  Bug,
   UserCog,
   Activity,
-  BookOpen,
   Workflow,
-  Shield,
-  LogOut
+  Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -258,7 +245,7 @@ export default function Layout({ children, currentPageName }) {
 
   // Função para obter os itens de menu baseado no perfil do usuário
   const getMenuItemsParaPerfil = (usuario) => {
-    if (!usuario) return todosMenuItems; // Fallback: mostrar todos
+    if (!usuario) return []; // Loading: menu vazio até auth
 
     const role = usuario.role;
     const setor = usuario.attendant_sector || 'geral';
@@ -350,8 +337,8 @@ export default function Layout({ children, currentPageName }) {
     ].includes(item.page));
   };
 
-  // Aplicar filtro de perfil
-  const baseMenuItems = getMenuItemsParaPerfil(globalUsuario);
+  // Aplicar filtro de perfil (seguro durante loading)
+  const baseMenuItems = globalUsuario ? getMenuItemsParaPerfil(globalUsuario) : [];
 
   const checkAgentHealth = async () => {
     try {
@@ -454,7 +441,7 @@ export default function Layout({ children, currentPageName }) {
     checkAgentHealth();
 
     const intervalDados = setInterval(carregarDadosGlobais, 5 * 60 * 1000); // ✅ Poll a cada 5min
-    const intervalAgent = setInterval(checkAgentHealth, 30000); // 30 segundos
+    const intervalAgent = setInterval(checkAgentHealth, 3 * 60 * 1000); // 3 minutos (otimizado)
 
     return () => {
       clearInterval(intervalDados);
@@ -538,11 +525,7 @@ export default function Layout({ children, currentPageName }) {
         agentSession={agentSession}
       />
 
-      <LembreteFlutuanteIA
-        orcamentos={[]}
-        usuario={globalUsuario}
-        onAcaoIA={() => {}}
-      />
+      {/* LembreteFlutuanteIA removido — funcionalidade migrada para Agenda IA */}
     </div>
   );
 }
