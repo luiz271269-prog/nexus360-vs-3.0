@@ -200,6 +200,8 @@ Deno.serve(async (req) => {
   // cliente voltou depois de horas/dias → deve passar pelo pré-atendimento.
   const novoCicloPreCheck = detectNovoCiclo(thread?.last_inbound_at);
   result.pipeline.push('context_check');
+  // ✅ FIX CRÍTICO: Se é novo ciclo (>12h), NUNCA bloquear na Camada 3
+  // O cliente voltou depois de horas/dias → precisa do pré-atendimento
   if (thread?.assigned_user_id && thread?.sector_id && !humanoAtivo(thread) && !novoCicloPreCheck) {
     console.log(`[INBOUND-GATE] 🔔 CAMADA 3: Thread contextualizada (atendente=${thread.assigned_user_id}, setor=${thread.sector_id}) — apenas notificando, sem URA`);
     result.actions.push('context_notify_only');
