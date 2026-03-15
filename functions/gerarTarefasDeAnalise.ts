@@ -120,11 +120,10 @@ Deno.serve(async (req) => {
           descricao: `Análise de contato: ${contato?.nome || 'Cliente'} — Score urgência: ${analise.priority_score}`,
           tipo_tarefa: 'follow_up_orcamento',
           prioridade: analise.priority_label === 'CRITICO' ? 'critica' : 'alta',
-          contact_id: analise.contact_id,
+          cliente_id: analise.contact_id,
           cliente_nome: contato?.nome || 'Cliente',
           vendedor_responsavel: vendedor_responsavel,
           data_prazo: prazo.toISOString(),
-          thread_id: thread_id,
           status: 'pendente',
           contexto_ia: {
             motivo_criacao: analise.next_best_action.rationale || 'Gerado por análise de comportamento',
