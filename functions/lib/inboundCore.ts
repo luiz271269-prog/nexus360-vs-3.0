@@ -297,13 +297,13 @@ export async function processInboundEvent(params) {
     contact_telefone: contact?.telefone,
     should_route: thread.assistant_mode === 'agenda' || 
                   integration?.nome_instancia === 'NEXUS_AGENDA_INTEGRATION' ||
-                  contact?.telefone === '+5548999999999'
+                  contact?.telefone === '+5548999142800'
   });
   
   // Verificar se deve rotear para Agenda IA
   if (thread.assistant_mode === 'agenda' || 
       integration?.nome_instancia === 'NEXUS_AGENDA_INTEGRATION' ||
-      contact?.telefone === '+559999999999') {
+      contact?.telefone === '+5548999142800') {
     
     console.log('[CORE] 🗓️ Thread elegível para Agenda IA - ROTEANDO');
     result.actions.push('routing_to_agenda_ia');
