@@ -338,9 +338,27 @@ ID: 695d0da145af145c20da73d0 (UniFi U6)
 
 ---
 
-### **🟡 CÓDIGO CIRÚRGICO (Fazer Hoje — 15min):**
+### **🟡 BUGS JÁ CORRIGIDOS:**
 
-#### 4. **Corrigir Bug #3 — Flag Persiste** (2min)
+#### ✅ **Bug #3 — Flag Persiste** (Já OK)
+```javascript
+// functions/preAtendimento/fluxoController (linha 273)
+static async atualizarEstado(base44, threadId, novoEstado, setorId) {
+  const updateData = {
+    pre_atendimento_state: novoEstado,
+    pre_atendimento_ativo: true,  // ✅ JÁ PRESENTE
+    pre_atendimento_last_interaction: new Date().toISOString(),
+    pre_atendimento_timeout_at: new Date(Date.now() + 10*60*1000).toISOString()
+  };
+  //...
+}
+```
+
+**STATUS:** ✅ Documento estava desatualizado — correção já aplicada anteriormente
+
+---
+
+### **🔴 CÓDIGO CIRÚRGICO RESTANTE (Opcional — 10min):**
 
 <invoke name="read_file">
 <parameter name="file_path">functions/preAtendimento/fluxoController
