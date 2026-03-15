@@ -245,7 +245,12 @@ export default function Layout({ children, currentPageName }) {
 
   // Função para obter os itens de menu baseado no perfil do usuário
   const getMenuItemsParaPerfil = (usuario) => {
-    if (!usuario) return []; // Loading: menu vazio até auth
+    // Durante loading, retorna menu básico seguro (sem items admin)
+    if (!usuario) {
+      return todosMenuItems.filter(item => 
+        ['Dashboard', 'Comunicacao', 'Agenda'].includes(item.page)
+      );
+    }
 
     const role = usuario.role;
     const setor = usuario.attendant_sector || 'geral';
@@ -337,8 +342,8 @@ export default function Layout({ children, currentPageName }) {
     ].includes(item.page));
   };
 
-  // Aplicar filtro de perfil (seguro durante loading)
-  const baseMenuItems = globalUsuario ? getMenuItemsParaPerfil(globalUsuario) : [];
+  // Aplicar filtro de perfil
+  const baseMenuItems = getMenuItemsParaPerfil(globalUsuario);
 
   const checkAgentHealth = async () => {
     try {
