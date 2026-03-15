@@ -194,6 +194,18 @@ Retorne um JSON estruturado com exatamente esta forma:
       );
     }
 
+    // ✅ CRÍTICO: Disparar automações baseadas em playbook
+    try {
+      await base44.asServiceRole.functions.invoke('acionarAutomacoesPorPlaybook', {
+        contact_id: contactId,
+        analysis_id: savedAnalysis.id
+      });
+      console.log('[analisarComportamentoIA] ✅ Playbook automations triggered');
+    } catch (playbookError) {
+      console.warn('[analisarComportamentoIA] ⚠️ Playbook trigger failed:', playbookError.message);
+      // Non-blocking — análise já foi salva
+    }
+
     return Response.json({
       success: true,
       analysis: savedAnalysis,
