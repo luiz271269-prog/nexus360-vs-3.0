@@ -299,6 +299,8 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ── ACK IMEDIATO foi removido deste ponto — o preAtendimentoHandler v12 já envia saudação ──
+
   // 6. NOVO CICLO E DECISÃO: PRÉ-ATENDIMENTO vs SKILL AUTÔNOMA
   result.pipeline.push('cycle_detection');
   const novoCiclo = novoCicloPreCheck; // já calculado acima
