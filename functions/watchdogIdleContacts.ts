@@ -19,12 +19,13 @@ Deno.serve(async (req) => {
 
     console.log('[WATCHDOG v2] Iniciando varredura | Threshold 48h:', thresholdISO);
 
-    // Buscar todas as threads externas abertas com contato válido
+    // Buscar threads externas abertas com contato válido
+    // Limite reduzido para 200 por ciclo para evitar timeout
     const allThreads = await base44.asServiceRole.entities.MessageThread.filter({
       thread_type: 'contact_external',
       status: 'aberta',
-      contact_id: { $ne: null }  // ✅ Filtra APENAS threads com contato real
-    }, '-last_message_at', 1000);
+      contact_id: { $ne: null }
+    }, '-last_message_at', 200);
 
     console.log('[WATCHDOG v2] Total threads externas abertas:', allThreads.length);
 
