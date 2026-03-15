@@ -356,7 +356,8 @@ Deno.serve(async (req) => {
                   currentUnreads[thread.assigned_user_id] = (currentUnreads[thread.assigned_user_id] || 0) + 1;
                   await base44.asServiceRole.entities.MessageThread.update(internalThread.id, {
                     last_message_at: agora.toISOString(),
-                    last_message_content: `⏰ Conversa parada ${minutosOcioso}min | Score ${priorityScore}`,
+                    // ✅ FIX: NÃO sobrescrever last_message_content com alertas do Jarvis
+                    // Isso evita que o preview do "Setor vendas" apareça poluído na lista de conversas
                     unread_by: currentUnreads,
                     total_mensagens: (internalThread.total_mensagens || 0) + 1
                   });
