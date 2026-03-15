@@ -854,6 +854,10 @@ export default function ChatSidebar({
                           let content = thread.last_message_content;
                           
                           // ✅ THREADS EXTERNAS: Filtros agressivos de limpeza
+                          // Suprimir conteúdos de sistema (⏰, mensagens de controle interno)
+                          if (content && /^(⏰|✅ Tarefa|💬 Lembrete|🔔 Lembrete|🤖 Sistema|📊)/.test(content)) {
+                            return "Nova mensagem";
+                          }
                           if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
                             if (thread.last_media_type === 'image') return "[Imagem]";
                             if (thread.last_media_type === 'video') return "[Video]";
