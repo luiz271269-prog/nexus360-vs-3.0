@@ -196,8 +196,11 @@ Deno.serve(async (req) => {
   // Se thread tem atendente E setor definidos: apenas notifica o atendente,
   // não dispara URA nem automações. Evita URA aparecer pra clientes que já
   // estão sendo atendidos quando humano está em silêncio temporário.
+  // ⚠️ NOVO CICLO (>12h sem mensagem) tem PRIORIDADE sobre esta camada —
+  // cliente voltou depois de horas/dias → deve passar pelo pré-atendimento.
+  const novoCicloPreCheck = detectNovoCiclo(thread?.last_inbound_at);
   result.pipeline.push('context_check');
-  if (thread?.assigned_user_id && thread?.sector_id && !humanoAtivo(thread)) {
+  if (thread?.assigned_user_id && thread?.sector_id && !humanoAtivo(thread) && !novoCicloPreCheck) {
     console.log(`[INBOUND-GATE] 🔔 CAMADA 3: Thread contextualizada (atendente=${thread.assigned_user_id}, setor=${thread.sector_id}) — apenas notificando, sem URA`);
     result.actions.push('context_notify_only');
     try {
