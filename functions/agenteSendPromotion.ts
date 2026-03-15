@@ -62,6 +62,20 @@ Deno.serve(async (req) => {
   }
   if (contact.bloqueado === true) return Response.json({ success: false, reason: 'contato_bloqueado_manual' });
   if (contact.whatsapp_optin === false) return Response.json({ success: false, reason: 'opt_out' });
+  if (['invalido', 'bloqueado'].includes(contact.whatsapp_status)) {
+    return Response.json({ success: false, reason: 'whatsapp_status_invalido' });
+  }
+
+  // GUARDA META: Janela de 24h — só enviar mensagem livre dentro da janela de conversa ativa
+  const threads24h = await base44.asServiceRole.entities.MessageThread.filter({
+    contact_id: contact.id, is_canonical: true
+  }, '-created_date', 1);
+  const t24 = threads24h[0];
+  const vinteQuatroHorasAtras = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const lastInboundT = t24?.last_inbound_at ? new Date(t24.last_inbound_at) : null;
+  if (!lastInboundT || lastInboundT < vinteQuatroHorasAtras) {
+    return Response.json({ success: false, reason: 'fora_janela_24h_meta', detail: 'Último inbound do contato há mais de 24h. Use template aprovado.' });
+  }
 
   // Buscar integração WhatsApp
   let integration;

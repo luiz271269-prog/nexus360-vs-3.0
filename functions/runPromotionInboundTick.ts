@@ -104,6 +104,13 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // GUARDA META: WhatsApp status inválido/bloqueado
+        if (['invalido', 'bloqueado'].includes(contact.whatsapp_status)) {
+          skipped++;
+          reasons['whatsapp_status_invalido'] = (reasons['whatsapp_status_invalido'] || 0) + 1;
+          continue;
+        }
+
         // Buscar integração
         const integration = integracoesMap.get(thread.whatsapp_integration_id) || integracoes[0];
         if (!integration) {

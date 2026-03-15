@@ -74,6 +74,25 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // GUARDA 0: WhatsApp status inválido/bloqueado
+        if (['invalido', 'bloqueado'].includes(contact.whatsapp_status)) {
+          skipped++;
+          reasons['whatsapp_status_invalido'] = (reasons['whatsapp_status_invalido'] || 0) + 1;
+          continue;
+        }
+
+        // GUARDA META: Janela de 24h — batch só pode enviar dentro da janela de conversa ativa
+        // Fora de 24h desde o último inbound exige template aprovado (não implementado)
+        const vinteQuatroHorasAtras = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const lastInboundBatch = thread.last_inbound_at ? new Date(thread.last_inbound_at) : null;
+        if (!lastInboundBatch || lastInboundBatch < vinteQuatroHorasAtras) {
+          // Fora da janela de 24h — apenas enviar se tiver template aprovado configurado
+          // Por enquanto, bloquear para evitar ban
+          skipped++;
+          reasons['fora_janela_24h_meta'] = (reasons['fora_janela_24h_meta'] || 0) + 1;
+          continue;
+        }
+
         // GUARDA 1: Cooldown universal 12h (entre qualquer promoção)
         const cd = canSendUniversalPromo({ contact, now });
         if (!cd.ok) {
