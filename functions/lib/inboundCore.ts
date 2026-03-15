@@ -488,7 +488,13 @@ export async function processInboundEvent(params) {
 // 📤 HELPER DE ENVIO
 // =================================================================
 
-import { processTextWithEmojis, emojiDebug } from './emojiHelper.js';
+// Emoji processing inline (evita import local)
+function processTextWithEmojis(text) {
+  return text; // Passthrough - emojis já são suportados nativamente
+}
+function emojiDebug(label, text) {
+  console.log(`[EMOJI-${label}]`, text?.substring(0, 100));
+}
 
 async function enviarMensagem(params) {
   const { base44, integration, contact, message, provider, thread } = params;
