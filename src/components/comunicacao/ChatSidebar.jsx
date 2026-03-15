@@ -868,11 +868,13 @@ export default function ChatSidebar({
                           return content;
                         })()}
                       </span>
-                      {thread.last_message_sender_name && (
-                        <span className="text-[9px] text-slate-400 italic">
-                          ~ {thread.last_message_sender_name.split(' ')[0]}
-                        </span>
-                      )}
+                      {thread.last_message_sender_name && (() => {
+                        const nome = thread.last_message_sender_name;
+                        // Suprimir nomes técnicos internos (sem espaço, padrão slug/username)
+                        const ehNomeTecnico = /^[a-z0-9_-]+$/i.test(nome) && !nome.includes(' ');
+                        if (ehNomeTecnico) return null;
+                        return <span className="text-[9px] text-slate-400 italic">~ {nome.split(' ')[0]}</span>;
+                      })()}
                     </>
                   )}
                 </p>
