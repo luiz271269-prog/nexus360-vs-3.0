@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
 
   // 5. AGENDA IA CHECK
   result.pipeline.push('agenda_ia_check');
-  if (thread.assistant_mode === 'agenda' || integration?.nome_instancia === 'NEXUS_AGENDA_INTEGRATION') {
+  if (thread.assistant_mode === 'agenda' || integration?.nome_instancia === 'NEXUS_AGENDA_INTEGRATION' || contact?.telefone === '+5548999142800') {
     result.actions.push('routing_to_agenda_ia');
     try {
       await base44.asServiceRole.functions.invoke('routeToAgendaIA', {

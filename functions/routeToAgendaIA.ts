@@ -87,8 +87,8 @@ Deno.serve(async (req) => {
     if (thread.contact_id) {
       const contact = await base44.asServiceRole.entities.Contact.get(thread.contact_id);
       
-      if (contact?.telefone === '+559999999999') {
-        console.log(`[ROUTE-AGENDA] ✅ Contato AGENDA_IA_NEXUS (número virtual +559999999999) → ROTEAR`);
+      if (contact?.telefone === '+5548999142800') {
+        console.log(`[ROUTE-AGENDA] ✅ Contato AGENDA_IA_NEXUS (+5548999142800) → ROTEAR`);
         
         const result = await base44.asServiceRole.functions.invoke('processScheduleIntent', {
           thread_id,
