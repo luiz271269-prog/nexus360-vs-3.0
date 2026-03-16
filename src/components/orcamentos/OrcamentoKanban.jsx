@@ -137,6 +137,7 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
   const navigate = useNavigate();
   const [chatAberto, setChatAberto] = useState(false);
   const [orcamentoChat, setOrcamentoChat] = useState(null);
+  const [filtroVendedor, setFiltroVendedor] = useState('todos');
 
   const onDragEnd = (result) => {
     const { source, destination, draggableId } = result;
