@@ -956,9 +956,13 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   }
 
-  // Salvar mensagem
+  // ✅ Salvar mensagem com timestamp real do WhatsApp
   let mensagem;
   try {
+    const whatsappTimestamp = payloadBruto.moment 
+      ? new Date(payloadBruto.moment * 1000).toISOString()
+      : new Date().toISOString();
+    
     mensagem = await base44.asServiceRole.entities.Message.create({
       thread_id: thread.id,
       sender_id: contato.id,
@@ -971,7 +975,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       visibility: 'public_to_customer',
       status: 'recebida',
       whatsapp_message_id: dados.messageId ?? null,
-      sent_at: new Date().toISOString(),
+      sent_at: whatsappTimestamp,  // ✅ USAR momento real do WhatsApp
       metadata: {
         analise_multimodal: null,
         midia_persistida: midiaPersistida,
@@ -986,6 +990,8 @@ async function handleMessage(dados, payloadBruto, base44) {
         quoted_message: dados.quotedMessage ?? null,
         processed_by: VERSION,
         original_media_url: dados.mediaUrl ?? null,
+        whatsapp_moment: payloadBruto.moment ?? null,  // ✅ Guardar momento original
+        whatsapp_timestamp_real: whatsappTimestamp,  // ✅ Para ordenação
       },
     });
     console.log(`[${VERSION}] ✅ Mensagem salva: ${mensagem.id} | Mídia persistida: ${midiaPersistida}`);
