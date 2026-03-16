@@ -362,8 +362,13 @@ export default function LeadsQualificados() {
     if (!isLead) return false;
 
     // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
-    if (usuarioAtual?.role !== 'admin') {
+    const temPermissaoVerOutros = ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
+    const vendedorFiltrado = filtrosLeads.usuario_filtro || usuarioAtual?.full_name;
+    
+    if (!temPermissaoVerOutros) {
       if (c.vendedor_responsavel !== usuarioAtual?.full_name) return false;
+    } else if (filtrosLeads.usuario_filtro) {
+      if (c.vendedor_responsavel !== filtrosLeads.usuario_filtro) return false;
     }
 
     if (filtrosLeads.busca) {
