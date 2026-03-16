@@ -337,12 +337,32 @@ export default function LeadsQualificados() {
     navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`));
   };
 
+  // ✅ PERMISSÕES: Carregar usuário atual
+  const [usuarioAtual, setUsuarioAtual] = React.useState(null);
+  
+  React.useEffect(() => {
+    const carregarUsuario = async () => {
+      try {
+        const user = await base44.auth.me();
+        setUsuarioAtual(user);
+      } catch (error) {
+        console.error('Erro ao carregar usuário:', error);
+      }
+    };
+    carregarUsuario();
+  }, []);
+
   const leadsFiltrados = (clientes || []).filter((c) => {
     const isLead = ['novo_lead', 'primeiro_contato', 'em_conversa', 'levantamento_dados',
       'pre_qualificado', 'qualificacao_tecnica', 'em_aquecimento',
       'lead_qualificado', 'desqualificado'].includes(c.status);
 
     if (!isLead) return false;
+
+    // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
+    if (usuarioAtual?.role !== 'admin') {
+      if (c.vendedor_responsavel !== usuarioAtual?.full_name) return false;
+    }
 
     if (filtrosLeads.busca) {
       const busca = filtrosLeads.busca.toLowerCase();
