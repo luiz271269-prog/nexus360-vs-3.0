@@ -1502,247 +1502,28 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
-  const threadsFiltradas = React.useMemo(() => [], []);
-
-  // threadsFiltradas: lógica migrada para useFiltragemThreads (TODO)
-
-
-
-
-    // ORPHAN REMOVED - stub
-
-
-
-      // ═══════════════════════════════════════════════════════════════════════
-      // MODO BUSCA: Sem VISIBILITY_MATRIX — mostrar tudo que o banco retornou
-      // O bloqueio de acesso acontece apenas ao ABRIR a conversa (modal de permissão)
-      // ═══════════════════════════════════════════════════════════════════════
-
-
-      // ═══════════════════════════════════════════════════════════════════════
-      // ✅ CRÍTICO: Filtros SEMPRE aplicados (INDEPENDENTE do escopo ou busca)
-      // ═══════════════════════════════════════════════════════════════════════
-
-      // Filtro de INTEGRAÇÃO (threads externas)
-      if (selectedIntegrationId && selectedIntegrationId !== 'all') {
-        // ✅ Threads internas não têm integração WhatsApp (pular)
-        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
-          // ✅ FIX: Verificar origin_integration_ids[] para threads canônicas unificadas
-          const integrationIds = thread.origin_integration_ids?.length > 0 ?
-          thread.origin_integration_ids :
-          [thread.whatsapp_integration_id];
-
-          if (!integrationIds.includes(selectedIntegrationId)) {
-            logThread('Filtro Integração', false, `Integração não encontrada (esperado: ${selectedIntegrationId}, atual: ${integrationIds.join(', ')})`);
-            return false;
-          }
-          logThread('Filtro Integração', true, 'Integração OK (verificou origin_integration_ids)');
-        }
-      }
-
-      // Filtro de ATENDENTE
-      if (selectedAttendantId && selectedAttendantId !== 'all') {
-        if (thread.assigned_user_id !== selectedAttendantId) {
-          logThread('Filtro Atendente', false, `Atendente diferente (esperado: ${selectedAttendantId}, atual: ${thread.assigned_user_id})`);
-          return false;
-        }
-        logThread('Filtro Atendente', true, 'Atendente OK');
-      }
-
-      // Filtro de CATEGORIA (threads externas)
-      if (categoriasSet && !(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
-        if (!categoriasSet.has(thread.id)) {
-          logThread('Filtro Categoria', false, 'Thread não tem mensagem com categoria selecionada');
-          return false;
-        }
-        logThread('Filtro Categoria', true, 'Thread tem mensagem com categoria');
-      }
-
-      // Filtro de TIPO DE CONTATO (threads externas)
-      if (selectedTipoContato && selectedTipoContato !== 'all' && contato) {
-        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
-          if (contato.tipo_contato !== selectedTipoContato) {
-            logThread('Filtro Tipo Contato', false, `Tipo diferente (esperado: ${selectedTipoContato}, atual: ${contato.tipo_contato})`);
-            return false;
-          }
-          logThread('Filtro Tipo Contato', true, 'Tipo OK');
-        }
-      }
-
-      // Filtro de TAG (threads externas)
-      if (selectedTagContato && selectedTagContato !== 'all' && contato) {
-        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
-          const tags = contato.tags || [];
-          if (!tags.includes(selectedTagContato)) {
-            logThread('Filtro Tag', false, `Tag não encontrada (esperado: ${selectedTagContato})`);
-            return false;
-          }
-          logThread('Filtro Tag', true, 'Tag OK');
-        }
-      }
-
-      if (isFilterUnassigned) {
-        // ✅ CURTO-CIRCUITO: Threads internas NUNCA são bloqueadas por escopo
-        // (visibilidade delas já foi decidida por participação/admin acima)
-        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
-          // ✅ APENAS para threads EXTERNAS: verificar Set de não atribuídas visíveis
-          if (!threadsNaoAtribuidasVisiveis.has(thread.id)) {
-            logThread('Filtro Não Atribuídas', false, 'Thread não está no Set de não atribuídas visíveis');
-            if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
-              console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO por filtro não atribuídas');
-            }
-            return false;
-          }
-
-          logThread('Filtro Não Atribuídas', true, 'Thread está no Set');
-        } else {
-          // ✅ Threads internas passam direto (já foram validadas acima)
-          logThread('Filtro Não Atribuídas', true, 'Thread interna (ignorada pelo escopo)');
-        }
-      } else {
-        // ✅ NEXUS360: Usar canUserSeeThreadBase + aplicar escopo
-        const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
-        if (!podeVerBase) {
-          logThread('Visibilidade Base (Nexus360)', false, 'Bloqueado pela VISIBILITY_MATRIX');
-          if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
-            console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO pela VISIBILITY_MATRIX:', {
-              thread_id: thread.id.substring(0, 8),
-              thread_type: thread.thread_type,
-              contato_nome: contato?.nome,
-              userPermissions_resumo: {
-                role: userPermissions.role,
-                isAdmin: userPermissions.isAdmin,
-                attendant_sector: userPermissions.attendant_sector,
-                integracoes_visiveis: userPermissions.integracoes_visiveis?.length
-              }
-            });
-          }
-          return false;
-        }
-
-        // ✅ NOVO: Aplicar filtro de escopo com suporte a participants[] (Opção A)
-        const passouEscopo = aplicarFiltroEscopo(thread, usuario, filtros, userPermissions, DEBUG_VIS);
-        if (!passouEscopo) {
-          logThread('Filtro Escopo', false, `Não passou no escopo ${filtros.scope}`);
-          return false;
-        }
-
-        logThread('Visibilidade Nexus360', true, 'Passou VISIBILITY_MATRIX + escopo');
-      }
-
-      if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
-        console.log('[COMUNICACAO] ✅ USUÁRIO-CONTATO - PASSOU em todos os filtros!');
-      }
-
-      logThread('✅ APROVADA', true, 'Passou em todos os filtros');
-      return true;
-    });
-
-
-
-    // 🔍 LOG RESUMIDO: Threads bloqueadas por etapa
-
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
-    // IMPORTANTE: Usar contatosComThreadExistente para evitar duplicatas
-    // 🎯 DEDUPLICAÇÃO POR TELEFONE: Contatos duplicados devem mostrar apenas o principal
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (temBuscaPorTexto) {
-      // Rastrear contatos por telefone normalizado para evitar duplicatas
-      const telefonesJaAcionados = new Set();
-
-      // ✅ COMBINAR: Contatos carregados + contatos buscados no BD (apenas durante busca)
-      const todosCont = temBuscaPorTexto ? [...contatos, ...contatosBuscados] : [...contatos];
-      const contatosUnicos = new Map(todosCont.map((c) => [c.id, c]));
-
-      // Contatos sem thread - usar Set de contatos que já têm thread
-      Array.from(contatosUnicos.values()).forEach((contato) => {
-        // ✅ REMOVIDO: Filtro de duplicata não deve bloquear busca
-        // Busca SEMPRE mostra todos os contatos (permissões aplicadas ao abrir thread)
-        // Duplicatas detectadas servem apenas para alerta informativo
-
-        // Em modo busca: sem deduplicação por telefone (mostra todos os contatos do banco)
-        // Em lista recente: deduplica normalmente para não mostrar duplicatas
-        if (contato.telefone && !temBuscaPorTexto) {
-          const telNorm = normalizarTelefone(contato.telefone);
-          if (telNorm && telefonesJaAcionados.has(telNorm)) {
-            if (DEBUG_VIS) {
-              console.log(`[COMUNICACAO] 🚫 Ignorando contato duplicado por telefone: ${contato.id} ${contato.nome}`);
-            }
-            return;
-          }
-          if (telNorm) {
-            telefonesJaAcionados.add(telNorm);
-          }
-        }
-
-        if (!isAdmin) {
-          if (contatosComThreadExistente.has(contato.id)) return;
-          if (threadsComContatoIds.has(contato.id)) return;
-          if (contato.bloqueado) return;
-        } else {
-          if (!temBuscaPorTexto && contatosComThreadExistente.has(contato.id)) return;
-        }
-
-        if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
-
-        threadsFiltrados.push({
-          id: `contato-sem-thread-${contato.id}`,
-          contact_id: contato.id,
-          is_contact_only: true,
-          last_message_at: contato.ultima_interacao || contato.created_date,
-          last_message_content: null,
-          unread_count: 0,
-          status: 'sem_conversa',
-          _admin_debug: isAdmin ? { bloqueado: contato.bloqueado, tipo: contato.tipo_contato } : null
-        });
-      });
-
-      // Clientes sem contato associado
-      clientes.forEach((cliente) => {
-        if (!matchBuscaGoogle(cliente, debouncedSearchTerm)) return;
-
-        // Verificar se cliente já tem contato pelo telefone
-        const telefoneCliente = (cliente.telefone || '').replace(/\D/g, '');
-        if (telefoneCliente) {
-          const jaTemContato = contatos.some((c) => {
-            const tel = (c.telefone || '').replace(/\D/g, '');
-            return tel && tel === telefoneCliente;
-          });
-          if (jaTemContato) return;
-        }
-
-        threadsFiltrados.push({
-          id: `cliente-sem-contato-${cliente.id}`,
-          cliente_id: cliente.id,
-          is_cliente_only: true,
-          last_message_at: cliente.ultimo_contato || cliente.created_date,
-          last_message_content: null,
-          unread_count: 0,
-          status: 'sem_conversa',
-          contato: {
-            id: `cli-${cliente.id}`,
-            nome: cliente.razao_social || cliente.nome_fantasia || cliente.contato_principal_nome,
-            empresa: cliente.nome_fantasia || cliente.razao_social,
-            telefone: cliente.telefone,
-            email: cliente.email,
-            cargo: cliente.contato_principal_cargo,
-            tipo_contato: 'cliente',
-            tags: [],
-            is_from_cliente: true
-          }
-        });
-      });
-    }
-
-
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // ✅ ELIMINADO: threadsResultantesDaBusca (lógica duplicada)
-  // MOTIVO: threadsFiltradas JÁ contém PARTE 1 (threads) + PARTE 2 (contatos/clientes)
-  // Usar esse useMemo criava um pipeline paralelo que ignorava PARTE 2
-  // ═══════════════════════════════════════════════════════════════════════════════
+  const threadsFiltradas = useFiltragemThreads({
+    threads: threadsAProcessar,
+    contatos,
+    clientes,
+    atendentes,
+    usuario,
+    userPermissions,
+    selectedAttendantId,
+    selectedIntegrationId,
+    selectedCategoria,
+    selectedTipoContato,
+    selectedTagContato,
+    debouncedSearchTerm,
+    mensagensComCategoria,
+    matchBuscaGoogle,
+    filterScope,
+    duplicataEncontrada,
+    effectiveScope,
+    threadsNaoAtribuidasVisiveis,
+    contatosMap,
+    contatosBuscados,
+  });
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 📋 LISTA RECENTE - Modo normal (sem busca)
