@@ -40,6 +40,7 @@ export default function ContactInfoPanel({
   const navigate = useNavigate();
   const [salvando, setSalvando] = React.useState(false);
   const [usuario, setUsuario] = React.useState(null);
+  const [clientes, setClientes] = React.useState([]);
 
   // Mesclar defaultValues (de cliente_sem_contato) com dados do contact
   const initialData = {
