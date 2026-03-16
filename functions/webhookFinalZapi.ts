@@ -636,34 +636,21 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ✅ DECLARAR threadCanonica NO INÍCIO (antes de qualquer uso)
   let threadCanonica = null;
 
-  // ✅ DEDUPLICAÇÃO RIGOROSA - BLOQUEIA se falhar (não continua com warn)
+  // ✅ DEDUPLICAÇÃO RIGOROSA - Se duplicata, ignora (simples)
   if (dados.messageId) {
     try {
-      const dedupTimeout = Promise.race([
-        base44.asServiceRole.entities.Message.filter(
-          { whatsapp_message_id: dados.messageId },
-          '-created_date',
-          1
-        ),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('dedup_timeout')), 5000)
-        )
-      ]);
-      
-      const dup = await dedupTimeout;
+      const dup = await base44.asServiceRole.entities.Message.filter(
+        { whatsapp_message_id: dados.messageId },
+        '-created_date',
+        1 // Apenas a primeira
+      );
       if (dup.length > 0) {
         console.log(`[${VERSION}] ⏭️ DUPLICATA por messageId: ${dados.messageId} (já processada antes)`);
         return jsonOk({ success: true, ignored: true, reason: 'duplicata_message_id' });
       }
     } catch (err) {
-      // 🔴 BLOQUEIAR: não pode processar sem saber se é duplicata
-      console.error(`[${VERSION}] ❌ BLOQUEANDO: falha ao verificar duplicata (${err.message})`);
-      return jsonOk({ 
-        success: false, 
-        error: 'dedup_verification_failed',
-        status: 503,
-        message: 'Sistema temporariamente indisponível para verificação de duplicatas'
-      });
+      console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata por messageId:`, err.message);
+      // Continua processamento mesmo com erro na verificação
     }
   }
 
@@ -956,13 +943,9 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   }
 
-  // ✅ Salvar mensagem com timestamp real do WhatsApp
+  // Salvar mensagem
   let mensagem;
   try {
-    const whatsappTimestamp = payloadBruto.moment 
-      ? new Date(payloadBruto.moment * 1000).toISOString()
-      : new Date().toISOString();
-    
     mensagem = await base44.asServiceRole.entities.Message.create({
       thread_id: thread.id,
       sender_id: contato.id,
@@ -975,7 +958,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       visibility: 'public_to_customer',
       status: 'recebida',
       whatsapp_message_id: dados.messageId ?? null,
-      sent_at: whatsappTimestamp,  // ✅ USAR momento real do WhatsApp
+      sent_at: new Date().toISOString(),
       metadata: {
         analise_multimodal: null,
         midia_persistida: midiaPersistida,
@@ -990,8 +973,6 @@ async function handleMessage(dados, payloadBruto, base44) {
         quoted_message: dados.quotedMessage ?? null,
         processed_by: VERSION,
         original_media_url: dados.mediaUrl ?? null,
-        whatsapp_moment: payloadBruto.moment ?? null,  // ✅ Guardar momento original
-        whatsapp_timestamp_real: whatsappTimestamp,  // ✅ Para ordenação
       },
     });
     console.log(`[${VERSION}] ✅ Mensagem salva: ${mensagem.id} | Mídia persistida: ${midiaPersistida}`);
