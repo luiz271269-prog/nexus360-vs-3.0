@@ -142,17 +142,61 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
   let atendenteId = null;
 
   try {
-    const rota = await base44.asServiceRole.functions.invoke('roteamentoInteligente', {
-      thread_id: thread.id,
-      contact_id: contact.id,
-      sector: setor,
-      whatsapp_integration_id: integrationId,
-      check_only: false
-    });
+    // Buscar atendentes do setor diretamente (sem invoke para evitar 403 em chamadas aninhadas)
+    const usuarios = await base44.asServiceRole.entities.User.list('-created_date', 50);
+    const atendentesCandidatos = usuarios.filter(u =>
+      u.role !== 'admin' || u.attendant_sector === setor
+    ).filter(u =>
+      !u.attendant_sector || u.attendant_sector === setor || u.attendant_sector === 'geral' || setor === 'geral'
+    );
 
-    if (rota.data?.success && rota.data?.assigned_to) {
-      atendenteId = rota.data.assigned_to;
-      atendenteNome = rota.data.assigned_to_name || 'um atendente';
+    // Verificar atendente fidelizado
+    const campoFidelizado = {
+      vendas: 'atendente_fidelizado_vendas',
+      assistencia: 'atendente_fidelizado_assistencia',
+      financeiro: 'atendente_fidelizado_financeiro',
+      fornecedor: 'atendente_fidelizado_fornecedor'
+    }[setor];
+
+    if (campoFidelizado && contact[campoFidelizado]) {
+      const fidelizado = usuarios.find(u => u.id === contact[campoFidelizado]);
+      if (fidelizado) {
+        atendenteId = fidelizado.id;
+        atendenteNome = fidelizado.full_name || fidelizado.email;
+      }
+    }
+
+    // Se não tem fidelizado, pegar o com menos conversas ativas
+    if (!atendenteId && atendentesCandidatos.length > 0) {
+      // Contar conversas ativas por atendente
+      const threadsAbertas = await base44.asServiceRole.entities.MessageThread.filter({
+        status: 'aberta',
+        assigned_user_id: { $in: atendentesCandidatos.map(u => u.id) }
+      }, '-created_date', 200);
+
+      const contagemPorAtendente = {};
+      for (const t of threadsAbertas) {
+        if (t.assigned_user_id) {
+          contagemPorAtendente[t.assigned_user_id] = (contagemPorAtendente[t.assigned_user_id] || 0) + 1;
+        }
+      }
+
+      const melhor = atendentesCandidatos.sort((a, b) =>
+        (contagemPorAtendente[a.id] || 0) - (contagemPorAtendente[b.id] || 0)
+      )[0];
+
+      if (melhor) {
+        atendenteId = melhor.id;
+        atendenteNome = melhor.full_name || melhor.email;
+      }
+    }
+
+    // Atribuir à thread se encontrou atendente
+    if (atendenteId) {
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        assigned_user_id: atendenteId,
+        sector_id: setor
+      });
     }
   } catch (e) {
     console.error('[PRE-ATENDIMENTO] Roteamento falhou:', e.message);
