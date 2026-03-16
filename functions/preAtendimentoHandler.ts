@@ -226,7 +226,8 @@ Deno.serve(async (req) => {
 
     const userInput = user_input || { type: 'text', content: '' };
 
-    let [thread, contact] = await Promise.all([
+    // Usar sempre serviceRole para funcionar tanto via webhook quanto via invoke direto
+  let [thread, contact] = await Promise.all([
       base44.asServiceRole.entities.MessageThread.get(thread_id),
       base44.asServiceRole.entities.Contact.get(contact_id)
     ]);
