@@ -47,7 +47,8 @@ export default function Clientes() {
     status: 'todos',
     classificacao: 'todos',
     segmento: 'todos',
-    vendedor: 'todos'
+    vendedor: 'todos',
+    usuario_filtro: null // Filtro de usuário para supervisores
   });
   const [aba, setAba] = useState('clientes'); // 'clientes' ou 'contatos_fidelizados'
   const [usuarioAtual, setUsuarioAtual] = useState(null);
