@@ -1391,20 +1391,9 @@ export default function Comunicacao() {
 
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🎯 REGRAS DE VISUALIZAÇÃO - PROCESSAMENTO LOCAL
+  // 🎯 REGRAS DE VISUALIZAÇÃO - AGORA EM HOOK
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 
-  // REGRA 2.1: Conversa atribuída ao usuário (assigned_user_id) → VISÍVEL
-  // REGRA 2.2: Contato fidelizado ao usuário → VISÍVEL (mesmo sem atribuição)
-  // REGRA 2.3: Permissões por integração WhatsApp → Obrigatório
-  // REGRA 2.4: Conversas não atribuídas → VISÍVEIS para usuários com permissão na integração
-  //
-  // PRIORIDADE (Regra 3):
-  // 1. 🟢 Threads ativas (conversas com mensagens)
-  // 2. 🟡 Contatos sem thread (apenas com busca)
-  // 3. 🔵 Clientes sem contato (apenas com busca)
-  // ═══════════════════════════════════════════════════════════════════════════════
-
+  
   // Função de busca melhorada para termos compostos
   const matchBuscaGoogle = React.useCallback((item, termo) => {
     if (!termo || termo.trim().length < 2) return false;
