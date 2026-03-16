@@ -274,23 +274,23 @@ export default function Layout({ children, currentPageName }) {
       if (setor === 'vendas') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Vendedores', 
-          'Clientes', 'Agenda', 'Produtos', 'Automacoes'
+          'Clientes', 'Agenda', 'Produtos', 'Automacoes', 'NotasFiscais'
         ].includes(item.page));
         }
         if (setor === 'assistencia') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'Automacoes'
+          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'Automacoes', 'NotasFiscais'
         ].includes(item.page));
         }
         if (setor === 'fornecedor') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'Automacoes'
+          'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'Automacoes', 'NotasFiscais'
         ].includes(item.page));
         }
         // Gerência geral
         return todosMenuItems.filter(item => [
         'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Clientes', 
-        'Vendedores', 'Produtos', 'Agenda', 'Automacoes'
+        'Vendedores', 'Produtos', 'Agenda', 'Automacoes', 'NotasFiscais'
         ].includes(item.page));
         }
 
