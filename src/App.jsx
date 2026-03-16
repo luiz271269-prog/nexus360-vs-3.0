@@ -70,6 +70,14 @@ const AuthenticatedApp = () => {
             </LayoutWrapper>
           } 
         />
+        <Route 
+          path="/NotasFiscais" 
+          element={
+            <LayoutWrapper currentPageName="NotasFiscais">
+              <NotasFiscais />
+            </LayoutWrapper>
+          } 
+        />
         <Route path="*" element={<PageNotFound />} />
       </Routes>
     </>
