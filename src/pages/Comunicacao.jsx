@@ -1502,7 +1502,28 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
-  const threadsFiltradas = React.useMemo(() => [], []);
+  const threadsFiltradas = useFiltragemThreads({
+    threads: threadsAProcessar,
+    contatos,
+    clientes,
+    atendentes,
+    usuario,
+    userPermissions,
+    selectedAttendantId,
+    selectedIntegrationId,
+    selectedCategoria,
+    selectedTipoContato,
+    selectedTagContato,
+    debouncedSearchTerm,
+    mensagensComCategoria,
+    matchBuscaGoogle,
+    filterScope,
+    duplicataEncontrada,
+    effectiveScope,
+    threadsNaoAtribuidasVisiveis,
+    contatosMap,
+    contatosBuscados,
+  });
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 📋 LISTA RECENTE - Modo normal (sem busca)
