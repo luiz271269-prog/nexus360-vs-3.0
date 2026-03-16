@@ -220,8 +220,12 @@ export default function Clientes() {
 
   const clientesFiltrados = (clientes || []).filter(cliente => {
     // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
-    if (usuarioAtual?.role !== 'admin') {
+    const temPermissaoVerOutros = ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
+    
+    if (!temPermissaoVerOutros) {
       if (cliente.vendedor_responsavel !== usuarioAtual?.full_name) return false;
+    } else if (filtros.usuario_filtro) {
+      if (cliente.vendedor_responsavel !== filtros.usuario_filtro) return false;
     }
 
     if (filtros.busca) {
