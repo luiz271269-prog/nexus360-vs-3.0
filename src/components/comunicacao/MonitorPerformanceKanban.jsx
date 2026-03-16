@@ -7,6 +7,12 @@ import { Card } from '@/components/ui/card';
  * Rastreia: Tempo de renderização, mudanças visuais, impacto em UX
  */
 export default function MonitorPerformanceKanban({ kanbanMode, colunas = [], renderTime = 0 }) {
+  // ✅ Desativo por padrão — ativar com ?debug=performance na URL
+  const [debugEnabled, setDebugEnabled] = React.useState(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).has('debug');
+  });
+
   const [metrics, setMetrics] = React.useState({
     renderTime: 0,
     totalCards: 0,
@@ -14,6 +20,8 @@ export default function MonitorPerformanceKanban({ kanbanMode, colunas = [], ren
     memoriaUsada: 0,
     fps: 60
   });
+
+  if (!debugEnabled) return null;
 
   // ✅ Calcular métricas em tempo real
   React.useEffect(() => {
