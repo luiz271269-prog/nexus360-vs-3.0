@@ -33,16 +33,17 @@ Deno.serve(async (req) => {
     }
     const base64Data = btoa(binary);
 
-    const promptTexto = `Analise o conteúdo deste arquivo e extraia dados estruturados em formato de tabela.
+    const promptTexto = `Você é um especialista em extração de dados de orçamentos e propostas comerciais. Analise este arquivo e extraia dados estruturados.
 
-REGRAS CRÍTICAS:
-1. Se for uma IMAGEM (print de tela): Faça OCR, identifique a tabela principal e extraia TODAS as linhas e colunas.
-2. Se for um PDF: Extraia a tabela principal do documento.
-3. NUNCA retorne um array 'dados_extraidos' vazio. Se não encontrar uma tabela, extraia qualquer informação estruturada que encontrar (ex: chave-valor de um formulário).
-4. Se não houver absolutamente nada, retorne um array com um único objeto contendo uma chave 'erro' com a descrição do problema.
+REGRAS CRÍTICAS PARA ORÇAMENTOS:
+1. IGNORE: logos, cabeçalhos da empresa, textos descritivos, nomes de escolas/universidades ou marcas visuais.
+2. EXTRAIA DADOS DO ORÇAMENTO: número da proposta, cliente (nome da empresa), data emissão, data validade, telefone, email, contato principal, itens/produtos (descrição, quantidade, valor unitário, valor total), valor total da proposta.
+3. Para "empresa": IGNORE completamente o logo/marca visual. Use APENAS dados textuais de campos como "Cliente:", "Empresa:", "Razão Social:" ou "Nome da Empresa:".
+4. ESTRUTURA DE RETORNO: {"dados_extraidos":[{campos extraídos do orçamento}],"confianca_extracao":XX,"tipo_conteudo_detectado":"orcamento","observacoes":"descrição do que foi extraído"}
+5. Se encontrar múltiplas tabelas, combine tudo em um único objeto (1 registro por orçamento).
+6. NUNCA retorne a empresa como o nome de um logo ou marca visual.
 
-RETORNE APENAS JSON VÁLIDO (sem markdown, sem explicações), com esta estrutura EXATA:
-{"dados_extraidos":[{"coluna1":"valorA1","coluna2":"valorA2"},{"coluna1":"valorB1","coluna2":"valorB2"}],"confianca_extracao":85,"tipo_conteudo_detectado":"pdf_tabela","observacoes":"Breve descrição do que foi extraído"}`;
+RETORNE APENAS JSON VÁLIDO (sem markdown, sem explicações) com dados de orçamento extraídos corretamente.`;
 
     // Content block dinâmico por tipo
     let contentBlock;
