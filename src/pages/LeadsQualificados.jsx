@@ -427,8 +427,12 @@ export default function LeadsQualificados() {
 
   const orcamentosFiltrados = orcamentos.filter(orcamento => {
     // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
-    if (usuarioAtual?.role !== 'admin') {
+    const temPermissaoVerOutros = ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
+    
+    if (!temPermissaoVerOutros) {
       if (orcamento.vendedor !== usuarioAtual?.full_name) return false;
+    } else if (filtrosLeads.usuario_filtro) {
+      if (orcamento.vendedor !== filtrosLeads.usuario_filtro) return false;
     }
 
     const matchesSearch = searchTerm === '' ||
