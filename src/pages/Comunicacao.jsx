@@ -1509,15 +1509,8 @@ export default function Comunicacao() {
 
 
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PARTE 1: Filtrar THREADS existentes com REGRAS DE VISUALIZAÇÃO
-    // (Usando threadsUnicas - permite múltiplos canais por contato)
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    // 🔍 LOGS DETALHADOS: Rastrear onde cada thread é bloqueada
-    const logsFiltragem = [];
-
-    const threadsFiltrados = threadsUnicas.filter((thread) => {
+    const threadsFiltrados = []; // ORPHAN - será removido
+    if (false) {
       const logThread = (etapa, passou, motivo = '') => {
         // ✅ OT #3: Blindagem de Logs em Produção (só aloca se DEBUG ativo)
         if (!DEBUG_VIS) return;
