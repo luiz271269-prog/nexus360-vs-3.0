@@ -65,9 +65,9 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
 import { aplicarFiltroEscopo } from "../components/comunicacao/threadFiltering";
-import { useFiltragemThreads } from "../components/hooks/useFiltragemThreads";
-import { useListaBusca } from "../components/hooks/useListaBusca";
-import { useListaRecentes } from "../components/hooks/useListaRecentes";
+import { useFiltragemThreads } from "../hooks/useFiltragemThreads";
+import { useListaBusca } from "../hooks/useListaBusca";
+import { useListaRecentes } from "../hooks/useListaRecentes";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
