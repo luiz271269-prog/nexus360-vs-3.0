@@ -1502,11 +1502,7 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
-  const threadsFiltradas = useFiltragemThreads({
-    const categoriasSet = selectedCategoria !== 'all' ? new Set(mensagensComCategoria.map((m) => m.thread_id)) : null;
-    const temBuscaPorTexto = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
-    const threadsComContatoIds = new Set();
-    const isAdmin = usuario?.role === 'admin';
+  const threadsFiltradas = React.useMemo(() => [], []);
 
     const isFilterUnassigned = effectiveScope === 'unassigned';
 
