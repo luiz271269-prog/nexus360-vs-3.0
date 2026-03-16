@@ -119,11 +119,29 @@ Deno.serve(async (req) => {
       
       const client = user ? base44 : base44.asServiceRole;
       
-      const contatos = await client.entities.Contact.filter(
-        queryContatos,
-        '-ultima_interacao',
-        limit || 9999
-      );
+      // ✅ BUSCAR CONTATOS INATIVOS + CONTATOS FIDELIZADOS/VIP SEPARADAMENTE
+      // Contatos leais (fidelizados/VIP) SEMPRE devem aparecer, independente de inatividade
+      const [contatosInativos, contatosLeais] = await Promise.all([
+        client.entities.Contact.filter(queryContatos, '-ultima_interacao', limit || 9999),
+        client.entities.Contact.filter(
+          {
+            tipo_contato: { $in: Array.isArray(tipo) ? tipo : [tipo] },
+            ...(user && user.role !== 'admin' ? { vendedor_responsavel: user.id } : {}),
+            $or: [{ is_cliente_fidelizado: true }, { is_vip: true }]
+          },
+          '-ultima_interacao',
+          200
+        ).catch(() => []) // silencioso se falhar
+      ]);
+      
+      // Unificar sem duplicatas (leais têm prioridade)
+      const idsLeais = new Set(contatosLeais.map(c => c.id));
+      const contatosCombinados = [
+        ...contatosLeais,
+        ...contatosInativos.filter(c => !idsLeais.has(c.id))
+      ];
+      
+      const contatos = contatosCombinados;
       
       console.log(`[ANALISE_LOTE] 📊 ${contatos.length} contatos inativos encontrados`);
       
