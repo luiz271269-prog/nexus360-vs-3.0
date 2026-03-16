@@ -7,7 +7,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // Detecta automaticamente o provedor e adapta o envio
 // ============================================================================
 
-const VERSION = 'v2.4.0-DOCUMENT-EQUALS-IMAGE';
+const VERSION = 'v2.4.1-FIX-NUMERO-FORMATADO';
 const ZAPI_BASE_URL = 'https://api.z-api.io';
 const WAPI_BASE_URL = 'https://api.w-api.app/v1';
 
@@ -214,12 +214,7 @@ Deno.serve(async (req) => {
       audio_url,
       reply_to_message_id,
       message_type,
-      interactive_buttons,
-      type,
-      listTitle,
-      listButtonText,
-      listFooter,
-      listSectionTitle
+      interactive_buttons
     } = payload;
 
     // ✅ Validação de campos obrigatórios
@@ -306,45 +301,10 @@ Deno.serve(async (req) => {
 
     let endpoint;
     let body;
-    let tipoMidiaReal = null;
-
-    // ========== LIST MESSAGE EXPLÍCITO (type='list') ==========
-    if (type === 'list') {
-      const buttons = interactive_buttons || [];
-      const bodyText = mensagem || '';
-
-      if (isWAPI) {
-        console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📋 List Message W-API explícito`);
-        endpoint = `${baseUrl}/message/send-list-message?instanceId=${instanceId}`;
-        body = {
-          phone: numeroFormatado,
-          title: listTitle || '📋 Menu',
-          buttonText: listButtonText || 'Ver opções',
-          description: bodyText,
-          footer: listFooter || '',
-          sections: [{
-            title: listSectionTitle || 'Opções',
-            rows: buttons.map(btn => ({
-              id: btn.rowId || btn.id,
-              title: btn.title || btn.text,
-              description: btn.description || ''
-            }))
-          }],
-          delayMessage: 1
-        };
-      } else {
-        // Z-API: não suporta list nativo — fallback para texto numerado
-        console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📋 List Message Z-API: fallback texto numerado`);
-        const linhas = buttons.map((btn, i) => `${i + 1}️⃣ ${btn.title || btn.text}`).join('\n');
-        const textoFallback = `${listTitle || 'Como podemos te ajudar?'}\n\n${linhas}\n\nDigite o número da opção:`;
-        endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-text`;
-        body = { phone: numeroFormatado, message: textoFallback };
-      }
-      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📋 List Message via ${providerName}`);
-    }
+    let tipoMidiaReal = null; // Declarar no escopo principal para o fallback de documento funcionar
 
     // ========== BOTÕES INTERATIVOS ==========
-    else if (message_type === 'interactive_buttons' || interactive_buttons) {
+    if (message_type === 'interactive_buttons' || interactive_buttons) {
       const buttons = interactive_buttons || [];
       const bodyText = mensagem || '';
       
@@ -355,16 +315,15 @@ Deno.serve(async (req) => {
         endpoint = `${baseUrl}/message/send-list-message?instanceId=${instanceId}`;
         body = {
           phone: numeroFormatado,
-          title: listTitle || 'Menu',
-          buttonText: listButtonText || 'Ver opções',
+          title: 'Menu',
+          buttonText: 'Ver opções',
           description: bodyText,
-          footer: listFooter || '',
           sections: [{
-            title: listSectionTitle || 'Opções',
+            title: 'Opções',
             rows: buttons.map(btn => ({
-              id: btn.rowId || btn.id,
-              title: btn.title || btn.text,
-              description: btn.description || ''
+              id: btn.id,
+              title: btn.text,
+              description: ''
             }))
           }],
           delayMessage: 1
@@ -412,7 +371,7 @@ Deno.serve(async (req) => {
       } else {
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-template`;
         body = {
-          phone: numeroFormatado,  // Bug 2 fix: era numero_destino (raw)
+          phone: numeroFormatado,
           template: template_name,
           variables: template_variables || {}
         };
@@ -457,7 +416,7 @@ Deno.serve(async (req) => {
     // ========== MÍDIAS (imagem, vídeo, documento) ==========
     else if (media_url && media_type) {
       // ✅ CRÍTICO: Forçar media_type SEMPRE como 'document' para PDFs mesmo se URL pareça imagem
-      tipoMidiaReal = media_type; // usa variável do escopo externo — sem 'let'
+      let tipoMidiaReal = media_type;
       
       // Se media_type é 'document', NUNCA deixa detectarTipoMidia sobrescrever para 'image'
       if (media_type !== 'document') {
@@ -639,7 +598,7 @@ Deno.serve(async (req) => {
       } else {
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-text`;
         body = {
-          phone: numeroFormatado,  // Bug 2 fix: era numero_destino (raw), agora formatado com 55
+          phone: numeroFormatado,
           message: mensagem
         };
       }
@@ -650,7 +609,6 @@ Deno.serve(async (req) => {
 
       console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 💬 Enviando texto (${providerName})`);
     } else {
-      // Bug 2 fix: Z-API usava numero_destino raw — agora usa numeroFormatado em ambos
       throw new Error('Nenhum conteúdo fornecido');
     }
 
@@ -720,24 +678,6 @@ Deno.serve(async (req) => {
         resposta: result
       });
       throw new Error(`${providerName} retornou erro: ${errorMsg}`);
-    }
-
-    // ✅ NOVO: Adicionar user_id aos participants[] (para "Minhas Conversas" funcionar)
-    try {
-      const user = await base44.auth.me();
-      if (user?.id && payload.thread_id) {
-        const threadAtual = await base44.asServiceRole.entities.MessageThread.get(payload.thread_id);
-        if (threadAtual) {
-          const participants = Array.isArray(threadAtual.participants) ? [...threadAtual.participants] : [];
-          if (!participants.includes(user.id)) {
-            participants.push(user.id);
-            await base44.asServiceRole.entities.MessageThread.update(payload.thread_id, { participants });
-            console.log(`[ENVIAR-WHATSAPP-UNIFICADO] ✅ Adicionado ${user.id} aos participants[]`);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn(`[ENVIAR-WHATSAPP-UNIFICADO] ⚠️ Erro ao atualizar participants[]:`, e.message);
     }
 
     const messageId = result.messageId || result.message?.key?.id || result.key?.id || result.id;
