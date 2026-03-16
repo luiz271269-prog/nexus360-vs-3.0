@@ -733,6 +733,9 @@ export default function Comunicacao() {
     }
   });
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🎯 HANDLER DE SELEÇÃO DE THREAD/CONTATO/CLIENTE
+  // ═══════════════════════════════════════════════════════════════════════════════
   const handleSelecionarThread = React.useCallback(async (threadData) => {
     // ✅ Aceita { id, contatoPreCarregado } ou thread direta
     const thread = threadData.id ? { id: threadData.id } : threadData;
@@ -1487,10 +1490,7 @@ export default function Comunicacao() {
     return setIds;
   }, [threads, contatosMap, usuario, effectiveScope, userPermissions]);
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // ✅ REMOVIDO: Filtro de duplicatas - Busca SEMPRE mostra todos os contatos
-  // Detecção de duplicata serve apenas para alerta informativo (não bloqueia)
-  // ═══════════════════════════════════════════════════════════════════════════════
+
   const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
   const threadsFiltradas = React.useMemo(() => [], []);
@@ -1498,13 +1498,15 @@ export default function Comunicacao() {
   // 📋 LISTA RECENTE - Computada via hook
   const listaRecentes = useListaRecentes({ threadsFiltradas, contatos, atendentes, normalizarTelefone, getUserDisplayName });
 
-  // 🔍 LISTA BUSCA - Computada via hook
   const listaBusca = useListaBusca({
     contatos, contatosBuscados, threads, atendentes,
     debouncedSearchTerm, selectedTipoContato, selectedTagContato,
     matchBuscaGoogle, calcularScoreBusca, getUserDisplayName
   });
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🎯 SELETOR DE FONTE - Busca ativa ou lista recente?
+  // ═══════════════════════════════════════════════════════════════════════════════
   const temBuscaAtiva = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
   const threadsParaExibir = temBuscaAtiva ? listaBusca : listaRecentes;
 
