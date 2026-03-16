@@ -169,7 +169,7 @@ export default function Agenda() {
 
   const carregarIntegracoes = async () => {
     try {
-      const integs = await base44.entities.WhatsAppIntegration.list();
+      const integs = await base44.asServiceRole.entities.WhatsAppIntegration.list('-created_date', 50).catch(() => []);
       setIntegracoes(integs || []);
     } catch (error) {
       console.error("Erro ao carregar integrações:", error);
@@ -178,7 +178,7 @@ export default function Agenda() {
 
   const carregarUsuarios = async () => {
     try {
-      const users = await base44.entities.User.list();
+      const users = await base44.asServiceRole.entities.User.list('-created_date', 100).catch(() => []);
       setTodosUsuarios(users || []);
     } catch (error) {
       console.error("Erro ao carregar usuários:", error);
