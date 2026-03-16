@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import ManualJarvis from "./ManualJarvis";
 import ContatosRequerendoAtencaoKanban from "./ContatosRequerendoAtencaoKanban";
+import MonitorPerformanceKanban from "./MonitorPerformanceKanban";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getUserDisplayName } from "../lib/userHelpers";
