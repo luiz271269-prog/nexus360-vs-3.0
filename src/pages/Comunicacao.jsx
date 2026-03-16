@@ -1396,10 +1396,6 @@ export default function Comunicacao() {
 
 
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // 🎯 REGRAS DE VISUALIZAÇÃO - AGORA EM HOOK
-  // ═══════════════════════════════════════════════════════════════════════════════
-  
   // Função de busca melhorada para termos compostos
   const matchBuscaGoogle = React.useCallback((item, termo) => {
     if (!termo || termo.trim().length < 2) return false;
