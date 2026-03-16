@@ -16,15 +16,37 @@ function processTextWithEmojis(text) {
 
 async function enviarMensagem(base44, contact, integrationId, texto) {
   try {
-    const resultado = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
-      integration_id: integrationId,
-      numero_destino: contact.telefone,
-      mensagem: processTextWithEmojis(texto)
-    });
-    if (resultado?.data?.success === false) {
-      console.error('[PRE-ATENDIMENTO] Envio retornou erro:', resultado.data.error);
+    // Buscar credenciais da integração diretamente
+    const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integrationId);
+    if (!integracao) throw new Error('Integração não encontrada');
+
+    const textoLimpo = processTextWithEmojis(texto);
+    const numero = (contact.telefone || '').replace(/\D/g, '');
+    const numeroFormatado = numero.startsWith('55') ? numero : '55' + numero;
+
+    let endpoint, body, headers;
+
+    if (integracao.api_provider === 'w_api') {
+      endpoint = `https://api.w-api.app/v1/message/send-text?instanceId=${integracao.instance_id_provider}`;
+      headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integracao.api_key_provider}` };
+      body = { phone: numeroFormatado, message: textoLimpo, delayMessage: 1 };
+    } else {
+      // Z-API (padrão)
+      const baseUrl = integracao.base_url_provider || 'https://api.z-api.io';
+      endpoint = `${baseUrl}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`;
+      headers = { 'Content-Type': 'application/json', 'Client-Token': integracao.security_client_token_header };
+      body = { phone: numeroFormatado, message: textoLimpo };
+    }
+
+    const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      console.error('[PRE-ATENDIMENTO] Envio falhou:', data.error || res.status);
       return false;
     }
+
+    console.log('[PRE-ATENDIMENTO] ✅ Mensagem enviada:', data.messageId || data.id);
     return true;
   } catch (e) {
     console.error('[PRE-ATENDIMENTO] Falha ao enviar msg:', e.message);
