@@ -1509,9 +1509,7 @@ export default function Comunicacao() {
 
 
 
-    const threadsFiltrados = []; // ORPHAN - será removido
-    if (false) {
-      const logThread = (etapa, passou, motivo = '') => {
+    // ORPHAN REMOVED
         // ✅ OT #3: Blindagem de Logs em Produção (só aloca se DEBUG ativo)
         if (!DEBUG_VIS) return;
 
