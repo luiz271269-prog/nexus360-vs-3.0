@@ -203,10 +203,11 @@ Isso vai permitir:
 ## 7. CHECKLIST FINAL PRÉ-IMPLEMENTAÇÃO
 
 - [ ] **Passo 1:** Verificar gerar_tarefas_ia no Base44 editor (Automations)
-- [ ] **Passo 2:** Adicionar campo `tipo` a TarefaInteligente.json
+- [x] **Passo 2:** Adicionar campo `tipo` a TarefaInteligente.json ✅ APLICADO
 - [ ] **Passo 3:** Atualizar inventário (remover 14:00 watchdog, limpar taxa)
-- [ ] **Passo 4:** Implementar retryHandler.ts com 429 correto
-- [ ] **Passo 4b:** Criar entidade MensagemPendente
+- [x] **Passo 4:** Implementar retryHandler.ts com 429 correto ✅ APLICADO
+- [x] **Passo 4b:** Criar entidade MensagemPendente ✅ APLICADO
+- [x] **Passo 4c:** Implementar RateLimiterFrontend Promise chain ✅ APLICADO
 - [ ] **Passo 5:** Implementar entity handlers 1, 4, 5
 - [ ] **Teste:** Simular 429 com múltiplas requisições paralelas
 - [ ] **Verificação:** Confirmar MensagemPendente criada e não perdida

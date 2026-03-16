@@ -60,7 +60,8 @@ export class RetryHandler {
       initialDelayMs = 1000,
       maxDelayMs = 10000,
       backoffMultiplier = 2,
-      circuitBreaker = null
+      circuitBreaker = null,
+      onFailureExhausted = null
     } = options;
 
     let lastError;
@@ -75,12 +76,27 @@ export class RetryHandler {
       } catch (error) {
         lastError = error;
         
+        // Detectar 429 corretamente no Base44 SDK
+        const is429 = error?.message?.includes('429') || error?.status === 429;
+        
         if (attempt === maxRetries) {
           console.error(`[RETRY] Failed after ${maxRetries} attempts:`, error);
+          
+          // Se é 429 e esgotou retries, chamar callback de mensagem perdida
+          if (is429 && onFailureExhausted) {
+            await onFailureExhausted(error);
+          }
+          
           throw error;
         }
 
-        console.warn(`[RETRY] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+        // Não fazer retry se não é 429
+        if (!is429) {
+          console.error(`[RETRY] Non-retriable error (${error?.status || 'unknown'}), aborting:`, error);
+          throw error;
+        }
+
+        console.warn(`[RETRY] 429 Rate Limit detected, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         
         delay = Math.min(delay * backoffMultiplier, maxDelayMs);
