@@ -6,7 +6,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import Anthropic from 'npm:@anthropic-ai/sdk@0.39.0';
 
-const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
+const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTROPIK_API') });
 
 // Modelo padrão (sobrescrito pelo banco via ConfiguracaoSistema → chave: modelo_ia)
 const MODEL = 'claude-3-5-haiku-20241022';
