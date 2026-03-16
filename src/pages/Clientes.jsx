@@ -50,9 +50,23 @@ export default function Clientes() {
     vendedor: 'todos'
   });
   const [aba, setAba] = useState('clientes'); // 'clientes' ou 'contatos_fidelizados'
+  const [usuarioAtual, setUsuarioAtual] = useState(null);
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
+  // ✅ Carregar usuário atual
+  useEffect(() => {
+    const carregarUsuario = async () => {
+      try {
+        const user = await base44.auth.me();
+        setUsuarioAtual(user);
+      } catch (error) {
+        console.error('Erro ao carregar usuário:', error);
+      }
+    };
+    carregarUsuario();
+  }, []);
 
   const { data: clientes = [], isLoading } = useQuery({
     queryKey: ['clientes'],
