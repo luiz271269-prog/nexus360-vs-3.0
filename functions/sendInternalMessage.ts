@@ -177,6 +177,12 @@ Deno.serve(async (req) => {
       visibility: savedMessage.visibility
     });
 
+    // ✅ Garantir que user.id está em participants[] (mesmo padrão das threads externas)
+    let participants = Array.isArray(thread.participants) ? [...thread.participants] : [];
+    if (!participants.includes(user.id)) {
+      participants.push(user.id);
+    }
+
     // ✅ CORREÇÃO: Garantir que unread_by seja atualizado corretamente para TODOS os participantes
     let currentUnreads = thread.unread_by || {};
     
@@ -184,7 +190,7 @@ Deno.serve(async (req) => {
     currentUnreads[user.id] = 0;
 
     // ✅ Incrementar para TODOS os outros participantes (garantir que existam no objeto)
-    thread.participants.forEach(participantId => {
+    participants.forEach(participantId => {
       if (participantId !== user.id) {
         currentUnreads[participantId] = (currentUnreads[participantId] || 0) + 1;
       }
@@ -205,7 +211,7 @@ Deno.serve(async (req) => {
       previewContent = previewMap[media_type] || '📎 Mídia';
     }
 
-    // ✅ Atualizar thread com dados completos
+    // ✅ Atualizar thread com dados completos (incluindo participants[])
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       last_message_at: savedMessage.sent_at,
       last_message_content: previewContent,
@@ -213,6 +219,7 @@ Deno.serve(async (req) => {
       last_message_sender_name: user.full_name || user.email,
       last_media_type: media_type,
       unread_by: currentUnreads,
+      participants: participants,
       total_mensagens: (thread.total_mensagens || 0) + 1
     });
 

@@ -168,6 +168,22 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ✅ NOVO: Adicionar assigned_user_id aos participants[] (para "Minhas Conversas" funcionar)
+  if (thread?.assigned_user_id && message?.sender_type === 'contact') {
+    try {
+      const participants = Array.isArray(thread.participants) ? [...thread.participants] : [];
+      if (!participants.includes(thread.assigned_user_id)) {
+        participants.push(thread.assigned_user_id);
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          participants
+        });
+        console.log(`[${VERSION}] ✅ Adicionado ${thread.assigned_user_id} aos participants[]`);
+      }
+    } catch (e) {
+      console.warn(`[${VERSION}] ⚠️ Erro ao atualizar participants[]:`, e.message);
+    }
+  }
+
   // 3. ATUALIZAR ENGAGEMENT STATE
   result.pipeline.push('engagement_state');
   try {

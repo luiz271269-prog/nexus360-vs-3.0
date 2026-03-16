@@ -722,6 +722,24 @@ Deno.serve(async (req) => {
       throw new Error(`${providerName} retornou erro: ${errorMsg}`);
     }
 
+    // ✅ NOVO: Adicionar user_id aos participants[] (para "Minhas Conversas" funcionar)
+    try {
+      const user = await base44.auth.me();
+      if (user?.id && payload.thread_id) {
+        const threadAtual = await base44.asServiceRole.entities.MessageThread.get(payload.thread_id);
+        if (threadAtual) {
+          const participants = Array.isArray(threadAtual.participants) ? [...threadAtual.participants] : [];
+          if (!participants.includes(user.id)) {
+            participants.push(user.id);
+            await base44.asServiceRole.entities.MessageThread.update(payload.thread_id, { participants });
+            console.log(`[ENVIAR-WHATSAPP-UNIFICADO] ✅ Adicionado ${user.id} aos participants[]`);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`[ENVIAR-WHATSAPP-UNIFICADO] ⚠️ Erro ao atualizar participants[]:`, e.message);
+    }
+
     const messageId = result.messageId || result.message?.key?.id || result.key?.id || result.id;
 
     if (!messageId) {
