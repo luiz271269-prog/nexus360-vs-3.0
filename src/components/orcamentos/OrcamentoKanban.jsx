@@ -385,16 +385,18 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="space-y-4">
-        {/* ChatSidebarKanban */}
+      <div className="space-y-4 relative">
+        {/* ChatSidebarKanban - Flutuante */}
         {chatAberto && threadSelecionada && (
-          <ChatSidebarKanban 
-            thread={threadSelecionada}
-            onClose={() => {
-              setChatAberto(false);
-              setThreadSelecionada(null);
-            }}
-          />
+          <div className="fixed inset-y-0 right-0 z-50 w-96 bg-white border-l border-slate-200 shadow-2xl">
+            <ChatSidebarKanban 
+              thread={threadSelecionada}
+              onClose={() => {
+                setChatAberto(false);
+                setThreadSelecionada(null);
+              }}
+            />
+          </div>
         )}
 
       {/* FILTRO POR VENDEDOR - Apenas para ADMIN */}
