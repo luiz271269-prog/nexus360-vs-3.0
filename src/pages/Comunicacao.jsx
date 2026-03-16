@@ -1500,19 +1500,17 @@ export default function Comunicacao() {
   // ✅ REMOVIDO: Filtro de duplicatas - Busca SEMPRE mostra todos os contatos
   // Detecção de duplicata serve apenas para alerta informativo (não bloqueia)
   // ═══════════════════════════════════════════════════════════════════════════════
-  const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
-
-  const threadsFiltradas = React.useMemo(() => [], []);
-
-  // 📋 LISTA RECENTE - Computada via hook
-  const listaRecentes = useListaRecentes({ threadsFiltradas, contatos, atendentes, normalizarTelefone, getUserDisplayName });
-
-  // 🔍 LISTA BUSCA - Computada via hook
-  const listaBusca = useListaBusca({
-    contatos, contatosBuscados, threads, atendentes,
-    debouncedSearchTerm, selectedTipoContato, selectedTagContato,
-    matchBuscaGoogle, calcularScoreBusca, getUserDisplayName
-  });
+  const threadsAProcessar = threads;
+  const threadsFiltradas = threads;
+  const listaRecentes = React.useMemo(() => {
+    if (!threads.length) return [];
+    return [...threads].sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
+  }, [threads]);
+  const listaBusca = React.useMemo(() => {
+    if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2 || !contatosBuscados.length) return [];
+    const ids = new Set(contatosBuscados.map(c => c.id));
+    return threads.filter(t => t.contact_id && ids.has(t.contact_id));
+  }, [debouncedSearchTerm, contatosBuscados, threads]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 SELETOR DE FONTE - Busca ativa ou lista recente?
