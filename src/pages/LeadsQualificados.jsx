@@ -392,6 +392,11 @@ export default function LeadsQualificados() {
 
     if (!isCliente) return false;
 
+    // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
+    if (usuarioAtual?.role !== 'admin') {
+      if (c.vendedor_responsavel !== usuarioAtual?.full_name) return false;
+    }
+
     if (filtrosClientes.busca) {
       const busca = filtrosClientes.busca.toLowerCase();
       const match = c.razao_social?.toLowerCase().includes(busca) ||
