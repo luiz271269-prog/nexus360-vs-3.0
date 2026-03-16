@@ -1388,8 +1388,6 @@ export default function Comunicacao() {
     }
   }, [threadAtiva, usuario, queryClient, contatos, contatoPreCarregado]);
 
-
-
   // Função de busca melhorada para termos compostos
   const matchBuscaGoogle = React.useCallback((item, termo) => {
     if (!termo || termo.trim().length < 2) return false;
@@ -1464,7 +1462,6 @@ export default function Comunicacao() {
   const effectiveScope =
   !hasBaseData && filterScope === 'unassigned' ? 'all' : filterScope;
 
-  // PRÉ-CÁLCULO: Threads não-atribuídas visíveis em escopo 'unassigned'
   const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
     if (effectiveScope !== 'unassigned' || !usuario || !userPermissions) return new Set();
 
@@ -1486,39 +1483,16 @@ export default function Comunicacao() {
 
   const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
-  const threadsFiltradas = React.useMemo(() => {
-    const filtered = aplicarFiltroEscopo({
-      threads: threadsAProcessar,
-      usuario,
-      userPermissions,
-      filterScope: effectiveScope,
-      selectedAttendantId,
-      selectedIntegrationId,
-      selectedTipoContato,
-      selectedTagContato,
-      selectedCategoria,
-      contatosMap
-    });
-    return filtered.sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at));
-  }, [threadsAProcessar, usuario, userPermissions, effectiveScope, selectedAttendantId, selectedIntegrationId, selectedTipoContato, selectedTagContato, selectedCategoria, contatosMap]);
+  const threadsFiltradas = React.useMemo(() => [], []);
 
-  const listaRecentes = React.useMemo(() => {
-    return threadsFiltradas.map(thread => ({
-      id: thread.id,
-      nome: contatosMap.get(thread.contact_id)?.nome || 'Sem nome',
-      thread,
-      contato: contatosMap.get(thread.contact_id),
-      tipo: 'thread'
-    }));
-  }, [threadsFiltradas, contatosMap]);
+  // 📋 LISTA RECENTE - Computada via hook
+  const listaRecentes = useListaRecentes({ threadsFiltradas, contatos, atendentes, normalizarTelefone, getUserDisplayName });
 
-  const listaBusca = React.useMemo(() => {
-    if (!debouncedSearchTerm?.trim()) return listaRecentes;
-    
-    const termo = debouncedSearchTerm.toLowerCase();
-    return listaRecentes.filter(item => matchBuscaGoogle(item.contato, termo))
-      .sort((a, b) => calcularScoreBusca(b.contato, termo) - calcularScoreBusca(a.contato, termo));
-  }, [debouncedSearchTerm, listaRecentes, matchBuscaGoogle, calcularScoreBusca]);
+  const listaBusca = useListaBusca({
+    contatos, contatosBuscados, threads, atendentes,
+    debouncedSearchTerm, selectedTipoContato, selectedTagContato,
+    matchBuscaGoogle, calcularScoreBusca, getUserDisplayName
+  });
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 SELETOR DE FONTE - Busca ativa ou lista recente?
