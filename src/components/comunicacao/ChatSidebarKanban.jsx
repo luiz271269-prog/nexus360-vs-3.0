@@ -346,12 +346,16 @@ export default function ChatSidebarKanban({
   );
 
   // ── VISUALIZAÇÃO 1: Parados (sem resposta do atendente há mais de X horas) ─
+  // Apenas contatos externos reais (leads/clientes) aguardando resposta.
   const HORAS_PARADO = 24;
   const threadsParadas = React.useMemo(() => {
     const limiteMs = HORAS_PARADO * 60 * 60 * 1000;
     const agora = Date.now();
     return externasKanban
       .filter(t => {
+        // Garantia extra: nunca incluir grupos/setores internos
+        if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return false;
+        if (!t.contact_id) return false;
         const lastAt = t.last_message_at ? new Date(t.last_message_at).getTime() : 0;
         const isOld = (agora - lastAt) >= limiteMs;
         const aguardaResposta = t.last_message_sender === 'contact';
