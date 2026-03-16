@@ -371,20 +371,44 @@ export default function ContactInfoPanel({
           {/* Campos na ordem: Empresa → Cargo → Nome */}
           <div className="p-4 space-y-1">
             <div className="bg-white hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-3 p-3">
-                <Building2 className="w-5 h-5 text-slate-400 flex-shrink-0" />
-                <div className="flex-1">
-                  <Label className="text-xs text-slate-500 mb-1 block">Empresa</Label>
-                  <Input
-                    value={formData.empresa}
-                    onChange={(e) => handleChange('empresa', e.target.value)}
-                    className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0"
-                    placeholder="Nome da empresa"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="h-px bg-slate-100" />
+               <div className="flex items-center gap-3 p-3">
+                 <Building2 className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                 <div className="flex-1">
+                   <Label className="text-xs text-slate-500 mb-1 block">Vincular ao Cliente</Label>
+                   <Select value={formData.cliente_id || ""} onValueChange={(value) => handleChange('cliente_id', value || null)}>
+                     <SelectTrigger className="border-0 bg-transparent p-0 h-auto focus:ring-0 text-sm">
+                       <SelectValue placeholder="Selecione um cliente" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value={null}>Sem cliente</SelectItem>
+                       {clientes.map(c => (
+                         <SelectItem key={c.id} value={c.id}>
+                           {c.razao_social || c.nome_fantasia || 'Cliente'}
+                         </SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
+                 </div>
+               </div>
+             </div>
+             <div className="h-px bg-slate-100" />
+
+             <div className="bg-white hover:bg-slate-50 transition-colors">
+               <div className="flex items-center gap-3 p-3">
+                 <Building2 className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                 <div className="flex-1">
+                   <Label className="text-xs text-slate-500 mb-1 block">Empresa</Label>
+                   <Input
+                     value={formData.empresa}
+                     onChange={(e) => handleChange('empresa', e.target.value)}
+                     className="border-0 bg-transparent p-0 h-auto focus-visible:ring-0"
+                     placeholder="Nome da empresa"
+                     disabled={!podeEditarContatos}
+                   />
+                 </div>
+               </div>
+             </div>
+             <div className="h-px bg-slate-100" />
 
             <div className="bg-white hover:bg-slate-50 transition-colors">
               <div className="flex items-center gap-3 p-3">
