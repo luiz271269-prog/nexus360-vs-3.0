@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from 'sonner';
 import { base44 } from "@/api/base44Client";
-import ChatWindowKanban from './ChatWindowKanban';
+import ChatSidebarKanban from '@/components/comunicacao/ChatSidebarKanban';
 
 const statusLabels = {
   rascunho: 'Rascunho',
@@ -386,15 +386,22 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="space-y-4 relative">
-        {/* Chat Window Kanban - Flutuante */}
+        {/* ChatSidebarKanban - Flutuante */}
         {chatAberto && threadSelecionada && (
-          <ChatWindowKanban 
-            thread={threadSelecionada}
-            onClose={() => {
-              setChatAberto(false);
-              setThreadSelecionada(null);
-            }}
-          />
+          <div className="fixed inset-y-0 right-0 z-50 w-96 bg-white border-l border-slate-200 shadow-2xl">
+            <ChatSidebarKanban 
+              threads={[threadSelecionada]}
+              threadAtiva={threadSelecionada}
+              onSelecionarThread={() => {}}
+              onVoltar={() => {
+                setChatAberto(false);
+                setThreadSelecionada(null);
+              }}
+              usuarioAtual={usuario}
+              integracoes={[]}
+              atendentes={[]}
+            />
+          </div>
         )}
 
       {/* FILTRO POR VENDEDOR - Apenas para ADMIN */}
