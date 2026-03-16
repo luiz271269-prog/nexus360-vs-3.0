@@ -112,8 +112,11 @@ export function useThreadsFiltradas({
     threads.forEach((thread) => {
       if (!thread) return;
 
-      // ✅ FILTRO service_*: threads internas com conta de serviço são invisíveis
-      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+      // ✅ sector_group nunca aparece na lista principal de atendimentos externos
+      if (thread.thread_type === 'sector_group') return;
+
+      // ✅ FILTRO service_*: threads internas 1:1 com conta de serviço são invisíveis
+      if (thread.thread_type === 'team_internal') {
         if (thread.participants?.some(p => typeof p === 'string' && p.startsWith('service_'))) return;
         threadMaisRecentePorContacto.set(`internal-${thread.id}`, thread);
         return;
