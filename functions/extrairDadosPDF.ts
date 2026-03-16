@@ -33,17 +33,27 @@ Deno.serve(async (req) => {
     }
     const base64Data = btoa(binary);
 
-    const promptTexto = `Você é um especialista em extração de dados de orçamentos e propostas comerciais. Analise este arquivo e extraia dados estruturados.
+    const promptTexto = `Você é um especialista em extração de dados de orçamentos e propostas comerciais. Analise este arquivo e extraia TODOS os dados estruturados do orçamento/proposta.
 
-REGRAS CRÍTICAS PARA ORÇAMENTOS:
-1. IGNORE: logos, cabeçalhos da empresa, textos descritivos, nomes de escolas/universidades ou marcas visuais.
-2. EXTRAIA DADOS DO ORÇAMENTO: número da proposta, cliente (nome da empresa), data emissão, data validade, telefone, email, contato principal, itens/produtos (descrição, quantidade, valor unitário, valor total), valor total da proposta.
-3. Para "empresa": IGNORE completamente o logo/marca visual. Use APENAS dados textuais de campos como "Cliente:", "Empresa:", "Razão Social:" ou "Nome da Empresa:".
-4. ESTRUTURA DE RETORNO: {"dados_extraidos":[{campos extraídos do orçamento}],"confianca_extracao":XX,"tipo_conteudo_detectado":"orcamento","observacoes":"descrição do que foi extraído"}
-5. Se encontrar múltiplas tabelas, combine tudo em um único objeto (1 registro por orçamento).
-6. NUNCA retorne a empresa como o nome de um logo ou marca visual.
+CAMPOS OBRIGATÓRIOS A EXTRAIR (mapeados para os nomes EXATOS abaixo):
+- "numero_orcamento" ou "PROPOSTA Nº:" → número da proposta
+- "cliente_nome" ou "CLIENTE:" → nome completo da empresa cliente (busque em "Cliente:", "CLIENTE:", ou linha do cliente; IGNORE completamente logos/marcas visuais)
+- "cliente_telefone" ou "cliente_celular" → telefone do cliente
+- "cliente_email" → email do cliente
+- "data_orcamento" → data de emissão (formato: YYYY-MM-DD)
+- "data_vencimento" → data de validade (formato: YYYY-MM-DD)
+- "valor_total" → valor total da proposta
+- Itens: descrição, quantidade, valor unitário, valor total
 
-RETORNE APENAS JSON VÁLIDO (sem markdown, sem explicações) com dados de orçamento extraídos corretamente.`;
+REGRAS CRÍTICAS:
+1. NUNCA confunda "cliente_nome" com logos/marcas de empresas emissoras (ex: NeuralTech).
+2. O cliente é SEMPRE a empresa que está RECEBENDO a proposta (procure por "Cliente:", "Para:", "Empresa:").
+3. Use nomes TEXTUAIS completos extraídos do documento (ex: "PAMPLONA ALIMENTOS S/A").
+4. Se houver CNPJ junto ao cliente, inclua também no campo "cliente_nome" se aparecerem juntos.
+5. Retorne um ÚNICO objeto com todos os dados do orçamento.
+
+RETORNE APENAS JSON VÁLIDO (sem markdown):
+{"dados_extraidos":[{"numero_orcamento":"88534","cliente_nome":"PAMPLONA ALIMENTOS S/A","cliente_telefone":"+5548...","cliente_email":"...","data_orcamento":"2026-01-21","data_vencimento":"2026-01-26","valor_total":845.00,"itens":[{"descricao":"...","quantidade":5,"valor_unitario":169.00,"valor_total":845.00}]}],"confianca_extracao":90,"tipo_conteudo_detectado":"orcamento","observacoes":"Orçamento extraído com sucesso"}`;
 
     // Content block dinâmico por tipo
     let contentBlock;
