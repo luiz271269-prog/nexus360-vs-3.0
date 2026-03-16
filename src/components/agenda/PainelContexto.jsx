@@ -98,6 +98,53 @@ export default function PainelContexto({ tarefa, dados, onCompletarTarefa, loadi
           </div>
         </div>
 
+        {/* MENSAGEM SUGERIDA PELA IA — ação principal */}
+        {contextoIA.suggested_message && (
+          <div className="relative p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-300 shadow-md">
+            <div className="flex items-center gap-2 mb-3">
+              <MessageSquare className="w-5 h-5 text-green-700" />
+              <h4 className="font-bold text-green-900 text-base">💡 Mensagem Sugerida pela IA</h4>
+              {contextoIA.numero_reescalonamento > 0 && (
+                <Badge className="ml-auto bg-orange-100 text-orange-800 border-orange-300 text-xs">
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Reesc. #{contextoIA.numero_reescalonamento}
+                </Badge>
+              )}
+            </div>
+
+            <div className="bg-white border border-green-200 rounded-lg p-3 mb-3 text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">
+              {contextoIA.suggested_message}
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => handleCopiarMensagem(contextoIA.suggested_message)}
+                className={`flex-1 ${copiado ? 'bg-green-600 hover:bg-green-700' : 'bg-emerald-600 hover:bg-emerald-700'} text-white`}
+              >
+                {copiado ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                {copiado ? 'Copiado!' : 'Copiar Mensagem'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAbrirConversa}
+                className="flex-1 border-green-300 text-green-700 hover:bg-green-50"
+              >
+                <ExternalLink className="w-4 h-4 mr-1" />
+                Abrir Conversa
+              </Button>
+            </div>
+
+            {contextoIA.dias_inativo && (
+              <p className="text-xs text-green-700 mt-2 text-center">
+                ⏱️ {contextoIA.dias_inativo} dias sem contato
+                {contextoIA.numero_reescalonamento > 0 ? ` · ${contextoIA.numero_reescalonamento}º lembrete ao atendente` : ''}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Sugestões da IA - DESTAQUE PRINCIPAL */}
         {contextoIA.motivo_criacao && (
           <div className="relative p-5 bg-gradient-to-br from-purple-500/10 via-indigo-500/10 to-blue-500/10 rounded-xl border-2 border-purple-300/50 shadow-lg">
