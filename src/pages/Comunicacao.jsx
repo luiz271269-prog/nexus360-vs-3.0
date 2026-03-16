@@ -1936,8 +1936,7 @@ export default function Comunicacao() {
       });
     }
 
-    return threadsFiltrados;
-  }, [threads, contatos, clientes, atendentes, usuario, userPermissions, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope, duplicataEncontrada, effectiveScope, threadsNaoAtribuidasVisiveis, threadsAProcessar, contatosMap, contatosBuscados]);
+
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // ✅ ELIMINADO: threadsResultantesDaBusca (lógica duplicada)
