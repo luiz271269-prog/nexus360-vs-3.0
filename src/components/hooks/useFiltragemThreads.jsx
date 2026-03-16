@@ -1,134 +1,77 @@
 import React from 'react';
 import * as permissionsService from '../lib/permissionsService';
-import { aplicarFiltroEscopo } from '../comunicacao/threadFiltering';
-import { normalizarTelefone } from '../lib/phoneUtils';
+import { podeVerThreadInterna } from '../lib/internalThreadsService';
 
-/**
- * Hook para filtragem de threads com otimização de dependências
- * Reduz de 21 dependências para ~6
- * 
- * @param {Array} threads - Threads para filtrar
- * @param {Array} contatos - Contatos hidratados
- * @param {Array} clientes - Clientes
- * @param {Array} atendentes - Lista de atendentes
- * @param {Object} usuario - Usuário atual
- * @param {Object} userPermissions - Permissões do usuário
- * @param {Object} filtros - { scope, atendenteId, integracaoId, tipoContato, tagContato, categoriaSelecionada }
- * @param {String} debouncedSearchTerm - Termo de busca debounced
- * @param {Array} mensagensComCategoria - Mensagens filtradas por categoria
- * @param {Array} contatosBuscados - Contatos encontrados na busca
- * @param {Function} matchBuscaGoogle - Função para match de busca
- * @param {Function} calcularScoreBusca - Função para calcular score
- * @param {Boolean} DEBUG_VIS - Flag de debug
- * @returns {Array} Threads filtradas
- */
-export function useFiltragemThreads(
+export function useFiltragemThreads({
   threads,
   contatos,
   clientes,
   atendentes,
   usuario,
   userPermissions,
-  filtros,
+  selectedAttendantId,
+  selectedIntegrationId,
+  selectedCategoria,
+  selectedTipoContato,
+  selectedTagContato,
   debouncedSearchTerm,
   mensagensComCategoria,
-  contatosBuscados,
   matchBuscaGoogle,
-  calcularScoreBusca,
-  DEBUG_VIS = false
-) {
-  const contatosMap = React.useMemo(() => {
-    return new Map(contatos.map((c) => [c.id, c]));
-  }, [contatos]);
+  filterScope,
+  duplicataEncontrada,
+  effectiveScope,
+  threadsNaoAtribuidasVisiveis,
+  contatosMap,
+  contatosBuscados,
+}) {
+  return React.useMemo(() => {
+    if (!threads) return [];
 
-  const temBuscaPorTexto = !!debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
-  const threadsAProcessar = threads;
-  const isAdmin = usuario?.role === 'admin';
-
-  const threadsFiltrados = React.useMemo(() => {
-    if (!usuario || !userPermissions) return [];
-
-    const categoriasSet = filtros.categoriaSelecionada && filtros.categoriaSelecionada !== 'all' 
-      ? new Set(mensagensComCategoria.map((m) => m.thread_id)) 
-      : null;
-
-    const threadsComContatoIds = new Set();
-    const threadMaisRecentePorContacto = new Map();
-
-    threadsAProcessar.forEach((thread) => {
-      // ✅ Usuários internos: NUNCA deduplicam
-      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        threadMaisRecentePorContacto.set(`internal-${thread.id}`, thread);
-        return;
-      }
-
-      // COM BUSCA: Mostrar TODAS
-      if (temBuscaPorTexto) {
-        threadMaisRecentePorContacto.set(`search-all-${thread.id}`, thread);
-        return;
-      }
-
-      // SEM BUSCA: Deduplicar por contact_id
-      const contactId = thread.contact_id;
-      if (!contactId) {
-        if (isAdmin) {
-          threadMaisRecentePorContacto.set(`orphan-${thread.id}`, thread);
-        }
-        return;
-      }
-
-      const existente = threadMaisRecentePorContacto.get(contactId);
-      if (!existente) {
-        threadMaisRecentePorContacto.set(contactId, thread);
-      } else {
-        const tsExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0).getTime();
-        const tsAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0).getTime();
-        if (tsAtual > tsExistente) {
-          threadMaisRecentePorContacto.set(contactId, thread);
-        }
-      }
-    });
-
-    const threadsUnicas = Array.from(threadMaisRecentePorContacto.values());
-
+    const contatosMap_local = contatosMap || new Map(contatos.map((c) => [c.id, c]));
+    const isFilterUnassigned = effectiveScope === 'unassigned';
+    const isAdmin = usuario?.role === 'admin';
+    const temBuscaPorTexto = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
     const modoBusca = temBuscaPorTexto;
-    const filtrosObj = {
-      atendenteId: filtros.atendenteId,
-      integracaoId: filtros.integracaoId,
-      scope: filtros.scope
-    };
 
-    const threadsFiltrados = threadsUnicas.filter((thread) => {
-      // ✅ USUÁRIOS INTERNOS
+    // Criar Set de categorias
+    const categoriasSet = React.useMemo(() => {
+      if (!selectedCategoria || selectedCategoria === 'all') return null;
+      const set = new Set();
+      mensagensComCategoria.forEach((m) => {
+        if (m.thread_id) set.add(m.thread_id);
+      });
+      return set;
+    }, [selectedCategoria, mensagensComCategoria]);
+
+    // PARTE 1: Filtrar threads existentes
+    const threadsFiltrados = threads.filter((thread) => {
+      // ✅ USUÁRIOS INTERNOS - SAGRADOS: Mostrar se usuário participa
       if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        const podeVerInterno = thread.participants?.includes(usuario?.id) || usuario?.role === 'admin';
-        return podeVerInterno;
+        return podeVerThreadInterna(thread, usuario);
       }
 
-      const contato = contatosMap.get(thread.contact_id);
+      // ⬇️ Daqui pra baixo: SOMENTE threads EXTERNAS
+      const contato = contatosMap_local.get(thread.contact_id);
 
-      if (!contato && thread.contact_id && filtros.scope !== 'unassigned') {
-        // Fail-safe: deixa passar enquanto carregando
-        return true;
-      } else if (!contato && !thread.contact_id && filtros.scope !== 'unassigned') {
-        return false;
+      if (!contato && thread.contact_id && !isFilterUnassigned) {
+        return true; // Fail-Safe
+      } else if (!contato && !thread.contact_id && !isFilterUnassigned) {
+        return false; // Thread órfã
       }
 
-      const threadComContato = { ...thread, contato };
-
-      // ✅ MODO BUSCA: relaxar filtros
+      // MODO BUSCA: Sem VISIBILITY_MATRIX
       if (modoBusca) {
         if (!contato || !matchBuscaGoogle(contato, debouncedSearchTerm)) {
           return false;
         }
 
-        if (filtros.tipoContato && filtros.tipoContato !== 'all' && contato.tipo_contato !== filtros.tipoContato) {
+        if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
           return false;
         }
 
-        if (filtros.tagContato && filtros.tagContato !== 'all') {
+        if (selectedTagContato && selectedTagContato !== 'all') {
           const tags = contato.tags || [];
-          if (!tags.includes(filtros.tagContato)) {
+          if (!tags.includes(selectedTagContato)) {
             return false;
           }
         }
@@ -136,85 +79,85 @@ export function useFiltragemThreads(
         return true;
       }
 
-      // ✅ MODO NORMAL: aplicar regras estritas
+      // MODO NORMAL: Aplicar regras estritas
 
-      // Filtro de INTEGRAÇÃO
-      if (filtros.integracaoId && filtros.integracaoId !== 'all') {
-        const integrationIds = thread.origin_integration_ids?.length > 0 
-          ? thread.origin_integration_ids 
-          : [thread.whatsapp_integration_id];
-        if (!integrationIds.includes(filtros.integracaoId)) {
+      // Filtro "Não Adicionadas"
+      if (filterScope === 'nao_adicionado') {
+        if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+          return false;
+        }
+        if (thread.contact_id) {
+          return false;
+        }
+        return true;
+      }
+
+      // Filtros sempre aplicados
+      if (selectedIntegrationId && selectedIntegrationId !== 'all') {
+        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+          const integrationIds = thread.origin_integration_ids?.length > 0
+            ? thread.origin_integration_ids
+            : [thread.whatsapp_integration_id];
+
+          if (!integrationIds.includes(selectedIntegrationId)) {
+            return false;
+          }
+        }
+      }
+
+      if (selectedAttendantId && selectedAttendantId !== 'all') {
+        if (thread.assigned_user_id !== selectedAttendantId) {
           return false;
         }
       }
 
-      // Filtro de ATENDENTE
-      if (filtros.atendenteId && filtros.atendenteId !== 'all') {
-        if (thread.assigned_user_id !== filtros.atendenteId) {
-          return false;
-        }
-      }
-
-      // Filtro de CATEGORIA
       if (categoriasSet && !(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
         if (!categoriasSet.has(thread.id)) {
           return false;
         }
       }
 
-      // Filtro de TIPO DE CONTATO
-      if (filtros.tipoContato && filtros.tipoContato !== 'all' && contato) {
-        if (contato.tipo_contato !== filtros.tipoContato) {
-          return false;
+      if (selectedTipoContato && selectedTipoContato !== 'all' && contato) {
+        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+          if (contato.tipo_contato !== selectedTipoContato) {
+            return false;
+          }
         }
       }
 
-      // Filtro de TAG
-      if (filtros.tagContato && filtros.tagContato !== 'all' && contato) {
-        const tags = contato.tags || [];
-        if (!tags.includes(filtros.tagContato)) {
-          return false;
+      if (selectedTagContato && selectedTagContato !== 'all' && contato) {
+        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+          const tags = contato.tags || [];
+          if (!tags.includes(selectedTagContato)) {
+            return false;
+          }
         }
       }
 
-      // ✅ APLICAR VISIBILIDADE BASE
-      const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
-      if (!podeVerBase) {
-        return false;
-      }
-
-      // ✅ APLICAR FILTRO ESCOPO
-      const passouEscopo = aplicarFiltroEscopo(thread, usuario, filtrosObj, userPermissions, DEBUG_VIS);
-      if (!passouEscopo) {
-        return false;
-      }
-
-      if (thread.contact_id) {
-        threadsComContatoIds.add(thread.contact_id);
+      // Escopo
+      if (isFilterUnassigned) {
+        if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) {
+          if (!threadsNaoAtribuidasVisiveis.has(thread.id)) {
+            return false;
+          }
+        }
+      } else {
+        const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
+        if (!podeVerBase) {
+          return false;
+        }
       }
 
       return true;
     });
 
-    // ✅ PARTE 2: Adicionar contatos sem thread + clientes sem contato (modo busca)
+    // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
     if (temBuscaPorTexto) {
-      const telefonesJaAcionados = new Set();
       const todosCont = [...contatos, ...contatosBuscados];
       const contatosUnicos = new Map(todosCont.map((c) => [c.id, c]));
 
       Array.from(contatosUnicos.values()).forEach((contato) => {
-        if (contato.telefone && !temBuscaPorTexto) {
-          const telNorm = normalizarTelefone(contato.telefone);
-          if (telNorm && telefonesJaAcionados.has(telNorm)) {
-            return;
-          }
-          if (telNorm) {
-            telefonesJaAcionados.add(telNorm);
-          }
-        }
-
         if (!isAdmin) {
-          if (threadsComContatoIds.has(contato.id)) return;
           if (contato.bloqueado) return;
         }
 
@@ -227,22 +170,13 @@ export function useFiltragemThreads(
           last_message_at: contato.ultima_interacao || contato.created_date,
           last_message_content: null,
           unread_count: 0,
-          status: 'sem_conversa'
+          status: 'sem_conversa',
         });
       });
 
       // Clientes sem contato
       clientes.forEach((cliente) => {
         if (!matchBuscaGoogle(cliente, debouncedSearchTerm)) return;
-
-        const telefoneCliente = (cliente.telefone || '').replace(/\D/g, '');
-        if (telefoneCliente) {
-          const jaTemContato = contatos.some((c) => {
-            const tel = (c.telefone || '').replace(/\D/g, '');
-            return tel && tel === telefoneCliente;
-          });
-          if (jaTemContato) return;
-        }
 
         threadsFiltrados.push({
           id: `cliente-sem-contato-${cliente.id}`,
@@ -274,13 +208,18 @@ export function useFiltragemThreads(
     clientes,
     usuario,
     userPermissions,
-    filtros,
+    selectedAttendantId,
+    selectedIntegrationId,
+    selectedCategoria,
+    selectedTipoContato,
+    selectedTagContato,
     debouncedSearchTerm,
     mensagensComCategoria,
+    filterScope,
+    effectiveScope,
+    threadsNaoAtribuidasVisiveis,
+    contatosMap,
     contatosBuscados,
     matchBuscaGoogle,
-    contatosMap
   ]);
-
-  return threadsFiltrados;
 }
