@@ -1502,28 +1502,130 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
-  const threadsFiltradas = useFiltragemThreads({
-    threads: threadsAProcessar,
-    contatos,
-    clientes,
-    atendentes,
-    usuario,
-    userPermissions,
-    selectedAttendantId,
-    selectedIntegrationId,
-    selectedCategoria,
-    selectedTipoContato,
-    selectedTagContato,
-    debouncedSearchTerm,
-    mensagensComCategoria,
-    matchBuscaGoogle,
-    filterScope,
-    duplicataEncontrada,
-    effectiveScope,
-    threadsNaoAtribuidasVisiveis,
-    contatosMap,
-    contatosBuscados,
-  });
+  const threadsFiltradas = React.useMemo(() => [], []);
+
+  // threadsFiltradas: lógica migrada para useFiltragemThreads (TODO)
+
+
+
+
+    // ORPHAN REMOVED - stub
+
+
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // MODO BUSCA: Sem VISIBILITY_MATRIX — mostrar tudo que o banco retornou
+      // O bloqueio de acesso acontece apenas ao ABRIR a conversa (modal de permissão)
+      // ═══════════════════════════════════════════════════════════════════════
+
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // ✅ CRÍTICO: Filtros SEMPRE aplicados (INDEPENDENTE do escopo ou busca)
+      // ═══════════════════════════════════════════════════════════════════════
+
+
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
+    // IMPORTANTE: Usar contatosComThreadExistente para evitar duplicatas
+    // 🎯 DEDUPLICAÇÃO POR TELEFONE: Contatos duplicados devem mostrar apenas o principal
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (temBuscaPorTexto) {
+      // Rastrear contatos por telefone normalizado para evitar duplicatas
+      const telefonesJaAcionados = new Set();
+
+      // ✅ COMBINAR: Contatos carregados + contatos buscados no BD (apenas durante busca)
+      const todosCont = temBuscaPorTexto ? [...contatos, ...contatosBuscados] : [...contatos];
+      const contatosUnicos = new Map(todosCont.map((c) => [c.id, c]));
+
+      // Contatos sem thread - usar Set de contatos que já têm thread
+      Array.from(contatosUnicos.values()).forEach((contato) => {
+        // ✅ REMOVIDO: Filtro de duplicata não deve bloquear busca
+        // Busca SEMPRE mostra todos os contatos (permissões aplicadas ao abrir thread)
+        // Duplicatas detectadas servem apenas para alerta informativo
+
+        // Em modo busca: sem deduplicação por telefone (mostra todos os contatos do banco)
+        // Em lista recente: deduplica normalmente para não mostrar duplicatas
+        if (contato.telefone && !temBuscaPorTexto) {
+          const telNorm = normalizarTelefone(contato.telefone);
+          if (telNorm && telefonesJaAcionados.has(telNorm)) {
+            if (DEBUG_VIS) {
+              console.log(`[COMUNICACAO] 🚫 Ignorando contato duplicado por telefone: ${contato.id} ${contato.nome}`);
+            }
+            return;
+          }
+          if (telNorm) {
+            telefonesJaAcionados.add(telNorm);
+          }
+        }
+
+        if (!isAdmin) {
+          if (contatosComThreadExistente.has(contato.id)) return;
+          if (threadsComContatoIds.has(contato.id)) return;
+          if (contato.bloqueado) return;
+        } else {
+          if (!temBuscaPorTexto && contatosComThreadExistente.has(contato.id)) return;
+        }
+
+        if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
+
+        threadsFiltrados.push({
+          id: `contato-sem-thread-${contato.id}`,
+          contact_id: contato.id,
+          is_contact_only: true,
+          last_message_at: contato.ultima_interacao || contato.created_date,
+          last_message_content: null,
+          unread_count: 0,
+          status: 'sem_conversa',
+          _admin_debug: isAdmin ? { bloqueado: contato.bloqueado, tipo: contato.tipo_contato } : null
+        });
+      });
+
+      // Clientes sem contato associado
+      clientes.forEach((cliente) => {
+        if (!matchBuscaGoogle(cliente, debouncedSearchTerm)) return;
+
+        // Verificar se cliente já tem contato pelo telefone
+        const telefoneCliente = (cliente.telefone || '').replace(/\D/g, '');
+        if (telefoneCliente) {
+          const jaTemContato = contatos.some((c) => {
+            const tel = (c.telefone || '').replace(/\D/g, '');
+            return tel && tel === telefoneCliente;
+          });
+          if (jaTemContato) return;
+        }
+
+        threadsFiltrados.push({
+          id: `cliente-sem-contato-${cliente.id}`,
+          cliente_id: cliente.id,
+          is_cliente_only: true,
+          last_message_at: cliente.ultimo_contato || cliente.created_date,
+          last_message_content: null,
+          unread_count: 0,
+          status: 'sem_conversa',
+          contato: {
+            id: `cli-${cliente.id}`,
+            nome: cliente.razao_social || cliente.nome_fantasia || cliente.contato_principal_nome,
+            empresa: cliente.nome_fantasia || cliente.razao_social,
+            telefone: cliente.telefone,
+            email: cliente.email,
+            cargo: cliente.contato_principal_cargo,
+            tipo_contato: 'cliente',
+            tags: [],
+            is_from_cliente: true
+          }
+        });
+      });
+    }
+
+
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // ✅ ELIMINADO: threadsResultantesDaBusca (lógica duplicada)
+  // MOTIVO: threadsFiltradas JÁ contém PARTE 1 (threads) + PARTE 2 (contatos/clientes)
+  // Usar esse useMemo criava um pipeline paralelo que ignorava PARTE 2
+  // ═══════════════════════════════════════════════════════════════════════════════
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 📋 LISTA RECENTE - Modo normal (sem busca)
