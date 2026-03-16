@@ -1504,7 +1504,7 @@ export default function Comunicacao() {
 
   const threadsFiltradas = React.useMemo(() => [], []);
 
-    const isFilterUnassigned = effectiveScope === 'unassigned';
+  // Placeholder: filtragem inline removida — threadsFiltradas retorna [] temporariamente
 
     // 🆕 DEDUPLICAÇÃO CONDICIONAL: 
     // - COM BUSCA: NÃO deduplicar (mostrar TODAS as threads do mesmo contato)
