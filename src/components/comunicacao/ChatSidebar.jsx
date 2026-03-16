@@ -475,7 +475,12 @@ export default function ChatSidebar({
                );
              })()}
              {onOpenKanbanRequerAtencao && (() => {
+               // ✅ CORRIGIDO: filtrar apenas threads EXTERNAS (excluir grupos internos de setor)
                const threadsComProblema = threads?.filter(t => {
+                 // Excluir threads internas (team_internal e sector_group)
+                 if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return false;
+                 // Exigir que tenha contact_id (thread externa)
+                 if (!t.contact_id) return false;
                  const contato = t.contato;
                  return contato && 
                    (contato.days_inactive_inbound >= 2 || 
