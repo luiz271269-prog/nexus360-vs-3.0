@@ -1468,15 +1468,7 @@ export default function Comunicacao() {
   const effectiveScope =
   !hasBaseData && filterScope === 'unassigned' ? 'all' : filterScope;
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // OTIMIZAÇÃO: Pré-calcular o Set de "Não Atribuídas" separadamente
-  // Extraído para top-level para evitar nested hooks
-  // ═══════════════════════════════════════════════════════════════════════
-  // ═══════════════════════════════════════════════════════════════════════
-  // ✅ PRÉ-CÁLCULO: Threads não-atribuídas visíveis em escopo 'unassigned'
-  // IMPORTANTE: Usuários internos já têm sua própria regra (participação)
-  // e retornam ANTES desta verificação na VISIBILITY_MATRIX
-  // ═══════════════════════════════════════════════════════════════════════
+  // PRÉ-CÁLCULO: Threads não-atribuídas visíveis em escopo 'unassigned'
   const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
     if (effectiveScope !== 'unassigned' || !usuario || !userPermissions) return new Set();
 
