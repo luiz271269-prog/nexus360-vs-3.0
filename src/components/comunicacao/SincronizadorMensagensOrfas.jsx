@@ -63,6 +63,11 @@ export default function SincronizadorMensagensOrfas({ threadId = null, contactId
 
       setConfirmacao(false);
       setResultadoDiagnostico(null);
+      
+      // ✅ RE-RODAR DIAGNÓSTICO AUTOMATICAMENTE após correção
+      setTimeout(() => {
+        handleDiagnostico();
+      }, 1000);
     } catch (error) {
       console.error('[SincronizadorMensagensOrfas] Erro na correção:', error);
       toast.error(`❌ Erro: ${error?.message}`);
