@@ -1504,12 +1504,7 @@ export default function Comunicacao() {
 
   const threadsFiltradas = React.useMemo(() => [], []);
 
-  // Placeholder: filtragem inline removida — threadsFiltradas retorna [] temporariamente
-
-    // 🆕 DEDUPLICAÇÃO CONDICIONAL: 
-    // - COM BUSCA: NÃO deduplicar (mostrar TODAS as threads do mesmo contato)
-    // - SEM BUSCA: Deduplicar normalmente (1 thread por contato)
-    const threadMaisRecentePorContacto = new Map();
+  // threadsFiltradas: lógica migrada para useFiltragemThreads (TODO)
 
     threadsAProcessar.forEach((thread) => {// Using threadsAProcessar to respect duplicataEncontrada filter
       // ✅ Usuários internos: NUNCA deduplicam (USUARIOS ≠ CONTATOS)
