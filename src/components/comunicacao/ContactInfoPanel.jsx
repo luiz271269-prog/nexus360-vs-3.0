@@ -62,15 +62,19 @@ export default function ContactInfoPanel({
   const [formData, setFormData] = React.useState(initialData);
 
   React.useEffect(() => {
-    const carregarUsuario = async () => {
+    const carregarDados = async () => {
       try {
         const user = await base44.auth.me();
         setUsuario(user);
+        
+        // Carregar clientes
+        const clientesList = await base44.entities.Cliente.list();
+        setClientes(clientesList || []);
       } catch (error) {
-        console.error('[ContactInfoPanel] Erro ao carregar usuário:', error);
+        console.error('[ContactInfoPanel] Erro ao carregar dados:', error);
       }
     };
-    carregarUsuario();
+    carregarDados();
   }, []);
 
   const permissoes = usuario?.permissoes_comunicacao || {};
