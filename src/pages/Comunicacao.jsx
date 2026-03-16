@@ -1439,16 +1439,40 @@ export default function Comunicacao() {
 
   const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
-  const threadsFiltradas = React.useMemo(() => [], []);
+  const threadsFiltradas = React.useMemo(() => {
+    return aplicarFiltroEscopo({
+      threads: threadsAProcessar,
+      usuario,
+      userPermissions,
+      filterScope: effectiveScope,
+      selectedAttendantId,
+      selectedIntegrationId,
+      selectedTipoContato,
+      selectedTagContato,
+      selectedCategoria,
+      contatosMap
+    });
+  }, [threadsAProcessar, usuario, userPermissions, effectiveScope, selectedAttendantId, selectedIntegrationId, selectedTipoContato, selectedTagContato, selectedCategoria, contatosMap]);
 
-  // 📋 LISTA RECENTE - Computada via hook
-  const listaRecentes = useListaRecentes({ threadsFiltradas, contatos, atendentes, normalizarTelefone, getUserDisplayName });
+  const listaRecentes = React.useMemo(() => {
+    return threadsFiltradas.map(t => ({ id: t.id, nome: contatosMap.get(t.contact_id)?.nome || 'Sem nome', thread: t, contato: contatosMap.get(t.contact_id), tipo: 'thread' }));
+  }, [threadsFiltradas, contatosMap]);
 
-  const listaBusca = useListaBusca({
-    contatos, contatosBuscados, threads, atendentes,
-    debouncedSearchTerm, selectedTipoContato, selectedTagContato,
-    matchBuscaGoogle, calcularScoreBusca, getUserDisplayName
-  });
+  const listaBusca = React.useMemo(() => {
+    if (!debouncedSearchTerm?.trim()) return listaRecentes;
+    const termo = debouncedSearchTerm.toLowerCase();
+    const res = [];
+    threadsFiltradas.forEach(t => {
+      const c = contatosMap.get(t.contact_id);
+      if (matchBuscaGoogle(c, termo)) res.push({ id: t.id, nome: c?.nome || `+${c?.telefone}` || 'Sem nome', thread: t, contato: c, tipo: 'thread', score: calcularScoreBusca(c, termo) });
+    });
+    contatosBuscados.forEach(c => {
+      if (!res.some(r => r.contato?.id === c.id) && matchBuscaGoogle(c, termo)) {
+        res.push({ id: `contato-sem-thread-${c.id}`, nome: c.nome || `+${c.telefone}` || 'Sem nome', contato: c, tipo: 'contato-sem-thread', score: calcularScoreBusca(c, termo), contatoPreCarregado: c });
+      }
+    });
+    return res.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 100);
+  }, [debouncedSearchTerm, threadsFiltradas, contatosBuscados, contatosMap, matchBuscaGoogle, calcularScoreBusca, listaRecentes]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 SELETOR DE FONTE - Busca ativa ou lista recente?
