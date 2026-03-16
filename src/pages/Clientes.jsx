@@ -529,6 +529,26 @@ export default function Clientes() {
                 </SelectContent>
               </Select>
 
+              {/* ✅ FILTRO DE USUÁRIO - Apenas Supervisor/Gerente/Admin */}
+              {['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role) && (
+                <Select
+                  value={filtros.usuario_filtro || ''}
+                  onValueChange={(value) => setFiltros({ ...filtros, usuario_filtro: value || null })}
+                >
+                  <SelectTrigger className="h-9 border-slate-300 focus:border-blue-500">
+                    <SelectValue placeholder="👤 Usuário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>Meus Dados</SelectItem>
+                    {vendedores.map((vendedor) => (
+                      <SelectItem key={vendedor.value} value={vendedor.label}>
+                        {vendedor.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
               <Select
                 value={filtros.vendedor}
                 onValueChange={(value) => setFiltros({ ...filtros, vendedor: value })}
