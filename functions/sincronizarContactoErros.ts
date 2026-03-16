@@ -33,18 +33,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3. Validar threads vinculadas
-    const threads = await base44.asServiceRole.entities.MessageThread.filter({
-      contact_id: contact_id
-    });
-
-    if (!threads || threads.length === 0) {
-      erros.push({
-        tipo: 'sem_threads',
-        descricao: 'Contato não tem threads vinculadas'
-      });
-    }
-
     return Response.json({
       success: true,
       contact_id,
@@ -53,8 +41,7 @@ Deno.serve(async (req) => {
       corrigidos,
       validacoes: {
         tem_telefone: !!contact.telefone,
-        tem_canonico: !!contact.telefone_canonico,
-        threads_vinculadas: threads?.length || 0
+        tem_canonico: !!contact.telefone_canonico
       }
     });
 
