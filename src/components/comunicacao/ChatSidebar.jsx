@@ -456,7 +456,14 @@ export default function ChatSidebar({
           {/* ✅ BOTÕES AÇÃO - Não Atribuídos + Contatos Parados */}
            <div className="grid grid-cols-2 gap-1">
              {onOpenKanbanNaoAtribuidos && (() => {
-               const naoAtribuidos = threads?.filter(t => !t.assigned_user_id && t.contact_id && !t.is_contact_only).length || 0;
+               // ✅ CORRIGIDO: excluir threads internas do count
+               const naoAtribuidos = threads?.filter(t => 
+                 !t.assigned_user_id && 
+                 t.contact_id && 
+                 !t.is_contact_only &&
+                 t.thread_type !== 'team_internal' && 
+                 t.thread_type !== 'sector_group'
+               ).length || 0;
                return (
                  <Button
                    onClick={() => onOpenKanbanNaoAtribuidos()}
