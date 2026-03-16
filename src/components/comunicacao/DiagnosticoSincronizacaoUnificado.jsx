@@ -110,8 +110,20 @@ export default function DiagnosticoSincronizacaoUnificado({ contact, usuario, on
         const totalAjustes = corrigidos.length + syncCorrigidos.length + (totalMsgsMigradas > 0 ? 1 : 0);
 
         toast.success(`✅ Correção completa! ${totalAjustes} ajuste(s). Msgs migradas: ${totalMsgsMigradas}`);
-        setRelatorioCorrecao(null);
         if (onUpdate) await onUpdate();
+        
+        // ✅ FIX: Re-rodar diagnóstico automaticamente para atualizar os números na tela
+        setTimeout(async () => {
+          try {
+            const resVerif = await base44.functions.invoke('corrigirVinculacaoThreadContato', {
+              contact_id: contact.id,
+              modo: 'diagnostico'
+            });
+            setRelatorioCorrecao(resVerif?.data);
+          } catch (e) {
+            setRelatorioCorrecao(null);
+          }
+        }, 1500);
       }
     } catch (error) {
       console.error('[CorrecaoCompleta] Erro:', error);
