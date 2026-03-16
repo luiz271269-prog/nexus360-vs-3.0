@@ -117,6 +117,11 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
             <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-white ${tipoCfg.bg} shadow-sm`}>
               {tipoCfg.emoji} {tipoCfg.label}
             </span>
+            {skills.length > 0 && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-white bg-cyan-500 shadow-sm">
+                🎯 {skills[0].substring(0, 5)}
+              </span>
+            )}
             {contato?.tags?.length > 0 && (() => {
               const destaques = etiquetasDB.filter(e => e.destaque === true);
               const nomes = destaques.map(e => e.nome);
