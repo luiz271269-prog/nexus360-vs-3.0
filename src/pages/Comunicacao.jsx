@@ -65,6 +65,12 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
 import { aplicarFiltroEscopo } from "../components/comunicacao/threadFiltering";
+import { useFiltragemThreads } from "../hooks/useFiltragemThreads";
+import { useListaBusca } from "../hooks/useListaBusca";
+import { useListaRecentes } from "../hooks/useListaRecentes";
+import { useComunicacaoFilters } from "../components/comunicacao/ComunicacaoFiltersCalculator";
+import { useThreadSelection } from "../components/comunicacao/ThreadSelectionHandler";
+import { useMessageHandlers } from "../components/comunicacao/MessageHandlers";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
@@ -1483,9 +1489,29 @@ export default function Comunicacao() {
 
   const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
-  const threadsFiltradas = React.useMemo(() => [], []);
+  const threadsFiltradas = useFiltragemThreads({
+    threads: threadsAProcessar,
+    contatos,
+    clientes,
+    atendentes,
+    usuario,
+    userPermissions,
+    selectedAttendantId,
+    selectedIntegrationId,
+    selectedCategoria,
+    selectedTipoContato,
+    selectedTagContato,
+    debouncedSearchTerm,
+    mensagensComCategoria,
+    matchBuscaGoogle,
+    filterScope,
+    duplicataEncontrada,
+    effectiveScope,
+    threadsNaoAtribuidasVisiveis,
+    contatosMap,
+    contatosBuscados,
+  });
 
-  // 📋 LISTA RECENTE - Computada via hook
   const listaRecentes = useListaRecentes({ threadsFiltradas, contatos, atendentes, normalizarTelefone, getUserDisplayName });
 
   const listaBusca = useListaBusca({
