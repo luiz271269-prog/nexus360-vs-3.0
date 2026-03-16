@@ -382,6 +382,8 @@ export default function ChatSidebarKanban({
           mapa['__sem_atendente__'].threads.push(thread);
         return;
       }
+      // Pular coluna do próprio usuário (já em "Minhas Conversas")
+      if (norm(uid) === norm(usuarioAtual?.id)) return;
       if (!isAdmin && !isGerente && norm(uid) !== norm(usuarioAtual?.id)) return;
       if (!mapa[uid]) {
         const at = atendentes.find(a => a.id === uid);
