@@ -65,6 +65,12 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
 import { aplicarFiltroEscopo } from "../components/comunicacao/threadFiltering";
+import { useFiltragemThreads } from "../hooks/useFiltragemThreads";
+import { useListaBusca } from "../hooks/useListaBusca";
+import { useListaRecentes } from "../hooks/useListaRecentes";
+import { useComunicacaoFilters } from "../components/comunicacao/ComunicacaoFiltersCalculator";
+import { useThreadSelection } from "../components/comunicacao/ThreadSelectionHandler";
+import { useMessageHandlers } from "../components/comunicacao/MessageHandlers";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
@@ -327,10 +333,54 @@ export default function Comunicacao() {
     }
   });
 
-  // ✅ COMBINAR: Internas + Externas (sem análises para reduzir linhas)
+  // ✅ Buscar análises comportamentais
+  const { data: analisesComportamentais = [] } = useQuery({
+    queryKey: ['analises-comportamentais'],
+    queryFn: async () => {
+      try {
+        // Buscar todas as análises recentes (últimas 24h)
+        const dataLimite = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        return await base44.entities.ContactBehaviorAnalysis.filter(
+          { analyzed_at: { $gte: dataLimite } },
+          '-analyzed_at',
+          50
+        );
+      } catch (error) {
+        console.error('[COMUNICACAO] Erro ao carregar análises:', error);
+        return [];
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: !!usuario
+  });
+
+  // ✅ COMBINAR: Internas + Externas + Enriquecer com análises
   const threads = React.useMemo(() => {
-    return [...threadsExternas, ...threadsInternas];
-  }, [threadsExternas, threadsInternas]);
+    const combinadas = [...threadsExternas, ...threadsInternas];
+    
+    // Criar mapa de análises por contact_id
+    const analisesPorContato = new Map();
+    analisesComportamentais.forEach(analise => {
+      if (!analisesPorContato.has(analise.contact_id)) {
+        analisesPorContato.set(analise.contact_id, analise);
+      }
+    });
+    
+    // Enriquecer threads com análises
+    const enriquecidas = combinadas.map(thread => {
+      if (thread.contact_id) {
+        const analise = analisesPorContato.get(thread.contact_id);
+        if (analise) {
+          return { ...thread, _analiseComportamental: analise };
+        }
+      }
+      return thread;
+    });
+    
+
+    
+    return enriquecidas;
+  }, [threadsExternas, threadsInternas, analisesComportamentais]);
 
   const loadingThreads = loadingThreadsInternas || loadingThreadsExternas;
 
@@ -1344,6 +1394,12 @@ export default function Comunicacao() {
     }
   }, [threadAtiva, usuario, queryClient, contatos, contatoPreCarregado]);
 
+
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🎯 REGRAS DE VISUALIZAÇÃO - AGORA EM HOOK
+  // ═══════════════════════════════════════════════════════════════════════════════
+  
   // Função de busca melhorada para termos compostos
   const matchBuscaGoogle = React.useCallback((item, termo) => {
     if (!termo || termo.trim().length < 2) return false;
@@ -1418,6 +1474,15 @@ export default function Comunicacao() {
   const effectiveScope =
   !hasBaseData && filterScope === 'unassigned' ? 'all' : filterScope;
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // OTIMIZAÇÃO: Pré-calcular o Set de "Não Atribuídas" separadamente
+  // Extraído para top-level para evitar nested hooks
+  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════
+  // ✅ PRÉ-CÁLCULO: Threads não-atribuídas visíveis em escopo 'unassigned'
+  // IMPORTANTE: Usuários internos já têm sua própria regra (participação)
+  // e retornam ANTES desta verificação na VISIBILITY_MATRIX
+  // ═══════════════════════════════════════════════════════════════════════
   const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
     if (effectiveScope !== 'unassigned' || !usuario || !userPermissions) return new Set();
 
@@ -1437,42 +1502,23 @@ export default function Comunicacao() {
     return setIds;
   }, [threads, contatosMap, usuario, effectiveScope, userPermissions]);
 
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // ✅ REMOVIDO: Filtro de duplicatas - Busca SEMPRE mostra todos os contatos
+  // Detecção de duplicata serve apenas para alerta informativo (não bloqueia)
+  // ═══════════════════════════════════════════════════════════════════════════════
   const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
-  const threadsFiltradas = React.useMemo(() => {
-    return aplicarFiltroEscopo({
-      threads: threadsAProcessar,
-      usuario,
-      userPermissions,
-      filterScope: effectiveScope,
-      selectedAttendantId,
-      selectedIntegrationId,
-      selectedTipoContato,
-      selectedTagContato,
-      selectedCategoria,
-      contatosMap
-    });
-  }, [threadsAProcessar, usuario, userPermissions, effectiveScope, selectedAttendantId, selectedIntegrationId, selectedTipoContato, selectedTagContato, selectedCategoria, contatosMap]);
+  const threadsFiltradas = React.useMemo(() => [], []);
 
-  const listaRecentes = React.useMemo(() => {
-    return threadsFiltradas.map(t => ({ id: t.id, nome: contatosMap.get(t.contact_id)?.nome || 'Sem nome', thread: t, contato: contatosMap.get(t.contact_id), tipo: 'thread' }));
-  }, [threadsFiltradas, contatosMap]);
+  // 📋 LISTA RECENTE - Computada via hook
+  const listaRecentes = useListaRecentes({ threadsFiltradas, contatos, atendentes, normalizarTelefone, getUserDisplayName });
 
-  const listaBusca = React.useMemo(() => {
-    if (!debouncedSearchTerm?.trim()) return listaRecentes;
-    const termo = debouncedSearchTerm.toLowerCase();
-    const res = [];
-    threadsFiltradas.forEach(t => {
-      const c = contatosMap.get(t.contact_id);
-      if (c && matchBuscaGoogle(c, termo)) res.push({ id: t.id, nome: c?.nome || `+${c?.telefone}` || 'Sem nome', thread: t, contato: c, tipo: 'thread', score: calcularScoreBusca(c, termo) });
-    });
-    contatosBuscados.forEach(c => {
-      if (c && !res.some(r => r.contato?.id === c.id) && matchBuscaGoogle(c, termo)) {
-        res.push({ id: `contato-sem-thread-${c.id}`, nome: c.nome || `+${c.telefone}` || 'Sem nome', contato: c, tipo: 'contato-sem-thread', score: calcularScoreBusca(c, termo), contatoPreCarregado: c });
-      }
-    });
-    return res.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 100);
-  }, [debouncedSearchTerm, threadsFiltradas, contatosBuscados, contatosMap, matchBuscaGoogle, calcularScoreBusca, listaRecentes]);
+  // 🔍 LISTA BUSCA - Computada via hook
+  const listaBusca = useListaBusca({
+    contatos, contatosBuscados, threads, atendentes,
+    debouncedSearchTerm, selectedTipoContato, selectedTagContato,
+    matchBuscaGoogle, calcularScoreBusca, getUserDisplayName
+  });
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 SELETOR DE FONTE - Busca ativa ou lista recente?
