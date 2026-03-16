@@ -457,9 +457,9 @@ export default function AtribuidorAtendenteRapido({
             <DropdownMenuItem
               key={pessoa.id}
               onClick={(e) => handleAtribuir(pessoa.id, e)}
-              className="cursor-pointer"
+              className={`cursor-pointer ${pessoa.isFidelizado ? 'bg-amber-50' : ''}`}
             >
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center mr-2">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center mr-2 ${pessoa.isFidelizado ? 'bg-gradient-to-br from-amber-400 to-amber-600' : 'bg-gradient-to-br from-blue-400 to-blue-600'}`}>
                 <span className="text-white text-sm font-bold">{pessoa.nome?.charAt(0)}</span>
               </div>
               <div className="flex-1">
@@ -470,8 +470,11 @@ export default function AtribuidorAtendenteRapido({
                   </p>
                 )}
               </div>
+              {pessoa.isFidelizado && (
+                <Badge className="bg-amber-100 text-amber-700">VIP</Badge>
+              )}
               {atendenteAtual === pessoa.id && (
-                <Badge className="bg-amber-100 text-amber-700">Atual</Badge>
+                <Badge className="bg-blue-100 text-blue-700">Atual</Badge>
               )}
             </DropdownMenuItem>
           ))}
