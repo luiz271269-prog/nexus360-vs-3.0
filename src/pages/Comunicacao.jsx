@@ -1509,9 +1509,7 @@ export default function Comunicacao() {
 
 
 
-    // ORPHAN REMOVED
-        // ✅ OT #3: Blindagem de Logs em Produção (só aloca se DEBUG ativo)
-        if (!DEBUG_VIS) return;
+    // ORPHAN REMOVED - stub
 
         logsFiltragem.push({
           threadId: thread.id.substring(0, 8),
