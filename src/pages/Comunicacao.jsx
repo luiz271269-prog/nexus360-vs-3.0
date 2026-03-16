@@ -1504,43 +1504,6 @@ export default function Comunicacao() {
 
   const threadsFiltradas = React.useMemo(() => [], []);
 
-  // threadsFiltradas: lógica migrada para useFiltragemThreads (TODO)
-
-
-
-
-    // ORPHAN REMOVED - stub
-
-
-
-      // ═══════════════════════════════════════════════════════════════════════
-      // MODO BUSCA: Sem VISIBILITY_MATRIX — mostrar tudo que o banco retornou
-      // O bloqueio de acesso acontece apenas ao ABRIR a conversa (modal de permissão)
-      // ═══════════════════════════════════════════════════════════════════════
-
-
-      // ═══════════════════════════════════════════════════════════════════════
-      // ✅ CRÍTICO: Filtros SEMPRE aplicados (INDEPENDENTE do escopo ou busca)
-      // ═══════════════════════════════════════════════════════════════════════
-
-
-
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
-    // IMPORTANTE: Usar contatosComThreadExistente para evitar duplicatas
-    // 🎯 DEDUPLICAÇÃO POR TELEFONE: Contatos duplicados devem mostrar apenas o principal
-    // ═══════════════════════════════════════════════════════════════════════════
-
-
-
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // ✅ ELIMINADO: threadsResultantesDaBusca (lógica duplicada)
-  // MOTIVO: threadsFiltradas JÁ contém PARTE 1 (threads) + PARTE 2 (contatos/clientes)
-  // Usar esse useMemo criava um pipeline paralelo que ignorava PARTE 2
-  // ═══════════════════════════════════════════════════════════════════════════════
-
   // ═══════════════════════════════════════════════════════════════════════════════
   // 📋 LISTA RECENTE - Modo normal (sem busca)
   // ✅ NOVA LÓGICA: Ordena por completude (contatos completos primeiro)
