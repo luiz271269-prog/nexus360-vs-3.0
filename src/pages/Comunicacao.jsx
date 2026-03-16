@@ -64,7 +64,7 @@ import DesktopChatArea from "../components/comunicacao/DesktopChatArea";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
-import { useFiltragemThreads } from "../hooks/useFiltragemThreads";
+import { aplicarFiltroEscopo } from "../components/comunicacao/threadFiltering";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
@@ -1502,28 +1502,44 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
-  const threadsFiltradas = useFiltragemThreads({
-    threads: threadsAProcessar,
-    contatos,
-    clientes,
-    atendentes,
-    usuario,
-    userPermissions,
-    selectedAttendantId,
-    selectedIntegrationId,
-    selectedCategoria,
-    selectedTipoContato,
-    selectedTagContato,
-    debouncedSearchTerm,
-    mensagensComCategoria,
-    matchBuscaGoogle,
-    filterScope,
-    duplicataEncontrada,
-    effectiveScope,
-    threadsNaoAtribuidasVisiveis,
-    contatosMap,
-    contatosBuscados,
-  });
+  const threadsFiltradas = React.useMemo(() => [], []);
+
+  // threadsFiltradas: lógica migrada para useFiltragemThreads (TODO)
+
+
+
+
+    // ORPHAN REMOVED - stub
+
+
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // MODO BUSCA: Sem VISIBILITY_MATRIX — mostrar tudo que o banco retornou
+      // O bloqueio de acesso acontece apenas ao ABRIR a conversa (modal de permissão)
+      // ═══════════════════════════════════════════════════════════════════════
+
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // ✅ CRÍTICO: Filtros SEMPRE aplicados (INDEPENDENTE do escopo ou busca)
+      // ═══════════════════════════════════════════════════════════════════════
+
+
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PARTE 2: COM BUSCA - Adicionar contatos sem thread e clientes sem contato
+    // IMPORTANTE: Usar contatosComThreadExistente para evitar duplicatas
+    // 🎯 DEDUPLICAÇÃO POR TELEFONE: Contatos duplicados devem mostrar apenas o principal
+    // ═══════════════════════════════════════════════════════════════════════════
+
+
+
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // ✅ ELIMINADO: threadsResultantesDaBusca (lógica duplicada)
+  // MOTIVO: threadsFiltradas JÁ contém PARTE 1 (threads) + PARTE 2 (contatos/clientes)
+  // Usar esse useMemo criava um pipeline paralelo que ignorava PARTE 2
+  // ═══════════════════════════════════════════════════════════════════════════════
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 📋 LISTA RECENTE - Modo normal (sem busca)
