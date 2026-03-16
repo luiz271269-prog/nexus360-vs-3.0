@@ -1517,58 +1517,7 @@ export default function Comunicacao() {
       // MODO BUSCA: Sem VISIBILITY_MATRIX — mostrar tudo que o banco retornou
       // O bloqueio de acesso acontece apenas ao ABRIR a conversa (modal de permissão)
       // ═══════════════════════════════════════════════════════════════════════
-      if (modoBusca) {
-        if (!contato || !matchBuscaGoogle(contato, debouncedSearchTerm)) {
-          logThread('Modo Busca - Match', false, 'Não match com termo de busca');
-          return false;
-        }
 
-        logThread('Modo Busca - Match', true, 'Match encontrado');
-
-        if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
-          logThread('Modo Busca - Tipo', false, `Tipo diferente (esperado: ${selectedTipoContato}, atual: ${contato.tipo_contato})`);
-          return false;
-        }
-        logThread('Modo Busca - Tipo', true, 'Tipo OK');
-
-        if (selectedTagContato && selectedTagContato !== 'all') {
-          const tags = contato.tags || [];
-          if (!tags.includes(selectedTagContato)) {
-            logThread('Modo Busca - Tag', false, `Tag não encontrada (esperado: ${selectedTagContato})`);
-            return false;
-          }
-        }
-        logThread('Modo Busca - Tag', true, 'Tag OK');
-
-        return true;
-      }
-
-      // ═══════════════════════════════════════════════════════════════════════
-      // MODO NORMAL (sem busca): Aplicar regras estritas de visibilidade
-      // ═══════════════════════════════════════════════════════════════════════
-
-      // ═══════════════════════════════════════════════════════════════════════
-      // ✅ FILTRO "NÃO ATRIBUÍDAS" vs "NÃO ADICIONADAS"
-      // Threads internas são SAGRADAS - já passaram por sua lógica própria acima
-      // ═══════════════════════════════════════════════════════════════════════
-
-      // ✅ NOVO: Filtro "Não Adicionadas" (contact_id === NULL)
-      if (filterScope === 'nao_adicionado') {
-        // ✅ Threads internas não se aplicam (não têm contact_id por definição)
-        if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-          logThread('Filtro Não Adicionadas', false, 'Thread interna (não se aplica)');
-          return false;
-        }
-
-        // ✅ Apenas threads SEM contact_id passam
-        if (thread.contact_id) {
-          logThread('Filtro Não Adicionadas', false, 'Thread tem contact_id (não é órfã)');
-          return false;
-        }
-
-        logThread('Filtro Não Adicionadas', true, 'Thread órfã (contact_id == null)');
-        return true; // ✅ Pula outros filtros (thread órfã não tem contato para filtrar)
-      }
 
       // ═══════════════════════════════════════════════════════════════════════
       // ✅ CRÍTICO: Filtros SEMPRE aplicados (INDEPENDENTE do escopo ou busca)
