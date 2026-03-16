@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from 'sonner';
 import { base44 } from "@/api/base44Client";
+import ChatSidebarKanban from '@/components/comunicacao/ChatSidebarKanban';
 
 const statusLabels = {
   rascunho: 'Rascunho',
@@ -136,7 +137,7 @@ const etapasFluxo = {
 export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, onEdit, onMostrarInsightsIA }) {
   const navigate = useNavigate();
   const [chatAberto, setChatAberto] = useState(false);
-  const [orcamentoChat, setOrcamentoChat] = useState(null);
+  const [threadSelecionada, setThreadSelecionada] = useState(null);
   const [filtroVendedor, setFiltroVendedor] = useState('todos');
 
   const onDragEnd = (result) => {
@@ -196,8 +197,19 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
       const contatos = await base44.entities.Contact.filter({ telefone_canonico: telefoneNormalizado });
       
       if (contatos && contatos.length > 0) {
-        setOrcamentoChat({ ...orcamento, contact_id: contatos[0].id });
-        setChatAberto(true);
+        const contact = contatos[0];
+        // Buscar thread do contato
+        const threads = await base44.entities.MessageThread.filter({ 
+          contact_id: contact.id,
+          is_canonical: true
+        });
+        
+        if (threads && threads.length > 0) {
+          setThreadSelecionada(threads[0]);
+          setChatAberto(true);
+        } else {
+          toast.error('Nenhuma conversa encontrada para este contato');
+        }
       } else {
         toast.error('Contato não encontrado no sistema');
       }
@@ -374,23 +386,15 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="space-y-4">
-        {/* Chat Flutuante */}
-        {chatAberto && orcamentoChat && (
-          <div className="fixed inset-0 bg-black/30 z-40 flex items-end md:items-center justify-center p-4 md:p-0">
-            <div className="bg-white rounded-2xl shadow-2xl w-full md:w-96 h-[600px] md:h-[500px] flex flex-col border border-slate-200 md:rounded-lg">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 rounded-t-2xl md:rounded-t-lg flex items-center justify-between">
-                <h3 className="text-white font-semibold text-sm">{orcamentoChat.cliente_nome}</h3>
-                <button onClick={() => setChatAberto(false)} className="text-white hover:bg-white/20 p-1 rounded">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              {/* Chat Content */}
-              <div className="flex-1 bg-slate-50 p-4 text-center flex items-center justify-center text-slate-500 text-sm">
-                💬 Abrindo conversa com {orcamentoChat.cliente_nome}...
-              </div>
-            </div>
-          </div>
+        {/* ChatSidebarKanban */}
+        {chatAberto && threadSelecionada && (
+          <ChatSidebarKanban 
+            thread={threadSelecionada}
+            onClose={() => {
+              setChatAberto(false);
+              setThreadSelecionada(null);
+            }}
+          />
         )}
 
       {/* FILTRO POR VENDEDOR - Apenas para ADMIN */}
