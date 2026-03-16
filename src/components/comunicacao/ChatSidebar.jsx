@@ -212,17 +212,18 @@ export default function ChatSidebar({
     return threads.filter(t => {
       if (!t) return false;
 
-      // Threads internas: EXIGIR pelo menos uma mensagem OU ter participants válidos com total_mensagens > 0
-      if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') {
-        // Se tem last_message_at, é válida
+      // ✅ CRÍTICO: sector_group NUNCA deve aparecer na lista principal de clientes/leads.
+      // Grupos de setor ficam apenas no painel de comunicação interna (ChatSidebarKanban).
+      if (t.thread_type === 'sector_group') return false;
+
+      // Threads 1:1 internas: EXIGIR pelo menos uma mensagem
+      if (t.thread_type === 'team_internal') {
         if (t.last_message_at) return true;
-        // Se total_mensagens > 0, é válida (compatibilidade legada)
         if (t.total_mensagens > 0) return true;
-        // Senão, EXCLUIR threads internas sem mensagens
         return false;
       }
 
-      // Threads externas: manter todas
+      // Threads externas com contato real: manter todas
       return true;
     });
   }, [threads, usuarioAtual, integracoes]);
