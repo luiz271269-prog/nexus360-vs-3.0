@@ -227,17 +227,8 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
     const msgFila = `📋 Entendido! No momento, todos os atendentes de *${setorHumanizado}* estão ocupados.\n\nVocê ficará na fila e será atendido logo que possível! ⏳`;
     await enviarMensagem(base44, contact, integrationId, msgFila);
 
-    // Enfileirar
+    // Enfileirar diretamente (sem invoke para evitar 403)
     try {
-      await base44.asServiceRole.functions.invoke('gerenciarFila', {
-        action: 'enqueue',
-        thread_id: thread.id,
-        setor,
-        metadata: { nome: contact.nome }
-      });
-    } catch (e) {
-      console.warn('[PRE-ATENDIMENTO] Falha ao enfileirar:', e.message);
-      // Criar item manual na fila como fallback
       await base44.asServiceRole.entities.WorkQueueItem.create({
         contact_id: contact.id,
         thread_id: thread.id,
@@ -245,8 +236,11 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
         reason: 'sem_atendente_disponivel',
         severity: 'high',
         owner_sector_id: setor,
-        status: 'open'
+        status: 'open',
+        notes: `Cliente aguardando atendimento: ${setor}`
       });
+    } catch (e) {
+      console.warn('[PRE-ATENDIMENTO] Falha ao enfileirar:', e.message);
     }
 
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
