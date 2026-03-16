@@ -1825,9 +1825,6 @@ export default function Comunicacao() {
         const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
         if (!podeVerBase) {
           logThread('Visibilidade Base (Nexus360)', false, 'Bloqueado pela VISIBILITY_MATRIX');
-
-
-
           if (DEBUG_VIS && isThreadDeUsuarioQueEContato) {
             console.log('[COMUNICACAO] ❌ USUÁRIO-CONTATO - BLOQUEADO pela VISIBILITY_MATRIX:', {
               thread_id: thread.id.substring(0, 8),
@@ -1844,14 +1841,11 @@ export default function Comunicacao() {
           return false;
         }
 
-        // Aplicar filtro de escopo (my/unassigned/all)
-        if (filtros.scope && filtros.scope !== 'all') {
-          const escopoConfig = { id: filtros.scope, regra: filtros.scope === 'my' ? 'atribuido_ou_fidelizado' : 'sem_assigned_user_id' };
-          const threadsComEscopo = permissionsService.aplicarFiltroEscopo([thread], escopoConfig, userPermissions);
-          if (threadsComEscopo.length === 0) {
-            logThread('Filtro Escopo', false, `Não passou no escopo ${filtros.scope}`);
-            return false;
-          }
+        // ✅ NOVO: Aplicar filtro de escopo com suporte a participants[] (Opção A)
+        const passouEscopo = aplicarFiltroEscopo(thread, usuario, filtros, userPermissions, DEBUG_VIS);
+        if (!passouEscopo) {
+          logThread('Filtro Escopo', false, `Não passou no escopo ${filtros.scope}`);
+          return false;
         }
 
         logThread('Visibilidade Nexus360', true, 'Passou VISIBILITY_MATRIX + escopo');
