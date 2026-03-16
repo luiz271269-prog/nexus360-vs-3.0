@@ -284,103 +284,78 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
                               </div>
                             )}
 
-                            {/* Conteúdo do Card */}
-                            <div className="relative z-10 space-y-2">
-                              {/* Cliente (Título Principal) */}
-                              <div className="flex items-start justify-between gap-2">
-                                <h4 className="font-bold text-slate-900 text-sm leading-tight line-clamp-2 flex-1">
-                                  {orcamento.cliente_nome}
-                                </h4>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-slate-400 hover:text-orange-600 hover:bg-white/50 p-0 flex-shrink-0">
-                                      <MoreHorizontal className="w-4 h-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="text-xs">
-                                    <DropdownMenuItem onClick={() => onEdit && onEdit(orcamento)} className="text-xs py-1.5">
-                                      <Edit className="w-3.5 h-3.5 mr-1.5" />
-                                      Editar
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
+                            {/* Conteúdo Compacto do Card */}
+                             <div className="relative z-10 space-y-1.5">
+                               {/* Cliente + Edit Ícone */}
+                               <div className="flex items-start justify-between gap-1">
+                                 <h4 className="font-bold text-slate-900 text-xs leading-tight line-clamp-2 flex-1">
+                                   {orcamento.cliente_nome}
+                                 </h4>
+                                 <Button
+                                   variant="ghost"
+                                   size="icon"
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     onEdit && onEdit(orcamento);
+                                   }}
+                                   className="h-4 w-4 p-0 hover:bg-white/50 flex-shrink-0"
+                                 >
+                                   <Edit className="w-3 h-3 text-slate-600" />
+                                 </Button>
+                               </div>
 
-                              {/* Valor destaque */}
-                              <div className="bg-white/60 rounded-md px-2 py-1">
-                                <div className="text-[10px] text-slate-500 font-medium mb-0.5">Valor</div>
-                                <div className="font-bold bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent text-sm">
-                                  {formatCurrency(orcamento.valor_total)}
-                                </div>
-                              </div>
+                               {/* Valor - Destaque Verde */}
+                               <div className="bg-white/40 rounded px-1.5 py-0.5">
+                                 <div className="font-bold text-green-700 text-xs">
+                                   {formatCurrency(orcamento.valor_total)}
+                                 </div>
+                               </div>
 
-                              {/* Informações secundárias */}
-                              <div className="space-y-1 text-[10px]">
-                                {orcamento.numero_orcamento && (
-                                  <div className="flex items-center justify-between text-slate-600">
-                                    <span className="font-medium">Orçamento:</span>
-                                    <span className="font-mono">#{orcamento.numero_orcamento?.slice(-4)}</span>
-                                  </div>
-                                )}
+                               {/* Info Compacta */}
+                               <div className="space-y-0.5 text-[8px]">
+                                 {orcamento.numero_orcamento && (
+                                   <span className="text-slate-600 font-mono block">#{orcamento.numero_orcamento?.slice(-4)}</span>
+                                 )}
+                                 {orcamento.vendedor && (
+                                   <div className="flex items-center gap-0.5 text-slate-700 truncate">
+                                     <User className="w-2.5 h-2.5 flex-shrink-0" />
+                                     <span className="truncate">{orcamento.vendedor}</span>
+                                   </div>
+                                 )}
+                                 {orcamento.data_orcamento && (
+                                   <div className="flex items-center gap-0.5 text-slate-600">
+                                     <Calendar className="w-2.5 h-2.5 flex-shrink-0" />
+                                     <span>{formatDate(orcamento.data_orcamento)}</span>
+                                   </div>
+                                 )}
+                               </div>
 
-                                {orcamento.vendedor && (
-                                  <div className="flex items-center gap-1 text-slate-700">
-                                    <User className="w-3 h-3 flex-shrink-0" />
-                                    <span className="truncate font-medium">{orcamento.vendedor}</span>
-                                  </div>
-                                )}
+                               {/* Probabilidade Badge Compacto */}
+                               {orcamento.probabilidade && (
+                                 <Badge
+                                   className={`text-[7px] px-1 py-0 h-4 font-bold border-0 ${
+                                     orcamento.probabilidade === 'Alta' ? 'bg-green-100 text-green-800' :
+                                     orcamento.probabilidade === 'Média' ? 'bg-yellow-100 text-yellow-800' :
+                                     'bg-red-100 text-red-800'
+                                   }`}
+                                 >
+                                   {orcamento.probabilidade}
+                                 </Badge>
+                               )}
 
-                                {orcamento.data_orcamento && (
-                                  <div className="flex items-center gap-1 text-slate-600">
-                                    <Calendar className="w-3 h-3 flex-shrink-0" />
-                                    <span>{formatDate(orcamento.data_orcamento)}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Probabilidade badge */}
-                              {orcamento.probabilidade && (
-                                <Badge
-                                  className={`text-[9px] px-2 py-0.5 h-5 font-bold shadow-sm border-0 ${
-                                    orcamento.probabilidade === 'Alta' ? 'bg-green-100 text-green-800' :
-                                    orcamento.probabilidade === 'Média' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-red-100 text-red-800'
-                                  }`}
-                                >
-                                  {orcamento.probabilidade} probabilidade
-                                </Badge>
-                              )}
-
-                              {/* Botões de Ação */}
-                              <div className="flex gap-1.5 pt-2 border-t border-slate-200/60">
-                                {onMostrarInsightsIA && (
-                                  <Button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onMostrarInsightsIA(orcamento);
-                                    }}
-                                    size="sm"
-                                    className="flex-1 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 text-white text-[10px] h-7 px-2 shadow-md font-medium"
-                                  >
-                                    <Brain className="w-3.5 h-3.5 mr-0.5" />
-                                    IA
-                                  </Button>
-                                )}
-
-                                <Button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    abrirChatComCliente(orcamento);
-                                  }}
-                                  size="sm"
-                                  className="flex-1 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white text-[10px] h-7 px-2 shadow-md font-medium"
-                                  title="Abrir conversa com cliente"
-                                >
-                                  <MessageSquare className="w-3.5 h-3.5 mr-0.5" />
-                                  Msg
-                                </Button>
-                              </div>
-                            </div>
+                               {/* Botão Msg Único */}
+                               <Button
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   abrirChatComCliente(orcamento);
+                                 }}
+                                 size="sm"
+                                 className="w-full bg-green-600 hover:bg-green-700 text-white text-[8px] h-5 px-0 shadow-sm font-medium rounded"
+                               >
+                                 <MessageSquare className="w-2.5 h-2.5 mr-0.5" />
+                                 Msg
+                               </Button>
+                             </div>
                           </div>
                         )}
                       </Draggable>
