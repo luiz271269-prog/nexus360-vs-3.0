@@ -400,8 +400,12 @@ export default function LeadsQualificados() {
     if (!isCliente) return false;
 
     // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
-    if (usuarioAtual?.role !== 'admin') {
+    const temPermissaoVerOutros = ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
+    
+    if (!temPermissaoVerOutros) {
       if (c.vendedor_responsavel !== usuarioAtual?.full_name) return false;
+    } else if (filtrosClientes.usuario_filtro) {
+      if (c.vendedor_responsavel !== filtrosClientes.usuario_filtro) return false;
     }
 
     if (filtrosClientes.busca) {
