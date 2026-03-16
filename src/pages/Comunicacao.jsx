@@ -64,7 +64,7 @@ import DesktopChatArea from "../components/comunicacao/DesktopChatArea";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
-import { aplicarFiltroEscopo } from "../components/comunicacao/threadFiltering";
+import { aplicarFiltroEscopo, calcularThreadsFiltradas, calcularListaRecentes, calcularListaBusca } from "../components/comunicacao/threadFiltering";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
@@ -1501,16 +1501,9 @@ export default function Comunicacao() {
   // Detecção de duplicata serve apenas para alerta informativo (não bloqueia)
   // ═══════════════════════════════════════════════════════════════════════════════
   const threadsAProcessar = threads;
-  const threadsFiltradas = threads;
-  const listaRecentes = React.useMemo(() => {
-    if (!threads.length) return [];
-    return [...threads].sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
-  }, [threads]);
-  const listaBusca = React.useMemo(() => {
-    if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2 || !contatosBuscados.length) return [];
-    const ids = new Set(contatosBuscados.map(c => c.id));
-    return threads.filter(t => t.contact_id && ids.has(t.contact_id));
-  }, [debouncedSearchTerm, contatosBuscados, threads]);
+  const threadsFiltradas = React.useMemo(() => calcularThreadsFiltradas({ threads: threadsAProcessar, contatos, clientes, atendentes, usuario, userPermissions, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope, duplicataEncontrada, effectiveScope, threadsNaoAtribuidasVisiveis, contatosMap, contatosBuscados }), [threadsAProcessar, contatos, clientes, atendentes, usuario, userPermissions, selectedAttendantId, selectedIntegrationId, selectedCategoria, selectedTipoContato, selectedTagContato, debouncedSearchTerm, mensagensComCategoria, matchBuscaGoogle, filterScope, duplicataEncontrada, effectiveScope, threadsNaoAtribuidasVisiveis, contatosMap, contatosBuscados]);
+  const listaRecentes = React.useMemo(() => calcularListaRecentes({ threadsFiltradas, contatos, atendentes, getUserDisplayName }), [threadsFiltradas, contatos, atendentes]);
+  const listaBusca = React.useMemo(() => calcularListaBusca({ contatos, contatosBuscados, threads, atendentes, debouncedSearchTerm, selectedTipoContato, selectedTagContato, matchBuscaGoogle, calcularScoreBusca, getUserDisplayName }), [contatos, contatosBuscados, threads, atendentes, debouncedSearchTerm, selectedTipoContato, selectedTagContato, matchBuscaGoogle, calcularScoreBusca]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 SELETOR DE FONTE - Busca ativa ou lista recente?
