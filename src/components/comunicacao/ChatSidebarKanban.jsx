@@ -606,7 +606,13 @@ export default function ChatSidebarKanban({
 
           {/* Não Atribuídos */}
           {onOpenKanbanNaoAtribuidos && (() => {
-            const cnt = threads?.filter(t => !t.assigned_user_id && t.contact_id && !t.is_contact_only).length || 0;
+            const cnt = threads?.filter(t =>
+              !t.assigned_user_id &&
+              t.contact_id &&
+              !t.is_contact_only &&
+              t.thread_type !== 'team_internal' &&
+              t.thread_type !== 'sector_group'
+            ).length || 0;
             return (
               <Button onClick={onOpenKanbanNaoAtribuidos} size="sm"
                 className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-8 text-xs px-2.5 flex items-center gap-1 font-semibold shadow-sm">
