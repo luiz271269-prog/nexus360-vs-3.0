@@ -70,6 +70,7 @@ import { useListaBusca } from "../hooks/useListaBusca";
 import { useListaRecentes } from "../hooks/useListaRecentes";
 import { useComunicacaoFilters } from "../components/comunicacao/ComunicacaoFiltersCalculator";
 import { useThreadSelection } from "../components/comunicacao/ThreadSelectionHandler";
+import { useMessageHandlers } from "../components/comunicacao/MessageHandlers";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
