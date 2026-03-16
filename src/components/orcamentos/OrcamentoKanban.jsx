@@ -165,13 +165,15 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
 
   // ✅ FILTRO POR USUÁRIO: Mostrar apenas orçamentos do usuário ou todos (admin)
   const isAdmin = usuario?.role === 'admin';
+  const vendedorAtual = usuario?.full_name || usuario?.email?.split('@')[0];
+  
   const orcamentosFiltrados = orcamentos.filter(o => {
     // Admin vê todos, ou filtra por vendedor específico se selecionado
     if (isAdmin) {
       return filtroVendedor === 'todos' ? true : o.vendedor === filtroVendedor;
     }
-    // Usuário normal vê apenas seus orçamentos
-    return o.vendedor === usuario?.full_name;
+    // Usuário normal vê apenas seus orçamentos (match por full_name ou email)
+    return o.vendedor === vendedorAtual;
   });
 
   // Agrupar por status (com filtro aplicado)
