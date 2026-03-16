@@ -299,38 +299,38 @@ export default function Layout({ children, currentPageName }) {
       if (setor === 'vendas') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'LeadsQualificados', 'Vendedores', 'Clientes', 
-          'Agenda', 'Dashboard', 'Produtos'
+          'Agenda', 'Dashboard', 'Produtos', 'NotasFiscais'
         ].includes(item.page));
       }
       if (setor === 'assistencia') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'
+          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'NotasFiscais'
         ].includes(item.page));
       }
       if (setor === 'fornecedor') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Produtos', 'Importacao', 'Agenda', 'Dashboard'
+          'Comunicacao', 'Produtos', 'Importacao', 'Agenda', 'Dashboard', 'NotasFiscais'
         ].includes(item.page));
       }
       return todosMenuItems.filter(item => [
-        'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos'
+        'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'NotasFiscais'
       ].includes(item.page));
     }
 
     // Atendente (junior/pleno)
     if (setor === 'vendas') {
       return todosMenuItems.filter(item => [
-        'Comunicacao', 'LeadsQualificados', 'Clientes', 'Produtos', 'Agenda', 'Dashboard'
+        'Comunicacao', 'LeadsQualificados', 'Clientes', 'Produtos', 'Agenda', 'Dashboard', 'NotasFiscais'
       ].includes(item.page));
     }
     if (setor === 'assistencia') {
       return todosMenuItems.filter(item => [
-        'Comunicacao', 'Clientes', 'Produtos', 'Agenda', 'Dashboard'
+        'Comunicacao', 'Clientes', 'Produtos', 'Agenda', 'Dashboard', 'NotasFiscais'
       ].includes(item.page));
     }
     if (setor === 'fornecedor') {
       return todosMenuItems.filter(item => [
-        'Comunicacao', 'Produtos', 'Clientes', 'Agenda', 'Dashboard'
+        'Comunicacao', 'Produtos', 'Clientes', 'Agenda', 'Dashboard', 'NotasFiscais'
       ].includes(item.page));
     }
 
