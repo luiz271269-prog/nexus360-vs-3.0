@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
+import { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, MoreHorizontal, Edit, Calendar, DollarSign, User, Filter, Brain, MessageSquare, Building2, Handshake, Zap, Flame } from 'lucide-react';
+import { Plus, MoreHorizontal, Edit, Calendar, DollarSign, User, Filter, Brain, MessageSquare, Building2, Handshake, Zap, Flame, X } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from 'sonner';
+import { base44 } from "@/api/base44Client";
 
 const statusLabels = {
   rascunho: 'Rascunho',
@@ -134,6 +136,8 @@ const etapasFluxo = {
 
 export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, onEdit, onMostrarInsightsIA }) {
   const navigate = useNavigate();
+  const [chatAberto, setChatAberto] = useState(false);
+  const [orcamentoChat, setOrcamentoChat] = useState(null);
 
   const onDragEnd = (result) => {
     const { source, destination, draggableId } = result;
@@ -165,64 +169,27 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
     return acc;
   }, {});
 
-  const abrirWhatsAppComContexto = async (orcamento) => {
+  const abrirChatComCliente = async (orcamento) => {
     try {
-      console.log('[KANBAN] 📱 Abrindo WhatsApp com contexto:', orcamento);
-
       const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;
-
-      if (!telefone || telefone.trim() === '') {
-        toast.error('❌ Número de WhatsApp não encontrado', {
-          description: 'Este orçamento não possui telefone cadastrado. Edite o cadastro do cliente.',
-          duration: 5000
-        });
+      if (!telefone) {
+        toast.error('Telefone não cadastrado');
         return;
       }
 
+      // Buscar contato pelo telefone
       const telefoneNormalizado = telefone.replace(/\D/g, '');
-
-      if (telefoneNormalizado.length < 10) {
-        toast.error('❌ Número de telefone inválido', {
-          description: 'O número precisa ter pelo menos 10 dígitos.',
-          duration: 5000
-        });
-        return;
+      const contatos = await base44.entities.Contact.filter({ telefone_canonico: telefoneNormalizado });
+      
+      if (contatos && contatos.length > 0) {
+        setOrcamentoChat({ ...orcamento, contact_id: contatos[0].id });
+        setChatAberto(true);
+      } else {
+        toast.error('Contato não encontrado no sistema');
       }
-
-      const contexto = {
-        orcamentoId: orcamento.id,
-        orcamentoNumero: orcamento.numero_orcamento,
-        clienteNome: orcamento.cliente_nome,
-        clienteTelefone: telefoneNormalizado,
-        valorTotal: orcamento.valor_total,
-        origem: 'pipeline_orcamentos'
-      };
-
-      console.log('[KANBAN] 📦 Contexto preparado:', contexto);
-
-      const urlParams = new URLSearchParams({
-        orcamentoId: contexto.orcamentoId,
-        clienteTelefone: contexto.clienteTelefone,
-        clienteNome: contexto.clienteNome,
-        orcamentoNumero: contexto.orcamentoNumero || '',
-        valorTotal: contexto.valorTotal || 0
-      });
-
-      const urlComunicacao = `${createPageUrl('Comunicacao')}?${urlParams.toString()}`;
-
-      toast.success('📱 Abrindo WhatsApp...', {
-        description: `Iniciando conversa com ${contexto.clienteNome}`,
-        duration: 2000
-      });
-
-      navigate(urlComunicacao);
-
     } catch (error) {
-      console.error('[KANBAN] ❌ Erro ao abrir WhatsApp:', error);
-      toast.error('Erro ao abrir WhatsApp', {
-        description: error.message,
-        duration: 5000
-      });
+      console.error('Erro ao abrir chat:', error);
+      toast.error('Erro ao buscar contato');
     }
   };
 
@@ -382,20 +349,18 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
                                   </Button>
                                 }
 
-                                {abrirWhatsAppComContexto &&
-                                  <Button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      abrirWhatsAppComContexto(orcamento);
-                                    }}
-                                    size="sm"
-                                    className="flex-1 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white text-[10px] h-6 px-1 shadow-md"
-                                    title="Abrir conversa com cliente">
+                                <Button
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     abrirChatComCliente(orcamento);
+                                   }}
+                                   size="sm"
+                                   className="flex-1 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white text-[10px] h-6 px-1 shadow-md"
+                                   title="Abrir conversa com cliente">
 
-                                    <MessageSquare className="w-3 h-3 mr-0.5" />
-                                    Msg
-                                  </Button>
-                                }
+                                   <MessageSquare className="w-3 h-3 mr-0.5" />
+                                   Msg
+                                 </Button>
                               </div>
                             </div>
                           </div>
@@ -416,6 +381,25 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="space-y-4">
+        {/* Chat Flutuante */}
+        {chatAberto && orcamentoChat && (
+          <div className="fixed inset-0 bg-black/30 z-40 flex items-end md:items-center justify-center p-4 md:p-0">
+            <div className="bg-white rounded-2xl shadow-2xl w-full md:w-96 h-[600px] md:h-[500px] flex flex-col border border-slate-200 md:rounded-lg">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 rounded-t-2xl md:rounded-t-lg flex items-center justify-between">
+                <h3 className="text-white font-semibold text-sm">{orcamentoChat.cliente_nome}</h3>
+                <button onClick={() => setChatAberto(false)} className="text-white hover:bg-white/20 p-1 rounded">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {/* Chat Content */}
+              <div className="flex-1 bg-slate-50 p-4 text-center flex items-center justify-center text-slate-500 text-sm">
+                💬 Abrindo conversa com {orcamentoChat.cliente_nome}...
+              </div>
+            </div>
+          </div>
+        )}
+
       {/* Kanban Board - COM ABAS FUTURISTAS ESTILO MENU PRINCIPAL */}
       <Tabs defaultValue="interna" className="w-full">
         <TabsList className="grid w-full grid-cols-2 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-1 rounded-xl shadow-2xl border border-slate-700">
