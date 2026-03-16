@@ -1470,7 +1470,6 @@ export default function Comunicacao() {
   const effectiveScope =
   !hasBaseData && filterScope === 'unassigned' ? 'all' : filterScope;
 
-  // PRÉ-CÁLCULO: Threads não-atribuídas visíveis em escopo 'unassigned'
   const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
     if (effectiveScope !== 'unassigned' || !usuario || !userPermissions) return new Set();
 
