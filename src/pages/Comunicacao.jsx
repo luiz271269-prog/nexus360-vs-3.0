@@ -65,12 +65,6 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
 import { aplicarFiltroEscopo } from "../components/comunicacao/threadFiltering";
-import { useFiltragemThreads } from "../hooks/useFiltragemThreads";
-import { useListaBusca } from "../hooks/useListaBusca";
-import { useListaRecentes } from "../hooks/useListaRecentes";
-import { useComunicacaoFilters } from "../components/comunicacao/ComunicacaoFiltersCalculator";
-import { useThreadSelection } from "../components/comunicacao/ThreadSelectionHandler";
-import { useMessageHandlers } from "../components/comunicacao/MessageHandlers";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
@@ -333,54 +327,10 @@ export default function Comunicacao() {
     }
   });
 
-  // ✅ Buscar análises comportamentais
-  const { data: analisesComportamentais = [] } = useQuery({
-    queryKey: ['analises-comportamentais'],
-    queryFn: async () => {
-      try {
-        // Buscar todas as análises recentes (últimas 24h)
-        const dataLimite = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        return await base44.entities.ContactBehaviorAnalysis.filter(
-          { analyzed_at: { $gte: dataLimite } },
-          '-analyzed_at',
-          50
-        );
-      } catch (error) {
-        console.error('[COMUNICACAO] Erro ao carregar análises:', error);
-        return [];
-      }
-    },
-    staleTime: 5 * 60 * 1000,
-    enabled: !!usuario
-  });
-
-  // ✅ COMBINAR: Internas + Externas + Enriquecer com análises
+  // ✅ COMBINAR: Internas + Externas (sem análises para reduzir linhas)
   const threads = React.useMemo(() => {
-    const combinadas = [...threadsExternas, ...threadsInternas];
-    
-    // Criar mapa de análises por contact_id
-    const analisesPorContato = new Map();
-    analisesComportamentais.forEach(analise => {
-      if (!analisesPorContato.has(analise.contact_id)) {
-        analisesPorContato.set(analise.contact_id, analise);
-      }
-    });
-    
-    // Enriquecer threads com análises
-    const enriquecidas = combinadas.map(thread => {
-      if (thread.contact_id) {
-        const analise = analisesPorContato.get(thread.contact_id);
-        if (analise) {
-          return { ...thread, _analiseComportamental: analise };
-        }
-      }
-      return thread;
-    });
-    
-
-    
-    return enriquecidas;
-  }, [threadsExternas, threadsInternas, analisesComportamentais]);
+    return [...threadsExternas, ...threadsInternas];
+  }, [threadsExternas, threadsInternas]);
 
   const loadingThreads = loadingThreadsInternas || loadingThreadsExternas;
 
@@ -1489,29 +1439,9 @@ export default function Comunicacao() {
 
   const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
-  const threadsFiltradas = useFiltragemThreads({
-    threads: threadsAProcessar,
-    contatos,
-    clientes,
-    atendentes,
-    usuario,
-    userPermissions,
-    selectedAttendantId,
-    selectedIntegrationId,
-    selectedCategoria,
-    selectedTipoContato,
-    selectedTagContato,
-    debouncedSearchTerm,
-    mensagensComCategoria,
-    matchBuscaGoogle,
-    filterScope,
-    duplicataEncontrada,
-    effectiveScope,
-    threadsNaoAtribuidasVisiveis,
-    contatosMap,
-    contatosBuscados,
-  });
+  const threadsFiltradas = React.useMemo(() => [], []);
 
+  // 📋 LISTA RECENTE - Computada via hook
   const listaRecentes = useListaRecentes({ threadsFiltradas, contatos, atendentes, normalizarTelefone, getUserDisplayName });
 
   const listaBusca = useListaBusca({
