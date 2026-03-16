@@ -2,6 +2,7 @@ import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { contatoFidelizadoAoUsuario } from '../lib/userMatcher';
+import { verificarBloqueioThread } from '../lib/threadVisibility';
 
 /**
  * Hook que encapsula toda a lógica de seleção de thread
@@ -126,8 +127,7 @@ export function useThreadSelection({
           return;
         }
 
-        // TODO: Implementar verificarBloqueioThread se necessário
-        const bloqueio = { bloqueado: false, motivo: null };
+        const bloqueio = verificarBloqueioThread(usuario, threadsExistentes[0], contatoObj);
 
         if (bloqueio.bloqueado) {
           setModalSemPermissao({
@@ -182,8 +182,7 @@ export function useThreadSelection({
       }
     }
 
-    // TODO: Implementar verificarBloqueioThread se necessário
-    const bloqueio = { bloqueado: false, motivo: null };
+    const bloqueio = verificarBloqueioThread(usuario, thread, contatoObj);
 
     if (bloqueio.bloqueado) {
       console.log('[Comunicacao] 🔒 Thread bloqueada:', bloqueio);
