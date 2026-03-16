@@ -332,9 +332,16 @@ export default function ChatSidebarKanban({
       .sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
   }, [threadsFiltradas, usuarioAtual]);
 
-  // ── Só threads externas para os painéis kanban ──────────────────────────
+  // ── Só threads externas (clientes reais) para os painéis kanban ─────────
+  // CRÍTICO: excluir explicitamente team_internal e sector_group para não
+  // poluir "Parados", "Atendente" e "Canal" com grupos internos de setor.
   const externasKanban = React.useMemo(() =>
-    threadsFiltradas.filter(t => t.thread_type === 'contact_external' || (!t.thread_type && t.contact_id)),
+    threadsFiltradas.filter(t =>
+      t.contact_id &&
+      t.thread_type !== 'team_internal' &&
+      t.thread_type !== 'sector_group' &&
+      (t.thread_type === 'contact_external' || !t.thread_type)
+    ),
     [threadsFiltradas]
   );
 
