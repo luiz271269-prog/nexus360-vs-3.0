@@ -636,21 +636,34 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ✅ DECLARAR threadCanonica NO INÍCIO (antes de qualquer uso)
   let threadCanonica = null;
 
-  // ✅ DEDUPLICAÇÃO RIGOROSA - Se duplicata, ignora (simples)
+  // ✅ DEDUPLICAÇÃO RIGOROSA - BLOQUEIA se falhar (não continua com warn)
   if (dados.messageId) {
     try {
-      const dup = await base44.asServiceRole.entities.Message.filter(
-        { whatsapp_message_id: dados.messageId },
-        '-created_date',
-        1 // Apenas a primeira
-      );
+      const dedupTimeout = Promise.race([
+        base44.asServiceRole.entities.Message.filter(
+          { whatsapp_message_id: dados.messageId },
+          '-created_date',
+          1
+        ),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('dedup_timeout')), 5000)
+        )
+      ]);
+      
+      const dup = await dedupTimeout;
       if (dup.length > 0) {
         console.log(`[${VERSION}] ⏭️ DUPLICATA por messageId: ${dados.messageId} (já processada antes)`);
         return jsonOk({ success: true, ignored: true, reason: 'duplicata_message_id' });
       }
     } catch (err) {
-      console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata por messageId:`, err.message);
-      // Continua processamento mesmo com erro na verificação
+      // 🔴 BLOQUEIAR: não pode processar sem saber se é duplicata
+      console.error(`[${VERSION}] ❌ BLOQUEANDO: falha ao verificar duplicata (${err.message})`);
+      return jsonOk({ 
+        success: false, 
+        error: 'dedup_verification_failed',
+        status: 503,
+        message: 'Sistema temporariamente indisponível para verificação de duplicatas'
+      });
     }
   }
 
