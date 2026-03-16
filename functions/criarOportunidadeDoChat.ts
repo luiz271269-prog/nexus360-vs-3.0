@@ -37,6 +37,7 @@ Deno.serve(async (req) => {
     // Criar Orcamento direto no banco
     const orcamento = await base44.asServiceRole.entities.Orcamento.create({
       numero_orcamento,
+      contact_id: contact_id || '',
       cliente_nome: cliente_nome || 'Cliente do Chat',
       cliente_telefone: cliente_telefone || '',
       cliente_email: cliente_email || '',

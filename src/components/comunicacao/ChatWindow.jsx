@@ -1232,11 +1232,17 @@ export default function ChatWindow({
         const obs = `[💬 Chat ${threadData.id?.slice(-8)} - ${new Date().toLocaleString('pt-BR')}]\n👤 ${nomeRem}\n\n${mensagem.content || `[${mensagem.media_type || 'Mídia'}]`}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dadosExtraidos.observacoes_extraidas}` : ''}`;
         if (destino === 'leads') {
           if (threadData.contact_id) await base44.entities.Contact.update(threadData.contact_id, { tipo_contato: 'lead' });
-          await base44.entities.Cliente.create({ razao_social: contatoCompleto.nome || 'Lead do Chat', telefone: contatoCompleto.telefone || '', status: 'novo_lead', vendedor_id: usuario?.id || '', observacoes: obs, origem_campanha: { canal_entrada: 'whatsapp' } });
+          const novoLead = await base44.entities.Cliente.create({ razao_social: contatoCompleto.nome || 'Lead do Chat', telefone: contatoCompleto.telefone || '', status: 'novo_lead', vendedor_id: usuario?.id || '', observacoes: obs, origem_campanha: { canal_entrada: 'whatsapp' } });
+          if (threadData.contact_id && novoLead?.id) {
+            await base44.entities.Contact.update(threadData.contact_id, { cliente_id: novoLead.id });
+          }
           toast.dismiss(toastId); toast.success('🎯 Lead criado!', { duration: 5000, action: { label: 'Ver Leads', onClick: () => navigate(createPageUrl('LeadsQualificados') + '?tab=leads') } }); return;
         }
         if (destino === 'clientes') {
-          await base44.entities.Cliente.create({ razao_social: contatoCompleto.nome || 'Cliente do Chat', telefone: contatoCompleto.telefone || '', status: 'Ativo', vendedor_id: usuario?.id || '', observacoes: obs, origem_campanha: { canal_entrada: 'whatsapp' } });
+          const novoCliente = await base44.entities.Cliente.create({ razao_social: contatoCompleto.nome || 'Cliente do Chat', telefone: contatoCompleto.telefone || '', status: 'Ativo', vendedor_id: usuario?.id || '', observacoes: obs, origem_campanha: { canal_entrada: 'whatsapp' } });
+          if (threadData.contact_id && novoCliente?.id) {
+            await base44.entities.Contact.update(threadData.contact_id, { cliente_id: novoCliente.id });
+          }
           toast.dismiss(toastId); toast.success('👥 Cliente criado!', { duration: 5000, action: { label: 'Ver Clientes', onClick: () => navigate(createPageUrl('Clientes')) } }); return;
         }
         const response = await base44.functions.invoke('criarOportunidadeDoChat', { message_id: mensagem.id, thread_id: threadData.id, contact_id: threadData.contact_id, cliente_nome: contatoCompleto.nome || '', cliente_telefone: contatoCompleto.telefone || '', cliente_email: contatoCompleto.email || '', vendedor: usuario?.full_name || '', status: statusInicial, valor_total: dadosExtraidos?.valor_total || 0, produtos: dadosExtraidos?.itens?.map(i => ({ nome: i.nome_produto || '', quantidade: i.quantidade || 1, valor_unitario: i.valor_unitario || 0, valor_total: (i.quantidade || 1) * (i.valor_unitario || 0) })) || [], observacoes: obs, media_url: mensagem.media_url || '', media_type: mensagem.media_type || 'text' });
