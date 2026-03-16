@@ -128,9 +128,22 @@ export default function Agenda() {
       const user = await base44.auth.me();
       setUsuario(user);
 
-      const tarefasData = await base44.entities.TarefaInteligente.filter({
-        vendedor_responsavel: user.full_name
-      }, '-data_prazo', 100);
+      // Filtro duplo: por nome (legado) OU por user_id no contexto_ia (novo sistema)
+      const [tarefasPorNome, tarefasPorId] = await Promise.all([
+        base44.entities.TarefaInteligente.filter({
+          vendedor_responsavel: user.full_name
+        }, '-data_prazo', 100),
+        base44.entities.TarefaInteligente.filter({
+          status: { $in: ['pendente', 'em_andamento'] }
+        }, '-data_prazo', 50).catch(() => [])
+      ]);
+
+      // Unificar deduplicando por ID, incluindo tarefas com atendente_user_id = user.id
+      const tarefasPorIdFiltradas = tarefasPorId.filter(t =>
+        t.contexto_ia?.atendente_user_id === user.id &&
+        !tarefasPorNome.find(tn => tn.id === t.id)
+      );
+      const tarefasData = [...tarefasPorNome, ...tarefasPorIdFiltradas];
 
       setTarefas(tarefasData);
 
