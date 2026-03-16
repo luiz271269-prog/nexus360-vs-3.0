@@ -332,24 +332,70 @@ REGRAS OBRIGATÓRIAS:
 4. Se o contato já tem atendente e é trigger inbound: prefira suggest_reply
 5. Responda sempre em português brasileiro, tom profissional mas humano`;
 
-    // ── STEP 5: Claude com tool_use ─────────────────────────────────
-    const claudeResp = await anthropic.messages.create({
-      model: modelToUse,
-      max_tokens: 1000,
-      tools: TOOLS,
-      tool_choice: { type: 'auto' },
-      messages: [{ role: 'user', content: systemPrompt }]
-    });
+    // ── STEP 5: Claude com tool_use (fallback Base44 IA) ────────────
+    let acao, params;
 
-    const toolCall = claudeResp.content.find(b => b.type === 'tool_use');
-    if (!toolCall) {
-      const textFallback = claudeResp.content.find(b => b.type === 'text')?.text;
-      console.warn('[NEXUS-BRAIN] ⚠️ Claude não usou tool_use');
-      return Response.json({ success: true, action: 'no_tool_call', text: textFallback });
+    try {
+      const claudeResp = await anthropic.messages.create({
+        model: modelToUse,
+        max_tokens: 1000,
+        tools: TOOLS,
+        tool_choice: { type: 'auto' },
+        messages: [{ role: 'user', content: systemPrompt }]
+      });
+
+      const toolCall = claudeResp.content.find(b => b.type === 'tool_use');
+      if (!toolCall) {
+        console.warn('[NEXUS-BRAIN] ⚠️ Claude não usou tool_use — usando fallback Base44');
+        throw new Error('no_tool_use');
+      }
+
+      acao = toolCall.name;
+      params = toolCall.input;
+      console.log(`[NEXUS-BRAIN] ✅ Claude respondeu: ${acao}`);
+
+    } catch (claudeErr) {
+      console.warn(`[NEXUS-BRAIN] ⚠️ Claude falhou (${claudeErr.message}) — ativando fallback Base44 IA`);
+
+      // Fallback: Base44 InvokeLLM com JSON estruturado
+      const fallbackPrompt = `${systemPrompt}
+
+Responda SOMENTE com JSON válido neste formato (sem markdown, sem explicação):
+{"acao": "<suggest_reply|send_message|escalate_to_human|create_task|update_contact|no_action>", "message": "<texto da resposta ou motivo>", "tone": "amigavel", "reasoning": "<motivo>", "severity": "medium"}
+
+Exemplos:
+- Cliente perguntou preço: {"acao":"suggest_reply","message":"Olá! Posso te ajudar com informações sobre preços. Qual produto te interessa?","tone":"amigavel","reasoning":"Dúvida comercial simples"}
+- Cliente reclamou: {"acao":"escalate_to_human","message":"reclamação detectada","reasoning":"Requer atenção humana"}
+- Mensagem sem necessidade de resposta: {"acao":"no_action","message":"","reasoning":"Confirmação simples sem necessidade de resposta"}`;
+
+      const fallbackResp = await base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: fallbackPrompt,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            acao: { type: 'string' },
+            message: { type: 'string' },
+            tone: { type: 'string' },
+            reasoning: { type: 'string' },
+            severity: { type: 'string' }
+          },
+          required: ['acao', 'reasoning']
+        }
+      });
+
+      acao = fallbackResp?.acao || 'no_action';
+      params = {
+        message: fallbackResp?.message || '',
+        tone: fallbackResp?.tone || 'amigavel',
+        reasoning: fallbackResp?.reasoning || 'fallback base44',
+        reason: fallbackResp?.message || 'fallback base44',
+        summary: fallbackResp?.message || '',
+        title: fallbackResp?.message || 'Tarefa',
+        description: fallbackResp?.reasoning || '',
+        severity: fallbackResp?.severity || 'medium'
+      };
+      console.log(`[NEXUS-BRAIN] ✅ Fallback Base44 respondeu: ${acao}`);
     }
-
-    const acao = toolCall.name;
-    const params = toolCall.input;
     console.log(`[NEXUS-BRAIN] 🎯 Ação: ${acao}`);
 
     // ── STEP 6: Executar ────────────────────────────────────────────
