@@ -11,6 +11,26 @@ import { createPageUrl } from '@/utils';
 export default function PainelContexto({ tarefa, dados, onCompletarTarefa, loading }) {
   const [observacoes, setObservacoes] = useState('');
   const [resultado, setResultado] = useState('sucesso');
+  const [copiado, setCopiado] = useState(false);
+
+  const handleCopiarMensagem = (mensagem) => {
+    navigator.clipboard.writeText(mensagem).then(() => {
+      setCopiado(true);
+      toast.success('✅ Mensagem copiada! Cole no chat do cliente.');
+      setTimeout(() => setCopiado(false), 3000);
+    });
+  };
+
+  const handleAbrirConversa = () => {
+    const ctx = tarefa?.contexto_ia || {};
+    const threadId = ctx.thread_id || tarefa?.thread_id;
+    if (threadId) {
+      window.location.href = `/Comunicacao?thread=${threadId}`;
+    } else {
+      toast.info('Abrindo Central de Comunicação...');
+      window.location.href = '/Comunicacao';
+    }
+  };
 
   const handleCompletar = () => {
     if (!observacoes.trim()) {
