@@ -215,23 +215,31 @@ export default function AtribuidorAtendenteRapido({
     e.preventDefault();
   };
 
-  // ✅ TRANSFERÊNCIA SEM RESTRIÇÕES: Mostrar TODOS os atendentes
+  // ✅ TRANSFERÊNCIA: Se fidelizado, mostrar atendente responsável PRIMEIRO
   const pessoasDisponiveis = React.useMemo(() => {
-    return atendentes
+    // Obter ID do atendente fidelizado
+    const campoFidelizacao = getCampoFidelizacao();
+    const atendenteFilizado = contato ? contato[campoFidelizacao] || contato.vendedor_responsavel : null;
+    
+    const pessoas = atendentes
       .filter(a => {
         if (!(a.full_name || a.email)) return false;
-        
-        // ✅ SEM FILTRO DE SETOR - permite transferir para QUALQUER atendente
         return true;
       })
       .map(a => ({
         nome: a.full_name || a.email,
         id: a.id,
         setor: a.attendant_sector || 'geral',
-        email: a.email
-      }))
-      .sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [atendentes]);
+        email: a.email,
+        isFidelizado: atendenteFilizado && (a.id === atendenteFilizado || a.email === atendenteFilizado)
+      }));
+
+    // Separar fidelizado do restante e ordenar
+    const fidelizado = pessoas.filter(p => p.isFidelizado);
+    const restantes = pessoas.filter(p => !p.isFidelizado).sort((a, b) => a.nome.localeCompare(b.nome));
+    
+    return [...fidelizado, ...restantes];
+  }, [atendentes, contato]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // VARIANT: MINI - Apenas ícone pequeno
