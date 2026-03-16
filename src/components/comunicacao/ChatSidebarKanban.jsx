@@ -778,6 +778,18 @@ export default function ChatSidebarKanban({
         </div>
       </div>
 
+      {/* Monitor de Performance */}
+      <MonitorPerformanceKanban 
+        kanbanMode={kanbanMode} 
+        colunas={
+          kanbanMode === 'usuario' ? colunasPorUsuario :
+          kanbanMode === 'parados' ? [{ threads: threadsParadas }] :
+          kanbanMode === 'integracao' ? colunasPorInstancia :
+          kanbanMode === 'jarvis' ? colunasPorJarvis :
+          []
+        }
+      />
+
       {/* Modals */}
       <InternalMessageComposer
         open={internalComposerOpen}
