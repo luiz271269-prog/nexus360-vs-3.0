@@ -1464,10 +1464,10 @@ export default function Comunicacao() {
     const res = [];
     threadsFiltradas.forEach(t => {
       const c = contatosMap.get(t.contact_id);
-      if (matchBuscaGoogle(c, termo)) res.push({ id: t.id, nome: c?.nome || `+${c?.telefone}` || 'Sem nome', thread: t, contato: c, tipo: 'thread', score: calcularScoreBusca(c, termo) });
+      if (c && matchBuscaGoogle(c, termo)) res.push({ id: t.id, nome: c?.nome || `+${c?.telefone}` || 'Sem nome', thread: t, contato: c, tipo: 'thread', score: calcularScoreBusca(c, termo) });
     });
     contatosBuscados.forEach(c => {
-      if (!res.some(r => r.contato?.id === c.id) && matchBuscaGoogle(c, termo)) {
+      if (c && !res.some(r => r.contato?.id === c.id) && matchBuscaGoogle(c, termo)) {
         res.push({ id: `contato-sem-thread-${c.id}`, nome: c.nome || `+${c.telefone}` || 'Sem nome', contato: c, tipo: 'contato-sem-thread', score: calcularScoreBusca(c, termo), contatoPreCarregado: c });
       }
     });
