@@ -51,11 +51,12 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
   const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
   const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
   
-  // ✅ Skills do atendente responsável
-  const atendente = atendentes?.find(a => a.id === thread.assigned_user_id);
+  // ✅ Skills — funciona para atendidos + fidelizados
+  const getAtendenteFidelizado = (c) => getAtendenteFidelizadoAtualizado(c, atendentes);
+  const atendente = atendentes?.find(a => a.id === thread.assigned_user_id) || getAtendenteFidelizado(contato);
   const skills = React.useMemo(() => {
     if (!atendente?.segmentos_especialidade || atendente.segmentos_especialidade.length === 0) return [];
-    return atendente.segmentos_especialidade.slice(0, 1); // Apenas 1 skill para não poluir
+    return atendente.segmentos_especialidade.slice(0, 1);
   }, [atendente?.segmentos_especialidade]);
 
   let nomeExibicao = "";
