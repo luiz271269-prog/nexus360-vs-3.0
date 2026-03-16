@@ -218,6 +218,11 @@ export default function Clientes() {
   };
 
   const clientesFiltrados = (clientes || []).filter(cliente => {
+    // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
+    if (usuarioAtual?.role !== 'admin') {
+      if (cliente.vendedor_responsavel !== usuarioAtual?.full_name) return false;
+    }
+
     if (filtros.busca) {
       const busca = filtros.busca.toLowerCase();
       const match =
