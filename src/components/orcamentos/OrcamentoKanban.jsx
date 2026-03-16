@@ -162,12 +162,26 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
     return new Date(dateString).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
   };
 
-  // Agrupar por status (directly use 'orcamentos' as there are no filters)
+  // ✅ FILTRO POR USUÁRIO: Mostrar apenas orçamentos do usuário ou todos (admin)
+  const isAdmin = usuario?.role === 'admin';
+  const orcamentosFiltrados = orcamentos.filter(o => {
+    // Admin vê todos, ou filtra por vendedor específico se selecionado
+    if (isAdmin) {
+      return filtroVendedor === 'todos' ? true : o.vendedor === filtroVendedor;
+    }
+    // Usuário normal vê apenas seus orçamentos
+    return o.vendedor === usuario?.full_name;
+  });
+
+  // Agrupar por status (com filtro aplicado)
   const allStatusesFromEtapas = Object.values(etapasFluxo).flatMap((e) => e.statuses);
   const orcamentosPorStatus = allStatusesFromEtapas.reduce((acc, status) => {
-    acc[status] = orcamentos.filter((o) => o.status === status);
+    acc[status] = orcamentosFiltrados.filter((o) => o.status === status);
     return acc;
   }, {});
+
+  // Lista de vendedores únicos para filtro (apenas admin)
+  const vendedoresUnicos = isAdmin ? [...new Set(orcamentos.map(o => o.vendedor).filter(Boolean))] : [];
 
   const abrirChatComCliente = async (orcamento) => {
     try {
