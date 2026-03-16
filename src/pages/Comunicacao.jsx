@@ -65,12 +65,6 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
 import { aplicarFiltroEscopo } from "../components/comunicacao/threadFiltering";
-import { useFiltragemThreads } from "../hooks/useFiltragemThreads";
-import { useListaBusca } from "../hooks/useListaBusca";
-import { useListaRecentes } from "../hooks/useListaRecentes";
-import { useComunicacaoFilters } from "../components/comunicacao/ComunicacaoFiltersCalculator";
-import { useThreadSelection } from "../components/comunicacao/ThreadSelectionHandler";
-import { useMessageHandlers } from "../components/comunicacao/MessageHandlers";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
@@ -1470,6 +1464,7 @@ export default function Comunicacao() {
   const effectiveScope =
   !hasBaseData && filterScope === 'unassigned' ? 'all' : filterScope;
 
+  // PRÉ-CÁLCULO: Threads não-atribuídas visíveis em escopo 'unassigned'
   const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
     if (effectiveScope !== 'unassigned' || !usuario || !userPermissions) return new Set();
 
