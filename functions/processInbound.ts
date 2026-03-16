@@ -301,6 +301,39 @@ Deno.serve(async (req) => {
 
   // ── ACK IMEDIATO foi removido deste ponto — o preAtendimentoHandler v12 já envia saudação ──
 
+  // 5c. SOLICITAÇÃO DE DOCUMENTO FISCAL — detectar e disparar PDF automaticamente
+  result.pipeline.push('doc_fiscal_check');
+  if (message?.sender_type === 'contact' && contact?.id && (messageContent || '').length > 2) {
+    try {
+      const deteccaoFiscal = await base44.asServiceRole.functions.invoke('detectarSolicitacaoDocFiscal', {
+        mensagem: messageContent,
+        contact_id: contact.id,
+        thread_id: thread?.id
+      });
+
+      if (deteccaoFiscal?.data?.eh_solicitacao_fiscal && deteccaoFiscal.data.notas?.length > 0) {
+        console.log(`[${VERSION}] 📄 Solicitação fiscal detectada! Notas encontradas: ${deteccaoFiscal.data.notas_encontradas}`);
+        result.actions.push('doc_fiscal_detectado');
+
+        // Enviar a nota mais recente com PDF disponível
+        const notaComPDF = deteccaoFiscal.data.notas.find(n => n.pdf_url);
+        if (notaComPDF) {
+          await base44.asServiceRole.functions.invoke('dispararNotaFiscalWhatsApp', {
+            nota_fiscal_id: notaComPDF.id,
+            contact_id: contact.id,
+            thread_id: thread?.id,
+            integration_id: integration?.id || thread?.whatsapp_integration_id
+          });
+          result.actions.push('nf_enviada_automaticamente');
+          console.log(`[${VERSION}] ✅ NF ${notaComPDF.numero_nf} enviada automaticamente`);
+          return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, routed: true, to: 'doc_fiscal_auto' });
+        }
+      }
+    } catch (e) {
+      console.warn(`[${VERSION}] ⚠️ doc_fiscal_check falhou (prosseguindo): ${e.message}`);
+    }
+  }
+
   // 6. NOVO CICLO E DECISÃO: PRÉ-ATENDIMENTO vs SKILL AUTÔNOMA
   result.pipeline.push('cycle_detection');
   const novoCiclo = novoCicloPreCheck; // já calculado acima
