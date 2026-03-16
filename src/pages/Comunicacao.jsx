@@ -1506,7 +1506,7 @@ export default function Comunicacao() {
 
   // threadsFiltradas: lógica migrada para useFiltragemThreads (TODO)
 
-    threadsAProcessar.forEach((thread) => {// Using threadsAProcessar to respect duplicataEncontrada filter
+  // --- ORPHAN BLOCK START MARKER ---
       // ✅ Usuários internos: NUNCA deduplicam (USUARIOS ≠ CONTATOS)
       // Usuários internos usam pair_key/sector_key como identificador ÚNICO
       // NÃO devem usar contact_id (que é null para usuários internos)
