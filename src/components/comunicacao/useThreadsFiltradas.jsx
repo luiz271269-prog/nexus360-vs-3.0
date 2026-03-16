@@ -154,8 +154,11 @@ export function useThreadsFiltradas({
     };
 
     const threadsFiltrados = threadsUnicas.filter((thread) => {
-      // ── THREADS INTERNAS ──
-      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+      // ── sector_group: nunca exibir na lista de atendimentos ──
+      if (thread.thread_type === 'sector_group') return false;
+
+      // ── THREADS INTERNAS 1:1 ──
+      if (thread.thread_type === 'team_internal') {
         return podeVerThreadInterna(thread, usuario);
       }
 
