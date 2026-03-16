@@ -1510,7 +1510,7 @@ export default function Comunicacao() {
   // 📋 LISTA RECENTE - Computada via hook
   const listaRecentes = useListaRecentes({ threadsFiltradas, contatos, atendentes, normalizarTelefone, getUserDisplayName });
 
-  // 🔍 LISTA BUSCA - Computada via hook (extracto)
+  // 🔍 LISTA BUSCA - Computada via hook
   const listaBusca = useListaBusca({
     contatos, contatosBuscados, threads, atendentes,
     debouncedSearchTerm, selectedTipoContato, selectedTagContato,
