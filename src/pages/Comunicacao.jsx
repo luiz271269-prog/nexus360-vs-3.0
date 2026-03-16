@@ -337,7 +337,7 @@ export default function Comunicacao() {
         return await base44.entities.ContactBehaviorAnalysis.filter(
           { analyzed_at: { $gte: dataLimite } },
           '-analyzed_at',
-          500
+          50
         );
       } catch (error) {
         console.error('[COMUNICACAO] Erro ao carregar análises:', error);
