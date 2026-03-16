@@ -55,13 +55,15 @@ export default function LeadsQualificados() {
     busca: '',
     status: 'todos',
     classificacao: 'todos',
-    vendedor: 'todos'
+    vendedor: 'todos',
+    usuario_filtro: null // Filtro de usuário para supervisores
   });
 
   const [filtrosClientes, setFiltrosClientes] = useState({
     busca: '',
     status: 'todos',
-    vendedor: 'todos'
+    vendedor: 'todos',
+    usuario_filtro: null // Filtro de usuário para supervisores
   });
 
   const queryClient = useQueryClient();
