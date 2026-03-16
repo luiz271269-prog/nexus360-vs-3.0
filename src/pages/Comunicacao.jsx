@@ -66,7 +66,10 @@ import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
 import { aplicarFiltroEscopo } from "../components/comunicacao/threadFiltering";
 import { useFiltragemThreads } from "../components/hooks/useFiltragemThreads";
+import { useListaBusca } from "../components/hooks/useListaBusca";
+import { useListaRecentes } from "../components/hooks/useListaRecentes";
 
+// 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
 
 export default function Comunicacao() {
@@ -1468,7 +1471,15 @@ export default function Comunicacao() {
   const effectiveScope =
   !hasBaseData && filterScope === 'unassigned' ? 'all' : filterScope;
 
-  // PRÉ-CÁLCULO: Threads não-atribuídas visíveis em escopo 'unassigned'
+  // ═══════════════════════════════════════════════════════════════════════
+  // OTIMIZAÇÃO: Pré-calcular o Set de "Não Atribuídas" separadamente
+  // Extraído para top-level para evitar nested hooks
+  // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════
+  // ✅ PRÉ-CÁLCULO: Threads não-atribuídas visíveis em escopo 'unassigned'
+  // IMPORTANTE: Usuários internos já têm sua própria regra (participação)
+  // e retornam ANTES desta verificação na VISIBILITY_MATRIX
+  // ═══════════════════════════════════════════════════════════════════════
   const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
     if (effectiveScope !== 'unassigned' || !usuario || !userPermissions) return new Set();
 
@@ -1488,232 +1499,23 @@ export default function Comunicacao() {
     return setIds;
   }, [threads, contatosMap, usuario, effectiveScope, userPermissions]);
 
-  const threadsAProcessar = threads;
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // ✅ REMOVIDO: Filtro de duplicatas - Busca SEMPRE mostra todos os contatos
+  // Detecção de duplicata serve apenas para alerta informativo (não bloqueia)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const threadsAProcessar = threads; // ✅ SEM FILTRO de duplicatas
 
-  const threadsFiltradas = useFiltragemThreads({
-    threads: threadsAProcessar,
-    contatos,
-    clientes,
-    atendentes,
-    usuario,
-    userPermissions,
-    selectedAttendantId,
-    selectedIntegrationId,
-    selectedCategoria,
-    selectedTipoContato,
-    selectedTagContato,
-    debouncedSearchTerm,
-    mensagensComCategoria,
-    matchBuscaGoogle,
-    filterScope,
-    duplicataEncontrada,
-    effectiveScope,
-    threadsNaoAtribuidasVisiveis,
-    contatosMap,
-    contatosBuscados,
+  const threadsFiltradas = React.useMemo(() => [], []);
+
+  // 📋 LISTA RECENTE - Computada via hook
+  const listaRecentes = useListaRecentes({ threadsFiltradas, contatos, atendentes, normalizarTelefone, getUserDisplayName });
+
+  // 🔍 LISTA BUSCA - Computada via hook (extracto)
+  const listaBusca = useListaBusca({
+    contatos, contatosBuscados, threads, atendentes,
+    debouncedSearchTerm, selectedTipoContato, selectedTagContato,
+    matchBuscaGoogle, calcularScoreBusca, getUserDisplayName
   });
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // 📋 LISTA RECENTE - Modo normal (sem busca)
-  // ✅ NOVA LÓGICA: Ordena por completude (contatos completos primeiro)
-  // ✅ DEDUPLICAÇÃO ATIVA: Apenas em modo normal (SEM busca)
-  // ═══════════════════════════════════════════════════════════════════════════════
-  const listaRecentes = React.useMemo(() => {
-    const contatosMap = new Map(contatos.map((c) => [c.id, c])); // ✅ Preserva _meta
-    const usuariosMap = new Map(atendentes.map((a) => [a.id, a]));
-
-    // ✅ Enriquecer com contato + metadados de qualidade
-    const enriched = threadsFiltradas.map((thread) => {
-      const usuarioAtribuido = usuariosMap.get(thread.assigned_user_id);
-      const contatoObj = thread.contato || contatosMap.get(thread.contact_id);
-      
-      // ✅ Calcular score UI baseado em _meta do backend
-      const meta = contatoObj?._meta || {};
-      const scoreCompletude = meta.score_completude ?? 0;
-      const temDadosBasicos = meta.tem_dados_basicos ?? false;
-
-      return {
-        ...thread,
-        contato: contatoObj,
-        atendente_atribuido: usuarioAtribuido,
-        assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null,
-        uiMeta: {
-          temDadosBasicos,
-          scoreCompletude
-        }
-      };
-    });
-
-    // 🎯 Deduplicação por chave única (APENAS EM MODO NORMAL - sem busca)
-    const gerarChaveUnica = (contato) => {
-      if (!contato) return null;
-      const tel = normalizarTelefone(contato.telefone || '') || '';
-      const nome = (contato.nome || '').trim().toLowerCase();
-      const empresa = (contato.empresa || '').trim().toLowerCase();
-      const cargo = (contato.cargo || '').trim().toLowerCase();
-      return `${tel}|${nome}|${empresa}|${cargo}`;
-    };
-
-    const threadsPorChaveUnica = new Map();
-    enriched.forEach((thread) => {
-      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        threadsPorChaveUnica.set(`internal-${thread.id}`, thread);
-        return;
-      }
-
-      const chave = gerarChaveUnica(thread.contato);
-      if (!chave) {
-        threadsPorChaveUnica.set(`orphan-${thread.id}`, thread);
-        return;
-      }
-
-      const existente = threadsPorChaveUnica.get(chave);
-      if (!existente) {
-        threadsPorChaveUnica.set(chave, thread);
-      } else {
-        const tsExistente = new Date(existente.last_message_at || 0).getTime();
-        const tsAtual = new Date(thread.last_message_at || 0).getTime();
-        if (tsAtual > tsExistente) {
-          threadsPorChaveUnica.set(chave, thread);
-        }
-      }
-    });
-
-    const deduplicated = Array.from(threadsPorChaveUnica.values());
-
-    // ✅ ORDENAÇÃO: Recência PRIMEIRO → Tipo → Completude
-    return deduplicated.sort((a, b) => {
-      // 1️⃣ PRIORIDADE MÁXIMA: Tipo de item (threads com mensagens primeiro)
-      const getPrioridade = (item) => {
-        if (item.is_cliente_only) return 3;
-        if (item.is_contact_only) return 2;
-        return 1;
-      };
-
-      const prioA = getPrioridade(a);
-      const prioB = getPrioridade(b);
-      if (prioA !== prioB) return prioA - prioB;
-
-      // 2️⃣ Recência: mensagens mais recentes no topo (SEMPRE)
-      const dateA = new Date(a.last_message_at || 0);
-      const dateB = new Date(b.last_message_at || 0);
-      return dateB - dateA;
-    });
-  }, [threadsFiltradas, contatos, atendentes]);
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔍 LISTA BUSCA - Busca de banco CRM (TODAS as relevâncias)
-  // ✅ ZERO DEDUPLICAÇÃO: Cada contact_id é um item único na busca
-  // ✅ PRIORIDADE: Relevância de busca > Completude > Recência
-  // ═══════════════════════════════════════════════════════════════════════════════
-  const listaBusca = React.useMemo(() => {
-    if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) return [];
-
-    const contatosMap = new Map([...contatos, ...contatosBuscados].map(c => [c.id, c])); // ✅ Preserva _meta + busca
-    const usuariosMap = new Map(atendentes.map((a) => [a.id, a]));
-    const resultadosBusca = [];
-    const idsJaProcessados = new Set(); // ✅ ÚNICO filtro: evitar duplicatas EXATAS por ID
-
-
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ESTRATÉGIA: Processar CADA contato encontrado SEM consolidar por telefone
-    // Cada contact_id = 1 item na lista (permite ver todas as variações)
-    // ═══════════════════════════════════════════════════════════════════════════
-    contatosMap.forEach((contato, contactId) => {
-      // ✅ Evitar duplicatas EXATAS (mesmo ID processado 2x)
-      if (idsJaProcessados.has(contactId)) return;
-
-      // Pular bloqueados
-      if (contato.bloqueado) return;
-
-      // Verificar match com termo
-      if (!matchBuscaGoogle(contato, debouncedSearchTerm)) return;
-
-      // Aplicar filtros de UI
-      if (selectedTipoContato && selectedTipoContato !== 'all' && contato.tipo_contato !== selectedTipoContato) {
-        return;
-      }
-
-      if (selectedTagContato && selectedTagContato !== 'all') {
-        const tags = contato.tags || [];
-        if (!tags.includes(selectedTagContato)) {
-          return;
-        }
-      }
-
-      // ✅ Buscar thread mais recente deste contato (sem filtrar por visibilidade)
-      const threadsDoContato = threads.filter(t => t.contact_id === contactId);
-      
-      let itemFinal;
-      if (threadsDoContato.length > 0) {
-        // Usar thread mais recente
-        const threadMaisRecente = threadsDoContato.sort((a, b) => {
-          const tsA = new Date(a.last_message_at || a.updated_date || 0).getTime();
-          const tsB = new Date(b.last_message_at || b.updated_date || 0).getTime();
-          return tsB - tsA;
-        })[0];
-
-        const usuarioAtribuido = usuariosMap.get(threadMaisRecente.assigned_user_id);
-        const meta = contato._meta || {};
-
-        itemFinal = {
-          ...threadMaisRecente,
-          contato,
-          atendente_atribuido: usuarioAtribuido,
-          assigned_user_display_name: usuarioAtribuido ? getUserDisplayName(usuarioAtribuido.id, atendentes) : null,
-          _searchScore: calcularScoreBusca(contato, debouncedSearchTerm),
-          _threadsConsolidadas: threadsDoContato.length,
-          uiMeta: {
-            temDadosBasicos: meta.tem_dados_basicos ?? false,
-            scoreCompletude: meta.score_completude ?? 0
-          }
-        };
-      } else {
-        // Contato sem thread
-        const meta = contato._meta || {};
-        itemFinal = {
-          id: `contato-sem-thread-${contactId}`,
-          contact_id: contactId,
-          is_contact_only: true,
-          contato,
-          last_message_at: contato.ultima_interacao || contato.created_date,
-          last_message_content: null,
-          unread_count: 0,
-          status: 'sem_conversa',
-          _searchScore: calcularScoreBusca(contato, debouncedSearchTerm),
-          uiMeta: {
-            temDadosBasicos: meta.tem_dados_basicos ?? false,
-            scoreCompletude: meta.score_completude ?? 0
-          }
-        };
-      }
-
-      resultadosBusca.push(itemFinal);
-      idsJaProcessados.add(contactId); // ✅ Marcar como processado
-    });
-
-
-
-    // ✅ ORDENAÇÃO CRM: Relevância (60%) + Completude (30%) + Recência (10%)
-    return resultadosBusca.sort((a, b) => {
-      const scoreCompletudeA = a.uiMeta?.scoreCompletude ?? 0;
-      const scoreCompletudeB = b.uiMeta?.scoreCompletude ?? 0;
-      const scoreRelevanciaA = a._searchScore ?? 0;
-      const scoreRelevanciaB = b._searchScore ?? 0;
-      
-      // Score híbrido: 60% relevância + 30% completude + 10% recência
-      const tsA = new Date(a.last_message_at || 0).getTime();
-      const tsB = new Date(b.last_message_at || 0).getTime();
-      const scoreRecenciaA = tsA / 1e12; // Normalizar timestamp
-      const scoreRecenciaB = tsB / 1e12;
-      
-      const scoreFinalA = (scoreRelevanciaA * 0.6) + (scoreCompletudeA * 0.3) + (scoreRecenciaA * 0.1);
-      const scoreFinalB = (scoreRelevanciaB * 0.6) + (scoreCompletudeB * 0.3) + (scoreRecenciaB * 0.1);
-      
-      return scoreFinalB - scoreFinalA;
-    });
-  }, [contatos, contatosBuscados, threads, atendentes, debouncedSearchTerm, selectedTipoContato, selectedTagContato, matchBuscaGoogle, calcularScoreBusca]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 SELETOR DE FONTE - Busca ativa ou lista recente?
