@@ -266,11 +266,7 @@ export default function Layout({ children, currentPageName }) {
 
     // Administrador - acesso total
     if (role === 'admin') {
-      return todosMenuItems.filter(item => {
-        // Ferramentas de Migração: apenas admin
-        if (item.page === 'FerramentasMigracao') return true;
-        return true;
-      });
+      return todosMenuItems;
     }
 
     // Gerência (coordenador/gerente)
