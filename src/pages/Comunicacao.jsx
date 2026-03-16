@@ -1508,9 +1508,6 @@ export default function Comunicacao() {
     matchBuscaGoogle, calcularScoreBusca, getUserDisplayName
   });
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // 🎯 SELETOR DE FONTE - Busca ativa ou lista recente?
-  // ═══════════════════════════════════════════════════════════════════════════════
   const temBuscaAtiva = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
   const threadsParaExibir = temBuscaAtiva ? listaBusca : listaRecentes;
 
