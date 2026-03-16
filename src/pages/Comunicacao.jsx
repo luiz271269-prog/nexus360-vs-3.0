@@ -1507,67 +1507,7 @@ export default function Comunicacao() {
   // threadsFiltradas: lógica migrada para useFiltragemThreads (TODO)
 
 
-      // ✅ Usuários internos: NUNCA deduplicam (USUARIOS ≠ CONTATOS)
-      // Usuários internos usam pair_key/sector_key como identificador ÚNICO
-      // NÃO devem usar contact_id (que é null para usuários internos)
-      if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-        // Usar thread_id direto como chave (garantia absoluta de unicidade)
-        threadMaisRecentePorContacto.set(`internal-${thread.id}`, thread);
-        return;
-      }
 
-      // 🆕 COM BUSCA ATIVA: Mostrar TODAS as threads (sem deduplicar)
-      if (temBuscaPorTexto) {
-        threadMaisRecentePorContacto.set(`search-all-${thread.id}`, thread);
-        return;
-      }
-
-      // ✅ SEM BUSCA: Deduplicar por contact_id (comportamento normal)
-      const contactId = thread.contact_id;
-      if (!contactId) {
-        if (isAdmin) {
-          threadMaisRecentePorContacto.set(`orphan-${thread.id}`, thread);
-        }
-        return;
-      }
-
-      const existente = threadMaisRecentePorContacto.get(contactId);
-      if (!existente) {
-        threadMaisRecentePorContacto.set(contactId, thread);
-      } else {
-        const tsExistente = new Date(existente.last_message_at || existente.updated_date || existente.created_date || 0).getTime();
-        const tsAtual = new Date(thread.last_message_at || thread.updated_date || thread.created_date || 0).getTime();
-
-        if (tsAtual > tsExistente) {
-          threadMaisRecentePorContacto.set(contactId, thread);
-        }
-      }
-    });
-
-    const threadsUnicas = Array.from(threadMaisRecentePorContacto.values());
-
-    if (DEBUG_VIS) {
-
-    }
-
-    // Registrar IDs de contatos que já têm thread (para evitar duplicatas na busca)
-    const contatosComThreadExistente = new Set(threadsUnicas.map((t) => t.contact_id).filter(Boolean));
-
-    // Montar objeto de filtros para threadVisibility
-    // ✅ CRÍTICO: Atendente SEMPRE filtra (mesmo em "não atribuídas")
-    // Threads transferidas para você devem aparecer independente do escopo
-    const filtros = {
-      atendenteId: selectedAttendantId,
-      integracaoId: selectedIntegrationId,
-      scope: filterScope
-    };
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // MODO BUSCA: Se há termo de busca, relaxar filtros de visibilidade
-    // A busca serve para ENCONTRAR contatos e iniciar novas conversas
-    // O modal de permissão será exibido ao clicar se necessário
-    // ═══════════════════════════════════════════════════════════════════════
-    const modoBusca = temBuscaPorTexto;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PARTE 1: Filtrar THREADS existentes com REGRAS DE VISUALIZAÇÃO
