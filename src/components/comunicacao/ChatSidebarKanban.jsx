@@ -73,7 +73,6 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
     'parceiro': { emoji: 'P', label: 'Parceiro', bg: 'bg-purple-500' }
   };
   const tipoCfg = tiposConfig[contato?.tipo_contato || 'novo'] || tiposConfig['novo'];
-  const getAtendenteFidelizado = (c) => getAtendenteFidelizadoAtualizado(c, atendentes);
 
   return (
     <div
