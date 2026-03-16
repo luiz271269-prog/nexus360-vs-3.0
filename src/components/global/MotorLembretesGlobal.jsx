@@ -128,8 +128,10 @@ export async function calcularLembretesGlobal(usuario, base44) {
       // Filtrar por responsável se não for admin
       const tarefasFiltradas = usuario.role === 'admin'
         ? tarefas
-        : tarefas.filter(t => 
-            t.responsavel_id === usuario.id || !t.responsavel_id
+        : tarefas.filter(t =>
+            t.vendedor_responsavel === usuario.full_name ||
+            t.contexto_ia?.atendente_user_id === usuario.id ||
+            t.responsavel_id === usuario.id
           );
       
       tarefasCriticas = tarefasFiltradas.filter(t => t.prioridade === 'critica').length;

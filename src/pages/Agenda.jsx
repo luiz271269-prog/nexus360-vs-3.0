@@ -458,7 +458,7 @@ export default function Agenda() {
         <Tabs value={abaSelecionada} onValueChange={setAbaSelecionada} className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 border border-slate-700">
             <TabsTrigger value="tarefas" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-400 data-[state=active]:to-orange-500 data-[state=active]:text-white">
-              🎯 Tarefas IA (Legacy)
+              🎯 Tarefas & Follow-ups
             </TabsTrigger>
             <TabsTrigger value="agenda_ia" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">
               🗓️ Agenda Nexus IA
