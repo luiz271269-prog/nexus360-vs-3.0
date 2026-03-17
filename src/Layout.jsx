@@ -23,7 +23,8 @@ import {
   Activity,
   Workflow,
   Shield,
-  FileText
+  FileText,
+  TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
