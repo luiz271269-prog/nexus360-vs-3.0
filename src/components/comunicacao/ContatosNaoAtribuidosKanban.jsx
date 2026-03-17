@@ -247,6 +247,23 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], onC
             </span>
           </div>
         </div>
+        <KanbanCardFooter
+          onMsg={() => {
+            setCarregandoMensagens(true);
+            base44.entities.Message.filter({ thread_id: thread.id }, '-sent_at', 200)
+              .then(msgs => { setChatAberto({ thread, contato: { id: contato.id, nome: contato.nome, empresa: contato.empresa, telefone: contato.telefone, tipo_contato: contato.tipo_contato } }); setMensagensChat(msgs.reverse()); })
+              .catch(e => toast.error(`❌ ${e.message}`))
+              .finally(() => setCarregandoMensagens(false));
+          }}
+          onEdit={() => toast.info('Edição via painel de contato na aba Comunicação')}
+          onHistorico={() => {
+            setCarregandoMensagens(true);
+            base44.entities.Message.filter({ thread_id: thread.id }, '-sent_at', 200)
+              .then(msgs => { setChatAberto({ thread, contato: { id: contato.id, nome: contato.nome, empresa: contato.empresa, telefone: contato.telefone, tipo_contato: contato.tipo_contato } }); setMensagensChat(msgs.reverse()); })
+              .catch(e => toast.error(`❌ ${e.message}`))
+              .finally(() => setCarregandoMensagens(false));
+          }}
+        />
       </div>
     );
   };

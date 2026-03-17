@@ -162,6 +162,12 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
           </div>
         </div>
       </div>
+      <KanbanCardFooter
+        small
+        onMsg={podeInteragir ? () => onSelecionarThread(thread) : undefined}
+        onEdit={podeInteragir ? () => onSelecionarThread({ ...thread, _openContactInfo: true }) : undefined}
+        onHistorico={podeInteragir ? () => onSelecionarThread(thread) : undefined}
+      />
     </div>
   );
 }
