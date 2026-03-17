@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from 'sonner';
 import { base44 } from "@/api/base44Client";
-import ChatSidebarKanban from '@/components/comunicacao/ChatSidebarKanban';
+import KanbanChatWindow from './KanbanChatWindow';
 
 const statusLabels = {
   rascunho: 'Rascunho',
