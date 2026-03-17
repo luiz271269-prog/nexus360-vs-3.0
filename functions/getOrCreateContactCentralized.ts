@@ -22,6 +22,14 @@ function normalizarTelefone(telefone) {
   return '+' + n;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Extrai o valor CANONICO (apenas dígitos) do telefone normalizado
+// ═══════════════════════════════════════════════════════════════
+function extrairCanonicopTeléfone(telefoneNormalizado) {
+  if (!telefoneNormalizado) return null;
+  return telefoneNormalizado.replace(/\D/g, '');
+}
+
 // Gera TODAS as variações canônicas possíveis de um número
 // para busca tolerante a formatos legados no banco
 function gerarVariacoes(telefoneNormalizado) {
