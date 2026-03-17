@@ -363,9 +363,11 @@ export default function LeadsQualificados() {
 
     if (!isLead) return false;
 
+    // FILTRO GLOBAL DE VENDEDOR
+    if (filtroVendedorGlobal !== 'todos' && c.vendedor_responsavel !== filtroVendedorGlobal) return false;
+
     // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
     const temPermissaoVerOutros = ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
-    const vendedorFiltrado = filtrosLeads.usuario_filtro || usuarioAtual?.full_name;
     
     if (!temPermissaoVerOutros) {
       if (c.vendedor_responsavel !== usuarioAtual?.full_name) return false;
