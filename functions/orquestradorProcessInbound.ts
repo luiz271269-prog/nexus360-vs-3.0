@@ -131,6 +131,7 @@ if (shouldSkillQueue && routerResult && !thread?.assigned_user_id) {
     result.pipeline.push('queue_manager_failed');
     // ✅ FIX: Continuar para fallback se falhar
   }
+  }
 
 // ════════════════════════════════════════════════════════════════════════════
 // FALLBACK: Menu URA clássico (confidence < threshold)
