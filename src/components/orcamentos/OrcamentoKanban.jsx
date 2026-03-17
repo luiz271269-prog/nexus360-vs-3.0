@@ -357,16 +357,19 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
 
 
   return (
+    <>
+      {/* Chat fora do DragDropContext para evitar re-renders */}
+      {chatAberto && orcamentoChatAtivo && ReactDOM.createPortal(
+        <KanbanChatWindow
+          orcamento={orcamentoChatAtivo}
+          usuario={usuario}
+          onClose={() => { setChatAberto(false); setOrcamentoChatAtivo(null); }}
+        />,
+        document.body
+      )}
+
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="space-y-4 relative">
-        {/* Chat flutuante compacto */}
-        {chatAberto && orcamentoChatAtivo && (
-          <KanbanChatWindow
-            orcamento={orcamentoChatAtivo}
-            usuario={usuario}
-            onClose={() => { setChatAberto(false); setOrcamentoChatAtivo(null); }}
-          />
-        )}
 
       {/* FILTRO POR VENDEDOR - Apenas para ADMIN */}
       {isAdmin && (
