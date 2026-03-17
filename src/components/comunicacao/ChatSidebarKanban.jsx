@@ -289,6 +289,11 @@ function ThreadRowSidebar({ thread, isAtiva, usuarioAtual, atendentes, integraco
           )}
         </div>
       </div>
+      <KanbanCardFooter
+        onMsg={() => onSelecionarThread(thread)}
+        onEdit={() => onSelecionarThread({ ...thread, _openContactInfo: true })}
+        onHistorico={() => onSelecionarThread(thread)}
+      />
     </div>
   );
 }
