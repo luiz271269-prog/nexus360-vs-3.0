@@ -63,24 +63,30 @@ Deno.serve(async (req) => {
 
           if (!senderId || !message) continue;
 
-          // Buscar ou criar Contact
-          let contacts = await base44.entities.Contact.filter({
+          // Buscar ou criar Contact via função CENTRALIZADA
+          // Facebook não tem telefone — buscar por facebook_id diretamente
+          let contact;
+          const existingContacts = await base44.entities.Contact.filter({
             facebook_id: senderId
           });
 
-          let contact;
-          if (contacts.length === 0) {
-            // Criar novo contato
+          if (existingContacts.length === 0) {
+            // Criar novo contato Facebook (sem telefone — não usar getOrCreateContactCentralized)
             contact = await base44.entities.Contact.create({
               nome: `Facebook ${senderId.substring(0, 8)}`,
               facebook_id: senderId,
               tipo_contato: 'novo',
-              metadata: {
-                facebook_profile: event.sender
-              }
+              whatsapp_status: 'nao_verificado',
+              conexao_origem: integration.id,
+              ultima_interacao: new Date().toISOString()
             });
+            console.log('[FACEBOOK] ✅ Novo contato criado:', contact.id);
           } else {
-            contact = contacts[0];
+            contact = existingContacts[0];
+            // Atualizar interação
+            await base44.entities.Contact.update(contact.id, {
+              ultima_interacao: new Date().toISOString()
+            });
           }
 
           // Buscar ou criar MessageThread
