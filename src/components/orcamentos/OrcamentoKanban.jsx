@@ -6,10 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Edit, Calendar, DollarSign, User, Filter, MessageSquare, Building2, Handshake, Zap, Flame, Hash, TrendingUp, GripVertical } from 'lucide-react';
-import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 import { toast } from 'sonner';
-import { base44 } from "@/api/base44Client";
 import KanbanChatWindow from './KanbanChatWindow';
 
 const statusLabels = {
