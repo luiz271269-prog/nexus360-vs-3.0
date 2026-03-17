@@ -354,24 +354,6 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="space-y-4 relative">
 
-      {/* FILTRO POR VENDEDOR - Apenas para ADMIN */}
-      {isAdmin && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg border border-slate-200">
-          <Filter className="w-4 h-4 text-slate-600" />
-          <label className="text-xs font-medium text-slate-600">Filtrar por Vendedor:</label>
-          <select
-            value={filtroVendedor}
-            onChange={(e) => setFiltroVendedor(e.target.value)}
-            className="text-xs px-2 py-1 border border-slate-300 rounded bg-white cursor-pointer hover:border-orange-400 focus:ring-2 focus:ring-orange-400 focus:border-transparent"
-          >
-            <option value="todos">Todos os Vendedores</option>
-            {vendedoresUnicos.map(v => (
-              <option key={v} value={v}>{v}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
       {/* Kanban Board - COM ABAS FUTURISTAS ESTILO MENU PRINCIPAL */}
       <Tabs defaultValue="interna" className="w-full">
         <TabsList className="grid w-full grid-cols-2 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-1 rounded-xl shadow-2xl border border-slate-700">
