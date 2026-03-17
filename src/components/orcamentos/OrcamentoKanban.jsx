@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Edit, Calendar, DollarSign, User, Filter, MessageSquare, Building2, Handshake, Zap, Flame, Hash, TrendingUp, GripVertical } from 'lucide-react';
+import { Edit, Calendar, DollarSign, User, MessageSquare, Building2, Handshake, Zap, Flame, Hash, TrendingUp, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import KanbanChatWindow from './KanbanChatWindow';
 
