@@ -409,7 +409,8 @@ Deno.serve(async (req) => {
       base44 = createClientFromRequest(req);
     } catch (e) {
       console.error(`[${VERSION}] SDK init error:`, e?.message || e);
-      return jsonServerError({ success: false, error: 'sdk_init_error' });
+      // Retornar 200 para evitar reintentos da Z-API que causam duplicações
+      return jsonOk({ success: true, ignored: true, reason: 'sdk_init_error' });
     }
 
     let payload;
