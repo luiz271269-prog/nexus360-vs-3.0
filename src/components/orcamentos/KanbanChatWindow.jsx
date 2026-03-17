@@ -106,6 +106,14 @@ export default function KanbanChatWindow({ orcamento, usuario, onClose }) {
           <div className="flex items-center justify-center h-full py-8">
             <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
           </div>
+        ) : erro ? (
+          <div className="flex flex-col items-center justify-center h-full py-8 text-center px-4">
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mb-3">
+              <MessageSquare className="w-5 h-5 text-red-400" />
+            </div>
+            <p className="text-xs text-red-500 font-medium mb-1">Não foi possível abrir a conversa</p>
+            <p className="text-[10px] text-slate-400">{erro}</p>
+          </div>
         ) : mensagens.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-8 text-slate-400">
             <MessageSquare className="w-8 h-8 mb-2 opacity-30" />
