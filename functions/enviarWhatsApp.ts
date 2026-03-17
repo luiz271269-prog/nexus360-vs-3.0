@@ -683,7 +683,9 @@ Deno.serve(async (req) => {
     const messageId = result.messageId || result.message?.key?.id || result.key?.id || result.id;
 
     if (!messageId) {
-      console.warn(`[ENVIAR-WHATSAPP-UNIFICADO] ⚠️ Nenhum messageId encontrado na resposta:`, result);
+      console.error(`[ENVIAR-WHATSAPP-UNIFICADO] ❌ CRÍTICO: Nenhum messageId encontrado na resposta:`, result);
+      console.error(`[ENVIAR-WHATSAPP-UNIFICADO] ❌ Resposta completa:`, JSON.stringify(result, null, 2));
+      throw new Error(`${providerName} retornou sucesso mas SEM messageId. Resposta: ${JSON.stringify(result)}`);
     }
 
     console.log(`[ENVIAR-WHATSAPP-UNIFICADO] ✅ Mensagem enviada via ${providerName}! messageId:`, messageId);
