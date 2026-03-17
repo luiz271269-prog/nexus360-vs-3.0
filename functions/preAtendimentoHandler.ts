@@ -166,12 +166,14 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
 
     // PASSO 2: Se não tem fidelizado online, buscar por setor + menor carga
     if (!atendenteId) {
-      // ✅ FIX: Filtrar por setor correto + is_whatsapp_attendant + excluir admins sem setor
+      // ✅ FIX: Filtrar por setor correto + is_whatsapp_attendant + OBRIGATÓRIO online
       const atendentesCandidatos = todos.filter(u => {
         if (!u.is_whatsapp_attendant) return false;
-        if (u.role === 'admin' && !u.attendant_sector) return false; // admin sem setor não entra
+        if (u.availability_status !== 'online') return false; // ✅ OBRIGATÓRIO: online
         const setorUser = u.attendant_sector || 'geral';
-        return setorUser === setor || setorUser === 'geral' || setor === 'geral';
+        const setorMatch = (u.data?.whatsapp_setores || []).includes(setor) || setorUser === setor;
+        if (setor === 'geral') return true; // setor geral aceita qualquer um online
+        return setorMatch;
       });
 
       console.log('[PRE-ATENDIMENTO] 👥 Candidatos setor', setor + ':', atendentesCandidatos.length);
@@ -190,11 +192,8 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
           }
         }
 
-        // ✅ FIX: Ordenar por: online primeiro → menor carga → não atribuir offline sem necessidade
+        // ✅ Ordenar por: menor carga (já filtrado só online acima)
         const melhor = [...atendentesCandidatos].sort((a, b) => {
-          const onlineA = a.availability_status === 'online' ? 0 : 1;
-          const onlineB = b.availability_status === 'online' ? 0 : 1;
-          if (onlineA !== onlineB) return onlineA - onlineB;
           return (contagemPorAtendente[a.id] || 0) - (contagemPorAtendente[b.id] || 0);
         })[0];
 
