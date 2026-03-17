@@ -359,13 +359,12 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
   return (
     <>
       {/* Chat fora do DragDropContext para evitar re-renders */}
-      {chatAberto && orcamentoChatAtivo && ReactDOM.createPortal(
+      {chatAberto && orcamentoChatAtivo && (
         <KanbanChatWindow
           orcamento={orcamentoChatAtivo}
           usuario={usuario}
           onClose={() => { setChatAberto(false); setOrcamentoChatAtivo(null); }}
-        />,
-        document.body
+        />
       )}
 
     <DragDropContext onDragEnd={onDragEnd}>
