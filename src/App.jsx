@@ -10,7 +10,6 @@ import { AuthProvider, useAuth } from '@/components/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import SuperAgente from '@/pages/SuperAgente';
 import NotasFiscais from '@/pages/NotasFiscais';
-import Performance from '@/pages/Performance';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -76,14 +75,6 @@ const AuthenticatedApp = () => {
           element={
             <LayoutWrapper currentPageName="NotasFiscais">
               <NotasFiscais />
-            </LayoutWrapper>
-          } 
-        />
-        <Route 
-          path="/Performance" 
-          element={
-            <LayoutWrapper currentPageName="Performance">
-              <Performance />
             </LayoutWrapper>
           } 
         />
