@@ -135,7 +135,6 @@ const etapasFluxo = {
 export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, onEdit, onMostrarInsightsIA }) {
   const [chatAberto, setChatAberto] = useState(false);
   const [orcamentoChatAtivo, setOrcamentoChatAtivo] = useState(null);
-  const [filtroVendedor, setFiltroVendedor] = useState('todos');
 
   const onDragEnd = (result) => {
     const { source, destination, draggableId } = result;
