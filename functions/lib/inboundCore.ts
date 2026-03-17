@@ -539,7 +539,7 @@ async function enviarMensagem(params) {
     // Registrar mensagem
     await base44.asServiceRole.entities.Message.create({
       thread_id: thread?.id,
-      sender_id: 'system',
+      sender_id: thread?.assigned_user_id || 'nexus_engine',
       sender_type: 'user',
       content: processedMessage,
       channel: 'whatsapp',
