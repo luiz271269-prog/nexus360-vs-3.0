@@ -6,6 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CheckCircle2, Zap, AlertCircle, Users } from 'lucide-react';
 
+const AVAILABILITY_STATUSES = [
+  { value: 'online', label: '🟢 Online' },
+  { value: 'ocupado', label: '🟡 Ocupado' },
+  { value: 'offline', label: '⚫ Offline' }
+];
+
 const SETORES = [
   { value: "vendas", label: "Vendas" },
   { value: "assistencia", label: "Assistência" },
