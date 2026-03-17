@@ -21,21 +21,24 @@ export default function KanbanChatWindow({ orcamento, usuario, onClose }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mensagens]);
 
+  const [erro, setErro] = useState(null);
+
   const carregarConversa = async () => {
     setCarregando(true);
+    setErro(null);
     try {
       const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;
-      if (!telefone) { toast.error('Telefone não cadastrado'); onClose(); return; }
+      if (!telefone) { setErro('Telefone não cadastrado para este cliente.'); setCarregando(false); return; }
 
       const tel = telefone.replace(/\D/g, '');
       const contatos = await base44.entities.Contact.filter({ telefone_canonico: tel });
-      if (!contatos?.length) { toast.error('Contato não encontrado'); onClose(); return; }
+      if (!contatos?.length) { setErro('Contato não encontrado no sistema.'); setCarregando(false); return; }
 
       const c = contatos[0];
       setContact(c);
 
       const threads = await base44.entities.MessageThread.filter({ contact_id: c.id, is_canonical: true });
-      if (!threads?.length) { toast.error('Nenhuma conversa encontrada'); onClose(); return; }
+      if (!threads?.length) { setErro('Nenhuma conversa encontrada para este contato.'); setCarregando(false); return; }
 
       const t = threads[0];
       setThread(t);
@@ -43,8 +46,7 @@ export default function KanbanChatWindow({ orcamento, usuario, onClose }) {
       const msgs = await base44.entities.Message.filter({ thread_id: t.id }, '-sent_at', 50);
       setMensagens((msgs || []).reverse());
     } catch (e) {
-      toast.error('Erro ao carregar conversa');
-      onClose();
+      setErro('Erro ao carregar conversa: ' + e.message);
     } finally {
       setCarregando(false);
     }
