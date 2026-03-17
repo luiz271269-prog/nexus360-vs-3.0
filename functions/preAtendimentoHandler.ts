@@ -142,10 +142,10 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
   let atendenteId = null;
 
   try {
-    // ✅ FIX: Buscar atendentes COM filtro de setor + is_whatsapp_attendant
+    // ✅ FIX v13: Buscar atendentes COM fallback suave (não quebra se campo vazio)
     const todos = await base44.asServiceRole.entities.User.list('-created_date', 100);
 
-    // PASSO 1: Verificar atendente fidelizado (mas SÓ se online)
+    // PASSO 1: Verificar atendente fidelizado
     const campoFidelizado = {
       vendas: 'atendente_fidelizado_vendas',
       assistencia: 'atendente_fidelizado_assistencia',
@@ -155,31 +155,36 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
 
     if (campoFidelizado && contact[campoFidelizado]) {
       const fidelizado = todos.find(u => u.id === contact[campoFidelizado]);
-      if (fidelizado && fidelizado.availability_status === 'online') {
+      if (fidelizado?.availability_status === 'online') {
         atendenteId = fidelizado.id;
         atendenteNome = fidelizado.full_name || fidelizado.email;
-        console.log('[PRE-ATENDIMENTO] 🎯 Atendente fidelizado ONLINE:', atendenteNome);
-      } else if (fidelizado) {
-        console.warn('[PRE-ATENDIMENTO] ⚠️ Fidelizado', fidelizado.full_name, 'OFFLINE — buscando alternativa');
+        console.log('[PRE-ATENDIMENTO] 🎯 Fidelizado ONLINE:', atendenteNome);
+      } else {
+        console.warn('[PRE-ATENDIMENTO] ⚠️ Fidelizado offline/não existe, buscando alternativa');
       }
     }
 
-    // PASSO 2: Se não tem fidelizado online, buscar por setor + menor carga
+    // PASSO 2: Buscar por setor (SEM exigência rígida de whatsapp_setores)
     if (!atendenteId) {
-      // ✅ FIX: Filtrar por setor correto + is_whatsapp_attendant + OBRIGATÓRIO online
       const atendentesCandidatos = todos.filter(u => {
-        if (!u.is_whatsapp_attendant) return false;
-        if (u.availability_status !== 'online') return false; // ✅ OBRIGATÓRIO: online
-        const setorUser = u.attendant_sector || 'geral';
-        const setorMatch = (u.data?.whatsapp_setores || []).includes(setor) || setorUser === setor;
-        if (setor === 'geral') return true; // setor geral aceita qualquer um online
-        return setorMatch;
+        if (u.availability_status !== 'online') return false;
+        
+        // Critério 1: Setor exato (lógica OR)
+        const setorExato = u.attendant_sector === setor || (u.data?.whatsapp_setores || []).includes(setor);
+        
+        // Critério 2: is_whatsapp_attendant = true (caso exista)
+        const éAtendente = u.is_whatsapp_attendant !== false;
+        
+        // Se setor é 'geral', aceita qualquer um online
+        if (setor === 'geral') return éAtendente;
+        
+        // Senão, deve ter setor exato OU será fallback
+        return setorExato && éAtendente;
       });
 
       console.log('[PRE-ATENDIMENTO] 👥 Candidatos setor', setor + ':', atendentesCandidatos.length);
 
       if (atendentesCandidatos.length > 0) {
-        // Contar conversas ativas por atendente para balancear carga
         const threadsAbertas = await base44.asServiceRole.entities.MessageThread.filter({
           status: 'aberta',
           assigned_user_id: { $in: atendentesCandidatos.map(u => u.id) }
@@ -192,7 +197,6 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
           }
         }
 
-        // ✅ Ordenar por: menor carga (já filtrado só online acima)
         const melhor = [...atendentesCandidatos].sort((a, b) => {
           return (contagemPorAtendente[a.id] || 0) - (contagemPorAtendente[b.id] || 0);
         })[0];
@@ -200,7 +204,7 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
         if (melhor) {
           atendenteId = melhor.id;
           atendenteNome = melhor.full_name || melhor.email;
-          console.log('[PRE-ATENDIMENTO] ✅ Melhor atendente:', atendenteNome, '| online:', melhor.availability_status === 'online', '| carga:', contagemPorAtendente[melhor.id] || 0);
+          console.log('[PRE-ATENDIMENTO] ✅ Atendente:', atendenteNome);
         }
       }
     }
