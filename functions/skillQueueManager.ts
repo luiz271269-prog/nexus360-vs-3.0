@@ -22,22 +22,26 @@ const PERGUNTAS_QUALIFICADORA = {
 };
 
 async function buscarMelhorAtendente(base44: any, setor: string, contact: any): Promise<any> {
-  // 1º: atendente fidelizado
+  // 1º: atendente fidelizado (MAS SÓ SE ONLINE)
   const campofidelizado = `atendente_fidelizado_${setor}`;
   if (contact[campofidelizado]) {
     try {
       const user = await base44.asServiceRole.entities.User.get(contact[campofidelizado]);
       if (user && user.availability_status === 'online') {
+        console.log(`[QUEUE] 🎯 Atendente fidelizado ONLINE: ${user.full_name}`);
         return user;
+      } else {
+        // ✅ FIX: Atendente fidelizado OFFLINE → não bloqueia, continua para fallback
+        console.warn(`[QUEUE] ⚠️ Atendente fidelizado ${user?.full_name} OFFLINE, buscando alternativa`);
       }
     } catch (e) {
-      console.warn('[QUEUE] Atendente fidelizado indisponível:', (e as any).message);
+      console.warn('[QUEUE] Atendente fidelizado não encontrado:', (e as any).message);
     }
   }
 
-  // 2º: menor carga no setor
+  // 2º: menor carga no setor (FILTRANDO FIDELIZADO SE OFFLINE)
   try {
-    const usuarios = await base44.asServiceRole.entities.User.filter(
+    let usuarios = await base44.asServiceRole.entities.User.filter(
       {
         attendant_sector: setor,
         is_whatsapp_attendant: true
@@ -45,6 +49,12 @@ async function buscarMelhorAtendente(base44: any, setor: string, contact: any): 
       'current_conversations_count',
       20
     );
+
+    // ✅ FIX: Excluir atendente fidelizado se offline (evita repetição)
+    const fidielizado = contact[`atendente_fidelizado_${setor}`];
+    if (fidielizado) {
+      usuarios = usuarios.filter((u: any) => u.id !== fidielizado);
+    }
 
     if (usuarios?.length > 0) {
       // Sort duplo: status (online first) + carga
@@ -54,6 +64,7 @@ async function buscarMelhorAtendente(base44: any, setor: string, contact: any): 
         if (statusA !== statusB) return statusA - statusB;
         return (a.current_conversations_count || 0) - (b.current_conversations_count || 0);
       });
+      console.log(`[QUEUE] 👥 Atendente alternativo: ${sorted[0].full_name} (setor: ${setor})`);
       return sorted[0];
     }
   } catch (e) {

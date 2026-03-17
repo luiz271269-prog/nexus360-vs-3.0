@@ -107,6 +107,7 @@ if (shouldSkillQueue && routerResult && !thread?.assigned_user_id) {
       if (queueResult.action === 'assigned') {
         console.log(`[ORQUESTR] ✅ Atribuído para ${queueResult.atendente_nome}`);
         result.actions.push('contato_atribuido_automaticamente');
+        // ✅ FIX: RETURN para evitar duplicação
         return Response.json({
           success: true,
           pipeline: result.pipeline,
@@ -116,6 +117,7 @@ if (shouldSkillQueue && routerResult && !thread?.assigned_user_id) {
       } else if (queueResult.action === 'queued') {
         console.log(`[ORQUESTR] 📋 Enfileirado em ${routerResult.setor}`);
         result.actions.push('contato_enfileirado_automaticamente');
+        // ✅ FIX: RETURN para evitar duplicação
         return Response.json({
           success: true,
           pipeline: result.pipeline,
@@ -127,8 +129,8 @@ if (shouldSkillQueue && routerResult && !thread?.assigned_user_id) {
   } catch (err) {
     console.error(`[ORQUESTR] ❌ Queue Manager falhou: ${err.message}`);
     result.pipeline.push('queue_manager_failed');
+    // ✅ FIX: Continuar para fallback se falhar
   }
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // FALLBACK: Menu URA clássico (confidence < threshold)
