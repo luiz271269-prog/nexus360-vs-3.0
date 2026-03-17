@@ -241,6 +241,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Auditoria", icon: Shield, page: "Auditoria" },
     { name: "Configuração do Sistema", icon: Settings, page: "ConfiguracaoIA" },
     { name: "Notas Fiscais", icon: FileText, page: "NotasFiscais" },
+    { name: "Performance Orçamentos", icon: TrendingUp, page: "Performance" },
     { name: "Super Agente", icon: Zap, page: "SuperAgente" }
     // ⚠️ DEPRECATED: TagManager removido do menu - usar GerenciadorEtiquetasUnificado em Automações
   ];
