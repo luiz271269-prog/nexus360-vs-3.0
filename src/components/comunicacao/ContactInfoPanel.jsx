@@ -535,11 +535,11 @@ export default function ContactInfoPanel({
       </div>
 
       <Tabs defaultValue="dados" className="flex-1 flex flex-col overflow-hidden">
-         <TabsList className="grid w-full grid-cols-4 mx-4 mt-2">
-           <TabsTrigger value="dados"><User className="w-4 h-4 mr-2" />Dados</TabsTrigger>
-           <TabsTrigger value="diagnostico"><Zap className="w-4 h-4 mr-2" />Diagnóstico</TabsTrigger>
-           <TabsTrigger value="ia"><Brain className="w-4 h-4 mr-2" />IA</TabsTrigger>
-           <TabsTrigger value="chamadas"><Phone className="w-4 h-4 mr-2" />Chamadas</TabsTrigger>
+         <TabsList className="grid w-full grid-cols-4 mt-2 mx-0 px-2">
+           <TabsTrigger value="dados" className="text-xs px-1"><User className="w-3.5 h-3.5 mr-1" />Dados</TabsTrigger>
+           <TabsTrigger value="diagnostico" className="text-xs px-1"><Zap className="w-3.5 h-3.5 mr-1" />Diagnóst.</TabsTrigger>
+           <TabsTrigger value="ia" className="text-xs px-1"><Brain className="w-3.5 h-3.5 mr-1" />IA</TabsTrigger>
+           <TabsTrigger value="chamadas" className="text-xs px-1"><Phone className="w-3.5 h-3.5 mr-1" />Chamadas</TabsTrigger>
          </TabsList>
 
         <TabsContent value="dados" className="flex-1 overflow-y-auto m-0">
