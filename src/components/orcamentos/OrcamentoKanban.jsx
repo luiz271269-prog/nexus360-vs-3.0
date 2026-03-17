@@ -319,7 +319,8 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
                                 </span>
                               )}
                               <button
-                                onClick={(e) => { e.stopPropagation(); abrirChatComCliente(orcamento); }}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); abrirChatComCliente(orcamento); }}
                                 className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-white bg-green-500 hover:bg-green-600 px-2.5 py-1 rounded-lg transition-colors shadow-sm"
                               >
                                 <MessageSquare className="w-3 h-3" />
