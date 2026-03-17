@@ -379,15 +379,17 @@ export default function Comunicacao() {
   const loadingThreads = loadingThreadsInternas || loadingThreadsExternas;
 
   // ✅ Detectar thread pré-selecionada via sessionStorage (vindo do KanbanChatWindow)
+  // Usa setThreadAtiva direto para evitar dependência circular com handleSelecionarThread
   React.useEffect(() => {
     const threadId = sessionStorage.getItem('comunicacao_open_thread');
     if (!threadId || !threads.length) return;
     const threadEncontrada = threads.find(t => t.id === threadId);
     if (threadEncontrada) {
       sessionStorage.removeItem('comunicacao_open_thread');
-      handleSelecionarThread(threadEncontrada);
+      setThreadAtiva(threadEncontrada);
+      setActiveTab('conversas');
     }
-  }, [threads, handleSelecionarThread]);
+  }, [threads]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 🎯 EXTRAÇÃO DE IDs DE CONTATO - Hidratação Sob Demanda
