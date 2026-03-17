@@ -596,28 +596,7 @@ export default function LeadsQualificados() {
                   </Select>
                 )}
 
-                {activeTab !== 'orcamentos' && (
-                  <Select
-                    value={activeTab === 'leads' ? filtrosLeads.vendedor : filtrosClientes.vendedor}
-                    onValueChange={(v) => {
-                      if (activeTab === 'leads') {
-                        setFiltrosLeads({ ...filtrosLeads, vendedor: v });
-                      } else {
-                        setFiltrosClientes({ ...filtrosClientes, vendedor: v });
-                      }
-                    }}>
-                    <SelectTrigger className="h-7 w-[140px] text-xs bg-black/30 border-orange-500/30 text-white">
-                      <SelectValue placeholder="Vendedor" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 text-white border-slate-600">
-                      <SelectItem value="todos" className="text-xs">Todos</SelectItem>
-                      {atendentes.map((v) =>
-                        <SelectItem key={v.value} value={v.value} className="text-xs">{v.label}</SelectItem>
-                      )}
-                      <SelectItem value="nao_atribuido" className="text-xs">Não Atribuído</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+
 
                 {activeTab === 'orcamentos' && (
                   <>
