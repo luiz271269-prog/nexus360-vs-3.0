@@ -34,7 +34,7 @@ const PATTERNS = [
     confidence: 0.95
   },
   {
-    regex: /defeito|quebrou|nao\s*liga|nao\s*funciona|conserto|reparo|assistencia|garantia|suporte\s*tec|problema|travando|lento|reiniciando/i,
+    regex: /defeito|quebrou|nao\s*liga|nao\s*funciona|conserto|reparo|assistencia|garantia|suporte\s*tec|problema|travando|lento|reiniciando|cabo\s*de\s*internet|wifi|conexao|internet\s*caiu|online|offline|nao\s*conecta|conexao\s*perdida|rede|modem|roteador/i,
     setor: 'assistencia',
     intencao: 'suporte_tecnico',
     confidence: 0.95
