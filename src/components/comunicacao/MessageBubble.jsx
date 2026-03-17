@@ -44,6 +44,7 @@ import UsuarioDisplay from './UsuarioDisplay';
 import { sanitizeEmojis } from '../lib/emojiSanitizer';
 import EtiquetaFaseDialog from './EtiquetaFaseDialog';
 import ComentariosInternos from './ComentariosInternos';
+import { useMessageStatus } from './useMessageStatus';
 
 // Player de áudio: nativo + botão de velocidade
 const AudioPlayer = ({ src }) => {

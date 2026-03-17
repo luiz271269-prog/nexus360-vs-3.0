@@ -46,6 +46,7 @@ const GoToLogo = () => (
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import EmojiPickerButton from './EmojiPickerButton';
+import { useClipboardPaste } from './useClipboardPaste';
 import SeletorPromocoesAtivas from '../automacao/SeletorPromocoesAtivas';
 import AIResponseAssistant from './AIResponseAssistant';
 

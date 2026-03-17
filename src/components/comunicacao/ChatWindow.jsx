@@ -77,6 +77,7 @@ import MessageInput from './MessageInput';
 import AlertaPedidoTransferencia from './AlertaPedidoTransferencia';
 import useScrollPaginacao from './useScrollPaginacao';
 import NexusBrainSuggestions from './NexusBrainSuggestions';
+import { useAudioRecorder } from './useAudioRecorder';
 import FloatingConversationBubble from './FloatingConversationBubble';
 
 // ═══════════════════════════════════════════════════════════════════════════════
