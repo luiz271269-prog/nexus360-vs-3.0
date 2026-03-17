@@ -5,6 +5,7 @@ import {
   UserCheck, Columns, Users, Send, ArrowRightLeft, Plus, CalendarCheck,
   AlertTriangle, MessagesSquare, Pause, Zap, LayoutList, CheckSquare, BookOpen, Bot
 } from "lucide-react";
+import KanbanCardFooter from './KanbanCardFooter';
 import ManualJarvis from "./ManualJarvis";
 import ContatosRequerendoAtencaoKanban from "./ContatosRequerendoAtencaoKanban";
 import MonitorPerformanceKanban from "./MonitorPerformanceKanban";

@@ -19,6 +19,7 @@ import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '@/utils';
 import ChatWindow from './ChatWindow';
 import { isNaoAtribuida } from '../lib/threadVisibility';
+import KanbanCardFooter from './KanbanCardFooter';
 
 export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], onClose }) {
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
