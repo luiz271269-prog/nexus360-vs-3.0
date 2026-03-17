@@ -15,6 +15,26 @@ export default function DiagnosticoSincronizacaoUnificado({ contact, usuario, on
   const [relatorioCorrecao, setRelatorioCorrecao] = React.useState(null);
   const navigate = useNavigate();
 
+  // ✅ AUTO-DIAGNÓSTICO: Rodar pré-diagnóstico automaticamente ao abrir a aba
+  React.useEffect(() => {
+    if (!contact?.id || !usuario?.role) return;
+    // Apenas admin vê a seção de correção cirúrgica — só rodar diagnóstico nesse caso
+    if (usuario.role !== 'admin') return;
+
+    const runDiag = async () => {
+      try {
+        const res = await base44.functions.invoke('corrigirVinculacaoThreadContato', {
+          contact_id: contact.id,
+          modo: 'diagnostico'
+        });
+        setRelatorioCorrecao(res?.data);
+      } catch (e) {
+        // silencioso — não bloquear UI se falhar
+      }
+    };
+    runDiag();
+  }, [contact?.id, usuario?.role]);
+
   const handleSincronizar = async () => {
     setLoading(true);
     try {
