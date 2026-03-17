@@ -221,167 +221,164 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
     }
   };
 
-  // Renderizar Kanban para uma etapa específica (sem DragDropContext — está no pai)
+  // Renderizar Kanban para uma etapa específica
   const renderKanbanEtapa = (etapaConfig) => (
     <div
-        className="grid gap-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
-        style={{ gridTemplateColumns: `repeat(${etapaConfig.statuses.length}, minmax(250px, 1fr))` }}
-      >
-        {etapaConfig.statuses.map((status) => {
-          const orcamentosStatus = orcamentosPorStatus[status];
-          const totalValor = orcamentosStatus.reduce((sum, o) => sum + (o.valor_total || 0), 0);
-          const gradient = statusGradients[status];
+      className="flex gap-3 overflow-x-auto pb-4"
+      style={{ minHeight: '600px' }}
+    >
+      {etapaConfig.statuses.map((status) => {
+        const orcamentosStatus = orcamentosPorStatus[status];
+        const totalValor = orcamentosStatus.reduce((sum, o) => sum + (o.valor_total || 0), 0);
+        const gradient = statusGradients[status];
 
-          return (
-            <div key={status} className="flex flex-col">
-              {/* Header da Coluna - GRADIENTE MODERNO FUTURISTA */}
-              <div
-                className={`bg-gradient-to-r ${etapaConfig.headerGradient} p-2.5 rounded-t-xl shadow-2xl border-b-4 border-opacity-80`}
-                style={{ borderColor: `var(--${status}-color, #f59e0b)` }}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="font-bold text-xs text-white truncate">{statusLabels[status]}</h3>
-                    <span className="text-[8px] opacity-70 text-white">{gradient.temp}</span>
-                  </div>
-                  <Badge className={`bg-gradient-to-r ${etapaConfig.badgeGradient} text-white text-[10px] h-5 px-2 font-bold border-0 shadow-lg animate-pulse`}>
-                    {orcamentosStatus.length}
-                  </Badge>
+        return (
+          <div key={status} className="flex flex-col flex-shrink-0 w-64">
+            {/* Header da Coluna */}
+            <div className={`bg-gradient-to-r ${etapaConfig.headerGradient} px-3 py-2.5 rounded-t-xl shadow-lg`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-sm text-white">{statusLabels[status]}</h3>
+                  <span className="text-[9px] text-white/60">{gradient.temp}</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <DollarSign className="w-3 h-3 text-amber-300" />
-                  <span className="text-[11px] text-amber-200 font-bold">
-                    {formatCurrency(totalValor)}
-                  </span>
-                </div>
+                <span className={`bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full`}>
+                  {orcamentosStatus.length}
+                </span>
               </div>
-
-              {/* Droppable Area */}
-              <Droppable droppableId={status}>
-                {(provided, snapshot) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className="bg-slate-50 p-2 rounded-b-xl border-l-4 border-r-4 border-b-4 border-indigo-300 min-h-[500px] space-y-2 shadow-xl shadow-indigo-400/30 transition-all duration-300 flex-1"
-                  >
-                    {orcamentosStatus.map((orcamento, index) => (
-                      <Draggable key={orcamento.id} draggableId={orcamento.id} index={index}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.dragHandleProps}
-                            {...provided.draggableProps}
-                            className={`
-                              ${gradient.card} ${gradient.hover}
-                              p-3 rounded-lg border-2 ${gradient.border} 
-                              ${gradient.shadow}
-                              transition-all duration-300 cursor-pointer
-                              ${snapshot.isDragging ? `ring-4 ${gradient.ring} shadow-2xl rotate-3 scale-110 ${gradient.glow}` : `hover:shadow-lg hover:scale-105 ${gradient.glow}`}
-                              relative overflow-hidden
-                              backdrop-blur-sm group
-                            `}
-                          >
-                            {/* Efeito de brilho no hover */}
-                            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-
-                            {/* Status indicator badge */}
-                            {status === 'negociando' && (
-                              <div className="absolute top-2 right-2 flex items-center gap-1 bg-orange-500/80 text-white px-2 py-0.5 rounded-full text-[9px] font-bold">
-                                <Flame className="w-3 h-3" />
-                                <span>Negociando</span>
-                              </div>
-                            )}
-                            {status === 'aprovado' && (
-                              <div className="absolute top-2 right-2 bg-green-500/80 text-white px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
-                                <Zap className="w-3 h-3" />
-                                <span>Aprovado</span>
-                              </div>
-                            )}
-
-                            {/* Conteúdo Compacto do Card */}
-                             <div className="relative z-10 space-y-1.5">
-                               {/* Cliente + Edit Ícone */}
-                               <div className="flex items-start justify-between gap-1">
-                                 <h4 className="font-bold text-slate-900 text-xs leading-tight line-clamp-2 flex-1">
-                                   {orcamento.cliente_nome}
-                                 </h4>
-                                 <Button
-                                   variant="ghost"
-                                   size="icon"
-                                   onClick={(e) => {
-                                     e.stopPropagation();
-                                     onEdit && onEdit(orcamento);
-                                   }}
-                                   className="h-4 w-4 p-0 hover:bg-white/50 flex-shrink-0"
-                                 >
-                                   <Edit className="w-3 h-3 text-slate-600" />
-                                 </Button>
-                               </div>
-
-                               {/* Valor - Destaque Verde */}
-                               <div className="bg-white/40 rounded px-1.5 py-0.5">
-                                 <div className="font-bold text-green-700 text-xs">
-                                   {formatCurrency(orcamento.valor_total)}
-                                 </div>
-                               </div>
-
-                               {/* Info Compacta */}
-                               <div className="space-y-0.5 text-[8px]">
-                                 {orcamento.numero_orcamento && (
-                                   <span className="text-slate-600 font-mono block">#{orcamento.numero_orcamento?.slice(-4)}</span>
-                                 )}
-                                 {orcamento.vendedor && (
-                                   <div className="flex items-center gap-0.5 text-slate-700 truncate">
-                                     <User className="w-2.5 h-2.5 flex-shrink-0" />
-                                     <span className="truncate">{orcamento.vendedor}</span>
-                                   </div>
-                                 )}
-                                 {orcamento.data_orcamento && (
-                                   <div className="flex items-center gap-0.5 text-slate-600">
-                                     <Calendar className="w-2.5 h-2.5 flex-shrink-0" />
-                                     <span>{formatDate(orcamento.data_orcamento)}</span>
-                                   </div>
-                                 )}
-                               </div>
-
-                               {/* Probabilidade Badge Compacto */}
-                               {orcamento.probabilidade && (
-                                 <Badge
-                                   className={`text-[7px] px-1 py-0 h-4 font-bold border-0 ${
-                                     orcamento.probabilidade === 'Alta' ? 'bg-green-100 text-green-800' :
-                                     orcamento.probabilidade === 'Média' ? 'bg-yellow-100 text-yellow-800' :
-                                     'bg-red-100 text-red-800'
-                                   }`}
-                                 >
-                                   {orcamento.probabilidade}
-                                 </Badge>
-                               )}
-
-                               {/* Botão Msg Único */}
-                               <Button
-                                 onClick={(e) => {
-                                   e.stopPropagation();
-                                   abrirChatComCliente(orcamento);
-                                 }}
-                                 size="sm"
-                                 className="w-full bg-green-600 hover:bg-green-700 text-white text-[8px] h-5 px-0 shadow-sm font-medium rounded"
-                               >
-                                 <MessageSquare className="w-2.5 h-2.5 mr-0.5" />
-                                 Msg
-                               </Button>
-                             </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
+              <div className="flex items-center gap-1 mt-1">
+                <DollarSign className="w-3 h-3 text-amber-300" />
+                <span className="text-xs text-amber-200 font-semibold">{formatCurrency(totalValor)}</span>
+              </div>
             </div>
-          );
-        })}
-      </div>
+
+            {/* Droppable Area */}
+            <Droppable droppableId={status}>
+              {(provided, snapshot) => (
+                <div
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  className={`
+                    flex-1 p-2 rounded-b-xl border-x-2 border-b-2 ${gradient.border}
+                    min-h-[520px] space-y-2 transition-colors duration-200
+                    ${snapshot.isDraggingOver ? 'bg-blue-50/80 border-dashed' : 'bg-slate-100/80'}
+                  `}
+                >
+                  {orcamentosStatus.map((orcamento, index) => (
+                    <Draggable key={orcamento.id} draggableId={orcamento.id} index={index}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          className={`
+                            bg-white rounded-xl border ${gradient.border}
+                            shadow-sm transition-all duration-200 overflow-hidden
+                            ${snapshot.isDragging
+                              ? 'shadow-2xl ring-2 ring-orange-400 ring-offset-1 rotate-1 scale-105 opacity-95'
+                              : 'hover:shadow-md hover:-translate-y-0.5'
+                            }
+                          `}
+                        >
+                          {/* Drag Handle - topo colorido clicável */}
+                          <div
+                            {...provided.dragHandleProps}
+                            className={`${gradient.card} px-3 py-2 flex items-center justify-between cursor-grab active:cursor-grabbing`}
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <GripVertical className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                              <h4 className="font-bold text-slate-800 text-xs leading-tight truncate">
+                                {orcamento.cliente_nome}
+                              </h4>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onEdit && onEdit(orcamento); }}
+                              className="ml-1 p-1 rounded hover:bg-white/60 flex-shrink-0 transition-colors"
+                            >
+                              <Edit className="w-3 h-3 text-slate-500" />
+                            </button>
+                          </div>
+
+                          {/* Corpo do Card */}
+                          <div className="px-3 py-2 space-y-2">
+                            {/* Valor em destaque */}
+                            <div className="flex items-center justify-between">
+                              <span className="font-extrabold text-emerald-600 text-sm">
+                                {formatCurrency(orcamento.valor_total)}
+                              </span>
+                              {orcamento.probabilidade && (
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                                  orcamento.probabilidade === 'Alta' ? 'bg-green-100 text-green-700' :
+                                  orcamento.probabilidade === 'Média' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-red-100 text-red-700'
+                                }`}>
+                                  {orcamento.probabilidade}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Infos */}
+                            <div className="space-y-1">
+                              {orcamento.numero_orcamento && (
+                                <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                                  <Hash className="w-2.5 h-2.5" />
+                                  <span className="font-mono">{orcamento.numero_orcamento}</span>
+                                </div>
+                              )}
+                              {orcamento.vendedor && (
+                                <div className="flex items-center gap-1 text-[10px] text-slate-600">
+                                  <User className="w-2.5 h-2.5 text-indigo-400" />
+                                  <span className="truncate font-medium">{orcamento.vendedor}</span>
+                                </div>
+                              )}
+                              {orcamento.data_orcamento && (
+                                <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                                  <Calendar className="w-2.5 h-2.5 text-slate-400" />
+                                  <span>{formatDate(orcamento.data_orcamento)}</span>
+                                  {orcamento.data_vencimento && (
+                                    <span className="text-red-400 ml-1">→ {formatDate(orcamento.data_vencimento)}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Status badge especial + botão msg */}
+                            <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100">
+                              {status === 'negociando' && (
+                                <span className="flex items-center gap-1 text-[9px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full border border-orange-200">
+                                  <Flame className="w-2.5 h-2.5" />Quente
+                                </span>
+                              )}
+                              {status === 'aprovado' && (
+                                <span className="flex items-center gap-1 text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">
+                                  <Zap className="w-2.5 h-2.5" />Fechado
+                                </span>
+                              )}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); abrirChatComCliente(orcamento); }}
+                                className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-white bg-green-500 hover:bg-green-600 px-2.5 py-1 rounded-lg transition-colors shadow-sm"
+                              >
+                                <MessageSquare className="w-3 h-3" />
+                                Msg
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                  {orcamentosStatus.length === 0 && !snapshot.isDraggingOver && (
+                    <div className="flex flex-col items-center justify-center py-10 text-slate-300">
+                      <TrendingUp className="w-8 h-8 mb-2 opacity-40" />
+                      <span className="text-xs">Arraste aqui</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Droppable>
+          </div>
+        );
+      })}
+    </div>
   );
 
 
