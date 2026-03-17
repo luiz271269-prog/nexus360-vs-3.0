@@ -614,7 +614,6 @@ export default function MessageInput({
             value={mensagemTexto}
             onChange={(e) => setMensagemTexto(e.target.value)}
             onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
             placeholder={
               selectedFile
                 ? "Legenda..."
