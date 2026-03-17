@@ -51,6 +51,8 @@ export default function LeadsQualificados() {
 
   const navigate = useNavigate();
 
+  const [filtroVendedorGlobal, setFiltroVendedorGlobal] = useState('todos');
+
   const [filtrosLeads, setFiltrosLeads] = useState({
     busca: '',
     status: 'todos',
