@@ -105,24 +105,14 @@ export default function MessageInput({
   // Detectar se é mobile
   const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-  const handlePaste = useCallback(async (e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (file) {
-          setPastedImage(file);
-          const previewUrl = URL.createObjectURL(file);
-          setPastedImagePreview(previewUrl);
-          toast.info('📷 Imagem colada! Clique em enviar para compartilhar.');
-        }
-        break;
-      }
-    }
+  const handleImageDetected = useCallback((file) => {
+    setPastedImage(file);
+    const previewUrl = URL.createObjectURL(file);
+    setPastedImagePreview(previewUrl);
+    toast.info('📷 Imagem colada! Clique em enviar para compartilhar.');
   }, []);
+
+  useClipboardPaste(handleImageDetected);
 
   const cancelarImagemColada = useCallback(() => {
     if (pastedImagePreview) {
