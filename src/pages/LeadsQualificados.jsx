@@ -465,6 +465,22 @@ export default function LeadsQualificados() {
               </div>
             </div>
 
+            {/* FILTRO GLOBAL DE VENDEDOR */}
+            <div className="flex items-center gap-2 bg-white/80 border border-orange-200 rounded-lg px-3 py-1.5 shadow-sm">
+              <Filter className="w-4 h-4 text-orange-500 flex-shrink-0" />
+              <span className="text-xs font-medium text-slate-600 whitespace-nowrap">Filtrar por Vendedor:</span>
+              <select
+                value={filtroVendedorGlobal}
+                onChange={(e) => setFiltroVendedorGlobal(e.target.value)}
+                className="text-xs border-0 bg-transparent text-slate-700 font-medium focus:ring-0 focus:outline-none cursor-pointer pr-1"
+              >
+                <option value="todos">Todos os Vendedores</option>
+                {atendentes.map((v) => (
+                  <option key={v.value} value={v.label}>{v.label}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex items-center gap-2">
               <Button
                 onClick={handleSincronizar}
