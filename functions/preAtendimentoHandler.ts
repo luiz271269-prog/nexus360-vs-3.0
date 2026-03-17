@@ -321,6 +321,28 @@ Deno.serve(async (req) => {
     const estado = thread.pre_atendimento_state || 'INIT';
     console.log('[PRE-ATENDIMENTO v12] Thread:', thread_id, '| Estado:', estado);
 
+    // ✅ GUARD CRÍTICO: SE JÁ TEM COMPLETED PARA ESTE CONTACT, NÃO REINICIAR
+    if (estado === 'COMPLETED' || estado === 'CANCELLED' || estado === 'TIMEOUT') {
+      // Verificar se existe outra thread COMPLETED para o mesmo contato
+      const threadCompletedExistente = await base44.asServiceRole.entities.MessageThread.filter({
+        contact_id: contact_id,
+        pre_atendimento_state: 'COMPLETED'
+      }, '-created_date', 1);
+
+      if (threadCompletedExistente && threadCompletedExistente.length > 0) {
+        const threadCanonico = threadCompletedExistente[0];
+        console.log('[PRE-ATENDIMENTO] 🛡️ GUARD: Thread COMPLETED já existe → reutilizar', threadCanonico.id);
+        
+        // Retornar a thread canônica sem reiniciar
+        return Response.json({
+          success: true,
+          estado: 'COMPLETED',
+          thread_id: threadCanonico.id,
+          resultado: { mode: 'thread_canonico_reusado' }
+        }, { status: 200, headers });
+      }
+    }
+
     // Verificar timeout (20 min) → resetar para INIT
     if (thread.pre_atendimento_timeout_at && estado !== 'INIT') {
       if (new Date() >= new Date(thread.pre_atendimento_timeout_at)) {
