@@ -63,24 +63,28 @@ Deno.serve(async (req) => {
 
           if (!senderId || !message) continue;
 
-          // Buscar ou criar Contact
-          let contacts = await base44.entities.Contact.filter({
+          // Buscar ou criar Contact via lookup por instagram_id
+          // Instagram não tem telefone — não usar getOrCreateContactCentralized (telefone obrigatório)
+          let contact;
+          const existingContacts = await base44.entities.Contact.filter({
             instagram_id: senderId
           });
 
-          let contact;
-          if (contacts.length === 0) {
-            // Criar novo contato
+          if (existingContacts.length === 0) {
             contact = await base44.entities.Contact.create({
               nome: `Instagram ${senderId.substring(0, 8)}`,
               instagram_id: senderId,
               tipo_contato: 'novo',
-              metadata: {
-                instagram_profile: event.sender
-              }
+              whatsapp_status: 'nao_verificado',
+              conexao_origem: integration.id,
+              ultima_interacao: new Date().toISOString()
             });
+            console.log('[INSTAGRAM] ✅ Novo contato criado:', contact.id);
           } else {
-            contact = contacts[0];
+            contact = existingContacts[0];
+            await base44.entities.Contact.update(contact.id, {
+              ultima_interacao: new Date().toISOString()
+            });
           }
 
           // Buscar ou criar MessageThread
