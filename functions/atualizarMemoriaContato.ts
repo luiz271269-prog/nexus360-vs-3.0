@@ -54,38 +54,54 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2b) Ticket médio
-    const ticketMedio = vendas.length > 0
-      ? vendas.reduce((sum, v) => sum + (v.valor_total || 0), 0) / vendas.length
+    // 2b) Ticket médio via Orcamento.cliente_id (mais confiável que Venda por nome)
+    const ticketMedio = orcamentos.length > 0
+      ? orcamentos.filter(o => ['aprovado', 'fechado', 'faturado'].includes(o.status)).reduce((sum, o) => sum + (o.valor_total || 0), 0) / Math.max(orcamentos.length, 1)
       : 0;
 
-    // 2c) Frequência de compra (dias)
+    // 2c) Frequência de compra via Orcamento (dias entre orçamentos)
     let frequencia = null;
-    if (vendas.length >= 2) {
-      const datas = vendas.map(v => new Date(v.data_venda || v.created_date)).sort((a, b) => a - b);
+    if (orcamentos.length >= 2) {
+      const datas = orcamentos.map(o => new Date(o.created_date)).sort((a, b) => a - b);
       const diasTotal = (datas[datas.length - 1] - datas[0]) / (1000 * 60 * 60 * 24);
-      frequencia = diasTotal / (vendas.length - 1);
+      frequencia = diasTotal / (orcamentos.length - 1);
     }
 
-    // 2d) Produto de interesse (moda da categoria dos orçamentos)
-    let interessePrincipal = null;
-    if (orcamentos.length > 0) {
-      const contagem = {};
-      for (const o of orcamentos) {
-        const cat = o.categoria || (o.produtos?.[0]?.nome) || 'geral';
-        contagem[cat] = (contagem[cat] || 0) + 1;
+    // 2d) Produto de interesse — EXTRAIR DO TEXTO DAS MENSAGENS (não só orçamento)
+    const padroesProdutos = {};
+    for (const m of msgContato) {
+      const txt = (m.content || '').toLowerCase();
+      // Palavras-chave reais que aparecem em conversas
+      const keywords = ['macbook', 'notebook', 'dell', 'lenovo', 'headset', 'fone', 'mouse', 'monitor', 'teclado', 'webcam', 'impressora', 'scanner', 'servidor', 'storage', 'rede', 'switch', 'roteador'];
+      for (const kw of keywords) {
+        if (txt.includes(kw)) {
+          padroesProdutos[kw] = (padroesProdutos[kw] || 0) + 1;
+        }
       }
-      interessePrincipal = Object.entries(contagem).sort((a, b) => b[1] - a[1])[0][0];
     }
+    // Adicionar produtos dos orçamentos também
+    for (const o of orcamentos) {
+      if (o.produtos && Array.isArray(o.produtos)) {
+        for (const p of o.produtos) {
+          const nomeLower = (p.nome || '').toLowerCase();
+          padroesProdutos[nomeLower] = (padroesProdutos[nomeLower] || 0) + 1;
+        }
+      }
+    }
+    const interessePrincipal = Object.keys(padroesProdutos).length > 0
+      ? Object.entries(padroesProdutos).sort((a, b) => b[1] - a[1])[0][0]
+      : null;
 
-    // 2e) Tempo médio de resposta
+    // 2e) Tempo médio de resposta (contact responde após user)
     let tempoMedioResposta = null;
     const pares = [];
-    for (let i = 0; i < mensagens.length - 1; i++) {
-      const atual = mensagens[i];
-      const prox = mensagens[i + 1];
-      if (atual.sender_type === 'user' && prox.sender_type === 'contact') {
-        const diff = (new Date(prox.created_date || prox.sent_at) - new Date(atual.created_date || atual.sent_at)) / 60000;
+    // Iterar de trás pra frente (mensagens em ordem -created_date = recentes primeiro)
+    const mensagensOrd = [...mensagens].reverse();
+    for (let i = 0; i < mensagensOrd.length - 1; i++) {
+      const atual = mensagensOrd[i];
+      const prox = mensagensOrd[i + 1];
+      if (atual.sender_type === 'contact' && prox.sender_type === 'user') {
+        const diff = (new Date(atual.created_date || atual.sent_at) - new Date(prox.created_date || prox.sent_at)) / 60000;
         if (diff > 0 && diff < 1440) pares.push(diff); // ignorar > 24h
       }
     }
@@ -93,19 +109,41 @@ Deno.serve(async (req) => {
       tempoMedioResposta = pares.reduce((s, v) => s + v, 0) / pares.length;
     }
 
-    // ── STEP 3: InvokeLLM para resumo ───────────────────────────────────
-    const acoesAgent = agentRuns.map(r => r.context_snapshot?.acao || r.playbook_selected || 'desconhecida');
-    const promptResumo = `Baseado nesses dados do cliente, escreva um parágrafo de 5 linhas que resume quem é esse cliente, como ele se comporta e o que ele precisa. Seja específico e útil para um vendedor.
+    // ── STEP 3: Extrair objeções REAIS das mensagens antes de chamar LLM ───
+    const objecoes_extraidas = [];
+    const padroes_objecoes = {
+      'gerente': 'precisa de aprovação do gerente',
+      'aprovação': 'precisa de aprovação',
+      'orçamento': 'aguardando orçamento completo',
+      'concorr': 'está comparando com concorrentes',
+      'preço': 'preço é fator bloqueador',
+      'frete': 'frete muito caro',
+      'timing': 'agora não é o momento',
+      'técnica': 'tem dúvidas técnicas',
+      'suporte': 'quer garantia de suporte'
+    };
+    for (const m of msgContato) {
+      const txt = (m.content || '').toLowerCase();
+      for (const [pattern, objecao] of Object.entries(padroes_objecoes)) {
+        if (txt.includes(pattern) && !objecoes_extraidas.includes(objecao)) {
+          objecoes_extraidas.push(objecao);
+        }
+      }
+    }
 
-Total de mensagens: ${mensagens.length}
-Vendas realizadas: ${vendas.length} | Ticket médio: R$${ticketMedio.toFixed(2)}
-Orçamentos abertos: ${orcamentos.filter(o => !['fechado', 'rejeitado', 'vencido'].includes(o.status)).length}
-Horário preferido: ${horarioPreferido !== null ? horarioPreferido + 'h' : 'não identificado'}
-Produto de interesse: ${interessePrincipal || 'não identificado'}
-Decisões do agente: ${[...new Set(acoesAgent)].join(', ') || 'nenhuma'}`;
+    // ── STEP 3b: InvokeLLM para resumo (agora com dados REAIS) ───
+    const acoesAgent = agentRuns.map(r => r.context_snapshot?.acao || r.playbook_selected || 'desconhecida');
+    const promptResumo = `Baseado nesses dados REAIS do cliente, escreva um parágrafo de 4 linhas que resume seu perfil, comportamento e próximo passo. Seja conciso e acionável para o vendedor.
+
+    📊 DADOS REAIS:
+    • Mensagens: ${msgContato.length} | Orçamentos: ${orcamentos.length} | Ticket médio: R$${ticketMedio.toFixed(2)}
+    • Produto de interesse: ${interessePrincipal || 'múltiplos'}
+    • Horário preferido: ${horarioPreferido !== null ? horarioPreferido + 'h' : 'não mapeado'}
+    • Tempo médio resposta: ${tempoMedioResposta ? Math.round(tempoMedioResposta) + ' min' : 'variável'}
+    • Objeções detectadas: ${objecoes_extraidas.length > 0 ? objecoes_extraidas.join(', ') : 'nenhuma registrada'}`;
 
     let resumo = 'Perfil em construção — poucas interações registradas até agora.';
-    let objecoes = [];
+    let objecoes = objecoes_extraidas;
     let melhorAbordagem = 'Abordar com cordialidade e perguntar sobre necessidades atuais.';
 
     try {
