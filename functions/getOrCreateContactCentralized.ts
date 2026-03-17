@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'telefone_invalido' }, { status: 400 });
   }
 
-  const canonico = telefoneNormalizado.replace(/\D/g, ''); // apenas dígitos: 5548988634900
+  const canonico = extrairCanonicopTeléfone(telefoneNormalizado);
   const variacoes = gerarVariacoes(telefoneNormalizado);
 
   console.log(`[${VERSION}] 📞 Buscando: ${telefoneNormalizado} | canonico: ${canonico} | variações: ${variacoes.length}`);
