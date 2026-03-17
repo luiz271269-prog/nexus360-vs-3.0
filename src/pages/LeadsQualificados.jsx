@@ -433,6 +433,9 @@ export default function LeadsQualificados() {
   });
 
   const orcamentosFiltrados = orcamentos.filter(orcamento => {
+    // FILTRO GLOBAL DE VENDEDOR
+    if (filtroVendedorGlobal !== 'todos' && orcamento.vendedor !== filtroVendedorGlobal) return false;
+
     // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
     const temPermissaoVerOutros = ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
     
