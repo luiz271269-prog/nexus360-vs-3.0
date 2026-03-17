@@ -540,56 +540,31 @@ export default function ChatWindow({
     } catch (error) { setErro(error.message); toast.error(error.message); } finally { setEnviando(false); }
   }, [podeEnviarAudios, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, carregandoContato, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario, onSendInternalMessageOptimistic]);
 
+  // Enviar áudio quando o hook terminar a gravação
+  React.useEffect(() => {
+    if (audioBlobGravado && audioBlobGravado.size > 0) {
+      enviarAudio(audioBlobGravado);
+    }
+  }, [audioBlobGravado]);
+
   const iniciarGravacaoAudio = React.useCallback(async () => {
     if (!podeEnviarAudios) {
       toast.error("❌ Você não tem permissão para enviar áudios");
       return;
     }
-
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioStreamRef.current = stream;
-      const recorder = new MediaRecorder(stream);
-      const chunks = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunks.push(e.data);
-        }
-      };
-
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
-
-        if (audioStreamRef.current) {
-          audioStreamRef.current.getTracks().forEach((track) => track.stop());
-          audioStreamRef.current = null;
-        }
-
-        if (audioBlob.size > 0) {
-          await enviarAudio(audioBlob);
-        } else {
-          toast.error("❌ Gravação de áudio vazia.");
-        }
-      };
-
-      recorder.start();
-      setMediaRecorder(recorder);
-      setGravandoAudio(true);
+      await iniciarGravacaoBase();
       toast.info("🎤 Gravando áudio...", { duration: 999999 });
     } catch (error) {
       console.error('[CHAT] Erro ao acessar microfone:', error);
       toast.error("❌ Erro ao acessar microfone. Verifique as permissões.");
     }
-  }, [podeEnviarAudios, enviarAudio]);
+  }, [podeEnviarAudios, iniciarGravacaoBase]);
 
   const pararGravacaoAudio = React.useCallback(() => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-      setGravandoAudio(false);
-      toast.dismiss();
-    }
-  }, [mediaRecorder]);
+    pararGravacaoBase();
+    toast.dismiss();
+  }, [pararGravacaoBase]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 🖼️ ENVIAR IMAGEM COLADA - Declarada ANTES de handleEnviarFromInput
