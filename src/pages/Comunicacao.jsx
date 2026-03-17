@@ -200,18 +200,6 @@ export default function Comunicacao() {
         }
   }, []);
 
-  // ✅ Detectar thread pré-selecionada via sessionStorage (vindo do KanbanChatWindow)
-  React.useEffect(() => {
-    const threadId = sessionStorage.getItem('comunicacao_open_thread');
-    if (!threadId || !threads.length) return;
-
-    const threadEncontrada = threads.find(t => t.id === threadId);
-    if (threadEncontrada) {
-      sessionStorage.removeItem('comunicacao_open_thread');
-      handleSelecionarThread(threadEncontrada);
-    }
-  }, [threads, handleSelecionarThread]);
-
   // 🔔 REAL-TIME: Atualizar threads quando houver mudanças
   React.useEffect(() => {
     if (!usuario) return;
