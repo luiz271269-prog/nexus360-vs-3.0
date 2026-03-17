@@ -256,7 +256,8 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
                               </h4>
                             </div>
                             <button
-                              onClick={(e) => { e.stopPropagation(); onEdit && onEdit(orcamento); }}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); onEdit && onEdit(orcamento); }}
                               className="ml-1 p-1 rounded hover:bg-white/60 flex-shrink-0 transition-colors"
                             >
                               <Edit className="w-3 h-3 text-slate-500" />
