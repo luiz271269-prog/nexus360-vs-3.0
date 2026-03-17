@@ -56,8 +56,9 @@ export default function KanbanChatWindow({ orcamento, usuario, onClose }) {
 
   const abrirNoComunicacao = () => {
     if (threadId) {
-      navigate(createPageUrl('Comunicacao') + `?thread=${threadId}`);
+      sessionStorage.setItem('comunicacao_open_thread', threadId);
     }
+    navigate(createPageUrl('Comunicacao'));
     onClose();
   };
 
