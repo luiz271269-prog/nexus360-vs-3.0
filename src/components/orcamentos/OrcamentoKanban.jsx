@@ -186,39 +186,9 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
   // Lista de vendedores únicos para filtro (apenas admin)
   const vendedoresUnicos = isAdmin ? [...new Set(orcamentos.map(o => o.vendedor).filter(Boolean))] : [];
 
-  const abrirChatComCliente = async (orcamento) => {
-    try {
-      const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;
-      if (!telefone) {
-        toast.error('Telefone não cadastrado');
-        return;
-      }
-
-      // Buscar contato pelo telefone
-      const telefoneNormalizado = telefone.replace(/\D/g, '');
-      const contatos = await base44.entities.Contact.filter({ telefone_canonico: telefoneNormalizado });
-      
-      if (contatos && contatos.length > 0) {
-        const contact = contatos[0];
-        // Buscar thread do contato
-        const threads = await base44.entities.MessageThread.filter({ 
-          contact_id: contact.id,
-          is_canonical: true
-        });
-        
-        if (threads && threads.length > 0) {
-          setThreadSelecionada(threads[0]);
-          setChatAberto(true);
-        } else {
-          toast.error('Nenhuma conversa encontrada para este contato');
-        }
-      } else {
-        toast.error('Contato não encontrado no sistema');
-      }
-    } catch (error) {
-      console.error('Erro ao abrir chat:', error);
-      toast.error('Erro ao buscar contato');
-    }
+  const abrirChatComCliente = (orcamento) => {
+    setOrcamentoChatAtivo(orcamento);
+    setChatAberto(true);
   };
 
   // Renderizar Kanban para uma etapa específica
