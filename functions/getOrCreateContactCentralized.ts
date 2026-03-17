@@ -34,24 +34,33 @@ function gerarVariacoes(telefoneNormalizado) {
   variacoes.add(base);
 
   if (base.startsWith('55')) {
-    const semPais = base.substring(2);  // ex: 48988634900 (11 digits)
+    const semPais = base.substring(2);  // ex: 48988634900 (11 digits, DDD+número)
     variacoes.add(semPais);
     variacoes.add('+55' + semPais);
 
-    // Com 13 dígitos (tem 9): adicionar versão sem o 9 (12 dígitos)
+    // Com 13 dígitos (tem 9 após DDD): adicionar versão sem o 9 (12 dígitos)
+    // Formato: 55 + DD(2) + 9 + número(8) = 13 dígitos
+    // O nono dígito fica na posição 4 (índice 4), APÓS os 2 dígitos de DDD
     if (base.length === 13) {
-      const sem9 = base.substring(0, 4) + base.substring(5); // ex: 554888634900
+      // semPais tem 11 dígitos: DD(2) + 9 + número(8)
+      // Remover o 9 da posição 2 de semPais (= posição 4 de base)
+      const semPaisSem9 = semPais.substring(0, 2) + semPais.substring(3); // DD + número(8) = 10 dígitos
+      const sem9 = '55' + semPaisSem9; // 5500000000 (12 dígitos)
       variacoes.add('+' + sem9);
       variacoes.add(sem9);
-      variacoes.add(sem9.substring(2)); // sem país sem 9: 4888634900
+      variacoes.add(semPaisSem9); // sem país sem 9: 10 dígitos
     }
 
-    // Com 12 dígitos (sem 9): adicionar versão com o 9 (13 dígitos)
+    // Com 12 dígitos (sem 9 após DDD): adicionar versão com o 9 (13 dígitos)
+    // Formato: 55 + DD(2) + número(8) = 12 dígitos
     if (base.length === 12) {
-      const com9 = base.substring(0, 4) + '9' + base.substring(4); // ex: 5548988634900
+      // semPais tem 10 dígitos: DD(2) + número(8)
+      // Inserir 9 após os 2 dígitos de DDD (posição 2 de semPais = posição 4 de base)
+      const semPaisCom9 = semPais.substring(0, 2) + '9' + semPais.substring(2); // DD + 9 + número(8) = 11 dígitos
+      const com9 = '55' + semPaisCom9; // 13 dígitos
       variacoes.add('+' + com9);
       variacoes.add(com9);
-      variacoes.add(com9.substring(2)); // sem país com 9: 48988634900
+      variacoes.add(semPaisCom9); // sem país com 9: 11 dígitos
     }
   }
 

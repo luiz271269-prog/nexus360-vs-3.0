@@ -938,18 +938,25 @@ export default function Comunicacao() {
         return;
       }
 
-      // Criar nova thread canônica atribuída ao usuário atual
+      // Criar nova thread canônica atribuída ao usuário atual (campos completos)
+      const agora = new Date().toISOString();
       const novaThread = await base44.entities.MessageThread.create({
         contact_id: contato.id,
         whatsapp_integration_id: integracaoAtiva.id,
-        conexao_id: integracaoAtiva.id, // Compatibilidade
-        is_canonical: true, // CRÍTICO
+        conexao_id: integracaoAtiva.id,
+        origin_integration_ids: [integracaoAtiva.id],
+        thread_type: 'contact_external',
+        channel: 'whatsapp',
+        is_canonical: true,
         status: 'aberta',
+        routing_stage: 'NEW',
         unread_count: 0,
+        total_mensagens: 0,
         janela_24h_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         can_send_without_template: true,
         assigned_user_id: usuario.id,
-        primeira_mensagem_at: new Date().toISOString()
+        primeira_mensagem_at: agora,
+        last_message_at: agora
       });
 
       await queryClient.invalidateQueries({ queryKey: ['threads-externas'] });

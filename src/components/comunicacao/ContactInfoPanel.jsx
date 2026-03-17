@@ -163,22 +163,26 @@ export default function ContactInfoPanel({
         return;
       }
 
-      // ✅ PREVENÇÃO DE DUPLICATAS: Verificar TODAS as variações do telefone
+      // ✅ PREVENÇÃO DE DUPLICATAS: Verificar via função centralizada (motor único)
       try {
-        const { buscarContatosPorTelefone } = await import('../lib/deduplicationEngine');
-        const contatosExistentes = await buscarContatosPorTelefone(base44, telefoneNormalizado);
+        const resultado = await base44.functions.invoke('getOrCreateContactCentralized', {
+          telefone: telefoneNormalizado,
+          pushName: formData.nome || null,
+          profilePicUrl: null
+        });
 
-        if (contatosExistentes && contatosExistentes.length > 0) {
-          const existente = contatosExistentes[0];
+        if (resultado?.data?.success && resultado?.data?.contact) {
+          const existente = resultado.data.contact;
+          const action = resultado.data.action; // 'found', 'updated', 'created', 'deduplicated'
           
-          const mensagem = contatosExistentes.length === 1
-            ? `⚠️ Já existe um contato com este telefone:\n\n${existente.nome}\nEmpresa: ${existente.empresa || 'Não informada'}\n\nDeseja criar outro registro duplicado?`
-            : `⚠️ Já existem ${contatosExistentes.length} contatos com este telefone:\n\n${existente.nome}\nEmpresa: ${existente.empresa || 'Não informada'}\n\n+ ${contatosExistentes.length - 1} outros\n\n❌ CRIAR DUPLICATA NÃO É RECOMENDADO.\n\nDeseja continuar mesmo assim?`;
-          
-          if (!confirm(mensagem)) {
-            setSalvando(false);
-            toast.info('Criação cancelada');
-            return;
+          // Se já existe contato (encontrado ou atualizado), avisar o usuário
+          if (action !== 'created') {
+            const mensagem = `⚠️ Já existe um contato com este telefone:\n\n${existente.nome}\nEmpresa: ${existente.empresa || 'Não informada'}\n\nDeseja criar outro registro duplicado?`;
+            if (!confirm(mensagem)) {
+              setSalvando(false);
+              toast.info('Criação cancelada');
+              return;
+            }
           }
         }
       } catch (error) {
