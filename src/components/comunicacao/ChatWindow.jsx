@@ -137,9 +137,7 @@ export default function ChatWindow({
   const [modoSelecao, setModoSelecao] = React.useState(false);
   const [mensagensSelecionadas, setMensagensSelecionadas] = React.useState([]);
 
-  const [gravandoAudio, setGravandoAudio] = React.useState(false);
-  const [mediaRecorder, setMediaRecorder] = React.useState(null);
-  const audioStreamRef = React.useRef(null);
+  const { gravando: gravandoAudio, iniciarGravacao: _iniciarGravacao, pararGravacao: _pararGravacao, cancelarGravacao: _cancelarGravacao, audioBlob: _audioBlob } = useAudioRecorder();
   const [uploadingPastedFile, setUploadingPastedFile] = React.useState(false);
   const [mostrarSugestor, setMostrarSugestor] = React.useState(false);
   const [ultimaMensagemCliente, setUltimaMensagemCliente] = React.useState(null);
