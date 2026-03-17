@@ -407,15 +407,19 @@ Deno.serve(async (req) => {
     return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
   }
 
-  // NEXUS BRAIN: Agente autônomo — percepção → decisão → ação
+  // ✅ FIX: NUNCA chamar Nexus Brain se pré-atendimento foi acionado
+  // preAtendimentoHandler já disparou as Skills autônomas (ACK, IntentRouter, QueueManager)
+  // Chamar Brain aqui causaria duplicação de atendimento
+  const preAtendimentoDispatchado = result.actions.includes('pre_atendimento_acionado');
+
   result.pipeline.push('nexus_brain');
-  if (message?.sender_type === 'contact' && messageContent?.length > 2) {
+  if (!preAtendimentoDispatchado && message?.sender_type === 'contact' && messageContent?.length > 2) {
     if (!integration?.id) {
       console.warn(`[${VERSION}] ⚠️ integration.id ausente — nexusAgentBrain não pode ser acionado`);
       result.actions.push('nexus_brain_skipped_no_integration');
     } else {
       try {
-        console.log(`[${VERSION}] 🧠 Ativando Nexus Brain`);
+        console.log(`[${VERSION}] 🧠 Ativando Nexus Brain (pré-atendimento não foi despachado)`);
         await base44.asServiceRole.functions.invoke('nexusAgentBrain', {
           thread_id: thread.id,
           contact_id: contact.id,
@@ -431,6 +435,9 @@ Deno.serve(async (req) => {
         result.actions.push('nexus_brain_failed');
       }
     }
+  } else if (preAtendimentoDispatchado) {
+    console.log(`[${VERSION}] ⏭️ Pré-atendimento já foi despachado — Nexus Brain SKIPPED para evitar duplicação`);
+    result.pipeline.push('nexus_brain_skipped_pre_atendimento_active');
   }
 
   result.pipeline.push('normal_message');

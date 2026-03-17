@@ -88,6 +88,7 @@ async function buscarMelhorAtendente(base44: any, setor: string, contact: any): 
     console.warn('[QUEUE] Fallback geral falhou:', (e as any).message);
   }
 
+  console.log('[QUEUE] ❌ Nenhum atendente disponível');
   return null;
 }
 
