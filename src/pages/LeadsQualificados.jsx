@@ -51,8 +51,6 @@ export default function LeadsQualificados() {
 
   const navigate = useNavigate();
 
-  const [filtroVendedorGlobal, setFiltroVendedorGlobal] = useState('todos');
-
   const [filtrosLeads, setFiltrosLeads] = useState({
     busca: '',
     status: 'todos',
@@ -363,11 +361,9 @@ export default function LeadsQualificados() {
 
     if (!isLead) return false;
 
-    // FILTRO GLOBAL DE VENDEDOR
-    if (filtroVendedorGlobal !== 'todos' && c.vendedor_responsavel !== filtroVendedorGlobal) return false;
-
     // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
     const temPermissaoVerOutros = ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
+    const vendedorFiltrado = filtrosLeads.usuario_filtro || usuarioAtual?.full_name;
     
     if (!temPermissaoVerOutros) {
       if (c.vendedor_responsavel !== usuarioAtual?.full_name) return false;
@@ -403,9 +399,6 @@ export default function LeadsQualificados() {
 
     if (!isCliente) return false;
 
-    // FILTRO GLOBAL DE VENDEDOR
-    if (filtroVendedorGlobal !== 'todos' && c.vendedor_responsavel !== filtroVendedorGlobal) return false;
-
     // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
     const temPermissaoVerOutros = ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
     
@@ -433,9 +426,6 @@ export default function LeadsQualificados() {
   });
 
   const orcamentosFiltrados = orcamentos.filter(orcamento => {
-    // FILTRO GLOBAL DE VENDEDOR
-    if (filtroVendedorGlobal !== 'todos' && orcamento.vendedor !== filtroVendedorGlobal) return false;
-
     // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
     const temPermissaoVerOutros = ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
     
@@ -473,22 +463,6 @@ export default function LeadsQualificados() {
                   Funil de Leads + Gestão de Clientes + Pipeline de Orçamentos
                 </p>
               </div>
-            </div>
-
-            {/* FILTRO GLOBAL DE VENDEDOR */}
-            <div className="flex items-center gap-2 bg-white/80 border border-orange-200 rounded-lg px-3 py-1.5 shadow-sm">
-              <Filter className="w-4 h-4 text-orange-500 flex-shrink-0" />
-              <span className="text-xs font-medium text-slate-600 whitespace-nowrap">Filtrar por Vendedor:</span>
-              <select
-                value={filtroVendedorGlobal}
-                onChange={(e) => setFiltroVendedorGlobal(e.target.value)}
-                className="text-xs border-0 bg-transparent text-slate-700 font-medium focus:ring-0 focus:outline-none cursor-pointer pr-1"
-              >
-                <option value="todos">Todos os Vendedores</option>
-                {atendentes.map((v) => (
-                  <option key={v.value} value={v.label}>{v.label}</option>
-                ))}
-              </select>
             </div>
 
             <div className="flex items-center gap-2">
@@ -596,7 +570,28 @@ export default function LeadsQualificados() {
                   </Select>
                 )}
 
-
+                {activeTab !== 'orcamentos' && (
+                  <Select
+                    value={activeTab === 'leads' ? filtrosLeads.vendedor : filtrosClientes.vendedor}
+                    onValueChange={(v) => {
+                      if (activeTab === 'leads') {
+                        setFiltrosLeads({ ...filtrosLeads, vendedor: v });
+                      } else {
+                        setFiltrosClientes({ ...filtrosClientes, vendedor: v });
+                      }
+                    }}>
+                    <SelectTrigger className="h-7 w-[140px] text-xs bg-black/30 border-orange-500/30 text-white">
+                      <SelectValue placeholder="Vendedor" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 text-white border-slate-600">
+                      <SelectItem value="todos" className="text-xs">Todos</SelectItem>
+                      {atendentes.map((v) =>
+                        <SelectItem key={v.value} value={v.value} className="text-xs">{v.label}</SelectItem>
+                      )}
+                      <SelectItem value="nao_atribuido" className="text-xs">Não Atribuído</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
 
                 {activeTab === 'orcamentos' && (
                   <>

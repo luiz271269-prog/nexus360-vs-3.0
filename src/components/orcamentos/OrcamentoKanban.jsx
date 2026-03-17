@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Edit, Calendar, DollarSign, User, Filter, MessageSquare, Building2, Handshake, Zap, Flame, Hash, TrendingUp, GripVertical } from 'lucide-react';
+import { Plus, MoreHorizontal, Edit, Calendar, DollarSign, User, Filter, Brain, MessageSquare, Building2, Handshake, Zap, Flame, X } from 'lucide-react';
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { toast } from 'sonner';
-import KanbanChatWindow from './KanbanChatWindow';
+import { base44 } from "@/api/base44Client";
 
 const statusLabels = {
   rascunho: 'Rascunho',
@@ -132,8 +134,9 @@ const etapasFluxo = {
 };
 
 export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, onEdit, onMostrarInsightsIA }) {
+  const navigate = useNavigate();
   const [chatAberto, setChatAberto] = useState(false);
-  const [orcamentoChatAtivo, setOrcamentoChatAtivo] = useState(null);
+  const [orcamentoChat, setOrcamentoChat] = useState(null);
   const [filtroVendedor, setFiltroVendedor] = useState('todos');
 
   const onDragEnd = (result) => {
@@ -161,15 +164,13 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
 
   // ✅ FILTRO POR USUÁRIO: Mostrar apenas orçamentos do usuário ou todos (admin)
   const isAdmin = usuario?.role === 'admin';
-  const vendedorAtual = usuario?.full_name || usuario?.email?.split('@')[0];
-  
   const orcamentosFiltrados = orcamentos.filter(o => {
     // Admin vê todos, ou filtra por vendedor específico se selecionado
     if (isAdmin) {
       return filtroVendedor === 'todos' ? true : o.vendedor === filtroVendedor;
     }
-    // Usuário normal vê apenas seus orçamentos (match por full_name ou email)
-    return o.vendedor === vendedorAtual;
+    // Usuário normal vê apenas seus orçamentos
+    return o.vendedor === usuario?.full_name;
   });
 
   // Agrupar por status (com filtro aplicado)
@@ -182,192 +183,236 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
   // Lista de vendedores únicos para filtro (apenas admin)
   const vendedoresUnicos = isAdmin ? [...new Set(orcamentos.map(o => o.vendedor).filter(Boolean))] : [];
 
-  const abrirChatComCliente = (orcamento) => {
-    setOrcamentoChatAtivo(orcamento);
-    setChatAberto(true);
+  const abrirChatComCliente = async (orcamento) => {
+    try {
+      const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;
+      if (!telefone) {
+        toast.error('Telefone não cadastrado');
+        return;
+      }
+
+      // Buscar contato pelo telefone
+      const telefoneNormalizado = telefone.replace(/\D/g, '');
+      const contatos = await base44.entities.Contact.filter({ telefone_canonico: telefoneNormalizado });
+      
+      if (contatos && contatos.length > 0) {
+        setOrcamentoChat({ ...orcamento, contact_id: contatos[0].id });
+        setChatAberto(true);
+      } else {
+        toast.error('Contato não encontrado no sistema');
+      }
+    } catch (error) {
+      console.error('Erro ao abrir chat:', error);
+      toast.error('Erro ao buscar contato');
+    }
   };
 
-  // Renderizar Kanban para uma etapa específica
+  // Renderizar Kanban para uma etapa específica (sem DragDropContext — está no pai)
   const renderKanbanEtapa = (etapaConfig) => (
     <div
-      className="flex gap-3 overflow-x-auto pb-4"
-      style={{ minHeight: '600px' }}
-    >
-      {etapaConfig.statuses.map((status) => {
-        const orcamentosStatus = orcamentosPorStatus[status];
-        const totalValor = orcamentosStatus.reduce((sum, o) => sum + (o.valor_total || 0), 0);
-        const gradient = statusGradients[status];
+        className="grid gap-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
+        style={{ gridTemplateColumns: `repeat(${etapaConfig.statuses.length}, minmax(250px, 1fr))` }}
+      >
+        {etapaConfig.statuses.map((status) => {
+          const orcamentosStatus = orcamentosPorStatus[status];
+          const totalValor = orcamentosStatus.reduce((sum, o) => sum + (o.valor_total || 0), 0);
+          const gradient = statusGradients[status];
 
-        return (
-          <div key={status} className="flex flex-col flex-shrink-0 w-60">
-            {/* Header da Coluna */}
-            <div className={`bg-gradient-to-r ${etapaConfig.headerGradient} px-3 py-2.5 rounded-t-xl shadow-lg`}>
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="font-bold text-xs text-white tracking-wide uppercase">{statusLabels[status]}</h3>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] text-white/50">{gradient.temp}</span>
-                  <span className="bg-white/25 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+          return (
+            <div key={status} className="flex flex-col">
+              {/* Header da Coluna - GRADIENTE MODERNO FUTURISTA */}
+              <div
+                className={`bg-gradient-to-r ${etapaConfig.headerGradient} p-2.5 rounded-t-xl shadow-2xl border-b-4 border-opacity-80`}
+                style={{ borderColor: `var(--${status}-color, #f59e0b)` }}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-bold text-xs text-white truncate">{statusLabels[status]}</h3>
+                    <span className="text-[8px] opacity-70 text-white">{gradient.temp}</span>
+                  </div>
+                  <Badge className={`bg-gradient-to-r ${etapaConfig.badgeGradient} text-white text-[10px] h-5 px-2 font-bold border-0 shadow-lg animate-pulse`}>
                     {orcamentosStatus.length}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-1">
+                  <DollarSign className="w-3 h-3 text-amber-300" />
+                  <span className="text-[11px] text-amber-200 font-bold">
+                    {formatCurrency(totalValor)}
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <DollarSign className="w-2.5 h-2.5 text-amber-300" />
-                <span className="text-[10px] text-amber-200 font-semibold">{formatCurrency(totalValor)}</span>
-              </div>
-            </div>
 
-            {/* Droppable Area */}
-            <Droppable droppableId={status}>
-              {(provided, snapshot) => (
-                <div
-                  {...provided.droppableProps}
-                  ref={provided.innerRef}
-                  className={`
-                    flex-1 p-1.5 rounded-b-xl border-x-2 border-b-2
-                    min-h-[520px] space-y-1.5 transition-all duration-200
-                    ${snapshot.isDraggingOver
-                      ? `border-dashed ${gradient.border} bg-white/60 scale-[1.01]`
-                      : `${gradient.border} bg-slate-100/60`
-                    }
-                  `}
-                >
-                  {orcamentosStatus.map((orcamento, index) => (
-                    <Draggable key={orcamento.id} draggableId={orcamento.id} index={index}>
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          className={`
-                            bg-white rounded-lg border overflow-hidden
-                            transition-all duration-150
-                            ${snapshot.isDragging
-                              ? `shadow-2xl ring-2 ${gradient.ring} ring-offset-2 rotate-[1.5deg] scale-[1.03] opacity-90 z-50`
-                              : `${gradient.border} shadow-sm hover:shadow-md hover:-translate-y-0.5`
-                            }
-                          `}
-                        >
-                          {/* Drag Handle Strip — linha colorida no topo + handle */}
+              {/* Droppable Area */}
+              <Droppable droppableId={status}>
+                {(provided, snapshot) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className="bg-slate-50 p-2 rounded-b-xl border-l-4 border-r-4 border-b-4 border-indigo-300 min-h-[500px] space-y-2 shadow-xl shadow-indigo-400/30 transition-all duration-300 flex-1"
+                  >
+                    {orcamentosStatus.map((orcamento, index) => (
+                      <Draggable key={orcamento.id} draggableId={orcamento.id} index={index}>
+                        {(provided, snapshot) => (
                           <div
+                            ref={provided.innerRef}
                             {...provided.dragHandleProps}
-                            className={`${gradient.card} px-2.5 py-1.5 flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-black/5`}
+                            {...provided.draggableProps}
+                            className={`
+                              ${gradient.card} ${gradient.hover}
+                              p-2 rounded-xl border-2 ${gradient.border} 
+                              ${gradient.shadow}
+                              transition-all duration-300 cursor-pointer
+                              ${snapshot.isDragging ? `ring-4 ${gradient.ring} shadow-2xl rotate-3 scale-110 ${gradient.glow}` : `hover:shadow-xl hover:scale-105 ${gradient.glow}`}
+                              relative overflow-hidden
+                              backdrop-blur-sm
+                            `}
                           >
-                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                              <GripVertical className="w-3 h-3 text-slate-400/80 flex-shrink-0" />
-                              <span className="font-bold text-slate-800 text-[11px] leading-tight truncate">
-                                {orcamento.cliente_nome}
-                              </span>
+
+                            {/* Efeito de brilho no hover - NEON */}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/30 to-white/0 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+
+                            {/* Animação de pulso no canto */}
+                            {status === 'negociando' &&
+                              <div className="absolute top-1 right-1">
+                                <Flame className="w-3 h-3 text-orange-500 animate-pulse" />
+                              </div>
+                            }
+                            {status === 'aprovado' &&
+                              <div className="absolute top-1 right-1">
+                                <Zap className="w-3 h-3 text-green-500 animate-bounce" />
+                              </div>
+                            }
+
+                            {/* Conteúdo do Card */}
+                            <div className="relative z-10">
+                              {/* Header do Card */}
+                              <div className="flex items-start justify-between mb-1.5">
+                                <h4 className="font-bold text-slate-900 text-[11px] leading-tight line-clamp-2 flex-1">
+                                  {orcamento.cliente_nome}
+                                </h4>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-slate-500 hover:text-orange-600 hover:bg-white/50 p-0">
+                                      <MoreHorizontal className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="text-xs">
+                                    <DropdownMenuItem onClick={() => onEdit && onEdit(orcamento)} className="text-xs py-1.5">
+                                      <Edit className="w-3.5 h-3.5 mr-1.5" />
+                                      Editar
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+
+                              {/* Informações */}
+                              <div className="space-y-1 mb-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] text-slate-600 font-medium">
+                                    #{orcamento.numero_orcamento?.slice(-4) || orcamento.id?.slice(-4)}
+                                  </span>
+                                  <div className="font-bold bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent text-[11px]">
+                                    {formatCurrency(orcamento.valor_total)}
+                                  </div>
+                                </div>
+
+                                {orcamento.vendedor &&
+                                  <div className="flex items-center gap-1 text-[10px] text-slate-700">
+                                    <User className="w-3 h-3" />
+                                    <span className="truncate font-medium">{orcamento.vendedor}</span>
+                                  </div>
+                                }
+
+                                {orcamento.data_orcamento &&
+                                  <div className="flex items-center gap-1 text-[10px] text-slate-600">
+                                    <Calendar className="w-3 h-3" />
+                                    {formatDate(orcamento.data_orcamento)}
+                                  </div>
+                                }
+                              </div>
+
+                              {/* Badges */}
+                              {orcamento.probabilidade &&
+                                <div className="mb-1.5">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] px-1.5 py-0.5 h-4 font-bold shadow-sm ${
+                                      orcamento.probabilidade === 'Alta' ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-green-400' :
+                                      orcamento.probabilidade === 'Média' ? 'bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 border-yellow-400' :
+                                      'bg-gradient-to-r from-red-100 to-rose-100 text-red-800 border-red-400'}`
+                                    }>
+
+                                    {orcamento.probabilidade}
+                                  </Badge>
+                                </div>
+                              }
+
+                              {/* Botões de Ação */}
+                              <div className="flex gap-1 pt-1.5 border-t border-slate-300/50">
+                                {onMostrarInsightsIA &&
+                                  <Button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onMostrarInsightsIA(orcamento);
+                                    }}
+                                    size="sm"
+                                    className="flex-1 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 text-white text-[10px] h-6 px-1 shadow-md">
+
+                                    <Brain className="w-3 h-3 mr-0.5" />
+                                    IA
+                                  </Button>
+                                }
+
+                                <Button
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     abrirChatComCliente(orcamento);
+                                   }}
+                                   size="sm"
+                                   className="flex-1 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white text-[10px] h-6 px-1 shadow-md"
+                                   title="Abrir conversa com cliente">
+
+                                   <MessageSquare className="w-3 h-3 mr-0.5" />
+                                   Msg
+                                 </Button>
+                              </div>
                             </div>
-                            <button
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); onEdit && onEdit(orcamento); }}
-                              className="ml-1 p-0.5 rounded hover:bg-black/10 flex-shrink-0 transition-colors opacity-60 hover:opacity-100"
-                            >
-                              <Edit className="w-2.5 h-2.5 text-slate-600" />
-                            </button>
                           </div>
-
-                          {/* Corpo do Card */}
-                          <div className="px-2.5 py-2 space-y-1.5">
-                            {/* Valor + Probabilidade */}
-                            <div className="flex items-center justify-between">
-                              <span className="font-black text-emerald-600 text-sm tracking-tight">
-                                {formatCurrency(orcamento.valor_total)}
-                              </span>
-                              {orcamento.probabilidade && (
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                                  orcamento.probabilidade === 'Alta' ? 'bg-green-100 text-green-700' :
-                                  orcamento.probabilidade === 'Média' ? 'bg-amber-100 text-amber-700' :
-                                  'bg-red-100 text-red-700'
-                                }`}>
-                                  {orcamento.probabilidade}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Metadados */}
-                            <div className="space-y-0.5">
-                              {orcamento.numero_orcamento && (
-                                <div className="flex items-center gap-1 text-[9px] text-slate-400">
-                                  <Hash className="w-2 h-2" />
-                                  <span className="font-mono">{orcamento.numero_orcamento}</span>
-                                </div>
-                              )}
-                              {orcamento.vendedor && (
-                                <div className="flex items-center gap-1 text-[9px] text-slate-500">
-                                  <User className="w-2 h-2 text-indigo-400" />
-                                  <span className="truncate">{orcamento.vendedor}</span>
-                                </div>
-                              )}
-                              {orcamento.data_orcamento && (
-                                <div className="flex items-center gap-1 text-[9px] text-slate-400">
-                                  <Calendar className="w-2 h-2" />
-                                  <span>{formatDate(orcamento.data_orcamento)}</span>
-                                  {orcamento.data_vencimento && (
-                                    <span className="text-red-400 ml-0.5">→ {formatDate(orcamento.data_vencimento)}</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Rodapé: badge + botão Msg */}
-                            <div className="flex items-center gap-1 pt-1 border-t border-slate-100">
-                              {status === 'negociando' && (
-                                <span className="flex items-center gap-0.5 text-[8px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
-                                  <Flame className="w-2 h-2" />Quente
-                                </span>
-                              )}
-                              {status === 'aprovado' && (
-                                <span className="flex items-center gap-0.5 text-[8px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">
-                                  <Zap className="w-2 h-2" />Fechado
-                                </span>
-                              )}
-                              <button
-                                onPointerDown={(e) => e.stopPropagation()}
-                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); abrirChatComCliente(orcamento); }}
-                                className="ml-auto flex items-center gap-1 text-[9px] font-bold text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 px-2 py-1 rounded transition-all shadow-sm active:scale-95"
-                              >
-                                <MessageSquare className="w-2.5 h-2.5" />
-                                Msg
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-                  {provided.placeholder}
-                  {orcamentosStatus.length === 0 && !snapshot.isDraggingOver && (
-                    <div className="flex flex-col items-center justify-center py-12 text-slate-300 select-none">
-                      <div className="w-10 h-10 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center mb-2">
-                        <TrendingUp className="w-4 h-4 opacity-40" />
-                      </div>
-                      <span className="text-[10px] font-medium">Arraste aqui</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </Droppable>
-          </div>
-        );
-      })}
-    </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </div>
+          );
+        })}
+      </div>
   );
 
 
   return (
-    <>
-      {/* Chat fora do DragDropContext para evitar re-renders */}
-      {chatAberto && orcamentoChatAtivo && (
-        <KanbanChatWindow
-          orcamento={orcamentoChatAtivo}
-          usuario={usuario}
-          onClose={() => { setChatAberto(false); setOrcamentoChatAtivo(null); }}
-        />
-      )}
-
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="space-y-4 relative">
+      <div className="space-y-4">
+        {/* Chat Flutuante */}
+        {chatAberto && orcamentoChat && (
+          <div className="fixed inset-0 bg-black/30 z-40 flex items-end md:items-center justify-center p-4 md:p-0">
+            <div className="bg-white rounded-2xl shadow-2xl w-full md:w-96 h-[600px] md:h-[500px] flex flex-col border border-slate-200 md:rounded-lg">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 rounded-t-2xl md:rounded-t-lg flex items-center justify-between">
+                <h3 className="text-white font-semibold text-sm">{orcamentoChat.cliente_nome}</h3>
+                <button onClick={() => setChatAberto(false)} className="text-white hover:bg-white/20 p-1 rounded">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {/* Chat Content */}
+              <div className="flex-1 bg-slate-50 p-4 text-center flex items-center justify-center text-slate-500 text-sm">
+                💬 Abrindo conversa com {orcamentoChat.cliente_nome}...
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* FILTRO POR VENDEDOR - Apenas para ADMIN */}
       {isAdmin && (
@@ -455,6 +500,5 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
       </Tabs>
       </div>
     </DragDropContext>
-  </>
   );
 }

@@ -1005,17 +1005,13 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ✅ CRÍTICO: Webhooks externos chegam SEM token de usuário.
-  // createClientFromRequest funciona em modo "service" para webhooks públicos.
-  // NUNCA retornar erro antes de ler o body — W-API vai retentar e causar duplicações.
   let base44;
   try {
     base44 = createClientFromRequest(req);
     console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (asServiceRole habilitado)');
   } catch (e) {
     console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
-    // Retornar 200 mesmo com erro de auth para evitar reintentos da W-API
-    return jsonOk({ ignored: true, reason: 'auth_error' });
+    return jsonErr(`auth_error: ${e.message}`, 500);
   }
 
   let payload;

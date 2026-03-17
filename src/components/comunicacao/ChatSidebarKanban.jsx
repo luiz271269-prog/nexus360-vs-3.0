@@ -5,10 +5,8 @@ import {
   UserCheck, Columns, Users, Send, ArrowRightLeft, Plus, CalendarCheck,
   AlertTriangle, MessagesSquare, Pause, Zap, LayoutList, CheckSquare, BookOpen, Bot
 } from "lucide-react";
-import KanbanCardFooter from './KanbanCardFooter';
 import ManualJarvis from "./ManualJarvis";
 import ContatosRequerendoAtencaoKanban from "./ContatosRequerendoAtencaoKanban";
-import MonitorPerformanceKanban from "./MonitorPerformanceKanban";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getUserDisplayName } from "../lib/userHelpers";
@@ -51,14 +49,6 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
   const contato = thread.contato;
   const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
   const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
-  
-  // ✅ Skills — funciona para atendidos + fidelizados
-  const getAtendenteFidelizado = (c) => getAtendenteFidelizadoAtualizado(c, atendentes);
-  const atendente = atendentes?.find(a => a.id === thread.assigned_user_id) || getAtendenteFidelizado(contato);
-  const skills = React.useMemo(() => {
-    if (!atendente?.segmentos_especialidade || atendente.segmentos_especialidade.length === 0) return [];
-    return atendente.segmentos_especialidade.slice(0, 1);
-  }, [atendente?.segmentos_especialidade]);
 
   let nomeExibicao = "";
   if (contato?.empresa) nomeExibicao += contato.empresa;
@@ -74,6 +64,7 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
     'parceiro': { emoji: 'P', label: 'Parceiro', bg: 'bg-purple-500' }
   };
   const tipoCfg = tiposConfig[contato?.tipo_contato || 'novo'] || tiposConfig['novo'];
+  const getAtendenteFidelizado = (c) => getAtendenteFidelizadoAtualizado(c, atendentes);
 
   return (
     <div
@@ -119,11 +110,6 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
             <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-white ${tipoCfg.bg} shadow-sm`}>
               {tipoCfg.emoji} {tipoCfg.label}
             </span>
-            {skills.length > 0 && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-white bg-cyan-500 shadow-sm">
-                🎯 {skills[0].substring(0, 5)}
-              </span>
-            )}
             {contato?.tags?.length > 0 && (() => {
               const destaques = etiquetasDB.filter(e => e.destaque === true);
               const nomes = destaques.map(e => e.nome);
@@ -162,12 +148,6 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
           </div>
         </div>
       </div>
-      <KanbanCardFooter
-        small
-        onMsg={podeInteragir ? () => onSelecionarThread(thread) : undefined}
-        onEdit={podeInteragir ? () => onSelecionarThread({ ...thread, _openContactInfo: true }) : undefined}
-        onHistorico={podeInteragir ? () => onSelecionarThread(thread) : undefined}
-      />
     </div>
   );
 }
@@ -289,11 +269,6 @@ function ThreadRowSidebar({ thread, isAtiva, usuarioAtual, atendentes, integraco
           )}
         </div>
       </div>
-      <KanbanCardFooter
-        onMsg={() => onSelecionarThread(thread)}
-        onEdit={() => onSelecionarThread({ ...thread, _openContactInfo: true })}
-        onHistorico={() => onSelecionarThread(thread)}
-      />
     </div>
   );
 }
@@ -407,8 +382,6 @@ export default function ChatSidebarKanban({
           mapa['__sem_atendente__'].threads.push(thread);
         return;
       }
-      // Pular coluna do próprio usuário (já em "Minhas Conversas")
-      if (norm(uid) === norm(usuarioAtual?.id)) return;
       if (!isAdmin && !isGerente && norm(uid) !== norm(usuarioAtual?.id)) return;
       if (!mapa[uid]) {
         const at = atendentes.find(a => a.id === uid);
@@ -789,18 +762,6 @@ export default function ChatSidebarKanban({
           })}
         </div>
       </div>
-
-      {/* Monitor de Performance */}
-      <MonitorPerformanceKanban 
-        kanbanMode={kanbanMode} 
-        colunas={
-          kanbanMode === 'usuario' ? colunasPorUsuario :
-          kanbanMode === 'parados' ? [{ threads: threadsParadas }] :
-          kanbanMode === 'integracao' ? colunasPorInstancia :
-          kanbanMode === 'jarvis' ? colunasPorJarvis :
-          []
-        }
-      />
 
       {/* Modals */}
       <InternalMessageComposer
