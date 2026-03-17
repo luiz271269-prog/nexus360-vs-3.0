@@ -24,7 +24,7 @@ export default function SecaoComunicacaoUsuario({
   return (
     <div className="space-y-4">
       {/* Atendente WhatsApp */}
-      <Card className="border-green-200 bg-green-50">
+       <Card className="border-green-200 bg-green-50">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Users className="w-5 h-5 text-green-600" />
@@ -32,11 +32,81 @@ export default function SecaoComunicacaoUsuario({
           </CardTitle>
           <CardDescription>Habilitar para receber conversas do WhatsApp</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Switch
-            checked={usuarioSelecionado.is_whatsapp_attendant || false}
-            onCheckedChange={(v) => atualizarUsuario("is_whatsapp_attendant", v)}
-          />
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Ativar como Atendente</span>
+            <Switch
+              checked={usuarioSelecionado.is_whatsapp_attendant || false}
+              onCheckedChange={(v) => atualizarUsuario("is_whatsapp_attendant", v)}
+            />
+          </div>
+
+          {usuarioSelecionado.is_whatsapp_attendant && (
+            <>
+              {/* Status de Disponibilidade */}
+              <div>
+                <label className="text-xs font-medium text-slate-700 mb-2 block">Status de Disponibilidade</label>
+                <div className="flex gap-2">
+                  {['online', 'ocupado', 'offline'].map(status => (
+                    <button
+                      key={status}
+                      onClick={() => atualizarUsuario("availability_status", status)}
+                      className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                        usuarioSelecionado.availability_status === status
+                          ? 'bg-green-600 text-white'
+                          : 'bg-white border border-slate-300 text-slate-700 hover:border-green-500'
+                      }`}
+                    >
+                      {status === 'online' && '🟢 Online'}
+                      {status === 'ocupado' && '🟡 Ocupado'}
+                      {status === 'offline' && '⚫ Offline'}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">Estado: {usuarioSelecionado.availability_status || 'não definido'}</p>
+              </div>
+
+              {/* Setores WhatsApp */}
+              <div>
+                <label className="text-xs font-medium text-slate-700 mb-2 block">🎯 Setores WhatsApp</label>
+                <div className="flex flex-wrap gap-2">
+                  {SETORES.map(setor => {
+                    const setoresAtuais = usuarioSelecionado.whatsapp_setores || [];
+                    const ativo = setoresAtuais.includes(setor.value);
+
+                    const toggleSetor = () => {
+                      let novosSetores = [...setoresAtuais];
+                      if (ativo) {
+                        novosSetores = novosSetores.filter(s => s !== setor.value);
+                      } else {
+                        novosSetores.push(setor.value);
+                      }
+                      atualizarUsuario("whatsapp_setores", novosSetores);
+                    };
+
+                    return (
+                      <button
+                        key={setor.value}
+                        onClick={toggleSetor}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                          ativo
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white border border-slate-300 text-slate-700 hover:border-blue-500'
+                        }`}
+                      >
+                        {setor.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Selecionados: {(usuarioSelecionado.whatsapp_setores || []).length > 0 
+                    ? usuarioSelecionado.whatsapp_setores.join(', ') 
+                    : 'nenhum'}
+                </p>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
