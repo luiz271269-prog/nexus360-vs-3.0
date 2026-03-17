@@ -1559,8 +1559,12 @@ export default React.memo(function MessageBubble({
                   {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                 </span>
                 {isOwn && (() => {
-                  const { Icone: StatusIcon, cor } = useMessageStatus(message.status, message.whatsapp_message_id);
-                  return StatusIcon ? <StatusIcon className={`w-[14px] h-[14px] ${cor}`} /> : null;
+                  if (message.status === 'enviando') return <Clock className="w-[14px] h-[14px] text-slate-400" />;
+                  if (message.status === 'enviada') return <Check className="w-[14px] h-[14px] text-slate-400" />;
+                  if (message.status === 'entregue') return <CheckCheck className="w-[14px] h-[14px] text-slate-400" />;
+                  if (message.status === 'lida') return <CheckCheck className="w-[14px] h-[14px] text-blue-500" />;
+                  if (message.status === 'falhou') return <AlertCircle className="w-[14px] h-[14px] text-red-500" />;
+                  return <CheckCheck className="w-[14px] h-[14px] text-slate-400" />;
                 })()}
                 </div>
               </>
