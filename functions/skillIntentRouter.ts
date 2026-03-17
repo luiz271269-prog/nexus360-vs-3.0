@@ -168,10 +168,16 @@ Deno.serve(async (req) => {
     }).catch(() => {});
 
     // Atualizar thread
-    await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-      sector_id: deteccao.setor,
-      routing_stage: 'INTENT_DETECTED'
-    }).catch(() => {});
+    console.log('[INTENT-ROUTER] 📝 Tentando gravar sector_id:', deteccao.setor, '| routing_stage: INTENT_DETECTED | thread:', thread_id);
+    try {
+      const updateResult = await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+        sector_id: deteccao.setor,
+        routing_stage: 'INTENT_DETECTED'
+      });
+      console.log('[INTENT-ROUTER] ✅ Update bem-sucedido | Resposta:', updateResult ? 'alterado' : 'sem mudanças');
+    } catch (updateErr) {
+      console.error('[INTENT-ROUTER] ❌ Erro ao atualizar thread:', updateErr.message);
+    }
 
     return Response.json({
       success: true,
