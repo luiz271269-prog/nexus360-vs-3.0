@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import KanbanCardFooter from './KanbanCardFooter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -546,6 +547,33 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             </div>
           )}
         </div>
+        <KanbanCardFooter
+          onMsg={async () => {
+            try {
+              const threads = await base44.entities.MessageThread.filter({ contact_id: item.contact_id, is_canonical: true }, '-last_message_at', 1);
+              if (threads && threads.length > 0) {
+                setCarregandoMensagens(true);
+                const msgs = await base44.entities.Message.filter({ thread_id: threads[0].id }, '-sent_at', 200);
+                setChatAberto({ thread: threads[0], contato: { id: item.contact_id, nome: item.nome, empresa: item.empresa, telefone: item.telefone, tipo_contato: item.tipo_contato, vendedor_responsavel: item.vendedor_responsavel } });
+                setMensagensChat(msgs.reverse());
+                setCarregandoMensagens(false);
+              } else { toast.error('❌ Conversa não disponível'); }
+            } catch (e) { toast.error(`❌ ${e.message}`); setCarregandoMensagens(false); }
+          }}
+          onEdit={() => toast.info('Edição disponível na aba Comunicação')}
+          onHistorico={async () => {
+            try {
+              const threads = await base44.entities.MessageThread.filter({ contact_id: item.contact_id, is_canonical: true }, '-last_message_at', 1);
+              if (threads && threads.length > 0) {
+                setCarregandoMensagens(true);
+                const msgs = await base44.entities.Message.filter({ thread_id: threads[0].id }, '-sent_at', 200);
+                setChatAberto({ thread: threads[0], contato: { id: item.contact_id, nome: item.nome, empresa: item.empresa, telefone: item.telefone, tipo_contato: item.tipo_contato } });
+                setMensagensChat(msgs.reverse());
+                setCarregandoMensagens(false);
+              }
+            } catch (e) { toast.error(`❌ ${e.message}`); setCarregandoMensagens(false); }
+          }}
+        />
       </div>);
 
   };

@@ -5,6 +5,7 @@ import {
   UserCheck, Columns, Users, Send, ArrowRightLeft, Plus, CalendarCheck,
   AlertTriangle, MessagesSquare, Pause, Zap, LayoutList, CheckSquare, BookOpen, Bot
 } from "lucide-react";
+import KanbanCardFooter from './KanbanCardFooter';
 import ManualJarvis from "./ManualJarvis";
 import ContatosRequerendoAtencaoKanban from "./ContatosRequerendoAtencaoKanban";
 import MonitorPerformanceKanban from "./MonitorPerformanceKanban";
@@ -161,6 +162,12 @@ function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecio
           </div>
         </div>
       </div>
+      <KanbanCardFooter
+        small
+        onMsg={podeInteragir ? () => onSelecionarThread(thread) : undefined}
+        onEdit={podeInteragir ? () => onSelecionarThread({ ...thread, _openContactInfo: true }) : undefined}
+        onHistorico={podeInteragir ? () => onSelecionarThread(thread) : undefined}
+      />
     </div>
   );
 }
@@ -282,6 +289,11 @@ function ThreadRowSidebar({ thread, isAtiva, usuarioAtual, atendentes, integraco
           )}
         </div>
       </div>
+      <KanbanCardFooter
+        onMsg={() => onSelecionarThread(thread)}
+        onEdit={() => onSelecionarThread({ ...thread, _openContactInfo: true })}
+        onHistorico={() => onSelecionarThread(thread)}
+      />
     </div>
   );
 }
