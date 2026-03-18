@@ -36,7 +36,7 @@ export default function SuperAgenteChatFlutuante() {
   const iniciarConversa = async () => {
     try {
       const novaConversa = await base44.agents.createConversation({
-        agent_name: 'promocoes_automaticas',
+        agent_name: 'nexus_assistente',
         metadata: { name: 'Chat Nexus AI' }
       });
       setConversa(novaConversa);
