@@ -728,17 +728,20 @@ Deno.serve(async (req) => {
       console.log('[JARVIS-STEP-5] Segunda-feira — iniciando aprendizado semanal...');
       try {
         // Guardrail de idempotência: não criar 2 aprendizados na mesma semana
-        const inicioSemana = new Date(agora);
-        inicioSemana.setDate(agora.getDate() - agora.getDay() + 1);
-        inicioSemana.setHours(0, 0, 0, 0);
+        // ✅ FIX: Checar se HOJE é segunda-feira E se o aprendizado de hoje já foi criado
+        const hojeAoMeio = new Date(agora);
+        hojeAoMeio.setHours(0, 0, 0, 0);
+        const amanhaAoMeio = new Date(hojeAoMeio);
+        amanhaAoMeio.setDate(amanhaAoMeio.getDate() + 1);
+
         const jaExiste = await base44.asServiceRole.entities.NexusMemory.filter({
           owner_user_id: 'system',
           tipo: 'aprendizado_semanal',
-          created_date: { $gte: inicioSemana.toISOString() }
+          created_date: { $gte: hojeAoMeio.toISOString(), $lt: amanhaAoMeio.toISOString() }
         }, '-created_date', 1).catch(() => []);
 
         if (jaExiste.length > 0) {
-          console.log('[JARVIS-STEP-5] Aprendizado desta semana já existe — pulando');
+          console.log('[JARVIS-STEP-5] ✅ Aprendizado de HOJE já foi criado — pulando');
         } else {
           const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
