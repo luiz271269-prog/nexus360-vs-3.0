@@ -55,9 +55,16 @@ export default function AtribuirConversaModal({
 
     setAtribuindo(true);
     try {
+      // ✅ FIX: Buscar contato real do banco (thread.contato pode ser undefined)
+      let contatoReal = null;
+      if (thread.contact_id) {
+        try {
+          contatoReal = await base44.entities.Contact.get(thread.contact_id);
+        } catch (_) {}
+      }
+
       // Validar fidelização para todos os selecionados
-      const contato = thread.contato;
-      if (contato?.is_cliente_fidelizado && usuario.role !== 'admin') {
+      if (contatoReal?.is_cliente_fidelizado && usuario.role !== 'admin') {
         const camposFidelizacao = [
           'atendente_fidelizado_vendas',
           'atendente_fidelizado_assistencia',
@@ -67,7 +74,7 @@ export default function AtribuirConversaModal({
         ];
         
         const atendentesFidelizados = camposFidelizacao
-          .map(campo => contato[campo])
+          .map(campo => contatoReal[campo])
           .filter(Boolean);
         
         if (atendentesFidelizados.length > 0) {
