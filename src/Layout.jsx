@@ -38,6 +38,7 @@ import CacheBuster from "../components/global/CacheBuster";
 // import FeedbackAutomaticoCapturado from "../components/inteligencia/FeedbackAutomaticoCapturado";
 import { calcularLembretesGlobal } from "../components/global/MotorLembretesGlobal";
 import UserAuthWidget from "../components/global/UserAuthWidget";
+import CopilotoIA from "../components/global/CopilotoIA";
 
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
   const isActive = window.location.pathname === new URL(href, window.location.origin).pathname;
