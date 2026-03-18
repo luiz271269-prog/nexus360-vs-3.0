@@ -29,9 +29,30 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
     }
   }, [isOpen]);
 
-  // Limpar histórico ao fechar
+  // Salvar memória de sessão ao fechar + limpar histórico
   useEffect(() => {
     if (!isOpen) {
+      if (mensagens.length >= 2 && usuario?.id) {
+        const historico = mensagens.slice(-10);
+        const resumo = historico
+          .map(m => `${m.role === 'user' ? 'Usuário' : 'Copiloto'}: ${m.content}`)
+          .join('\n');
+
+        base44.functions.invoke('agentCommand', {
+          command: 'save_session_memory',
+          user_message: `Resumir e salvar esta conversa do Copiloto IA: ${resumo}`,
+          context: {
+            user: {
+              id: usuario.id,
+              nome: usuario.full_name,
+              role: usuario.role,
+            },
+            tipo_memoria: 'sessao',
+            origem: 'copiloto_ia',
+          },
+        }).catch(() => {});
+      }
+
       setMensagens([]);
       setInput('');
     }
