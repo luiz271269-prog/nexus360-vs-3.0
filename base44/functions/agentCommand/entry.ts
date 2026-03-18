@@ -205,36 +205,20 @@ async function fetchContextData(base44) {
   }
 }
 
-async function callAnthropicDirect(apiKey, systemPrompt, messages, tools, maxTokens = 1500) {
-  const url = 'https://api.anthropic.com/v1/messages';
-  const headers = {
-    'x-api-key': apiKey,
-    'anthropic-version': '2023-06-01',
-    'content-type': 'application/json'
-  };
-
-  const body = {
-    model: 'claude-3-5-haiku-20241022',
-    max_tokens: maxTokens,
-    system: systemPrompt,
-    tools: tools,
-    messages: messages
-  };
-
+async function callBase44AI(base44, systemPrompt, userMessage, contextData) {
+  const prompt = `${systemPrompt}\n\nUSUÁRIO PERGUNTA: ${userMessage}`;
+  
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body)
+    const response = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      prompt: prompt,
+      model: 'gpt_5',
+      add_context_from_internet: false
     });
-
-    if (!response.ok) {
-      throw new Error(`Anthropic API error: ${response.status} ${response.statusText}`);
-    }
-
-    return await response.json();
+    
+    console.log('[AGENT-COMMAND] ✓ Base44 AI respondeu com sucesso');
+    return typeof response === 'string' ? response : JSON.stringify(response);
   } catch (error) {
-    console.error('[ANTHROPIC] Erro:', error.message);
+    console.error('[BASE44-AI] Erro:', error.message);
     throw error;
   }
 }
@@ -486,16 +470,12 @@ Responda com dados reais dos registros acima. Se a pergunta pedir filtragem (ex:
 
         if (!text) text = 'Não foi possível gerar resposta. Tente novamente.';
 
-        // ── Indicador de modo ────────────────────────────────────────
-        if (usedFallback && !text.includes('[Modo backup')) {
-          text = '⚙️ [Modo backup] ' + text;
-        }
-
         // ── Salvar execução ──────────────────────────────────────────
         await base44.asServiceRole.entities.AgentRun.update(run.id, {
           status: 'concluido',
           completed_at: new Date().toISOString(),
-          duration_ms: Date.now() - new Date(run.started_at).getTime()
+          duration_ms: Date.now() - new Date(run.started_at).getTime(),
+          agent_mode: usedFallback ? 'fallback' : 'base44_ai'
         });
 
         // ── Salvar memória (async) ──────────────────────────────────
@@ -526,7 +506,7 @@ Responda com dados reais dos registros acima. Se a pergunta pedir filtragem (ex:
           success: true,
           response: text,
           run_id: run.id,
-          agent_mode: usedFallback ? 'fallback' : 'anthropic',
+          agent_mode: usedFallback ? 'fallback' : 'base44_ai',
           context_snapshot: contextData.snapshot
         });
 
