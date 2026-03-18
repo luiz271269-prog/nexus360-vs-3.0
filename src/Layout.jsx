@@ -455,6 +455,22 @@ export default function Layout({ children, currentPageName }) {
     }
   }, []);
 
+  // Atalho Ctrl+Shift+A para abrir Copiloto
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.type === 'copiloto-ia:open') || (e.ctrlKey && e.shiftKey && e.key === 'A')) {
+        if (e.type !== 'copiloto-ia:open') e.preventDefault();
+        setCopilotoOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    window.addEventListener('copiloto-ia:open', handler);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('copiloto-ia:open', handler);
+    };
+  }, []);
+
   useEffect(() => {
     carregarDadosGlobais();
     checkAgentHealth();
