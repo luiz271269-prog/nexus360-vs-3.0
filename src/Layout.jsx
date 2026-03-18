@@ -207,6 +207,7 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [nexusOpen, setNexusOpen] = useState(false);
+  const [copilotoOpen, setCopilotoOpen] = useState(false);
   const [globalUsuario, setGlobalUsuario] = useState(null);
   const [loadingUsuario, setLoadingUsuario] = useState(true);
   const [badges, setBadges] = useState({});
