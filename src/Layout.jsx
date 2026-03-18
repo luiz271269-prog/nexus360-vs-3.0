@@ -580,6 +580,7 @@ export default function Layout({ children, currentPageName }) {
       <CopilotoIA
         isOpen={copilotoOpen}
         onClose={() => setCopilotoOpen(false)}
+        usuario={globalUsuario}
       />
     </div>
   );
