@@ -181,6 +181,19 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
               lembretesCount={contadoresLembretes[item.page] || 0}
             />
           ))}
+
+          {/* Botão Copiloto IA no final do menu */}
+          <button
+            onClick={onOpenCopiloto}
+            className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-purple-600 to-violet-700 hover:from-purple-500 hover:to-violet-600 shadow-lg shadow-purple-500/25 transition-all duration-300 hover:scale-105 group relative mt-2"
+            title="Copiloto IA"
+          >
+            <Bot className="h-6 w-6 text-white" />
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-green-400 rounded-full border border-white" />
+            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
+              🤖 Copiloto IA <span className="text-green-400 ml-1">Online</span>
+            </div>
+          </button>
         </nav>
 
         {/* Rodapé com autenticação unificada */}
