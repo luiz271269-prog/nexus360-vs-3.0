@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Brain, Send, X, Minimize2, Maximize2, Sparkles, User, Loader2 } from 'lucide-react';
+
+const AGENT_NAME = 'nexus_assistente';
 
 export default function SuperAgenteChatFlutuante() {
   const [aberto, setAberto] = useState(false);
@@ -11,55 +12,71 @@ export default function SuperAgenteChatFlutuante() {
   const [loading, setLoading] = useState(false);
   const [conversa, setConversa] = useState(null);
   const [mensagens, setMensagens] = useState([]);
+  const [erro, setErro] = useState(null);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const unsubscribeRef = useRef(null);
 
-  // Criar/carregar conversa ao abrir
   useEffect(() => {
-    if (aberto && !conversa) {
-      iniciarConversa();
-    }
+    if (aberto && !conversa) iniciarConversa();
   }, [aberto]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [mensagens]);
+  }, [mensagens, loading]);
 
   useEffect(() => {
     if (aberto && !minimizado) {
-      setTimeout(() => inputRef.current?.focus(), 100);
+      setTimeout(() => inputRef.current?.focus(), 150);
     }
   }, [aberto, minimizado]);
 
+  // Limpar subscription ao desmontar
+  useEffect(() => {
+    return () => {
+      if (unsubscribeRef.current) unsubscribeRef.current();
+    };
+  }, []);
+
   const iniciarConversa = async () => {
+    setErro(null);
+    setLoading(true);
     try {
       const novaConversa = await base44.agents.createConversation({
-        agent_name: 'nexus_assistente',
-        metadata: { name: 'Chat Nexus AI' }
+        agent_name: AGENT_NAME,
+        metadata: { name: 'Nexus AI Chat' }
       });
       setConversa(novaConversa);
-      setMensagens(novaConversa.messages || []);
 
-      // Inscrever para receber respostas em tempo real
-      base44.agents.subscribeToConversation(novaConversa.id, (data) => {
-        setMensagens([...(data.messages || [])]);
+      // Carregar mensagens iniciais (pode ter greeting)
+      const msgs = novaConversa.messages || [];
+      setMensagens(msgs);
+
+      // Inscrever para streaming em tempo real
+      const unsub = base44.agents.subscribeToConversation(novaConversa.id, (data) => {
+        setMensagens(data.messages || []);
         setLoading(false);
       });
+      unsubscribeRef.current = unsub;
+
     } catch (error) {
       console.error('[SuperAgente] Erro ao criar conversa:', error);
+      setErro('Não foi possível conectar ao agente. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const enviar = async () => {
+  const enviar = useCallback(async () => {
     const texto = mensagem.trim();
     if (!texto || loading || !conversa) return;
 
     setMensagem('');
     setLoading(true);
 
-    // Adicionar mensagem do usuário otimisticamente
+    // Adicionar mensagem do usuário imediatamente (otimista)
     setMensagens(prev => [...prev, {
       role: 'user',
       content: texto,
@@ -67,22 +84,33 @@ export default function SuperAgenteChatFlutuante() {
     }]);
 
     try {
-      await base44.agents.addMessage(conversa, {
-        role: 'user',
-        content: texto
-      });
-      // A resposta vem pelo subscribeToConversation
+      await base44.agents.addMessage(conversa, { role: 'user', content: texto });
+      // loading=false será chamado pelo subscribeToConversation quando a resposta chegar
     } catch (error) {
       console.error('[SuperAgente] Erro ao enviar:', error);
       setLoading(false);
+      setErro('Erro ao enviar mensagem.');
     }
-  };
+  }, [mensagem, loading, conversa]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       enviar();
     }
+  };
+
+  const fechar = () => {
+    setAberto(false);
+    setMinimizado(false);
+  };
+
+  const reiniciar = () => {
+    if (unsubscribeRef.current) unsubscribeRef.current();
+    setConversa(null);
+    setMensagens([]);
+    setErro(null);
+    iniciarConversa();
   };
 
   const sugestoes = [
@@ -92,7 +120,6 @@ export default function SuperAgenteChatFlutuante() {
     'Tarefas pendentes urgentes'
   ];
 
-  // Filtrar apenas mensagens user e assistant
   const mensagensFiltradas = mensagens.filter(m => m.role === 'user' || m.role === 'assistant');
 
   return (
@@ -102,7 +129,7 @@ export default function SuperAgenteChatFlutuante() {
         <button
           onClick={() => setAberto(true)}
           className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all duration-300 group"
-          title="Abrir Nexus AI"
+          title="Nexus AI"
         >
           <Brain className="w-7 h-7 text-white" />
           <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse" />
@@ -112,36 +139,32 @@ export default function SuperAgenteChatFlutuante() {
         </button>
       )}
 
-      {/* Painel de Chat */}
+      {/* Painel Chat */}
       {aberto && (
         <div className={`fixed right-6 z-50 bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col transition-all duration-300 ${
           minimizado ? 'bottom-6 w-72 h-14' : 'bottom-6 w-96 h-[580px]'
         }`}>
+
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-t-2xl flex-shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-t-2xl flex-shrink-0 cursor-pointer"
+               onClick={() => minimizado && setMinimizado(false)}>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
                 <Brain className="w-4 h-4 text-white" />
               </div>
               <div>
                 <p className="text-white font-semibold text-sm">Nexus AI</p>
-                {!minimizado && (
-                  <p className="text-white/70 text-[10px]">Superagente • Online</p>
-                )}
+                {!minimizado && <p className="text-white/70 text-[10px]">Superagente • Online</p>}
               </div>
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse ml-1" />
+              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse ml-1 flex-shrink-0" />
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setMinimizado(!minimizado)}
-                className="w-7 h-7 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
-              >
+            <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+              <button onClick={() => setMinimizado(!minimizado)}
+                className="w-7 h-7 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors">
                 {minimizado ? <Maximize2 className="w-3.5 h-3.5 text-white" /> : <Minimize2 className="w-3.5 h-3.5 text-white" />}
               </button>
-              <button
-                onClick={() => { setAberto(false); setMinimizado(false); }}
-                className="w-7 h-7 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
-              >
+              <button onClick={fechar}
+                className="w-7 h-7 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors">
                 <X className="w-3.5 h-3.5 text-white" />
               </button>
             </div>
@@ -149,10 +172,12 @@ export default function SuperAgenteChatFlutuante() {
 
           {!minimizado && (
             <>
-              {/* Mensagens */}
+              {/* Área de mensagens */}
               <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
-                {mensagensFiltradas.length === 0 && !loading && (
-                  <div className="h-full flex flex-col items-center justify-center text-center space-y-4 py-8">
+
+                {/* Estado inicial vazio */}
+                {mensagensFiltradas.length === 0 && !loading && !erro && (
+                  <div className="h-full flex flex-col items-center justify-center text-center space-y-4 py-6">
                     <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-full flex items-center justify-center">
                       <Sparkles className="w-8 h-8 text-purple-500" />
                     </div>
@@ -162,11 +187,8 @@ export default function SuperAgenteChatFlutuante() {
                     </div>
                     <div className="w-full space-y-1.5">
                       {sugestoes.map((s, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setMensagem(s)}
-                          className="w-full text-left text-xs px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg border border-purple-100 transition-colors"
-                        >
+                        <button key={i} onClick={() => setMensagem(s)}
+                          className="w-full text-left text-xs px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg border border-purple-100 transition-colors">
                           {s}
                         </button>
                       ))}
@@ -174,6 +196,18 @@ export default function SuperAgenteChatFlutuante() {
                   </div>
                 )}
 
+                {/* Erro */}
+                {erro && (
+                  <div className="flex flex-col items-center gap-3 py-8 text-center">
+                    <p className="text-sm text-red-500">{erro}</p>
+                    <button onClick={reiniciar}
+                      className="text-xs px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                      Tentar novamente
+                    </button>
+                  </div>
+                )}
+
+                {/* Mensagens */}
                 {mensagensFiltradas.map((msg, idx) => (
                   <div key={idx} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {msg.role === 'assistant' && (
@@ -181,14 +215,12 @@ export default function SuperAgenteChatFlutuante() {
                         <Brain className="w-3.5 h-3.5 text-white" />
                       </div>
                     )}
-                    <div className={`max-w-[80%] flex flex-col gap-0.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                      <div className={`rounded-2xl px-3 py-2 text-sm ${
-                        msg.role === 'user'
-                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
-                          : 'bg-slate-100 text-slate-800'
-                      }`}>
-                        <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                      </div>
+                    <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
+                      msg.role === 'user'
+                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
+                        : 'bg-slate-100 text-slate-800'
+                    }`}>
+                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                     </div>
                     {msg.role === 'user' && (
                       <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -198,17 +230,16 @@ export default function SuperAgenteChatFlutuante() {
                   </div>
                 ))}
 
+                {/* Digitando... */}
                 {loading && (
                   <div className="flex gap-2 justify-start">
                     <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0">
                       <Brain className="w-3.5 h-3.5 text-white" />
                     </div>
-                    <div className="bg-slate-100 rounded-2xl px-4 py-3">
-                      <div className="flex gap-1 items-center">
-                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                      </div>
+                    <div className="bg-slate-100 rounded-2xl px-4 py-3 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                     </div>
                   </div>
                 )}
@@ -226,14 +257,13 @@ export default function SuperAgenteChatFlutuante() {
                     className="flex-1 text-sm h-9 rounded-xl border-slate-200"
                     disabled={loading || !conversa}
                   />
-                  <Button
+                  <button
                     onClick={enviar}
                     disabled={loading || !mensagem.trim() || !conversa}
-                    size="sm"
-                    className="h-9 w-9 p-0 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-xl"
+                    className="h-9 w-9 flex-shrink-0 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-40 rounded-xl flex items-center justify-center transition-all"
                   >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  </Button>
+                    {loading ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Send className="w-4 h-4 text-white" />}
+                  </button>
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1.5 text-center">Enter para enviar</p>
               </div>
