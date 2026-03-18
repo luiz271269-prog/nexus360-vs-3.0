@@ -20,13 +20,20 @@ import { createPageUrl } from '@/utils';
 import ChatWindow from './ChatWindow';
 import { isNaoAtribuida } from '../lib/threadVisibility';
 
-export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], onClose }) {
+export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], contatos = [], onClose }) {
   const [contatosSelecionados, setContatosSelecionados] = useState([]);
   const [usuariosMap, setUsuariosMap] = useState({});
   const [chatAberto, setChatAberto] = useState(null);
   const [mensagensChat, setMensagensChat] = useState([]);
   const [carregandoMensagens, setCarregandoMensagens] = useState(false);
   const [etiquetasSelecionadas, setEtiquetasSelecionadas] = useState([]);
+
+  // Mapa de contatos para hidratação rápida
+  const contatosMap = useMemo(() => {
+    const mapa = {};
+    contatos.forEach(c => { mapa[c.id] = c; });
+    return mapa;
+  }, [contatos]);
 
   // Filtrar APENAS threads externas não atribuídas (sem mensagens internas)
   const naoAtribuidasBase = useMemo(() => {
@@ -37,8 +44,11 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], onC
       }
       // ✅ Apenas threads externas com contato e SEM atendente
       return !t.assigned_user_id;
-    });
-  }, [threads]);
+    }).map(t => ({
+      ...t,
+      contato: contatosMap[t.contact_id] || null
+    }));
+  }, [threads, contatosMap]);
 
   // Aplicar filtro de etiquetas
   const naoAtribuidas = etiquetasSelecionadas.length > 0
