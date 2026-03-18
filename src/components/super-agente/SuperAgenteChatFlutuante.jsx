@@ -50,16 +50,18 @@ export default function SuperAgenteChatFlutuante() {
       });
       setConversa(novaConversa);
 
-      // Carregar mensagens iniciais (pode ter greeting)
-      const msgs = novaConversa.messages || [];
-      setMensagens(msgs);
-
-      // Inscrever para streaming em tempo real
+      // Inscrever para streaming em tempo real ANTES de qualquer mensagem
       const unsub = base44.agents.subscribeToConversation(novaConversa.id, (data) => {
         setMensagens(data.messages || []);
         setLoading(false);
       });
       unsubscribeRef.current = unsub;
+
+      // Carregar mensagens iniciais e filtrar qualquer mensagem de ativação do WhatsApp
+      const msgs = (novaConversa.messages || []).filter(m =>
+        !(m.role === 'user' && m.content?.includes('Activation code:'))
+      );
+      setMensagens(msgs);
 
     } catch (error) {
       console.error('[SuperAgente] Erro ao criar conversa:', error);
