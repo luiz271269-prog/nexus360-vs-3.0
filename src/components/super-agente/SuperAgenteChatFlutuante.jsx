@@ -122,7 +122,11 @@ export default function SuperAgenteChatFlutuante() {
     'Tarefas pendentes urgentes'
   ];
 
-  const mensagensFiltradas = mensagens.filter(m => m.role === 'user' || m.role === 'assistant');
+  const mensagensFiltradas = mensagens.filter(m =>
+    (m.role === 'user' || m.role === 'assistant') &&
+    !m.content?.includes('Activation code:') &&
+    !m.content?.includes('Send this message to connect')
+  );
 
   return (
     <>
