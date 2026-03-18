@@ -1,5 +1,5 @@
 // redeploy: 2026-03-03T15:00
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 // ============================================================================
 // PROCESS INBOUND - v11.0.0 INLINE (sem imports locais)

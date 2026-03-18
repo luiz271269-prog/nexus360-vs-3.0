@@ -96,17 +96,12 @@ async function resolverSkill(base44, comando) {
 // ============================================================================
 
 async function executarSkill(base44, skill, parametros, modo, usuario) {
-  // ✅ parametros_entrada deve ser sempre um objeto (nunca string)
-  const parametrosObj = typeof parametros === 'string'
-    ? { input: parametros }
-    : (parametros && typeof parametros === 'object' ? parametros : {});
-
   const execucao = {
     skill_name: skill.skill_name,
     triggered_by: 'agentCommand',
     execution_mode: modo,
     user_id: usuario.id,
-    parametros_entrada: parametrosObj,
+    parametros_entrada: parametros,
     started_at: new Date()
   };
 
@@ -320,11 +315,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 5. EXECUTAR SKILL — garantir que parametros é sempre objeto
-    const parametrosExec = typeof comando.parametros === 'string'
-      ? { input: comando.parametros }
-      : (comando.parametros || {});
-    const resultado = await executarSkill(base44, skill, parametrosExec, modoExecucao, usuario);
+    // 5. EXECUTAR SKILL
+    const resultado = await executarSkill(base44, skill, comando.parametros, modoExecucao, usuario);
 
     // 6. FORMATAR RESPOSTA
     if (resultado.success) {

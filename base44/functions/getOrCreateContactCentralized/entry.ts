@@ -89,13 +89,14 @@ Deno.serve(async (req) => {
 
   let base44;
   try {
-    // ✅ FIX 2026-03-18: Esta função é chamada via invoke() interno (webhookWapi, etc.)
-    // O req interno não carrega token de usuário — mas asServiceRole usa SERVICE_ROLE
-    // que é injetado pelo SDK via APP_ID, independente do token do req.
-    // ✅ SDK 0.8.21: asServiceRole funciona via APP_ID mesmo sem token de usuário
-    // Esta função é chamada via invoke() interno (webhookWapi, etc.) sem user token
+    // ✅ FIX 2026-03-18: Usar asServiceRole direto — esta função é sempre chamada
+    // via invoke() interno (webhookWapi, webhookFinalZapi, etc.) sem token de usuário.
+    // createClientFromRequest com req interno causa 403 "app privado".
     base44 = createClientFromRequest(req);
-    console.log(`[${VERSION}] ✅ SDK init OK | asServiceRole disponível: ${!!base44.asServiceRole}`);
+    // Garantir que asServiceRole está disponível independente do token do req
+    if (!base44.asServiceRole) {
+      throw new Error('asServiceRole não disponível');
+    }
   } catch (e) {
     console.error(`[${VERSION}] ❌ SDK init error:`, e.message);
     return Response.json({ success: false, error: 'sdk_init_error' }, { status: 500 });
