@@ -96,13 +96,27 @@ async function resolverSkill(base44, comando) {
 // ============================================================================
 
 async function executarSkill(base44, skill, parametros, modo, usuario) {
+  // C3: Carregar memória global antes de executar
+  let memoriaGlobal = null;
+  try {
+    const memorias = await base44.asServiceRole.entities.NexusMemory.filter(
+      { owner_user_id: 'system', tipo: 'aprendizado_semanal' },
+      '-created_date',
+      1
+    );
+    memoriaGlobal = memorias[0] || null;
+  } catch (e) {
+    console.warn('[SUPER-AGENTE] Erro ao carregar memória global:', e.message);
+  }
+
   const execucao = {
     skill_name: skill.skill_name,
     triggered_by: 'agentCommand',
     execution_mode: modo,
     user_id: usuario.id,
     parametros_entrada: parametros,
-    started_at: new Date()
+    started_at: new Date(),
+    memoria_global: memoriaGlobal?.conteudo || null
   };
 
   try {
@@ -128,8 +142,9 @@ async function executarSkill(base44, skill, parametros, modo, usuario) {
 
     // Registrar execução
     const duracao = Date.now() - execucao.started_at.getTime();
+    const { memoria_global, ...execucaoSemMemoria } = execucao;
     await base44.asServiceRole.entities.SkillExecution.create({
-      ...execucao,
+      ...execucaoSemMemoria,
       resultado: resultado.data || resultado,
       success: true,
       duration_ms: duracao
@@ -148,9 +163,10 @@ async function executarSkill(base44, skill, parametros, modo, usuario) {
 
   } catch (error) {
     const duracao = Date.now() - execucao.started_at.getTime();
+    const { memoria_global, ...execucaoSemMemoria } = execucao;
     
     await base44.asServiceRole.entities.SkillExecution.create({
-      ...execucao,
+      ...execucaoSemMemoria,
       success: false,
       error_message: error.message,
       duration_ms: duracao

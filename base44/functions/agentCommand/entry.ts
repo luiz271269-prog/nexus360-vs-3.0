@@ -162,8 +162,18 @@ async function executeTool(base44, toolName, toolInput) {
   return { error: `Tool desconhecida: ${toolName}` };
 }
 
-async function fetchContextData(base44) {
+async function fetchContextData(base44, contactId = null) {
   try {
+    let analiseContato = null;
+    if (contactId) {
+      const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
+        { contact_id: contactId },
+        '-analyzed_at',
+        1
+      ).catch(() => []);
+      analiseContato = analises[0] || null;
+    }
+
     const [vendas, orcamentos, orcamentosTodos, threads, workQueue, runs, contatos, clientes] = await Promise.all([
       base44.asServiceRole.entities.Venda.list('-data_venda', 50).catch(() => []),
       base44.asServiceRole.entities.Orcamento.filter({ status: { $in: ['enviado', 'negociando', 'liberado', 'aprovado'] } }, '-updated_date', 50).catch(() => []),
@@ -184,6 +194,7 @@ async function fetchContextData(base44) {
       runs,
       contatos,
       clientes,
+      analiseContato,
       snapshot: {
         vendas_count: vendas.length,
         receita_total: vendas.reduce((s, v) => s + (v.valor_total || 0), 0),
@@ -239,7 +250,8 @@ Deno.serve(async (req) => {
       const userId = user.id;
 
       // ── Pré-buscar dados em paralelo (não depende de IA) ──────────────
-      const contextData = await fetchContextData(base44);
+      const contactIdFromContext = context?.contact_id;
+      const contextData = await fetchContextData(base44, contactIdFromContext);
 
       // ── Carregar memória da última sessão ──────────────────────────
       let memoriaAtual = null;
@@ -342,6 +354,17 @@ Deno.serve(async (req) => {
           geral: 'Visão geral de todas as operações.'
         }[userSector] || 'Visão geral.';
 
+        let analiseContatoPrompt = '';
+        if (contextData.analiseContato) {
+          analiseContatoPrompt = `\n📊 ANÁLISE DO CONTATO ATIVO:
+• Prioridade: ${contextData.analiseContato.priority_label || 'N/A'} (score: ${contextData.analiseContato.priority_score || 0}/100)
+• Deal Risk: ${contextData.analiseContato.deal_risk || 'N/A'}
+• Buy Intent: ${contextData.analiseContato.buy_intent || 'N/A'}
+• Relationship Profile: ${contextData.analiseContato.relationship_profile_type || 'N/A'}
+• Dias Inativo: ${contextData.analiseContato.days_inactive_inbound || 0}
+• Insights: ${contextData.analiseContato.insights_v2 || 'Nenhum insight disponível'}`;
+        }
+
         const systemPrompt = `Você é o **Nexus AI**, assistente inteligente do CRM.
 
 OPERADOR: ${user.full_name} | ${userLevel} | Setor: ${userSector}
@@ -353,7 +376,7 @@ CONTEXTO OPERACIONAL (pré-buscado — DADOS REAIS):
 • Conversas ativas: ${contextData.snapshot.threads_nao_atribuidas} sem atendente
 • Fila de trabalho: ${contextData.snapshot.fila_aberta} itens
 • Execuções ativas: ${contextData.snapshot.runs_ativos}
-${contextoMemoria}
+${contextoMemoria}${analiseContatoPrompt}
 
 SCHEMA DAS ENTIDADES (use ao montar filtros no query_database):
 • Contact: id, nome, telefone, telefone_canonico, empresa, tipo_contato(novo/lead/cliente/fornecedor/parceiro), classe_abc(A/B/C), score_abc, tags[], atendente_fidelizado_vendas, vendedor_responsavel, ultima_interacao
@@ -426,10 +449,20 @@ PERGUNTA: ${user_message}`;
               contexto: { page: context?.page },
               score_utilidade: 80
             };
-            if (memoriaAtual) {
-              await base44.asServiceRole.entities.NexusMemory.update(memoriaAtual.id, dadosMemoria);
-            } else {
-              await base44.asServiceRole.entities.NexusMemory.create(dadosMemoria);
+            // C2: Criar novo registro em vez de sobrescrever
+            await base44.asServiceRole.entities.NexusMemory.create(dadosMemoria);
+            
+            // Manter apenas últimas 5 sessões
+            const tdasMemoriasSessao = await base44.asServiceRole.entities.NexusMemory.filter(
+              { owner_user_id: userId, tipo: 'sessao' },
+              '-created_date',
+              100
+            ).catch(() => []);
+            if (tdasMemoriasSessao.length > 5) {
+              const paraDeleter = tdasMemoriasSessao.slice(5).map(m => m.id);
+              for (const id of paraDeleter) {
+                await base44.asServiceRole.entities.NexusMemory.delete(id).catch(() => {});
+              }
             }
           } catch (e) {
             console.warn('[NEXUS-MEMORY] Erro ao salvar:', e.message);
@@ -465,9 +498,6 @@ PERGUNTA: ${user_message}`;
       const resumo = user_message || '';
       if (resumo && user?.id) {
         try {
-          const memoriaExistente = await base44.asServiceRole.entities.NexusMemory.filter(
-            { owner_user_id: user.id, tipo: 'sessao' }, '-created_date', 1
-          );
           const dadosMemoria = {
             owner_user_id: user.id,
             tipo: 'sessao',
@@ -476,10 +506,20 @@ PERGUNTA: ${user_message}`;
             contexto: { page: context?.page || 'copiloto' },
             score_utilidade: 70
           };
-          if (memoriaExistente[0]) {
-            await base44.asServiceRole.entities.NexusMemory.update(memoriaExistente[0].id, dadosMemoria);
-          } else {
-            await base44.asServiceRole.entities.NexusMemory.create(dadosMemoria);
+          // C2: Criar novo registro em vez de sobrescrever
+          await base44.asServiceRole.entities.NexusMemory.create(dadosMemoria);
+          
+          // Manter apenas últimas 5 sessões
+          const tdasMemoriasSessao = await base44.asServiceRole.entities.NexusMemory.filter(
+            { owner_user_id: user.id, tipo: 'sessao' },
+            '-created_date',
+            100
+          ).catch(() => []);
+          if (tdasMemoriasSessao.length > 5) {
+            const paraDeleter = tdasMemoriasSessao.slice(5).map(m => m.id);
+            for (const id of paraDeleter) {
+              await base44.asServiceRole.entities.NexusMemory.delete(id).catch(() => {});
+            }
           }
         } catch (e) {
           console.warn('[AGENT-COMMAND] Erro ao salvar memória sessão:', e.message);
