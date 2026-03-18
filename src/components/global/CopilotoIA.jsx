@@ -79,9 +79,7 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
       const systemPrompt = buildSystemPrompt();
 
       const resposta = await base44.integrations.Core.InvokeLLM({
-        prompt: `${conversaFormatada}`,
-        response_json_schema: null,
-        model: 'automatic',
+        prompt: `INSTRUÇÕES DO SISTEMA:\n${systemPrompt}\n\n---\nHISTÓRICO DA CONVERSA:\n${conversaFormatada}\n\nCopiloto:`,
       });
 
       // InvokeLLM retorna string diretamente quando sem schema
