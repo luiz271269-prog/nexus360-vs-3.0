@@ -55,7 +55,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
   const [mensagensChat, setMensagensChat] = useState([]);
   const [carregandoMensagens, setCarregandoMensagens] = useState(false);
 
-  // ✅ Motor Unificado V3
+  // ✅ Motor Unificado V3 — forçar fetch ao montar (ignora cache do Layout)
   const {
     clientes: contatosComAlerta,
     loading: hookLoading,
@@ -69,9 +69,17 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     diasSemMensagem: diasInatividade,
     minDealRisk: 0,
     limit: null,
-    autoRefresh: true,
+    autoRefresh: false,
     refreshInterval: 5 * 60 * 1000
   });
+
+  // Forçar fetch próprio ao montar (não depender do cache do Layout)
+  useEffect(() => {
+    if (usuario) {
+      refetchHook();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuario?.id]);
 
   const [analisandoContatos, setAnalisandoContatos] = useState(false);
   const [etiquetasDisponiveis, setEtiquetasDisponiveis] = useState([]);
