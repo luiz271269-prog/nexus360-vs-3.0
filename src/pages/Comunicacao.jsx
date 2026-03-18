@@ -1987,6 +1987,7 @@ export default function Comunicacao() {
         podeIniciarNova={true} />
 
 
+      <SuperAgenteChatFlutuante />
       </ErrorBoundary>);
 
 
