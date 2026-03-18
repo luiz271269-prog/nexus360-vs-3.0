@@ -1,0 +1,71 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+
+    if (user?.role !== 'admin') {
+      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
+
+    const erros = [];
+    let threads_corrigidas = 0;
+    let contato_luiz_ok = false;
+    let contato_luiz2_ok = false;
+
+    // ─── CORREÇÃO 1: Resetar threads com pre_atendimento_ativo = true ───
+    try {
+      const threads = await base44.asServiceRole.entities.MessageThread.filter(
+        { pre_atendimento_ativo: true },
+        '-created_date',
+        500
+      );
+
+      for (const thread of threads) {
+        try {
+          await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+            pre_atendimento_ativo: false,
+            pre_atendimento_state: 'COMPLETED'
+          });
+          threads_corrigidas++;
+        } catch (e) {
+          erros.push(`Thread ${thread.id}: ${e.message}`);
+        }
+      }
+    } catch (e) {
+      erros.push(`Correção 1 falhou: ${e.message}`);
+    }
+
+    // ─── CORREÇÃO 2: Corrigir contato Luiz Liesch ───
+    try {
+      await base44.asServiceRole.entities.Contact.update('69a74215606827d9dd93e269', {
+        tipo_contato: 'parceiro',
+        cargo: 'Gerente Geral / Desenvolvedor'
+      });
+      contato_luiz_ok = true;
+    } catch (e) {
+      erros.push(`Correção 2 (Luiz Liesch): ${e.message}`);
+    }
+
+    // ─── CORREÇÃO 3: Preencher telefone_canonico vazio ───
+    try {
+      await base44.asServiceRole.entities.Contact.update('69666540ceec0fc8698b0d0d', {
+        telefone_canonico: '5548999322400'
+      });
+      contato_luiz2_ok = true;
+    } catch (e) {
+      erros.push(`Correção 3 (telefone_canonico): ${e.message}`);
+    }
+
+    return Response.json({
+      threads_corrigidas,
+      contato_luiz_ok,
+      contato_luiz2_ok,
+      erros
+    });
+
+  } catch (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+});
