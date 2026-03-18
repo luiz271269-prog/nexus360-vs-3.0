@@ -40,6 +40,18 @@ Deno.serve(async (req) => {
             });
             threads_corrigidas++;
           } catch (e) {
+            // Se for rate limit, para de processar para esta execução
+            if (e.message?.includes('429') || e.message?.includes('Rate limit')) {
+              console.log(`[RATE LIMIT] Pausado após ${threads_corrigidas} threads — rodar novamente em 10 minutos`);
+              return Response.json({
+                threads_corrigidas,
+                totalEncontradas,
+                contato_luiz_ok,
+                contato_luiz2_ok,
+                erro_rate_limit: true,
+                mensagem: `Processadas 100 threads. 53 restantes. Aguarde 10 minutos e execute novamente.`
+              });
+            }
             erros.push(`Thread ${thread.id}: ${e.message}`);
           }
         }
