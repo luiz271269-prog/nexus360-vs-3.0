@@ -3,6 +3,20 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 const ANALYST_TOOLS = [
   {
+    name: 'get_contact_analysis',
+    description: 'MCP Tool: Busca análise comportamental profunda de um contato (prioridade, deal risk, buy intent, insights). Use quando precisar entender a qualidade/fit do contato.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        contact_id: {
+          type: 'string',
+          description: 'ID do contato a analisar'
+        }
+      },
+      required: ['contact_id']
+    }
+  },
+  {
     name: 'query_database',
     description: 'Consulta dados reais do banco. Use para responder perguntas sobre clientes, orçamentos, vendas, conversas, tarefas.',
     input_schema: {
@@ -94,6 +108,33 @@ const ANALYST_TOOLS = [
 ];
 
 async function executeTool(base44, toolName, toolInput) {
+  if (toolName === 'get_contact_analysis') {
+    // MCP: Lazy-load análise sob demanda
+    try {
+      const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
+        { contact_id: toolInput.contact_id },
+        '-analyzed_at',
+        1
+      ).catch(() => []);
+      const analise = analises[0];
+      if (!analise) {
+        return { error: 'Análise não disponível para este contato' };
+      }
+      return {
+        contact_id: analise.contact_id,
+        prioridade: analise.priority_label,
+        score: analise.priority_score,
+        deal_risk: analise.deal_risk,
+        buy_intent: analise.buy_intent,
+        relationship: analise.relationship_profile_type,
+        dias_inativo: analise.days_inactive_inbound,
+        insights: analise.insights_v2
+      };
+    } catch (e) {
+      return { error: e.message };
+    }
+  }
+
   if (toolName === 'query_database') {
     const entidade = toolInput.entidade;
     const filtros = toolInput.filtros || {};
@@ -164,15 +205,8 @@ async function executeTool(base44, toolName, toolInput) {
 
 async function fetchContextData(base44, contactId = null) {
   try {
-    let analiseContato = null;
-    if (contactId) {
-      const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
-        { contact_id: contactId },
-        '-analyzed_at',
-        1
-      ).catch(() => []);
-      analiseContato = analises[0] || null;
-    }
+    // MCP: Lazy-load análise (não pre-fetch)
+    // Deixar LLM decidir se precisa chamar tool 'get_contact_analysis'
 
     const [vendas, orcamentos, orcamentosTodos, threads, workQueue, runs, contatos, clientes] = await Promise.all([
       base44.asServiceRole.entities.Venda.list('-data_venda', 50).catch(() => []),
@@ -194,7 +228,6 @@ async function fetchContextData(base44, contactId = null) {
       runs,
       contatos,
       clientes,
-      analiseContato,
       snapshot: {
         vendas_count: vendas.length,
         receita_total: vendas.reduce((s, v) => s + (v.valor_total || 0), 0),
@@ -354,17 +387,6 @@ Deno.serve(async (req) => {
           geral: 'Visão geral de todas as operações.'
         }[userSector] || 'Visão geral.';
 
-        let analiseContatoPrompt = '';
-        if (contextData.analiseContato) {
-          analiseContatoPrompt = `\n📊 ANÁLISE DO CONTATO ATIVO:
-• Prioridade: ${contextData.analiseContato.priority_label || 'N/A'} (score: ${contextData.analiseContato.priority_score || 0}/100)
-• Deal Risk: ${contextData.analiseContato.deal_risk || 'N/A'}
-• Buy Intent: ${contextData.analiseContato.buy_intent || 'N/A'}
-• Relationship Profile: ${contextData.analiseContato.relationship_profile_type || 'N/A'}
-• Dias Inativo: ${contextData.analiseContato.days_inactive_inbound || 0}
-• Insights: ${contextData.analiseContato.insights_v2 || 'Nenhum insight disponível'}`;
-        }
-
         const systemPrompt = `Você é o **Nexus AI**, assistente inteligente do CRM.
 
 OPERADOR: ${user.full_name} | ${userLevel} | Setor: ${userSector}
@@ -376,7 +398,9 @@ CONTEXTO OPERACIONAL (pré-buscado — DADOS REAIS):
 • Conversas ativas: ${contextData.snapshot.threads_nao_atribuidas} sem atendente
 • Fila de trabalho: ${contextData.snapshot.fila_aberta} itens
 • Execuções ativas: ${contextData.snapshot.runs_ativos}
-${contextoMemoria}${analiseContatoPrompt}
+${contextoMemoria}
+
+⚠️ MCP TOOLS DISPONÍVEIS: use 'get_contact_analysis' se precisar de insights do contato ativo (prioridade, deal risk, buy intent).`
 
 SCHEMA DAS ENTIDADES (use ao montar filtros no query_database):
 • Contact: id, nome, telefone, telefone_canonico, empresa, tipo_contato(novo/lead/cliente/fornecedor/parceiro), classe_abc(A/B/C), score_abc, tags[], atendente_fidelizado_vendas, vendedor_responsavel, ultima_interacao
