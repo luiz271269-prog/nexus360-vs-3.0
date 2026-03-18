@@ -742,7 +742,22 @@ Deno.serve(async (req) => {
 
         if (jaExiste.length > 0) {
           console.log('[JARVIS-STEP-5] ✅ Aprendizado de HOJE já foi criado — pulando');
-        } else {
+        } else if (jaExiste.length === 0) {
+          // ✅ THROTTLE 24h: checar se o aprendizado ANTERIOR tem menos de 24h
+          const aprendizadoAnterior = await base44.asServiceRole.entities.NexusMemory.filter({
+            owner_user_id: 'system',
+            tipo: 'aprendizado_semanal'
+          }, '-created_date', 1).catch(() => []);
+
+          if (aprendizadoAnterior.length > 0) {
+            const diffHoras = (agora - new Date(aprendizadoAnterior[0].created_date)) / (1000 * 60 * 60);
+            if (diffHoras < 24) {
+              console.log(`[JARVIS-STEP-5] ⏳ Throttle 24h ativo — último aprendizado foi ${Math.round(diffHoras)}h atrás`);
+              return; // Pula criação
+            }
+          }
+        }
+        if (!jaExiste.length || (aprendizadoAnterior?.length && (agora - new Date(aprendizadoAnterior[0].created_date)) / (1000 * 60 * 60) >= 24)) {
           const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
           const [decisoesSemana, tarefasBrain] = await Promise.all([
