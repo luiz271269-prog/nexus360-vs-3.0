@@ -24,24 +24,30 @@ Deno.serve(async (req) => {
 
     console.log(`[LIMPEZA] Encontrados ${todosAprendizados.length} aprendizados total`);
 
-    // Agrupar por semana (usando score_utilidade como chave, pois duplicados terão valor idêntico)
+    // ✅ REGRA UNIVERSAL: manter apenas 1 aprendizado por semana + owner_user_id
     const mapaSemanas = {};
     const duplicados = [];
 
     for (const aprendizado of todosAprendizados) {
-      const semanaChave = aprendizado.contexto?.semana_fim || 'desconhecida';
-      const score = aprendizado.score_utilidade || 0;
+      // Calcular início da semana do registro
+      const dataRegistro = new Date(aprendizado.created_date);
+      const inicioSemana = new Date(dataRegistro);
+      inicioSemana.setDate(dataRegistro.getDate() - dataRegistro.getDay() + 1);
+      inicioSemana.setHours(0, 0, 0, 0);
+      const fimSemana = new Date(inicioSemana);
+      fimSemana.setDate(fimSemana.getDate() + 7);
+
+      const semanaChave = `${aprendizado.owner_user_id}|${inicioSemana.toISOString().split('T')[0]}`;
       
       if (!mapaSemanas[semanaChave]) {
         mapaSemanas[semanaChave] = { primeiro: aprendizado, duplicados: [] };
       } else {
-        // Se score e dados são IDÊNTICOS, é duplicado
-        if (
-          mapaSemanas[semanaChave].primeiro.score_utilidade === score &&
-          JSON.stringify(mapaSemanas[semanaChave].primeiro.contexto) === 
-          JSON.stringify(aprendizado.contexto)
-        ) {
-          mapaSemanas[semanaChave].duplicados.push(aprendizado.id);
+        // Se já existe um para essa semana+owner, o novo é duplicado (mantém o mais recente)
+        const novoMaisRecente = new Date(aprendizado.created_date) > new Date(mapaSemanas[semanaChave].primeiro.created_date);
+        if (novoMaisRecente) {
+          duplicados.push(mapaSemanas[semanaChave].primeiro.id);
+          mapaSemanas[semanaChave].primeiro = aprendizado; // Substitui pelo mais recente
+        } else {
           duplicados.push(aprendizado.id);
         }
       }
