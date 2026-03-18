@@ -546,6 +546,12 @@ export default function Layout({ children, currentPageName }) {
       />
 
       {/* LembreteFlutuanteIA removido — funcionalidade migrada para Agenda IA */}
+
+      {/* Copiloto IA — painel lateral com Superagent */}
+      <CopilotoIA
+        isOpen={copilotoOpen}
+        onClose={() => setCopilotoOpen(false)}
+      />
     </div>
   );
 }
