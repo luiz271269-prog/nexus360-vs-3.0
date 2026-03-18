@@ -9,7 +9,12 @@ import CatalogoSkills from '@/components/super-agente/CatalogoSkills';
 import TerminalExecucao from '@/components/super-agente/TerminalExecucao';
 import MetricasSuperAgente from '@/components/super-agente/MetricasSuperAgente';
 
-export default function SuperAgente({ usuario }) {
+export default function SuperAgente() {
+  const { data: usuario } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+    staleTime: 5 * 60 * 1000,
+  });
   const [comando, setComando] = useState('');
   const [modoExecucao, setModoExecucao] = useState('copilot');
   const [loading, setLoading] = useState(false);
