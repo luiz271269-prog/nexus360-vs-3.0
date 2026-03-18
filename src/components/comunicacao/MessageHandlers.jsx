@@ -254,7 +254,12 @@ export function useMessageHandlers({
         queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
         queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
       } else {
-        throw new Error(resultado.data.error || 'Erro ao enviar');
+        // ✅ Propagar error_message amigável quando disponível (ex: INSTANCIA_DESCONECTADA)
+        const errCode = resultado.data.error || '';
+        const errMsg = resultado.data.error_message || errCode || 'Erro ao enviar';
+        const err = new Error(errMsg);
+        err.code = errCode;
+        throw err;
       }
     } catch (error) {
       console.error('[OPTIMISTIC] ❌ Erro:', error);
@@ -264,8 +269,13 @@ export function useMessageHandlers({
       });
 
       const msg = error.message || '';
-      if (msg.includes('INSTANCIA_DESCONECTADA') || /disconnect|not.connect|desconect/i.test(msg)) {
-        toast.error('📵 Instância WhatsApp desconectada! Verifique as configurações.', { duration: 8000 });
+      const code = error.code || '';
+
+      if (code === 'INSTANCIA_DESCONECTADA' || msg.includes('INSTANCIA_DESCONECTADA') || /disconnect|not.connect|desconect/i.test(msg)) {
+        // Mostrar mensagem amigável com nome da instância se disponível
+        toast.error(`📵 ${msg || 'Instância WhatsApp desconectada! Verifique as configurações.'}`, { duration: 8000 });
+      } else if (!msg || msg === 'Contato sem telefone cadastrado') {
+        toast.error(`❌ ${msg || 'Erro ao enviar mensagem'}`);
       } else {
         toast.error(`❌ Erro ao enviar: ${msg}`);
       }
