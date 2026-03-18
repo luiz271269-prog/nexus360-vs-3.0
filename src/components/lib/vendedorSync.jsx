@@ -159,12 +159,22 @@ export async function listarVendedoresParaSelect() {
   try {
     const vendedores = await base44.entities.Vendedor.list('nome');
     
-    return vendedores.map(v => ({
-      value: v.id, // USAR ID COMO VALUE
-      label: v.nome,
-      email: v.email,
-      codigo: v.codigo
-    }));
+    // ✅ Deduplicar por nome (evita "Thiago" aparecendo 2x)
+    const nomesVistos = new Set();
+    return vendedores
+      .filter(v => {
+        if (!v.nome) return false;
+        const nomeNorm = v.nome.trim().toLowerCase();
+        if (nomesVistos.has(nomeNorm)) return false;
+        nomesVistos.add(nomeNorm);
+        return true;
+      })
+      .map(v => ({
+        value: v.id,
+        label: v.nome,
+        email: v.email,
+        codigo: v.codigo
+      }));
   } catch (error) {
     console.error('Erro ao listar vendedores:', error);
     return [];
