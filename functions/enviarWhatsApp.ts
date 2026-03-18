@@ -277,6 +277,20 @@ Deno.serve(async (req) => {
       throw new Error('Integração WhatsApp não encontrada');
     }
 
+    // ✅ Verificar se instância está conectada ANTES de tentar enviar
+    if (integracao.status !== 'conectado') {
+      console.warn(`[ENVIAR-WHATSAPP-UNIFICADO] ⚠️ Instância desconectada: ${integracao.nome_instancia} | Status: ${integracao.status}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'INSTANCIA_DESCONECTADA',
+          error_message: `A instância "${integracao.nome_instancia}" está ${integracao.status}. Reconecte-a nas configurações.`,
+          version: VERSION
+        }),
+        { status: 200, headers }
+      );
+    }
+
     // ✅ Detectar provedor
     const isWAPI = integracao.api_provider === 'w_api';
     const providerName = isWAPI ? 'W-API' : 'Z-API';

@@ -263,7 +263,12 @@ export function useMessageHandlers({
         return antigas.filter((m) => m.id !== msgTemp.id);
       });
 
-      toast.error(`❌ Erro ao enviar: ${error.message}`);
+      const msg = error.message || '';
+      if (msg.includes('INSTANCIA_DESCONECTADA') || /disconnect|not.connect|desconect/i.test(msg)) {
+        toast.error('📵 Instância WhatsApp desconectada! Verifique as configurações.', { duration: 8000 });
+      } else {
+        toast.error(`❌ Erro ao enviar: ${msg}`);
+      }
     }
   }, [threadAtiva, usuario, queryClient, contatos, contatoPreCarregado]);
 
