@@ -13,15 +13,14 @@ Deno.serve(async (req) => {
     let threads_corrigidas = 0;
     let contato_luiz_ok = false;
     let contato_luiz2_ok = false;
+    let totalEncontradas = 0;
 
     // ─── CORREÇÃO 1: Resetar TODAS as threads com pre_atendimento_ativo = true ───
-    const threads_detalhes = [];
     try {
       // Busca em lotes até esgotar todos os registros
       let skip = 0;
-      const lote = 200;
-      let totalEncontradas = 0;
-
+      const lote = 50; // Reduzido para 50 por iteração para evitar timeout
+      
       while (true) {
         const batch = await base44.asServiceRole.entities.MessageThread.filter(
           { pre_atendimento_ativo: true },
@@ -40,18 +39,13 @@ Deno.serve(async (req) => {
               pre_atendimento_state: 'COMPLETED'
             });
             threads_corrigidas++;
-            threads_detalhes.push({
-              id: thread.id,
-              estado_anterior: thread.pre_atendimento_state || 'desconhecido',
-              contact_id: thread.contact_id || null,
-              last_message_at: thread.last_message_at || null
-            });
           } catch (e) {
             erros.push(`Thread ${thread.id}: ${e.message}`);
           }
         }
 
-        // Se o lote retornou menos que o máximo, chegamos ao fim
+        // Guard de tempo — se já processou muitas, para para evitar timeout
+        if (threads_corrigidas >= 250) break;
         if (batch.length < lote) break;
         skip += lote;
       }
