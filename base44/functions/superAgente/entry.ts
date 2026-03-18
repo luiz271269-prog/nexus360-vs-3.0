@@ -320,8 +320,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 5. EXECUTAR SKILL
-    const resultado = await executarSkill(base44, skill, comando.parametros, modoExecucao, usuario);
+    // 5. EXECUTAR SKILL — garantir que parametros é sempre objeto
+    const parametrosExec = typeof comando.parametros === 'string'
+      ? { input: comando.parametros }
+      : (comando.parametros || {});
+    const resultado = await executarSkill(base44, skill, parametrosExec, modoExecucao, usuario);
 
     // 6. FORMATAR RESPOSTA
     if (resultado.success) {
