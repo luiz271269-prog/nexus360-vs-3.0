@@ -126,11 +126,22 @@ export default function AtribuirConversaModal({
         prioridade: 'normal'
       });
 
-      // Mensagem interna de notificação
+      // ✅ FIX: Notificar cada atendente adicionado via thread interna 1:1
       const nomesCompartilhados = compartilhandoSelecionados
         .map(id => atendentes.find(a => a.id === id)?.full_name)
         .filter(Boolean)
         .join(', ');
+
+      // Notificar atendentes adicionados em background (fire-and-forget)
+      compartilhandoSelecionados.forEach(async (atendenteId) => {
+        try {
+          await base44.functions.invoke('sendInternalMessage', {
+            to_user_id: atendenteId,
+            from_user_id: usuario.id,
+            content: `🔗 ${usuario.full_name} compartilhou uma conversa com você: "${contatoNome}". Acesse Central de Comunicação → filtro "Compartilhadas comigo".`,
+          });
+        } catch (_) {} // silencioso — não bloquear o compartilhamento
+      });
 
       await base44.entities.Message.create({
         thread_id: thread.id,
