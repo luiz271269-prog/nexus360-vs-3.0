@@ -321,7 +321,7 @@ export default function ChatSidebarKanban({
   }, [threads, usuarioAtual, isAdmin, isGerente]);
 
   // ── "Minhas Conversas" (coluna fixa de lista) ────────────────────────────
-  // Apenas threads externas com contato real (clientes/leads), excluindo grupos de setor.
+  // Threads externas onde o usuário TENHA PARTICIPADO (atribuído, compartilhado, ou com histórico de atendimento)
   const minhasConversas = React.useMemo(() => {
     const norm = (v) => String(v || '').toLowerCase().trim();
     return threadsFiltradas
@@ -330,9 +330,13 @@ export default function ChatSidebarKanban({
         if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return false;
         // Só threads com contato real
         if (!t.contact_id) return false;
-        if (norm(t.assigned_user_id) === norm(usuarioAtual?.id)) return true;
-        if (t.shared_with_users?.includes(usuarioAtual?.id)) return true;
-        if (t.atendentes_historico?.includes(usuarioAtual?.id)) return true;
+        
+        const userId = usuarioAtual?.id;
+        // INCLUIR se: atribuída, compartilhada, OU tem histórico de atendimento
+        if (norm(t.assigned_user_id) === norm(userId)) return true;
+        if (t.shared_with_users?.includes(userId)) return true;
+        if (t.atendentes_historico?.includes(userId)) return true;
+        
         return false;
       })
       .sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
