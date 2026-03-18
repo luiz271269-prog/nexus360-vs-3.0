@@ -58,6 +58,19 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
     return prompt;
   };
 
+  const derivarSetor = (user) => {
+    if (!user) return 'geral';
+    if (user.role === 'admin') return 'admin';
+    // Priorizar campo nativo do usuário
+    if (user.attendant_sector) return user.attendant_sector;
+    const email = user.email || '';
+    if (email.includes('vendas')) return 'vendas';
+    if (email.includes('financeiro')) return 'financeiro';
+    if (email.includes('assistencia')) return 'assistencia';
+    if (email.includes('compras')) return 'fornecedor';
+    return 'geral';
+  };
+
   const enviarMensagem = async () => {
     const texto = input.trim();
     if (!texto || carregando) return;
@@ -70,20 +83,28 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
     setCarregando(true);
 
     try {
-      // Montar histórico para o LLM (últimas 10 mensagens para não explodir o contexto)
-      const historicoPara = historicoAtualizado.slice(-10);
-      const conversaFormatada = historicoPara
-        .map(m => `${m.role === 'user' ? 'Usuário' : 'Copiloto'}: ${m.content}`)
-        .join('\n\n');
-
-      const systemPrompt = buildSystemPrompt();
-
-      const resposta = await base44.integrations.Core.InvokeLLM({
-        prompt: `INSTRUÇÕES DO SISTEMA:\n${systemPrompt}\n\n---\nHISTÓRICO DA CONVERSA:\n${conversaFormatada}\n\nCopiloto:`,
+      const resposta = await base44.functions.invoke('agentCommand', {
+        command: 'chat',
+        user_message: texto,
+        context: {
+          user: {
+            id: usuario?.id,
+            nome: usuario?.full_name,
+            role: usuario?.role,
+            sector: derivarSetor(usuario),
+          },
+          page: 'copiloto',
+          historico: mensagens.slice(-6).map(m => ({
+            role: m.role === 'user' ? 'user' : 'assistant',
+            content: m.content,
+          })),
+        },
       });
 
-      // InvokeLLM retorna string diretamente quando sem schema
-      const textoResposta = typeof resposta === 'string' ? resposta : JSON.stringify(resposta);
+      const data = resposta?.data || resposta || {};
+      const textoResposta =
+        data.response || data.result || data.message || data.content ||
+        (typeof data === 'string' ? data : 'Não foi possível obter resposta.');
 
       setMensagens(prev => [...prev, { role: 'assistant', content: textoResposta }]);
     } catch (error) {
