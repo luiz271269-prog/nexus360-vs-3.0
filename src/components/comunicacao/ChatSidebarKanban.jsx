@@ -772,95 +772,9 @@ export default function ChatSidebarKanban({
           </button>
         </div>
 
-        {/* Colunas Kanban */}
+        {/* Colunas Kanban — dispatcher único */}
         <div className="flex gap-2 flex-1 overflow-x-auto p-2 min-h-0">
-
-          {/* ── VISUALIZAÇÃO: URGENTES (Contatos Requerendo Atenção) ── */}
-          {kanbanMode === 'urgentes' && (
-            <div className="flex-1 min-w-0 overflow-hidden rounded-xl">
-              <ContatosRequerendoAtencaoKanban
-                usuario={usuarioAtual}
-                onSelecionarContato={onSelecionarThread}
-                onClose={() => setKanbanMode('usuario')}
-                threads={threads}
-                integracoes={integracoes}
-                atendentes={atendentes}
-              />
-            </div>
-          )}
-
-          {/* ── VISUALIZAÇÃO: PARADOS ── */}
-          {kanbanMode === 'parados' && (
-            <div className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 border-yellow-400 overflow-hidden shadow-md">
-              <div className="bg-gradient-to-r from-yellow-500 to-amber-500 px-3 py-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Pause className="w-4 h-4 text-white" />
-                  <span className="text-white font-semibold text-xs">Parados (+{HORAS_PARADO}h)</span>
-                </div>
-                <span className="text-white/80 text-[10px]">{threadsParadas.length}</span>
-              </div>
-              <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-                {threadsParadas.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 text-xs">Nenhuma conversa parada</div>
-                ) : threadsParadas.map(thread => (
-                  <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
-                    usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── VISUALIZAÇÃO: POR ATENDENTE ── */}
-          {kanbanMode === 'usuario' && colunasPorUsuario.map(coluna => {
-            const headerCor = coluna.isSemAtendente
-              ? 'bg-gradient-to-r from-slate-500 to-slate-600'
-              : 'bg-gradient-to-r from-indigo-500 to-indigo-600';
-            return renderColuna(coluna, headerCor, (
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Users className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
-                <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
-              </div>
-            ));
-          })}
-
-          {/* ── VISUALIZAÇÃO: JARVIS (por atendente monitorado) ── */}
-          {kanbanMode === 'jarvis' && colunasPorJarvis.length === 0 && (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center text-slate-400">
-                <Bot className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                <p className="text-sm font-medium">Nenhum alerta Jarvis ativo</p>
-                <p className="text-xs mt-1">Quando o Jarvis alertar sobre uma conversa, ela aparecerá aqui.</p>
-              </div>
-            </div>
-          )}
-          {kanbanMode === 'jarvis' && colunasPorJarvis.map(coluna => {
-            const headerCor = coluna.isSemAtendente ? 'bg-slate-600' : 'bg-gradient-to-r from-violet-600 to-purple-700';
-            return renderColuna(coluna, headerCor, (
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Bot className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
-                <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
-                <span className="text-white/60 text-[9px] flex-shrink-0">Jarvis</span>
-              </div>
-            ));
-          })}
-
-          {/* ── VISUALIZAÇÃO: POR INSTÂNCIA/CANAL ── */}
-          {kanbanMode === 'integracao' && colunasPorInstancia.map(coluna => {
-            const totalNaoLidas = coluna.threads.reduce((sum, t) => sum + getUnreadCount(t, usuarioAtual?.id), 0);
-            const headerCor = corConfig[coluna.cor] || 'bg-slate-600';
-            const dotCor = statusDot[coluna.status] || 'bg-slate-400';
-            return renderColuna(coluna, headerCor, (
-              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCor}`} />
-                <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
-                {totalNaoLidas > 0 && (
-                  <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-white/30 text-white text-[9px] font-bold border-0">
-                    {totalNaoLidas}
-                  </Badge>
-                )}
-              </div>
-            ));
-          })}
+          {renderKanbanBody()}
         </div>
       </div>
 
