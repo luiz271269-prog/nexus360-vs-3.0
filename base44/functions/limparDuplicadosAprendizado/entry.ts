@@ -49,14 +49,24 @@ Deno.serve(async (req) => {
 
     console.log(`[LIMPEZA] Identificados ${duplicados.length} duplicados exatos`);
 
-    // Deletar duplicados
+    // Deletar duplicados com throttle (evita 429)
     let deletados = 0;
     for (const id of duplicados) {
       try {
         await base44.asServiceRole.entities.NexusMemory.delete(id);
         deletados++;
+        
+        // Throttle a cada 10 deletions
+        if (deletados % 10 === 0) {
+          console.log(`[LIMPEZA] 🔄 ${deletados}/${duplicados.length} deletados — aguardando 1s...`);
+          await new Promise(r => setTimeout(r, 1000));
+        }
       } catch (e) {
-        console.warn(`[LIMPEZA] ⚠️ Falha ao deletar ${id}: ${e.message}`);
+        if (e.message?.includes('429')) {
+          console.warn(`[LIMPEZA] ⚠️ Rate limit — parando. ${deletados} deletados até agora.`);
+          break; // Stop on rate limit
+        }
+        console.warn(`[LIMPEZA] ⚠️ Erro ao deletar ${id}: ${e.message}`);
       }
     }
 
