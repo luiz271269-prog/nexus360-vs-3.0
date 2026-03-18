@@ -161,6 +161,16 @@ export function useMessageHandlers({
       }
     }
 
+    // ✅ Verificar status da instância selecionada ANTES de enviar (feedback imediato)
+    const integracaoSelecionada = integracoes?.find((i) => i.id === integrationId);
+    if (integracaoSelecionada && integracaoSelecionada.status !== 'conectado') {
+      toast.error(
+        `📵 A instância "${integracaoSelecionada.nome_instancia}" está ${integracaoSelecionada.status}. Reconecte-a nas configurações.`,
+        { duration: 8000 }
+      );
+      return;
+    }
+
     const msgTemp = {
       id: `temp-${Date.now()}`,
       thread_id: threadAtiva.id,
