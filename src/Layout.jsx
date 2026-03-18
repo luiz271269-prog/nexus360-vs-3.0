@@ -581,6 +581,7 @@ export default function Layout({ children, currentPageName }) {
         isOpen={copilotoOpen}
         onClose={() => setCopilotoOpen(false)}
         usuario={globalUsuario}
+        contextoAtivo={currentPageName}
       />
     </div>
   );

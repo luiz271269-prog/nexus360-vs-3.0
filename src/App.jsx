@@ -66,7 +66,7 @@ const AuthenticatedApp = () => {
           path="/SuperAgente" 
           element={
             <LayoutWrapper currentPageName="SuperAgente">
-              <SuperAgente />
+              <SuperAgentePage />
             </LayoutWrapper>
           } 
         />

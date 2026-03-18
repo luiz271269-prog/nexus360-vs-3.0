@@ -547,6 +547,33 @@ Responda com dados reais dos registros acima. Se a pergunta pedir filtragem (ex:
       }
     }
 
+    if (command === 'save_session_memory') {
+      const resumo = user_message || '';
+      if (resumo && user?.id) {
+        try {
+          const memoriaExistente = await base44.asServiceRole.entities.NexusMemory.filter(
+            { owner_user_id: user.id, tipo: 'sessao' }, '-created_date', 1
+          );
+          const dadosMemoria = {
+            owner_user_id: user.id,
+            tipo: 'sessao',
+            conteudo: resumo.slice(0, 2000),
+            ultima_acao: 'copiloto_ia',
+            contexto: { page: context?.page || 'copiloto' },
+            score_utilidade: 70
+          };
+          if (memoriaExistente[0]) {
+            await base44.asServiceRole.entities.NexusMemory.update(memoriaExistente[0].id, dadosMemoria);
+          } else {
+            await base44.asServiceRole.entities.NexusMemory.create(dadosMemoria);
+          }
+        } catch (e) {
+          console.warn('[AGENT-COMMAND] Erro ao salvar memória sessão:', e.message);
+        }
+      }
+      return Response.json({ success: true });
+    }
+
     return Response.json({ success: false, error: 'Comando não suportado' }, { status: 400 });
 
   } catch (error) {
