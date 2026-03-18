@@ -76,10 +76,11 @@ Deno.serve(async (req) => {
 
     return Response.json({
       threads_corrigidas,
-      threads_detalhes,
+      totalEncontradas,
       contato_luiz_ok,
       contato_luiz2_ok,
-      erros
+      erros_count: erros.length,
+      sucesso: threads_corrigidas > 0 && contato_luiz_ok && contato_luiz2_ok
     });
 
   } catch (error) {
