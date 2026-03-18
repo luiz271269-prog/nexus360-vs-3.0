@@ -292,7 +292,8 @@ export default function ChatSidebarKanban({
   modoSelecaoMultipla = false,
   onModoSelecaoMultiplaChange,
 }) {
-  // 'parados' | 'usuario' | 'integracao'
+  // Modos válidos — qualquer modo não listado aqui cai no fallback do renderKanbanBody
+  const MODOS_VALIDOS = ['parados', 'usuario', 'integracao', 'urgentes', 'jarvis'];
   const [kanbanMode, setKanbanMode] = React.useState('usuario');
   const [internalComposerOpen, setInternalComposerOpen] = React.useState(false);
   const [delegateMode, setDelegateMode] = React.useState(false);
