@@ -331,10 +331,8 @@ Deno.serve(async (req) => {
       });
 
       try {
-        const apiKey = Deno.env.get('ANTROPIK_API');
         const userSector = user.attendant_sector || context?.user?.sector || 'geral';
         const userLevel = user.attendant_role || 'pleno';
-        const isAdmin = user.role === 'admin';
 
         const sectorFocus = {
           vendas: 'Foco em leads, pipeline, orçamentos e fechamento.',
