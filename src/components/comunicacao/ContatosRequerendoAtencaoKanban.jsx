@@ -499,13 +499,22 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
             <h3 className="font-semibold truncate text-xs text-slate-900 leading-tight flex-1">
               {nomeExibicao}
             </h3>
-            <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+            <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-0.5 flex-shrink-0">
               <TaggingRapidoContato
                 contactId={contatoId}
                 etiquetasAtuais={item.tags || []}
                 etiquetasDisponiveis={etiquetasDisponiveis}
                 onTagsUpdated={(novasTags) => { item.tags = novasTags; }}
               />
+              {(item.prioridadeLabel === 'CRITICO' || item.prioridadeLabel === 'ALTO') && (
+                <button
+                  onClick={(e) => acionarJarvis(item, e)}
+                  title="Acionar Jarvis para este contato"
+                  className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 hover:bg-violet-600 hover:text-white transition-colors"
+                >
+                  🤖
+                </button>
+              )}
             </div>
           </div>
 
