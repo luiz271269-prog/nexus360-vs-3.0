@@ -92,6 +92,15 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
     return 'geral';
   };
 
+  const extrairContexto = (contexto) => {
+    if (!contexto) return {};
+    // Esperado: "Comunicacao-contact_ABC123-thread_XYZ789" ou similar
+    const partes = contexto.split('-');
+    const contact_id = partes.find(p => p.startsWith('contact_'))?.replace('contact_', '') || null;
+    const thread_id = partes.find(p => p.startsWith('thread_'))?.replace('thread_', '') || null;
+    return { contact_id, thread_id };
+  };
+
   const enviarMensagem = async () => {
     const texto = input.trim();
     if (!texto || carregando) return;
@@ -104,6 +113,8 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
     setCarregando(true);
 
     try {
+      const { contact_id, thread_id } = extrairContexto(contextoAtivo);
+      
       const resposta = await base44.functions.invoke('agentCommand', {
         command: 'chat',
         user_message: texto,
@@ -115,6 +126,9 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
             sector: derivarSetor(usuario),
           },
           page: 'copiloto',
+          contact_id: contact_id || null,
+          thread_id: thread_id || null,
+          contextoAtivo: contextoAtivo || null,
           historico: mensagens.slice(-6).map(m => ({
             role: m.role === 'user' ? 'user' : 'assistant',
             content: m.content,
