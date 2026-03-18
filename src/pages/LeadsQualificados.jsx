@@ -423,11 +423,12 @@ export default function LeadsQualificados() {
 
     if (!isCliente) return false;
 
-    // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
-    const temPermissaoVerOutros = ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
+    // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus (usando nome do Vendedor vinculado)
+    const temPermissaoVerOutros = usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
     
     if (!temPermissaoVerOutros) {
-      if (c.vendedor_responsavel !== usuarioAtual?.full_name) return false;
+      if (!vendedorDoUsuario) return true; // ainda carregando, não filtra
+      if (c.vendedor_responsavel !== vendedorDoUsuario) return false;
     } else if (filtrosClientes.usuario_filtro) {
       if (c.vendedor_responsavel !== filtrosClientes.usuario_filtro) return false;
     }
