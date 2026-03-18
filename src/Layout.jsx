@@ -12,6 +12,7 @@ import {
   X,
   Briefcase,
   Brain,
+  Bot,
   MessageSquare,
   Zap,
   Calendar,
