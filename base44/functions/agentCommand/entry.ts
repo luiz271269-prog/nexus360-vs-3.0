@@ -520,6 +520,24 @@ PERGUNTA: ${user_message}`;
       const resumo = user_message || '';
       if (resumo && user?.id) {
         try {
+          // ✅ DEDUPLICAÇÃO: checar se já existe sessão idêntica nas últimas 2 horas
+          const duasHorasAtras = new Date(Date.now() - 2 * 60 * 60 * 1000);
+          const sessoeRecentes = await base44.asServiceRole.entities.NexusMemory.filter(
+            { 
+              owner_user_id: user.id, 
+              tipo: 'sessao',
+              created_date: { $gte: duasHorasAtras.toISOString() }
+            },
+            '-created_date',
+            5
+          ).catch(() => []);
+
+          // Se conteúdo idêntico ao da última sessão, pular
+          if (sessoeRecentes.length > 0 && sessoeRecentes[0].conteudo === resumo.slice(0, 2000)) {
+            console.log('[AGENT-COMMAND] ⏭️ Sessão duplicada — não gravando');
+            return Response.json({ success: true, duplicada: true });
+          }
+
           const dadosMemoria = {
             owner_user_id: user.id,
             tipo: 'sessao',
@@ -528,17 +546,16 @@ PERGUNTA: ${user_message}`;
             contexto: { page: context?.page || 'copiloto' },
             score_utilidade: 70
           };
-          // C2: Criar novo registro em vez de sobrescrever
           await base44.asServiceRole.entities.NexusMemory.create(dadosMemoria);
           
-          // Manter apenas últimas 5 sessões
-          const tdasMemoriasSessao = await base44.asServiceRole.entities.NexusMemory.filter(
+          // Manter apenas últimas 5 sessões (sem duplicatas)
+          const todasSessoes = await base44.asServiceRole.entities.NexusMemory.filter(
             { owner_user_id: user.id, tipo: 'sessao' },
             '-created_date',
             100
           ).catch(() => []);
-          if (tdasMemoriasSessao.length > 5) {
-            const paraDeleter = tdasMemoriasSessao.slice(5).map(m => m.id);
+          if (todasSessoes.length > 5) {
+            const paraDeleter = todasSessoes.slice(5).map(m => m.id);
             for (const id of paraDeleter) {
               await base44.asServiceRole.entities.NexusMemory.delete(id).catch(() => {});
             }
