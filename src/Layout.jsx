@@ -502,6 +502,7 @@ export default function Layout({ children, currentPageName }) {
         loadingUsuario={loadingUsuario}
         onLogout={handleLogout}
         onOpenNexus={() => setNexusOpen(true)}
+        onOpenCopiloto={() => setCopilotoOpen(true)}
         agentSession={agentSession}
         onToggle={() => setSidebarOpen(prev => !prev)}
       />
