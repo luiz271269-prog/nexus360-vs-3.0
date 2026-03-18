@@ -101,7 +101,7 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
 
 
 
-function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, agentSession, onToggle }) {
+function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, onOpenCopiloto, agentSession, onToggle }) {
   return (
     <aside
         className={`fixed inset-y-0 left-0 z-50 w-20 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transform ${
