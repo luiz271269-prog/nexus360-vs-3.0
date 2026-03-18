@@ -344,6 +344,27 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     }
   };
 
+  // ✅ Super Agente: acionar Jarvis para um contato urgente específico
+  const acionarJarvis = async (item, e) => {
+    e.stopPropagation();
+    toast.info('🤖 Acionando Jarvis...');
+    try {
+      await base44.functions.invoke('superAgente', {
+        comando_texto: `analisar urgente contato ${item.contact_id || item.id} prioridade ${item.prioridadeLabel}`,
+        modo: 'assistente',
+        context: {
+          contact_id: item.contact_id || item.id,
+          prioridade: item.prioridadeLabel,
+          dias_inativo: item.days_inactive_inbound,
+          suggested_message: item.suggestedMessage || item.suggested_message
+        }
+      });
+      toast.success('✅ Jarvis acionado — atendente será notificado!');
+    } catch (error) {
+      toast.error(`❌ Erro: ${error.message}`);
+    }
+  };
+
   const abrirAnaliseIA = async (contato) => {
     try {
       setContatoAnaliseAberto(contato);
