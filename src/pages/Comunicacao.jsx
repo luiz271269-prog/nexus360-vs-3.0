@@ -1661,6 +1661,8 @@ export default function Comunicacao() {
               {mostrarKanbanNaoAtribuidos ? (
                 <ContatosNaoAtribuidosKanban
                   usuario={usuario}
+                  threads={threads}
+                  contatos={contatos}
                   onSelecionarContato={(t) => {
                     handleSelecionarThread(t);
                     setMostrarKanbanNaoAtribuidos(false);
@@ -1851,6 +1853,8 @@ export default function Comunicacao() {
                        {mostrarKanbanNaoAtribuidos ? (
                           <ContatosNaoAtribuidosKanban
                             usuario={usuario}
+                            threads={threads}
+                            contatos={contatos}
                             onSelecionarContato={(t) => {
                               handleSelecionarThread(t);
                               setMostrarKanbanNaoAtribuidos(false);
