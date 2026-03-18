@@ -73,13 +73,12 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
     refreshInterval: 5 * 60 * 1000
   });
 
-  // Forçar fetch próprio ao montar (não depender do cache do Layout)
+  // Forçar fetch ao montar (ignora cache do Layout que pode ter parâmetros diferentes)
   useEffect(() => {
     if (usuario) {
-      refetchHook();
+      refetchHook(); // forçar re-análise com diasInatividade correto
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [usuario?.id]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [analisandoContatos, setAnalisandoContatos] = useState(false);
   const [etiquetasDisponiveis, setEtiquetasDisponiveis] = useState([]);
