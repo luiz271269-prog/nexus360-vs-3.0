@@ -14,24 +14,46 @@ Deno.serve(async (req) => {
     let contato_luiz_ok = false;
     let contato_luiz2_ok = false;
 
-    // ─── CORREÇÃO 1: Resetar threads com pre_atendimento_ativo = true ───
+    // ─── CORREÇÃO 1: Resetar TODAS as threads com pre_atendimento_ativo = true ───
+    const threads_detalhes = [];
     try {
-      const threads = await base44.asServiceRole.entities.MessageThread.filter(
-        { pre_atendimento_ativo: true },
-        '-created_date',
-        500
-      );
+      // Busca em lotes até esgotar todos os registros
+      let skip = 0;
+      const lote = 200;
+      let totalEncontradas = 0;
 
-      for (const thread of threads) {
-        try {
-          await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-            pre_atendimento_ativo: false,
-            pre_atendimento_state: 'COMPLETED'
-          });
-          threads_corrigidas++;
-        } catch (e) {
-          erros.push(`Thread ${thread.id}: ${e.message}`);
+      while (true) {
+        const batch = await base44.asServiceRole.entities.MessageThread.filter(
+          { pre_atendimento_ativo: true },
+          '-last_message_at',
+          lote,
+          skip
+        );
+
+        if (!batch || batch.length === 0) break;
+        totalEncontradas += batch.length;
+
+        for (const thread of batch) {
+          try {
+            await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+              pre_atendimento_ativo: false,
+              pre_atendimento_state: 'COMPLETED'
+            });
+            threads_corrigidas++;
+            threads_detalhes.push({
+              id: thread.id,
+              estado_anterior: thread.pre_atendimento_state || 'desconhecido',
+              contact_id: thread.contact_id || null,
+              last_message_at: thread.last_message_at || null
+            });
+          } catch (e) {
+            erros.push(`Thread ${thread.id}: ${e.message}`);
+          }
         }
+
+        // Se o lote retornou menos que o máximo, chegamos ao fim
+        if (batch.length < lote) break;
+        skip += lote;
       }
     } catch (e) {
       erros.push(`Correção 1 falhou: ${e.message}`);
