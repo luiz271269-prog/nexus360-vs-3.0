@@ -390,11 +390,11 @@ Deno.serve(async (req) => {
         const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
           {
             contact_id: contato.id,
-            ultima_analise: { 
+            analyzed_at: { 
               $gte: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() 
             }
           },
-          '-ultima_analise',
+          '-analyzed_at',
           1
         );
         
