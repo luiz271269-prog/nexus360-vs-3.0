@@ -375,97 +375,33 @@ INSTRUÇÕES:
 6. Sempre cite dados reais. Seja objetivo, máximo 3 parágrafos.
 7. Para ações executáveis, SEMPRE use execute_skill com modo apropriado (copilot para segurança, autonomous_safe para ações reversíveis).`;
 
-        // ── Loop de Tool Use com Anthropic (Fallback Integrado) ────────
-        let messages = [{ role: 'user', content: user_message }];
+        // ── Chamar Base44 AI nativo ───────────────────────────────────
         let text = '';
-        let rodadas = 0;
         let usedFallback = false;
 
-        // ── CAMINHO FELIZ: Tentar Anthropic Direto ────────────────────
+        console.log('[AGENT-COMMAND] Chamando Base44 AI...');
         try {
-          while (rodadas < 3) {
-            rodadas++;
-            console.log(`[AGENT-COMMAND] Tool-use rodada ${rodadas} com Anthropic...`);
-
-            const response = await callAnthropicDirect(apiKey, systemPrompt, messages, ANALYST_TOOLS);
-
-            const textBlock = response.content.find(b => b.type === 'text');
-            if (textBlock) {
-              text = textBlock.text;
-            }
-
-            if (response.stop_reason === 'end_turn') {
-              console.log('[AGENT-COMMAND] ✓ Anthropic respondeu com sucesso');
-              break;
-            }
-
-            if (response.stop_reason === 'tool_use') {
-              messages.push({ role: 'assistant', content: response.content });
-              const toolResults = [];
-
-              for (const block of response.content) {
-                if (block.type !== 'tool_use') continue;
-                console.log(`[AGENT-COMMAND] Tool: ${block.name}`);
-
-                let result;
-                try {
-                  result = await executeTool(base44, block.name, block.input);
-                } catch (e) {
-                  result = { error: e.message };
-                }
-
-                toolResults.push({
-                  type: 'tool_result',
-                  tool_use_id: block.id,
-                  content: JSON.stringify(result)
-                });
-              }
-
-              messages.push({ role: 'user', content: toolResults });
-            } else {
-              break;
-            }
-          }
-        } catch (anthropicError) {
-          console.warn('[AGENT-COMMAND] Anthropic falhou, ativando Fallback Base44:', anthropicError.message);
+          text = await callBase44AI(base44, systemPrompt, user_message, contextData);
+        } catch (aiError) {
+          console.warn('[AGENT-COMMAND] Base44 AI falhou, ativando fallback Gemini:', aiError.message);
           usedFallback = true;
 
-          // ── CAMINHO DE SEGURANÇA: InvokeLLM Base44 (independente da chave Anthropic) ────
-          const fallbackPrompt = `Você é o Nexus AI, assistente do CRM. Responda usando APENAS os dados reais abaixo. Não invente. Seja preciso e cite nomes/valores reais.
+          const fallbackPrompt = `${systemPrompt}
 
-RESUMO DO SISTEMA:
-${JSON.stringify(contextData.snapshot, null, 2)}
+DADOS COMPLETOS DO CRM:
+Orçamentos (${contextData.orcamentosTodos.length}): ${JSON.stringify(contextData.orcamentosTodos.slice(0, 10).map(o => ({ cliente: o.cliente_nome, status: o.status, valor: o.valor_total, vendedor: o.vendedor })))}
+Vendas (${contextData.vendas.length}): ${JSON.stringify(contextData.vendas.slice(0, 10).map(v => ({ cliente: v.cliente_nome, valor: v.valor_total, status: v.status, data: v.data_venda })))}
+Contatos (${contextData.contatos.length}): ${JSON.stringify(contextData.contatos.slice(0, 20).map(c => ({ nome: c.nome, empresa: c.empresa, classe_abc: c.classe_abc, tipo: c.tipo_contato })))}
+Fila (${contextData.workQueue.length} abertos): ${JSON.stringify(contextData.workQueue.slice(0, 10).map(w => ({ tipo: w.tipo, severity: w.severity })))}
 
-ORÇAMENTOS COMPLETOS (${contextData.orcamentosTodos.length} total):
-${JSON.stringify(contextData.orcamentosTodos.map(o => ({ id: o.id, numero: o.numero_orcamento, cliente: o.cliente_nome, vendedor: o.vendedor, status: o.status, valor: o.valor_total, data: o.data_orcamento, vencimento: o.data_vencimento })), null, 2)}
+PERGUNTA: ${user_message}`;
 
-VENDAS RECENTES (${contextData.vendas.length} registros):
-${JSON.stringify(contextData.vendas.map(v => ({ id: v.id, cliente: v.cliente_nome, vendedor: v.vendedor, valor: v.valor_total, status: v.status, data: v.data_venda })), null, 2)}
-
-CONTATOS (${contextData.contatos.length} total):
-${JSON.stringify(contextData.contatos.map(c => ({ id: c.id, nome: c.nome, empresa: c.empresa, classe_abc: c.classe_abc, tipo: c.tipo_contato, ultima_interacao: c.ultima_interacao, last_attention_given_at: c.last_attention_given_at, tags: c.tags })), null, 2)}
-
-CONVERSAS ABERTAS (${contextData.threads.length}):
-${JSON.stringify(contextData.threads.map(t => ({ id: t.id, contact_id: t.contact_id, assigned_user_id: t.assigned_user_id, last_message_at: t.last_message_at, unread_count: t.unread_count, sector_id: t.sector_id })), null, 2)}
-
-FILA DE TRABALHO (${contextData.workQueue.length} abertos):
-${JSON.stringify(contextData.workQueue.map(w => ({ id: w.id, tipo: w.tipo, contact_id: w.contact_id, severity: w.severity, notes: w.notes, created_date: w.created_date })), null, 2)}
-
-PERGUNTA: ${user_message}
-
-Responda com dados reais dos registros acima. Se a pergunta pedir filtragem (ex: classe A, sem atenção X dias), aplique o filtro nos dados fornecidos e liste os resultados.`;
-
-          try {
-            const iaResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
-              prompt: fallbackPrompt,
-              model: 'gemini_3_flash'
-            });
-            text = typeof iaResponse === 'string' ? iaResponse : JSON.stringify(iaResponse);
-            console.log('[AGENT-COMMAND] ✓ Fallback InvokeLLM respondeu');
-          } catch (fallbackError) {
-            console.error('[AGENT-COMMAND] Fallback também falhou:', fallbackError.message);
-            text = `[Modo backup] Não foi possível processar sua pergunta neste momento. Dados disponíveis: ${contextData.snapshot.vendas_count} vendas, R$ ${contextData.snapshot.pipeline_valor?.toLocaleString('pt-BR')} em pipeline.`;
-          }
+          const iaResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
+            prompt: fallbackPrompt,
+            model: 'gemini_3_flash'
+          });
+          text = typeof iaResponse === 'string' ? iaResponse : JSON.stringify(iaResponse);
+          console.log('[AGENT-COMMAND] ✓ Fallback Gemini respondeu');
         }
 
         if (!text) text = 'Não foi possível gerar resposta. Tente novamente.';
