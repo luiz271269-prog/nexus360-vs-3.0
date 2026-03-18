@@ -94,6 +94,7 @@ import Fase3 from './pages/Fase3';
 import Fase4 from './pages/Fase4';
 import FerramentasMigracao from './pages/FerramentasMigracao';
 import GerenciadorPermissoes from './pages/GerenciadorPermissoes';
+import GestaoComercial from './pages/GestaoComercial';
 import Home from './pages/Home';
 import Importacao from './pages/Importacao';
 import InteligenciaMetricas from './pages/InteligenciaMetricas';
@@ -103,6 +104,7 @@ import LeadsQualificados from './pages/LeadsQualificados';
 import Metas from './pages/Metas';
 import MonitoramentoRealTime from './pages/MonitoramentoRealTime';
 import NexusCommandCenter from './pages/NexusCommandCenter';
+import NotasFiscais from './pages/NotasFiscais';
 import OrcamentoDetalhes from './pages/OrcamentoDetalhes';
 import Orcamentos from './pages/Orcamentos';
 import PlanoImplementacao from './pages/PlanoImplementacao';
@@ -179,6 +181,7 @@ export const PAGES = {
     "Fase4": Fase4,
     "FerramentasMigracao": FerramentasMigracao,
     "GerenciadorPermissoes": GerenciadorPermissoes,
+    "GestaoComercial": GestaoComercial,
     "Home": Home,
     "Importacao": Importacao,
     "InteligenciaMetricas": InteligenciaMetricas,
@@ -188,6 +191,7 @@ export const PAGES = {
     "Metas": Metas,
     "MonitoramentoRealTime": MonitoramentoRealTime,
     "NexusCommandCenter": NexusCommandCenter,
+    "NotasFiscais": NotasFiscais,
     "OrcamentoDetalhes": OrcamentoDetalhes,
     "Orcamentos": Orcamentos,
     "PlanoImplementacao": PlanoImplementacao,
