@@ -82,6 +82,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       threads_corrigidas,
+      threads_detalhes,
       contato_luiz_ok,
       contato_luiz2_ok,
       erros
