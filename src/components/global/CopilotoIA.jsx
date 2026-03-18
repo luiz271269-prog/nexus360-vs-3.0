@@ -3,10 +3,32 @@ import { X, Brain, Send, Loader2, Trash2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import ReactMarkdown from 'react-markdown';
 
-const PERSONA_SISTEMA = `Você é o Copiloto IA do Nexus360, assistente da NeuralTec para a equipe da Liesch Informática.
-Responda de forma direta, objetiva e profissional em português brasileiro.
-Você auxilia a equipe com: análise de clientes, estratégias de vendas, redação de mensagens comerciais, interpretação de dados do CRM, sugestões de abordagem, e dúvidas operacionais do sistema Nexus360.
-Seja conciso. Use listas quando ajudar. Evite respostas genéricas — seja específico ao contexto da empresa.`;
+const PERSONA_SISTEMA = `🤖 SUPER AGENTE JARVIS - COPILOTO IA (Modo: Assistência Operacional)
+================================================================================
+Você é o Copiloto IA integrado ao Super Agente (Jarvis) do Nexus360.
+Seu foco: análise em tempo real, sugestões de ação, interpretação de dados comportamentais.
+
+📊 DOMÍNIOS PRINCIPAIS:
+1. **Análise de Contatos Urgentes** — priority_label (CRITICO/ALTO/MEDIO/BAIXO)
+2. **Comportamento Relacional** — health score, deal risk, buy intent, engagement
+3. **Playbooks de Ação** — próxima melhor ação, timing, canais recomendados
+4. **Automações & Jarvis** — status de execução, alertas, triggers, logs
+
+🎯 REGRAS OPERACIONAIS:
+- Sempre cite a prioridade do contato (bucket_inactive, days_inactive) quando análise está ativa
+- Recomende ações específicas: mensagem, escalação, reassinação, automação
+- Se pergunta é sobre contato urgente: cite priority_score, relationship_risk, root_causes
+- Respostas SEMPRE em português brasileiro, tom profissional/consultivo
+- Máx 500 caracteres por resposta (exceto análises estruturadas)
+- Use listas numeradas para recomendações de ação
+
+⚙️ INTEGRAÇÃO JARVIS:
+- Você PODE invocar análises via 'sugerir ação' ou 'disparar automação'
+- Acesso a histórico: últimas 10 mensagens da conversa
+- Contexto de página ativa (Comunicacao, Dashboard, Contatos)
+- Setor do usuário (vendas, assistencia, financeiro, fornecedor)
+
+Seja direto. Sem fluff. Foco em AÇÃO.`;
 
 export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usuario = null }) {
   const [mensagens, setMensagens] = useState([]);
@@ -59,24 +81,25 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
   }, [isOpen]);
 
   const buildSystemPrompt = () => {
-    let prompt = PERSONA_SISTEMA;
+   let prompt = PERSONA_SISTEMA;
 
-    if (usuario) {
-      prompt += `\n\nUSUÁRIO LOGADO:
-- Nome: ${usuario.full_name || 'Não informado'}
-- Email: ${usuario.email || ''}
-- Role: ${usuario.role || 'user'}
-- Setor: ${usuario.attendant_sector || 'geral'}
-- Nível: ${usuario.attendant_role || 'pleno'}`;
-    }
+   if (usuario) {
+     prompt += `\n\n👤 USUÁRIO LOGADO:
+  - Nome: ${usuario.full_name || 'Não informado'}
+  - Email: ${usuario.email || ''}
+  - Role: ${usuario.role || 'user'}
+  - Setor: ${usuario.attendant_sector || 'geral'}
+  - Nível: ${usuario.attendant_role || 'pleno'}`;
+   }
 
-    if (contextoAtivo) {
-      prompt += `\n\nCONTEXTO ATIVO NA TELA: ${contextoAtivo}`;
-    }
+   if (contextoAtivo) {
+     prompt += `\n\n📍 PÁGINA ATIVA: ${contextoAtivo}`;
+   }
 
-    prompt += `\n\nData/hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`;
+   prompt += `\n\n🕐 Data/Hora: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`;
+   prompt += `\n\n⚡ MODO: Jarvis Event Loop ativo a cada 5min | Análises rodando a cada 15min`;
 
-    return prompt;
+   return prompt;
   };
 
   const derivarSetor = (user) => {
@@ -133,6 +156,12 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
             role: m.role === 'user' ? 'user' : 'assistant',
             content: m.content,
           })),
+          copiloto_jarvis: {
+            modo: 'assistente_super_agente',
+            versao: 'v3.1',
+            integracao: 'jarvis_event_loop',
+            timestamp: new Date().toISOString()
+          }
         },
       });
 
@@ -189,8 +218,8 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
               <Brain className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-white font-bold text-sm leading-tight">Copiloto IA — Nexus360</h2>
-              <p className="text-purple-200 text-xs">Assistente da equipe Liesch</p>
+             <h2 className="text-white font-bold text-sm leading-tight">🤖 Copiloto Jarvis</h2>
+             <p className="text-purple-200 text-xs">Super Agente — Modo Assistente</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -232,9 +261,9 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
               <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-violet-100 rounded-2xl flex items-center justify-center mb-4">
                 <Brain className="w-8 h-8 text-purple-500" />
               </div>
-              <h3 className="text-slate-700 font-semibold mb-1">Copiloto IA pronto</h3>
+              <h3 className="text-slate-700 font-semibold mb-1">Jarvis — Copiloto Ativo</h3>
               <p className="text-slate-400 text-sm max-w-[260px]">
-                Pergunte sobre clientes, estratégias de vendas, redação de mensagens ou qualquer dúvida operacional.
+                Análise de contatos urgentes, sugestões de ação, playbooks, automações e operações Jarvis.
               </p>
             </div>
           )}
