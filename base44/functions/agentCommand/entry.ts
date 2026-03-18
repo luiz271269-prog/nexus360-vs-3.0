@@ -400,25 +400,23 @@ CONTEXTO OPERACIONAL (pré-buscado — DADOS REAIS):
 • Execuções ativas: ${contextData.snapshot.runs_ativos}
 ${contextoMemoria}
 
-⚠️ MCP TOOLS DISPONÍVEIS: use 'get_contact_analysis' se precisar de insights do contato ativo (prioridade, deal risk, buy intent).`
+⚠️ MCP TOOLS DISPONÍVEIS: use 'get_contact_analysis' se precisar de insights do contato ativo (prioridade, deal risk, buy intent).
 
 SCHEMA DAS ENTIDADES (use ao montar filtros no query_database):
-• Contact: id, nome, telefone, telefone_canonico, empresa, tipo_contato(novo/lead/cliente/fornecedor/parceiro), classe_abc(A/B/C), score_abc, tags[], atendente_fidelizado_vendas, vendedor_responsavel, ultima_interacao
-• MessageThread: id, contact_id, status(aberta/fechada/arquivada), channel(whatsapp/instagram/interno), assigned_user_id, last_message_at, last_message_sender(user/contact), unread_count, sector_id, jarvis_alerted_at, jarvis_next_check_after, pre_atendimento_state, thread_type(contact_external/team_internal)
-• Orcamento: id, cliente_nome, cliente_id, vendedor, status(rascunho/aguardando_cotacao/enviado/negociando/aprovado/rejeitado/vencido), valor_total, data_orcamento, data_vencimento
-• Venda: id, cliente_nome, vendedor, data_venda, valor_total, status(Pendente/Faturado/Entregue/Cancelado), produtos[]
-• AgentRun: id, trigger_type(manual.invoke/scheduled.check/message.inbound/thread.updated), playbook_selected, status(iniciado/processando/concluido/falhou), context_snapshot, started_at, duration_ms
-• WorkQueueItem: id, tipo(idle_reativacao/enviar_promocao/follow_up/manual), contact_id, thread_id, status(open/done/dismissed/cancelado), severity(low/medium/high/critical), payload, reason
-• Cliente: id, razao_social, nome_fantasia, cnpj, status(novo_lead/qualificado/Ativo/Inativo), vendedor_id, score_qualificacao_lead
+• Contact: id, nome, telefone, empresa, tipo_contato(novo/lead/cliente/fornecedor/parceiro), classe_abc(A/B/C), score_abc, tags[], vendedor_responsavel, ultima_interacao
+• MessageThread: id, contact_id, status(aberta/fechada), assigned_user_id, last_message_at, sector_id, thread_type(contact_external/team_internal)
+• Orcamento: id, cliente_nome, vendedor, status(rascunho/enviado/negociando/aprovado/rejeitado/vencido), valor_total, data_vencimento
+• Venda: id, cliente_nome, vendedor, data_venda, valor_total, status(Pendente/Faturado/Entregue/Cancelado)
+• WorkQueueItem: id, tipo, contact_id, status(open/done/dismissed), severity(low/medium/high/critical)
+• Cliente: id, razao_social, nome_fantasia, status(novo_lead/qualificado/Ativo/Inativo), vendedor_id
 
 INSTRUÇÕES:
-1. Use query_database com filtros corretos baseados no schema acima.
-2. Use search_knowledge para produtos, preços, políticas.
-3. Use save_to_knowledge quando o usuário ENSINAR algo novo.
-4. Use execute_skill quando o usuário pedir AÇÃO (limpar, atualizar, followup, executar).
-5. Use list_skills quando o usuário perguntar "o que você pode fazer", "quais skills".
-6. Sempre cite dados reais. Seja objetivo, máximo 3 parágrafos.
-7. Para ações executáveis, SEMPRE use execute_skill com modo apropriado (copilot para segurança, autonomous_safe para ações reversíveis).`;
+1. Use get_contact_analysis (MCP) para insights do contato — não pre-busca.
+2. Use query_database com filtros corretos baseados no schema acima.
+3. Use search_knowledge para produtos, preços, políticas.
+4. Use save_to_knowledge quando o usuário ENSINAR algo novo.
+5. Use execute_skill quando o usuário pedir AÇÃO executável.
+6. Sempre cite dados reais. Seja objetivo, máximo 3 parágrafos.`;
 
         // ── Chamar Base44 AI nativo ───────────────────────────────────
         let text = '';
