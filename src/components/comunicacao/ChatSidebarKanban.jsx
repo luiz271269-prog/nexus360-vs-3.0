@@ -709,7 +709,18 @@ export default function ChatSidebarKanban({
             </div>
           )}
 
-          {/* ── VISUALIZAÇÃO: POR ATENDENTE (REMOVIDA — duplica "Minhas Conversas") ── */}
+          {/* ── VISUALIZAÇÃO: POR ATENDENTE ── */}
+          {kanbanMode === 'usuario' && colunasPorUsuario.map(coluna => {
+            const headerCor = coluna.isSemAtendente
+              ? 'bg-gradient-to-r from-slate-500 to-slate-600'
+              : 'bg-gradient-to-r from-indigo-500 to-indigo-600';
+            return renderColuna(coluna, headerCor, (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Users className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
+                <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
+              </div>
+            ));
+          })}
 
           {/* ── VISUALIZAÇÃO: JARVIS (por atendente monitorado) ── */}
           {kanbanMode === 'jarvis' && colunasPorJarvis.length === 0 && (
