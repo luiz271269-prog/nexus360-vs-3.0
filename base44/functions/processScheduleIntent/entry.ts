@@ -273,10 +273,10 @@ RETORNE JSON COM:
       }
 
       // Buscar eventos recentes do usuário
-      const now = new Date().toISOString();
+      const nowCancel = new Date().toISOString();
       const events = await base44.asServiceRole.entities.ScheduleEvent.filter({
         assigned_user_id: targetUserId,
-        start_at: { $gte: now },
+        start_at: { $gte: nowCancel },
         status: 'scheduled'
       }, 'start_at', 10);
 
