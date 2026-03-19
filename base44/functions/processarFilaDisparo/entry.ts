@@ -64,6 +64,20 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // 3.5. Validar 7 dias anti-duplicata
+        if (contato.last_any_promo_sent_at) {
+          const diasDesdeUltimo = (agora - new Date(contato.last_any_promo_sent_at)) / (1000 * 60 * 60 * 24);
+          if (diasDesdeUltimo < 7) {
+            console.warn(`[PROCESSAR-FILA] ⏸️ Contato ${contato.nome} enviado há ${diasDesdeUltimo.toFixed(1)}d (< 7 dias) — bloqueado`);
+            await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
+              status: 'bloqueado',
+              motivo_bloqueio: `Anti-duplicata: último envio há ${diasDesdeUltimo.toFixed(1)} dias`
+            });
+            erros++;
+            continue;
+          }
+        }
+
         // 4. Enviar MSG1 via Z-API
         console.log(`[PROCESSAR-FILA] 📤 Enviando MSG1 para ${contato.nome}...`);
 
