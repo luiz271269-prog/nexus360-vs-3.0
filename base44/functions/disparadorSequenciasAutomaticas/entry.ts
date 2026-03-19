@@ -160,7 +160,14 @@ Deno.serve(async (req) => {
     for (const exec of execucoes_pendentes) {
       try {
         const sequencia = sequencias.find(s => s.id === exec.sequencia_id);
-        if (!sequencia) continue;
+        if (!sequencia) {
+          // BUG FIX 4: sequência desativada/removida → marcar execução como cancelada
+          await base44.asServiceRole.entities.ExecucaoSequencia.update(exec.id, {
+            status: 'cancelada',
+            resultado_final: 'sequencia_inativa'
+          }).catch(() => {});
+          continue;
+        }
 
         const numero_passo = (exec.passos_completados?.length || 0);
         const passo = sequencia.passos[numero_passo];
