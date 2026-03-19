@@ -213,24 +213,24 @@ Deno.serve(async (req) => {
 // Função principal de processamento
 // ══════════════════════════════════════════════════════════════════════
 async function processarThread(base44, thread_id, tsInicio, force_retry = false) {
-  const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+   const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
 
-    // Só atua em threads SEM atendente ou em estado de pré-atendimento travado
-    const precisaResgate = 
-      !thread.assigned_user_id && 
-      (thread.pre_atendimento_state === 'WAITING_SECTOR_CHOICE' || 
-       thread.pre_atendimento_state === 'WAITING_QUEUE_DECISION' ||
-       thread.pre_atendimento_state === 'WAITING_NEED' ||
-       thread.pre_atendimento_state === 'TIMEOUT' ||
-       force_retry);
+     // Só atua em threads SEM atendente ou em estado de pré-atendimento travado
+     const precisaResgate = 
+       !thread.assigned_user_id && 
+       (thread.pre_atendimento_state === 'WAITING_SECTOR_CHOICE' || 
+        thread.pre_atendimento_state === 'WAITING_QUEUE_DECISION' ||
+        thread.pre_atendimento_state === 'WAITING_NEED' ||
+        thread.pre_atendimento_state === 'TIMEOUT' ||
+        force_retry);
 
-    if (!precisaResgate) {
-      return Response.json({
-        success: false,
-        skipped: true,
-        reason: 'Thread já tem atendente ou não precisa de resgate'
-      }, { headers });
-    }
+     if (!precisaResgate) {
+       return {
+         success: false,
+         skipped: true,
+         reason: 'Thread já tem atendente ou não precisa de resgate'
+       };
+     }
 
     // ══════════════════════════════════════════════════════════════════
     // STEP 2: Buscar contexto
@@ -247,10 +247,10 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false)
     ]);
 
     if (!contact) {
-      return Response.json({
+      return {
         success: false,
         error: 'Thread sem contact_id válido'
-      }, { status: 400, headers });
+      };
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -367,7 +367,7 @@ Regras:
 
     if (!atendente) {
       console.warn(`[SKILL-PRIMEIRO-CONTATO] ⚠️ Nenhum atendente disponível em ${setorDetectado} — criando WorkQueueItem`);
-      
+
       await base44.asServiceRole.entities.WorkQueueItem.create({
         contact_id: contact.id,
         thread_id: thread.id,
@@ -385,12 +385,12 @@ Regras:
         pre_atendimento_ativo: false
       });
 
-      return Response.json({
+      return {
         success: true,
         action: 'enfileirado',
         setor_detectado: setorDetectado,
         message: 'Thread enfileirada para atendimento manual'
-      }, { headers });
+      };
     }
 
     // ══════════════════════════════════════════════════════════════════
