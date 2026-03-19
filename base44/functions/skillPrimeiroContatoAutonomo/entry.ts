@@ -8,7 +8,7 @@
 // 4. Envia boas-vindas humanizadas
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest, createClient } from 'npm:@base44/sdk@0.8.20';
 
 const SETOR_MAP = {
   'vendas': ['venda', 'comprar', 'orçamento', 'preço', 'cotação', 'produto', 'pc', 'notebook', 'gamer', 'quanto custa', 'valor'],
@@ -106,19 +106,26 @@ async function buscarAtendenteDisponivel(base44, setor) {
 }
 
 Deno.serve(async (req) => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*'
-  };
+   const headers = {
+     'Content-Type': 'application/json',
+     'Access-Control-Allow-Origin': '*'
+   };
 
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers });
-  }
+   if (req.method === 'OPTIONS') {
+     return new Response(null, { status: 204, headers });
+   }
 
-  const tsInicio = Date.now();
+   const tsInicio = Date.now();
 
-  try {
-    const base44 = createClientFromRequest(req);
+   try {
+     // ✅ FIX P0: Em contexto cron (req vazio), usar createClient() sem parâmetro
+     let base44;
+     try {
+       base44 = createClientFromRequest(req);
+     } catch (e) {
+       console.log('[SKILL-PRIMEIRO-CONTATO] Contexto cron detectado, usando createClient()');
+       base44 = createClient();
+     }
     
     // Permitir chamada sem autenticação para automação agendada
     let user = null;
@@ -192,8 +199,13 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('[SKILL-PRIMEIRO-CONTATO] ❌ Erro:', error.message);
 
-    const base44 = createClientFromRequest(req);
-    await base44.asServiceRole.entities.SkillExecution.create({
+    let base44Err;
+    try {
+      base44Err = createClientFromRequest(req);
+    } catch (e) {
+      base44Err = createClient();
+    }
+    await base44Err.asServiceRole.entities.SkillExecution.create({
       skill_name: 'primeiro_contato_autonomo',
       triggered_by: 'menu_falhou',
       execution_mode: 'autonomous_safe',
