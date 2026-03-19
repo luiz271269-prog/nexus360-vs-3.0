@@ -10,7 +10,7 @@
 //   STEP 3: Orçamentos: negociando>3d, enviado>7d, vencido<14d
 // ═══════════════════════════════════════════════════════════════════════
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClient } from 'npm:@base44/sdk@0.8.20';
 
 const COOLDOWN_HORAS = 4;          // padrão — sobrescrito por ConfiguracaoSistema: jarvis_cooldown_horas
 const MAX_THREADS_POR_CICLO = 3;   // padrão — sobrescrito por ConfiguracaoSistema: jarvis_max_threads
@@ -42,7 +42,14 @@ const getIdleThresholdMs = (thread) => {
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
+    // ✅ FIX: Em contexto agendado, req vem vazio
+    let base44;
+    try {
+      base44 = createClientFromRequest(req);
+    } catch (e) {
+      console.log('[NEXUS-AGENT v3] Contexto agendado detectado, usando createClient()');
+      base44 = createClient();
+    }
     const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
     const agora = new Date();
     const inicioCiclo = Date.now();
