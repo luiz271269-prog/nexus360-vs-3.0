@@ -7,7 +7,29 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 // Pipeline: normalize → dedup → reset_promos → human_check → URA dispatch
 // ============================================================================
 
-const VERSION = 'v11.0.0-INLINE';
+const VERSION = 'v11.1.0-BUSINESS-HOURS';
+
+// ── Verificar horário comercial (Brasília = UTC-3) ──────────────────────
+function isWithinBusinessHours() {
+  const agora = new Date();
+  // Converter para horário de Brasília (UTC-3)
+  const brasilia = new Date(agora.getTime() - 3 * 60 * 60 * 1000);
+  const diaSemana = brasilia.getUTCDay(); // 0=dom, 1=seg, ..., 6=sab
+  const hora = brasilia.getUTCHours();
+  const minuto = brasilia.getUTCMinutes();
+  const minutosTotais = hora * 60 + minuto;
+
+  if (diaSemana === 0) return false; // Domingo: fechado
+  if (diaSemana >= 1 && diaSemana <= 5) {
+    // Seg-Sex: 08:00 às 18:00
+    return minutosTotais >= 8 * 60 && minutosTotais < 18 * 60;
+  }
+  if (diaSemana === 6) {
+    // Sábado: 08:00 às 12:00
+    return minutosTotais >= 8 * 60 && minutosTotais < 12 * 60;
+  }
+  return false;
+}
 
 function humanoAtivo(thread, horasStale = 2) {
   if (!thread.assigned_user_id) return false;
@@ -132,6 +154,102 @@ Deno.serve(async (req) => {
       console.log(`[INBOUND-GATE] ✅ CAMADA 1: Número externo (${canonico})`);
     } catch (e) {
       console.warn(`[INBOUND-GATE] ⚠️ Erro filtro interno (prosseguindo):`, e.message);
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // [BUSINESS HOURS] VERIFICAÇÃO DE HORÁRIO COMERCIAL
+  // Se fora do expediente: enviar mensagem automática e aguardar abertura
+  // ════════════════════════════════════════════════════════════════
+  if (message?.sender_type === 'contact') {
+    const dentroHorario = isWithinBusinessHours();
+
+    if (!dentroHorario) {
+      console.log(`[${VERSION}] 🕐 FORA DO HORÁRIO COMERCIAL — verificando se já avisou...`);
+      result.pipeline.push('business_hours_check');
+
+      // Verificar se já enviamos msg de fora do horário nas últimas 8h
+      const oitoHorasAtras = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
+      let jaAviso = false;
+      try {
+        const msgsRecentes = await base44.asServiceRole.entities.Message.filter({
+          thread_id: thread?.id,
+          sender_id: 'nexus_agent',
+          sent_at: { $gte: oitoHorasAtras },
+          'metadata.trigger': 'business_hours_closed'
+        }, '-sent_at', 1);
+        jaAviso = (msgsRecentes?.length || 0) > 0;
+      } catch (e) {
+        console.warn(`[${VERSION}] ⚠️ Erro ao verificar aviso horário:`, e.message);
+      }
+
+      if (!jaAviso) {
+        const msgFechado = `Olá! Recebemos sua mensagem 😊\n\nNosso atendimento funciona:\n• *Seg a Sex*: 08h às 18h\n• *Sábado*: 08h às 12h\n\nNossa equipe entrará em contato assim que abrirmos. Até logo! 👋`;
+
+        // Enviar mensagem de fora do horário
+        try {
+          const integrationId = integration?.id || thread?.whatsapp_integration_id;
+          if (integrationId) {
+            await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+              integration_id: integrationId,
+              numero_destino: contact?.telefone,
+              mensagem: msgFechado
+            });
+
+            // Salvar mensagem no histórico
+            await base44.asServiceRole.entities.Message.create({
+              thread_id: thread?.id,
+              sender_id: 'nexus_agent',
+              sender_type: 'user',
+              content: msgFechado,
+              channel: 'whatsapp',
+              status: 'enviada',
+              sent_at: now.toISOString(),
+              visibility: 'public_to_customer',
+              metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed' }
+            }).catch(() => {});
+
+            console.log(`[${VERSION}] ✅ Mensagem fora do horário enviada para ${contact?.nome}`);
+          }
+        } catch (e) {
+          console.warn(`[${VERSION}] ⚠️ Falha ao enviar msg fora horário:`, e.message);
+        }
+      } else {
+        console.log(`[${VERSION}] ⏭️ Aviso de fora do horário já enviado nas últimas 8h — não repetindo`);
+      }
+
+      // Marcar thread como aguardando horário comercial
+      try {
+        await base44.asServiceRole.entities.MessageThread.update(thread?.id, {
+          routing_stage: 'WAITING_BUSINESS_HOURS',
+          last_message_at: now.toISOString(),
+          last_inbound_at: now.toISOString(),
+          last_message_sender: 'contact',
+          last_message_content: (messageContent || '').substring(0, 200)
+        });
+      } catch (e) {
+        console.warn(`[${VERSION}] ⚠️ Falha ao marcar WAITING_BUSINESS_HOURS:`, e.message);
+      }
+
+      result.actions.push('business_hours_closed');
+      return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, stop: true, reason: 'outside_business_hours' });
+    }
+
+    // Dentro do horário: se estava aguardando, limpar o stage
+    if (thread?.routing_stage === 'WAITING_BUSINESS_HOURS') {
+      try {
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          routing_stage: 'NEW',
+          pre_atendimento_state: 'INIT',
+          pre_atendimento_ativo: false,
+          assigned_user_id: null,
+          sector_id: null
+        });
+        thread = { ...thread, routing_stage: 'NEW', pre_atendimento_state: 'INIT', pre_atendimento_ativo: false, assigned_user_id: null, sector_id: null };
+        console.log(`[${VERSION}] 🔄 Thread saiu de WAITING_BUSINESS_HOURS → resetada para INIT`);
+      } catch (e) {
+        console.warn(`[${VERSION}] ⚠️ Falha ao limpar WAITING_BUSINESS_HOURS:`, e.message);
+      }
     }
   }
 

@@ -321,25 +321,65 @@ Deno.serve(async (req) => {
     const estado = thread.pre_atendimento_state || 'INIT';
     console.log('[PRE-ATENDIMENTO v12] Thread:', thread_id, '| Estado:', estado);
 
-    // ✅ GUARD CRÍTICO: SE JÁ TEM COMPLETED PARA ESTE CONTACT, NÃO REINICIAR
+    // ✅ GUARD CRÍTICO: SE JÁ TEM COMPLETED PARA ESTE CONTACT, verificar re-triagem
     if (estado === 'COMPLETED' || estado === 'CANCELLED' || estado === 'TIMEOUT') {
-      // Verificar se existe outra thread COMPLETED para o mesmo contato
-      const threadCompletedExistente = await base44.asServiceRole.entities.MessageThread.filter({
-        contact_id: contact_id,
-        pre_atendimento_state: 'COMPLETED'
-      }, '-created_date', 1);
+      // Verificar tempo desde última interação para decidir comportamento
+      const ultimaInteracao = thread.last_inbound_at || thread.last_message_at || thread.pre_atendimento_completed_at;
+      const horasDesdeUltima = ultimaInteracao
+        ? (Date.now() - new Date(ultimaInteracao).getTime()) / (1000 * 60 * 60)
+        : 999;
 
-      if (threadCompletedExistente && threadCompletedExistente.length > 0) {
-        const threadCanonico = threadCompletedExistente[0];
-        console.log('[PRE-ATENDIMENTO] 🛡️ GUARD: Thread COMPLETED já existe → reutilizar', threadCanonico.id);
-        
-        // Retornar a thread canônica sem reiniciar
+      if (horasDesdeUltima > 7 * 24) {
+        // Mais de 7 dias: tratar como novo contato → re-iniciar URA completa
+        console.log(`[PRE-ATENDIMENTO] 🔄 Mais de 7 dias sem interação (${Math.round(horasDesdeUltima/24)}d) → reiniciando como novo contato`);
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          pre_atendimento_state: 'INIT',
+          pre_atendimento_ativo: true,
+          pre_atendimento_completed_at: null,
+          assigned_user_id: null,
+          sector_id: null,
+          routing_stage: 'NEW'
+        });
+        thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+        // Continua para processarINIT abaixo
+
+      } else if (horasDesdeUltima < 7 * 24 && thread.sector_id && thread.assigned_user_id) {
+        // Menos de 7 dias: ir direto para o setor anterior sem URA completa
+        console.log(`[PRE-ATENDIMENTO] ⚡ Retorno em ${Math.round(horasDesdeUltima)}h → indo direto para setor: ${thread.sector_id}`);
+
+        const nomeContato = contact.nome && !/^\d+$/.test(contact.nome) ? contact.nome.split(' ')[0] : null;
+        const nomeLabel = nomeContato ? `, ${nomeContato}` : '';
+
+        const msgRetorno = `Olá${nomeLabel}, que bom ter você de volta! 😊 Em que posso ajudar hoje?`;
+
+        let integrationId = whatsapp_integration_id || thread.whatsapp_integration_id;
+        if (!integrationId) {
+          const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' }, '-created_date', 1);
+          if (integracoes.length > 0) integrationId = integracoes[0].id;
+        }
+
+        if (integrationId) {
+          await enviarMensagem(base44, contact, integrationId, msgRetorno);
+        }
+
+        // Manter setor/atendente, resetar para WAITING_NEED para próxima mensagem
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          pre_atendimento_state: 'WAITING_NEED',
+          pre_atendimento_ativo: true,
+          pre_atendimento_started_at: new Date().toISOString(),
+          pre_atendimento_timeout_at: new Date(Date.now() + 20 * 60 * 1000).toISOString()
+        });
+
         return Response.json({
           success: true,
-          estado: 'COMPLETED',
-          thread_id: threadCanonico.id,
-          resultado: { mode: 'thread_canonico_reusado' }
+          estado: 'WAITING_NEED',
+          thread_id: thread.id,
+          resultado: { mode: 'retorno_rapido', setor: thread.sector_id }
         }, { status: 200, headers });
+
+      } else {
+        // Fallback: reiniciar normalmente
+        console.log('[PRE-ATENDIMENTO] 🔄 Reiniciando fluxo (sem setor anterior definido)');
       }
     }
 
