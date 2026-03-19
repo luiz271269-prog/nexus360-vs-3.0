@@ -1048,8 +1048,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       } catch (e) { /* silencioso */ }
     }
     
-    // Chamar processInbound (adaptador HTTP) que delega para inboundCore
-    await base44.asServiceRole.functions.invoke('processInbound', {
+    // ✅ FIX CPU LIMIT: fire-and-forget — resposta 200 já foi entregue antes do processInbound
+    // Evita timeout do isolamento Deno por processamento pesado
+    base44.asServiceRole.functions.invoke('processInbound', {
       message: mensagem,
       contact: contato,
       thread: thread,
@@ -1057,11 +1058,14 @@ async function handleMessage(dados, payloadBruto, base44) {
       provider: 'z_api',
       messageContent: dados.content,
       rawPayload: payloadBruto
+    }).then(() => {
+      console.log(`[${VERSION}] ✅ processInbound executado com sucesso`);
+    }).catch(error => {
+      console.error(`[${VERSION}] ⚠️ Erro ao invocar processInbound:`, error?.message || error);
     });
-    console.log(`[${VERSION}] ✅ processInbound executado com sucesso`);
   } catch (error) {
-    console.error(`[${VERSION}] ⚠️ Erro ao invocar processInbound:`, error?.message || error);
-    // Continua mesmo se houver erro (não bloqueia o webhook)
+    console.error(`[${VERSION}] ⚠️ Erro ao preparar processInbound:`, error?.message || error);
+    // Continua mesmo se houver erro
   }
 
   // Audit log
