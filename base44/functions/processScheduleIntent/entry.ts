@@ -442,10 +442,10 @@ Confirma? (Responda: sim/ok ou não)`;
     // ═══════════════════════════════════════════════════════════════════════
     const startAt = `${agendaIntent.date}T${agendaIntent.time}:00`;
     const startDate = new Date(startAt);
-    const now = new Date(); // eslint-disable-line no-redeclare
+    const nowValidation = new Date();
 
     // Não aceitar datas passadas
-    if (startDate < now) {
+    if (startDate < nowValidation) {
       return Response.json({
         success: false,
         message_to_send: '⏰ Não posso agendar eventos no passado. Escolha uma data futura.'
