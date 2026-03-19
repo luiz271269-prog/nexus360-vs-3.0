@@ -65,17 +65,23 @@ Deno.serve(async (req) => {
               status: { $ne: 'falhou' }
             }, '-created_date', 1);
 
-            const ja_executou = execucoes.length > 0;
-            const limite_atingido = execucoes.length >= (sequencia.limite_execucoes_por_contato || 1);
-
-            if (ja_executou && limite_atingido) {
-              // Verificar cooldown
+            // BUG FIX 1: lógica de cooldown corrigida
+            // Se já existe qualquer execução não-falha, verificar cooldown SEMPRE
+            if (execucoes.length > 0) {
               const ultima_exec = execucoes[0];
               const cooldown_ms = (sequencia.cooldown_dias_entre_execucoes || 7) * 24 * 60 * 60 * 1000;
-              const tempo_desde_ultima = Date.now() - new Date(ultima_exec.created_date).getTime();
+              // BUG FIX 5: usar updated_date da última execução (quando foi efetivamente processada)
+              const refDate = ultima_exec.updated_date || ultima_exec.created_date;
+              const tempo_desde_ultima = Date.now() - new Date(refDate).getTime();
 
               if (tempo_desde_ultima < cooldown_ms) {
-                continue; // Pula se está em cooldown
+                continue; // Em cooldown — pular
+              }
+
+              // Verificar limite total de execuções por contato
+              const limite = sequencia.limite_execucoes_por_contato || 1;
+              if (execucoes.length >= limite) {
+                continue; // Limite atingido — não criar mais
               }
             }
 
