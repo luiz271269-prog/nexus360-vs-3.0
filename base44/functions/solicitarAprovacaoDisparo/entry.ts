@@ -60,17 +60,18 @@ Deno.serve(async (req) => {
         let threadInternal = sectorThreads[0];
 
         // Criar thread de setor se não existir
-        if (!threadInternal) {
-          console.log(`[SOLICITAR-APROVACAO] 🆕 Criando thread de setor: ${setor}`);
-          threadInternal = await base44.asServiceRole.entities.MessageThread.create({
-            thread_type: 'sector_group',
-            sector_key: `sector:${setor}`,
-            sector_id: setor,
-            group_name: `Setor ${setor}`,
-            status: 'aberta',
-            is_group_chat: true
-          });
-        }
+          if (!threadInternal) {
+            console.log(`[SOLICITAR-APROVACAO] 🆕 Criando thread de setor: ${setor}`);
+            threadInternal = await base44.asServiceRole.entities.MessageThread.create({
+              thread_type: 'sector_group',
+              sector_key: `sector:${setor}`,
+              sector_id: setor,
+              group_name: `Setor ${setor}`,
+              status: 'aberta',
+              is_group_chat: true,
+              participants: [] // Inicializar vazio — Jarvis vai populating em outras operações
+            });
+          }
 
         // 4. Criar Message interna pedindo aprovação
         const nomeContato = contato.nome || 'Contato';
