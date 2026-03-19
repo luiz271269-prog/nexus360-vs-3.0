@@ -370,22 +370,28 @@ export default function LeadsQualificados() {
     carregarUsuario();
   }, []);
 
+  // Resolve o nome do vendedor a aplicar no filtro global
+  const resolverFiltroVendedor = (campoVendedor) => {
+    const temPermissaoVerOutros = usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
+    if (!temPermissaoVerOutros) {
+      // Usuário comum: sempre vê apenas os seus
+      if (!vendedorDoUsuario) return null; // ainda carregando
+      return vendedorDoUsuario;
+    }
+    // Admin/gerente: aplica filtro global
+    if (filtroVendedorGlobal === 'todos') return null;
+    if (filtroVendedorGlobal === 'meus') return vendedorDoUsuario;
+    return filtroVendedorGlobal;
+  };
+
   const leadsFiltrados = (clientes || []).filter((c) => {
     const isLead = ['novo_lead', 'primeiro_contato', 'em_conversa', 'levantamento_dados',
       'pre_qualificado', 'qualificacao_tecnica', 'em_aquecimento',
       'lead_qualificado', 'desqualificado'].includes(c.status);
-
     if (!isLead) return false;
 
-    // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus (usando nome do Vendedor vinculado)
-    const temPermissaoVerOutros = usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
-    
-    if (!temPermissaoVerOutros) {
-      if (!vendedorDoUsuario) return true; // ainda carregando, não filtra
-      if (c.vendedor_responsavel !== vendedorDoUsuario) return false;
-    } else if (filtrosLeads.usuario_filtro) {
-      if (c.vendedor_responsavel !== filtrosLeads.usuario_filtro) return false;
-    }
+    const vendedorFiltro = resolverFiltroVendedor(c.vendedor_responsavel);
+    if (vendedorFiltro && c.vendedor_responsavel !== vendedorFiltro) return false;
 
     if (filtrosLeads.busca) {
       const busca = filtrosLeads.busca.toLowerCase();
@@ -397,33 +403,15 @@ export default function LeadsQualificados() {
 
     if (filtrosLeads.status !== 'todos' && c.status !== filtrosLeads.status) return false;
     if (filtrosLeads.classificacao !== 'todos' && c.classificacao !== filtrosLeads.classificacao) return false;
-
-    if (filtrosLeads.vendedor !== 'todos') {
-      if (filtrosLeads.vendedor === 'nao_atribuido') {
-        if (c.vendedor_responsavel) return false;
-      } else {
-        const vendedorLabel = (atendentes || []).find((v) => String(v.value) === String(filtrosLeads.vendedor))?.label;
-        if (vendedorLabel && c.vendedor_responsavel !== vendedorLabel) return false;
-      }
-    }
-
     return true;
   });
 
   const clientesAtivos = (clientes || []).filter((c) => {
     const isCliente = ['Prospect', 'Ativo', 'Em Risco', 'Promotor'].includes(c.status);
-
     if (!isCliente) return false;
 
-    // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus (usando nome do Vendedor vinculado)
-    const temPermissaoVerOutros = usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
-    
-    if (!temPermissaoVerOutros) {
-      if (!vendedorDoUsuario) return true; // ainda carregando, não filtra
-      if (c.vendedor_responsavel !== vendedorDoUsuario) return false;
-    } else if (filtrosClientes.usuario_filtro) {
-      if (c.vendedor_responsavel !== filtrosClientes.usuario_filtro) return false;
-    }
+    const vendedorFiltro = resolverFiltroVendedor(c.vendedor_responsavel);
+    if (vendedorFiltro && c.vendedor_responsavel !== vendedorFiltro) return false;
 
     if (filtrosClientes.busca) {
       const busca = filtrosClientes.busca.toLowerCase();
@@ -433,32 +421,18 @@ export default function LeadsQualificados() {
     }
 
     if (filtrosClientes.status !== 'todos' && c.status !== filtrosClientes.status) return false;
-
-    if (filtrosClientes.vendedor !== 'todos') {
-      const vendedorLabel = (atendentes || []).find((v) => String(v.value) === String(filtrosClientes.vendedor))?.label;
-      if (vendedorLabel && c.vendedor_responsavel !== vendedorLabel) return false;
-    }
-
     return true;
   });
 
   const orcamentosFiltrados = orcamentos.filter(orcamento => {
-    // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus (usando nome do Vendedor vinculado)
-    const temPermissaoVerOutros = usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
-    
-    if (!temPermissaoVerOutros) {
-      if (!vendedorDoUsuario) return true; // ainda carregando, não filtra
-      if (orcamento.vendedor !== vendedorDoUsuario) return false;
-    } else if (filtrosLeads.usuario_filtro) {
-      if (orcamento.vendedor !== filtrosLeads.usuario_filtro) return false;
-    }
+    const vendedorFiltro = resolverFiltroVendedor(orcamento.vendedor);
+    if (vendedorFiltro && orcamento.vendedor !== vendedorFiltro) return false;
 
     const matchesSearch = searchTerm === '' ||
       orcamento.numero_orcamento?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       orcamento.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = filterStatus === 'all' || orcamento.status === filterStatus;
-
     return matchesSearch && matchesStatus;
   });
 
