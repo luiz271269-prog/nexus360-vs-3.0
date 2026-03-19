@@ -164,22 +164,17 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
       }
     }
 
-    // PASSO 2: Buscar por setor (SEM exigência rígida de whatsapp_setores)
+    // PASSO 2: Buscar por setor — sem filtro availability_status (horário comercial já validado)
     if (!atendenteId) {
       const atendentesCandidatos = todos.filter(u => {
-        if (u.availability_status !== 'online') return false;
-        
-        // Critério 1: Setor exato (lógica OR)
-        const setorExato = u.attendant_sector === setor || (u.data?.whatsapp_setores || []).includes(setor);
-        
-        // Critério 2: is_whatsapp_attendant = true (caso exista)
-        const éAtendente = u.is_whatsapp_attendant !== false;
-        
-        // Se setor é 'geral', aceita qualquer um online
-        if (setor === 'geral') return éAtendente;
-        
-        // Senão, deve ter setor exato OU será fallback
-        return setorExato && éAtendente;
+        // Deve ter nome ou email válido
+        if (!u.full_name && !u.email) return false;
+
+        // Se setor é 'geral', aceita qualquer atendente
+        if (setor === 'geral') return true;
+
+        // Setor exato
+        return u.attendant_sector === setor;
       });
 
       console.log('[PRE-ATENDIMENTO] 👥 Candidatos setor', setor + ':', atendentesCandidatos.length);
