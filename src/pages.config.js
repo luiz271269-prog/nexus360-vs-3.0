@@ -192,7 +192,6 @@ export const PAGES = {
     "NexusCommandCenter": NexusCommandCenter,
     "NotasFiscais": NotasFiscais,
     "OrcamentoDetalhes": OrcamentoDetalhes,
-    "Orcamentos": Orcamentos,
     "PlanoImplementacao": PlanoImplementacao,
     "PlaybooksAutomacao": PlaybooksAutomacao,
     "Precificacao": Precificacao,
