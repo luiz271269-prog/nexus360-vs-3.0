@@ -141,6 +141,9 @@ Deno.serve(async (req) => {
         }
 
         // ── TIPO C: tem atendente + humano dormindo >4h → reativar URA ──────
+        // GUARD: só reativa URA dentro do horário comercial
+        if (!dentrodoHorario) continue;
+
         if (hasAssigned && !humanoAtivo(thread, IDLE_THRESHOLD_C_HOURS)) {
           if (lastInboundAt && lastInboundAt < thresholdC) {
             // Só reativar se não foi completado recentemente
