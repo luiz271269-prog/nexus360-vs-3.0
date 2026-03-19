@@ -457,13 +457,29 @@ export default function LeadsQualificados() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* FILTRO GLOBAL DE VENDEDOR — visível só para admin/gerente/coordenador */}
+              {(usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role)) && (
+                <Select value={filtroVendedorGlobal} onValueChange={setFiltroVendedorGlobal}>
+                  <SelectTrigger className="h-8 w-[160px] text-xs bg-white/10 border-white/30 text-white">
+                    <SelectValue placeholder="👤 Vendedor" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 text-white border-slate-600">
+                    <SelectItem value="todos" className="text-xs">Todos os vendedores</SelectItem>
+                    <SelectItem value="meus" className="text-xs">Meus registros</SelectItem>
+                    {atendentes.map((v) =>
+                      <SelectItem key={v.value} value={v.label} className="text-xs">{v.label}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+
               <Button
                 onClick={handleSincronizar}
                 disabled={sincronizando}
                 size="sm"
                 variant="outline"
-                className="bg-slate-800 text-slate-600 px-3 text-xs font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border hover:text-accent-foreground border-slate-300 hover:bg-slate-100 h-8">
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20 h-8 text-xs">
                 <RefreshCw className={`w-3 h-3 mr-1 ${sincronizando ? 'animate-spin' : ''}`} />
                 Sync
               </Button>
