@@ -113,7 +113,13 @@ Deno.serve(async (req) => {
             if (sequencia.passos && sequencia.passos.length > 0) {
               const primeiro_passo = sequencia.passos[0];
               const proxima_acao = new Date();
-              proxima_acao.setDate(proxima_acao.getDate() + (primeiro_passo.atraso_dias || 0));
+              // BUG FIX 3: mínimo de 1 hora para evitar loop imediato
+              const atraso_dias = primeiro_passo.atraso_dias || 0;
+              if (atraso_dias === 0) {
+                proxima_acao.setHours(proxima_acao.getHours() + 1);
+              } else {
+                proxima_acao.setDate(proxima_acao.getDate() + atraso_dias);
+              }
 
               await base44.asServiceRole.entities.ExecucaoSequencia.update(execucao.id, {
                 proxima_acao_em: proxima_acao.toISOString()
