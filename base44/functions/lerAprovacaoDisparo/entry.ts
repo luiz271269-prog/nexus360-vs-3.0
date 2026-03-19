@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // ============================================================================
 // LER APROVAÇÃO DISPARO v1.0
@@ -6,7 +6,7 @@ import { createClient } from 'npm:@base44/sdk@0.8.21';
 // Monitora respostas "SIM" em threads de setor → muda FilaDisparo status
 
 Deno.serve(async (req) => {
-  const base44 = createClient();
+  const base44 = createClientFromRequest(req);
   const agora = new Date();
 
   try {
