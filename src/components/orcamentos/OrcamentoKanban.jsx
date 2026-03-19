@@ -275,124 +275,82 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
                             ref={provided.innerRef}
                             {...provided.dragHandleProps}
                             {...provided.draggableProps}
-                            className={`
-                              ${gradient.card} ${gradient.hover}
-                              p-2 rounded-xl border-2 ${gradient.border} 
-                              ${gradient.shadow}
-                              transition-all duration-300 cursor-pointer
-                              ${snapshot.isDragging ? `ring-4 ${gradient.ring} shadow-2xl rotate-3 scale-110 ${gradient.glow}` : `hover:shadow-xl hover:scale-105 ${gradient.glow}`}
-                              relative overflow-hidden
-                              backdrop-blur-sm
-                            `}
+                            className={`bg-white rounded-lg border ${gradient.border} hover:shadow-md transition-all cursor-pointer group ${snapshot.isDragging ? 'shadow-lg ring-2 ' + gradient.ring + ' rotate-1' : ''}`}
                           >
-
-                            {/* Efeito de brilho no hover - NEON */}
-                            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/30 to-white/0 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-
-                            {/* Animação de pulso no canto */}
-                            {status === 'negociando' &&
-                              <div className="absolute top-1 right-1">
-                                <Flame className="w-3 h-3 text-orange-500 animate-pulse" />
-                              </div>
-                            }
-                            {status === 'aprovado' &&
-                              <div className="absolute top-1 right-1">
-                                <Zap className="w-3 h-3 text-green-500 animate-bounce" />
-                              </div>
-                            }
-
-                            {/* Conteúdo do Card */}
-                            <div className="relative z-10">
-                              {/* Header do Card */}
-                              <div className="flex items-start justify-between mb-1.5">
-                                <h4 className="font-bold text-slate-900 text-[11px] leading-tight line-clamp-2 flex-1">
-                                  {orcamento.cliente_nome}
+                            <div className="p-2 space-y-1.5">
+                              {/* Nome + menu */}
+                              <div className="flex items-start justify-between gap-1">
+                                <h4 className="font-semibold text-slate-800 text-[11px] leading-tight truncate flex-1 uppercase">
+                                  {orcamento.cliente_nome || '—'}
                                 </h4>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-slate-500 hover:text-orange-600 hover:bg-white/50 p-0">
-                                      <MoreHorizontal className="w-3.5 h-3.5" />
+                                    <Button variant="ghost" size="icon" className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700 flex-shrink-0">
+                                      <MoreHorizontal className="w-3 h-3" />
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className="text-xs">
                                     <DropdownMenuItem onClick={() => onEdit && onEdit(orcamento)} className="text-xs py-1.5">
-                                      <Edit className="w-3.5 h-3.5 mr-1.5" />
+                                      <Edit className="w-3 h-3 mr-1.5" />
                                       Editar
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
 
-                              {/* Informações */}
-                              <div className="space-y-1 mb-1.5">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[10px] text-slate-600 font-medium">
-                                    #{orcamento.numero_orcamento?.slice(-4) || orcamento.id?.slice(-4)}
-                                  </span>
-                                  <div className="font-bold bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent text-[11px]">
-                                    {formatCurrency(orcamento.valor_total)}
-                                  </div>
-                                </div>
-
-                                {orcamento.vendedor &&
-                                  <div className="flex items-center gap-1 text-[10px] text-slate-700">
-                                    <User className="w-3 h-3" />
-                                    <span className="truncate font-medium">{orcamento.vendedor}</span>
-                                  </div>
-                                }
-
-                                {orcamento.data_orcamento &&
-                                  <div className="flex items-center gap-1 text-[10px] text-slate-600">
-                                    <Calendar className="w-3 h-3" />
-                                    {formatDate(orcamento.data_orcamento)}
-                                  </div>
-                                }
+                              {/* Número + Valor */}
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-mono text-slate-400">
+                                  {orcamento.numero_orcamento ? `#${orcamento.numero_orcamento}` : `#${orcamento.id?.slice(-4)}`}
+                                </span>
+                                <span className="text-[11px] font-bold text-green-600">
+                                  {formatCurrency(orcamento.valor_total)}
+                                </span>
                               </div>
 
-                              {/* Badges */}
-                              {orcamento.probabilidade &&
-                                <div className="mb-1.5">
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-[9px] px-1.5 py-0.5 h-4 font-bold shadow-sm ${
-                                      orcamento.probabilidade === 'Alta' ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-green-400' :
-                                      orcamento.probabilidade === 'Média' ? 'bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 border-yellow-400' :
-                                      'bg-gradient-to-r from-red-100 to-rose-100 text-red-800 border-red-400'}`
-                                    }>
+                              {/* Vendedor + Data */}
+                              <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                {orcamento.vendedor && (
+                                  <div className="flex items-center gap-0.5">
+                                    <User className="w-2.5 h-2.5" />
+                                    <span className="truncate max-w-[70px]">{(orcamento.vendedor || '').split(' ')[0]}</span>
+                                  </div>
+                                )}
+                                {orcamento.data_orcamento && (
+                                  <div className="flex items-center gap-0.5 ml-auto">
+                                    <Calendar className="w-2.5 h-2.5" />
+                                    <span>{formatDate(orcamento.data_orcamento)}</span>
+                                  </div>
+                                )}
+                              </div>
 
-                                    {orcamento.probabilidade}
-                                  </Badge>
+                              {/* Prob + Ações */}
+                              <div className="flex items-center gap-1 pt-1 border-t border-slate-100">
+                                {orcamento.probabilidade && (
+                                  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${
+                                    orcamento.probabilidade === 'Alta' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                    orcamento.probabilidade === 'Média' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                    'bg-red-50 text-red-700 border-red-200'
+                                  }`}>{orcamento.probabilidade}</span>
+                                )}
+                                <div className="ml-auto flex gap-1">
+                                  {onMostrarInsightsIA && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); onMostrarInsightsIA(orcamento); }}
+                                      className="flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-[9px] font-semibold border border-indigo-200 transition-colors"
+                                    >
+                                      <Brain className="w-2.5 h-2.5" />
+                                      IA
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); abrirChatComCliente(orcamento); }}
+                                    className="flex items-center gap-0.5 px-1.5 py-0.5 bg-green-500 hover:bg-green-600 text-white rounded text-[9px] font-semibold transition-colors"
+                                  >
+                                    <MessageSquare className="w-2.5 h-2.5" />
+                                    Msg
+                                  </button>
                                 </div>
-                              }
-
-                              {/* Botões de Ação */}
-                              <div className="flex gap-1 pt-1.5 border-t border-slate-300/50">
-                                {onMostrarInsightsIA &&
-                                  <Button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onMostrarInsightsIA(orcamento);
-                                    }}
-                                    size="sm"
-                                    className="flex-1 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 text-white text-[10px] h-6 px-1 shadow-md">
-
-                                    <Brain className="w-3 h-3 mr-0.5" />
-                                    IA
-                                  </Button>
-                                }
-
-                                <Button
-                                   onClick={(e) => {
-                                     e.stopPropagation();
-                                     abrirChatComCliente(orcamento);
-                                   }}
-                                   size="sm"
-                                   className="flex-1 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 text-white text-[10px] h-6 px-1 shadow-md"
-                                   title="Abrir conversa com cliente">
-
-                                   <MessageSquare className="w-3 h-3 mr-0.5" />
-                                   Msg
-                                 </Button>
                               </div>
                             </div>
                           </div>
