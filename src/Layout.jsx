@@ -402,7 +402,15 @@ export default function Layout({ children, currentPageName }) {
     ultimaAtualizacaoRef.current = agora;
 
     try {
-      const user = await base44.auth.me();
+      const user = await base44.auth.me().catch(e => {
+        // Sessão expirada ou não autenticado — silencioso, não polui logs
+        if (e?.status === 403 || e?.message?.includes('privado') || e?.message?.includes('auth')) {
+          setGlobalUsuario(null);
+          return null;
+        }
+        throw e;
+      });
+      if (!user) { setLoadingUsuario(false); return; }
       setGlobalUsuario(user);
 
       if (user) {
