@@ -131,17 +131,21 @@ Retorne um JSON com:
         }
       });
       
-      // Registrar na auditoria
-      await base44.asServiceRole.entities.AutomationLog.create({
-        acao: 'analise_comportamento_ia',
-        contato_id: contato.id,
-        resultado: 'sucesso',
-        timestamp: new Date().toISOString(),
-        detalhes: {
-          analise: analiseIA,
-          tempo_processamento_ms: Date.now() - tsContato
-        }
-      }).catch(() => {});
+      // Registrar na auditoria (com tratamento de erro visível)
+      try {
+        await base44.asServiceRole.entities.AutomationLog.create({
+          acao: 'analise_comportamento_ia',
+          contato_id: contato.id,
+          resultado: 'sucesso',
+          timestamp: new Date().toISOString(),
+          detalhes: {
+            analise: analiseIA,
+            tempo_processamento_ms: Date.now() - tsContato
+          }
+        });
+      } catch (logErr) {
+        console.error(`[ANALISE-DIARIA] ❌ Falha ao registrar log de sucesso para ${contato.nome}:`, logErr.message);
+      }
       
       resultados.sucesso++;
       resultados.detalhes.push({
@@ -166,16 +170,20 @@ Retorne um JSON com:
       console.error(`[ANALISE-DIARIA] ❌ Erro ao processar ${contato.nome}:`, err.message);
       
       // Registrar falha
-      await base44.asServiceRole.entities.AutomationLog.create({
-        acao: 'analise_comportamento_ia',
-        contato_id: contato.id,
-        resultado: 'erro',
-        timestamp: new Date().toISOString(),
-        detalhes: {
-          erro: err.message,
-          stack: err.stack?.slice(0, 500)
-        }
-      }).catch(() => {});
+      try {
+        await base44.asServiceRole.entities.AutomationLog.create({
+          acao: 'analise_comportamento_ia',
+          contato_id: contato.id,
+          resultado: 'erro',
+          timestamp: new Date().toISOString(),
+          detalhes: {
+            erro: err.message,
+            stack: err.stack?.slice(0, 500)
+          }
+        });
+      } catch (logErr) {
+        console.error(`[ANALISE-DIARIA] ❌ Falha ao registrar log de erro para ${contato.nome}:`, logErr.message);
+      }
     }
   }
   
@@ -203,7 +211,7 @@ Retorne um JSON com:
       }
     });
   } catch (e) {
-    console.warn('[ANALISE-DIARIA] Erro ao registrar execução:', e.message);
+    console.error('[ANALISE-DIARIA] ❌ Erro ao registrar SkillExecution:', e.message);
   }
   
   console.log(`[ANALISE-DIARIA] 📈 Batch completo: ${resultados.sucesso} sucesso, ${resultados.erro} erros em ${duracao}ms`);
