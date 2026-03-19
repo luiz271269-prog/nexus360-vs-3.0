@@ -453,7 +453,7 @@ Confirma? (Responda: sim/ok ou não)`;
     }
 
     // Não aceitar datas muito distantes (> 2 anos)
-    const maxFutureDate = new Date(now.getFullYear() + 2, 11, 31);
+    const maxFutureDate = new Date(nowValidation.getFullYear() + 2, 11, 31);
     if (startDate > maxFutureDate) {
       return Response.json({
         success: false,
