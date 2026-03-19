@@ -260,11 +260,38 @@ Deno.serve(async (req) => {
       ? historico
       : [{ role: 'user', content: message_content }];
 
-    // 3. Chamar Claude
-    const systemPrompt = buildAgendaSystemPrompt({ nomeCliente: contact?.nome, agendamentos: agendamentosCliente, horariosDisponiveis });
-    console.log(`[AGENDA:${reqId}] 🤖 Chamando Claude com ${historicoFinal.length} msgs...`);
+    // 3. VALIDAR CONFIRMAÇÃO (Bug fix #3)
+    const textoLower = message_content.toLowerCase().trim();
+    const respostasConfirmacao = ['sim', 'ok', 'confirma', 'pode', 'yes', 'claro', 'vou', 'boa'];
+    const respostasRejeicao = ['não', 'nao', 'cancela', 'no', 'nega', 'espera'];
 
-    const response = await anthropic.messages.create({
+    // Se há estado de confirmação aguardando, validar resposta antes de chamar IA
+    let acao = 'aguardar';
+    let mensagemFinal = '';
+    let executadoDirecto = false;
+
+    if (respostasConfirmacao.some(r => textoLower.includes(r)) && mensagens.length > 0) {
+      // Tentar extrair intenção pendente do histórico
+      const ultimaMsgSistema = mensagens.reverse().find(m => m.metadata?.is_ai_response && m.metadata?.agenda_acao);
+      if (ultimaMsgSistema?.metadata?.agenda_acao && ultimaMsgSistema.metadata.agenda_acao !== 'aguardar') {
+        acao = ultimaMsgSistema.metadata.agenda_acao;
+        executadoDirecto = true;
+        console.log(`[AGENDA:${reqId}] ✅ Confirmação detectada, ação: ${acao}`);
+      }
+    } else if (respostasRejeicao.some(r => textoLower.includes(r)) && mensagens.length > 0) {
+      mensagemFinal = '❌ Certo, cancelei a operação. Posso ajudar com algo mais?';
+      acao = 'aguardar';
+      executadoDirecto = true;
+      console.log(`[AGENDA:${reqId}] 🚫 Rejeição detectada`);
+    }
+
+    // Se não foi processada confirmação/rejeição, chamar Claude
+    if (!executadoDirecto) {
+      // Chamar Claude
+      const systemPrompt = buildAgendaSystemPrompt({ nomeCliente: contact?.nome, agendamentos: agendamentosCliente, horariosDisponiveis });
+      console.log(`[AGENDA:${reqId}] 🤖 Chamando Claude com ${historicoFinal.length} msgs...`);
+
+      const response = await anthropic.messages.create({
       model: CONFIG.modelo,
       max_tokens: CONFIG.max_tokens,
       system: systemPrompt,
@@ -283,7 +310,13 @@ Deno.serve(async (req) => {
       respostaJson = { mensagem: respostaTexto, acao: 'aguardar', dados_agendamento: null, motivo_escalar: null };
     }
 
-    const { mensagem, acao, dados_agendamento, motivo_escalar } = respostaJson;
+    acao = respostaJson.acao;
+    mensagemFinal = respostaJson.mensagem;
+    dados_agendamento = respostaJson.dados_agendamento;
+    motivo_escalar = respostaJson.motivo_escalar;
+    }
+
+    const { mensagem = mensagemFinal, dados_agendamento, motivo_escalar } = executadoDirecto ? { mensagem: mensagemFinal, dados_agendamento: null, motivo_escalar: null } : { mensagem: mensagemFinal };
     console.log(`[AGENDA:${reqId}] 🎯 Ação: ${acao} | Confirmado: ${dados_agendamento?.confirmado}`);
 
     // 5. Escalar para humano se necessário
@@ -303,8 +336,31 @@ Deno.serve(async (req) => {
 
     // 6. Executar ação (criar/cancelar/reagendar)
     let resultadoAcao = { ok: true, executado: false };
-    if (['criar_agendamento', 'cancelar_agendamento', 'reagendar'].includes(acao)) {
-      resultadoAcao = await executarAcao(acao, dados_agendamento, contact_id, thread_id, base44);
+    if (['criar_agendamento', 'cancelar_agendamento', 'reagendar'].includes(acao) && dados_agendamento) {
+      // Bug fix #5: Sanitizar time para garantir HH:MM
+      if (dados_agendamento.data_hora_iso && dados_agendamento.time) {
+        const timeSanitized = dados_agendamento.time.substring(0, 5); // Pega apenas HH:MM
+        dados_agendamento.data_hora_iso = `${dados_agendamento.data_hora_iso.split('T')[0]}T${timeSanitized}:00`;
+      }
+
+      // Bug fix #4: Para cancel, filtrar pelo title se houver
+      if (acao === 'cancelar_agendamento' && dados_agendamento.title) {
+        const agendamentosCliente = await base44.asServiceRole.entities.Agendamento
+          .filter({ contact_id, status: { $in: ['confirmado', 'pendente'] } }, 'data_hora', 10);
+        const matches = (agendamentosCliente || []).filter(a => 
+          a.servico?.toLowerCase().includes(dados_agendamento.title.toLowerCase())
+        );
+        if (matches.length === 1) {
+          dados_agendamento.agendamento_id = matches[0].id;
+        } else if (matches.length > 1) {
+          mensagem = `🤔 Encontrei ${matches.length} eventos com esse nome. Qual deles deseja cancelar?\n\n${matches.map(a => `- ${a.servico} em ${a.data_hora}`).join('\n')}`;
+          acao = 'aguardar';
+        }
+      }
+
+      if (['criar_agendamento', 'cancelar_agendamento', 'reagendar'].includes(acao)) {
+        resultadoAcao = await executarAcao(acao, dados_agendamento, contact_id, thread_id, base44);
+      }
     }
 
     // 7. Enviar resposta ao cliente e salvar no banco
