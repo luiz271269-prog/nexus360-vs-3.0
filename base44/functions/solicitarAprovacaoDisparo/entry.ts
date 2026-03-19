@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // ============================================================================
 // SOLICITAR APROVAÇÃO DISPARO v1.0
@@ -6,7 +6,7 @@ import { createClient } from 'npm:@base44/sdk@0.8.20';
 // Lê FilaDisparo pendentes → cria Message interna para vendedor → seta status
 
 Deno.serve(async (req) => {
-  const base44 = createClient();
+  const base44 = createClientFromRequest(req);
   const agora = new Date();
 
   try {
