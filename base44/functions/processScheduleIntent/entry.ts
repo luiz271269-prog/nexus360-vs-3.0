@@ -207,7 +207,7 @@ RETORNE JSON COM:
       }
 
       // Buscar eventos futuros do usuário
-      const now = new Date().toISOString();
+      const nowList = new Date().toISOString();
       const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
       const events = await base44.asServiceRole.entities.ScheduleEvent.filter({
