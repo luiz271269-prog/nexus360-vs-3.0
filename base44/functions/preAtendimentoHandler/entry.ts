@@ -91,19 +91,37 @@ async function detectarSetorPorIA(base44, mensagem, contact) {
 // FLUXO: INIT — Saudação + pergunta aberta
 // ============================================================================
 async function processarINIT(base44, thread, contact, integrationId) {
-  // ⚠️ ANTI-DUPLICATA: Não enviar saudação 2x no mesmo dia
-  const agora = new Date();
-  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
-  const ultimaInbound = thread.last_inbound_at ? new Date(thread.last_inbound_at) : null;
+  // ⚠️ BLOQUEIO CRÍTICO: Cliente com atendente fidelizado pula URA completamente
+  if (contact.tipo_contato === 'cliente' || contact.tipo_contato === 'lead') {
+    // Verificar se tem atendente fidelizado em qualquer setor
+    const temFidelizado = 
+      (contact.atendente_fidelizado_vendas && /^[a-f0-9]{24}$/i.test(String(contact.atendente_fidelizado_vendas))) ||
+      (contact.atendente_fidelizado_assistencia && /^[a-f0-9]{24}$/i.test(String(contact.atendente_fidelizado_assistencia))) ||
+      (contact.atendente_fidelizado_financeiro && /^[a-f0-9]{24}$/i.test(String(contact.atendente_fidelizado_financeiro))) ||
+      (contact.atendente_fidelizado_fornecedor && /^[a-f0-9]{24}$/i.test(String(contact.atendente_fidelizado_fornecedor)));
+    
+    if (temFidelizado) {
+      console.log(`[PRE-ATENDIMENTO] 🚫 ${contact.tipo_contato.toUpperCase()} com atendente fidelizado → pulando URA`);
+      
+      // Atualizar thread para estado final
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        pre_atendimento_state: 'COMPLETED',
+        pre_atendimento_ativo: false,
+        pre_atendimento_completed_at: new Date().toISOString(),
+        routing_stage: 'COMPLETED'
+      });
+      
+      return { success: true, mode: 'cliente_fidelizado_skip_ura' };
+    }
+  }
+
+  // ⚠️ ANTI-DUPLICATA: Não enviar saudação 2x em 8h
+  const ultimaOutbound = thread.last_outbound_at ? new Date(thread.last_outbound_at) : null;
+  const horasDesdeUltima = ultimaOutbound ? (Date.now() - ultimaOutbound.getTime()) / (1000 * 60 * 60) : 999;
   
-  const jaEnviouHoje = 
-    thread.pre_atendimento_state === 'WAITING_NEED' &&
-    ultimaInbound && 
-    new Date(ultimaInbound.getFullYear(), ultimaInbound.getMonth(), ultimaInbound.getDate()).getTime() === hoje.getTime();
-  
-  if (jaEnviouHoje) {
-    console.log('[PRE-ATENDIMENTO] ⏭️ Saudação já enviada hoje → ignorando duplicata');
-    return { success: true, mode: 'saudacao_duplicata_bloqueada' };
+  if (horasDesdeUltima < 8 && thread.pre_atendimento_state === 'WAITING_NEED') {
+    console.log(`[PRE-ATENDIMENTO] ⏭️ Já enviou há ${Math.round(horasDesdeUltima)}h → bloqueando duplicata`);
+    return { success: true, mode: 'saudacao_duplicata_bloqueada_8h' };
   }
 
   const hora = new Date().getHours();
