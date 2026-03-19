@@ -91,6 +91,21 @@ async function detectarSetorPorIA(base44, mensagem, contact) {
 // FLUXO: INIT — Saudação + pergunta aberta
 // ============================================================================
 async function processarINIT(base44, thread, contact, integrationId) {
+  // ⚠️ ANTI-DUPLICATA: Não enviar saudação 2x no mesmo dia
+  const agora = new Date();
+  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  const ultimaInbound = thread.last_inbound_at ? new Date(thread.last_inbound_at) : null;
+  
+  const jaEnviouHoje = 
+    thread.pre_atendimento_state === 'WAITING_NEED' &&
+    ultimaInbound && 
+    new Date(ultimaInbound.getFullYear(), ultimaInbound.getMonth(), ultimaInbound.getDate()).getTime() === hoje.getTime();
+  
+  if (jaEnviouHoje) {
+    console.log('[PRE-ATENDIMENTO] ⏭️ Saudação já enviada hoje → ignorando duplicata');
+    return { success: true, mode: 'saudacao_duplicata_bloqueada' };
+  }
+
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
   const nome = contact.nome && !/^\d+$/.test(contact.nome) ? `, ${contact.nome.split(' ')[0]}` : '';
