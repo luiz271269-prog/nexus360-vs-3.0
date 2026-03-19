@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // ============================================================================
 // PROCESSAR FILA DISPARO v1.0
@@ -6,7 +6,7 @@ import { createClient } from 'npm:@base44/sdk@0.8.20';
 // Monitora FilaDisparo aprovadas → executa sequência Z-API → atualiza status
 
 Deno.serve(async (req) => {
-  const base44 = createClient();
+  const base44 = createClientFromRequest(req);
   const agora = new Date();
 
   try {
