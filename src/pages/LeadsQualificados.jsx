@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -10,18 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Target,
   Users,
-  TrendingUp,
-  AlertCircle,
   Activity,
   Grid3x3,
   List,
   RefreshCw,
-  Filter,
   Search,
   Plus,
-  Eye,
-  Edit,
-  Trash2,
   FileText,
   Zap
 } from "lucide-react";
