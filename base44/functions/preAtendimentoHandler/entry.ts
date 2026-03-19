@@ -154,13 +154,20 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
     }[setor];
 
     if (campoFidelizado && contact[campoFidelizado]) {
-      const fidelizado = todos.find(u => u.id === contact[campoFidelizado]);
-      if (fidelizado?.availability_status === 'online') {
-        atendenteId = fidelizado.id;
-        atendenteNome = fidelizado.full_name || fidelizado.email;
-        console.log('[PRE-ATENDIMENTO] 🎯 Fidelizado ONLINE:', atendenteNome);
+      const valorCampo = contact[campoFidelizado];
+      // Validar que é um ObjectId válido (24 hex chars) — ignorar strings literais como "THIAGO"
+      const isObjectId = /^[a-f0-9]{24}$/i.test(String(valorCampo));
+      if (isObjectId) {
+        const fidelizado = todos.find(u => u.id === valorCampo);
+        if (fidelizado) {
+          atendenteId = fidelizado.id;
+          atendenteNome = fidelizado.full_name || fidelizado.email;
+          console.log('[PRE-ATENDIMENTO] 🎯 Fidelizado encontrado:', atendenteNome);
+        } else {
+          console.warn('[PRE-ATENDIMENTO] ⚠️ Fidelizado não encontrado no sistema, buscando alternativa');
+        }
       } else {
-        console.warn('[PRE-ATENDIMENTO] ⚠️ Fidelizado offline/não existe, buscando alternativa');
+        console.warn(`[PRE-ATENDIMENTO] ⚠️ Campo ${campoFidelizado} contém valor inválido "${valorCampo}" — ignorando`);
       }
     }
 
