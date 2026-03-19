@@ -1,17 +1,21 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClient } from 'npm:@base44/sdk@0.8.20';
 
 // ============================================================================
-// WATCHDOG v3.0 - Monitoramento PROATIVO de threads sem resposta humana
+// WATCHDOG v3.1 - Monitoramento PROATIVO de threads sem resposta humana
 // ============================================================================
 // Tipo A: sem atendente + state=INIT/null + idle >30min → DISPARA preAtendimento
 // Tipo B: sem atendente + URA em andamento (WAITING_*) → skip
 // Tipo C: tem atendente + idle >4h + humano dormindo → DISPARA preAtendimento
 // Tipo D: tem atendente + idle >48h → WorkQueueItem para Jarvis
+// 
+// ✅ FIX: Timeout de CPU 40s, batch 50 threads, parallelismo, sem delays, contexto agendado
 // ============================================================================
 
-const IDLE_THRESHOLD_A_MINUTES = 30;   // 30min sem resposta → ativa URA
-const IDLE_THRESHOLD_C_HOURS = 4;      // 4h com atendente dormindo → reativa URA
-const IDLE_THRESHOLD_D_HOURS = 48;     // 48h → cria WorkQueueItem
+const IDLE_THRESHOLD_A_MINUTES = 30;
+const IDLE_THRESHOLD_C_HOURS = 4;
+const IDLE_THRESHOLD_D_HOURS = 48;
+const MAX_CICLO_MS = 40_000; // 40s máximo para não estourar 90s timeout
+const MAX_THREADS_BATCH = 50; // Reduzido de 200 para 50
 
 function humanoAtivo(thread, horasStale = 2) {
   if (!thread.last_human_message_at) return false;
@@ -19,20 +23,28 @@ function humanoAtivo(thread, horasStale = 2) {
   return hoursGap < horasStale;
 }
 
-// Guard: só dispara URA dentro do horário comercial (Brasília = UTC-3)
 function isWithinBusinessHours() {
   const brasilia = new Date(Date.now() - 3 * 60 * 60 * 1000);
-  const dia = brasilia.getUTCDay(); // 0=dom, 6=sab
+  const dia = brasilia.getUTCDay();
   const minutos = brasilia.getUTCHours() * 60 + brasilia.getUTCMinutes();
-  if (dia === 0) return false;                                    // Domingo: fechado
-  if (dia >= 1 && dia <= 5) return minutos >= 480 && minutos < 1080; // Seg-Sex: 08h-18h
-  if (dia === 6) return minutos >= 480 && minutos < 720;          // Sáb: 08h-12h
+  if (dia === 0) return false;
+  if (dia >= 1 && dia <= 5) return minutos >= 480 && minutos < 1080;
+  if (dia === 6) return minutos >= 480 && minutos < 720;
   return false;
 }
 
 Deno.serve(async (req) => {
+  const tsInicio = Date.now();
+  
   try {
-    const base44 = createClientFromRequest(req);
+    // ✅ FIX: Em contexto agendado, req vem vazio
+    let base44;
+    try {
+      base44 = createClientFromRequest(req);
+    } catch (e) {
+      console.log('[WATCHDOG v3] Contexto agendado detectado, usando createClient()');
+      base44 = createClient();
+    }
 
     const agora = new Date();
     const thresholdA = new Date(agora.getTime() - IDLE_THRESHOLD_A_MINUTES * 60 * 1000);
@@ -46,14 +58,14 @@ Deno.serve(async (req) => {
     console.log(`[WATCHDOG v3] 🕐 Horário comercial: ${dentrodoHorario ? 'SIM ✅' : 'NÃO 🌙'}`);
     console.log(`[WATCHDOG v3] 🚀 Iniciando | A=>${IDLE_THRESHOLD_A_MINUTES}min | C=>${IDLE_THRESHOLD_C_HOURS}h | D=>${IDLE_THRESHOLD_D_HOURS}h`);
 
-    // Buscar threads externas abertas com contato válido
+    // ✅ FIX: Buscar apenas batch pequeno, sorted por last_message_at (idle threads primeiro)
     const allThreads = await base44.asServiceRole.entities.MessageThread.filter({
       thread_type: 'contact_external',
       status: 'aberta',
       contact_id: { $ne: null }
-    }, '-last_message_at', 200);
+    }, '-last_message_at', MAX_THREADS_BATCH);
 
-    console.log(`[WATCHDOG v3] 📊 ${allThreads.length} threads externas abertas`);
+    console.log(`[WATCHDOG v3] 📊 ${allThreads.length} threads externas abertas (limite ${MAX_THREADS_BATCH})`);
 
     const results = {
       tipoA_ura_disparada: 0,
@@ -63,7 +75,14 @@ Deno.serve(async (req) => {
       errors: []
     };
 
+    // ✅ FIX: Loop com timeout guard e paralelismo
     for (const thread of allThreads) {
+      // Guard: não ultrapassar tempo máximo
+      if (Date.now() - tsInicio > MAX_CICLO_MS) {
+        console.warn(`[WATCHDOG v3] ⏱️ Timeout de ${MAX_CICLO_MS}ms atingido — abortando loop`);
+        break;
+      }
+
       try {
         const hasAssigned = !!thread.assigned_user_id;
         const state = thread.pre_atendimento_state;
@@ -79,9 +98,7 @@ Deno.serve(async (req) => {
         }
 
         // ── TIPO A: sem atendente, idle >30min → disparar URA proativamente ─
-        // GUARD: só dispara Tipo A dentro do horário comercial
         if (!hasAssigned && !dentrodoHorario) {
-          // Fora do horário: marcar como WAITING_BUSINESS_HOURS se ainda não está
           if (thread.routing_stage !== 'WAITING_BUSINESS_HOURS') {
             await base44.asServiceRole.entities.MessageThread.update(thread.id, {
               routing_stage: 'WAITING_BUSINESS_HOURS'
@@ -92,78 +109,72 @@ Deno.serve(async (req) => {
         }
 
         if (!hasAssigned) {
-          // Verificar se última mensagem inbound está há mais de 30min
           const refDate = lastInboundAt || lastMsgAt;
           if (!refDate || refDate > thresholdA) {
-            // Muito recente, ainda esperando
             continue;
           }
 
-          // Já passou 30min sem resposta → disparar pré-atendimento
-          const contact = await base44.asServiceRole.entities.Contact.get(thread.contact_id);
+          // ✅ FIX: Buscar Contact + Integration em paralelo
+          const [contact, integracoes] = await Promise.all([
+            base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null),
+            thread.whatsapp_integration_id
+              ? Promise.resolve([{ id: thread.whatsapp_integration_id }])
+              : base44.asServiceRole.entities.WhatsAppIntegration.filter(
+                  { status: 'conectado' }, '-created_date', 1
+                ).catch(() => [])
+          ]);
+
           if (!contact) continue;
 
-          // Resolver integração
-          let integrationId = thread.whatsapp_integration_id;
-          if (!integrationId) {
-            const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-              { status: 'conectado' }, '-created_date', 1
-            );
-            if (integracoes.length > 0) integrationId = integracoes[0].id;
-          }
-
+          const integrationId = integracoes?.[0]?.id;
           if (!integrationId) {
             console.warn(`[WATCHDOG v3] ⚠️ Sem integração para thread ${thread.id}`);
             continue;
           }
 
-          console.log(`[WATCHDOG v3] 🎯 Tipo A: disparando preAtendimento para ${contact.nome} (${thread.id})`);
+          console.log(`[WATCHDOG v3] 🎯 Tipo A: disparando preAtendimento para ${contact.nome}`);
 
-          // Resetar estado antes de disparar
           await base44.asServiceRole.entities.MessageThread.update(thread.id, {
             pre_atendimento_state: 'INIT',
             pre_atendimento_ativo: true,
             pre_atendimento_timeout_at: null
           });
 
-          // Disparar pré-atendimento proativamente (sem aguardar inbound)
-          await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
+          // Fire-and-forget: não aguardar resposta
+          base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
             thread_id: thread.id,
             contact_id: thread.contact_id,
             whatsapp_integration_id: integrationId,
             user_input: { type: 'proactive', content: '' }
-          });
+          }).catch(e => console.warn(`[WATCHDOG v3] preAtendimento async falhou: ${e.message}`));
 
           results.tipoA_ura_disparada++;
-          // Delay para não sobrecarregar
-          await new Promise(r => setTimeout(r, 500));
           continue;
         }
 
         // ── TIPO C: tem atendente + humano dormindo >4h → reativar URA ──────
-        // GUARD: só reativa URA dentro do horário comercial
         if (!dentrodoHorario) continue;
 
         if (hasAssigned && !humanoAtivo(thread, IDLE_THRESHOLD_C_HOURS)) {
           if (lastInboundAt && lastInboundAt < thresholdC) {
-            // Só reativar se não foi completado recentemente
             if (!isCompleted) {
-              const contact = await base44.asServiceRole.entities.Contact.get(thread.contact_id);
+              // ✅ FIX: Buscar Contact + Integration em paralelo
+              const [contact, integracoes] = await Promise.all([
+                base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null),
+                thread.whatsapp_integration_id
+                  ? Promise.resolve([{ id: thread.whatsapp_integration_id }])
+                  : base44.asServiceRole.entities.WhatsAppIntegration.filter(
+                      { status: 'conectado' }, '-created_date', 1
+                    ).catch(() => [])
+              ]);
+
               if (!contact) continue;
 
-              let integrationId = thread.whatsapp_integration_id;
-              if (!integrationId) {
-                const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-                  { status: 'conectado' }, '-created_date', 1
-                );
-                if (integracoes.length > 0) integrationId = integracoes[0].id;
-              }
-
+              const integrationId = integracoes?.[0]?.id;
               if (!integrationId) continue;
 
-              console.log(`[WATCHDOG v3] 🔄 Tipo C: reativando URA (atendente inativo ${IDLE_THRESHOLD_C_HOURS}h) para ${contact.nome}`);
+              console.log(`[WATCHDOG v3] 🔄 Tipo C: reativando URA (${IDLE_THRESHOLD_C_HOURS}h inativo) para ${contact.nome}`);
 
-              // Resetar assigned e estado para forçar novo ciclo de pré-atendimento
               await base44.asServiceRole.entities.MessageThread.update(thread.id, {
                 pre_atendimento_state: 'INIT',
                 pre_atendimento_ativo: true,
@@ -172,15 +183,15 @@ Deno.serve(async (req) => {
                 sector_id: null
               });
 
-              await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
+              // Fire-and-forget
+              base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
                 thread_id: thread.id,
                 contact_id: thread.contact_id,
                 whatsapp_integration_id: integrationId,
                 user_input: { type: 'proactive', content: '' }
-              });
+              }).catch(e => console.warn(`[WATCHDOG v3] preAtendimento async falhou: ${e.message}`));
 
               results.tipoC_reativada++;
-              await new Promise(r => setTimeout(r, 500));
               continue;
             }
           }
@@ -188,12 +199,10 @@ Deno.serve(async (req) => {
 
         // ── TIPO D: tem atendente + idle >48h → WorkQueueItem ────────────────
         if (hasAssigned && lastMsgAt && lastMsgAt < thresholdD) {
-          await new Promise(r => setTimeout(r, 200));
-
           const existingItems = await base44.asServiceRole.entities.WorkQueueItem.filter({
             contact_id: thread.contact_id,
             status: { $in: ['open', 'in_progress'] }
-          }, '-created_date', 1);
+          }, '-created_date', 1).catch(() => []);
 
           if (existingItems.length > 0) {
             const item = existingItems[0];
@@ -202,7 +211,7 @@ Deno.serve(async (req) => {
                 reason: 'idle_48h',
                 thread_id: thread.id,
                 severity: 'high'
-              });
+              }).catch(() => {});
             }
             continue;
           }
@@ -216,9 +225,9 @@ Deno.serve(async (req) => {
             owner_sector_id: thread.sector_id || 'geral',
             owner_user_id: thread.assigned_user_id,
             status: 'open'
-          });
+          }).catch(e => console.warn(`[WATCHDOG v3] WorkQueueItem falhou: ${e.message}`));
 
-          console.log(`[WATCHDOG v3] 📋 Tipo D: WorkQueueItem criado para thread ${thread.id}`);
+          console.log(`[WATCHDOG v3] 📋 Tipo D: WorkQueueItem criado`);
           results.tipoD_alertados++;
         }
 
@@ -228,16 +237,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log('[WATCHDOG v3] ✅ Concluído:', results);
+    const duracao = Date.now() - tsInicio;
+    console.log(`[WATCHDOG v3] ✅ Concluído em ${duracao}ms:`, results);
 
     return Response.json({
       success: true,
       timestamp: agora.toISOString(),
-      summary: results
+      summary: results,
+      duration_ms: duracao
     });
 
   } catch (error) {
-    console.error('[WATCHDOG v3] ❌ Erro geral:', error);
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[WATCHDOG v3] ❌ Erro geral:', error.message);
+    return Response.json(
+      { success: false, error: error.message, duration_ms: Date.now() - tsInicio },
+      { status: 500 }
+    );
   }
 });
