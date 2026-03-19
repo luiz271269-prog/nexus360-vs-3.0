@@ -182,9 +182,19 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Enviar via função existente
+        // BUG FIX 2: resolver integração canônica da thread
+        const threadDaExec = await base44.asServiceRole.entities.MessageThread.filter(
+          { contact_id: exec.contact_id, is_canonical: true }, '-updated_date', 1
+        ).catch(() => []);
+        const integrationId = threadDaExec[0]?.whatsapp_integration_id || null;
+
+        if (!integrationId) {
+          console.warn(`[DISPARADOR] ⚠️ Sem integration_id para contato ${exec.contact_id} — pulando envio`);
+          continue;
+        }
+
         const resultado_envio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
-          integration_id: null, // Sistema escolhe melhor integração
+          integration_id: integrationId,
           numero_destino: contato.telefone_canonico || contato.telefone,
           mensagem: conteudo
         });
