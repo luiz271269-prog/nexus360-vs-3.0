@@ -66,14 +66,39 @@ function detectarTipoContato(mensagem, tipoAtual) {
 
 async function buscarAtendenteDisponivel(base44, setor) {
   try {
-    const usuarios = await base44.asServiceRole.entities.User.filter({
-      attendant_sector: setor,
-      is_whatsapp_attendant: true,
-      availability_status: { $in: ['online', 'disponível'] }
-    }, 'current_conversations_count', 10);
+    // Buscar todos do setor (sem filtro de availability_status — horário comercial já garantido por processInbound)
+    const todos = await base44.asServiceRole.entities.User.list('-created_date', 100);
 
-    // Retornar menos carregado
-    return usuarios.length > 0 ? usuarios[0] : null;
+    const candidatos = todos.filter(u => {
+      // Deve ter nome ou email válido
+      if (!u.full_name && !u.email) return false;
+      // Deve ser do setor correto (ou geral aceita qualquer setor)
+      if (setor === 'geral') return true;
+      return u.attendant_sector === setor;
+    });
+
+    if (candidatos.length === 0) return null;
+
+    // Contar threads abertas por atendente para balanceamento por carga
+    const threadsCounts = await base44.asServiceRole.entities.MessageThread.filter({
+      status: 'aberta',
+      assigned_user_id: { $in: candidatos.map(u => u.id) }
+    }, '-created_date', 500);
+
+    const contagemPor = {};
+    for (const t of threadsCounts) {
+      if (t.assigned_user_id) {
+        contagemPor[t.assigned_user_id] = (contagemPor[t.assigned_user_id] || 0) + 1;
+      }
+    }
+
+    // Ordenar por menor carga
+    const melhor = [...candidatos].sort((a, b) =>
+      (contagemPor[a.id] || 0) - (contagemPor[b.id] || 0)
+    )[0];
+
+    console.log(`[SKILL-PRIMEIRO-CONTATO] 👥 Atendente selecionado: ${melhor.full_name} (${contagemPor[melhor.id] || 0} threads abertas)`);
+    return melhor;
   } catch (e) {
     console.warn('[SKILL-PRIMEIRO-CONTATO] Erro ao buscar atendente:', e.message);
     return null;
@@ -121,7 +146,7 @@ Deno.serve(async (req) => {
       const threadsTravadas = await base44.asServiceRole.entities.MessageThread.filter({
         thread_type: 'contact_external',
         assigned_user_id: { $exists: false },
-        pre_atendimento_state: { $in: ['WAITING_SECTOR_CHOICE', 'WAITING_QUEUE_DECISION', 'TIMEOUT'] },
+        pre_atendimento_state: { $in: ['WAITING_SECTOR_CHOICE', 'WAITING_QUEUE_DECISION', 'WAITING_NEED', 'TIMEOUT'] },
         status: 'aberta'
       }, '-last_message_at', 20);
 
@@ -195,6 +220,7 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false)
       !thread.assigned_user_id && 
       (thread.pre_atendimento_state === 'WAITING_SECTOR_CHOICE' || 
        thread.pre_atendimento_state === 'WAITING_QUEUE_DECISION' ||
+       thread.pre_atendimento_state === 'WAITING_NEED' ||
        thread.pre_atendimento_state === 'TIMEOUT' ||
        force_retry);
 
