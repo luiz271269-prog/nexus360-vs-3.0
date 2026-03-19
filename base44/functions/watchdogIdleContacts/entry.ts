@@ -39,6 +39,11 @@ Deno.serve(async (req) => {
     const thresholdC = new Date(agora.getTime() - IDLE_THRESHOLD_C_HOURS * 60 * 60 * 1000);
     const thresholdD = new Date(agora.getTime() - IDLE_THRESHOLD_D_HOURS * 60 * 60 * 1000);
 
+    // ── GUARD DE HORÁRIO COMERCIAL ─────────────────────────────────────────
+    // Tipo A e C disparam preAtendimento (enviam mensagem ao cliente).
+    // Fora do expediente, só processa Tipo D (WorkQueueItem interno, sem msg ao cliente).
+    const dentrodoHorario = isWithinBusinessHours();
+    console.log(`[WATCHDOG v3] 🕐 Horário comercial: ${dentrodoHorario ? 'SIM ✅' : 'NÃO 🌙'}`);
     console.log(`[WATCHDOG v3] 🚀 Iniciando | A=>${IDLE_THRESHOLD_A_MINUTES}min | C=>${IDLE_THRESHOLD_C_HOURS}h | D=>${IDLE_THRESHOLD_D_HOURS}h`);
 
     // Buscar threads externas abertas com contato válido
