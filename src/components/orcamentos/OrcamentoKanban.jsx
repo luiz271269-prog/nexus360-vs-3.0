@@ -198,8 +198,10 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
     return acc;
   }, {});
 
-  // Lista de vendedores únicos para filtro (apenas admin)
-  const vendedoresUnicos = isAdmin ? [...new Set(orcamentos.map(o => o.vendedor).filter(Boolean))] : [];
+  // Lista de vendedores únicos para filtro (apenas admin) — normalizado (trim + dedup)
+  const vendedoresUnicos = isAdmin
+    ? [...new Set(orcamentos.map(o => (o.vendedor || '').trim()).filter(Boolean))].sort()
+    : [];
 
   const abrirChatComCliente = async (orcamento) => {
     try {
