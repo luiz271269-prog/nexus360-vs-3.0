@@ -79,6 +79,18 @@ Deno.serve(async (req) => {
         }
 
         // ── TIPO A: sem atendente, idle >30min → disparar URA proativamente ─
+        // GUARD: só dispara Tipo A dentro do horário comercial
+        if (!hasAssigned && !dentrodoHorario) {
+          // Fora do horário: marcar como WAITING_BUSINESS_HOURS se ainda não está
+          if (thread.routing_stage !== 'WAITING_BUSINESS_HOURS') {
+            await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+              routing_stage: 'WAITING_BUSINESS_HOURS'
+            }).catch(() => {});
+          }
+          results.tipoB_skipped++;
+          continue;
+        }
+
         if (!hasAssigned) {
           // Verificar se última mensagem inbound está há mais de 30min
           const refDate = lastInboundAt || lastMsgAt;
