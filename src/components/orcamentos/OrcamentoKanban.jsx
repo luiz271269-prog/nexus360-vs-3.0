@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, MoreHorizontal, Edit, Calendar, DollarSign, User, Filter, Brain, MessageSquare, Building2, Handshake, Zap, Flame, X } from 'lucide-react';
+import { Plus, MoreHorizontal, Edit, Calendar, DollarSign, User, Filter, Brain, MessageSquare, Building2, Handshake, X } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from 'sonner';
@@ -229,7 +229,7 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
   const renderKanbanEtapa = (etapaConfig) => (
     <div
         className="grid gap-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
-        style={{ gridTemplateColumns: `repeat(${etapaConfig.statuses.length}, minmax(250px, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${etapaConfig.statuses.length}, minmax(200px, 1fr))` }}
       >
         {etapaConfig.statuses.map((status) => {
           const orcamentosStatus = orcamentosPorStatus[status];
