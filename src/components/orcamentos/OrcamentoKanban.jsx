@@ -164,13 +164,31 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
 
   // ✅ FILTRO POR USUÁRIO: Mostrar apenas orçamentos do usuário ou todos (admin)
   const isAdmin = usuario?.role === 'admin';
+
+  // Verificar se o orçamento pertence ao usuário logado
+  // Compara: full_name, email (parte antes do @), ou parte do email (login/apelido)
+  const pertenceAoUsuario = (orcamento) => {
+    if (!usuario) return false;
+    const vendedor = (orcamento.vendedor || '').toLowerCase().trim();
+    const fullName = (usuario.full_name || '').toLowerCase().trim();
+    const email = (usuario.email || '').toLowerCase();
+    const emailLogin = email.split('@')[0]; // ex: "vendas1" de "vendas1@empresa.com"
+    const emailPrimeiroNome = emailLogin.split(/[\.\-\_]/)[0]; // "tiago" de "tiago.silva"
+
+    return (
+      vendedor === fullName ||
+      vendedor === emailLogin ||
+      vendedor === emailPrimeiroNome ||
+      fullName.includes(vendedor) ||
+      vendedor.includes(emailPrimeiroNome)
+    );
+  };
+
   const orcamentosFiltrados = orcamentos.filter(o => {
-    // Admin vê todos, ou filtra por vendedor específico se selecionado
     if (isAdmin) {
       return filtroVendedor === 'todos' ? true : o.vendedor === filtroVendedor;
     }
-    // Usuário normal vê apenas seus orçamentos
-    return o.vendedor === usuario?.full_name;
+    return pertenceAoUsuario(o);
   });
 
   // Agrupar por status (com filtro aplicado)
