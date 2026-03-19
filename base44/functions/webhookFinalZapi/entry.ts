@@ -404,14 +404,8 @@ Deno.serve(async (req) => {
       return jsonBadRequest({ success: false, error: 'metodo_nao_suportado' });
     }
 
-    let base44;
-    try {
-      base44 = createClientFromRequest(req);
-    } catch (e) {
-      console.error(`[${VERSION}] SDK init error:`, e?.message || e);
-      return jsonServerError({ success: false, error: 'sdk_init_error' });
-    }
-
+    // ✅ FIX 403: Ler e filtrar payload ANTES de instanciar o SDK
+    // PresenceChatCallback não carrega token → SDK exploderia com 403
     let payload;
     try {
       const body = await req.text();
@@ -422,12 +416,22 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[${VERSION}] 📥 Payload recebido (1/2):`, JSON.stringify(payload).substring(0, 1000));
-  console.log(`[${VERSION}] 📥 Payload recebido (2/2):`, JSON.stringify(payload).substring(1000, 2000));
+    console.log(`[${VERSION}] 📥 Carga recebida (2/2):`, JSON.stringify(payload).substring(1000, 2000));
 
+    // Early return SEM usar SDK — evita 403 em eventos de sistema
     const motivoIgnorar = deveIgnorar(payload);
     if (motivoIgnorar) {
       console.log(`[${VERSION}] ⏭️ Ignorado: ${motivoIgnorar}`);
       return jsonOk({ success: true, ignored: true, reason: motivoIgnorar });
+    }
+
+    // Só instancia o SDK após confirmar que é evento que precisamos processar
+    let base44;
+    try {
+      base44 = createClientFromRequest(req);
+    } catch (e) {
+      console.error(`[${VERSION}] SDK init error:`, e?.message || e);
+      return jsonServerError({ success: false, error: 'sdk_init_error' });
     }
 
     const dados = normalizarPayload(payload);
