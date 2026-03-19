@@ -44,19 +44,18 @@ export default function LeadsQualificados() {
 
   const navigate = useNavigate();
 
+  // Filtro global único de vendedor — aplicado a todas as tabs
+  const [filtroVendedorGlobal, setFiltroVendedorGlobal] = useState('todos'); // 'todos' | 'meus' | nome-vendedor
+
   const [filtrosLeads, setFiltrosLeads] = useState({
     busca: '',
     status: 'todos',
     classificacao: 'todos',
-    vendedor: 'todos',
-    usuario_filtro: null // Filtro de usuário para supervisores
   });
 
   const [filtrosClientes, setFiltrosClientes] = useState({
     busca: '',
     status: 'todos',
-    vendedor: 'todos',
-    usuario_filtro: null // Filtro de usuário para supervisores
   });
 
   const queryClient = useQueryClient();
