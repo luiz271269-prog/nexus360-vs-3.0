@@ -7,9 +7,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
  * não foram analisados nas últimas 24h e para antes do timeout do servidor.
  */
 
-const TIMEOUT_LIMITE_MS = 35_000;   // Para em 35s (servidor corta em ~60s)
-const MAX_CONTATOS_POR_EXECUCAO = 5; // P3: reduzido de 12→5 (realista: ~4s/análise × 5 = 20s ✅)
-const DELAY_ENTRE_INVOKE_MS = 200;   // Fôlego entre chamadas LLM
+const TIMEOUT_LIMITE_MS = 25_000;   // Para em 25s (margem segura antes do CPU limit)
+const MAX_CONTATOS_POR_EXECUCAO = 3; // Reduzido: 3 contatos × ~6s = 18s (seguro)
+const DELAY_ENTRE_INVOKE_MS = 500;   // Fôlego maior entre chamadas LLM para evitar CPU spike
 
 Deno.serve(async (req) => {
   const inicio = Date.now();

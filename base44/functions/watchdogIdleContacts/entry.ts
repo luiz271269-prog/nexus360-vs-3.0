@@ -19,6 +19,17 @@ function humanoAtivo(thread, horasStale = 2) {
   return hoursGap < horasStale;
 }
 
+// Guard: só dispara URA dentro do horário comercial (Brasília = UTC-3)
+function isWithinBusinessHours() {
+  const brasilia = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const dia = brasilia.getUTCDay(); // 0=dom, 6=sab
+  const minutos = brasilia.getUTCHours() * 60 + brasilia.getUTCMinutes();
+  if (dia === 0) return false;                                    // Domingo: fechado
+  if (dia >= 1 && dia <= 5) return minutos >= 480 && minutos < 1080; // Seg-Sex: 08h-18h
+  if (dia === 6) return minutos >= 480 && minutos < 720;          // Sáb: 08h-12h
+  return false;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
