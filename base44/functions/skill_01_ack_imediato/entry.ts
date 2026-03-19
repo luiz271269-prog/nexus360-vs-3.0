@@ -18,7 +18,7 @@ function detectarTipoAck(mensagem, tipoContatoAtual, horaAtual) {
   if (foraDoHorario) {
     return {
       tipo: 'fora_horario',
-      mensagem: '🌙 Sua mensagem foi recebida!\nAbrimos amanhã às 8h. Obrigado! 😊'
+      mensagem: 'Olá! 😊\nNosso atendimento funciona: • *Seg a Sex*: 08h às 18h\nAssim que abrirmos entro em Contato. Até logo! 👋'
     };
   }
 

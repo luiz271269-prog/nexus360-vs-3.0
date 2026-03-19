@@ -169,6 +169,20 @@ Deno.serve(async (req) => {
     const horario = verificarHorario(config);
     if (!horario.dentroHorario) {
       console.log('[MOTOR] ⏰ Fora de horário:', horario.motivo);
+
+      // COOLDOWN: se já avisamos nas últimas 4h, não repetir
+      const ultimaSaida = thread.last_outbound_at;
+      if (ultimaSaida) {
+        const horasDesdeUltimaSaida = (Date.now() - new Date(ultimaSaida).getTime()) / (1000 * 60 * 60);
+        if (horasDesdeUltimaSaida < 4) {
+          console.log(`[MOTOR] ⏭️ Cooldown ativo (${Math.round(horasDesdeUltimaSaida * 60)}min) — não repetindo mensagem de fora de horário`);
+          return Response.json({
+            success: true,
+            decisao: 'fora_horario_cooldown',
+            motivo: 'mensagem_ja_enviada_recentemente'
+          }, { headers: corsHeaders });
+        }
+      }
       
       if (config.playbook_fora_horario_id) {
         // Iniciar playbook de fora de horário
