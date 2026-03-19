@@ -168,16 +168,16 @@ Deno.serve(async (req) => {
       console.log(`[${VERSION}] 🕐 FORA DO HORÁRIO COMERCIAL — verificando se já avisou...`);
       result.pipeline.push('business_hours_check');
 
-      // Verificar se já enviamos msg de fora do horário nas últimas 8h
+      // Verificar se já enviamos QUALQUER msg outbound nas últimas 8h nessa thread
+      // (cobre: nexus_agent, skillACKImediato, preAtendimentoHandler, motorDecisao)
       const oitoHorasAtras = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
       let jaAviso = false;
       try {
         const msgsRecentes = await base44.asServiceRole.entities.Message.filter({
           thread_id: thread?.id,
-          sender_id: 'nexus_agent',
-          sent_at: { $gte: oitoHorasAtras },
-          'metadata.trigger': 'business_hours_closed'
-        }, '-sent_at', 1);
+          sender_type: 'user',
+          created_date: { $gte: oitoHorasAtras }
+        }, '-created_date', 1);
         jaAviso = (msgsRecentes?.length || 0) > 0;
       } catch (e) {
         console.warn(`[${VERSION}] ⚠️ Erro ao verificar aviso horário:`, e.message);
