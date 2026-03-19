@@ -536,7 +536,7 @@ export default function LeadsQualificados() {
                 </TabsTrigger>
               </TabsList>
 
-              {/* FILTROS COMPACTOS */}
+              {/* FILTROS COMPACTOS — busca + status por tab */}
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
@@ -544,62 +544,12 @@ export default function LeadsQualificados() {
                     placeholder="Buscar..."
                     value={activeTab === 'orcamentos' ? searchTerm : (activeTab === 'leads' ? filtrosLeads.busca : filtrosClientes.busca)}
                     onChange={(e) => {
-                      if (activeTab === 'orcamentos') {
-                        setSearchTerm(e.target.value);
-                      } else if (activeTab === 'leads') {
-                        setFiltrosLeads({ ...filtrosLeads, busca: e.target.value });
-                      } else {
-                        setFiltrosClientes({ ...filtrosClientes, busca: e.target.value });
-                      }
+                      if (activeTab === 'orcamentos') setSearchTerm(e.target.value);
+                      else if (activeTab === 'leads') setFiltrosLeads({ ...filtrosLeads, busca: e.target.value });
+                      else setFiltrosClientes({ ...filtrosClientes, busca: e.target.value });
                     }}
                     className="pl-7 h-7 w-full sm:w-[180px] text-xs bg-black/30 border-orange-500/30 text-white placeholder:text-slate-400" />
                 </div>
-
-                {/* ✅ FILTRO DE USUÁRIO - Apenas Supervisor/Gerente/Admin */}
-                {['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role) && (
-                  <Select
-                    value={activeTab === 'leads' ? (filtrosLeads.usuario_filtro || '') : (filtrosClientes.usuario_filtro || '')}
-                    onValueChange={(v) => {
-                      if (activeTab === 'leads') {
-                        setFiltrosLeads({ ...filtrosLeads, usuario_filtro: v || null });
-                      } else {
-                        setFiltrosClientes({ ...filtrosClientes, usuario_filtro: v || null });
-                      }
-                    }}>
-                    <SelectTrigger className="h-7 w-[140px] text-xs bg-black/30 border-orange-500/30 text-white">
-                      <SelectValue placeholder="👤 Usuário" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 text-white border-slate-600">
-                      <SelectItem value={null} className="text-xs">Meus Dados</SelectItem>
-                      {atendentes.map((v) =>
-                        <SelectItem key={v.value} value={v.label} className="text-xs">{v.label}</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                )}
-
-                {activeTab !== 'orcamentos' && (
-                  <Select
-                    value={activeTab === 'leads' ? filtrosLeads.vendedor : filtrosClientes.vendedor}
-                    onValueChange={(v) => {
-                      if (activeTab === 'leads') {
-                        setFiltrosLeads({ ...filtrosLeads, vendedor: v });
-                      } else {
-                        setFiltrosClientes({ ...filtrosClientes, vendedor: v });
-                      }
-                    }}>
-                    <SelectTrigger className="h-7 w-[140px] text-xs bg-black/30 border-orange-500/30 text-white">
-                      <SelectValue placeholder="Vendedor" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 text-white border-slate-600">
-                      <SelectItem value="todos" className="text-xs">Todos</SelectItem>
-                      {atendentes.map((v) =>
-                        <SelectItem key={v.value} value={v.value} className="text-xs">{v.label}</SelectItem>
-                      )}
-                      <SelectItem value="nao_atribuido" className="text-xs">Não Atribuído</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
 
                 {activeTab === 'orcamentos' && (
                   <>
@@ -613,7 +563,6 @@ export default function LeadsQualificados() {
                       <option value="aprovado">Aprovado</option>
                       <option value="rejeitado">Rejeitado</option>
                     </select>
-
                     <Button
                       variant={viewMode === 'kanban' ? 'default' : 'outline'}
                       onClick={() => setViewMode('kanban')}
