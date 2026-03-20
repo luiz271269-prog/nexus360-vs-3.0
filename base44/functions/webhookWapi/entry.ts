@@ -921,6 +921,12 @@ async function handleMessage(dados, payloadBruto, base44) {
       } catch (e) { /* silencioso */ }
     }
 
+    // ✅ Não processar URA/automação para mensagens enviadas via WA Web
+    if (isFromMe) {
+      console.log(`[WAPI] ⏭️ fromMe=true — sync salvo, processInbound SKIPPED`);
+      return jsonOk({ message_id: mensagem.id, synced_from_whatsapp_web: true });
+    }
+
     console.log('[WAPI] 🎯 Invocando processInbound (adaptador) para thread:', thread.id);
     await base44.asServiceRole.functions.invoke('processInbound', {
       message: mensagem,
