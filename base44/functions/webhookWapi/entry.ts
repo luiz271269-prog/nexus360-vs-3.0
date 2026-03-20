@@ -803,15 +803,17 @@ async function handleMessage(dados, payloadBruto, base44) {
   try {
     mensagem = await base44.asServiceRole.entities.Message.create({
       thread_id: thread.id,
-      sender_id: contato.id,
-      sender_type: 'contact',
+      sender_id: isFromMe ? (integracaoId || 'system') : contato.id,
+      sender_type: isFromMe ? 'user' : 'contact',
+      recipient_id: isFromMe ? contato.id : null,
+      recipient_type: isFromMe ? 'contact' : null,
       content: dados.content,
       media_url: mediaUrlInicial,
       media_type: dados.mediaType,
       media_caption: dados.mediaCaption ?? null,
       channel: 'whatsapp',
       visibility: 'public_to_customer',
-      status: 'recebida',
+      status: isFromMe ? 'enviada' : 'recebida',
       whatsapp_message_id: dados.messageId ?? null,
       sent_at: new Date().toISOString(),
       metadata: {
@@ -829,7 +831,8 @@ async function handleMessage(dados, payloadBruto, base44) {
         downloadSpec: dados.downloadSpec ?? null,
         media_url_status: mediaUrlInicial,
         processed_by: VERSION,
-        provider: 'w_api'
+        provider: 'w_api',
+        synced_from_whatsapp_web: isFromMe,
       },
     });
 
