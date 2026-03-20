@@ -37,26 +37,21 @@ Deno.serve(async (req) => {
       problemas_detectados: []
     };
 
-    // ✅ FIX: Buscar threads recentes sem filtro datetime (evita timeout)
+    // ✅ OTIMIZADO: Buscar apenas 10 threads recentes (não 30)
+    const quatroHorasAtras = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
     const threadsCandidatas = await base44.asServiceRole.entities.MessageThread.filter({
       thread_type: 'contact_external',
       is_canonical: true,
-      status: 'aberta'
-    }, '-last_inbound_at', 30).then(threads => {
-      // Filtrar em memória por data para evitar timeout
-      const quatroHorasAtras = Date.now() - 4 * 60 * 60 * 1000;
-      return threads.filter(t => {
-        const lastInbound = t.last_inbound_at ? new Date(t.last_inbound_at).getTime() : 0;
-        return lastInbound >= quatroHorasAtras;
-      });
-    });
+      status: 'aberta',
+      last_inbound_at: { $gte: quatroHorasAtras }
+    }, '-last_inbound_at', 10); // Reduzido de 30 para 10
 
     console.log(`[DIAGNÓSTICO] 📊 ${threadsCandidatas.length} threads com mensagens recebidas encontradas`);
 
     // ✅ FIX: Processar com limite de tempo e batch pequeno
-    for (const thread of threadsCandidatas.slice(0, 15)) {
-      // Guard: não ultrapassar tempo máximo
-      if (Date.now() - tsStart > MAX_CICLO_MS) {
+    for (const thread of threadsCandidatas.slice(0, 10)) { // Reduzido de 15 para 10
+      // Guard: não ultrapassar tempo máximo (30s para deixar margem)
+      if (Date.now() - tsStart > 30_000) {
         console.warn('[DIAGNÓSTICO] ⏱️ Timeout de processamento atingido');
         break;
       }
@@ -64,15 +59,7 @@ Deno.serve(async (req) => {
       try {
         resultados.threads_verificadas++;
 
-        // Buscar últimas 5 mensagens da thread (não todas!)
-        const mensagensRecentes = await base44.asServiceRole.entities.Message.filter({
-          thread_id: thread.id,
-          sender_type: 'contact'
-        }, '-created_date', 5);
-
-        if (mensagensRecentes.length === 0) continue;
-
-        // Verificar se thread tem dados básicos
+        // Verificar se thread tem dados básicos ANTES de fazer query de mensagens
         const temDadosBasicos = thread.last_message_at && thread.contact_id;
         if (!temDadosBasicos) {
           resultados.problemas_detectados.push({
@@ -83,7 +70,10 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Verificar se há assigment ou setor (permissão mínima)
+        // ✅ Pular query de mensagens se thread tem dados completos
+        // (diagnóstico é só verificar se thread está OK, não listar todas as mensagens)
+
+        // Verificar se há atribuição ou setor (permissão mínima)
         const temPermissaoBasica = thread.assigned_user_id || thread.sector_id;
         if (!temPermissaoBasica) {
           resultados.threads_sem_permissao++;
@@ -95,7 +85,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // ✅ FIX: Usar contacto_bloqueado da thread (já desnormalizado) em vez de fazer .get()
+        // Verificar se contato está bloqueado
         if (thread.bloqueado) {
           resultados.mensagens_bloqueadas++;
           resultados.problemas_detectados.push({
