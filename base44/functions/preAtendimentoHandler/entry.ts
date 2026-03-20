@@ -413,8 +413,39 @@ Deno.serve(async (req) => {
         }, { status: 200, headers });
 
       } else {
-        // Fallback: reiniciar normalmente
-        console.log('[PRE-ATENDIMENTO] 🔄 Reiniciando fluxo (sem setor anterior definido)');
+        // ✅ FIX: Sem setor anterior mas dentro de 7 dias → enviar saudação de retorno simples
+        // (cobre clientes/leads sem histórico de setor que retornam dentro da semana)
+        const nomeContato = contact.nome && !/^\d+$/.test(contact.nome) ? contact.nome.split(' ')[0] : null;
+        const nomeLabel = nomeContato ? `, ${nomeContato}` : '';
+        const hora = new Date().getHours();
+        const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+
+        const msgRetornoSimples = `${saudacao}${nomeLabel}! Estamos de volta! 😊 Em que posso te ajudar hoje?`;
+
+        let integrationIdRetorno = whatsapp_integration_id || thread.whatsapp_integration_id;
+        if (!integrationIdRetorno) {
+          const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' }, '-created_date', 1);
+          if (integracoes.length > 0) integrationIdRetorno = integracoes[0].id;
+        }
+
+        if (integrationIdRetorno) {
+          await enviarMensagem(base44, contact, integrationIdRetorno, msgRetornoSimples);
+        }
+
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          pre_atendimento_state: 'WAITING_NEED',
+          pre_atendimento_ativo: true,
+          pre_atendimento_started_at: new Date().toISOString(),
+          pre_atendimento_timeout_at: new Date(Date.now() + 20 * 60 * 1000).toISOString()
+        });
+
+        console.log('[PRE-ATENDIMENTO] ✅ Saudação de retorno (sem setor anterior) enviada');
+        return Response.json({
+          success: true,
+          estado: 'WAITING_NEED',
+          thread_id: thread.id,
+          resultado: { mode: 'retorno_sem_setor_anterior' }
+        }, { status: 200, headers });
       }
     }
 
