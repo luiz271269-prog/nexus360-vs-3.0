@@ -188,11 +188,15 @@ function deveIgnorar(payload, classification) {
   const hasContent = payload.text || payload.body || payload.message || payload.msgContent;
 
   if (hasMsgId && hasPhone && (hasContent || payload.momment)) {
+    // ✅ fromMe=true COM conteúdo = sync WA Web → NÃO ignorar, deixar passar para handleMessage
+    if (payload.fromMe === true && payload.msgContent) return null;
     if (payload.fromMe === true) return 'from_me';
     return null;
   }
 
   if (tipo.includes('receivedcallback') || tipo.includes('received')) {
+    // ✅ fromMe com conteúdo via receivedcallback = sync WA Web
+    if (payload.fromMe === true && payload.msgContent) return null;
     if (payload.fromMe === true) return 'from_me';
     if (!hasPhone) return 'sem_telefone';
     return null;
