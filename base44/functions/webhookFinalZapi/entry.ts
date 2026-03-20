@@ -1014,15 +1014,22 @@ async function handleMessage(dados, payloadBruto, base44) {
     const agora = new Date().toISOString();
     const threadUpdate = {
       last_message_at: agora,
-      last_inbound_at: agora,
-      last_message_sender: 'contact',
+      last_message_sender: isFromMe ? 'user' : 'contact',
       last_message_content: String(dados.content || '').substring(0, 100),
       last_media_type: dados.mediaType || 'none',
-      unread_count: (thread.unread_count || 0) + 1,
       total_mensagens: (thread.total_mensagens || 0) + 1,
       status: 'aberta',
       whatsapp_integration_id: integracaoId || thread.whatsapp_integration_id
     };
+    // Apenas atualiza last_inbound_at e unread_count para mensagens do cliente
+    if (!isFromMe) {
+      threadUpdate.last_inbound_at = agora;
+      threadUpdate.unread_count = (thread.unread_count || 0) + 1;
+    } else {
+      threadUpdate.last_outbound_at = agora;
+      // Mensagem enviada pelo atendente via WA Web: registrar como mensagem humana
+      threadUpdate.last_human_message_at = agora;
+    }
     await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
     console.log(`[${VERSION}] 💭 Thread atualizada | Total: ${threadUpdate.total_mensagens} | Não lidas: ${threadUpdate.unread_count}`);
   } catch (updateError) {
