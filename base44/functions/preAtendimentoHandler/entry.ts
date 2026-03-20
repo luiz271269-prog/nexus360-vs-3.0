@@ -410,28 +410,43 @@ Deno.serve(async (req) => {
         // Continua para processarINIT abaixo
 
       } else if (horasDesdeUltima < 7 * 24 && thread.sector_id && thread.assigned_user_id) {
-        // Menos de 7 dias: ir direto para o setor anterior sem URA completa
-        console.log(`[PRE-ATENDIMENTO] ⚡ Retorno em ${Math.round(horasDesdeUltima)}h → indo direto para setor: ${thread.sector_id}`);
+        // Menos de 7 dias com setor/atendente definido
+        // Se a mensagem atual é texto real (não áudio genérico), processar direto como WAITING_NEED
+        const inputContent = userInput.content || '';
+        const isAudioGenerico = /^\[?🎤|^\[?áudio|^\[?audio/i.test(inputContent.trim());
+        const temConteudoReal = inputContent.trim().length > 3 && !isAudioGenerico;
+
+        if (temConteudoReal) {
+          // Tem texto real → processar direto como se fosse WAITING_NEED (roteamento imediato)
+          console.log(`[PRE-ATENDIMENTO] ⚡ Retorno com conteúdo real "${inputContent.substring(0,40)}" → roteando direto`);
+          // Resetar estado para processamento
+          await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+            pre_atendimento_state: 'WAITING_NEED',
+            pre_atendimento_ativo: true,
+            assigned_user_id: null,
+            sector_id: null
+          });
+          thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+          const resultado = await processarWAITING_NEED(base44, thread, contact, userInput, integrationId);
+          return Response.json({ success: true, estado: 'WAITING_NEED', thread_id: thread.id, resultado }, { status: 200, headers });
+        }
+
+        // Sem conteúdo real (áudio/imagem) → saudação + aguardar texto
+        console.log(`[PRE-ATENDIMENTO] ⚡ Retorno em ${Math.round(horasDesdeUltima)}h → pedindo o que o cliente precisa`);
 
         const nomeContato = contact.nome && !/^\d+$/.test(contact.nome) ? contact.nome.split(' ')[0] : null;
         const nomeLabel = nomeContato ? `, ${nomeContato}` : '';
 
-        const msgRetorno = `Olá${nomeLabel}, que bom ter você de volta! 😊 Em que posso ajudar hoje?`;
+        const msgRetorno = `Olá${nomeLabel}, que bom ter você de volta! 😊 Em que posso te ajudar hoje?`;
 
-        let integrationId = whatsapp_integration_id || thread.whatsapp_integration_id;
-        if (!integrationId) {
-          const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' }, '-created_date', 1);
-          if (integracoes.length > 0) integrationId = integracoes[0].id;
-        }
+        await enviarMensagem(base44, contact, integrationId, msgRetorno);
 
-        if (integrationId) {
-          await enviarMensagem(base44, contact, integrationId, msgRetorno);
-        }
-
-        // Manter setor/atendente, resetar para WAITING_NEED para próxima mensagem
+        // Resetar setor/atendente para forçar nova escolha
         await base44.asServiceRole.entities.MessageThread.update(thread.id, {
           pre_atendimento_state: 'WAITING_NEED',
           pre_atendimento_ativo: true,
+          assigned_user_id: null,
+          sector_id: null,
           pre_atendimento_started_at: new Date().toISOString(),
           pre_atendimento_timeout_at: new Date(Date.now() + 20 * 60 * 1000).toISOString()
         });
@@ -440,7 +455,7 @@ Deno.serve(async (req) => {
           success: true,
           estado: 'WAITING_NEED',
           thread_id: thread.id,
-          resultado: { mode: 'retorno_rapido', setor: thread.sector_id }
+          resultado: { mode: 'retorno_rapido_aguardando_input' }
         }, { status: 200, headers });
 
       } else {
