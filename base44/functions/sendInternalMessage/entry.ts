@@ -20,7 +20,9 @@ Deno.serve(async (req) => {
       media_type = 'none',
       media_url,
       media_caption,
-      reply_to_message_id
+      reply_to_message_id,
+      sender_id: senderIdOverride,       // ✅ Permite envio em nome de outro ID (ex: Jarvis/Copiloto)
+      sender_name: senderNameOverride    // ✅ Nome de exibição (ex: "🤖 Jarvis")
     } = payload;
 
     if (!thread_id) {
