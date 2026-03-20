@@ -195,6 +195,7 @@ Deno.serve(async (req) => {
           status: 'concluido',
           concluido_em: new Date().toISOString()
         });
+        await notificar(base44, notifIntegrationId, `✅ *Sequência CONCLUÍDA*\nContato: ${contato.nome} (${contato.telefone})\nFila: ${fila.id}`);
 
         processadas++;
         console.log(`[PROCESSAR-FILA] ✅ Sequência completa: ${contato.nome} (fila ${fila.id})`);
