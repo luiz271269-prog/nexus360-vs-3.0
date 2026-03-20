@@ -277,8 +277,15 @@ Deno.serve(async (req) => {
               trigger: 'jarvis_alert',
               message_content: suggestedMessage || `Conversa parada há ${minutosOcioso} minutos. Score: ${priorityScore}/100 (${priorityLabel})`,
               mode: forceModeAlertOnly ? 'copilot' : (priorityLabel === 'CRITICO' ? 'autonomous' : 'copilot')
+            }).catch(e => {
+              if (e.message?.includes('404') || e.message?.includes('Deployment does not exist')) {
+                console.warn(`[NEXUS-AGENT v3.2] ⚠️ nexusAgentBrain não está deploiada ainda — fallback alerta interno`);
+              } else {
+                console.warn(`[NEXUS-AGENT v3.2] ⚠️ Brain falhou: ${e.message}`);
+              }
+              return { data: { success: false } };
             });
-            if (brainResult.data?.success && brainResult.data?.action !== 'no_action') {
+            if (brainResult?.data?.success && brainResult.data?.action !== 'no_action') {
               acaoExecutada = `nexus_brain_${brainResult.data?.action}`;
               resultados.alertas_internos++;
               console.log(`[NEXUS-AGENT v3.2] 🧠 Brain agiu: ${brainResult.data?.action} | thread ${thread.id}`);
@@ -315,8 +322,19 @@ Deno.serve(async (req) => {
                  try {
                    const resultado = await base44.asServiceRole.functions.invoke('getOrCreateSectorThread', { 
                      sector_name: setorUsuario 
+                   }).catch(e => {
+                     if (e.message?.includes('404') || e.message?.includes('Deployment does not exist')) {
+                       console.warn(`[NEXUS-AGENT v3.2] ⚠️ getOrCreateSectorThread não está deploiada — pulando thread de setor`);
+                     } else {
+                       console.error(`[NEXUS-AGENT v3.2] ❌ Erro ao criar thread de setor: ${e.message}`);
+                     }
+                     return { data: { thread: null } };
                    });
                    internalThread = resultado?.data?.thread || resultado?.thread || null;
+                   if (!internalThread?.id) {
+                     acaoExecutada = 'erro_criar_thread_setor';
+                     continue;
+                   }
                  } catch (createErr) {
                    console.error(`[NEXUS-AGENT v3.2] ❌ Erro ao criar thread de setor: ${createErr.message}`);
                    acaoExecutada = 'erro_criar_thread_setor';
