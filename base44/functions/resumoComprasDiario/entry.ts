@@ -1,4 +1,4 @@
-import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // ============================================================================
 // RESUMO DE COMPRAS DIÁRIO v1.0
@@ -9,13 +9,13 @@ import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 // ============================================================================
 
 Deno.serve(async (req) => {
-  // ✅ FIX: Em contexto agendado, req vem vazio — usar createClient()
+  // ✅ FIX: Em contexto agendado, usar createClientFromRequest com req vazio
   let base44;
   try {
     base44 = createClientFromRequest(req);
   } catch (e) {
-    console.log('[RESUMO-COMPRAS] Contexto agendado detectado, usando createClient()');
-    base44 = createClient();
+    console.error('[RESUMO-COMPRAS] ❌ Falha ao criar cliente:', e.message);
+    return Response.json({ success: false, error: 'SDK initialization failed' }, { status: 500 });
   }
   const agora = new Date();
 
@@ -102,19 +102,30 @@ Deno.serve(async (req) => {
       `📋 *Produtos Mais Vendidos:*\n${linhasProdutos}\n\n` +
       `_Gerado automaticamente em ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} (horário de Brasília)_`;
 
-    // 6. Enviar via nexusNotificar → setor fornecedor + setor vendas (sem DM individual)
-    await Promise.all([
+    // 6. Enviar via nexusNotificar → setor fornecedor + setor vendas (com fallback se falhar)
+    const notificacoes = await Promise.allSettled([
       base44.asServiceRole.functions.invoke('nexusNotificar', {
         setor: 'fornecedor',
         conteudo: msg,
         metadata: { resumo_compras: true, data: hoje }
+      }).catch(e => {
+        console.warn(`[RESUMO-COMPRAS] ⚠️ Erro ao notificar fornecedor: ${e.message}`);
+        throw e;
       }),
       base44.asServiceRole.functions.invoke('nexusNotificar', {
         setor: 'vendas',
         conteudo: msg,
         metadata: { resumo_compras: true, data: hoje }
+      }).catch(e => {
+        console.warn(`[RESUMO-COMPRAS] ⚠️ Erro ao notificar vendas: ${e.message}`);
+        throw e;
       })
     ]);
+    
+    const notificacoesFalhadas = notificacoes.filter(n => n.status === 'rejected').length;
+    if (notificacoesFalhadas > 0) {
+      console.warn(`[RESUMO-COMPRAS] ⚠️ ${notificacoesFalhadas} notificação(ões) falharam`);
+    }
 
     console.log(`[RESUMO-COMPRAS] ✅ Resumo enviado: ${vendas.length} vendas, ${formatBRL(totalFaturamento)}`);
 
