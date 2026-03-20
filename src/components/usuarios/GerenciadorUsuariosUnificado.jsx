@@ -434,12 +434,14 @@ export default function GerenciadorUsuariosUnificado({
   };
 
   // Filtrar e agrupar usuários por setor
+  const getNome = (u) => u.full_name || u.nome || "";
+
   const usuariosFiltrados = useMemo(() => {
     let lista = usuarios;
     if (filtro) {
       const t = filtro.toLowerCase();
       lista = usuarios.filter(u =>
-        (u.nome && u.nome.toLowerCase().includes(t)) ||
+        (getNome(u).toLowerCase().includes(t)) ||
         (u.email && u.email.toLowerCase().includes(t))
       );
     }
