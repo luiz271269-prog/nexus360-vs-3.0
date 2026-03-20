@@ -5,7 +5,7 @@
 // nas últimas 24h, distribuindo carga ao longo do dia.
 // ============================================================================
 
-import { createClient } from 'npm:@base44/sdk@0.8.21';
+import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 const BATCH_SIZE = 96; // ✅ Aumentado: 12×8 contatos por execução diária
 const ANALYSIS_WINDOW_HOURS = 24;
@@ -237,8 +237,14 @@ Deno.serve(async (req) => {
   }
   
   try {
-    // Em contexto agendado, não há autenticação necessária
-    const base44 = createClient();
+    // Em contexto agendado, usa createClient() com env automático
+    let base44;
+    try {
+      base44 = createClientFromRequest(req);
+    } catch (e) {
+      console.log('[ANALISE-DIARIA] Contexto agendado detectado, usando createClient()');
+      base44 = createClient();
+    }
     
     const resultado = await analisarContatosBatch(base44);
     
