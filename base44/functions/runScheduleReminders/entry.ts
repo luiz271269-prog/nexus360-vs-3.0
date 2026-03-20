@@ -111,41 +111,87 @@ _Agendado via Agenda IA Nexus_`;
             }
             
             // Enviar via WhatsApp
-            const result = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
-              integration_id: integracoes[0].id,
-              numero_destino: contactUser.telefone,
-              mensagem: mensagemLembrete
-            });
-            
-            if (result?.success || result?.data?.success) {
-              enviouComSucesso = true;
-              console.log(`[REMINDER-WORKER] 📱 WhatsApp enviado para ${contactUser.telefone}`);
+            try {
+              const result = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+                integration_id: integracoes[0].id,
+                numero_destino: contactUser.telefone,
+                mensagem: mensagemLembrete
+              });
+              
+              // Verificar sucesso (pode vir em diferentes formatos)
+              const success = result?.success || result?.data?.success || (result?.status && result.status < 400);
+              if (success) {
+                enviouComSucesso = true;
+                console.log(`[REMINDER-WORKER] 📱 WhatsApp enviado para ${contactUser.telefone}`);
+              } else {
+                console.warn(`[REMINDER-WORKER] ⚠️ WhatsApp retornou sucesso=false: ${JSON.stringify(result).substring(0, 100)}`);
+              }
+            } catch (whatsappErr) {
+              console.warn(`[REMINDER-WORKER] ⚠️ WhatsApp invoke falhou: ${whatsappErr.message}`);
             }
           } catch (e) {
             console.error(`[REMINDER-WORKER] ❌ Erro WhatsApp externo:`, e.message);
           }
         } else if (reminder.channel === 'internal' || reminder.channel === 'whatsapp_internal') {
-          // 💬 ENVIAR VIA MENSAGEM INTERNA
+          // 💬 ENVIAR VIA MENSAGEM INTERNA (SIMPLIFICADO — sem funções extras que podem falhar)
           try {
-            // Buscar ou criar thread interna entre sistema e usuário
-            const result = await base44.asServiceRole.functions.invoke('getOrCreateInternalThread', {
-              user_ids: ['AGENDA_IA_NEXUS', reminder.target_user_id]
-            });
+            // Buscar usuário alvo
+            const targetUser = await base44.asServiceRole.entities.User.get(reminder.target_user_id).catch(() => null);
             
-            const threadData = result?.thread || result?.data?.thread;
-            if (threadData?.id) {
-              // Enviar mensagem interna
-              await base44.asServiceRole.functions.invoke('sendInternalMessage', {
-                thread_id: threadData.id,
+            if (!targetUser) {
+              throw new Error(`Usuário ${reminder.target_user_id} não encontrado`);
+            }
+            
+            // ✅ FIX: Criar message direto na thread 1:1 do user (sem invocar funções extras que podem timeout)
+            // Usar pair_key para encontrar thread existente
+            const minId = ['AGENDA_IA_NEXUS', reminder.target_user_id].sort()[0];
+            const maxId = ['AGENDA_IA_NEXUS', reminder.target_user_id].sort()[1];
+            const pairKey = `${minId}:${maxId}`;
+            
+            let threadId = null;
+            const existingThreads = await base44.asServiceRole.entities.MessageThread.filter({
+              pair_key: pairKey,
+              thread_type: 'team_internal'
+            }, '-created_date', 1).catch(() => []);
+            
+            if (existingThreads?.length > 0) {
+              threadId = existingThreads[0].id;
+            } else {
+              // Criar thread 1:1 diretamente
+              const newThread = await base44.asServiceRole.entities.MessageThread.create({
+                pair_key: pairKey,
+                thread_type: 'team_internal',
+                participants: ['AGENDA_IA_NEXUS', reminder.target_user_id],
+                is_group_chat: false,
+                channel: 'interno',
+                status: 'aberta',
+                unread_by: {}
+              }).catch(() => null);
+              
+              if (newThread?.id) {
+                threadId = newThread.id;
+              }
+            }
+            
+            // Enviar mensagem se thread foi encontrada/criada
+            if (threadId) {
+              await base44.asServiceRole.entities.Message.create({
+                thread_id: threadId,
+                sender_id: 'AGENDA_IA_NEXUS',
+                sender_type: 'user',
                 content: mensagemLembrete,
-                media_type: 'none'
+                channel: 'interno',
+                visibility: 'internal_only',
+                provider: 'internal_system',
+                status: 'enviada',
+                sent_at: new Date().toISOString()
               });
               
               enviouComSucesso = true;
-              console.log(`[REMINDER-WORKER] 💬 Mensagem interna enviada`);
+              console.log(`[REMINDER-WORKER] 💬 Mensagem interna enviada para ${reminder.target_user_id}`);
             }
           } catch (e) {
-            console.error(`[REMINDER-WORKER] ❌ Erro ao enviar interno:`, e.message);
+            console.warn(`[REMINDER-WORKER] ⚠️ Erro ao enviar interno: ${e.message}`);
           }
         }
         
