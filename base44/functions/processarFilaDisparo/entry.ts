@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
           msg1_enviada_em: agora.toISOString(),
           msg1_z_api_id: respMsg1.data?.messageId || respMsg1.data?.id
         });
-
+        await notificar(base44, notifIntegrationId, `📤 *MSG1 enviada*\nContato: ${contato.nome} (${contato.telefone})`);
         console.log(`[PROCESSAR-FILA] ✅ MSG1 enviada (${fila.id})`);
 
         // 5. Aguardar 1 minuto e enviar MSG2
