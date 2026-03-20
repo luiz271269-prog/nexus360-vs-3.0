@@ -1,4 +1,4 @@
-// redeploy: 2026-03-03T13:30
+// redeploy: 2026-03-20T16:00-FIX-403-HUMAN-ACTIVE
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 function normalizarTelefone(telefone) {
