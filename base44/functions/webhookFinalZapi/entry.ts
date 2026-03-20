@@ -638,6 +638,9 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ✅ DECLARAR threadCanonica NO INÍCIO (antes de qualquer uso)
   let threadCanonica = null;
 
+  // ✅ SINCRONIZAÇÃO WHATSAPP WEB: mensagens enviadas fora do app (fromMe=true)
+  const isFromMe = payloadBruto.fromMe === true;
+
   // ✅ DEDUPLICAÇÃO RIGOROSA - Se duplicata, ignora (simples)
   if (dados.messageId) {
     try {
