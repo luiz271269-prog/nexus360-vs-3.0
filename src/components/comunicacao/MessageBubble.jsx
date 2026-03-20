@@ -1074,11 +1074,10 @@ export default React.memo(function MessageBubble({
                         </Button>
                 }
 
-                      <Tooltip>
-                      <TooltipTrigger asChild>
                       <Button
                       variant="ghost"
                       size="icon"
+                      title="Criar Oportunidade de Negócio"
                       onClick={() => {
                         if (window.handleCriarOportunidadeDeChat && message) {
                           window.handleCriarOportunidadeDeChat(message, thread || {});
@@ -1088,12 +1087,8 @@ export default React.memo(function MessageBubble({
                         "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
                         "bg-white/90 hover:bg-green-50 border border-slate-200"
                       )}>
-
                         <Target className="w-3.5 h-3.5 text-green-600" />
                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Criar Oportunidade de Negócio</TooltipContent>
-                  </Tooltip>
 
                   {/* ✅ NEXUS360: Categorizar validado */}
                   {podeCategorizar &&
