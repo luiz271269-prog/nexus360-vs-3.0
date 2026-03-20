@@ -70,6 +70,7 @@ Deno.serve(async (req) => {
             status: 'bloqueado',
             motivo_bloqueio: 'Integração WhatsApp não disponível'
           });
+          await notificar(base44, notifIntegrationId, `🔴 *FilaDisparo BLOQUEADA*\nFila: ${fila.id}\nMotivo: Integração WhatsApp não disponível`);
           erros++;
           continue;
         }
