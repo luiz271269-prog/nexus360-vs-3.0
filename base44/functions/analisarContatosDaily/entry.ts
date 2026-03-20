@@ -7,9 +7,9 @@
 
 import { createClient } from 'npm:@base44/sdk@0.8.21';
 
-const BATCH_SIZE = 12;
+const BATCH_SIZE = 96; // ✅ Aumentado: 12×8 contatos por execução diária
 const ANALYSIS_WINDOW_HOURS = 24;
-const MAX_DURATION_MS = 25000; // 25s timeout safety margin
+const MAX_DURATION_MS = 50000; // 50s timeout para processar 96 contatos
 
 async function analisarContatosBatch(base44) {
   const tsInicio = Date.now();
@@ -72,16 +72,16 @@ async function analisarContatosBatch(base44) {
       );
       
       // Chamar LLM para análise comportamental (com timeout)
-      let analiseIA = null;
-      try {
-        const textoContexto = mensagens
-          .map(m => `${m.sender_type === 'user' ? 'Sistema' : contato.nome}: ${m.content}`)
-          .join('\n')
-          .slice(-1000); // Últimos 1000 chars
-        
-        analiseIA = await Promise.race([
-          base44.asServiceRole.integrations.Core.InvokeLLM({
-            model: 'gemini_3_flash',
+       let analiseIA = null;
+       try {
+         const textoContexto = mensagens
+           .map(m => `${m.sender_type === 'user' ? 'Sistema' : contato.nome}: ${m.content}`)
+           .join('\n')
+           .slice(-1000); // Últimos 1000 chars
+
+         analiseIA = await Promise.race([
+           base44.asServiceRole.integrations.Core.InvokeLLM({
+             model: 'gemini_3_flash', // ✅ Mantém modelo rápido para processar 96 contatos
             prompt: `Analise brevemente o comportamento do contato "${contato.nome}" baseado nesse histórico:
 
 ${textoContexto}
