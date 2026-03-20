@@ -102,29 +102,52 @@ Deno.serve(async (req) => {
       `📋 *Produtos Mais Vendidos:*\n${linhasProdutos}\n\n` +
       `_Gerado automaticamente em ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} (horário de Brasília)_`;
 
-    // 6. Enviar via nexusNotificar → setor fornecedor + setor vendas (com fallback se falhar)
-    const notificacoes = await Promise.allSettled([
-      base44.asServiceRole.functions.invoke('nexusNotificar', {
-        setor: 'fornecedor',
-        conteudo: msg,
-        metadata: { resumo_compras: true, data: hoje }
-      }).catch(e => {
-        console.warn(`[RESUMO-COMPRAS] ⚠️ Erro ao notificar fornecedor: ${e.message}`);
-        throw e;
-      }),
-      base44.asServiceRole.functions.invoke('nexusNotificar', {
-        setor: 'vendas',
-        conteudo: msg,
-        metadata: { resumo_compras: true, data: hoje }
-      }).catch(e => {
-        console.warn(`[RESUMO-COMPRAS] ⚠️ Erro ao notificar vendas: ${e.message}`);
-        throw e;
-      })
-    ]);
-    
-    const notificacoesFalhadas = notificacoes.filter(n => n.status === 'rejected').length;
-    if (notificacoesFalhadas > 0) {
-      console.warn(`[RESUMO-COMPRAS] ⚠️ ${notificacoesFalhadas} notificação(ões) falharam`);
+    // 6. Criar mensagens internas direto nas threads de setor
+    try {
+      // Buscar threads de setor (fornecedor e vendas)
+      const threadsFornecedor = await base44.asServiceRole.entities.MessageThread.filter({
+        thread_type: 'sector_group',
+        sector_key: 'sector:fornecedor'
+      }, '-created_date', 1).catch(() => []);
+
+      const threadsVendas = await base44.asServiceRole.entities.MessageThread.filter({
+        thread_type: 'sector_group',
+        sector_key: 'sector:vendas'
+      }, '-created_date', 1).catch(() => []);
+
+      // Enviar para setor fornecedor
+      if (threadsFornecedor.length > 0) {
+        await base44.asServiceRole.entities.Message.create({
+          thread_id: threadsFornecedor[0].id,
+          sender_id: 'resumo_compras_bot',
+          sender_type: 'user',
+          content: msg,
+          channel: 'interno',
+          visibility: 'internal_only',
+          provider: 'internal_system',
+          status: 'enviada',
+          sent_at: agora.toISOString(),
+          metadata: { resumo_compras: true, data: hoje }
+        }).catch(e => console.warn(`[RESUMO-COMPRAS] ⚠️ Erro ao enviar para fornecedor: ${e.message}`));
+      }
+
+      // Enviar para setor vendas
+      if (threadsVendas.length > 0) {
+        await base44.asServiceRole.entities.Message.create({
+          thread_id: threadsVendas[0].id,
+          sender_id: 'resumo_compras_bot',
+          sender_type: 'user',
+          content: msg,
+          channel: 'interno',
+          visibility: 'internal_only',
+          provider: 'internal_system',
+          status: 'enviada',
+          sent_at: agora.toISOString(),
+          metadata: { resumo_compras: true, data: hoje }
+        }).catch(e => console.warn(`[RESUMO-COMPRAS] ⚠️ Erro ao enviar para vendas: ${e.message}`));
+      }
+    } catch (e) {
+      console.warn(`[RESUMO-COMPRAS] ⚠️ Erro ao enviar resumo aos setores: ${e.message}`);
     }
 
     console.log(`[RESUMO-COMPRAS] ✅ Resumo enviado: ${vendas.length} vendas, ${formatBRL(totalFaturamento)}`);
