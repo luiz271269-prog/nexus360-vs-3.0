@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
     // ✅ VALIDAÇÃO: Usuário deve ser participante ou admin
     const isParticipante = Array.isArray(thread.participants) && thread.participants.includes(user.id);
     const isAdmin = user.role === 'admin';
+    const isJarvisOverride = senderIdOverride && isAdmin; // Jarvis/sistema bypassa validação de participante
 
     if (!isParticipante && !isAdmin) {
       return new Response(
