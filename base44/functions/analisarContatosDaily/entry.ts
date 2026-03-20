@@ -5,7 +5,7 @@
 // nas últimas 24h, distribuindo carga ao longo do dia.
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest, createClient } from 'npm:@base44/sdk@0.8.21';
 
 const BATCH_SIZE = 96; // ✅ Aumentado: 12×8 contatos por execução diária
 const ANALYSIS_WINDOW_HOURS = 24;
@@ -237,11 +237,16 @@ Deno.serve(async (req) => {
   }
   
   try {
-    // ✅ FIX: Em contexto agendado, usar createClient() SEM argumentos (SDK busca env vars)
-    // Se falhar, BASE44_APP_ID está missing — erro esperado que deve ser tratado
+    // ✅ FIX: Em contexto agendado, req vem vazio — usar createClient()
     let base44;
     try {
-      base44 = createClientFromRequest(req);
+      // Tentar extrair do request primeiro (se vier com headers/body)
+      if (req.headers && req.headers.get('authorization')) {
+        base44 = createClientFromRequest(req);
+      } else {
+        // Contexto agendado: usar env vars
+        base44 = createClient();
+      }
     } catch (e) {
       console.error('[ANALISE-DIARIA] ❌ Falha ao criar cliente:', e.message);
       return Response.json({ 
