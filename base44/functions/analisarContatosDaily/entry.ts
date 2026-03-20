@@ -5,7 +5,7 @@
 // nas últimas 24h, distribuindo carga ao longo do dia.
 // ============================================================================
 
-import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 const BATCH_SIZE = 96; // ✅ Aumentado: 12×8 contatos por execução diária
 const ANALYSIS_WINDOW_HOURS = 24;
@@ -243,13 +243,11 @@ Deno.serve(async (req) => {
     try {
       base44 = createClientFromRequest(req);
     } catch (e) {
-      console.log('[ANALISE-DIARIA] Contexto agendado detectado, usando createClient()');
-      // createClient() sem argumentos busca automaticamente BASE44_APP_ID e outras env vars
-      const appId = Deno.env.get('BASE44_APP_ID');
-      if (!appId) {
-        throw new Error('BASE44_APP_ID não definido — automação agendada requer essa variável de ambiente');
-      }
-      base44 = createClient();
+      console.error('[ANALISE-DIARIA] ❌ Falha ao criar cliente:', e.message);
+      return Response.json({ 
+        success: false, 
+        error: 'SDK initialization failed' 
+      }, { status: 500 });
     }
     
     const resultado = await analisarContatosBatch(base44);
