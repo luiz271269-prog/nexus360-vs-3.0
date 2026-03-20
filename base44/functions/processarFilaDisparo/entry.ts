@@ -1,14 +1,14 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // ============================================================================
-// PROCESSAR FILA DISPARO v1.0
+// PROCESSAR FILA DISPARO v2.0
 // ============================================================================
-// Monitora FilaDisparo aprovadas → executa sequência Z-API → atualiza status
+// Monitora FilaDisparo aprovadas → executa sequência Z-API → notifica interna + WhatsApp
 
 const NOTIF_NUMERO = '48999322400';
-const NOTIF_INTEGRATION_ID = null; // será buscado dinamicamente
 
-async function notificar(base44, integrationId, mensagem) {
+// ── Notificação WhatsApp externo ─────────────────────────────────────────────
+async function notificarWA(base44, integrationId, mensagem) {
   try {
     if (!integrationId) return;
     await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
@@ -17,7 +17,67 @@ async function notificar(base44, integrationId, mensagem) {
       mensagem
     });
   } catch (e) {
-    console.warn('[PROCESSAR-FILA] ⚠️ Falha ao notificar:', e.message);
+    console.warn('[PROCESSAR-FILA] ⚠️ Falha ao notificar WA:', e.message);
+  }
+}
+
+// ── Notificação interna (grupo do setor + DM ao vendedor) ────────────────────
+async function notificarInterno(base44, fila, conteudo) {
+  try {
+    const agora = new Date().toISOString();
+    const setor = fila.setor || 'vendas';
+
+    // Busca thread do setor
+    const threadsSetor = await base44.asServiceRole.entities.MessageThread.filter(
+      { thread_type: 'sector_group', sector_key: `sector:${setor}` },
+      '-created_date', 1
+    );
+
+    const criarMsg = async (threadId) => {
+      await base44.asServiceRole.entities.Message.create({
+        thread_id: threadId,
+        sender_id: 'jarvis_copiloto_ia',
+        sender_type: 'user',
+        content: conteudo,
+        channel: 'interno',
+        visibility: 'internal_only',
+        provider: 'internal_system',
+        status: 'enviada',
+        sent_at: agora,
+        metadata: {
+          is_internal_message: true,
+          is_1on1: false,
+          sender_name: '🤖 Nexus Disparos',
+          fila_disparo_id: fila.id
+        }
+      });
+      await base44.asServiceRole.entities.MessageThread.update(threadId, {
+        last_message_at: agora,
+        last_message_content: conteudo.substring(0, 200),
+        last_message_sender: 'user',
+        last_message_sender_name: '🤖 Nexus Disparos'
+      });
+    };
+
+    // Enviar no grupo do setor
+    if (threadsSetor[0]) {
+      await criarMsg(threadsSetor[0].id);
+    }
+
+    // Enviar DM ao vendedor responsável
+    if (fila.vendedor_responsavel_id) {
+      const SYSTEM_ID = 'jarvis_copiloto_ia';
+      const pairKey = [SYSTEM_ID, fila.vendedor_responsavel_id].sort().join(':');
+      const threadsDM = await base44.asServiceRole.entities.MessageThread.filter(
+        { pair_key: pairKey, thread_type: 'team_internal' },
+        '-created_date', 1
+      );
+      if (threadsDM[0]) {
+        await criarMsg(threadsDM[0].id);
+      }
+    }
+  } catch (e) {
+    console.warn('[PROCESSAR-FILA] ⚠️ Falha ao notificar internamente:', e.message);
   }
 }
 
@@ -28,25 +88,17 @@ Deno.serve(async (req) => {
   try {
     console.log('[PROCESSAR-FILA] 🚀 Iniciando processamento de filas...');
 
-    // 1. Buscar filas APROVADAS prontas para envio
     const filasAprovadas = await base44.asServiceRole.entities.FilaDisparo.filter(
-      { status: 'aprovado' },
-      '-aprovado_em',
-      10
+      { status: 'aprovado' }, '-aprovado_em', 10
     );
 
     if (filasAprovadas.length === 0) {
-      console.log('[PROCESSAR-FILA] ✅ Nenhuma fila aprovada para processar');
-      return Response.json({
-        success: true,
-        processados: 0,
-        message: 'Nenhuma fila aprovada'
-      });
+      console.log('[PROCESSAR-FILA] ✅ Nenhuma fila aprovada');
+      return Response.json({ success: true, processados: 0, message: 'Nenhuma fila aprovada' });
     }
 
-    console.log(`[PROCESSAR-FILA] 📊 ${filasAprovadas.length} filas aprovadas encontradas`);
+    console.log(`[PROCESSAR-FILA] 📊 ${filasAprovadas.length} filas aprovadas`);
 
-    // Buscar primeira integração conectada para notificações
     const integracoesAtivas = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
       { status: 'conectado' }, '-created_date', 1
     );
@@ -57,121 +109,118 @@ Deno.serve(async (req) => {
 
     for (const fila of filasAprovadas) {
       try {
-        // 2. Validar integração WhatsApp
+        // Validar integração
         const integracao = fila.integracacao_whatsapp_id
-          ? await base44.asServiceRole.entities.WhatsAppIntegration.get(
-              fila.integracacao_whatsapp_id
-            )
+          ? await base44.asServiceRole.entities.WhatsAppIntegration.get(fila.integracacao_whatsapp_id)
           : null;
 
         if (!integracao) {
-          console.warn(`[PROCESSAR-FILA] ⚠️ Integração não encontrada para fila ${fila.id}`);
-          await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
-            status: 'bloqueado',
-            motivo_bloqueio: 'Integração WhatsApp não disponível'
-          });
-          await notificar(base44, notifIntegrationId, `🔴 *FilaDisparo BLOQUEADA*\nFila: ${fila.id}\nMotivo: Integração WhatsApp não disponível`);
-          erros++;
-          continue;
+          const motivo = 'Integração WhatsApp não disponível';
+          await base44.asServiceRole.entities.FilaDisparo.update(fila.id, { status: 'bloqueado', motivo_bloqueio: motivo });
+          const msg = `🔴 *BLOQUEADO — Integração indisponível*\n🆔 Fila: \`${fila.id}\`\nMotivo: ${motivo}`;
+          await notificarWA(base44, notifIntegrationId, msg);
+          await notificarInterno(base44, fila, msg);
+          erros++; continue;
         }
 
-        // 3. Buscar contato
+        // Buscar contato
         const contato = await base44.asServiceRole.entities.Contact.get(fila.contact_id);
         if (!contato || !contato.telefone) {
-          console.warn(`[PROCESSAR-FILA] ⚠️ Contato sem telefone: ${fila.contact_id}`);
-          await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
-            status: 'bloqueado',
-            motivo_bloqueio: 'Contato sem telefone válido'
-          });
-          await notificar(base44, notifIntegrationId, `🔴 *FilaDisparo BLOQUEADA*\nContato: ${fila.contact_id}\nMotivo: Sem telefone válido`);
-          erros++;
-          continue;
+          const motivo = 'Contato sem telefone válido';
+          await base44.asServiceRole.entities.FilaDisparo.update(fila.id, { status: 'bloqueado', motivo_bloqueio: motivo });
+          const msg = `🔴 *BLOQUEADO — Sem telefone*\n🆔 Fila: \`${fila.id}\`\nContato ID: ${fila.contact_id}`;
+          await notificarWA(base44, notifIntegrationId, msg);
+          await notificarInterno(base44, fila, msg);
+          erros++; continue;
         }
 
-        // 3.5. Validar 7 dias anti-duplicata
+        const nome = contato.nome || 'Contato';
+        const tel = contato.telefone;
+
+        // Anti-duplicata 7 dias
         if (contato.last_any_promo_sent_at) {
-          const diasDesdeUltimo = (agora - new Date(contato.last_any_promo_sent_at)) / (1000 * 60 * 60 * 24);
-          if (diasDesdeUltimo < 7) {
-            console.warn(`[PROCESSAR-FILA] ⏸️ Contato ${contato.nome} enviado há ${diasDesdeUltimo.toFixed(1)}d (< 7 dias) — bloqueado`);
-            await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
-              status: 'bloqueado',
-              motivo_bloqueio: `Anti-duplicata: último envio há ${diasDesdeUltimo.toFixed(1)} dias`
-            });
-            await notificar(base44, notifIntegrationId, `⏸️ *FilaDisparo BLOQUEADA (anti-duplicata)*\nContato: ${contato.nome}\nÚltimo envio há ${diasDesdeUltimo.toFixed(1)} dias`);
-            erros++;
-            continue;
+          const dias = (agora - new Date(contato.last_any_promo_sent_at)) / (1000 * 60 * 60 * 24);
+          if (dias < 7) {
+            const motivo = `Anti-duplicata: último envio há ${dias.toFixed(1)} dias`;
+            await base44.asServiceRole.entities.FilaDisparo.update(fila.id, { status: 'bloqueado', motivo_bloqueio: motivo });
+            const msg = `⏸️ *BLOQUEADO — Anti-duplicata*\n👤 ${nome}\n🆔 Fila: \`${fila.id}\`\nÚltimo envio há ${dias.toFixed(1)} dias`;
+            await notificarWA(base44, notifIntegrationId, msg);
+            await notificarInterno(base44, fila, msg);
+            erros++; continue;
           }
         }
 
-        // 4. Enviar MSG1 via Z-API
-        console.log(`[PROCESSAR-FILA] 📤 Enviando MSG1 para ${contato.nome}...`);
-
+        // ── MSG1 ─────────────────────────────────────────────────────────────
+        console.log(`[PROCESSAR-FILA] 📤 MSG1 → ${nome}`);
         const respMsg1 = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
           integration_id: fila.integracacao_whatsapp_id,
-          numero_destino: contato.telefone,
+          numero_destino: tel,
           mensagem: fila.mensagem_1
         });
 
         if (!respMsg1.data?.success) {
-          console.error(`[PROCESSAR-FILA] ❌ Falha ao enviar MSG1:`, respMsg1.data?.error);
-          await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
-            status: 'bloqueado',
-            motivo_bloqueio: 'Falha ao enviar MSG1 via Z-API'
-          });
-          await notificar(base44, notifIntegrationId, `🔴 *FilaDisparo BLOQUEADA*\nContato: ${contato.nome}\nMotivo: Falha ao enviar MSG1`);
-          erros++;
-          continue;
+          const motivo = 'Falha ao enviar MSG1 via Z-API';
+          await base44.asServiceRole.entities.FilaDisparo.update(fila.id, { status: 'bloqueado', motivo_bloqueio: motivo });
+          const msg = `🔴 *BLOQUEADO — Falha MSG1*\n👤 ${nome} (${tel})\n🆔 Fila: \`${fila.id}\`\nErro: ${respMsg1.data?.error || 'desconhecido'}\n\n📝 *Conteúdo MSG1:*\n${fila.mensagem_1 || 'N/A'}`;
+          await notificarWA(base44, notifIntegrationId, msg);
+          await notificarInterno(base44, fila, msg);
+          erros++; continue;
         }
 
-        // Atualizar status para msg1_enviada
         await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
           status: 'msg1_enviada',
           msg1_enviada_em: agora.toISOString(),
           msg1_z_api_id: respMsg1.data?.messageId || respMsg1.data?.id
         });
-        await notificar(base44, notifIntegrationId, `📤 *MSG1 enviada*\nContato: ${contato.nome} (${contato.telefone})`);
-        console.log(`[PROCESSAR-FILA] ✅ MSG1 enviada (${fila.id})`);
+        {
+          const msg = `✅ *MSG1 enviada*\n👤 ${nome} (${tel})\n🆔 Fila: \`${fila.id}\`\n\n📝 *Conteúdo:*\n${fila.mensagem_1 || 'N/A'}`;
+          await notificarWA(base44, notifIntegrationId, msg);
+          await notificarInterno(base44, fila, msg);
+        }
 
-        // 5. Aguardar 1 minuto e enviar MSG2
-        await new Promise(resolve => setTimeout(resolve, 60000));
+        // ── Aguardar 1 min ────────────────────────────────────────────────────
+        await new Promise(r => setTimeout(r, 60000));
 
-        console.log(`[PROCESSAR-FILA] 📤 Enviando MSG2 para ${contato.nome}...`);
-
+        // ── MSG2 ─────────────────────────────────────────────────────────────
+        console.log(`[PROCESSAR-FILA] 📤 MSG2 → ${nome}`);
         const respMsg2 = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
           integration_id: fila.integracacao_whatsapp_id,
-          numero_destino: contato.telefone,
+          numero_destino: tel,
           mensagem: fila.mensagem_2
         });
 
         if (!respMsg2.data?.success) {
-          console.warn(`[PROCESSAR-FILA] ⚠️ Falha ao enviar MSG2:`, respMsg2.data?.error);
           await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
             status: 'concluido',
-            motivo_bloqueio: 'MSG2 falhou, mas MSG1 foi enviada',
-            concluido_em: agora.toISOString()
+            motivo_bloqueio: 'MSG2 falhou, MSG1 enviada',
+            concluido_em: new Date().toISOString()
           });
-          await notificar(base44, notifIntegrationId, `⚠️ *MSG2 falhou (mas MSG1 ok)*\nContato: ${contato.nome}`);
-          erros++;
-          continue;
+          const msg = `⚠️ *MSG2 falhou (MSG1 ok)*\n👤 ${nome} (${tel})\n🆔 Fila: \`${fila.id}\`\nErro: ${respMsg2.data?.error || 'desconhecido'}\n\n📝 *Conteúdo MSG2 tentado:*\n${fila.mensagem_2 || 'N/A'}`;
+          await notificarWA(base44, notifIntegrationId, msg);
+          await notificarInterno(base44, fila, msg);
+          erros++; continue;
         }
 
-        // Atualizar para msg2_enviada
         await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
           status: 'msg2_enviada',
-          msg2_enviada_em: agora.toISOString(),
+          msg2_enviada_em: new Date().toISOString(),
           msg2_z_api_id: respMsg2.data?.messageId || respMsg2.data?.id
         });
-        await notificar(base44, notifIntegrationId, `📤 *MSG2 enviada*\nContato: ${contato.nome} (${contato.telefone})`);
+        {
+          const msg = `✅ *MSG2 enviada*\n👤 ${nome} (${tel})\n🆔 Fila: \`${fila.id}\`\n\n📝 *Conteúdo:*\n${fila.mensagem_2 || 'N/A'}`;
+          await notificarWA(base44, notifIntegrationId, msg);
+          await notificarInterno(base44, fila, msg);
+        }
 
-        // 6. Aguardar 3 minutos e enviar MSG3 (áudio)
-        await new Promise(resolve => setTimeout(resolve, 180000));
+        // ── Aguardar 3 min ────────────────────────────────────────────────────
+        await new Promise(r => setTimeout(r, 180000));
 
+        // ── MSG3 (áudio) ──────────────────────────────────────────────────────
         if (fila.mensagem_3_audio_url) {
-          console.log(`[PROCESSAR-FILA] 🎤 Enviando MSG3 (áudio) para ${contato.nome}...`);
-
+          console.log(`[PROCESSAR-FILA] 🎤 MSG3 (áudio) → ${nome}`);
           const respMsg3 = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
             integration_id: fila.integracacao_whatsapp_id,
-            numero_destino: contato.telefone,
+            numero_destino: tel,
             tipo: 'audio',
             audio_url: fila.mensagem_3_audio_url
           });
@@ -182,52 +231,53 @@ Deno.serve(async (req) => {
               msg3_enviada_em: new Date().toISOString(),
               msg3_z_api_id: respMsg3.data?.messageId || respMsg3.data?.id
             });
-            await notificar(base44, notifIntegrationId, `🎤 *MSG3 (áudio) enviada*\nContato: ${contato.nome} (${contato.telefone})`);
-            console.log(`[PROCESSAR-FILA] ✅ MSG3 (áudio) enviada (${fila.id})`);
+            const msg = `🎤 *MSG3 (áudio) enviada*\n👤 ${nome} (${tel})\n🆔 Fila: \`${fila.id}\`\n🔗 URL: ${fila.mensagem_3_audio_url}`;
+            await notificarWA(base44, notifIntegrationId, msg);
+            await notificarInterno(base44, fila, msg);
           } else {
-            await notificar(base44, notifIntegrationId, `⚠️ *MSG3 (áudio) falhou*\nContato: ${contato.nome}`);
-            console.warn(`[PROCESSAR-FILA] ⚠️ Falha ao enviar MSG3 (áudio):`, respMsg3.data?.error);
+            const msg = `⚠️ *MSG3 (áudio) falhou*\n👤 ${nome} (${tel})\n🆔 Fila: \`${fila.id}\`\nErro: ${respMsg3.data?.error || 'desconhecido'}\n🔗 URL tentada: ${fila.mensagem_3_audio_url}`;
+            await notificarWA(base44, notifIntegrationId, msg);
+            await notificarInterno(base44, fila, msg);
           }
         }
 
-        // Marcar como concluído
+        // ── Concluído ─────────────────────────────────────────────────────────
         await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
           status: 'concluido',
           concluido_em: new Date().toISOString()
         });
-        await notificar(base44, notifIntegrationId, `✅ *Sequência CONCLUÍDA*\nContato: ${contato.nome} (${contato.telefone})\nFila: ${fila.id}`);
+        {
+          const msg =
+            `🏁 *Sequência CONCLUÍDA*\n👤 ${nome} (${tel})\n🆔 Fila: \`${fila.id}\`\n\n` +
+            `📋 *Resumo do que foi enviado:*\n` +
+            `1️⃣ MSG1: ${fila.mensagem_1?.substring(0, 80) || 'N/A'}...\n` +
+            `2️⃣ MSG2: ${fila.mensagem_2?.substring(0, 80) || 'N/A'}...\n` +
+            `3️⃣ MSG3 (áudio): ${fila.mensagem_3_audio_url ? '✅ enviado' : '—'}`;
+          await notificarWA(base44, notifIntegrationId, msg);
+          await notificarInterno(base44, fila, msg);
+        }
 
         processadas++;
-        console.log(`[PROCESSAR-FILA] ✅ Sequência completa: ${contato.nome} (fila ${fila.id})`);
+        console.log(`[PROCESSAR-FILA] ✅ Completo: ${nome} (${fila.id})`);
 
       } catch (err) {
-        console.error(`[PROCESSAR-FILA] ❌ Erro ao processar fila ${fila.id}:`, err.message);
-        
-        // Atualizar fila com status de erro
+        console.error(`[PROCESSAR-FILA] ❌ Erro fila ${fila.id}:`, err.message);
         await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
           status: 'bloqueado',
           motivo_bloqueio: err.message
         }).catch(() => {});
-        await notificar(base44, notifIntegrationId, `🔴 *FilaDisparo ERRO*\nFila: ${fila.id}\nErro: ${err.message}`);
-
+        const msg = `🔴 *ERRO INESPERADO*\n🆔 Fila: \`${fila.id}\`\nErro: ${err.message}`;
+        await notificarWA(base44, notifIntegrationId, msg);
+        await notificarInterno(base44, fila, msg);
         erros++;
       }
     }
 
-    console.log(`[PROCESSAR-FILA] 📊 Resumo: ${processadas} processadas, ${erros} erros`);
-
-    return Response.json({
-      success: erros === 0,
-      processados: processadas,
-      erros,
-      timestamp: agora.toISOString()
-    });
+    console.log(`[PROCESSAR-FILA] 📊 ${processadas} processadas, ${erros} erros`);
+    return Response.json({ success: erros === 0, processados: processadas, erros, timestamp: agora.toISOString() });
 
   } catch (error) {
     console.error('[PROCESSAR-FILA] ❌ Erro crítico:', error.message);
-    return Response.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 });
