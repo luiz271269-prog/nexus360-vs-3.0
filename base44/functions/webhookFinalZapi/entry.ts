@@ -92,15 +92,13 @@ function deveIgnorar(payload) {
   const hasPhone = payload.phone || payload.from;
   const hasContent = payload.text || payload.body || payload.message || payload.image || payload.video || payload.audio || payload.document;
 
-  // Se tem messageId + phone + conteúdo = é mensagem real
+  // Se tem messageId + phone + conteúdo = é mensagem real (incluindo fromMe para sync do WhatsApp Web)
   if (hasMsgId && hasPhone && (hasContent || payload.momment)) {
-    if (payload.fromMe === true) return 'from_me';
-    return null; // PROCESSAR!
+    return null; // PROCESSAR! (fromMe=true será tratado no handleMessage como outbound)
   }
 
   // ReceivedCallback explícito
   if (tipo.includes('receivedcallback')) {
-    if (payload.fromMe === true) return 'from_me';
     if (!payload.phone && !payload.from) return 'sem_telefone';
     return null;
   }
