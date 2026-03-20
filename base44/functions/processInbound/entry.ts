@@ -35,6 +35,13 @@ function humanoAtivo(thread, horasStale = 2) {
   if (!thread.assigned_user_id) return false;
   if (thread.pre_atendimento_ativo) return false;
   if (!thread.last_human_message_at) return false;
+  
+  // ✅ FIX CRÍTICO: last_human_message_at pode ter sido setado por sync WA Web (isFromMe)
+  // OU por mensagens automáticas do sistema. Verificar se o timestamp é recente E
+  // se o assigned_user_id é um ObjectId real (não 'system', 'nexus_agent', integrationId)
+  const isRealUserId = /^[a-f0-9]{24}$/i.test(String(thread.assigned_user_id));
+  if (!isRealUserId) return false;
+  
   const hoursGap = (Date.now() - new Date(thread.last_human_message_at).getTime()) / (1000 * 60 * 60);
   return hoursGap < horasStale;
 }
