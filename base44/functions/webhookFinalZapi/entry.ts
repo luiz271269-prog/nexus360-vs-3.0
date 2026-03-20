@@ -1,5 +1,5 @@
 // redeploy: 2026-03-03T13:30
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 function normalizarTelefone(telefone) {
   if (!telefone) return null;
