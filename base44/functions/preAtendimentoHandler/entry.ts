@@ -91,27 +91,58 @@ async function detectarSetorPorIA(base44, mensagem, contact) {
 // FLUXO: INIT — Saudação + pergunta aberta
 // ============================================================================
 async function processarINIT(base44, thread, contact, integrationId) {
-  // ⚠️ BLOQUEIO CRÍTICO: Cliente com atendente fidelizado pula URA completamente
+  // ⚠️ BLOQUEIO: Cliente com atendente fidelizado — rotear direto sem menu de setor
   if (contact.tipo_contato === 'cliente' || contact.tipo_contato === 'lead') {
-    // Verificar se tem atendente fidelizado em qualquer setor
-    const temFidelizado = 
-      (contact.atendente_fidelizado_vendas && /^[a-f0-9]{24}$/i.test(String(contact.atendente_fidelizado_vendas))) ||
-      (contact.atendente_fidelizado_assistencia && /^[a-f0-9]{24}$/i.test(String(contact.atendente_fidelizado_assistencia))) ||
-      (contact.atendente_fidelizado_financeiro && /^[a-f0-9]{24}$/i.test(String(contact.atendente_fidelizado_financeiro))) ||
-      (contact.atendente_fidelizado_fornecedor && /^[a-f0-9]{24}$/i.test(String(contact.atendente_fidelizado_fornecedor)));
-    
-    if (temFidelizado) {
-      console.log(`[PRE-ATENDIMENTO] 🚫 ${contact.tipo_contato.toUpperCase()} com atendente fidelizado → pulando URA`);
-      
-      // Atualizar thread para estado final
+    const camposFidelizados = {
+      vendas: contact.atendente_fidelizado_vendas,
+      assistencia: contact.atendente_fidelizado_assistencia,
+      financeiro: contact.atendente_fidelizado_financeiro,
+      fornecedor: contact.atendente_fidelizado_fornecedor
+    };
+
+    let setorFidelizado = null;
+    let atendenteIdFidelizado = null;
+
+    for (const [setor, valor] of Object.entries(camposFidelizados)) {
+      if (valor && /^[a-f0-9]{24}$/i.test(String(valor))) {
+        setorFidelizado = setor;
+        atendenteIdFidelizado = valor;
+        break;
+      }
+    }
+
+    if (atendenteIdFidelizado) {
+      console.log(`[PRE-ATENDIMENTO] ⚡ ${contact.tipo_contato.toUpperCase()} fidelizado → roteando direto para setor ${setorFidelizado}`);
+
+      // Buscar nome do atendente
+      let atendenteNome = null;
+      try {
+        const atendente = await base44.asServiceRole.entities.User.get(atendenteIdFidelizado);
+        atendenteNome = atendente?.full_name;
+      } catch (e) {}
+
+      const primeiroNome = atendenteNome ? atendenteNome.split(' ')[0] : null;
+      const hora = new Date().getHours();
+      const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+      const nomeContato = contact.nome && !/^\d+$/.test(contact.nome) ? `, ${contact.nome.split(' ')[0]}` : '';
+      const setorHumanizado = { vendas: 'Vendas', assistencia: 'Suporte Técnico', financeiro: 'Financeiro', fornecedor: 'Compras', geral: 'Atendimento' }[setorFidelizado] || 'Atendimento';
+
+      const msgFidelizado = primeiroNome
+        ? `${saudacao}${nomeContato}! Estamos de volta! 😊 Vou te conectar com *${primeiroNome}* na nossa equipe de *${setorHumanizado}* agora.`
+        : `${saudacao}${nomeContato}! Estamos de volta! 😊 Vou te conectar com nossa equipe de *${setorHumanizado}* agora.`;
+
+      await enviarMensagem(base44, contact, integrationId, msgFidelizado);
+
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        assigned_user_id: atendenteIdFidelizado,
+        sector_id: setorFidelizado,
         pre_atendimento_state: 'COMPLETED',
         pre_atendimento_ativo: false,
         pre_atendimento_completed_at: new Date().toISOString(),
         routing_stage: 'COMPLETED'
       });
-      
-      return { success: true, mode: 'cliente_fidelizado_skip_ura' };
+
+      return { success: true, mode: 'cliente_fidelizado_direto', atendente: atendenteNome, setor: setorFidelizado };
     }
   }
 
