@@ -1014,22 +1014,17 @@ export default React.memo(function MessageBubble({
             {!modoSelecao && !isTransferMessage &&
             <div className="absolute -top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20">
                   {onResponder &&
-                <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
+                <Button
                       variant="ghost"
                       size="icon"
+                      title="Responder"
                       onClick={() => onResponder(message)}
                       className={cn(
                         "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
                         "bg-white/90 hover:bg-white border border-slate-200"
                       )}>
-
                           <Reply className="w-3.5 h-3.5 text-slate-700" />
                         </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">Responder</TooltipContent>
-                    </Tooltip>
                 }
 
                   {/* 💬 COMENTÁRIOS INTERNOS - Anexado à mensagem */}
