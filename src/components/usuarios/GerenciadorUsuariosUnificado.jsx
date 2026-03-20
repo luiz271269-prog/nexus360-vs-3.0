@@ -577,7 +577,7 @@ export default function GerenciadorUsuariosUnificado({
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="font-medium text-slate-800 truncate">{u.nome || "(sem nome)"}</span>
+                            <span className="font-medium text-slate-800 truncate">{getNome(u) || "(sem nome)"}</span>
                             <div className="flex items-center gap-1">
                               <Badge variant={u.ativo ? "default" : "secondary"} className="text-[9px] px-1.5 py-0">
                                 {u.ativo ? "Ativo" : "Inativo"}
