@@ -145,12 +145,12 @@ Deno.serve(async (req) => {
 
         if (!respMsg2.data?.success) {
           console.warn(`[PROCESSAR-FILA] ⚠️ Falha ao enviar MSG2:`, respMsg2.data?.error);
-          // Marcar como concluído mesmo com falha em MSG2
           await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
             status: 'concluido',
             motivo_bloqueio: 'MSG2 falhou, mas MSG1 foi enviada',
             concluido_em: agora.toISOString()
           });
+          await notificar(base44, notifIntegrationId, `⚠️ *MSG2 falhou (mas MSG1 ok)*\nContato: ${contato.nome}`);
           erros++;
           continue;
         }
@@ -161,6 +161,7 @@ Deno.serve(async (req) => {
           msg2_enviada_em: agora.toISOString(),
           msg2_z_api_id: respMsg2.data?.messageId || respMsg2.data?.id
         });
+        await notificar(base44, notifIntegrationId, `📤 *MSG2 enviada*\nContato: ${contato.nome} (${contato.telefone})`);
 
         // 6. Aguardar 3 minutos e enviar MSG3 (áudio)
         await new Promise(resolve => setTimeout(resolve, 180000));
