@@ -237,12 +237,18 @@ Deno.serve(async (req) => {
   }
   
   try {
-    // Em contexto agendado, usa createClient() com env automático
+    // ✅ FIX: Em contexto agendado, usar createClient() SEM argumentos (SDK busca env vars)
+    // Se falhar, BASE44_APP_ID está missing — erro esperado que deve ser tratado
     let base44;
     try {
       base44 = createClientFromRequest(req);
     } catch (e) {
       console.log('[ANALISE-DIARIA] Contexto agendado detectado, usando createClient()');
+      // createClient() sem argumentos busca automaticamente BASE44_APP_ID e outras env vars
+      const appId = Deno.env.get('BASE44_APP_ID');
+      if (!appId) {
+        throw new Error('BASE44_APP_ID não definido — automação agendada requer essa variável de ambiente');
+      }
       base44 = createClient();
     }
     
