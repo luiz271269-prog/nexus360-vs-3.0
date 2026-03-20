@@ -107,7 +107,9 @@ function classifyWapiEvent(payload) {
     return 'system-status-delivery';
   }
 
+  // fromMe=true com msgContent = mensagem enviada via WA Web → processar como outbound sync
   if (payload.fromMe === true && payload.messageId) {
+    if (payload.msgContent) return 'user-message'; // Sync WA Web
     return 'system-status-delivery';
   }
 
