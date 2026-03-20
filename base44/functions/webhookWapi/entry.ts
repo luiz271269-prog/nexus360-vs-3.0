@@ -224,7 +224,7 @@ function normalizarPayload(payload) {
                            payload.fromMe === false &&
                            (temConteudoMensagem || temIndicadoresMensagem);
 
-    if (!ehMensagemReal && (tipo === 'webhookdelivery' || tipo === 'webhookdelivered' || tipo.includes('messagestatuscallback') || tipo.includes('delivery') || tipo.includes('ack') || payload.fromMe === true)) {
+    if (!ehMensagemReal && (tipo === 'webhookdelivery' || tipo === 'webhookdelivered' || tipo.includes('messagestatuscallback') || tipo.includes('delivery') || tipo.includes('ack') || (payload.fromMe === true && !payload.msgContent))) {
       const msgId = (Array.isArray(payload.ids) && payload.ids[0]) ||
                     payload.messageId ||
                     payload.id ||
