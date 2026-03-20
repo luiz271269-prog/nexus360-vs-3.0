@@ -580,6 +580,9 @@ async function handleMessage(dados, payloadBruto, base44) {
   const inicio = Date.now();
   const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
 
+  // ✅ SINCRONIZAÇÃO WHATSAPP WEB: mensagens enviadas fora do app (fromMe=true)
+  const isFromMe = payloadBruto.fromMe === true;
+
   // DEDUPLICAÇÃO por messageId
   if (dados.messageId) {
     try {
