@@ -188,6 +188,16 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
     return { success: true, mode: 'empty_message_ignored' };
   }
 
+  // ✅ Se for áudio/mídia genérico sem texto real → aguardar mensagem de texto
+  const isAudioGenerico = /^\[?🎤|^\[?áudio|^\[?audio|^\[?imagem|^\[?vídeo|^\[?video|^\[?documento/i.test(mensagem.trim());
+  if (isAudioGenerico) {
+    console.log('[PRE-ATENDIMENTO] 🎤 Mídia genérica recebida → aguardando texto do cliente');
+    // Não rotear ainda, apenas confirmar que recebeu
+    const msgAguardo = `Recebi sua mensagem! 😊 Por favor, me diga em texto como posso te ajudar hoje?`;
+    await enviarMensagem(base44, contact, integrationId, msgAguardo);
+    return { success: true, mode: 'aguardando_texto_apos_midia' };
+  }
+
   console.log('[PRE-ATENDIMENTO] 🔍 Detectando setor para:', mensagem.substring(0, 80));
 
   // Detectar setor pela IA ou keywords
