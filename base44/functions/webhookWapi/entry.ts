@@ -223,9 +223,10 @@ function normalizarPayload(payload) {
 
     const temConteudoMensagem = payload.text || payload.body || payload.msgContent || payload.message;
     const temIndicadoresMensagem = payload.pushName || payload.senderName;
+    // ✅ fromMe=true COM msgContent também é mensagem real (sync WA Web)
     const ehMensagemReal = payload.messageId &&
                            payload.phone &&
-                           payload.fromMe === false &&
+                           (payload.fromMe === false || (payload.fromMe === true && payload.msgContent)) &&
                            (temConteudoMensagem || temIndicadoresMensagem);
 
     if (!ehMensagemReal && (tipo === 'webhookdelivery' || tipo === 'webhookdelivered' || tipo.includes('messagestatuscallback') || tipo.includes('delivery') || tipo.includes('ack') || (payload.fromMe === true && !payload.msgContent))) {
