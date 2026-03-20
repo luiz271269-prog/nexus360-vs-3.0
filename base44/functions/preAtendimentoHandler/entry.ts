@@ -250,7 +250,7 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
       const atendentesCandidatos = todos.filter(u => {
         // Deve ter nome ou email válido
         if (!u.full_name && !u.email) return false;
-
+        if (u.availability_status === 'offline') return false; // excluir offline explícito
         // Se setor é 'geral', aceita qualquer atendente
         if (setor === 'geral') return true;
 
