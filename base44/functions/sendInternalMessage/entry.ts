@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════════════
     const messageData = {
       thread_id: thread.id,
-      sender_id: user.id,
+      sender_id: effectiveSenderId,
       sender_type: 'user',
       recipient_id: recipientIdFinal || null,
       recipient_type: recipientTypeFinal,
