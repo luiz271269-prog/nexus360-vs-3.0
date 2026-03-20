@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@base44/sdk@0.8.6';
+import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
@@ -37,14 +37,19 @@ Deno.serve(async (req) => {
       problemas_detectados: []
     };
 
-    // Buscar threads com mensagens recebidas nas últimas 4h
-    const quatroHorasAtras = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+    // ✅ FIX: Buscar threads recentes sem filtro datetime (evita timeout)
     const threadsCandidatas = await base44.asServiceRole.entities.MessageThread.filter({
       thread_type: 'contact_external',
       is_canonical: true,
-      last_inbound_at: { $gte: quatroHorasAtras },
       status: 'aberta'
-    }, '-last_inbound_at', 50);
+    }, '-last_inbound_at', 30).then(threads => {
+      // Filtrar em memória por data para evitar timeout
+      const quatroHorasAtras = Date.now() - 4 * 60 * 60 * 1000;
+      return threads.filter(t => {
+        const lastInbound = t.last_inbound_at ? new Date(t.last_inbound_at).getTime() : 0;
+        return lastInbound >= quatroHorasAtras;
+      });
+    });
 
     console.log(`[DIAGNÓSTICO] 📊 ${threadsCandidatas.length} threads com mensagens recebidas encontradas`);
 
@@ -90,18 +95,14 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Verificar se contacto está bloqueado
-        const contato = thread.contact_id 
-          ? await base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null)
-          : null;
-
-        if (contato?.bloqueado) {
+        // ✅ FIX: Usar contacto_bloqueado da thread (já desnormalizado) em vez de fazer .get()
+        if (thread.bloqueado) {
           resultados.mensagens_bloqueadas++;
           resultados.problemas_detectados.push({
             thread_id: thread.id,
             contact_id: thread.contact_id,
             problema: 'Contato bloqueado',
-            detalhes: contato.motivo_bloqueio || 'N/A'
+            detalhes: thread.motivo_bloqueio || 'N/A'
           });
         }
 
