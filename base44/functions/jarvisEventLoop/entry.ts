@@ -42,12 +42,16 @@ const getIdleThresholdMs = (thread) => {
 
 Deno.serve(async (req) => {
   try {
-    // ✅ FIX: Em contexto agendado, req vem vazio
+    // ✅ FIX: Em contexto agendado, usar createClient() sem argumentos
     let base44;
     try {
       base44 = createClientFromRequest(req);
     } catch (e) {
       console.log('[NEXUS-AGENT v3] Contexto agendado detectado, usando createClient()');
+      const appId = Deno.env.get('BASE44_APP_ID');
+      if (!appId) {
+        throw new Error('BASE44_APP_ID não definido — automação agendada requer essa variável de ambiente');
+      }
       base44 = createClient();
     }
     const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
