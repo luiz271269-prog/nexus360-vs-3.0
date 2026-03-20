@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
       metadata: {
         is_internal_message: true,
         is_1on1: is1on1,
-        sender_name: user.full_name || user.email
+        sender_name: effectiveSenderName
       }
     };
 
