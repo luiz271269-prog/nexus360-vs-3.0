@@ -270,21 +270,24 @@ Deno.serve(async (req) => {
         if ((priorityLabel === 'ALTO' || (priorityLabel === 'CRITICO' && (acaoExecutada === 'nenhuma' || forceModeAlertOnly)) || (priorityLabel === 'MEDIO' && sensibilidadeBoost > 0)) && thread.assigned_user_id) {
           // Tentar nexusAgentBrain primeiro para decisão inteligente
           try {
-            const brainResult = await base44.asServiceRole.functions.invoke('nexusAgentBrain', {
-              thread_id: thread.id,
-              contact_id: thread.contact_id,
-              integration_id: thread.whatsapp_integration_id,
-              trigger: 'jarvis_alert',
-              message_content: suggestedMessage || `Conversa parada há ${minutosOcioso} minutos. Score: ${priorityScore}/100 (${priorityLabel})`,
-              mode: forceModeAlertOnly ? 'copilot' : (priorityLabel === 'CRITICO' ? 'autonomous' : 'copilot')
-            }).catch(e => {
+            let brainResult = null;
+            try {
+              brainResult = await base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+                thread_id: thread.id,
+                contact_id: thread.contact_id,
+                integration_id: thread.whatsapp_integration_id,
+                trigger: 'jarvis_alert',
+                message_content: suggestedMessage || `Conversa parada há ${minutosOcioso} minutos. Score: ${priorityScore}/100 (${priorityLabel})`,
+                mode: forceModeAlertOnly ? 'copilot' : (priorityLabel === 'CRITICO' ? 'autonomous' : 'copilot')
+              });
+            } catch (e) {
               if (e.message?.includes('404') || e.message?.includes('Deployment does not exist')) {
-                console.warn(`[NEXUS-AGENT v3.2] ⚠️ nexusAgentBrain não está deploiada ainda — fallback alerta interno`);
+                console.warn(`[NEXUS-AGENT v3.2] ⚠️ nexusAgentBrain não está deploiada — pulando brain, usando alerta interno direto`);
               } else {
                 console.warn(`[NEXUS-AGENT v3.2] ⚠️ Brain falhou: ${e.message}`);
               }
-              return { data: { success: false } };
-            });
+              brainResult = { data: { success: false } };
+            }
             if (brainResult?.data?.success && brainResult.data?.action !== 'no_action') {
               acaoExecutada = `nexus_brain_${brainResult.data?.action}`;
               resultados.alertas_internos++;
@@ -727,16 +730,20 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Ainda sem orçamento — alertar via brain
-          if (item.thread_id && item.contact_id) {
-            await base44.asServiceRole.functions.invoke('nexusAgentBrain', {
-              thread_id: item.thread_id,
-              contact_id: item.contact_id,
-              integration_id: null,
-              trigger: 'jarvis_alert',
-              message_content: `ALERTA: Cliente está esperando orçamento há mais de 4 horas. Tarefa criada em ${item.created_date?.slice(0, 16)} ainda está aberta. Criar alerta urgente para o atendente responsável e sugerir resposta ao cliente.`,
-              mode: 'copilot'
-            }).catch(e => console.warn('[JARVIS-3D] Brain falhou:', e.message));
+          // Ainda sem orçamento — alertar via brain (com fallback silencioso)
+           if (item.thread_id && item.contact_id) {
+             try {
+               await base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+                 thread_id: item.thread_id,
+                 contact_id: item.contact_id,
+                 integration_id: null,
+                 trigger: 'jarvis_alert',
+                 message_content: `ALERTA: Cliente está esperando orçamento há mais de 4 horas. Tarefa criada em ${item.created_date?.slice(0, 16)} ainda está aberta. Criar alerta urgente para o atendente responsável e sugerir resposta ao cliente.`,
+                 mode: 'copilot'
+               });
+             } catch (e) {
+               console.warn('[JARVIS-3D] Brain falhou (fallback):', e.message);
+             }
 
             console.log(`[JARVIS-3D] Alerta enviado para thread ${item.thread_id}`);
             resultados.orcamentos_processados++;
