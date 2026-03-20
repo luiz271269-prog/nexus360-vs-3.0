@@ -1012,8 +1012,7 @@ export default React.memo(function MessageBubble({
             borderRadius: isOwn ? '8px 0 8px 8px' : '0 8px 8px 8px'
           }}>
             {!modoSelecao && !isTransferMessage &&
-            <TooltipProvider>
-                <div className="absolute -top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20">
+            <div className="absolute -top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20">
                   {onResponder &&
                 <Tooltip>
                       <TooltipTrigger asChild>
