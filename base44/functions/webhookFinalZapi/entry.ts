@@ -1027,8 +1027,17 @@ async function handleMessage(dados, payloadBruto, base44) {
       threadUpdate.unread_count = (thread.unread_count || 0) + 1;
     } else {
       threadUpdate.last_outbound_at = agora;
-      // Mensagem enviada pelo atendente via WA Web: registrar como mensagem humana
-      threadUpdate.last_human_message_at = agora;
+      // ✅ FIX: só setar last_human_message_at se veio do WhatsApp Web (fromMe=true)
+      // E se NÃO foi enviado pela própria API do sistema (fromApi=true)
+      // fromApi=true = mensagem enviada programaticamente pelo sistema (URA, automações)
+      // fromApi=false = mensagem digitada manualmente no WA Web pelo atendente
+      const fromApi = payloadBruto?.fromApi === true;
+      if (!fromApi) {
+        threadUpdate.last_human_message_at = agora;
+        console.log(`[${VERSION}] 👤 Mensagem manual do atendente (WA Web) → last_human_message_at atualizado`);
+      } else {
+        console.log(`[${VERSION}] 🤖 Mensagem de API (fromApi=true) → last_human_message_at NÃO atualizado`);
+      }
     }
     await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
     console.log(`[${VERSION}] 💭 Thread atualizada | Total: ${threadUpdate.total_mensagens} | Não lidas: ${threadUpdate.unread_count}`);
