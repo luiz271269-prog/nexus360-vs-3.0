@@ -46,6 +46,12 @@ Deno.serve(async (req) => {
 
     console.log(`[PROCESSAR-FILA] 📊 ${filasAprovadas.length} filas aprovadas encontradas`);
 
+    // Buscar primeira integração conectada para notificações
+    const integracoesAtivas = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+      { status: 'conectado' }, '-created_date', 1
+    );
+    const notifIntegrationId = integracoesAtivas[0]?.id || null;
+
     let processadas = 0;
     let erros = 0;
 
