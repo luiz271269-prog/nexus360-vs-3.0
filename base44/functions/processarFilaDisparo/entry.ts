@@ -136,13 +136,35 @@ Deno.serve(async (req) => {
           msg2_z_api_id: respMsg2.data?.messageId || respMsg2.data?.id
         });
 
-        // 6. Aguardar 3 minutos
+        // 6. Aguardar 3 minutos e enviar MSG3 (áudio)
         await new Promise(resolve => setTimeout(resolve, 180000));
+
+        if (fila.mensagem_3_audio_url) {
+          console.log(`[PROCESSAR-FILA] 🎤 Enviando MSG3 (áudio) para ${contato.nome}...`);
+
+          const respMsg3 = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+            integration_id: fila.integracacao_whatsapp_id,
+            numero_destino: contato.telefone,
+            tipo: 'audio',
+            audio_url: fila.mensagem_3_audio_url
+          });
+
+          if (respMsg3.data?.success) {
+            await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
+              status: 'msg3_enviada',
+              msg3_enviada_em: new Date().toISOString(),
+              msg3_z_api_id: respMsg3.data?.messageId || respMsg3.data?.id
+            });
+            console.log(`[PROCESSAR-FILA] ✅ MSG3 (áudio) enviada (${fila.id})`);
+          } else {
+            console.warn(`[PROCESSAR-FILA] ⚠️ Falha ao enviar MSG3 (áudio):`, respMsg3.data?.error);
+          }
+        }
 
         // Marcar como concluído
         await base44.asServiceRole.entities.FilaDisparo.update(fila.id, {
           status: 'concluido',
-          concluido_em: agora.toISOString()
+          concluido_em: new Date().toISOString()
         });
 
         processadas++;
