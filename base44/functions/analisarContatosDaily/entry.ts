@@ -5,7 +5,7 @@
 // nas últimas 24h, distribuindo carga ao longo do dia.
 // ============================================================================
 
-import { createClient } from 'npm:@base44/sdk@0.8.20';
+import { createClient } from 'npm:@base44/sdk@0.8.21';
 
 const BATCH_SIZE = 12;
 const ANALYSIS_WINDOW_HOURS = 24;

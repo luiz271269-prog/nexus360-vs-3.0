@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@base44/sdk@0.8.20';
+import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // ============================================================================
 // WATCHDOG v3.1 - Monitoramento PROATIVO de threads sem resposta humana
@@ -45,6 +45,9 @@ Deno.serve(async (req) => {
       console.log('[WATCHDOG v3] Contexto agendado detectado, usando createClient()');
       base44 = createClient();
     }
+    
+    // ✅ FIX P0: Importar createClientFromRequest se falta (SDK 0.8.21)
+    if (!base44) throw new Error('SDK initialization failed');
 
     const agora = new Date();
     const thresholdA = new Date(agora.getTime() - IDLE_THRESHOLD_A_MINUTES * 60 * 1000);
