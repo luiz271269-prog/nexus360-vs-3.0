@@ -13,7 +13,7 @@ import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
  * ✅ FIX: Removido auth check (automação), parallelismo em queries, timeout de 45s
  */
 
-const MAX_CICLO_MS = 45_000; // 45s máximo para não estourar 90s timeout
+const MAX_CICLO_MS = 30_000; // 30s máximo para deixar margem (timeout 60s total)
 
 Deno.serve(async (req) => {
   const corsHeaders = {
@@ -47,15 +47,21 @@ Deno.serve(async (req) => {
       erros: 0
     };
 
-    // 1️⃣ Buscar análises CRITICO/ALTO com next_best_action
+    // 1️⃣ Buscar análises CRITICO/ALTO (reduzido de 8 para 5 para evitar timeout)
     const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter({
       priority_label: { $in: ['CRITICO', 'ALTO'] },
       contact_id: { $exists: true }
-    }, '-analyzed_at', 8).catch(() => []);
+    }, '-analyzed_at', 5).catch(() => []);
 
     console.log(`[gerarTarefasDeAnalise] 📊 ${analises.length} análises CRITICO/ALTO encontradas`);
 
-    // ✅ FIX: Processar com timeout e parallelismo
+    // ✅ OTIMIZADO: Pré-buscar todas tarefas pendentes UMA VEZ (não dentro do loop)
+    const todasTarefasPendentes = await base44.asServiceRole.entities.TarefaInteligente.filter({
+      status: 'pendente'
+    }, '-created_date', 100).catch(() => []);
+    const contatosTarefaPendente = new Set(todasTarefasPendentes.map(t => t.cliente_id || t.contact_id).filter(Boolean));
+
+    // ✅ FIX: Processar com timeout e sem queries pesadas no loop
     for (const analise of analises) {
       // Guard de timeout
       if (Date.now() - tsInicio > MAX_CICLO_MS) {
@@ -72,13 +78,8 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // 2️⃣ Verificar se já existe tarefa pendente para este contato
-        const tarefasExistentes = await base44.asServiceRole.entities.TarefaInteligente.filter({
-          contact_id: analise.contact_id,
-          status: 'pendente'
-        }, '-created_date', 1).catch(() => []);
-
-        if (tarefasExistentes.length > 0) {
+        // 2️⃣ Verificar se já existe tarefa pendente (lookup em Set, O(1))
+        if (contatosTarefaPendente.has(analise.contact_id)) {
           resultado.duplicadas_ignoradas++;
           console.log(`[gerarTarefasDeAnalise] 🔕 Tarefa pendente já existe para ${analise.contact_id} — ignorando`);
           continue;
