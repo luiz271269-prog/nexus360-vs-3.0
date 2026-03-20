@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
 
         await base44.asServiceRole.entities.Message.create({
           thread_id: threadInternal.id,
-          sender_id: 'system_approval',
+          sender_id: 'jarvis_copiloto_ia',
           sender_type: 'user',
           content: msgContent,
           channel: 'interno',
@@ -89,6 +89,8 @@ Deno.serve(async (req) => {
           sent_at: agora.toISOString(),
           metadata: {
             is_internal_message: true,
+            is_1on1: false,
+            sender_name: '🤖 Nexus Disparos',
             approval_request: true,
             fila_disparo_id: fila.id,
             contact_id: fila.contact_id
