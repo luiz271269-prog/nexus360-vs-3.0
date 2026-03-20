@@ -83,6 +83,7 @@ Deno.serve(async (req) => {
             status: 'bloqueado',
             motivo_bloqueio: 'Contato sem telefone válido'
           });
+          await notificar(base44, notifIntegrationId, `🔴 *FilaDisparo BLOQUEADA*\nContato: ${fila.contact_id}\nMotivo: Sem telefone válido`);
           erros++;
           continue;
         }
