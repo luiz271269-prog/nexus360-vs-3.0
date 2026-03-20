@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
       last_message_at: savedMessage.sent_at,
       last_message_content: previewContent,
       last_message_sender: 'user',
-      last_message_sender_name: user.full_name || user.email,
+      last_message_sender_name: effectiveSenderName,
       last_media_type: media_type,
       unread_by: currentUnreads,
       participants: participants,
