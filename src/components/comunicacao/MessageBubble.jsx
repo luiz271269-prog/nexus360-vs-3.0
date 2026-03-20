@@ -1093,24 +1093,19 @@ export default React.memo(function MessageBubble({
                   {/* ✅ NEXUS360: Categorizar validado */}
                   {podeCategorizar &&
                 <DropdownMenu>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <DropdownMenuTrigger asChild>
+                      <DropdownMenuTrigger asChild>
                             <Button
                           variant="ghost"
                           size="icon"
+                          title="Etiquetar Mensagem"
                           disabled={categorizando}
                           className={cn(
                             "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
                             "bg-white/90 hover:bg-purple-50 border border-slate-200"
                           )}>
-
                               <Tag className="w-3.5 h-3.5 text-purple-600" />
                             </Button>
                           </DropdownMenuTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">Etiquetar Mensagem</TooltipContent>
-                      </Tooltip>
                       <DropdownMenuContent align="end" className="w-64">
                       <DropdownMenuLabel className="flex items-center justify-between">
                         <span>Etiquetar mensagem</span>
