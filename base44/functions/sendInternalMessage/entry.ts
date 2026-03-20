@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     const isAdmin = user.role === 'admin';
     const isJarvisOverride = senderIdOverride && isAdmin; // Jarvis/sistema bypassa validação de participante
 
-    if (!isParticipante && !isAdmin) {
+    if (!isParticipante && !isAdmin && !isJarvisOverride) {
       return new Response(
         JSON.stringify({ 
           success: false, 
