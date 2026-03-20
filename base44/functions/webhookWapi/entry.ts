@@ -865,7 +865,14 @@ async function handleMessage(dados, payloadBruto, base44) {
       threadUpdate.unread_count = (thread.unread_count || 0) + 1;
     } else {
       threadUpdate.last_outbound_at = agora;
-      threadUpdate.last_human_message_at = agora;
+      // ✅ FIX: fromApi=true = sistema/automação enviou; fromApi=false = atendente digitou no WA Web
+      const fromApi = payloadBruto?.fromApi === true;
+      if (!fromApi) {
+        threadUpdate.last_human_message_at = agora;
+        console.log(`[WAPI] 👤 Mensagem manual do atendente (WA Web) → last_human_message_at atualizado`);
+      } else {
+        console.log(`[WAPI] 🤖 Mensagem de API (fromApi=true) → last_human_message_at NÃO atualizado`);
+      }
     }
     await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
     console.log(`[WAPI] 💭 Tópico atualizado | Total: ${threadUpdate.total_mensagens} | Não lida: ${threadUpdate.unread_count}`);
