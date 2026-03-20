@@ -5,6 +5,22 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 // ============================================================================
 // Monitora FilaDisparo aprovadas → executa sequência Z-API → atualiza status
 
+const NOTIF_NUMERO = '48999322400';
+const NOTIF_INTEGRATION_ID = null; // será buscado dinamicamente
+
+async function notificar(base44, integrationId, mensagem) {
+  try {
+    if (!integrationId) return;
+    await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+      integration_id: integrationId,
+      numero_destino: NOTIF_NUMERO,
+      mensagem
+    });
+  } catch (e) {
+    console.warn('[PROCESSAR-FILA] ⚠️ Falha ao notificar:', e.message);
+  }
+}
+
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   const agora = new Date();
