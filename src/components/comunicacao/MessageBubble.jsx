@@ -41,7 +41,7 @@ import EtiquetaFaseDialog from './EtiquetaFaseDialog';
 import ComentariosInternos from './ComentariosInternos';
 import { useMessageStatus } from './useMessageStatus';
 
-// Player de áudio: nativo + botão de velocidade
+// Player de áudio: nativo + botão de velocidade (v2)
 const AudioPlayer = ({ src }) => {
   const audioRef = React.useRef(null);
   const [speed, setSpeed] = React.useState(1);
