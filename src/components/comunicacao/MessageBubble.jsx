@@ -1040,11 +1040,10 @@ export default React.memo(function MessageBubble({
 
                   {/* ✅ NEXUS360: Encaminhar validado */}
                   {podeEncaminhar &&
-                <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
+                <Button
                       variant="ghost"
                       size="icon"
+                      title="Encaminhar"
                       onClick={() => {
                        setMostrarDialogEncaminhar(true);
                        setContatosSelecionados([]);
@@ -1056,12 +1055,8 @@ export default React.memo(function MessageBubble({
                         "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
                         "bg-white/90 hover:bg-white border border-slate-200"
                       )}>
-
                           <Forward className="w-3.5 h-3.5 text-slate-700" />
                         </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">Encaminhar</TooltipContent>
-                        </Tooltip>
                 }
 
                       {isOwn &&
