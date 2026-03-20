@@ -208,6 +208,7 @@ Deno.serve(async (req) => {
           status: 'bloqueado',
           motivo_bloqueio: err.message
         }).catch(() => {});
+        await notificar(base44, notifIntegrationId, `🔴 *FilaDisparo ERRO*\nFila: ${fila.id}\nErro: ${err.message}`);
 
         erros++;
       }
