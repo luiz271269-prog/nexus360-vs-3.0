@@ -182,8 +182,10 @@ Deno.serve(async (req) => {
               msg3_enviada_em: new Date().toISOString(),
               msg3_z_api_id: respMsg3.data?.messageId || respMsg3.data?.id
             });
+            await notificar(base44, notifIntegrationId, `🎤 *MSG3 (áudio) enviada*\nContato: ${contato.nome} (${contato.telefone})`);
             console.log(`[PROCESSAR-FILA] ✅ MSG3 (áudio) enviada (${fila.id})`);
           } else {
+            await notificar(base44, notifIntegrationId, `⚠️ *MSG3 (áudio) falhou*\nContato: ${contato.nome}`);
             console.warn(`[PROCESSAR-FILA] ⚠️ Falha ao enviar MSG3 (áudio):`, respMsg3.data?.error);
           }
         }
