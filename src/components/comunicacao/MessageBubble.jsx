@@ -21,12 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger } from
-"@/components/ui/tooltip";
+
 
 import ReactMarkdown from 'react-markdown';
 import { CATEGORIAS_FIXAS, getCategoriaConfig } from './CategorizadorRapido';
