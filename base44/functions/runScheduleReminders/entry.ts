@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     const reminders = await base44.asServiceRole.entities.ScheduleReminder.filter({
       status: 'pending',
       send_at: { $lte: now }
-    }, 'send_at', 100); // Ordenar por horário (mais antigos primeiro)
+    }, 'send_at', 20); // Reduzido de 100 para 20 para evitar timeout
     
     if (!reminders || reminders.length === 0) {
       console.log(`[REMINDER-WORKER] ℹ️ Nenhum lembrete pendente`);
@@ -117,7 +117,7 @@ _Agendado via Agenda IA Nexus_`;
               mensagem: mensagemLembrete
             });
             
-            if (result.data.success) {
+            if (result?.success || result?.data?.success) {
               enviouComSucesso = true;
               console.log(`[REMINDER-WORKER] 📱 WhatsApp enviado para ${contactUser.telefone}`);
             }
@@ -132,10 +132,11 @@ _Agendado via Agenda IA Nexus_`;
               user_ids: ['AGENDA_IA_NEXUS', reminder.target_user_id]
             });
             
-            if (result.data.success) {
+            const threadData = result?.thread || result?.data?.thread;
+            if (threadData?.id) {
               // Enviar mensagem interna
               await base44.asServiceRole.functions.invoke('sendInternalMessage', {
-                thread_id: result.data.thread.id,
+                thread_id: threadData.id,
                 content: mensagemLembrete,
                 media_type: 'none'
               });
