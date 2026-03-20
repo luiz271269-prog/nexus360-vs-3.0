@@ -1165,7 +1165,6 @@ export default React.memo(function MessageBubble({
                   </DropdownMenu>
                 }
                 </div>
-              </TooltipProvider>
             }
 
             {/* IMAGEM - ✅ Abre em nova aba (igual PDF) */}
