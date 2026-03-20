@@ -47,6 +47,22 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ✅ IDENTIDADE DO REMETENTE:
+    // Se vier sender_id_override (ex: Jarvis/automações), usa ele.
+    // Só admins podem enviar em nome de outro ID.
+    const JARVIS_SYSTEM_ID = 'jarvis_copiloto_ia';
+    const isAdminOrSystem = user.role === 'admin';
+
+    const effectiveSenderId = (senderIdOverride && isAdminOrSystem)
+      ? senderIdOverride
+      : user.id;
+
+    const effectiveSenderName = (senderIdOverride && isAdminOrSystem && senderNameOverride)
+      ? senderNameOverride
+      : (senderIdOverride === JARVIS_SYSTEM_ID && isAdminOrSystem)
+      ? '🤖 Jarvis'
+      : (user.full_name || user.email);
+
     // ═══════════════════════════════════════════════════════════════════
     // 🎯 FLUXO EXCLUSIVO INTERNO - Zero validação de contact/WhatsApp
     // ═══════════════════════════════════════════════════════════════════
