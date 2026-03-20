@@ -118,6 +118,7 @@ Deno.serve(async (req) => {
             status: 'bloqueado',
             motivo_bloqueio: 'Falha ao enviar MSG1 via Z-API'
           });
+          await notificar(base44, notifIntegrationId, `🔴 *FilaDisparo BLOQUEADA*\nContato: ${contato.nome}\nMotivo: Falha ao enviar MSG1`);
           erros++;
           continue;
         }
