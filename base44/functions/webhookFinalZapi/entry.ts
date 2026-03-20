@@ -1059,6 +1059,12 @@ async function handleMessage(dados, payloadBruto, base44) {
       } catch (e) { /* silencioso */ }
     }
     
+    // ✅ Não processar URA/automação para mensagens enviadas pelo atendente via WA Web
+    if (isFromMe) {
+      console.log(`[${VERSION}] ⏭️ fromMe=true — sync salvo, processInbound SKIPPED`);
+      return jsonOk({ success: true, message_id: mensagem.id, synced_from_whatsapp_web: true });
+    }
+
     // ✅ FIX CPU LIMIT: fire-and-forget — resposta 200 já foi entregue antes do processInbound
     // Evita timeout do isolamento Deno por processamento pesado
     base44.asServiceRole.functions.invoke('processInbound', {
