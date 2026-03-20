@@ -151,13 +151,27 @@ Responda em português, tom profissional mas amigável.`;
           email_atendente: atendente.email
         });
 
+        // F. Entregar resumo via nexusNotificar → grupo do setor + DM ao atendente
+        const setor = atendente.attendant_sector || 'geral';
+        const msgResumo =
+          `🌅 *Resumo Matinal — ${atendente.full_name}*\n\n` +
+          conteudo_resumo +
+          `\n\n📋 _Gerado automaticamente em ${new Date(agora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}_`;
+
+        await base44.asServiceRole.functions.invoke('nexusNotificar', {
+          setor,
+          conteudo: msgResumo,
+          vendedor_responsavel_id: atendente.id,
+          metadata: { resumo_matinal_id: resumoRecord.id }
+        }).catch(e => console.warn(`[RESUMO_MATINAL] ⚠️ nexusNotificar falhou para ${atendente.full_name}:`, e.message));
+
         resumos.push({
           atendente: atendente.full_name,
           id_resumo: resumoRecord.id,
           status: 'sucesso'
         });
 
-        console.log(`[RESUMO_MATINAL] ✅ Resumo gerado para ${atendente.full_name}`);
+        console.log(`[RESUMO_MATINAL] ✅ Resumo gerado e entregue para ${atendente.full_name}`);
 
       } catch (erro) {
         console.error(`[RESUMO_MATINAL] ❌ Erro ao processar ${atendente.full_name}:`, erro.message);

@@ -223,6 +223,26 @@ Deno.serve(async (req) => {
 
         console.log(`[REESCALONADOR] ⬆️ ${contact.nome}: ${tarefa.prioridade}→${novaPrioridade} | Reesc. #${numeroReesc}`);
 
+        // Notificar vendedor responsável via nexusNotificar (DM + grupo do setor)
+        if (atendente_user_id) {
+          const setor = contact.atendente_fidelizado_vendas ? 'vendas' : 'geral';
+          const prioEmoji = { baixa: '🟡', media: '🟠', alta: '🔴', critica: '🚨' }[novaPrioridade] || '⚠️';
+          const msgNotif =
+            `${prioEmoji} *Tarefa reescalonada — ${contact.nome}*\n\n` +
+            `👤 Contato: ${contact.nome}${contact.empresa ? ` (${contact.empresa})` : ''}\n` +
+            `⏱️ Inativo há: *${diasInativo} dias*\n` +
+            `📈 Prioridade: ${tarefa.prioridade} → *${novaPrioridade}*\n` +
+            `🔢 Reescalonamento: #${numeroReesc}\n\n` +
+            (novaMensagem ? `💬 *Mensagem sugerida:*\n${novaMensagem}` : '');
+
+          await base44.asServiceRole.functions.invoke('nexusNotificar', {
+            setor,
+            conteudo: msgNotif,
+            vendedor_responsavel_id: atendente_user_id,
+            metadata: { tarefa_id: novaTarefa.id, contact_id: contactId, reescalonamento: numeroReesc }
+          }).catch(e => console.warn(`[REESCALONADOR] ⚠️ nexusNotificar falhou:`, e.message));
+        }
+
         // No 3º reescalonamento → alertar admin com WorkQueueItem crítico
         if (numeroReesc >= 3) {
           await base44.asServiceRole.entities.WorkQueueItem.create({
