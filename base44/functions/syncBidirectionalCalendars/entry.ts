@@ -1,4 +1,4 @@
-import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔄 WORKER DE SINCRONIZAÇÃO BIDIRECIONAL - CALENDÁRIOS
@@ -9,9 +9,9 @@ import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 // 3. Importa eventos externos → Nexus (se bidirectional)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const BATCH_SIZE = 4; // Processa 4 usuários em paralelo
-const TIMEOUT_PER_USER_MS = 15000; // 15s por usuário
-const MAX_TOTAL_MS = 50000; // 50s máximo total
+const BATCH_SIZE = 2; // Processa 2 usuários em paralelo (reduzido para evitar timeout)
+const TIMEOUT_PER_USER_MS = 20000; // 20s por usuário
+const MAX_TOTAL_MS = 80000; // 80s máximo total (antes do 90s limit)
 
 Deno.serve(async (req) => {
   const tsStart = Date.now();
@@ -28,20 +28,13 @@ Deno.serve(async (req) => {
   try {
     console.log(`[CALENDAR-WORKER] 🚀 Iniciando sincronização bidirecional...`);
     
-    // Buscar usuários com sincronização habilitada
-    const usersComGoogle = await base44.asServiceRole.entities.User.filter({
-      'calendar_sync_config.google_calendar_enabled': true
-    });
+    // ✅ FIX: Buscar todos os users e filtrar em memória (evita nested field timeout)
+    const allUsersRaw = await base44.asServiceRole.entities.User.list('-created_date', 200);
     
-    const usersComOutlook = await base44.asServiceRole.entities.User.filter({
-      'calendar_sync_config.outlook_calendar_enabled': true
+    const allUsers = (allUsersRaw || []).filter(user => {
+      const config = user.calendar_sync_config;
+      return config && (config.google_calendar_enabled || config.outlook_calendar_enabled);
     });
-    
-    // Unir e remover duplicatas
-    const allUsers = [...new Map([
-      ...(usersComGoogle || []).map(u => [u.id, u]),
-      ...(usersComOutlook || []).map(u => [u.id, u])
-    ].map(([id, user]) => [id, user])).values()];
     
     console.log(`[CALENDAR-WORKER] 👥 Encontrados ${allUsers.length} usuários com sync ativo`);
     
