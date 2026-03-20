@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
     console.log('[SEND_INTERNAL] 🔵 Criando mensagem interna:', {
       thread_id: thread.id,
       thread_type: thread.thread_type,
-      sender_id: user.id,
+      sender_id: effectiveSenderId,
       sender_type: 'user',
       recipient_id: recipientIdFinal,
       recipient_type: recipientTypeFinal,
