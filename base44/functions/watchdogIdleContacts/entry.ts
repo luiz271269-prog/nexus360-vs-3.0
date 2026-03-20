@@ -1,4 +1,4 @@
-import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // ============================================================================
 // WATCHDOG v3.1 - Monitoramento PROATIVO de threads sem resposta humana
@@ -14,8 +14,8 @@ import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 const IDLE_THRESHOLD_A_MINUTES = 30;
 const IDLE_THRESHOLD_C_HOURS = 4;
 const IDLE_THRESHOLD_D_HOURS = 48;
-const MAX_CICLO_MS = 40_000; // 40s máximo para não estourar 90s timeout
-const MAX_THREADS_BATCH = 50; // Reduzido de 200 para 50
+const MAX_CICLO_MS = 35_000; // 35s máximo para deixar margem de segurança
+const MAX_THREADS_BATCH = 30; // Reduzido para 30 threads por execução
 
 function humanoAtivo(thread, horasStale = 2) {
   if (!thread.last_human_message_at) return false;
@@ -42,12 +42,12 @@ Deno.serve(async (req) => {
     try {
       base44 = createClientFromRequest(req);
     } catch (e) {
-      console.log('[WATCHDOG v3] Contexto agendado detectado, usando createClient()');
-      base44 = createClient();
+      console.error('[WATCHDOG v3] ❌ Falha ao criar cliente:', e.message);
+      return Response.json({ 
+        success: false, 
+        error: 'SDK initialization failed' 
+      }, { status: 500 });
     }
-    
-    // ✅ FIX P0: Importar createClientFromRequest se falta (SDK 0.8.21)
-    if (!base44) throw new Error('SDK initialization failed');
 
     const agora = new Date();
     const thresholdA = new Date(agora.getTime() - IDLE_THRESHOLD_A_MINUTES * 60 * 1000);
@@ -117,19 +117,12 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // ✅ FIX: Buscar Contact + Integration em paralelo
-          const [contact, integracoes] = await Promise.all([
-            base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null),
-            thread.whatsapp_integration_id
-              ? Promise.resolve([{ id: thread.whatsapp_integration_id }])
-              : base44.asServiceRole.entities.WhatsAppIntegration.filter(
-                  { status: 'conectado' }, '-created_date', 1
-                ).catch(() => [])
-          ]);
+          // ✅ FIX: Buscar Contact (sem Integration paralela — adiciona timeout)
+           const contact = await base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null);
+           if (!contact) continue;
 
-          if (!contact) continue;
-
-          const integrationId = integracoes?.[0]?.id;
+           // Use existing integration or skip
+           const integrationId = thread.whatsapp_integration_id || null;
           if (!integrationId) {
             console.warn(`[WATCHDOG v3] ⚠️ Sem integração para thread ${thread.id}`);
             continue;
@@ -161,19 +154,12 @@ Deno.serve(async (req) => {
         if (hasAssigned && !humanoAtivo(thread, IDLE_THRESHOLD_C_HOURS)) {
           if (lastInboundAt && lastInboundAt < thresholdC) {
             if (!isCompleted) {
-              // ✅ FIX: Buscar Contact + Integration em paralelo
-              const [contact, integracoes] = await Promise.all([
-                base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null),
-                thread.whatsapp_integration_id
-                  ? Promise.resolve([{ id: thread.whatsapp_integration_id }])
-                  : base44.asServiceRole.entities.WhatsAppIntegration.filter(
-                      { status: 'conectado' }, '-created_date', 1
-                    ).catch(() => [])
-              ]);
-
+              // ✅ FIX: Buscar Contact (sem Integration paralela)
+              const contact = await base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null);
               if (!contact) continue;
 
-              const integrationId = integracoes?.[0]?.id;
+              // Use existing integration or skip
+              const integrationId = thread.whatsapp_integration_id || null;
               if (!integrationId) continue;
 
               console.log(`[WATCHDOG v3] 🔄 Tipo C: reativando URA (${IDLE_THRESHOLD_C_HOURS}h inativo) para ${contact.nome}`);
