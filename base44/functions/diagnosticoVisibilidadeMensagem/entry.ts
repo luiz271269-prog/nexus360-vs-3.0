@@ -1,4 +1,4 @@
-import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
@@ -19,13 +19,17 @@ Deno.serve(async (req) => {
   const tsStart = Date.now();
   
   try {
-    // ✅ FIX: Em contexto agendado, req vem vazio
+    // ✅ FIX: Em contexto agendado, usar createClientFromRequest com req vazio
     let base44;
     try {
       base44 = createClientFromRequest(req);
     } catch (e) {
-      console.log('[DIAGNÓSTICO] Contexto agendado detectado, usando createClient()');
-      base44 = createClient();
+      console.error('[DIAGNÓSTICO] ❌ Falha ao criar cliente:', e.message);
+      return Response.json({ 
+        success: false,
+        error: 'Falha ao inicializar SDK',
+        duration_ms: Date.now() - tsStart
+      }, { status: 500 });
     }
 
     console.log(`[DIAGNÓSTICO] 🔍 Iniciando diagnóstico RLS - Verificar Mensagens Recebidas...`);
