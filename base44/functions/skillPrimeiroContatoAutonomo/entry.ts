@@ -105,11 +105,12 @@ async function buscarAtendenteDisponivel(base44, setor) {
   }
 }
 
+const headers = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*'
+};
+
 Deno.serve(async (req) => {
-   const headers = {
-     'Content-Type': 'application/json',
-     'Access-Control-Allow-Origin': '*'
-   };
 
    if (req.method === 'OPTIONS') {
      return new Response(null, { status: 204, headers });
