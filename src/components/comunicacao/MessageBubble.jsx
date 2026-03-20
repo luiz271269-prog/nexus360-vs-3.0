@@ -1060,23 +1060,18 @@ export default React.memo(function MessageBubble({
                 }
 
                       {isOwn &&
-                <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
+                <Button
                       variant="ghost"
                       size="icon"
+                      title="Apagar"
                       onClick={handleApagar}
                       disabled={apagando}
                       className={cn(
                         "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
                         "bg-white/90 hover:bg-red-50 border border-slate-200"
                       )}>
-
                           <Trash2 className="w-3.5 h-3.5 text-red-600" />
                         </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">Apagar</TooltipContent>
-                      </Tooltip>
                 }
 
                       <Tooltip>
