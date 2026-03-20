@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
               status: 'bloqueado',
               motivo_bloqueio: `Anti-duplicata: último envio há ${diasDesdeUltimo.toFixed(1)} dias`
             });
+            await notificar(base44, notifIntegrationId, `⏸️ *FilaDisparo BLOQUEADA (anti-duplicata)*\nContato: ${contato.nome}\nÚltimo envio há ${diasDesdeUltimo.toFixed(1)} dias`);
             erros++;
             continue;
           }
