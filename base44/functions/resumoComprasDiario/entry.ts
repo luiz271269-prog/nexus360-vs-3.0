@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // ============================================================================
 // RESUMO DE COMPRAS DIÁRIO v1.0
@@ -9,14 +9,17 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 // ============================================================================
 
 Deno.serve(async (req) => {
-  const base44 = createClientFromRequest(req);
+  // ✅ FIX: Em contexto agendado, req vem vazio — usar createClient()
+  let base44;
+  try {
+    base44 = createClientFromRequest(req);
+  } catch (e) {
+    console.log('[RESUMO-COMPRAS] Contexto agendado detectado, usando createClient()');
+    base44 = createClient();
+  }
   const agora = new Date();
 
   try {
-    const user = await base44.auth.me();
-    if (!user || user.role !== 'admin') {
-      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
 
     console.log('[RESUMO-COMPRAS] 📦 Iniciando resumo diário de compras...');
 
