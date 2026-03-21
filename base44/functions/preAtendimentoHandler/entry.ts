@@ -122,7 +122,7 @@ async function processarINIT(base44, thread, contact, integrationId) {
       } catch (e) {}
 
       const primeiroNome = atendenteNome ? atendenteNome.split(' ')[0] : null;
-      const hora = new Date().getHours();
+      const hora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours(); // BRT = UTC-3
       const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
       const nomeContato = contact.nome && !/^\d+$/.test(contact.nome) ? `, ${contact.nome.split(' ')[0]}` : '';
       const setorHumanizado = { vendas: 'Vendas', assistencia: 'Suporte Técnico', financeiro: 'Financeiro', fornecedor: 'Compras', geral: 'Atendimento' }[setorFidelizado] || 'Atendimento';
