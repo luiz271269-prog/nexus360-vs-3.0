@@ -155,7 +155,7 @@ async function processarINIT(base44, thread, contact, integrationId) {
     return { success: true, mode: 'saudacao_duplicata_bloqueada_8h' };
   }
 
-  const hora = new Date().getHours();
+  const hora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours(); // BRT = UTC-3
   const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
   const nome = contact.nome && !/^\d+$/.test(contact.nome) ? `, ${contact.nome.split(' ')[0]}` : '';
 
