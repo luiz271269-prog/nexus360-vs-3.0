@@ -473,7 +473,7 @@ Deno.serve(async (req) => {
         // (cobre clientes/leads sem histórico de setor que retornam dentro da semana)
         const nomeContato = contact.nome && !/^\d+$/.test(contact.nome) ? contact.nome.split(' ')[0] : null;
         const nomeLabel = nomeContato ? `, ${nomeContato}` : '';
-        const hora = new Date().getHours();
+        const hora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours(); // BRT = UTC-3
         const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
 
         const msgRetornoSimples = `${saudacao}${nomeLabel}! Estamos de volta! 😊 Em que posso te ajudar hoje?`;
