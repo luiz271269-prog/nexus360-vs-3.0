@@ -124,20 +124,15 @@ export default function VendedorTable({ vendedores, onEditar, onExcluir }) {
                     )}
                   </div>
                 </TableCell>
-                <TableCell>{getStatusChip(vendedor.status)}</TableCell>
                 <TableCell>
-                  <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    {getStatusChip(vendedor.status)}
                     {vinculoStatus.badge}
-                    {vinculoStatus.vinculado && (
-                      <div className="text-xs text-slate-500">
-                        {vinculoStatus.usuario.full_name}
-                      </div>
-                    )}
                   </div>
                 </TableCell>
                 <TableCell>
                   <div className="space-y-1">
-                    {vendedor.email && <div className="flex items-center gap-1.5 text-xs text-slate-600"><Mail className="w-3 h-3" />{vendedor.email}</div>}
+                    {vinculoStatus.usuario?.email && <div className="flex items-center gap-1.5 text-xs text-slate-600"><Mail className="w-3 h-3" />{vinculoStatus.usuario.email}</div>}
                     {vendedor.telefone && <div className="flex items-center gap-1.5 text-xs text-slate-600"><Phone className="w-3 h-3" />{vendedor.telefone}</div>}
                   </div>
                 </TableCell>
