@@ -352,7 +352,12 @@ Deno.serve(async (req) => {
     // ══════════════════════════════════════════════════════════════
     // MODO 3: AUTOMAÇÃO SCHEDULED (análise periódica)
     // ══════════════════════════════════════════════════════════════
-    console.log(`[ANALISE_LOTE] Modo scheduled | Limit: ${limit}`);
+    // ✅ FIX TIMEOUT: Limitar em 10 por execução + hard cutoff de 50s
+    const scheduledLimit = Math.min(limit, 10);
+    const HARD_CUTOFF_MS = 50_000; // Sair em 50s para não estourar timeout de 60s
+    const tsStart = Date.now();
+    
+    console.log(`[ANALISE_LOTE] Modo scheduled | Limit: ${scheduledLimit} (max 10 por execução)`);
     
     let query = {
       tipo_contato: { $in: Array.isArray(tipo) ? tipo : ['lead', 'cliente'] }
@@ -370,7 +375,7 @@ Deno.serve(async (req) => {
     const contatos = await base44.asServiceRole.entities.Contact.filter(
       query,
       '-ultima_interacao',
-      limit
+      scheduledLimit
     );
     
     console.log(`[ANALISE_LOTE] ${contatos.length} contatos encontrados`);
@@ -379,10 +384,18 @@ Deno.serve(async (req) => {
       total_processados: 0,
       analises_criadas: 0,
       analises_puladas: 0,
-      erros: []
+      erros: [],
+      abortado_por_timeout: false
     };
     
     for (const contato of contatos) {
+      // ✅ FIX TIMEOUT: Verificar tempo decorrido antes de cada contato
+      if (Date.now() - tsStart > HARD_CUTOFF_MS) {
+        console.warn(`[ANALISE_LOTE] ⏰ Hard cutoff atingido após ${resultados.total_processados} contatos — abortando para evitar 504`);
+        resultados.abortado_por_timeout = true;
+        break;
+      }
+      
       resultados.total_processados++;
       
       try {
@@ -419,9 +432,7 @@ Deno.serve(async (req) => {
         }
         
         // Delay anti-rate-limit
-        if (resultados.total_processados < contatos.length) {
-          await new Promise(r => setTimeout(r, 200));
-        }
+        await new Promise(r => setTimeout(r, 200));
         
       } catch (error) {
         console.error(`[ANALISE_LOTE] Erro em ${contato.nome}:`, error.message);
@@ -441,7 +452,7 @@ Deno.serve(async (req) => {
           execution_mode: 'autonomous_safe',
           context: {
             modo: 'scheduled',
-            limit,
+            limit: scheduledLimit,
             priorizar_ativos,
             tipo
           },
@@ -451,7 +462,8 @@ Deno.serve(async (req) => {
             contatos_analisados: resultados.total_processados,
             analises_criadas: resultados.analises_criadas,
             analises_puladas: resultados.analises_puladas,
-            erros: resultados.erros.length
+            erros: resultados.erros.length,
+            abortado_por_timeout: resultados.abortado_por_timeout
           }
         });
       } catch (e) {
