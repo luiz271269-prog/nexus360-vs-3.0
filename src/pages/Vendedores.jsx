@@ -338,6 +338,7 @@ export default function Vendedores() {
 
         return {
           ...vendedor,
+          nome: nomeVendedor, // sempre expor nome resolvido
           metricas: {
             faturamento,
             percentualMeta,
