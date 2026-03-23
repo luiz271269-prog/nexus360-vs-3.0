@@ -29,27 +29,32 @@ Deno.serve(async (req) => {
     const userInputNorm = user_input || { type: 'text', content: '' };
     console.log('[PRE-ATENDIMENTO v13] 🚀 Pipeline iniciado | thread:', thread_id);
 
-    // Buscar thread fresca (evita 403 por permissões desatualizadas)
+    // Buscar thread fresca
     let thread;
     try {
       thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
     } catch (e) {
       console.error('[PRE-ATENDIMENTO v13] ❌ Erro ao buscar thread:', e.message);
-      return Response.json({ success: false, error: 'thread_not_found', detail: e.message }, { status: 404, headers });
+      return Response.json({ success: false, error: 'thread_not_found' }, { status: 404, headers });
     }
 
     // ════════════════════════════════════════════════════════════════
     // SKILL 1: ACK IMEDIATO (lock 60s anti-duplicata)
     // ════════════════════════════════════════════════════════════════
     console.log('[PRE-ATENDIMENTO v13] ⏱️ SKILL 1: ACK Imediato...');
-    let ackResult;
+    let ackResult = {};
     try {
-      ackResult = await base44.functions.invoke('skillACKImediato', {
-      if (ackResult?.data?.success) {
-        console.log('[PRE-ATENDIMENTO v13] ✅ SKILL 1 ok | tipo:', ackResult.data?.ack_tipo || 'enviado');
-      } else if (ackResult?.data?.skipped) {
-        console.log('[PRE-ATENDIMENTO v13] ⏭️ SKILL 1 skipped:', ackResult.data?.reason);
-        return Response.json({ success: true, skipped: true, reason: ackResult.data.reason }, { status: 200, headers });
+      ackResult = await base44.asServiceRole.functions.invoke('skillACKImediato', {
+        thread_id,
+        contact_id,
+        integration_id: whatsapp_integration_id
+      });
+      
+      if (ackResult && ackResult.success) {
+        console.log('[PRE-ATENDIMENTO v13] ✅ SKILL 1 ok | tipo:', ackResult.ack_tipo);
+      } else if (ackResult && ackResult.skipped) {
+        console.log('[PRE-ATENDIMENTO v13] ⏭️ SKILL 1 skipped:', ackResult.reason);
+        return Response.json({ success: true, skipped: true, reason: ackResult.reason }, { status: 200, headers });
       }
     } catch (ackErr) {
       console.error('[PRE-ATENDIMENTO v13] ❌ SKILL 1 falhou:', ackErr.message);
@@ -57,64 +62,59 @@ Deno.serve(async (req) => {
     }
 
     // ════════════════════════════════════════════════════════════════
-    // SKILL 2: INTENT ROUTER (detectar setor + persistir IntentDetection)
+    // SKILL 2: INTENT ROUTER (detectar setor)
     // ════════════════════════════════════════════════════════════════
-    if (userInputNorm.type === 'text' && userInputNorm.content?.length > 0) {
+    let routerResult = { setor: 'geral' };
+    if (userInputNorm.type === 'text' && userInputNorm.content && userInputNorm.content.length > 0) {
       console.log('[PRE-ATENDIMENTO v13] 🎯 SKILL 2: Intent Router...');
-      let routerResult;
       try {
         routerResult = await base44.asServiceRole.functions.invoke('skillIntentRouter', {
           thread_id,
           contact_id,
           message_content: userInputNorm.content
         });
-        if (routerResult?.data?.success) {
-          console.log('[PRE-ATENDIMENTO v13] ✅ SKILL 2 ok | setor:', routerResult.data?.setor);
+        if (routerResult && routerResult.success) {
+          console.log('[PRE-ATENDIMENTO v13] ✅ SKILL 2 ok | setor:', routerResult.setor);
         }
       } catch (routerErr) {
-        console.error('[PRE-ATENDIMENTO v13] ❌ SKILL 2 falhou:', routerErr.message);
-        // Não abortar — continuar para queue manager mesmo sem intent detectado
-        routerResult = { data: { setor: 'geral', confidence: 0.3, success: false } };
+        console.warn('[PRE-ATENDIMENTO v13] ⚠️ SKILL 2 falhou (continuando):', routerErr.message);
+        routerResult = { setor: 'geral', confidence: 0.3 };
       }
 
       // ════════════════════════════════════════════════════════════════
       // SKILL 3: QUEUE MANAGER (atribuição + roteamento + fila)
       // ════════════════════════════════════════════════════════════════
-      if (routerResult?.data?.setor) {
-        console.log('[PRE-ATENDIMENTO v13] 📊 SKILL 3: Queue Manager...');
-        try {
-          const queueResult = await base44.asServiceRole.functions.invoke('skillQueueManager', {
-            thread_id,
-            contact_id,
-            setor: routerResult.data.setor,
-            integration_id: whatsapp_integration_id
-          });
-          console.log('[PRE-ATENDIMENTO v13] ✅ SKILL 3 ok | atendente:', queueResult.data?.atendente_nome || 'enfileirado');
-          
-          // ✅ SUCESSO: Pipeline completo
-          return Response.json({
-            success: true,
-            resultado: 'pipeline_completo',
-            ack: ackResult?.data,
-            intent: routerResult?.data,
-            queue: queueResult?.data
-          }, { status: 200, headers });
-        } catch (queueErr) {
-          console.error('[PRE-ATENDIMENTO v13] ❌ SKILL 3 falhou:', queueErr.message);
-          return Response.json({
-            success: false,
-            error: 'skill_queue_falhou',
-            detail: queueErr.message
-          }, { status: 500, headers });
-        }
+      console.log('[PRE-ATENDIMENTO v13] 📊 SKILL 3: Queue Manager...');
+      try {
+        const queueResult = await base44.asServiceRole.functions.invoke('skillQueueManager', {
+          thread_id,
+          contact_id,
+          setor: routerResult.setor,
+          integration_id: whatsapp_integration_id
+        });
+        console.log('[PRE-ATENDIMENTO v13] ✅ SKILL 3 ok');
+        
+        return Response.json({
+          success: true,
+          resultado: 'pipeline_completo',
+          ack: ackResult,
+          intent: routerResult,
+          queue: queueResult
+        }, { status: 200, headers });
+      } catch (queueErr) {
+        console.error('[PRE-ATENDIMENTO v13] ❌ SKILL 3 falhou:', queueErr.message);
+        return Response.json({
+          success: false,
+          error: 'skill_queue_falhou',
+          detail: queueErr.message
+        }, { status: 500, headers });
       }
     }
 
-    // Fallback: apenas ACK, sem input de texto
+    // Fallback: apenas ACK
     return Response.json({
       success: true,
-      resultado: 'ack_apenas',
-      ack: ackResult?.data
+      resultado: 'ack_apenas'
     }, { status: 200, headers });
 
   } catch (error) {
