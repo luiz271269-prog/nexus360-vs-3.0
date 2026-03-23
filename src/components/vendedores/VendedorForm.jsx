@@ -22,7 +22,7 @@ const GlassSelect = ({ children, ...props }) => (
 
 export default function VendedorForm({ vendedor, onSalvar, onCancelar }) {
   const [formData, setFormData] = useState(vendedor || {
-    nome: "", codigo: "", email: "", telefone: "", foto_url: "",
+    user_id: "", codigo: "", telefone: "", foto_url: "",
     meta_mensal: 0, meta_semanal: 0, status: "ativo",
     comissao_percentual: 0, data_admissao: "",
     meta_ligacoes_diarias: 10,
