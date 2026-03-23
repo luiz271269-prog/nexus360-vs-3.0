@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
         ]);
 
         let vendedor_responsavel = 'sistema';
+        let atendente_user_id = null;
         let thread_id = null;
 
         if (threads?.length > 0) {
@@ -107,8 +108,24 @@ Deno.serve(async (req) => {
             const usuario = await base44.asServiceRole.entities.User.get(threads[0].assigned_user_id).catch(() => null);
             if (usuario?.full_name) {
               vendedor_responsavel = usuario.full_name;
+              atendente_user_id = usuario.id;
+            }
+          } else if (threads[0].sector_id) {
+            // Fallback: buscar atendente disponível do setor
+            const usuarios = await base44.asServiceRole.entities.User.filter({
+              'data.attendant_sector': threads[0].sector_id,
+              'data.is_active': true
+            }, '-created_date', 1).catch(() => []);
+            if (usuarios.length > 0) {
+              vendedor_responsavel = usuarios[0].full_name || usuarios[0].email;
+              atendente_user_id = usuarios[0].id;
             }
           }
+        }
+
+        // Fallback final: usar vendedor_responsavel do contato se tiver
+        if (vendedor_responsavel === 'sistema' && contato?.vendedor_responsavel) {
+          vendedor_responsavel = contato.vendedor_responsavel;
         }
 
         // 3️⃣ Criar TarefaInteligente
