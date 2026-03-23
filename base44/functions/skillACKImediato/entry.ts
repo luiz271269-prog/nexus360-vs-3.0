@@ -113,23 +113,44 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Enviar via Z-API (provedor padrão) — TODO: migrar para enviarWhatsApp quando w_api suportada
+    // Enviar respeitando o provedor real (Z-API ou W-API)
     const telefoneLimpo = (contact.telefone || '').replace(/\D/g, '');
-    const telefoneE164 = telefoneLimpo.startsWith('55') ? `+${telefoneLimpo}` : `+55${telefoneLimpo}`;
-
-    const respEnvio = await fetch(
-      `https://api.z-api.io/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`,
-      {
+    const numeroFormatado = telefoneLimpo.startsWith('55') ? telefoneLimpo : '55' + telefoneLimpo;
+    
+    const isWAPI = integracao.api_provider === 'w_api';
+    let respEnvio;
+    
+    if (isWAPI) {
+      // W-API: usa endpoint /message/send-text com Bearer token
+      const baseUrl = integracao.base_url_provider || 'https://api.w-api.app/v1';
+      const endpoint = `${baseUrl}/message/send-text?instanceId=${integracao.instance_id_provider}`;
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${integracao.api_key_provider}`
+        },
+        body: JSON.stringify({ phone: numeroFormatado, message: ackConfig.mensagem, delayMessage: 1 })
+      });
+      respEnvio = await resp.json();
+      console.log('[SKILL-ACK] W-API enviou:', respEnvio);
+    } else {
+      // Z-API: endpoint direto (compatível com nova arquitetura)
+      const baseUrl = integracao.base_url_provider || 'https://api.z-api.io';
+      const endpoint = `${baseUrl}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`;
+      const resp = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: telefoneE164, message: ackConfig.mensagem })
-      }
-    ).then(r => r.json());
+        body: JSON.stringify({ phone: numeroFormatado, message: ackConfig.mensagem })
+      });
+      respEnvio = await resp.json();
+      console.log('[SKILL-ACK] Z-API enviou:', respEnvio);
+    }
 
     if (!respEnvio?.success) {
-      console.warn('[SKILL-ACK] Envio Z-API falhou:', respEnvio);
+      console.warn('[SKILL-ACK] Envio falhou:', respEnvio);
       return Response.json(
-        { success: false, error: 'envio_whatsapp_falhou' },
+        { success: false, error: 'envio_whatsapp_falhou', provider: isWAPI ? 'w_api' : 'z_api' },
         { status: 500, headers }
       );
     }
