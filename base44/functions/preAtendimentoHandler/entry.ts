@@ -352,55 +352,76 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
 // ============================================================================
 
 // Verifica se está dentro do horário comercial lendo o FlowTemplate padrão
+// DEFAULTS HARDCODED: Seg-Sex 08:00-18:00 BRT, fora disso bloqueia
 async function verificarHorarioComercial(base44) {
+  const MSG_FORA_PADRAO = 'Olá! Recebemos sua mensagem 😊 Nosso atendimento funciona de segunda a sexta, das 08h às 18h (horário de Brasília). Retornaremos no próximo dia útil! 🙏';
+
+  // Calcular hora BRT (UTC-3) — SEMPRE usa isso, não depende do template
+  const agora = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const diaSemana = agora.getUTCDay(); // 0=dom, 1=seg ... 6=sab
+  const hora = agora.getUTCHours();
+  const minuto = agora.getUTCMinutes();
+  const minutosDoDia = hora * 60 + minuto;
+
+  // Defaults caso não haja template: Seg-Sex, 08:00-18:00
+  let diasAtendimento = [1, 2, 3, 4, 5];
+  let inicioMin = 8 * 60;  // 08:00
+  let fimMin    = 18 * 60; // 18:00
+  let msgFora   = MSG_FORA_PADRAO;
+
   try {
     const templates = await base44.asServiceRole.entities.FlowTemplate.filter(
       { is_pre_atendimento_padrao: true }, '-created_date', 1
     );
     const tpl = templates[0];
-    if (!tpl?.horario_comercial) return { dentroHorario: true, msgForaHorario: null };
 
-    const hc = tpl.horario_comercial;
-    const msgFora = tpl.mensagem_fora_horario || 'Olá! Recebemos sua mensagem! Nosso horário é seg-sex 08h às 18h. Retornamos no próximo dia útil às 08h. 🙏';
+    if (tpl?.horario_comercial) {
+      const hc = tpl.horario_comercial;
+      msgFora = tpl.mensagem_fora_horario || MSG_FORA_PADRAO;
 
-    // Calcular hora BRT
-    const agora = new Date(Date.now() - 3 * 60 * 60 * 1000);
-    const diaSemana = agora.getUTCDay(); // 0=dom, 1=seg ... 6=sab
-    const hora = agora.getUTCHours();
-    const minuto = agora.getUTCMinutes();
-    const minutosDoDia = hora * 60 + minuto;
+      const diasMap = { 0: 'domingo', 1: 'segunda', 2: 'terca', 3: 'quarta', 4: 'quinta', 5: 'sexta', 6: 'sabado' };
+      const diaKey = diasMap[diaSemana];
+      const configDia = hc[diaKey];
 
-    // Mapa dia → campo do horario_comercial
-    const diasMap = { 0: 'domingo', 1: 'segunda', 2: 'terca', 3: 'quarta', 4: 'quinta', 5: 'sexta', 6: 'sabado' };
-    const diaKey = diasMap[diaSemana];
-    const configDia = hc[diaKey];
+      if (!configDia) {
+        return { dentroHorario: false, msgForaHorario: msgFora };
+      }
 
-    // null ou ausente = fora de horário nesse dia
-    if (!configDia) return { dentroHorario: false, msgForaHorario: msgFora };
+      const [hIni, mIni] = (configDia.inicio || '08:00').split(':').map(Number);
+      const [hFim, mFim] = (configDia.fim   || '18:00').split(':').map(Number);
+      inicioMin = hIni * 60 + mIni;
+      fimMin    = hFim * 60 + mFim;
+      diasAtendimento = null; // já validou pelo dia-key acima
 
-    // Formato esperado: "08:00" - "18:00"
-    const [hIni, mIni] = (configDia.inicio || '08:00').split(':').map(Number);
-    const [hFim, mFim] = (configDia.fim || '18:00').split(':').map(Number);
-    const inicioMin = hIni * 60 + mIni;
-    const fimMin = hFim * 60 + mFim;
-
-    const dentroHorario = minutosDoDia >= inicioMin && minutosDoDia < fimMin;
-    return { dentroHorario, msgForaHorario: dentroHorario ? null : msgFora };
+      const dentroHorario = minutosDoDia >= inicioMin && minutosDoDia < fimMin;
+      return { dentroHorario, msgForaHorario: dentroHorario ? null : msgFora };
+    }
   } catch (e) {
-    console.warn('[PRE-ATENDIMENTO] Erro ao verificar horário comercial:', e.message);
-    return { dentroHorario: true, msgForaHorario: null }; // fallback: permitir
+    console.warn('[PRE-ATENDIMENTO] Erro ao ler template de horário:', e.message);
+    // continua com defaults abaixo
   }
+
+  // Aplicar defaults hardcoded
+  if (!diasAtendimento.includes(diaSemana)) {
+    console.log(`[PRE-ATENDIMENTO] 🗓️ Fora do horário (dia ${diaSemana} = fim de semana/feriado)`);
+    return { dentroHorario: false, msgForaHorario: msgFora };
+  }
+
+  const dentroHorario = minutosDoDia >= inicioMin && minutosDoDia < fimMin;
+  console.log(`[PRE-ATENDIMENTO] ⏰ BRT ${hora}:${String(minuto).padStart(2,'0')} | dentro=${dentroHorario}`);
+  return { dentroHorario, msgForaHorario: dentroHorario ? null : msgFora };
 }
 
-// Busca debounce_segundos do template padrão (default 0 = sem debounce)
+// Busca debounce_segundos do template padrão (default 3s)
 async function getDebounceSegundos(base44) {
   try {
     const templates = await base44.asServiceRole.entities.FlowTemplate.filter(
       { is_pre_atendimento_padrao: true }, '-created_date', 1
     );
-    return templates[0]?.debounce_segundos || 0;
+    const val = templates[0]?.debounce_segundos;
+    return (typeof val === 'number') ? val : 3; // default 3s
   } catch (e) {
-    return 0;
+    return 3; // default seguro
   }
 }
 
