@@ -10,25 +10,15 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 const VERSION = 'v11.1.0-BUSINESS-HOURS';
 
 // ── Verificar horário comercial (Brasília = UTC-3) ──────────────────────
+// Regra: Seg-Sex 08:00-18:00. Sábado e Domingo: FECHADO.
 function isWithinBusinessHours() {
-  const agora = new Date();
-  // Converter para horário de Brasília (UTC-3)
-  const brasilia = new Date(agora.getTime() - 3 * 60 * 60 * 1000);
+  const brasilia = new Date(Date.now() - 3 * 60 * 60 * 1000);
   const diaSemana = brasilia.getUTCDay(); // 0=dom, 1=seg, ..., 6=sab
-  const hora = brasilia.getUTCHours();
-  const minuto = brasilia.getUTCMinutes();
-  const minutosTotais = hora * 60 + minuto;
+  const minutosTotais = brasilia.getUTCHours() * 60 + brasilia.getUTCMinutes();
 
-  if (diaSemana === 0) return false; // Domingo: fechado
-  if (diaSemana >= 1 && diaSemana <= 5) {
-    // Seg-Sex: 08:00 às 18:00
-    return minutosTotais >= 8 * 60 && minutosTotais < 18 * 60;
-  }
-  if (diaSemana === 6) {
-    // Sábado: 08:00 às 12:00
-    return minutosTotais >= 8 * 60 && minutosTotais < 12 * 60;
-  }
-  return false;
+  // Somente Seg(1) a Sex(5)
+  if (diaSemana < 1 || diaSemana > 5) return false;
+  return minutosTotais >= 8 * 60 && minutosTotais < 18 * 60;
 }
 
 function humanoAtivo(thread, horasStale = 2) {
@@ -191,7 +181,7 @@ Deno.serve(async (req) => {
       }
 
       if (!jaAviso) {
-        const msgFechado = `Olá! Recebemos sua mensagem 😊\n\nNosso atendimento funciona:\n• *Seg a Sex*: 08h às 18h\n• *Sábado*: 08h às 12h\n\nNossa equipe entrará em contato assim que abrirmos. Até logo! 👋`;
+        const msgFechado = `Olá! Recebemos sua mensagem 😊\n\nNosso atendimento funciona de *segunda a sexta, das 08h às 18h* (horário de Brasília).\n\nNossa equipe entrará em contato assim que abrirmos. Até logo! 👋`;
 
         // Enviar mensagem de fora do horário
         try {
