@@ -149,7 +149,8 @@ Deno.serve(async (req) => {
             ],
             score_urgencia: analise.priority_score,
             analise_id: analise.id,
-            risk_level: analise.relationship_risk?.level || 'unknown'
+            risk_level: analise.relationship_risk?.level || 'unknown',
+            atendente_user_id: atendente_user_id
           }
         });
 
