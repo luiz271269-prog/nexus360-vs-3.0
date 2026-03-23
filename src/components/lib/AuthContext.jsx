@@ -15,13 +15,35 @@ export const AuthProvider = ({ children }) => {
       try {
         setIsLoadingPublicSettings(true);
         setIsLoadingAuth(true);
-        
+
         try {
           // Timeout de 8s para evitar spinner infinito
           const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('auth_timeout')), 8000)
           );
           const currentUser = await Promise.race([base44.auth.me(), timeoutPromise]);
+          setUser(currentUser);
+          setIsAuthenticated(true);
+          setAuthError(null);
+        } catch (error) {
+          if (error?.message === 'auth_timeout') {
+            setAuthError({ type: 'auth_required', message: 'Timeout' });
+          } else if (error?.response?.status === 401 || error?.message?.includes('not registered')) {
+            setAuthError({ type: 'user_not_registered', message: error.message });
+          } else {
+            setAuthError({ type: 'auth_required', message: 'Authentication required' });
+          }
+          setIsAuthenticated(false);
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('[AUTH] Error:', error);
+        setAuthError({ type: 'settings_error', message: error.message });
+      } finally {
+        setIsLoadingPublicSettings(false);
+        setIsLoadingAuth(false);
+      }
+    };
 
     checkAuth();
   }, []);
