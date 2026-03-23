@@ -276,21 +276,28 @@ export default function Vendedores() {
       setUsuario(user);
 
       // Fetch all other data concurrently
-      const [vendedoresData, vendasData, orcamentosData, interacoesData, tarefasData] = await Promise.all([
+      const [vendedoresData, vendasData, orcamentosData, interacoesData, tarefasData, usuariosData] = await Promise.all([
         base44.entities.Vendedor.list(),
         base44.entities.Venda.list('-data_venda', 500),
         base44.entities.Orcamento.list('-data_orcamento', 500),
         base44.entities.Interacao.list('-data_interacao', 1000),
-        base44.entities.TarefaInteligente.list('-data_prazo', 500)
+        base44.entities.TarefaInteligente.list('-data_prazo', 500),
+        base44.entities.User.list()
       ]);
 
       setVendedores(vendedoresData);
 
       // Calcular métricas por vendedor
       const vendedoresComCalculo = vendedoresData.map(vendedor => {
-        const vendasVendedor = vendasData.filter(v => v.vendedor === vendedor.nome);
-        const orcamentosVendedor = orcamentosData.filter(o => o.vendedor === vendedor.nome);
-        const interacoesVendedor = interacoesData.filter(i => i.vendedor === vendedor.nome);
+        // Resolver nome via user_id ou fallback para campo nome legado
+        const usuarioVinculado = vendedor.user_id
+          ? usuariosData.find(u => u.id === vendedor.user_id)
+          : usuariosData.find(u => u.email === vendedor.email);
+        const nomeVendedor = usuarioVinculado?.full_name || vendedor.nome || vendedor.email || '—';
+
+        const vendasVendedor = vendasData.filter(v => v.vendedor === nomeVendedor || v.vendedor === vendedor.nome);
+        const orcamentosVendedor = orcamentosData.filter(o => o.vendedor === nomeVendedor || o.vendedor === vendedor.nome);
+        const interacoesVendedor = interacoesData.filter(i => i.vendedor === nomeVendedor || i.vendedor === vendedor.nome);
 
         const faturamento = vendasVendedor.reduce((sum, v) => sum + (v.valor_total || 0), 0);
         const percentualMeta = vendedor.meta_mensal > 0 ?
