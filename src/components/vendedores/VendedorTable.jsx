@@ -93,7 +93,6 @@ export default function VendedorTable({ vendedores, onEditar, onExcluir }) {
           <TableRow>
             <TableHead className="w-[250px]">Vendedor</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Vínculo Login</TableHead>
             <TableHead>Contatos</TableHead>
             <TableHead className="text-right">Meta Mensal</TableHead>
             <TableHead className="text-right">Faturamento (4 meses)</TableHead>
