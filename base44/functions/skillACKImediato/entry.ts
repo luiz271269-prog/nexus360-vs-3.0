@@ -121,10 +121,12 @@ Deno.serve(async (req) => {
     });
 
     if (!respEnvio?.data?.success) {
-      console.warn('[SKILL-ACK] Envio falhou:', respEnvio?.data);
+      const errorMsg = respEnvio?.data?.error || 'Erro desconhecido';
+      const errorDetails = respEnvio?.data?.error_message || '';
+      console.error('[SKILL-ACK] Envio falhou:', { error: errorMsg, details: errorDetails, status: respEnvio?.status });
       return Response.json(
-        { success: false, error: 'envio_whatsapp_falhou' },
-        { status: 500, headers }
+        { success: false, error: errorMsg, details: errorDetails },
+        { status: respEnvio?.status || 500, headers }
       );
     }
 
