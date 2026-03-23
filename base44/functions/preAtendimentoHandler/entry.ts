@@ -2,11 +2,12 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 // ============================================================================
-// PRÉ-ATENDIMENTO HANDLER v12.0.0 - FLUXO CONVERSACIONAL NATURAL
+// PRÉ-ATENDIMENTO HANDLER v13.0.0 - SKILLS PIPELINE
 // ============================================================================
-// FLUXO:
-//   INIT         → Envia saudação + pergunta aberta ("Em que posso ajudar?")
-//   WAITING_NEED → Cliente respondeu → IA detecta setor → roteia para atendente
+// PIPELINE NOVO:
+// 1. skillACKImediato    → Resposta <2s (lock 60s anti-duplicata)
+// 2. skillIntentRouter   → Detecta setor por pattern/IA
+// 3. skillQueueManager   → Roteia para atendente fidelizado ou fila
 // ============================================================================
 
 function processTextWithEmojis(text) {
