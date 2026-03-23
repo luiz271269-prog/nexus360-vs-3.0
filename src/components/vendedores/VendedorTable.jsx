@@ -105,7 +105,8 @@ export default function VendedorTable({ vendedores, onEditar, onExcluir }) {
         </TableHeader>
         <TableBody>
           {vendedores.map((vendedor) => {
-            const vinculoStatus = getVinculoStatus(vendedor.email);
+            const vinculoStatus = getVinculoStatus(vendedor);
+            const nomeExibido = vinculoStatus.usuario?.full_name || vendedor.nome || vendedor.email || '—';
 
             return (
               <TableRow key={vendedor.id} className="hover:bg-slate-50">
