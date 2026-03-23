@@ -72,64 +72,35 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Guard: já respondido recentemente?
+    // Guard 1: já respondido recentemente? (cooldown 5 minutos)
     const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
     const agora = Date.now();
     if (thread.last_outbound_at) {
       const diffMs = agora - new Date(thread.last_outbound_at).getTime();
-      if (diffMs < 60_000) { // cooldown 60s
+      if (diffMs < 300_000) { // cooldown 5min
         return Response.json({
           success: true,
           skipped: true,
-          reason: 'cooldown_60s'
+          reason: 'cooldown_5min'
         }, { headers });
       }
     }
 
-    // Buscar contato
-    const contact = await base44.asServiceRole.entities.Contact.get(contact_id);
-    const primeiroNome = (contact.nome || 'cliente').split(' ')[0];
-    const isVIP = contact.is_vip || contact.classe_abc === 'A';
-    const tipoContato = contact.tipo_contato || 'novo';
+    // Guard 2: webhook duplicado? (mesmo whatsapp_message_id)
+    if (payload.message_id) {
+      const msgsRecentes = await base44.asServiceRole.entities.Message.filter({
+        thread_id,
+        metadata: { is_ack: true }
+      }, '-created_date', 1).catch(() => []);
 
-    // Gerar mensagem ACK
-    const horaAtual = new Date().getHours();
-    const ackConfig = getACKMessage(tipoContato, primeiroNome, isVIP, horaAtual);
-
-    // Buscar integração
-    const integId = thread.whatsapp_integration_id || integration_id;
-    if (!integId) {
-      return Response.json(
-        { success: false, error: 'integração não encontrada' },
-        { status: 400, headers }
-      );
-    }
-
-    const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integId);
-    if (!integracao?.instance_id_provider || !integracao?.api_key_provider) {
-      return Response.json(
-        { success: false, error: 'credenciais incompletas' },
-        { status: 400, headers }
-      );
-    }
-
-    // Enviar respeitando o provedor real (Z-API ou W-API)
-    const telefoneLimpo = (contact.telefone || '').replace(/\D/g, '');
-    const numeroFormatado = telefoneLimpo.startsWith('55') ? telefoneLimpo : '55' + telefoneLimpo;
-    
-    const isWAPI = integracao.api_provider === 'w_api';
-    let respEnvio;
-    
-    if (isWAPI) {
-      // W-API: usa endpoint /message/send-text com Bearer token
-      const baseUrl = integracao.base_url_provider || 'https://api.w-api.app/v1';
-      const endpoint = `${baseUrl}/message/send-text?instanceId=${integracao.instance_id_provider}`;
-      const resp = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${integracao.api_key_provider}`
-        },
+      if (msgsRecentes.length > 0 && msgsRecentes[0].metadata?.whatsapp_msg_id === payload.message_id) {
+        return Response.json({
+          success: true,
+          skipped: true,
+          reason: 'webhook_duplicado'
+        }, { headers });
+      }
+    },
         body: JSON.stringify({ phone: numeroFormatado, message: ackConfig.mensagem, delayMessage: 1 })
       });
       respEnvio = await resp.json();
