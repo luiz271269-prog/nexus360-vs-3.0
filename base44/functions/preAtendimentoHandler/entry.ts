@@ -348,6 +348,63 @@ async function processarWAITING_NEED(base44, thread, contact, userInput, integra
 }
 
 // ============================================================================
+// HELPERS: Horário comercial e debounce
+// ============================================================================
+
+// Verifica se está dentro do horário comercial lendo o FlowTemplate padrão
+async function verificarHorarioComercial(base44) {
+  try {
+    const templates = await base44.asServiceRole.entities.FlowTemplate.filter(
+      { is_pre_atendimento_padrao: true }, '-created_date', 1
+    );
+    const tpl = templates[0];
+    if (!tpl?.horario_comercial) return { dentroHorario: true, msgForaHorario: null };
+
+    const hc = tpl.horario_comercial;
+    const msgFora = tpl.mensagem_fora_horario || 'Olá! Recebemos sua mensagem! Nosso horário é seg-sex 08h às 18h. Retornamos no próximo dia útil às 08h. 🙏';
+
+    // Calcular hora BRT
+    const agora = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    const diaSemana = agora.getUTCDay(); // 0=dom, 1=seg ... 6=sab
+    const hora = agora.getUTCHours();
+    const minuto = agora.getUTCMinutes();
+    const minutosDoDia = hora * 60 + minuto;
+
+    // Mapa dia → campo do horario_comercial
+    const diasMap = { 0: 'domingo', 1: 'segunda', 2: 'terca', 3: 'quarta', 4: 'quinta', 5: 'sexta', 6: 'sabado' };
+    const diaKey = diasMap[diaSemana];
+    const configDia = hc[diaKey];
+
+    // null ou ausente = fora de horário nesse dia
+    if (!configDia) return { dentroHorario: false, msgForaHorario: msgFora };
+
+    // Formato esperado: "08:00" - "18:00"
+    const [hIni, mIni] = (configDia.inicio || '08:00').split(':').map(Number);
+    const [hFim, mFim] = (configDia.fim || '18:00').split(':').map(Number);
+    const inicioMin = hIni * 60 + mIni;
+    const fimMin = hFim * 60 + mFim;
+
+    const dentroHorario = minutosDoDia >= inicioMin && minutosDoDia < fimMin;
+    return { dentroHorario, msgForaHorario: dentroHorario ? null : msgFora };
+  } catch (e) {
+    console.warn('[PRE-ATENDIMENTO] Erro ao verificar horário comercial:', e.message);
+    return { dentroHorario: true, msgForaHorario: null }; // fallback: permitir
+  }
+}
+
+// Busca debounce_segundos do template padrão (default 0 = sem debounce)
+async function getDebounceSegundos(base44) {
+  try {
+    const templates = await base44.asServiceRole.entities.FlowTemplate.filter(
+      { is_pre_atendimento_padrao: true }, '-created_date', 1
+    );
+    return templates[0]?.debounce_segundos || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+// ============================================================================
 // HANDLER PRINCIPAL
 // ============================================================================
 Deno.serve(async (req) => {
