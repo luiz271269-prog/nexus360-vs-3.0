@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, Save, Camera, User, Link as LinkIcon, CheckCircle, AlertCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { X, Save, Camera, User, AlertCircle } from "lucide-react";
 
 const GlassInput = (props) => (
   <Input {...props} className="bg-black/20 border-white/20 text-white placeholder:text-gray-400" />
@@ -21,15 +20,22 @@ const GlassSelect = ({ children, ...props }) => (
 );
 
 export default function VendedorForm({ vendedor, onSalvar, onCancelar }) {
-  const [formData, setFormData] = useState(vendedor || {
-    user_id: "", codigo: "", telefone: "", foto_url: "",
-    meta_mensal: 0, meta_semanal: 0, status: "ativo",
-    comissao_percentual: 0, data_admissao: "",
+  const [formData, setFormData] = useState({
+    user_id: "",
+    codigo: "",
+    telefone: "",
+    foto_url: "",
+    meta_mensal: 0,
+    meta_semanal: 0,
+    status: "ativo",
+    comissao_percentual: 0,
+    data_admissao: "",
     meta_ligacoes_diarias: 10,
     meta_whatsapp_diarios: 5,
-    meta_emails_diarios: 3
+    meta_emails_diarios: 3,
+    ...vendedor
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [uploadandoFoto, setUploadandoFoto] = useState(false);
   const [usuarios, setUsuarios] = useState([]);
@@ -44,9 +50,7 @@ export default function VendedorForm({ vendedor, onSalvar, onCancelar }) {
     setLoadingUsuarios(true);
     try {
       const users = await base44.entities.User.list();
-      // Filtrar apenas usuários com role 'user' (vendedores)
-      const vendedoresUsuarios = users.filter(u => u.role === 'user');
-      setUsuarios(vendedoresUsuarios);
+      setUsuarios(users || []);
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
     } finally {
@@ -56,33 +60,34 @@ export default function VendedorForm({ vendedor, onSalvar, onCancelar }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.user_id) {
+      alert('Selecione um usuário para vincular ao vendedor.');
+      return;
+    }
     setLoading(true);
-    await onSalvar(formData);
+    // Preencher nome e email a partir do usuário selecionado antes de salvar
+    const usuarioSelecionado = usuarios.find(u => u.id === formData.user_id);
+    const dadosParaSalvar = {
+      ...formData,
+      nome: usuarioSelecionado?.full_name || formData.nome || '',
+      email: usuarioSelecionado?.email || formData.email || '',
+    };
+    await onSalvar(dadosParaSalvar);
     setLoading(false);
   };
 
   const handleChange = (campo, valor) => setFormData(prev => ({ ...prev, [campo]: valor }));
 
-  const handleVincularUsuario = (userId) => {
-    setFormData(prev => ({ ...prev, user_id: userId }));
-  };
-
   const handleFotoUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      alert('Por favor, selecione apenas arquivos de imagem');
-      return;
-    }
-
+    if (!file.type.startsWith('image/')) { alert('Selecione apenas imagens'); return; }
     setUploadandoFoto(true);
     try {
       const { UploadFile } = await import("@/integrations/Core");
       const { file_url } = await UploadFile({ file });
       handleChange("foto_url", file_url);
     } catch (error) {
-      console.error('Erro ao fazer upload da foto:', error);
       alert('Erro ao fazer upload da foto');
     } finally {
       setUploadandoFoto(false);
@@ -92,36 +97,25 @@ export default function VendedorForm({ vendedor, onSalvar, onCancelar }) {
   const handlePasteFoto = async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
-
     for (const item of items) {
       if (item.type.indexOf('image') !== -1) {
         e.preventDefault();
         const file = item.getAsFile();
         if (file) {
-          const fileName = `foto-vendedor-${Date.now()}.png`;
-          const renamedFile = new File([file], fileName, { type: file.type });
-          
+          const renamedFile = new File([file], `foto-vendedor-${Date.now()}.png`, { type: file.type });
           setUploadandoFoto(true);
           try {
             const { UploadFile } = await import("@/integrations/Core");
             const { file_url } = await UploadFile({ file: renamedFile });
             handleChange("foto_url", file_url);
-          } catch (error) {
-            console.error('Erro ao colar foto:', error);
-            alert('Erro ao colar foto');
-          } finally {
-            setUploadandoFoto(false);
-          }
+          } catch { alert('Erro ao colar foto'); }
+          finally { setUploadandoFoto(false); }
         }
       }
     }
   };
 
-  const usuarioVinculado = usuarios.find(u => u.email === formData.email);
-  const usuariosDisponiveis = usuarios.filter(u => {
-    // Mostrar o usuário atual vinculado + usuários sem email ou com email que não está no formData
-    return u.email === formData.email || !u.email || u.email === '';
-  });
+  const usuarioSelecionado = usuarios.find(u => u.id === formData.user_id);
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -132,121 +126,74 @@ export default function VendedorForm({ vendedor, onSalvar, onCancelar }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          
-          {/* VINCULAÇÃO COM USUÁRIO - DESTAQUE NO TOPO */}
-          <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-2 border-blue-400/30 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <LinkIcon className="w-5 h-5 text-blue-400" />
-              <Label className="text-blue-300 text-base font-semibold">Vincular Usuário (Login)</Label>
-            </div>
-            
+
+          {/* SELEÇÃO DO USUÁRIO */}
+          <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-2 border-blue-400/30 rounded-xl p-4">
+            <Label className="text-blue-300 text-base font-semibold mb-3 block">Usuário do Sistema</Label>
+
             {loadingUsuarios ? (
               <div className="text-white/60 text-sm">Carregando usuários...</div>
             ) : (
               <div className="space-y-3">
-                <Select 
-                  value={usuarioVinculado?.id || ''} 
-                  onValueChange={handleVincularUsuario}
-                >
+                <Select value={formData.user_id || ''} onValueChange={(v) => handleChange("user_id", v)}>
                   <SelectTrigger className="bg-black/20 border-white/20 text-white">
-                    <SelectValue placeholder="Selecione um usuário para vincular..." />
+                    <SelectValue placeholder="Selecione o usuário..." />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 text-white border-white/20">
-                    <SelectItem value={null}>Nenhum usuário vinculado</SelectItem>
                     {usuarios.map(usuario => (
                       <SelectItem key={usuario.id} value={usuario.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{usuario.full_name}</span>
-                          <span className="text-xs text-gray-400">({usuario.email})</span>
-                        </div>
+                        <span>{usuario.full_name}</span>
+                        <span className="text-xs text-gray-400 ml-2">({usuario.email})</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                {usuarioVinculado ? (
-                  <div className="flex items-start gap-2 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                    <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-green-300 font-medium text-sm">Vinculado com sucesso!</p>
-                      <p className="text-green-400/80 text-xs mt-1">
-                        {usuarioVinculado.full_name} poderá fazer login e acessar o sistema.
-                      </p>
-                      <p className="text-green-400/60 text-xs mt-1">
-                        Email: {usuarioVinculado.email}
-                      </p>
-                    </div>
+                {usuarioSelecionado ? (
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 text-sm text-green-300">
+                    ✓ <strong>{usuarioSelecionado.full_name}</strong> — {usuarioSelecionado.email}
                   </div>
                 ) : (
-                  <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                    <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-amber-300 font-medium text-sm">Nenhum usuário vinculado</p>
-                      <p className="text-amber-400/80 text-xs mt-1">
-                        Este vendedor não terá acesso ao sistema. Vincule um usuário para permitir login.
-                      </p>
-                    </div>
+                  <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                    <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    <p className="text-amber-300 text-sm">Selecione um usuário para criar o vendedor.</p>
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* Dados Pessoais */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* Área da Foto - Formato Redondo */}
-            <div className="md:col-span-2 flex justify-center mb-4">
-              <div 
-                className="relative group cursor-pointer"
-                onClick={() => fileInputRef.current?.click()}
-                onPaste={handlePasteFoto}
-                tabIndex={0}
-              >
-                <div className="w-24 h-24 rounded-full bg-slate-800/50 border-2 border-dashed border-white/30 flex items-center justify-center overflow-hidden group-hover:border-blue-400 transition-colors">
-                  {uploadandoFoto ? (
-                    <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
-                  ) : formData.foto_url ? (
-                    <img 
-                      src={formData.foto_url} 
-                      alt="Foto do vendedor" 
-                      className="w-full h-full object-cover rounded-full"
-                    />
-                  ) : (
-                    <div className="text-center">
-                      <User className="w-8 h-8 text-white/60 mx-auto mb-2" />
-                      <span className="text-sm text-white/60">Foto 3x4</span>
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
-                    <Camera className="w-6 h-6 text-white" />
+          {/* Foto */}
+          <div className="flex justify-center">
+            <div
+              className="relative group cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+              onPaste={handlePasteFoto}
+              tabIndex={0}
+            >
+              <div className="w-24 h-24 rounded-full bg-slate-800/50 border-2 border-dashed border-white/30 flex items-center justify-center overflow-hidden group-hover:border-blue-400 transition-colors">
+                {uploadandoFoto ? (
+                  <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+                ) : formData.foto_url ? (
+                  <img src={formData.foto_url} alt="Foto" className="w-full h-full object-cover rounded-full" />
+                ) : (
+                  <div className="text-center">
+                    <User className="w-8 h-8 text-white/60 mx-auto mb-1" />
+                    <span className="text-xs text-white/60">Foto 3x4</span>
                   </div>
+                )}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
+                  <Camera className="w-6 h-6 text-white" />
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFotoUpload}
-                  className="hidden"
-                />
-                <p className="text-xs text-gray-400 text-center mt-2">Clique ou Ctrl+V para colar</p>
               </div>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFotoUpload} className="hidden" />
+              <p className="text-xs text-gray-400 text-center mt-2">Clique ou Ctrl+V para colar</p>
             </div>
+          </div>
 
-            <div><Label className="text-gray-300 text-sm">Nome Completo</Label><GlassInput value={formData.nome} onChange={(e) => handleChange("nome", e.target.value)} required /></div>
+          {/* Dados complementares */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div><Label className="text-gray-300 text-sm">Código</Label><GlassInput value={formData.codigo} onChange={(e) => handleChange("codigo", e.target.value)} required /></div>
-            <div>
-              <Label className="text-gray-300 text-sm">Email</Label>
-              <GlassInput 
-                type="email" 
-                value={formData.email} 
-                onChange={(e) => handleChange("email", e.target.value)} 
-                required 
-                disabled={!!usuarioVinculado}
-              />
-              {usuarioVinculado && (
-                <p className="text-xs text-blue-400 mt-1">Email vinculado ao usuário</p>
-              )}
-            </div>
             <div><Label className="text-gray-300 text-sm">Telefone</Label><GlassInput value={formData.telefone} onChange={(e) => handleChange("telefone", e.target.value)} /></div>
           </div>
 
@@ -287,7 +234,7 @@ export default function VendedorForm({ vendedor, onSalvar, onCancelar }) {
 
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" onClick={onCancelar} variant="ghost">Cancelar</Button>
-            <Button type="submit" disabled={loading || uploadandoFoto} className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold">
+            <Button type="submit" disabled={loading || uploadandoFoto || !formData.user_id} className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold">
               <Save className="w-4 h-4 mr-2" /> {loading ? "Salvando..." : "Salvar"}
             </Button>
           </div>
