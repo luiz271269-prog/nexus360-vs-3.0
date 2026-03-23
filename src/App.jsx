@@ -48,11 +48,21 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      // Não redirecionar dentro do preview sandbox (quebraria o iframe)
       const isPreviewSandbox = window.location.hostname.includes('preview-sandbox');
-      if (!isPreviewSandbox) {
-        navigateToLogin();
+      if (isPreviewSandbox) {
+        return (
+          <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-white">
+            <div className="text-slate-500 text-sm">Sessão expirada no preview.</div>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700"
+            >
+              Recarregar
+            </button>
+          </div>
+        );
       }
+      navigateToLogin();
       return null;
     }
   }
