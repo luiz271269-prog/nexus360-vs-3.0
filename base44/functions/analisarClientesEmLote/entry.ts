@@ -352,12 +352,12 @@ Deno.serve(async (req) => {
     // ══════════════════════════════════════════════════════════════
     // MODO 3: AUTOMAÇÃO SCHEDULED (análise periódica)
     // ══════════════════════════════════════════════════════════════
-    // ✅ FIX TIMEOUT: Limitar em 10 por execução + hard cutoff de 50s
-    const scheduledLimit = Math.min(limit, 10);
-    const HARD_CUTOFF_MS = 50_000; // Sair em 50s para não estourar timeout de 60s
+    // Limitar em 5 por execução + hard cutoff de 45s
+    const scheduledLimit = Math.min(limit, 5);
+    const HARD_CUTOFF_MS = 45_000;
     const tsStart = Date.now();
     
-    console.log(`[ANALISE_LOTE] Modo scheduled | Limit: ${scheduledLimit} (max 10 por execução)`);
+    console.log(`[ANALISE_LOTE] Modo scheduled | Limit: ${scheduledLimit} (max 5 por execução)`);
     
     let query = {
       tipo_contato: { $in: Array.isArray(tipo) ? tipo : ['lead', 'cliente'] }
@@ -380,6 +380,18 @@ Deno.serve(async (req) => {
     
     console.log(`[ANALISE_LOTE] ${contatos.length} contatos encontrados`);
     
+    // ✅ BATCH: buscar todas análises recentes de uma vez (evita N queries individuais)
+    const contactIdsList = contatos.map(c => c.id);
+    const analisesRecentes = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
+      {
+        contact_id: { $in: contactIdsList },
+        analyzed_at: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() }
+      },
+      '-analyzed_at',
+      scheduledLimit
+    );
+    const analisesRecentesSet = new Set(analisesRecentes.map(a => a.contact_id));
+    
     const resultados = {
       total_processados: 0,
       analises_criadas: 0,
@@ -399,19 +411,8 @@ Deno.serve(async (req) => {
       resultados.total_processados++;
       
       try {
-        // Verificar análise recente (< 24h) - usar service role
-        const analises = await base44.asServiceRole.entities.ContactBehaviorAnalysis.filter(
-          {
-            contact_id: contato.id,
-            analyzed_at: { 
-              $gte: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() 
-            }
-          },
-          '-analyzed_at',
-          1
-        );
-        
-        if (analises.length > 0) {
+        // ✅ Usar set pré-carregado em batch (sem query individual)
+        if (analisesRecentesSet.has(contato.id)) {
           resultados.analises_puladas++;
           console.log(`[ANALISE_LOTE] Pulando ${contato.nome} (análise < 24h)`);
           continue;
