@@ -494,6 +494,36 @@ Deno.serve(async (req) => {
   else if (isHumanDormant && messageContent?.length > 4) shouldDispatch = true;
   else if (!thread.assigned_user_id) shouldDispatch = true;
 
+  // ════════════════════════════════════════════════════════════════
+  // LOCK ANTI-DUPLICAÇÃO: Re-buscar thread fresca do banco antes de despachar.
+  // Evita que múltiplos webhooks paralelos (mensagens rápidas) disparem
+  // o pré-atendimento mais de uma vez.
+  // ════════════════════════════════════════════════════════════════
+  if (shouldDispatch) {
+    try {
+      const threadFresca = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+      const lockAtivo =
+        threadFresca.pre_atendimento_ativo === true &&
+        threadFresca.pre_atendimento_started_at &&
+        (Date.now() - new Date(threadFresca.pre_atendimento_started_at).getTime()) < 45_000;
+
+      if (lockAtivo) {
+        console.log(`[${VERSION}] 🔒 Lock ativo (started_at=${threadFresca.pre_atendimento_started_at}) — abortando dispatch para evitar duplicação`);
+        result.actions.push('skipped_lock_active');
+        return Response.json({ success: true, skipped: true, reason: 'pre_atendimento_lock_active', pipeline: result.pipeline, actions: result.actions });
+      }
+
+      // Adquirir lock
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        pre_atendimento_ativo: true,
+        pre_atendimento_started_at: new Date().toISOString()
+      });
+      thread = { ...thread, pre_atendimento_ativo: true };
+    } catch (e) {
+      console.warn(`[${VERSION}] ⚠️ Erro ao verificar/adquirir lock:`, e.message);
+    }
+  }
+
   if (shouldDispatch) {
     result.pipeline.push('pre_atendimento_dispatch');
     console.log(`[${VERSION}] 🎯 Despachando para preAtendimentoHandler (URA ativa=${isUraActive}, novoCiclo=${novoCiclo}, dormant=${isHumanDormant})`);
