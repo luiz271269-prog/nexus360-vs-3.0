@@ -119,7 +119,10 @@ export default function VendedorTable({ vendedores, onEditar, onExcluir }) {
                         <User className="w-5 h-5 text-slate-500" />
                       )}
                     </div>
-                    <div className="font-medium text-slate-800 truncate">{vendedor.nome}</div>
+                    <div className="font-medium text-slate-800 truncate">{nomeExibido}</div>
+                    {vinculoStatus.usuario && (
+                      <div className="text-xs text-slate-400 truncate">{vinculoStatus.usuario.email}</div>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell>{getStatusChip(vendedor.status)}</TableCell>
