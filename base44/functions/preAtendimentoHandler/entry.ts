@@ -26,11 +26,7 @@ Deno.serve(async (req) => {
     // SKILL 1: ACK IMEDIATO
     // ─────────────────────────────────────────────────────────────
     console.log('[PRE-ATENDIMENTO v13] Invoking skillACKImediato');
-    const ackResponse = await base44.functions.invoke('skillACKImediato', {
-      thread_id: thread_id,
-      contact_id: contact_id,
-      integration_id: whatsapp_integration_id
-    });
+    const ackResponse = await base44.asServiceRole.functions.invoke('skillACKImediato', {
 
     if (!ackResponse || !ackResponse.success) {
       console.error('[PRE-ATENDIMENTO v13] ACK failed:', ackResponse);
