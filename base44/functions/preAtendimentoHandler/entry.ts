@@ -451,6 +451,34 @@ Deno.serve(async (req) => {
       else return Response.json({ success: false, error: 'Nenhuma integração WhatsApp ativa' }, { status: 500 });
     }
 
+    // ── FIX 1: Verificar horário comercial ──────────────────────────────────
+    const { dentroHorario, msgForaHorario } = await verificarHorarioComercial(base44);
+    if (!dentroHorario) {
+      console.log('[PRE-ATENDIMENTO] 🌙 Fora do horário comercial → enviando mensagem padrão');
+      await enviarMensagem(base44, contact, integrationId, msgForaHorario);
+      return Response.json({ success: true, estado: 'FORA_HORARIO', resultado: { mode: 'fora_horario_comercial' } }, { status: 200, headers });
+    }
+
+    // ── FIX 2: Debounce ─────────────────────────────────────────────────────
+    const debounceSegundos = await getDebounceSegundos(base44);
+    if (debounceSegundos > 0 && user_input?.type !== 'proactive') {
+      // Marcar timestamp da última mensagem recebida nesta thread
+      const agora = Date.now();
+      const ultimoDebounce = thread.campos_personalizados?.debounce_ultimo_ts || 0;
+      const diffMs = agora - ultimoDebounce;
+
+      // Atualizar o timestamp para reiniciar o contador
+      await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+        campos_personalizados: { ...thread.campos_personalizados, debounce_ultimo_ts: agora }
+      });
+
+      if (diffMs < debounceSegundos * 1000) {
+        // Mensagem dentro do janela de debounce → aguardar sem responder ainda
+        console.log(`[PRE-ATENDIMENTO] ⏳ Debounce ativo (${Math.round(diffMs/1000)}s < ${debounceSegundos}s) → ignorando por ora`);
+        return Response.json({ success: true, estado: 'DEBOUNCE', resultado: { mode: 'debounce_aguardando' } }, { status: 200, headers });
+      }
+    }
+
     const estado = thread.pre_atendimento_state || 'INIT';
     console.log('[PRE-ATENDIMENTO v12] Thread:', thread_id, '| Estado:', estado);
 
