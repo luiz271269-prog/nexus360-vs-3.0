@@ -29,6 +29,15 @@ Deno.serve(async (req) => {
     const userInputNorm = user_input || { type: 'text', content: '' };
     console.log('[PRE-ATENDIMENTO v13] 🚀 Pipeline iniciado | thread:', thread_id);
 
+    // Buscar thread fresca (evita 403 por permissões desatualizadas)
+    let thread;
+    try {
+      thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+    } catch (e) {
+      console.error('[PRE-ATENDIMENTO v13] ❌ Erro ao buscar thread:', e.message);
+      return Response.json({ success: false, error: 'thread_not_found', detail: e.message }, { status: 404, headers });
+    }
+
     // ════════════════════════════════════════════════════════════════
     // SKILL 1: ACK IMEDIATO (lock 60s anti-duplicata)
     // ════════════════════════════════════════════════════════════════
