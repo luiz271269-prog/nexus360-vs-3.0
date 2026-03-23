@@ -357,153 +357,194 @@ ${textos}
 
 Retorne OBRIGATORIAMENTE todos os campos acima.`;
 
-        analiseIA = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: promptV2,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              relationship_profile: {
-                type: "object",
-                properties: {
-                  type: { type: "string" },
-                  flags: { type: "array", items: { type: "string" } },
-                  summary: { type: "string" }
-                }
+        // ══════════════════════════════════
+        // CAMADA 1: Anthropic API direta
+        // ══════════════════════════════════
+        const anthropicKey = Deno.env.get('ANTROPIK_API');
+        
+        if (anthropicKey) {
+          try {
+            const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': anthropicKey,
+                'anthropic-version': '2023-06-01'
               },
-              scores: {
-                type: "object",
-                properties: {
-                  health: { type: "number" },
-                  deal_risk: { type: "number" },
-                  buy_intent: { type: "number" },
-                  engagement: { type: "number" }
-                }
-              },
-              stage: {
-                type: "object",
-                properties: {
-                  current: { type: "string" },
-                  days_stalled: { type: "number" },
-                  last_milestone: { type: "string" },
-                  last_milestone_at: { type: "string" }
-                }
-              },
-              root_causes: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    cause: { type: "string" },
-                    severity: { type: "string" },
-                    confidence: { type: "number" }
-                  }
-                }
-              },
-              evidence_snippets: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    timestamp: { type: "string" },
-                    sender: { type: "string" },
-                    text: { type: "string" },
-                    related_cause: { type: "string" }
-                  }
-                }
-              },
-              objections: {
-                type: "array",
-                items: {
+              body: JSON.stringify({
+                model: 'claude-3-haiku-20240307',
+                max_tokens: 2048,
+                messages: [{ role: 'user', content: promptV2 + '\n\nRetorne APENAS o JSON, sem markdown.' }]
+              })
+            });
+            
+            if (!anthropicRes.ok) {
+              const errText = await anthropicRes.text();
+              throw new Error(`Anthropic ${anthropicRes.status}: ${errText.substring(0, 200)}`);
+            }
+            
+            const anthropicData = await anthropicRes.json();
+            const rawText = anthropicData.content?.[0]?.text || '{}';
+            // Extrair JSON da resposta
+            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+            analiseIA = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+            console.log('[ANALISE] ✅ Camada 1 (Anthropic) sucesso');
+          } catch (anthropicError) {
+            const isAuthError = anthropicError.message.includes('401') || 
+                                anthropicError.message.includes('403') ||
+                                anthropicError.message.toLowerCase().includes('auth') ||
+                                anthropicError.message.toLowerCase().includes('api key');
+            console.warn(`[ANALISE] ⚠️ Camada 1 falhou (${isAuthError ? 'auth' : 'erro'}): ${anthropicError.message}`);
+            // Cai para Camada 2
+          }
+        }
+        
+        // ══════════════════════════════════
+        // CAMADA 2: Base44 InvokeLLM (fallback)
+        // ══════════════════════════════════
+        if (!analiseIA) {
+          console.log('[ANALISE] 🔄 Usando Camada 2 (Base44 InvokeLLM)');
+          analiseIA = await base44.asServiceRole.integrations.Core.InvokeLLM({
+            prompt: promptV2,
+            response_json_schema: {
+              type: "object",
+              properties: {
+                relationship_profile: {
                   type: "object",
                   properties: {
                     type: { type: "string" },
-                    status: { type: "string" },
-                    snippet: { type: "string" }
+                    flags: { type: "array", items: { type: "string" } },
+                    summary: { type: "string" }
                   }
-                }
-              },
-              alerts: {
-                type: "array",
-                items: {
+                },
+                scores: {
+                  type: "object",
+                  properties: {
+                    health: { type: "number" },
+                    deal_risk: { type: "number" },
+                    buy_intent: { type: "number" },
+                    engagement: { type: "number" }
+                  }
+                },
+                stage: {
+                  type: "object",
+                  properties: {
+                    current: { type: "string" },
+                    days_stalled: { type: "number" },
+                    last_milestone: { type: "string" },
+                    last_milestone_at: { type: "string" }
+                  }
+                },
+                root_causes: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      cause: { type: "string" },
+                      severity: { type: "string" },
+                      confidence: { type: "number" }
+                    }
+                  }
+                },
+                evidence_snippets: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      timestamp: { type: "string" },
+                      sender: { type: "string" },
+                      text: { type: "string" },
+                      related_cause: { type: "string" }
+                    }
+                  }
+                },
+                objections: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      type: { type: "string" },
+                      status: { type: "string" },
+                      snippet: { type: "string" }
+                    }
+                  }
+                },
+                alerts: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      level: { type: "string" },
+                      message: { type: "string" }
+                    }
+                  }
+                },
+                playbook: {
+                  type: "object",
+                  properties: {
+                    goal: { type: "string" },
+                    rules_of_game: { type: "array", items: { type: "string" } },
+                    when_to_compete: { type: "array", items: { type: "string" } },
+                    when_to_decline: { type: "array", items: { type: "string" } }
+                  }
+                },
+                next_best_action: {
+                  type: "object",
+                  properties: {
+                    action: { type: "string" },
+                    priority: { type: "string" },
+                    rationale: { type: "string" },
+                    suggested_message: { type: "string" }
+                  }
+                },
+                relationship_risk: {
                   type: "object",
                   properties: {
                     level: { type: "string" },
-                    message: { type: "string" }
-                  }
-                }
-              },
-              playbook: {
-                type: "object",
-                properties: {
-                  goal: { type: "string" },
-                  rules_of_game: { type: "array", items: { type: "string" } },
-                  when_to_compete: { type: "array", items: { type: "string" } },
-                  when_to_decline: { type: "array", items: { type: "string" } }
-                }
-              },
-              next_best_action: {
-                type: "object",
-                properties: {
-                  action: { type: "string" },
-                  priority: { type: "string" },
-                  rationale: { type: "string" },
-                  suggested_message: { type: "string" }
-                }
-              },
-              relationship_risk: {
-                type: "object",
-                properties: {
-                  level: { type: "string" },
-                  events: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        timestamp: { type: "string" },
-                        type: { type: "string" },
-                        snippet: { type: "string" }
+                    events: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          timestamp: { type: "string" },
+                          type: { type: "string" },
+                          snippet: { type: "string" }
+                        }
                       }
                     }
                   }
-                }
-              },
-              prontuario_ptbr: {
-                type: "object",
-                properties: {
-                  visao_geral: { type: "string" },
-                  necessidades_contexto: { type: "string" },
-                  estado_atual_scores: { type: "string" },
-                  causas_principais: { type: "string" },
-                  oportunidades_sinais_positivos: { type: "string" },
-                  recomendacoes_objetivas: { type: "string" },
-                  mensagem_pronta: { type: "string" }
+                },
+                prontuario_ptbr: {
+                  type: "object",
+                  properties: {
+                    visao_geral: { type: "string" },
+                    necessidades_contexto: { type: "string" },
+                    estado_atual_scores: { type: "string" },
+                    causas_principais: { type: "string" },
+                    oportunidades_sinais_positivos: { type: "string" },
+                    recomendacoes_objetivas: { type: "string" },
+                    mensagem_pronta: { type: "string" }
+                  }
                 }
               }
             }
-          }
-        });
+          });
+          console.log('[ANALISE] ✅ Camada 2 (InvokeLLM) sucesso');
+        }
 
-        // Mapear resposta da IA para as variáveis locais
-        sentimentoPredominante = 'neutro';
-        aiScores = {
-          health: analiseIA.scores?.health || 50,
-          deal_risk: analiseIA.scores?.deal_risk || 0,
-          buy_intent: analiseIA.scores?.buy_intent || 0,
-          engagement: analiseIA.scores?.engagement || 50
-        };
-        objecoes = analiseIA.objections || [];
-        signals = (analiseIA.signals || []);
-        stageAtual = analiseIA.stage?.current || 'descoberta';
-        
-        // ✅ Armazenar dados V2 completos (não usar window)
-        console.log('[ANALISE] ✅ Análise V2 recebida da IA', {
-          relationship_type: analiseIA.relationship_profile?.type,
-          flags_count: analiseIA.relationship_profile?.flags?.length || 0,
-          risk_level: analiseIA.relationship_risk?.level
-        });
-        
       } catch (error) {
-        console.warn('[ANALISE] ⚠️ Erro na IA:', error.message);
+        // ══════════════════════════════════
+        // CAMADA 3: Erro claro ao operador
+        // ══════════════════════════════════
+        const isAuthError = error.message?.includes('401') || error.message?.includes('403') ||
+                            error.message?.toLowerCase().includes('auth') ||
+                            error.message?.toLowerCase().includes('api key') ||
+                            error.message?.toLowerCase().includes('credit');
+        const mensagemErro = isAuthError
+          ? 'API indisponível — configure ANTROPIK_API em Base44 Secrets ou verifique créditos'
+          : `Erro IA: ${error.message}`;
+        console.warn(`[ANALISE] ❌ Todas as camadas falharam: ${mensagemErro}`);
+        // analiseIA permanece null → scores padrão são usados
       }
     }
 
