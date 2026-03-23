@@ -148,9 +148,12 @@ Deno.serve(async (req) => {
     }
 
     if (!respEnvio?.success) {
-      console.warn('[SKILL-ACK] Envio falhou:', respEnvio);
+      console.error('[SKILL-ACK] ❌ Envio falhou | Provider:', isWAPI ? 'W-API' : 'Z-API');
+      console.error('[SKILL-ACK] Response:', JSON.stringify(respEnvio));
+      console.error('[SKILL-ACK] Número formatado:', numeroFormatado);
+      console.error('[SKILL-ACK] Integração:', integracao.nome_instancia, '| Status:', integracao.status);
       return Response.json(
-        { success: false, error: 'envio_whatsapp_falhou', provider: isWAPI ? 'w_api' : 'z_api' },
+        { success: false, error: 'envio_whatsapp_falhou', provider: isWAPI ? 'w_api' : 'z_api', response: respEnvio },
         { status: 500, headers }
       );
     }
