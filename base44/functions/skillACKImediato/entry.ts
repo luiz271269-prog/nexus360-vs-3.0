@@ -113,22 +113,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Normalizar telefone E.164
-    const telefoneLimpo = (contact.telefone || '').replace(/\D/g, '');
-    const telefoneE164 = telefoneLimpo.startsWith('55') ? `+${telefoneLimpo}` : `+55${telefoneLimpo}`;
+    // Enviar via função unificada (cobre Z-API e W-API)
+    const respEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+      integration_id: integId,
+      numero_destino: contact.telefone,
+      mensagem: ackConfig.mensagem
+    });
 
-    // Enviar via Z-API (provedor padrão)
-    const respEnvio = await fetch(
-      `https://api.z-api.io/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: telefoneE164, message: ackConfig.mensagem })
-      }
-    ).then(r => r.json());
-
-    if (!respEnvio?.success) {
-      console.warn('[SKILL-ACK] Envio Z-API falhou:', respEnvio);
+    if (!respEnvio?.data?.success) {
+      console.warn('[SKILL-ACK] Envio falhou:', respEnvio?.data);
       return Response.json(
         { success: false, error: 'envio_whatsapp_falhou' },
         { status: 500, headers }

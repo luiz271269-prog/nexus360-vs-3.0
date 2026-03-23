@@ -151,6 +151,17 @@ Deno.serve(async (req) => {
     const contact = await base44.asServiceRole.entities.Contact.get(contact_id);
     let tipoContato = contact.tipo_contato || 'novo';
 
+    // Verificar atendente fidelizado para o setor detectado
+    const campoFidelizado = `atendente_fidelizado_${deteccao.setor}`;
+    const valorFidelizado = contact[campoFidelizado];
+    const atendenteFidelizadoId = valorFidelizado && /^[a-f0-9]{24}$/i.test(String(valorFidelizado))
+      ? String(valorFidelizado)
+      : null;
+
+    if (atendenteFidelizadoId) {
+      console.log(`[INTENT-ROUTER] 🎯 Atendente fidelizado encontrado para setor ${deteccao.setor}: ${atendenteFidelizadoId}`);
+    }
+
     // Registrar IntentDetection
     await base44.asServiceRole.entities.IntentDetection.create({
       thread_id,
@@ -186,6 +197,7 @@ Deno.serve(async (req) => {
       confidence: deteccao.confidence,
       tipo_contato: tipoContato,
       metodo,
+      atendente_fidelizado_id: atendenteFidelizadoId,
       resultado_roteamento: deteccao.confidence >= thresholdConfig ? 'auto_roteado' : 'menu_fallback'
     }, { headers });
 

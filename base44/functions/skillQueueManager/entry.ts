@@ -39,7 +39,7 @@ async function buscarMelhorAtendente(base44: any, setor: string, contact: any): 
     }
   }
 
-  // 2º: menor carga no setor (FILTRANDO FIDELIZADO SE OFFLINE)
+  // 2º: menor carga no setor (sem filtro de status — horário comercial já garantido)
   try {
     let usuarios = await base44.asServiceRole.entities.User.filter(
       {
@@ -50,7 +50,7 @@ async function buscarMelhorAtendente(base44: any, setor: string, contact: any): 
       20
     );
 
-    // ✅ FIX: Excluir atendente fidelizado se offline (evita repetição)
+    // Excluir atendente fidelizado se já foi tentado (evita repetição)
     const fidielizado = contact[`atendente_fidelizado_${setor}`];
     if (fidielizado) {
       usuarios = usuarios.filter((u: any) => u.id !== fidielizado);
@@ -135,6 +135,16 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const payload: QueuePayload = await req.json();
     const { thread_id, contact_id, integration_id, sector_id } = payload;
+
+    // Fix 4 — Lock anti-duplicação: não atribuir se já houve outbound nos últimos 60s
+    const threadCheck = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+    if (threadCheck.last_outbound_at) {
+      const diffMs = Date.now() - new Date(threadCheck.last_outbound_at).getTime();
+      if (diffMs < 60_000) {
+        console.log(`[QUEUE] 🔒 Lock 60s ativo (${Math.round(diffMs / 1000)}s) — skip`);
+        return Response.json({ success: true, skipped: true, reason: 'lock_60s' }, { headers });
+      }
+    }
 
     if (!thread_id || !contact_id || !sector_id) {
       return Response.json(
