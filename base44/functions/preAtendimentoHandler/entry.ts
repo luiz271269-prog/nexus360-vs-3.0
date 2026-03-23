@@ -91,6 +91,15 @@ async function detectarSetorPorIA(base44, mensagem, contact) {
 // FLUXO: INIT — Saudação + pergunta aberta
 // ============================================================================
 async function processarINIT(base44, thread, contact, integrationId) {
+  // ✅ FIX LOCK ATÔMICO 60s: Bloquear webhooks paralelos (triplicação de mensagens)
+  if (thread.last_outbound_at) {
+    const msDesdeUltima = Date.now() - new Date(thread.last_outbound_at).getTime();
+    if (msDesdeUltima < 60_000) {
+      console.log(`[PRE-ATENDIMENTO] 🔒 Lock 60s ativo (${Math.round(msDesdeUltima / 1000)}s atrás) → duplicata bloqueada`);
+      return { success: true, mode: 'lock_60s_ativo' };
+    }
+  }
+
   // ⚠️ BLOQUEIO: Cliente com atendente fidelizado — rotear direto sem menu de setor
   if (contact.tipo_contato === 'cliente' || contact.tipo_contato === 'lead') {
     const camposFidelizados = {

@@ -473,19 +473,40 @@ Deno.serve(async (req) => {
 
   // Se é novo ciclo com thread contextualizada: resetar estado para forçar menu
   if (novoCiclo && thread?.assigned_user_id && thread?.sector_id) {
-    console.log(`[${VERSION}] 🔄 NOVO CICLO com thread contextualizada → resetando estado para pré-atendimento`);
-    try {
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        pre_atendimento_ativo: false,
-        pre_atendimento_state: 'INIT',
-        assigned_user_id: null,
-        sector_id: null
-      });
-      thread = { ...thread, pre_atendimento_ativo: false, pre_atendimento_state: 'INIT', assigned_user_id: null, sector_id: null };
-    } catch (e) {
-      console.warn(`[${VERSION}] ⚠️ Erro ao resetar thread para novo ciclo:`, e.message);
+    // ✅ FIX C2: NÃO zerar se contact tem atendente fidelizado — preAtendimentoHandler vai direto
+    const temFidelizado =
+      contact?.atendente_fidelizado_vendas ||
+      contact?.atendente_fidelizado_assistencia ||
+      contact?.atendente_fidelizado_financeiro ||
+      contact?.atendente_fidelizado_fornecedor;
+
+    if (temFidelizado) {
+      console.log(`[${VERSION}] ⚡ NOVO CICLO + FIDELIZADO → preservando atendente, apenas resetando estado`);
+      try {
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          pre_atendimento_ativo: false,
+          pre_atendimento_state: 'INIT'
+        });
+        thread = { ...thread, pre_atendimento_ativo: false, pre_atendimento_state: 'INIT' };
+      } catch (e) {
+        console.warn(`[${VERSION}] ⚠️ Erro ao resetar estado (fidelizado):`, e.message);
+      }
+      result.actions.push('thread_reset_new_cycle_fidelizado_preserved');
+    } else {
+      console.log(`[${VERSION}] 🔄 NOVO CICLO com thread contextualizada → resetando estado para pré-atendimento`);
+      try {
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          pre_atendimento_ativo: false,
+          pre_atendimento_state: 'INIT',
+          assigned_user_id: null,
+          sector_id: null
+        });
+        thread = { ...thread, pre_atendimento_ativo: false, pre_atendimento_state: 'INIT', assigned_user_id: null, sector_id: null };
+      } catch (e) {
+        console.warn(`[${VERSION}] ⚠️ Erro ao resetar thread para novo ciclo:`, e.message);
+      }
+      result.actions.push('thread_reset_new_cycle');
     }
-    result.actions.push('thread_reset_new_cycle');
   }
 
   let shouldDispatch = false;
