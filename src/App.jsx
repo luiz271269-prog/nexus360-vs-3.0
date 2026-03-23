@@ -48,8 +48,11 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
-      navigateToLogin();
+      // Não redirecionar dentro do preview sandbox (quebraria o iframe)
+      const isPreviewSandbox = window.location.hostname.includes('preview-sandbox');
+      if (!isPreviewSandbox) {
+        navigateToLogin();
+      }
       return null;
     }
   }
