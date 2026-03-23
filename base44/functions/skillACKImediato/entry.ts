@@ -147,16 +147,24 @@ Deno.serve(async (req) => {
       console.log('[SKILL-ACK] Z-API enviou:', respEnvio);
     }
 
-    if (!respEnvio?.success) {
+    // Validar resposta conforme provedor
+    // W-API: retorna { messageId, instanceId, insertedId }
+    // Z-API: retorna { success: true, messageId, ... }
+    const sucessoZ = respEnvio?.success === true;
+    const sucessoW = respEnvio?.messageId || respEnvio?.insertedId;
+    const envioOk = isWAPI ? sucessoW : sucessoZ;
+
+    if (!envioOk) {
       console.error('[SKILL-ACK] ❌ Envio falhou | Provider:', isWAPI ? 'W-API' : 'Z-API');
       console.error('[SKILL-ACK] Response:', JSON.stringify(respEnvio));
-      console.error('[SKILL-ACK] Número formatado:', numeroFormatado);
-      console.error('[SKILL-ACK] Integração:', integracao.nome_instancia, '| Status:', integracao.status);
       return Response.json(
         { success: false, error: 'envio_whatsapp_falhou', provider: isWAPI ? 'w_api' : 'z_api', response: respEnvio },
         { status: 500, headers }
       );
     }
+
+    const msgId = respEnvio?.messageId || respEnvio?.key?.id || respEnvio?.id || 'unknown';
+    console.log('[SKILL-ACK] ✅ Mensagem enviada via', isWAPI ? 'W-API' : 'Z-API', '| messageId:', msgId);
 
     // Persistir mensagem
     await base44.asServiceRole.entities.Message.create({
