@@ -113,20 +113,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Enviar via função unificada (cobre Z-API e W-API)
-    const respEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
-      integration_id: integId,
-      numero_destino: contact.telefone,
-      mensagem: ackConfig.mensagem
-    });
+    // Enviar via Z-API (provedor padrão) — TODO: migrar para enviarWhatsApp quando w_api suportada
+    const telefoneLimpo = (contact.telefone || '').replace(/\D/g, '');
+    const telefoneE164 = telefoneLimpo.startsWith('55') ? `+${telefoneLimpo}` : `+55${telefoneLimpo}`;
 
-    if (!respEnvio?.data?.success) {
-      const errorMsg = respEnvio?.data?.error || 'Erro desconhecido';
-      const errorDetails = respEnvio?.data?.error_message || '';
-      console.error('[SKILL-ACK] Envio falhou:', { error: errorMsg, details: errorDetails, status: respEnvio?.status });
+    const respEnvio = await fetch(
+      `https://api.z-api.io/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/send-text`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: telefoneE164, message: ackConfig.mensagem })
+      }
+    ).then(r => r.json());
+
+    if (!respEnvio?.success) {
+      console.warn('[SKILL-ACK] Envio Z-API falhou:', respEnvio);
       return Response.json(
-        { success: false, error: errorMsg, details: errorDetails },
-        { status: respEnvio?.status || 500, headers }
+        { success: false, error: 'envio_whatsapp_falhou' },
+        { status: 500, headers }
       );
     }
 
