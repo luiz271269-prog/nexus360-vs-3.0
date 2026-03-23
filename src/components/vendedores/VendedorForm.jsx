@@ -64,16 +64,7 @@ export default function VendedorForm({ vendedor, onSalvar, onCancelar }) {
   const handleChange = (campo, valor) => setFormData(prev => ({ ...prev, [campo]: valor }));
 
   const handleVincularUsuario = (userId) => {
-    const usuarioSelecionado = usuarios.find(u => u.id === userId);
-    if (usuarioSelecionado) {
-      setFormData(prev => ({
-        ...prev,
-        email: usuarioSelecionado.email,
-        // Se o vendedor não tem nome ainda, preencher com o nome do usuário
-        nome: prev.nome || usuarioSelecionado.full_name || '',
-        telefone: prev.telefone || usuarioSelecionado.whatsapp_phone || ''
-      }));
-    }
+    setFormData(prev => ({ ...prev, user_id: userId }));
   };
 
   const handleFotoUpload = async (event) => {
