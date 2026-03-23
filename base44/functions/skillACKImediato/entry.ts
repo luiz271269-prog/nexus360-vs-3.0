@@ -45,28 +45,13 @@ Deno.serve(async (req) => {
       const msgs = await base44.asServiceRole.entities.Message.filter({
         thread_id,
         sender_id: 'skill_ack'
-      }, '-created_date', 1).catch(() => []);
+      }, '-created_date', 5).catch(() => []);
 
-      if (msgs.length > 0 && msgs[0].metadata?.msg_id === message_id) {
-        console.log('[SKILL-ACK] Webhook duplicado detectado');
+      const ja_enviou = msgs.some(m => m.metadata?.msg_id === message_id);
+      if (ja_enviou) {
+        console.log('[SKILL-ACK] ⏭️ Webhook duplicado — rejeitando');
         return Response.json({ success: true, skipped: true, reason: 'webhook_duplicado' }, { headers });
       }
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // Enviar ACK
-    // ═══════════════════════════════════════════════════════════
-    const contact = await base44.asServiceRole.entities.Contact.get(contact_id);
-    const nome = (contact.nome || 'cliente').split(' ')[0];
-    const isVIP = contact.is_vip || contact.classe_abc === 'A';
-    const tipo = contact.tipo_contato || 'novo';
-    const hora = new Date().getHours();
-
-    const ack = getACKMessage(tipo, nome, isVIP, hora);
-    const integId = thread.whatsapp_integration_id || integration_id;
-
-    if (!integId) {
-      return Response.json({ success: false, error: 'No integration' }, { status: 400, headers });
     }
 
     const integ = await base44.asServiceRole.entities.WhatsAppIntegration.get(integId);
