@@ -81,8 +81,9 @@ async function executarDedup(base44, payload) {
   }
 
   // STEP 2: FALLBACK — Buscar por telefone histórico (sem canonical)
+  // Cobre contatos legados que não têm telefone_canonico preenchido
   console.log(`[DEDUP] 🔄 FALLBACK: buscando histórico para ${telefoneFinal}`);
-  const variacoes = [telefoneFinal, canonico, `+55${canonico.replace(/^55/, '')}`].filter(Boolean);
+  const variacoes = [telefoneFinal, canonico, `+55${canonico.replace(/^55/, '')}`, canonico.replace(/^55/, '')].filter(Boolean);
 
   for (const variacao of variacoes) {
     try {
