@@ -130,6 +130,19 @@ Deno.serve(async (req) => {
 
   console.log(`[${VERSION}] 📞 Buscando: ${telefoneNormalizado} | canonico: ${canonico} | variações: ${variacoes.length}`);
 
+  // ═══════════════════════════════════════════════════════════════
+  // LOCK EM MEMÓRIA: Serializa execuções concorrentes para o mesmo número
+  // Elimina race condition onde 2 webhooks simultâneos criam contato duplo
+  // ═══════════════════════════════════════════════════════════════
+  const lockKey = canonico;
+  const existingLock = _locks.get(lockKey) || Promise.resolve();
+  let resolveLock;
+  const newLock = new Promise(r => { resolveLock = r; });
+  _locks.set(lockKey, existingLock.then(() => newLock));
+
+  // Aguarda qualquer execução anterior para o mesmo número terminar
+  await existingLock;
+
   let contatoExistente = null;
 
   try {
