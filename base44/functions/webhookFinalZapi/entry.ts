@@ -38,6 +38,26 @@ const corsHeaders = {
 function jsonOk(body, init = {}) {
   return Response.json(body, { status: 200, headers: corsHeaders, ...init });
 }
+
+// ============================================================================
+// RETRY COM BACKOFF EXPONENCIAL PARA 429 (Rate Limit)
+// ============================================================================
+async function retryOn429(fn, maxTentativas = 3, delayBase = 1000) {
+  for (let i = 0; i < maxTentativas; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const is429 = e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa');
+      if (is429 && i < maxTentativas - 1) {
+        const delay = delayBase * Math.pow(2, i); // 1s, 2s, 4s
+        console.warn(`[RETRY] 429 detectado, aguardando ${delay}ms (tentativa ${i + 1}/${maxTentativas})`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw e;
+    }
+  }
+}
 function jsonBadRequest(body) {
   return Response.json(body, { status: 400, headers: corsHeaders });
 }
@@ -675,11 +695,11 @@ async function handleMessage(dados, payloadBruto, base44) {
 
       for (const tel of phoneVariacoes) {
         if (integracaoId) break;
-        const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+        const int = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
           { numero_telefone: tel },
           '-created_date',
           1
-        );
+        ));
         if (int.length > 0) {
           integracaoId = int[0].id;
           integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
@@ -714,12 +734,12 @@ async function handleMessage(dados, payloadBruto, base44) {
   try {
     console.log(`[${VERSION}] 🎯 Chamando função CENTRALIZADA para contato: ${dados.from}`);
     
-    const resultado = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+    const resultado = await retryOn429(() => base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
       telefone: dados.from,
       pushName: dados.pushName || null,
       profilePicUrl: null,
       conexaoId: integracaoId
-    });
+    }));
     
     if (!resultado?.data?.success || !resultado?.data?.contact) {
       console.error(`[${VERSION}] ❌ Função centralizada falhou:`, resultado?.data);
@@ -892,11 +912,11 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ✅ VERIFICAÇÃO DE DUPLICATA POR CONTEÚDO - Agora com contato.id disponível
   try {
     const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
-    const msgRecentes = await base44.asServiceRole.entities.Message.filter({
+    const msgRecentes = await retryOn429(() => base44.asServiceRole.entities.Message.filter({
       thread_id: thread.id,
       sender_type: 'contact',
       created_date: { $gte: doisSegundosAtras }
-    }, '-created_date', 10);
+    }, '-created_date', 10));
     
     const duplicadaPorConteudo = msgRecentes.find(m => 
       m.media_type === dados.mediaType &&
