@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
     console.log('[MERGE] Duplicatas:', duplicateContactIds);
 
     // Buscar contato mestre
-    const mestre = await base44.asServiceRole.entities.Contact.get('Contact', masterContactId);
+    const mestre = await base44.asServiceRole.entities.Contact.get(masterContactId);
     if (!mestre) {
       return Response.json({
         success: false,
@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
       console.log('[MERGE] Processando duplicata:', duplicataId);
 
       // Buscar duplicata
-      const duplicata = await base44.asServiceRole.entities.Contact.get('Contact', duplicataId);
+      const duplicata = await base44.asServiceRole.entities.Contact.get(duplicataId);
       if (!duplicata) {
         console.warn('[MERGE] ⚠️ Duplicata não encontrada, pulando:', duplicataId);
         continue;
