@@ -1,6 +1,7 @@
 // Resolver ou Criar Contato — Deduplicação por telefone_canonico
-// v1.1 — Exportável para chamadas internas via invoke()
-// NÃO é webhook — recebe base44 pré-inicializado dos webhooks
+// v1.1 — Webhook que recebe base44 via invoke do webhookZapi/webhookWapi
+
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 const _locks = new Map();
 
@@ -21,30 +22,27 @@ function normalizarParaCanonico(telefone) {
   return null;
 }
 
-async function resolverOuCriarContatoDedup(base44, payload) {
+// Lógica centralizada (não depende de req)
+async function executarDedup(base44, payload) {
   const { telefone, nome, pushName, profilePicUrl, integracaoId } = payload;
 
-  if (!telefone) {
-    throw new Error('telefone_required');
-  }
+  if (!telefone) throw new Error('telefone_required');
 
   const canonico = normalizarParaCanonico(telefone);
-  if (!canonico) {
-    throw new Error('telefone_invalido');
-  }
+  if (!canonico) throw new Error('telefone_invalido');
 
   const telefoneFinal = '+' + canonico;
 
+  // Lock
   const lockKey = canonico;
   const existingLock = _locks.get(lockKey) || Promise.resolve();
   let resolveLock;
   const newLock = new Promise(r => { resolveLock = r; });
   _locks.set(lockKey, existingLock.then(() => newLock));
-
   await existingLock;
 
   try {
-    // PASSO 1: Buscar existente por telefone_canonico
+    // PASSO 1: Buscar por telefone_canonico
     const existentes = await base44.asServiceRole.entities.Contact.filter(
       { telefone_canonico: canonico },
       'created_date',
@@ -56,19 +54,17 @@ async function resolverOuCriarContatoDedup(base44, payload) {
 
     if (existentes && existentes.length > 0) {
       const contatoExistente = existentes[0];
-      console.log(`[DEDUP] ✅ ENCONTRADO por telefone_canonico="${canonico}" | ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
+      console.log(`[DEDUP] ✅ ENCONTRADO por telefone_canonico="${canonico}" | ID: ${contatoExistente.id}`);
 
-      // Cleanup: deletar duplicatas silenciosamente
+      // Auto-cleanup de duplicatas
       if (existentes.length > 1) {
-        console.warn(`[DEDUP] 🧹 Auto-cleanup: ${existentes.length - 1} duplicado(s) para canonico=${canonico}`);
+        console.warn(`[DEDUP] 🧹 Auto-cleanup: ${existentes.length - 1} duplicado(s)`);
         for (const dup of existentes.slice(1)) {
-          base44.asServiceRole.entities.Contact.delete(dup.id).catch(e =>
-            console.warn(`[DEDUP] ⚠️ Erro ao deletar duplicado ${dup.id}:`, e.message)
-          );
+          base44.asServiceRole.entities.Contact.delete(dup.id).catch(() => {});
         }
       }
 
-      // Atualizar se dados novos chegarem
+      // Atualizar dados
       const update = {};
       if (nome && (!contatoExistente.nome || contatoExistente.nome === contatoExistente.telefone)) {
         update.nome = nome || pushName;
@@ -95,16 +91,12 @@ async function resolverOuCriarContatoDedup(base44, payload) {
       };
     }
 
-    // FALLBACK: Buscar por telefone normalizado (para históricos sem canonical)
-    console.log(`[DEDUP] 🔄 FALLBACK: buscando por telefone histórico para ${telefoneFinal}`);
+    // FALLBACK: Buscar por telefone histórico
+    console.log(`[DEDUP] 🔄 FALLBACK: buscando histórico para ${telefoneFinal}`);
     
-    const variacoes = [
-      telefoneFinal,
-      canonico,
-      `+55${canonico.replace(/^55/, '')}`
-    ].filter(Boolean);
-
+    const variacoes = [telefoneFinal, canonico, `+55${canonico.replace(/^55/, '')}`].filter(Boolean);
     let contatoHistorico = null;
+
     for (const variacao of variacoes) {
       if (contatoHistorico) break;
       try {
@@ -117,14 +109,12 @@ async function resolverOuCriarContatoDedup(base44, payload) {
           contatoHistorico = resultado[0];
           break;
         }
-      } catch (e) {
-        // silencioso
-      }
+      } catch (e) {}
     }
 
     if (contatoHistorico) {
-      console.log(`[DEDUP] ✅ ENCONTRADO (fallback histórico): ${contatoHistorico.id}`);
-      // Autocorrigir: preencher o campo canonical que faltava
+      console.log(`[DEDUP] ✅ ENCONTRADO (fallback): ${contatoHistorico.id}`);
+      
       const updateHistorico = { telefone_canonico: canonico };
       if (nome && (!contatoHistorico.nome || contatoHistorico.nome === contatoHistorico.telefone)) {
         updateHistorico.nome = nome || pushName;
@@ -149,7 +139,7 @@ async function resolverOuCriarContatoDedup(base44, payload) {
       };
     }
 
-    // PASSO 2: Não existe — criar novo Contact
+    // PASSO 2: Criar novo
     console.log(`[DEDUP] 🆕 Criando novo Contact para: ${telefoneFinal}`);
 
     const novoContato = await base44.asServiceRole.entities.Contact.create({
@@ -164,9 +154,9 @@ async function resolverOuCriarContatoDedup(base44, payload) {
       ultima_interacao: new Date().toISOString()
     });
 
-    console.log(`[DEDUP] ✅ CRIADO: ${novoContato.id} | ${novoContato.nome}`);
+    console.log(`[DEDUP] ✅ CRIADO: ${novoContato.id}`);
 
-    // Anti-race: se 2 requisições criaram ao mesmo tempo, manter o mais antigo
+    // Anti-race
     try {
       const recheck = await base44.asServiceRole.entities.Contact.filter(
         { telefone_canonico: canonico },
@@ -178,7 +168,7 @@ async function resolverOuCriarContatoDedup(base44, payload) {
         const maisAntigo = recheck[0];
         if (maisAntigo.id !== novoContato.id) {
           await base44.asServiceRole.entities.Contact.delete(novoContato.id).catch(() => {});
-          console.log(`[DEDUP] 🔀 Race condition: mantendo ${maisAntigo.id}, descartando novo`);
+          console.log(`[DEDUP] 🔀 Race condition: mantendo ${maisAntigo.id}`);
           resolveLock();
           _locks.delete(lockKey);
           return {
@@ -189,7 +179,7 @@ async function resolverOuCriarContatoDedup(base44, payload) {
         }
       }
     } catch (e) {
-      console.warn(`[DEDUP] ⚠️ Erro no re-check anti-race:`, e.message);
+      console.warn(`[DEDUP] ⚠️ Erro anti-race:`, e.message);
     }
 
     resolveLock();
@@ -201,11 +191,40 @@ async function resolverOuCriarContatoDedup(base44, payload) {
     };
 
   } catch (error) {
-    console.error('[DEDUP] ❌ Erro geral:', error.message);
+    console.error('[DEDUP] ❌ Erro:', error.message);
     resolveLock();
     _locks.delete(lockKey);
     throw error;
   }
 }
 
-export { resolverOuCriarContatoDedup };
+// Webhook handler
+Deno.serve(async (req) => {
+  if (req.method !== 'POST') {
+    return Response.json({ success: false, error: 'method_not_allowed' }, { status: 405 });
+  }
+
+  let payload;
+  try {
+    const body = await req.text();
+    payload = JSON.parse(body);
+  } catch (e) {
+    return Response.json({ success: false, error: 'invalid_json' }, { status: 400 });
+  }
+
+  let base44;
+  try {
+    base44 = createClientFromRequest(req);
+  } catch (e) {
+    console.error('[DEDUP] SDK init error:', e.message);
+    return Response.json({ success: false, error: 'sdk_init_error' }, { status: 500 });
+  }
+
+  try {
+    const resultado = await executarDedup(base44, payload);
+    return Response.json(resultado);
+  } catch (error) {
+    console.error('[DEDUP] ❌ Webhook error:', error.message);
+    return Response.json({ success: false, error: error.message }, { status: 500 });
+  }
+});
