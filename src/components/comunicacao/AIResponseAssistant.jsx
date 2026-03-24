@@ -182,8 +182,7 @@ INSTRUÇÕES:
 
   const handleSelecionarSugestao = useCallback((texto) => {
     onSugestaoSelecionada(texto);
-    onClose();
-  }, [onSugestaoSelecionada, onClose]);
+  }, [onSugestaoSelecionada]);
 
   const handleUsarRascunho = useCallback(() => {
     onSugestaoSelecionada(rascunhoEditado || rascunho);
