@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
+import { getInternalMessages } from '@/functions/getInternalMessages';
 
 /**
  * Hook para paginação lazy de mensagens (WhatsApp style)
@@ -23,6 +24,13 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
     setIsInitialLoading(false);
   }, []);
 
+  // Busca mensagens via backend (para threads internas — bypass RLS)
+  const fetchMessagesBackend = useCallback(async (threadId, before_sent_at = null) => {
+    const res = await getInternalMessages({ thread_id: threadId, before_sent_at, limit: 20 });
+    if (!res?.data?.success) throw new Error(res?.data?.error || 'backend_error');
+    return res.data.messages || [];
+  }, []);
+
   // Carga inicial - últimas 20 mensagens da thread atual
   const loadInitial = useCallback(async () => {
     if (!threadId) {
@@ -40,11 +48,13 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
     try {
       console.log('[PAGINACAO] 🔄 Carregando inicial da thread:', threadId.substring(0, 8));
 
-      const msgs = await base44.entities.Message.filter(
-        { thread_id: threadId },
-        '-sent_at',
-        20
-      );
+      const msgs = isThreadInterna
+        ? await fetchMessagesBackend(threadId)
+        : await base44.entities.Message.filter(
+            { thread_id: threadId },
+            '-sent_at',
+            20
+          );
 
       const reversed = msgs.reverse();
       setMessages(reversed);
@@ -73,14 +83,16 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
     try {
       console.log('[PAGINACAO] ⬆️ Buscando mensagens antigas antes de', oldestLoadedAt);
 
-      const older = await base44.entities.Message.filter(
-        {
-          thread_id: threadId,
-          sent_at: { $lt: oldestLoadedAt }
-        },
-        '-sent_at',
-        20
-      );
+      const older = isThreadInterna
+        ? await fetchMessagesBackend(threadId, oldestLoadedAt)
+        : await base44.entities.Message.filter(
+            {
+              thread_id: threadId,
+              sent_at: { $lt: oldestLoadedAt }
+            },
+            '-sent_at',
+            20
+          );
 
       if (older.length === 0) {
         setHasMore(false);
