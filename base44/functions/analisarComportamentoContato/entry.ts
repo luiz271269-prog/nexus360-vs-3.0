@@ -810,10 +810,30 @@ Status: ${prontuarioObj.visao_geral ? 'COMPLETA' : 'PARCIAL'}
       const tipoAtual = contact.tipo_contato || 'novo';
       let novoTipo = null;
 
-      // 1. cliente → ex_cliente (90d sem inbound)
-      if (tipoAtual === 'cliente' && daysInactiveInbound >= 90) {
+      // 1. cliente/eventual → ex_cliente (180d sem inbound — critério B2B Liesch)
+      if (['cliente', 'eventual'].includes(tipoAtual) && daysInactiveInbound >= 180) {
         novoTipo = 'ex_cliente';
-        console.log(`[ANALISE] 🔄 Progressão: cliente → ex_cliente (${daysInactiveInbound}d sem resposta)`);
+        console.log(`[ANALISE] 🔄 Progressão: ${tipoAtual} → ex_cliente (${daysInactiveInbound}d sem resposta)`);
+      }
+
+      // 1b. ex_cliente → cliente (nova venda registrada — orçamento aprovado recente)
+      if (tipoAtual === 'ex_cliente') {
+        const vendaRecente = orcamentos.find(o => o.status === 'aprovado' &&
+          new Date(o.data_orcamento) > new Date(Date.now() - 90 * 24 * 60 * 60 * 1000));
+        if (vendaRecente) {
+          novoTipo = 'cliente';
+          console.log(`[ANALISE] 🔄 Progressão: ex_cliente → cliente (venda recente ${vendaRecente.data_orcamento})`);
+        }
+      }
+
+      // 1c. novo → lead (orçamento aberto/pendente registrado)
+      if (tipoAtual === 'novo' && !novoTipo) {
+        const orcamentoAberto = orcamentos.find(o =>
+          ['rascunho','aguardando_cotacao','cotando','enviado','negociando'].includes(o.status));
+        if (orcamentoAberto) {
+          novoTipo = 'lead';
+          console.log(`[ANALISE] 🔄 Progressão: novo → lead (orçamento ${orcamentoAberto.status})`);
+        }
       }
 
       // 2. Detectar padrão EVENTUAL: tipo = lead/novo + orçamentos com gap >60d entre compras

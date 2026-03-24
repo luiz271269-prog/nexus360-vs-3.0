@@ -77,10 +77,17 @@ export class FluxoController {
     }
     
     // E. FALLBACK: MENU PADRÃO
+    // ✅ Saudação especial para ex_cliente (retorno após longa ausência)
+    if (contact.tipo_contato === 'ex_cliente') {
+      const primeiroNome = contact.nome?.split(' ')[0] || '';
+      const msgRetorno = `Olá${primeiroNome ? `, ${primeiroNome}` : ''}! 😊 Que bom ter você de volta!\n\nComo posso ajudar hoje?`;
+      await this.enviarMensagem(base44, contact, whatsappIntegrationId, msgRetorno);
+    }
+
     const menu = MenuBuilder.construirMenuBoasVindas(contact.nome);
     await this.enviarMensagem(base44, contact, whatsappIntegrationId, menu);
     await this.atualizarEstado(base44, thread.id, 'WAITING_SECTOR_CHOICE');
-    return { success: true, mode: 'menu' };
+    return { success: true, mode: contact.tipo_contato === 'ex_cliente' ? 'menu_retorno' : 'menu' };
   }
 
   // ===========================================================================
