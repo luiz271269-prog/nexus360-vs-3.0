@@ -49,20 +49,13 @@ const PATTERNS = [
 
 async function detectarComLLM(base44: any, textoCompleto: string): Promise<IntentResult> {
   try {
+    const stickyHint = setorAnterior
+      ? `\nContexto: este cliente já foi atendido anteriormente em '${setorAnterior}'. Se o assunto atual for compatível com esse setor, prefira-o.`
+      : '';
+
     const llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
       model: 'gemini_3_flash',
-      prompt: `Classifique a intenção em JSON:
-TEXTO: "${textoCompleto.substring(0, 200)}"
-Retorne: {"intencao":"string", "setor":"vendas|assistencia|financeiro|fornecedor", "confidence":0.0-1.0}`,
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          intencao: { type: 'string' },
-          setor: { type: 'string' },
-          confidence: { type: 'number' }
-        }
-      }
-    });
+      prompt: `Classifique a intenção em JSON:\nTEXTO: "${textoCompleto.substring(0, 200)}"${stickyHint}\nRetorne: {"intencao":"string", "setor":"vendas|assistencia|financeiro|fornecedor", "confidence":0.0-1.0}`,
 
     if (llmResult?.setor) {
       return llmResult as IntentResult;
@@ -108,6 +101,9 @@ Deno.serve(async (req) => {
         reason: 'already_routed'
       }, { headers });
     }
+
+    // Sticky hint: setor anterior do cliente para melhorar precisão do LLM
+    const setorAnterior = thread.sector_id || null;
 
     // Pattern Match (sem LLM)
     const textoCompleto = message_content.substring(0, 500).toLowerCase();
