@@ -614,6 +614,7 @@ export default function MessageInput({
             value={mensagemTexto}
             onChange={(e) => setMensagemTexto(e.target.value)}
             onKeyDown={handleKeyDown}
+            onClick={() => mostrarSugestor && onToggleSugestor()}
             placeholder={
               selectedFile
                 ? "Legenda..."
