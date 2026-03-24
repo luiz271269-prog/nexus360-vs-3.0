@@ -729,30 +729,30 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // ✅ BUSCAR/CRIAR CONTATO - FUNÇÃO CENTRALIZADA ÚNICA
+  // ✅ BUSCAR/CRIAR CONTATO - NOVA FUNÇÃO COM DEDUP ROBUSTO
   let contato;
   try {
-    console.log(`[${VERSION}] 🎯 Chamando função CENTRALIZADA para contato: ${dados.from}`);
+    console.log(`[${VERSION}] 🎯 Chamando resolverOuCriarContatoDedup para: ${dados.from}`);
     
-    const resultado = await retryOn429(() => base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+    const resultado = await retryOn429(() => base44.asServiceRole.functions.invoke('resolverOuCriarContatoDedup', {
       telefone: dados.from,
       pushName: dados.pushName || null,
       profilePicUrl: null,
-      conexaoId: integracaoId
+      integracaoId: integracaoId
     }));
     
     if (!resultado?.data?.success || !resultado?.data?.contact) {
-      console.error(`[${VERSION}] ❌ Função centralizada falhou:`, resultado?.data);
-      return jsonServerError({ success: false, error: 'erro_contato_centralizado' });
+      console.error(`[${VERSION}] ❌ resolverOuCriarContatoDedup falhou:`, resultado?.data);
+      return jsonServerError({ success: false, error: 'erro_contato_dedup' });
     }
-    
+
     contato = resultado.data.contact;
-    console.log(`[${VERSION}] ✅ Contato obtido via função centralizada: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
-    
-  } catch (e) {
-    console.error(`[${VERSION}] ❌ Erro ao chamar função centralizada:`, e?.message || e);
+    console.log(`[${VERSION}] ✅ Contato via dedup: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
+
+    } catch (e) {
+    console.error(`[${VERSION}] ❌ Erro ao chamar resolverOuCriarContatoDedup:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_contato' });
-  }
+    }
 
   // ✅ VERIFICAÇÃO ADICIONAL: Duplicata por timestamp + telefone (últimos 2 segundos)
   // MOVIDO PARA DEPOIS da criação do contato para ter contato.id disponível
