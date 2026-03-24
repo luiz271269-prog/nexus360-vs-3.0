@@ -292,6 +292,8 @@ Deno.serve(async (req) => {
         ultima_interacao: new Date().toISOString(),
         ...(pushName && (!existente.nome || existente.nome === existente.telefone) ? { nome: pushName } : {})
       }).catch(() => {});
+      resolveLock();
+      _locks.delete(lockKey);
       return Response.json({ success: true, contact: existente, action: 'deduplicated_pre_create' });
     }
 
