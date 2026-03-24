@@ -458,9 +458,11 @@ Deno.serve(async (req) => {
       return jsonOk({ success: true, ignored: true, reason: dados.error });
     }
 
-    console.log(`[${VERSION}] 🔄 Processando: ${dados.type}`);
-
-    // Connection manager removido para simplificar
+    // ✅ GUARD: fromMe = mensagem enviada pelo próprio chip, não processar
+    if (dados.type === 'message' && dados.fromMe === true) {
+      console.log(`[${VERSION}] ⏭️ fromMe: mensagem própria do chip, ignorado`);
+      return jsonOk({ success: true, ignored: true, reason: 'fromMe_outbound' });
+    }
 
     switch (dados.type) {
       case 'qrcode':

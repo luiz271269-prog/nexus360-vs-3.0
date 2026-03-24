@@ -1094,19 +1094,13 @@ Deno.serve(async (req) => {
 
   if (dados.type === 'unknown') {
     console.log(`[WAPI] ⏭️ Unknown: ${dados.error}`);
-    try {
-      await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
-        payload_bruto: payload,
-        instance_identificado: payload.instanceId || null,
-        integration_id: null,
-        message_id: payload.messageId || null,
-        evento: payload.event || payload.type || 'unknown',
-        timestamp_recebido: new Date().toISOString(),
-        sucesso_processamento: false,
-        erro_detalhes: `Normalização falhou: ${dados.error}`
-      });
-    } catch {}
     return jsonOk({ ignored: true, reason: dados.error });
+  }
+
+  // ✅ GUARD: fromMe = mensagem enviada pelo próprio chip, não processar
+  if (dados.type === 'message' && dados.fromMe === true) {
+    console.log(`[WAPI] ⏭️ fromMe: mensagem própria do chip, ignorado`);
+    return jsonOk({ success: true, ignored: true, reason: 'fromMe_outbound' });
   }
 
   if (classification === 'connection-status') {

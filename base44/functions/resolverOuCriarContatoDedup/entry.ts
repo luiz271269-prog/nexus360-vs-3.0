@@ -91,9 +91,8 @@ async function executarDedup(base44, payload) {
       };
     }
 
-    // FALLBACK: Buscar por telefone histórico
-    console.log(`[DEDUP] 🔄 FALLBACK: buscando histórico para ${telefoneFinal}`);
-    
+    // FALLBACK 1: Buscar por telefone histórico (contatos legados sem telefone_canonico)
+    console.log(`[DEDUP] 🔄 FALLBACK 1: buscando histórico por telefone para ${telefoneFinal}`);
     const variacoes = [telefoneFinal, canonico, `+55${canonico.replace(/^55/, '')}`].filter(Boolean);
     let contatoHistorico = null;
 
@@ -107,6 +106,7 @@ async function executarDedup(base44, payload) {
         ).catch(() => []);
         if (resultado && resultado.length > 0) {
           contatoHistorico = resultado[0];
+          console.log(`[DEDUP] ✅ ENCONTRADO (fallback por telefone): ${contatoHistorico.id}`);
           break;
         }
       } catch (e) {}
