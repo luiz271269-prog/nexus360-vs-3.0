@@ -1036,6 +1036,25 @@ Deno.serve(async (req) => {
     });
   }
 
+  // ✅ Leitura do body ANTES de criar o client — evitar 403 em eventos sem token
+  let payload;
+  try {
+    const body = await req.text();
+    if (!body) return jsonOk({ ignored: true });
+    payload = JSON.parse(body);
+    console.log('[WAPI] 📥 Evento:', payload.event, '| Tipo:', payload.type);
+    console.log('[WAPI] 📥 Carga útil:', JSON.stringify(payload).substring(0, 1500));
+  } catch (e) {
+    return jsonErr('JSON invalido', 200);
+  }
+
+  // ✅ RETORNO ANTECIPADO para confirmações de entrega (webhookDelivery/fromMe)
+  // Esses eventos não precisam de DB — evita 403 por contexto sem token
+  if (payload.event === 'webhookDelivery' || (payload.fromMe === true && payload.fromApi === true)) {
+    console.log('[WAPI] 📋 webhookDelivery — retorno antecipado (evita 403)');
+    return jsonOk({ ignored: true, reason: 'webhook_delivery_skip' });
+  }
+
   let base44;
   try {
     base44 = createClientFromRequest(req);
@@ -1043,17 +1062,6 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
     return jsonErr(`auth_error: ${e.message}`, 500);
-  }
-
-  let payload;
-  try {
-    const body = await req.text();
-    if (!body) return jsonOk({ ignored: true });
-    payload = JSON.parse(body);
-    console.log('[WAPI] 📥 Event:', payload.event, '| Type:', payload.type);
-    console.log('[WAPI] 📥 Payload:', JSON.stringify(payload).substring(0, 1500));
-  } catch (e) {
-    return jsonErr('JSON invalido', 200);
   }
 
   const classification = classifyWapiEvent(payload);
