@@ -4,7 +4,6 @@
 // Substitui "ifs espalhados" por ordem imutável de prioridade
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 // Tipos válidos mapeados no sistema
 const TIPOS_VALIDOS = ['novo', 'lead', 'cliente', 'eventual', 'ex_cliente', 'fornecedor', 'parceiro'];
