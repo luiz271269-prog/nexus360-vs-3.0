@@ -139,8 +139,20 @@ Deno.serve(async (req) => {
       console.log('[MERGE] ─────────────────────────────────────────────────');
       console.log('[MERGE] Processando duplicata:', duplicataId);
 
-      // Buscar duplicata
-      const duplicata = await base44.asServiceRole.entities.Contact.get(duplicataId);
+      // ✅ DELAY anti-rate-limit entre duplicatas
+      await new Promise(r => setTimeout(r, 300));
+
+      // Buscar duplicata (ignorar se já deletada/não encontrada)
+      let duplicata;
+      try {
+        duplicata = await base44.asServiceRole.entities.Contact.get(duplicataId);
+      } catch (e) {
+        if (e.status === 404) {
+          console.warn('[MERGE] ⚠️ Duplicata já deletada ou não encontrada, pulando:', duplicataId);
+          continue;
+        }
+        throw e;
+      }
       if (!duplicata) {
         console.warn('[MERGE] ⚠️ Duplicata não encontrada, pulando:', duplicataId);
         continue;
