@@ -585,6 +585,19 @@ async function handleMessage(dados, payloadBruto, base44) {
   const inicio = Date.now();
   const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
 
+  const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
+
+  // 🛡️ GUARD: Se dados.from === próprio número da instância, não processar
+  // Evita criar contacts fantasma com nome do chip para eventos internos
+  if (connectedPhone && dados.from) {
+    const fromNormalizado = dados.from.replace(/\D/g, '');
+    const chipNormalizado = connectedPhone.replace(/\D/g, '');
+    if (fromNormalizado === chipNormalizado || fromNormalizado.endsWith(chipNormalizado)) {
+      console.log(`[WAPI] 🛡️ Evento interno do chip (${connectedPhone}), ignorando`);
+      return jsonOk({ success: true, ignored: true, reason: 'event_from_own_chip' });
+    }
+  }
+
   // ✅ SINCRONIZAÇÃO WHATSAPP WEB: mensagens enviadas fora do app (fromMe=true)
   const isFromMe = payloadBruto.fromMe === true;
 

@@ -1,9 +1,7 @@
 // Resolver ou Criar Contato — Deduplicação por telefone_canonico
-// v1.1 — Webhook que recebe base44 via invoke do webhookZapi/webhookWapi
+// v1.2 — Retry-on-race (sem lock em memória, funciona em serverless)
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
-
-const _locks = new Map();
 
 function normalizarParaCanonico(telefone) {
   if (!telefone) return null;
@@ -22,7 +20,7 @@ function normalizarParaCanonico(telefone) {
   return null;
 }
 
-// Lógica centralizada (não depende de req)
+// Lógica centralizada (sem lock em memória)
 async function executarDedup(base44, payload) {
   const { telefone, nome, pushName, profilePicUrl, integracaoId } = payload;
 
@@ -33,30 +31,19 @@ async function executarDedup(base44, payload) {
 
   const telefoneFinal = '+' + canonico;
 
-  // Lock
-  const lockKey = canonico;
-  const existingLock = _locks.get(lockKey) || Promise.resolve();
-  let resolveLock;
-  const newLock = new Promise(r => { resolveLock = r; });
-  _locks.set(lockKey, existingLock.then(() => newLock));
-  await existingLock;
-
+  // STEP 1: Buscar existente por telefone_canonico
   try {
-    // PASSO 1: Buscar por telefone_canonico
     const existentes = await base44.asServiceRole.entities.Contact.filter(
       { telefone_canonico: canonico },
       'created_date',
       5
-    ).catch(e => {
-      console.warn('[DEDUP] Erro busca telefone_canonico:', e.message);
-      return [];
-    });
+    );
 
     if (existentes && existentes.length > 0) {
       const contatoExistente = existentes[0];
-      console.log(`[DEDUP] ✅ ENCONTRADO por telefone_canonico="${canonico}" | ID: ${contatoExistente.id}`);
+      console.log(`[DEDUP] ✅ ENCONTRADO telefone_canonico="${canonico}" | ID: ${contatoExistente.id}`);
 
-      // Auto-cleanup de duplicatas
+      // Auto-cleanup duplicatas
       if (existentes.length > 1) {
         console.warn(`[DEDUP] 🧹 Auto-cleanup: ${existentes.length - 1} duplicado(s)`);
         for (const dup of existentes.slice(1)) {
@@ -64,7 +51,7 @@ async function executarDedup(base44, payload) {
         }
       }
 
-      // Atualizar dados
+      // Atualizar dados se necessário
       const update = {};
       if (nome && (!contatoExistente.nome || contatoExistente.nome === contatoExistente.telefone)) {
         update.nome = nome || pushName;
@@ -81,8 +68,6 @@ async function executarDedup(base44, payload) {
         await base44.asServiceRole.entities.Contact.update(contatoExistente.id, update).catch(() => {});
       }
 
-      resolveLock();
-      _locks.delete(lockKey);
       return {
         success: true,
         contact: contatoExistente,
@@ -90,58 +75,58 @@ async function executarDedup(base44, payload) {
         deduplicated: existentes.length - 1
       };
     }
+  } catch (e) {
+    console.warn('[DEDUP] ⚠️ Erro busca telefone_canonico:', e.message);
+    // continua para fallback
+  }
 
-    // FALLBACK 1: Buscar por telefone histórico (contatos legados sem telefone_canonico)
-    console.log(`[DEDUP] 🔄 FALLBACK 1: buscando histórico por telefone para ${telefoneFinal}`);
-    const variacoes = [telefoneFinal, canonico, `+55${canonico.replace(/^55/, '')}`].filter(Boolean);
-    let contatoHistorico = null;
+  // STEP 2: FALLBACK — Buscar por telefone histórico (sem canonical)
+  console.log(`[DEDUP] 🔄 FALLBACK: buscando histórico para ${telefoneFinal}`);
+  const variacoes = [telefoneFinal, canonico, `+55${canonico.replace(/^55/, '')}`].filter(Boolean);
 
-    for (const variacao of variacoes) {
-      if (contatoHistorico) break;
-      try {
-        const resultado = await base44.asServiceRole.entities.Contact.filter(
-          { telefone: variacao },
-          'created_date',
-          1
-        ).catch(() => []);
-        if (resultado && resultado.length > 0) {
-          contatoHistorico = resultado[0];
-          console.log(`[DEDUP] ✅ ENCONTRADO (fallback por telefone): ${contatoHistorico.id}`);
-          break;
+  for (const variacao of variacoes) {
+    try {
+      const resultado = await base44.asServiceRole.entities.Contact.filter(
+        { telefone: variacao },
+        'created_date',
+        1
+      );
+      
+      if (resultado && resultado.length > 0) {
+        const contatoHistorico = resultado[0];
+        console.log(`[DEDUP] ✅ ENCONTRADO (fallback): ${contatoHistorico.id}`);
+        
+        // Autopreencher canonical
+        const updateHistorico = { telefone_canonico: canonico };
+        if (nome && (!contatoHistorico.nome || contatoHistorico.nome === contatoHistorico.telefone)) {
+          updateHistorico.nome = nome || pushName;
         }
-      } catch (e) {}
+        if (profilePicUrl && contatoHistorico.foto_perfil_url !== profilePicUrl) {
+          updateHistorico.foto_perfil_url = profilePicUrl;
+          updateHistorico.foto_perfil_atualizada_em = new Date().toISOString();
+        }
+        if (integracaoId && !contatoHistorico.conexao_origem) {
+          updateHistorico.conexao_origem = integracaoId;
+        }
+        
+        await base44.asServiceRole.entities.Contact.update(contatoHistorico.id, updateHistorico).catch(() => {});
+        
+        return {
+          success: true,
+          contact: contatoHistorico,
+          action: 'found_by_fallback_and_fixed',
+          telefoneCanonicoPreenchido: true
+        };
+      }
+    } catch (e) {
+      // silencioso, tenta próxima variação
     }
+  }
 
-    if (contatoHistorico) {
-      console.log(`[DEDUP] ✅ ENCONTRADO (fallback): ${contatoHistorico.id}`);
-      
-      const updateHistorico = { telefone_canonico: canonico };
-      if (nome && (!contatoHistorico.nome || contatoHistorico.nome === contatoHistorico.telefone)) {
-        updateHistorico.nome = nome || pushName;
-      }
-      if (profilePicUrl && contatoHistorico.foto_perfil_url !== profilePicUrl) {
-        updateHistorico.foto_perfil_url = profilePicUrl;
-        updateHistorico.foto_perfil_atualizada_em = new Date().toISOString();
-      }
-      if (integracaoId && !contatoHistorico.conexao_origem) {
-        updateHistorico.conexao_origem = integracaoId;
-      }
-      
-      await base44.asServiceRole.entities.Contact.update(contatoHistorico.id, updateHistorico).catch(() => {});
-      
-      resolveLock();
-      _locks.delete(lockKey);
-      return {
-        success: true,
-        contact: contatoHistorico,
-        action: 'found_by_fallback_and_fixed',
-        telefoneCanonicoPreenchido: true
-      };
-    }
+  // STEP 3: CRIAR NOVO — com retry-on-race (sem lock em memória)
+  console.log(`[DEDUP] 🆕 Criando novo Contact para: ${telefoneFinal}`);
 
-    // PASSO 2: Criar novo
-    console.log(`[DEDUP] 🆕 Criando novo Contact para: ${telefoneFinal}`);
-
+  try {
     const novoContato = await base44.asServiceRole.entities.Contact.create({
       nome: nome || pushName || telefoneFinal,
       telefone: telefoneFinal,
@@ -156,45 +141,37 @@ async function executarDedup(base44, payload) {
 
     console.log(`[DEDUP] ✅ CRIADO: ${novoContato.id}`);
 
-    // Anti-race
-    try {
-      const recheck = await base44.asServiceRole.entities.Contact.filter(
-        { telefone_canonico: canonico },
-        'created_date',
-        2
-      ).catch(() => []);
-
-      if (recheck && recheck.length > 1) {
-        const maisAntigo = recheck[0];
-        if (maisAntigo.id !== novoContato.id) {
-          await base44.asServiceRole.entities.Contact.delete(novoContato.id).catch(() => {});
-          console.log(`[DEDUP] 🔀 Race condition: mantendo ${maisAntigo.id}`);
-          resolveLock();
-          _locks.delete(lockKey);
-          return {
-            success: true,
-            contact: maisAntigo,
-            action: 'deduplicated_on_race'
-          };
-        }
-      }
-    } catch (e) {
-      console.warn(`[DEDUP] ⚠️ Erro anti-race:`, e.message);
-    }
-
-    resolveLock();
-    _locks.delete(lockKey);
     return {
       success: true,
       contact: novoContato,
       action: 'created'
     };
 
-  } catch (error) {
-    console.error('[DEDUP] ❌ Erro:', error.message);
-    resolveLock();
-    _locks.delete(lockKey);
-    throw error;
+  } catch (createErr) {
+    // Possível corrida: outra instância criou enquanto estávamos aqui
+    console.log(`[DEDUP] 🔀 Corrida detectada ao criar (${createErr.message}), buscando novamente...`);
+    
+    try {
+      const aposCorr = await base44.asServiceRole.entities.Contact.filter(
+        { telefone_canonico: canonico },
+        'created_date',
+        1
+      );
+
+      if (aposCorr && aposCorr.length > 0) {
+        console.log(`[DEDUP] ✅ Outra instância criou primeiro: ${aposCorr[0].id}, usando esse`);
+        return {
+          success: true,
+          contact: aposCorr[0],
+          action: 'deduplicated_on_race'
+        };
+      }
+    } catch (e) {
+      console.warn('[DEDUP] ⚠️ Erro no re-check anti-race:', e.message);
+    }
+
+    // Erro real, não corrida
+    throw createErr;
   }
 }
 
