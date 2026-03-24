@@ -664,11 +664,11 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ✅ DEDUPLICAÇÃO RIGOROSA - Se duplicata, ignora (simples)
   if (dados.messageId) {
     try {
-      const dup = await base44.asServiceRole.entities.Message.filter(
+      const dup = await retryOn429(() => base44.asServiceRole.entities.Message.filter(
         { whatsapp_message_id: dados.messageId },
         '-created_date',
-        1 // Apenas a primeira
-      );
+        1
+      ));
       if (dup.length > 0) {
         console.log(`[${VERSION}] ⏭️ DUPLICATA por messageId: ${dados.messageId} (já processada antes)`);
         return jsonOk({ success: true, ignored: true, reason: 'duplicata_message_id' });
@@ -713,11 +713,11 @@ async function handleMessage(dados, payloadBruto, base44) {
   // Fallback: buscar por instanceId
   if (!integracaoId && dados.instanceId) {
     try {
-      const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+      const int = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
         { instance_id_provider: dados.instanceId },
         '-created_date',
         1
-      );
+      ));
       if (int.length > 0) {
         integracaoId = int[0].id;
         integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
@@ -759,11 +759,11 @@ async function handleMessage(dados, payloadBruto, base44) {
   
   // 🔧 AUTO-MERGE: Unificar todas as threads antigas deste contato (ANTES de criar/usar)
   try {
-    const todasThreadsContato = await base44.asServiceRole.entities.MessageThread.filter(
+    const todasThreadsContato = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
       { contact_id: contato.id },
       '-primeira_mensagem_at',
       20
-    );
+    ));
 
     if (todasThreadsContato && todasThreadsContato.length > 1) {
       console.log(`[${VERSION}] 🔀 AUTO-MERGE: ${todasThreadsContato.length} threads encontradas para contact ${contato.id}`);
@@ -841,7 +841,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   if (!thread) {
     try {
       console.log(`[${VERSION}] 🔍 Buscando thread canônica para contact_id: "${contato.id}"`);
-      const threads = await base44.asServiceRole.entities.MessageThread.filter(
+      const threads = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
           { 
               contact_id: contato.id,
               is_canonical: true,
@@ -849,7 +849,7 @@ async function handleMessage(dados, payloadBruto, base44) {
           },
           '-last_message_at',
           1
-      );
+      ));
 
       if (threads && threads.length > 0) {
           thread = threads[0];
