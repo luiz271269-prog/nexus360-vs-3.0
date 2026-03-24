@@ -61,7 +61,8 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'invalid_json' }, { status: 400 });
   }
 
-  const { message, contact, thread, integration, provider, messageContent, rawPayload } = payload;
+  const { message, integration, provider, messageContent, rawPayload } = payload;
+  let { contact, thread } = payload;
 
   console.log(`[${VERSION}] 📩 Message: ${message?.id} | Contact: ${contact?.nome} | Thread: ${thread?.id}`);
 
