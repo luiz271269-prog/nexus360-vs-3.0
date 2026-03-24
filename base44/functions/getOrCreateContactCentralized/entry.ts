@@ -275,48 +275,30 @@ Deno.serve(async (req) => {
 
   // ═══════════════════════════════════════════════════════════════
   // CONTATO NOVO — CRIAR
+  // Anti-race: aguardar 80ms e re-verificar antes de criar
+  // Isso cobre o caso de 2+ webhooks simultâneos passando pelo filter
+  // sem encontrar o contato e ambos tentando criar ao mesmo tempo.
   // ═══════════════════════════════════════════════════════════════
   try {
+    // Delay + re-check final antes do create
+    await new Promise(r => setTimeout(r, 80));
+    const recheckAntes = await base44.asServiceRole.entities.Contact.filter(
+      { telefone_canonico: canonico }, '-created_date', 1
+    ).catch(() => []);
+    if (recheckAntes && recheckAntes.length > 0) {
+      contatoExistente = recheckAntes[0];
+      console.log(`[${VERSION}] 🔒 Anti-race: contato encontrado no re-check final: ${contatoExistente.id}`);
+      // Atualizar e retornar o existente
+      await base44.asServiceRole.entities.Contact.update(contatoExistente.id, {
+        ultima_interacao: new Date().toISOString(),
+        ...(pushName && (!contatoExistente.nome || contatoExistente.nome === contatoExistente.telefone) ? { nome: pushName } : {})
+      }).catch(() => {});
+      return Response.json({ success: true, contact: contatoExistente, action: 'deduplicated_pre_create' });
+    }
+
     const clienteVincular = payload._clienteParaVincular || null;
 
     const novoContato = await base44.asServiceRole.entities.Contact.create({
-      nome: pushName || telefoneNormalizado,
-      telefone: telefoneNormalizado,
-      telefone_canonico: canonico,                                              // ← SEMPRE gravar
-      tipo_contato: clienteVincular ? 'cliente' : 'lead',
-      cliente_id: clienteVincular ? clienteVincular.id : null,
-      empresa: clienteVincular ? (clienteVincular.nome_fantasia || clienteVincular.razao_social) : null,
-      whatsapp_status: 'verificado',
-      conexao_origem: conexaoId || null,
-      foto_perfil_url: profilePicUrl || null,
-      foto_perfil_atualizada_em: profilePicUrl ? new Date().toISOString() : null,
-      ultima_interacao: new Date().toISOString()
-    });
-
-    console.log(`[${VERSION}] 🆕 Novo contato criado: ${novoContato.id} | ${novoContato.nome}${clienteVincular ? ' | vinculado a ' + clienteVincular.razao_social : ''}`);
-
-    // ── ANTI-RACE: re-busca para garantir unicidade após create ──────────────
-    // Se duas requisições simultâneas criaram o contato ao mesmo tempo,
-    // mantemos o mais antigo e descartamos o recém-criado.
-    try {
-      const recheck = await base44.asServiceRole.entities.Contact.filter(
-        { telefone_canonico: canonico },
-        'created_date', // ASC — mais antigo primeiro
-        2
-      );
-      if (recheck && recheck.length > 1) {
-        const maisAntigo = recheck[0];
-        if (maisAntigo.id !== novoContato.id) {
-          await base44.asServiceRole.entities.Contact.delete(novoContato.id);
-          console.log(`[${VERSION}] 🔀 Race condition: descartando ${novoContato.id}, usando canônico ${maisAntigo.id}`);
-          return Response.json({ success: true, contact: maisAntigo, action: 'deduplicated' });
-        }
-      }
-    } catch (e) {
-      console.warn(`[${VERSION}] ⚠️ Erro no re-check anti-race:`, e.message);
-    }
-
-    return Response.json({ success: true, contact: novoContato, action: 'created' });
 
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro ao criar contato:`, e.message);
