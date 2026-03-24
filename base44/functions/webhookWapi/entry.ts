@@ -658,6 +658,16 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[WAPI] 🏛️ PORTEIRO RESULTADO: ${integracaoId ? '✅ Integração encontrada' : '❌ Não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
+  // 🛡️ GUARD: Se dados.from === próprio número da instância, não processar
+  if (connectedPhone && dados.from) {
+    const fromNormalizado = dados.from.replace(/\D/g, '');
+    const chipNormalizado = connectedPhone.replace(/\D/g, '');
+    if (fromNormalizado === chipNormalizado || fromNormalizado.endsWith(chipNormalizado)) {
+      console.log(`[WAPI] 🛡️ Evento interno do chip (${connectedPhone}), ignorando`);
+      return jsonOk({ success: true, ignored: true, reason: 'event_from_own_chip' });
+    }
+  }
+
   // CONTATO — usar nova função com dedup robusto
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
   let contato;
