@@ -617,7 +617,6 @@ async function handleMessage(dados, payloadBruto, base44) {
   }
 
   // PORTEIRO CEGO — busca integração
-  const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
   let integracaoId = null;
   let integracaoInfo = null;
 
