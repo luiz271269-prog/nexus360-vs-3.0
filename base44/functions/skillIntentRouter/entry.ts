@@ -1,53 +1,32 @@
 // ============================================================================
-// SKILL 02 — INTENT ROUTER v2.1
+// SKILL 02 — INTENT ROUTER v2.2 (sticky hint para LLM)
 // ============================================================================
 // Objetivo: Pattern Match (0ms) → LLM (só se confidence < 0.75)
-// Fallback conservador. Registra IntentDetection. Threshold configurável.
+// Sticky: usa thread.sector_id anterior como hint para o LLM
 // ============================================================================
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
-interface RouterPayload {
-  thread_id: string;
-  contact_id: string;
-  message_content: string;
-}
-
-interface IntentResult {
-  setor: string;
-  intencao: string;
-  confidence: number;
-  tipo_contato?: string;
-}
-
 const PATTERNS = [
   {
     regex: /pc\s*gam|gam(er|ing)|notebook|computador|placa\s*de\s*v|rtx|rx\s*\d|processador|ram|ssd|hd\s*externo|monitor|teclado|mouse|headset|fonte|gabinete|cooler|hardware|orcamento|cotacao|preco|quanto\s*custa|comprar|produto|estoque|disponib/i,
-    setor: 'vendas',
-    intencao: 'compra_produto',
-    confidence: 0.95
+    setor: 'vendas', intencao: 'compra_produto', confidence: 0.95
   },
   {
     regex: /boleto|fatura|nota\s*fiscal|2[aa]\s*via|pagamento|vencimento|cobranca|debito|credito|parcelar|financ/i,
-    setor: 'financeiro',
-    intencao: 'consulta_financeira',
-    confidence: 0.95
+    setor: 'financeiro', intencao: 'consulta_financeira', confidence: 0.95
   },
   {
     regex: /defeito|quebrou|nao\s*liga|nao\s*funciona|conserto|reparo|assistencia|garantia|suporte\s*tec|problema|travando|lento|reiniciando|cabo\s*de\s*internet|wifi|conexao|internet\s*caiu|online|offline|nao\s*conecta|conexao\s*perdida|rede|modem|roteador/i,
-    setor: 'assistencia',
-    intencao: 'suporte_tecnico',
-    confidence: 0.95
+    setor: 'assistencia', intencao: 'suporte_tecnico', confidence: 0.95
   },
   {
     regex: /fornec|distribu|atacado|revend|parceria|comercial|representante|catalogo|lista\s*de\s*preco/i,
-    setor: 'fornecedor',
-    intencao: 'parceria_comercial',
-    confidence: 0.90
+    setor: 'fornecedor', intencao: 'parceria_comercial', confidence: 0.90
   }
 ];
 
-async function detectarComLLM(base44: any, textoCompleto: string): Promise<IntentResult> {
+async function detectarComLLM(base44, textoCompleto, setorAnterior) {
   try {
     const stickyHint = setorAnterior
       ? `\nContexto: este cliente já foi atendido anteriormente em '${setorAnterior}'. Se o assunto atual for compatível com esse setor, prefira-o.`
@@ -56,50 +35,45 @@ async function detectarComLLM(base44: any, textoCompleto: string): Promise<Inten
     const llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
       model: 'gemini_3_flash',
       prompt: `Classifique a intenção em JSON:\nTEXTO: "${textoCompleto.substring(0, 200)}"${stickyHint}\nRetorne: {"intencao":"string", "setor":"vendas|assistencia|financeiro|fornecedor", "confidence":0.0-1.0}`,
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          intencao: { type: 'string' },
+          setor: { type: 'string' },
+          confidence: { type: 'number' }
+        }
+      }
+    });
 
-    if (llmResult?.setor) {
-      return llmResult as IntentResult;
+    if (llmResult && llmResult.setor) {
+      return llmResult;
     }
   } catch (e) {
-    console.warn('[ROUTER] LLM falhou:', (e as any).message);
+    console.warn('[ROUTER] LLM falhou:', e.message);
   }
 
-  return {
-    setor: 'vendas',
-    intencao: 'contato_geral',
-    confidence: 0.5
-  };
+  return { setor: 'vendas', intencao: 'contato_geral', confidence: 0.5 };
 }
 
 Deno.serve(async (req) => {
   const headers = { 'Content-Type': 'application/json' };
-
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
 
   const tsInicio = Date.now();
 
   try {
     const base44 = createClientFromRequest(req);
-    const payload: RouterPayload = await req.json();
+    const payload = await req.json();
     const { thread_id, contact_id, message_content } = payload;
 
     if (!thread_id || !contact_id || !message_content) {
-      return Response.json(
-        { success: false, error: 'Campos obrigatórios ausentes' },
-        { status: 400, headers }
-      );
+      return Response.json({ success: false, error: 'Campos obrigatórios ausentes' }, { status: 400, headers });
     }
 
     // Guard: já roteado?
     const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
     if (thread.routing_stage === 'ASSIGNED' || thread.routing_stage === 'COMPLETED') {
-      return Response.json({
-        success: true,
-        skipped: true,
-        reason: 'already_routed'
-      }, { headers });
+      return Response.json({ success: true, skipped: true, reason: 'already_routed' }, { headers });
     }
 
     // Sticky hint: setor anterior do cliente para melhorar precisão do LLM
@@ -107,24 +81,20 @@ Deno.serve(async (req) => {
 
     // Pattern Match (sem LLM)
     const textoCompleto = message_content.substring(0, 500).toLowerCase();
-    let deteccao: IntentResult | null = null;
+    let deteccao = null;
     let metodo = 'llm';
 
     for (const pattern of PATTERNS) {
       if (pattern.regex.test(textoCompleto)) {
-        deteccao = {
-          setor: pattern.setor,
-          intencao: pattern.intencao,
-          confidence: pattern.confidence
-        };
+        deteccao = { setor: pattern.setor, intencao: pattern.intencao, confidence: pattern.confidence };
         metodo = 'pattern_match';
         break;
       }
     }
 
-    // LLM (só se pattern não teve confiança)
+    // LLM (só se pattern não teve confiança suficiente)
     if (!deteccao || deteccao.confidence < 0.75) {
-      deteccao = await detectarComLLM(base44, message_content);
+      deteccao = await detectarComLLM(base44, message_content, setorAnterior);
       metodo = 'llm';
     }
 
@@ -132,20 +102,16 @@ Deno.serve(async (req) => {
     let thresholdConfig = 0.65;
     try {
       const configs = await base44.asServiceRole.entities.ConfiguracaoSistema.filter(
-        { chave: 'ai_router_confidence_threshold' },
-        'chave',
-        1
+        { chave: 'ai_router_confidence_threshold' }, 'chave', 1
       );
-      if (configs?.length > 0) {
-        thresholdConfig = configs[0].valor?.value || 0.65;
-      }
+      if (configs && configs.length > 0) thresholdConfig = configs[0].valor?.value || 0.65;
     } catch (e) {
-      console.warn('[ROUTER] Erro ao buscar threshold:', (e as any).message);
+      console.warn('[ROUTER] Erro ao buscar threshold:', e.message);
     }
 
     // Tipo contato
     const contact = await base44.asServiceRole.entities.Contact.get(contact_id);
-    let tipoContato = contact.tipo_contato || 'novo';
+    const tipoContato = contact.tipo_contato || 'novo';
 
     // Verificar atendente fidelizado para o setor detectado
     const campoFidelizado = `atendente_fidelizado_${deteccao.setor}`;
@@ -160,8 +126,7 @@ Deno.serve(async (req) => {
 
     // Registrar IntentDetection
     await base44.asServiceRole.entities.IntentDetection.create({
-      thread_id,
-      contact_id,
+      thread_id, contact_id,
       mensagem_analisada: textoCompleto.substring(0, 500),
       intencao_detectada: deteccao.intencao,
       setor_detectado: deteccao.setor,
@@ -171,20 +136,15 @@ Deno.serve(async (req) => {
       metodo_deteccao: metodo,
       threshold_aplicado: thresholdConfig,
       resultado_roteamento: deteccao.confidence >= thresholdConfig ? 'auto_roteado' : 'menu_fallback',
-      tempo_processamento_ms: Date.now() - tsInicio
+      tempo_processamento_ms: Date.now() - tsInicio,
+      setor_anterior_hint: setorAnterior
     }).catch(() => {});
 
     // Atualizar thread
-    console.log('[INTENT-ROUTER] 📝 Tentando gravar sector_id:', deteccao.setor, '| routing_stage: INTENT_DETECTED | thread:', thread_id);
-    try {
-      const updateResult = await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-        sector_id: deteccao.setor,
-        routing_stage: 'INTENT_DETECTED'
-      });
-      console.log('[INTENT-ROUTER] ✅ Update bem-sucedido | Resposta:', updateResult ? 'alterado' : 'sem mudanças');
-    } catch (updateErr) {
-      console.error('[INTENT-ROUTER] ❌ Erro ao atualizar thread:', updateErr.message);
-    }
+    await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+      sector_id: deteccao.setor,
+      routing_stage: 'INTENT_DETECTED'
+    }).catch(e => console.error('[INTENT-ROUTER] ❌ Erro ao atualizar thread:', e.message));
 
     return Response.json({
       success: true,
@@ -193,15 +153,13 @@ Deno.serve(async (req) => {
       confidence: deteccao.confidence,
       tipo_contato: tipoContato,
       metodo,
+      setor_anterior_hint: setorAnterior,
       atendente_fidelizado_id: atendenteFidelizadoId,
       resultado_roteamento: deteccao.confidence >= thresholdConfig ? 'auto_roteado' : 'menu_fallback'
     }, { headers });
 
   } catch (error) {
     console.error('[ROUTER] Erro:', error);
-    return Response.json(
-      { success: false, error: (error as any).message },
-      { status: 500, headers }
-    );
+    return Response.json({ success: false, error: error.message }, { status: 500, headers });
   }
 });

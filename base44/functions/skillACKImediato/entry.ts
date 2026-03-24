@@ -54,26 +54,53 @@ Deno.serve(async (req) => {
       }
     }
 
-    const integ = await base44.asServiceRole.entities.WhatsAppIntegration.get(integId);
+    // Buscar contato e integração
+    const [contact, integ] = await Promise.all([
+      base44.asServiceRole.entities.Contact.get(contact_id),
+      base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id)
+    ]);
+
+    const integ_ok = integ;
     if (!integ || !integ.instance_id_provider || !integ.api_key_provider) {
       return Response.json({ success: false, error: 'Invalid credentials' }, { status: 400, headers });
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // SAUDAÇÃO ESPECIAL: ex_cliente (retorno após longa ausência)
+    // ═══════════════════════════════════════════════════════════
+    if (contact.tipo_contato === 'ex_cliente') {
+      const primeiroNome = (contact.nome || '').split(' ')[0];
+      const msgRetorno = `Que bom ter você de volta${primeiroNome ? `, ${primeiroNome}` : ''}! 😊`;
+      try {
+        await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+          integration_id,
+          numero_destino: contact.telefone,
+          mensagem: msgRetorno
+        });
+        console.log('[SKILL-ACK] ✅ Saudação ex_cliente enviada');
+      } catch (e) {
+        console.warn('[SKILL-ACK] ⚠️ Falha saudação ex_cliente:', e.message);
+      }
+    }
+
+    const hora = new Date().getHours();
+    const ack = getACKMessage(contact.tipo_contato, contact.nome, contact.is_vip, hora);
+
     const tel = (contact.telefone || '').replace(/\D/g, '');
     const phone = tel.startsWith('55') ? tel : '55' + tel;
-    const isWAPI = integ.api_provider === 'w_api';
+    const isWAPI = integ_ok.api_provider === 'w_api';
 
     let resp;
     if (isWAPI) {
-      const url = (integ.base_url_provider || 'https://api.w-api.app/v1') + `/message/send-text?instanceId=${integ.instance_id_provider}`;
+      const url = (integ_ok.base_url_provider || 'https://api.w-api.app/v1') + `/message/send-text?instanceId=${integ_ok.instance_id_provider}`;
       const r = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ_ok.api_key_provider}` },
         body: JSON.stringify({ phone, message: ack.msg, delayMessage: 1 })
       });
       resp = await r.json();
     } else {
-      const url = (integ.base_url_provider || 'https://api.z-api.io') + `/instances/${integ.instance_id_provider}/token/${integ.api_key_provider}/send-text`;
+      const url = (integ_ok.base_url_provider || 'https://api.z-api.io') + `/instances/${integ_ok.instance_id_provider}/token/${integ_ok.api_key_provider}/send-text`;
       const r = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -106,13 +133,20 @@ Deno.serve(async (req) => {
       metadata: { is_ack: true, ack_tipo: ack.tipo, msg_id: message_id }
     });
 
+    // Calcular tempo_primeira_resposta_minutos
+    let tempoResposta = null;
+    if (thread.primeira_mensagem_at) {
+      tempoResposta = Math.round((Date.now() - new Date(thread.primeira_mensagem_at).getTime()) / 60000);
+    }
+
     await base44.asServiceRole.entities.MessageThread.update(thread_id, {
       last_outbound_at: new Date().toISOString(),
       last_message_at: new Date().toISOString(),
-      last_message_sender: 'user'
+      last_message_sender: 'user',
+      ...(tempoResposta !== null ? { tempo_primeira_resposta_minutos: tempoResposta } : {})
     });
 
-    return Response.json({ success: true, ack: ack.tipo }, { headers });
+    return Response.json({ success: true, ack: ack.tipo, tempo_resposta_min: tempoResposta }, { headers });
 
   } catch (error) {
     console.error('[SKILL-ACK] Error:', error.message);
