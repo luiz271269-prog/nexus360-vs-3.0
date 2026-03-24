@@ -91,23 +91,30 @@ export function decidirReabertura(thread, now, horasJanela = 12) {
   const lastMessageDate = new Date(thread.last_message_at);
   const diferencaHoras = (now - lastMessageDate) / (1000 * 60 * 60);
   
-  // ✅ eventual: sticky se tiver setor, mas não força continuidade
-  // ✅ ex_cliente: sempre full (saudação especial de retorno)
-  const tipoContato = contact?.tipo_contato;
-  if (tipoContato === 'ex_cliente') {
-    return { modo: 'full', motivoRetorno: true };
-  }
-
   if (diferencaHoras <= horasJanela) {
     return { modo: 'sticky', setor: thread.sector_id };
   }
 
-  // eventual fora da janela → mini simplificada (não força URA completa)
-  if (tipoContato === 'eventual') {
-    return { modo: 'mini', setor: thread.sector_id, simplificado: true };
+  return { modo: 'mini', setor: thread.sector_id };
+}
+
+/**
+ * Decide modo de reabertura levando em conta tipo_contato (eventual/ex_cliente)
+ * Wrapper sobre decidirReabertura para uso nos handlers que têm o contato disponível.
+ */
+export function decidirReaberturaComTipo(thread, contact, now, horasJanela = 12) {
+  const tipo = contact?.tipo_contato;
+  // ex_cliente: sempre URA completa com saudação especial de retorno
+  if (tipo === 'ex_cliente') return { modo: 'full', motivoRetorno: true };
+
+  const base = decidirReabertura(thread, now, horasJanela);
+
+  // eventual fora da janela → mini simplificada
+  if (tipo === 'eventual' && base.modo === 'mini') {
+    return { ...base, simplificado: true };
   }
 
-  return { modo: 'mini', setor: thread.sector_id };
+  return base;
 }
 
 /**
