@@ -214,27 +214,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // STEP 4: Sem contato por telefone → tentar match por empresa (pushName)
-    // Vincula novo número à empresa existente no CRM
-    // ═══════════════════════════════════════════════════════════════
-    if (!contatoExistente && pushName) {
-      try {
-        const primeiraPalavra = pushName.split(' ')[0];
-        const clientesMatch = await base44.asServiceRole.entities.Cliente.filter(
-          { razao_social: { $regex: primeiraPalavra } },
-          '-created_date',
-          1
-        );
-        if (clientesMatch && clientesMatch.length > 0) {
-          payload._clienteParaVincular = clientesMatch[0];
-          console.log(`[${VERSION}] 🏢 Match por empresa: "${clientesMatch[0].razao_social}" → novo contato será vinculado`);
-        }
-      } catch (e) {
-        console.warn(`[${VERSION}] ⚠️ Erro busca por empresa:`, e.message);
-      }
-    }
-
+    // STEP 4 removido: o match por pushName na tabela Cliente causava falsos positivos
+    // (ex: WhatsApp Business com nome da empresa = criava contato com nome errado)
     if (!contatoExistente) {
       console.log(`[${VERSION}] 🆕 Não encontrado. Criando novo contato para: ${telefoneNormalizado}`);
     }
