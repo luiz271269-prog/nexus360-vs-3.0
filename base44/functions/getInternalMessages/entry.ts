@@ -17,6 +17,7 @@ Deno.serve(async (req) => {
   }
 
   const { thread_id, before_sent_at, limit = 20 } = await req.json().catch(() => ({}));
+  // before_sent_at contém created_date (nome legado mantido para compatibilidade)
 
   if (!thread_id) {
     return Response.json({ success: false, error: 'thread_id required' }, { status: 400 });
@@ -38,12 +39,12 @@ Deno.serve(async (req) => {
 
   const filter = { thread_id };
   if (before_sent_at) {
-    filter.sent_at = { $lt: before_sent_at };
+    filter.created_date = { $lt: before_sent_at };
   }
 
   const messages = await base44.asServiceRole.entities.Message.filter(
     filter,
-    '-sent_at',
+    '-created_date',
     limit
   );
 
