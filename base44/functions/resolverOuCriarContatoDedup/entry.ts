@@ -1,7 +1,25 @@
 // Resolver ou Criar Contato — Deduplicação por telefone_canonico
-// v1.2 — Retry-on-race (sem lock em memória, funciona em serverless)
+// v1.3 — Retry-on-rate-limit (sem lock em memória, funciona em serverless)
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+
+// Retry com backoff para 429
+async function retryOn429(fn, maxTentativas = 3, delayBase = 1000) {
+  for (let i = 0; i < maxTentativas; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const is429 = e?.message?.includes('429') || e?.message?.includes('Rate limit');
+      if (is429 && i < maxTentativas - 1) {
+        const delay = delayBase * Math.pow(2, i);
+        console.warn(`[RETRY] 429 detectado, aguardando ${delay}ms (tentativa ${i + 1}/${maxTentativas})`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw e;
+    }
+  }
+}
 
 function normalizarParaCanonico(telefone) {
   if (!telefone) return null;
@@ -31,12 +49,14 @@ async function executarDedup(base44, payload) {
 
   const telefoneFinal = '+' + canonico;
 
-  // STEP 1: Buscar existente por telefone_canonico
+  // STEP 1: Buscar existente por telefone_canonico (com retry em 429)
   try {
-    const existentes = await base44.asServiceRole.entities.Contact.filter(
-      { telefone_canonico: canonico },
-      'created_date',
-      5
+    const existentes = await retryOn429(() => 
+      base44.asServiceRole.entities.Contact.filter(
+        { telefone_canonico: canonico },
+        'created_date',
+        5
+      )
     );
 
     if (existentes && existentes.length > 0) {
@@ -80,17 +100,19 @@ async function executarDedup(base44, payload) {
     // continua para fallback
   }
 
-  // STEP 2: FALLBACK — Buscar por telefone histórico (sem canonical)
+  // STEP 2: FALLBACK — Buscar por telefone histórico (sem canonical, com retry em 429)
   // Cobre contatos legados que não têm telefone_canonico preenchido
   console.log(`[DEDUP] 🔄 FALLBACK: buscando histórico para ${telefoneFinal}`);
   const variacoes = [telefoneFinal, canonico, `+55${canonico.replace(/^55/, '')}`, canonico.replace(/^55/, '')].filter(Boolean);
 
   for (const variacao of variacoes) {
     try {
-      const resultado = await base44.asServiceRole.entities.Contact.filter(
-        { telefone: variacao },
-        'created_date',
-        1
+      const resultado = await retryOn429(() =>
+        base44.asServiceRole.entities.Contact.filter(
+          { telefone: variacao },
+          'created_date',
+          1
+        )
       );
       
       if (resultado && resultado.length > 0) {
@@ -153,10 +175,12 @@ async function executarDedup(base44, payload) {
     console.log(`[DEDUP] 🔀 Corrida detectada ao criar (${createErr.message}), buscando novamente...`);
     
     try {
-      const aposCorr = await base44.asServiceRole.entities.Contact.filter(
-        { telefone_canonico: canonico },
-        'created_date',
-        1
+      const aposCorr = await retryOn429(() =>
+        base44.asServiceRole.entities.Contact.filter(
+          { telefone_canonico: canonico },
+          'created_date',
+          1
+        )
       );
 
       if (aposCorr && aposCorr.length > 0) {
