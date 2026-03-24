@@ -25,6 +25,18 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Missing IDs' }, { status: 400, headers });
     }
 
+    // Guard: integration_id nulo → buscar via thread
+    let resolvedIntegrationId = integration_id;
+    if (!resolvedIntegrationId) {
+      const threadCheck = await base44.asServiceRole.entities.MessageThread.get(thread_id).catch(() => null);
+      resolvedIntegrationId = threadCheck?.whatsapp_integration_id || null;
+      if (!resolvedIntegrationId) {
+        console.warn('[SKILL-ACK] ⚠️ integration_id null e thread sem integração — ACK pulado');
+        return Response.json({ success: true, skipped: true, reason: 'no_integration_id' }, { headers });
+      }
+      console.log('[SKILL-ACK] 🔄 integration_id recuperado via thread:', resolvedIntegrationId);
+    }
+
     // ═══════════════════════════════════════════════════════════
     // GUARD 1: Cooldown 5 minutos
     // ═══════════════════════════════════════════════════════════
@@ -57,11 +69,16 @@ Deno.serve(async (req) => {
     // Buscar contato e integração
     const [contact, integ] = await Promise.all([
       base44.asServiceRole.entities.Contact.get(contact_id),
-      base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id)
+      base44.asServiceRole.entities.WhatsAppIntegration.get(resolvedIntegrationId)
     ]);
 
     const integ_ok = integ;
     if (!integ || !integ.instance_id_provider || !integ.api_key_provider) {
+      // W-API requer client-token — validar
+      if (integ?.api_provider === 'w_api' && !integ?.security_client_token_header) {
+        console.warn('[SKILL-ACK] ⚠️ W-API sem client-token — ACK pulado');
+        return Response.json({ success: true, skipped: true, reason: 'wapi_no_client_token' }, { headers });
+      }
       return Response.json({ success: false, error: 'Invalid credentials' }, { status: 400, headers });
     }
 
