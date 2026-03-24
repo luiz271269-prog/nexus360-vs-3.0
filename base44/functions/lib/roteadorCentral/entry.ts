@@ -6,19 +6,23 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
+// Tipos válidos mapeados no sistema
+const TIPOS_VALIDOS = ['novo', 'lead', 'cliente', 'eventual', 'ex_cliente', 'fornecedor', 'parceiro'];
+
 /**
  * Classifica o tipo de contato e se é fidelizado
  * @param {object} contact - Contact entity
- * @returns {object} - { tipo: 'novo'|'lead'|'cliente'|'fornecedor'|'parceiro', fidelizado: boolean }
+ * @returns {object} - { tipo, fidelizado, comportamento }
+ *   comportamento: 'normal' | 'eventual' | 'reativacao'
  */
 export function classificarContato(contact) {
-  // 1. Fidelizado tem prioridade (independente do tipo)
   const fidelizado = contact.is_cliente_fidelizado === true;
-  
-  // 2. Tipo explícito no campo tipo_contato
   let tipo = contact.tipo_contato || 'novo';
-  
-  // 3. Inferência por tags (fallback se tipo_contato não existir ou for 'novo')
+
+  // ✅ Garantir que tipos novos (eventual, ex_cliente) sejam reconhecidos
+  if (!TIPOS_VALIDOS.includes(tipo)) tipo = 'novo';
+
+  // Inferência por tags (fallback se tipo_contato for 'novo')
   if (tipo === 'novo' && contact.tags && Array.isArray(contact.tags)) {
     if (contact.tags.includes('fornecedor') || contact.tags.includes('compras')) {
       tipo = 'fornecedor';
@@ -28,15 +32,22 @@ export function classificarContato(contact) {
       tipo = 'lead';
     } else if (contact.tags.includes('cliente')) {
       tipo = 'cliente';
+    } else if (contact.tags.includes('eventual')) {
+      tipo = 'eventual';
+    } else if (contact.tags.includes('ex_cliente') || contact.tags.includes('inativo')) {
+      tipo = 'ex_cliente';
     }
   }
-  
-  // 4. Inferência por cliente_id (se existe Cliente associado)
-  if (tipo === 'novo' && contact.cliente_id) {
-    tipo = 'cliente';
-  }
-  
-  return { tipo, fidelizado };
+
+  // Inferência por cliente_id
+  if (tipo === 'novo' && contact.cliente_id) tipo = 'cliente';
+
+  // Comportamento para lógica de URA e promoções
+  const comportamento =
+    tipo === 'eventual'   ? 'eventual' :
+    tipo === 'ex_cliente' ? 'reativacao' : 'normal';
+
+  return { tipo, fidelizado, comportamento };
 }
 
 /**
@@ -80,12 +91,22 @@ export function decidirReabertura(thread, now, horasJanela = 12) {
   const lastMessageDate = new Date(thread.last_message_at);
   const diferencaHoras = (now - lastMessageDate) / (1000 * 60 * 60);
   
-  // Dentro da janela → sticky (direciona automaticamente)
+  // ✅ eventual: sticky se tiver setor, mas não força continuidade
+  // ✅ ex_cliente: sempre full (saudação especial de retorno)
+  const tipoContato = contact?.tipo_contato;
+  if (tipoContato === 'ex_cliente') {
+    return { modo: 'full', motivoRetorno: true };
+  }
+
   if (diferencaHoras <= horasJanela) {
     return { modo: 'sticky', setor: thread.sector_id };
   }
-  
-  // Fora da janela → mini (pergunta se continua ou muda)
+
+  // eventual fora da janela → mini simplificada (não força URA completa)
+  if (tipoContato === 'eventual') {
+    return { modo: 'mini', setor: thread.sector_id, simplificado: true };
+  }
+
   return { modo: 'mini', setor: thread.sector_id };
 }
 
@@ -204,6 +225,7 @@ export async function aplicarRoteamentoFornecedor(base44, thread, contato) {
  * @returns {boolean}
  */
 export function ehFornecedorOuCompras(contact, thread) {
+  // ✅ ex_cliente e eventual NÃO são fornecedor
   if (contact.tipo_contato === 'fornecedor') return true;
   if (contact.tags && Array.isArray(contact.tags)) {
     if (contact.tags.includes('fornecedor') || contact.tags.includes('compras')) return true;

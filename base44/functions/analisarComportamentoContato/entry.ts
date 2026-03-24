@@ -803,6 +803,46 @@ Status: ${prontuarioObj.visao_geral ? 'COMPLETA' : 'PARCIAL'}
     
     await base44.asServiceRole.entities.Contact.update(contact_id, updateContactData);
 
+    // ════════════════════════════════════════════════════════════
+    // ✅ PROGRESSÃO AUTOMÁTICA DE TIPO_CONTATO
+    // ════════════════════════════════════════════════════════════
+    try {
+      const tipoAtual = contact.tipo_contato || 'novo';
+      let novoTipo = null;
+
+      // 1. cliente → ex_cliente (90d sem inbound)
+      if (tipoAtual === 'cliente' && daysInactiveInbound >= 90) {
+        novoTipo = 'ex_cliente';
+        console.log(`[ANALISE] 🔄 Progressão: cliente → ex_cliente (${daysInactiveInbound}d sem resposta)`);
+      }
+
+      // 2. Detectar padrão EVENTUAL: tipo = lead/novo + orçamentos com gap >60d entre compras
+      if (!novoTipo && ['lead', 'novo'].includes(tipoAtual) && orcamentos.length >= 2) {
+        const datesOrcs = orcamentos
+          .filter(o => o.status === 'aprovado')
+          .map(o => new Date(o.data_orcamento))
+          .sort((a, b) => a - b);
+        if (datesOrcs.length >= 2) {
+          let maxGap = 0;
+          for (let i = 1; i < datesOrcs.length; i++) {
+            const gap = (datesOrcs[i] - datesOrcs[i-1]) / (1000 * 60 * 60 * 24);
+            if (gap > maxGap) maxGap = gap;
+          }
+          if (maxGap >= 60) {
+            novoTipo = 'eventual';
+            console.log(`[ANALISE] 🔄 Progressão: ${tipoAtual} → eventual (gap ${Math.round(maxGap)}d entre compras)`);
+          }
+        }
+      }
+
+      if (novoTipo) {
+        await base44.asServiceRole.entities.Contact.update(contact_id, { tipo_contato: novoTipo });
+        console.log(`[ANALISE] ✅ tipo_contato atualizado: ${tipoAtual} → ${novoTipo}`);
+      }
+    } catch (progErr) {
+      console.warn('[ANALISE] ⚠️ Erro na progressão automática:', progErr.message);
+    }
+
     // ✅ CHAMAR AUTOMAÇÕES + HOOKS PÓS-ANÁLISE
     try {
       await base44.asServiceRole.functions.invoke('acionarAutomacoesPorPlaybook', {

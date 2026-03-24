@@ -14,9 +14,16 @@ const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
 
 // ── Helpers inline (sem imports locais) ─────────────────────────────────────
 
+// Cooldown maior para eventuais (48h vs 12h padrão)
+const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
+
 function isBlocked({ contact, thread, integration }) {
   const tipo = String(contact?.tipo_contato || '').toLowerCase();
-  if (tipo === 'fornecedor') return { blocked: true, reason: 'blocked_supplier_type' };
+  if (tipo === 'fornecedor')  return { blocked: true, reason: 'blocked_supplier_type' };
+  // ✅ ex_cliente: NUNCA recebe batch — apenas playbook de reativação manual
+  if (tipo === 'ex_cliente')  return { blocked: true, reason: 'blocked_ex_cliente_batch' };
+  // ✅ parceiro: não recebe promoção padrão de produto
+  if (tipo === 'parceiro')    return { blocked: true, reason: 'blocked_parceiro_type' };
   const tags = (contact?.tags || []).map(t => String(t).toLowerCase());
   if (tags.some(t => ['fornecedor', 'compras', 'colaborador', 'interno'].includes(t)))
     return { blocked: true, reason: 'blocked_tag' };
@@ -176,8 +183,17 @@ Deno.serve(async (req) => {
           skipped++; reasons['fora_janela_24h_meta'] = (reasons['fora_janela_24h_meta'] || 0) + 1; continue;
         }
 
-        const cd = canSendUniversalPromo({ contact, now });
-        if (!cd.ok) { skipped++; reasons[cd.reason] = (reasons[cd.reason] || 0) + 1; continue; }
+        // ✅ eventual: cooldown 48h (vs 12h padrão)
+        const tipoContato = String(contact.tipo_contato || '').toLowerCase();
+        if (tipoContato === 'eventual') {
+          const lastEv = contact.last_any_promo_sent_at ? new Date(contact.last_any_promo_sent_at) : null;
+          if (lastEv && (now - lastEv) < FORTY_EIGHT_HOURS_MS) {
+            skipped++; reasons['cooldown_eventual_48h'] = (reasons['cooldown_eventual_48h'] || 0) + 1; continue;
+          }
+        } else {
+          const cd = canSendUniversalPromo({ contact, now });
+          if (!cd.ok) { skipped++; reasons[cd.reason] = (reasons[cd.reason] || 0) + 1; continue; }
+        }
 
         const integration = integracoesMap.get(thread.whatsapp_integration_id) || integracoes[0];
         if (!integration) { skipped++; reasons['no_integration'] = (reasons['no_integration'] || 0) + 1; continue; }
