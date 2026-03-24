@@ -645,24 +645,24 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[WAPI] 🏛️ PORTEIRO RESULTADO: ${integracaoId ? '✅ Integração encontrada' : '❌ Não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // CONTATO
+  // CONTATO — usar nova função com dedup robusto
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
   let contato;
   try {
-    const resultado = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+    const resultado = await base44.asServiceRole.functions.invoke('resolverOuCriarContatoDedup', {
       telefone: dados.from,
       pushName: dados.pushName || null,
       profilePicUrl,
-      conexaoId: integracaoId
+      integracaoId: integracaoId
     });
     if (!resultado?.data?.success || !resultado?.data?.contact) {
-      console.error(`[WAPI] ❌ Função centralizada falhou:`, resultado?.data);
-      return jsonErr('erro_contato_centralizado', 500);
+      console.error(`[WAPI] ❌ resolverOuCriarContatoDedup falhou:`, resultado?.data);
+      return jsonErr('erro_contato_dedup', 500);
     }
     contato = resultado.data.contact;
-    console.log(`[WAPI] ✅ Contatos recebidos via função centralizada: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
+    console.log(`[WAPI] ✅ Contato via dedup: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
   } catch (e) {
-    console.error(`[WAPI] ❌ Erro ao chamar função centralizada:`, e?.message);
+    console.error(`[WAPI] ❌ Erro ao chamar resolverOuCriarContatoDedup:`, e?.message);
     return jsonErr('erro_contato', 500);
   }
 
