@@ -1,11 +1,15 @@
-// redeploy: 2026-03-18T00:00
+// redeploy: 2026-03-24T14:00-LOCK-IN-MEMORY
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // ============================================================================
 // FUNÇÃO CENTRALIZADORA ÚNICA - CONTATO (ANTI-DUPLICAÇÃO)
-// v2.0.0 - Busca canônica primeiro, depois variações em 1 query só
+// v3.0.0 - Lock em memória por número canônico (elimina race condition real)
 // ============================================================================
-const VERSION = 'v2.0.0-CANONICAL-FIRST';
+const VERSION = 'v3.0.0-MEMORY-LOCK';
+
+// Lock em memória: Map<canonico, Promise>
+// Garante que execuções concorrentes para o mesmo número aguardem em fila
+const _locks = new Map();
 
 function normalizarTelefone(telefone) {
   if (!telefone) return null;
@@ -125,6 +129,19 @@ Deno.serve(async (req) => {
   const variacoes = gerarVariacoes(telefoneNormalizado);
 
   console.log(`[${VERSION}] 📞 Buscando: ${telefoneNormalizado} | canonico: ${canonico} | variações: ${variacoes.length}`);
+
+  // ═══════════════════════════════════════════════════════════════
+  // LOCK EM MEMÓRIA: Serializa execuções concorrentes para o mesmo número
+  // Elimina race condition onde 2 webhooks simultâneos criam contato duplo
+  // ═══════════════════════════════════════════════════════════════
+  const lockKey = canonico;
+  const existingLock = _locks.get(lockKey) || Promise.resolve();
+  let resolveLock;
+  const newLock = new Promise(r => { resolveLock = r; });
+  _locks.set(lockKey, existingLock.then(() => newLock));
+
+  // Aguarda qualquer execução anterior para o mesmo número terminar
+  await existingLock;
 
   let contatoExistente = null;
 
@@ -247,9 +264,13 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.Contact.update(contatoExistente.id, update);
       console.log(`[${VERSION}] 🔄 Contato atualizado: ${contatoExistente.id}`);
 
+      resolveLock();
+      _locks.delete(lockKey);
       return Response.json({ success: true, contact: contatoExistente, action: 'updated' });
     } catch (e) {
       console.error(`[${VERSION}] ❌ Erro ao atualizar:`, e.message);
+      resolveLock();
+      _locks.delete(lockKey);
       return Response.json({ success: true, contact: contatoExistente, action: 'found' });
     }
   }
@@ -271,6 +292,8 @@ Deno.serve(async (req) => {
         ultima_interacao: new Date().toISOString(),
         ...(pushName && (!existente.nome || existente.nome === existente.telefone) ? { nome: pushName } : {})
       }).catch(() => {});
+      resolveLock();
+      _locks.delete(lockKey);
       return Response.json({ success: true, contact: existente, action: 'deduplicated_pre_create' });
     }
 
