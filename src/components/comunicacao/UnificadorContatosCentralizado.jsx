@@ -55,6 +55,13 @@ export default function UnificadorContatosCentralizado({
       const variacoes = gerarVariacoes(normalizado);
       const contatosEncontrados = [];
 
+      // Buscar por telefone E telefone_canonico (contatos novos só têm canonico)
+      const canonico = normalizado.replace(/\D/g, '');
+      const [resultCanonicos] = await Promise.all([
+        base44.entities.Contact.filter({ telefone_canonico: canonico })
+      ]);
+      contatosEncontrados.push(...resultCanonicos);
+
       for (const variacao of variacoes) {
         const resultado = await base44.entities.Contact.filter({ telefone: variacao });
         contatosEncontrados.push(...resultado);
