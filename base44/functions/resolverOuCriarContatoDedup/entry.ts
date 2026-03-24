@@ -1,10 +1,7 @@
 // Resolver ou Criar Contato — Deduplicação por telefone_canonico
-// v1.0 — Função centralizada para uso em webhooks Z-API e W-API
-// Garante 1 Contact por número (canonico), ignora burst/duplicatas
+// v1.1 — Exportável para chamadas internas via invoke()
+// NÃO é webhook — recebe base44 pré-inicializado dos webhooks
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
-
-// Lock em memória: Map<canonico, Promise>
 const _locks = new Map();
 
 function normalizarParaCanonico(telefone) {
@@ -12,89 +9,62 @@ function normalizarParaCanonico(telefone) {
   let n = String(telefone).split('@')[0].replace(/\D/g, '');
   if (!n || n.length < 8) return null;
   
-  n = n.replace(/^0+/, ''); // Remove zeros à esquerda
+  n = n.replace(/^0+/, '');
   if (!n.startsWith('55')) {
     if (n.length === 10 || n.length === 11) n = '55' + n;
   }
   
-  // Se tem 13 dígitos e o 5º é 9 (DDD + 9 + número), está ok
-  // Se tem 12 dígitos (sem 9), também válido (formato legado)
   if (n.startsWith('55') && (n.length === 12 || n.length === 13)) {
-    return n; // Retorna apenas dígitos, sem +
+    return n;
   }
   
   return null;
 }
 
-Deno.serve(async (req) => {
-  if (req.method !== 'POST') {
-    return Response.json({ success: false, error: 'method_not_allowed' }, { status: 405 });
-  }
-
-  let base44;
-  try {
-    base44 = createClientFromRequest(req);
-  } catch (e) {
-    console.error('[DEDUP] SDK init error:', e.message);
-    return Response.json({ success: false, error: 'sdk_init_error' }, { status: 500 });
-  }
-
-  let payload;
-  try {
-    const body = await req.text();
-    payload = JSON.parse(body);
-  } catch (e) {
-    return Response.json({ success: false, error: 'invalid_json' }, { status: 400 });
-  }
-
+async function resolverOuCriarContatoDedup(base44, payload) {
   const { telefone, nome, pushName, profilePicUrl, integracaoId } = payload;
 
   if (!telefone) {
-    return Response.json({ success: false, error: 'telefone_required' }, { status: 400 });
+    throw new Error('telefone_required');
   }
 
   const canonico = normalizarParaCanonico(telefone);
   if (!canonico) {
-    return Response.json({ success: false, error: 'telefone_invalido' }, { status: 400 });
+    throw new Error('telefone_invalido');
   }
 
-  const telefoneFinal = '+' + canonico; // Com + para armazenar
+  const telefoneFinal = '+' + canonico;
 
-  // ═══════════════════════════════════════════════════════════
-  // LOCK: Serializa requisições simultâneas pro mesmo número
-  // Elimina race condition onde 2 webhooks criam Contact duplicado
-  // ═══════════════════════════════════════════════════════════
   const lockKey = canonico;
   const existingLock = _locks.get(lockKey) || Promise.resolve();
   let resolveLock;
   const newLock = new Promise(r => { resolveLock = r; });
   _locks.set(lockKey, existingLock.then(() => newLock));
 
-  // Aguarda qualquer requisição anterior para o mesmo número terminar
   await existingLock;
 
   try {
-    // ═══════════════════════════════════════════════════════════
     // PASSO 1: Buscar existente por telefone_canonico
-    // ═══════════════════════════════════════════════════════════
     const existentes = await base44.asServiceRole.entities.Contact.filter(
       { telefone_canonico: canonico },
       'created_date',
-      5 // Limita a 5 para detectar múltiplas duplicatas
+      5
     ).catch(e => {
       console.warn('[DEDUP] Erro busca telefone_canonico:', e.message);
       return [];
     });
 
     if (existentes && existentes.length > 0) {
-      const contatoExistente = existentes[0]; // Usa o mais antigo
-      console.log(`[DEDUP] ✅ ENCONTRADO por telefone_canonico: ${contatoExistente.id} | ${contatoExistente.nome}`);
+      const contatoExistente = existentes[0];
+      console.log(`[DEDUP] ✅ ENCONTRADO por telefone_canonico="${canonico}" | ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
 
-      // Cleanup: deletar duplicatas silenciosamente (sem bloquear resposta)
+      // Cleanup: deletar duplicatas silenciosamente
       if (existentes.length > 1) {
-        console.warn(`[DEDUP] 🧹 Detectadas ${existentes.length - 1} duplicata(s)`);
+        console.warn(`[DEDUP] 🧹 Auto-cleanup: ${existentes.length - 1} duplicado(s) para canonico=${canonico}`);
         for (const dup of existentes.slice(1)) {
-          base44.asServiceRole.entities.Contact.delete(dup.id).catch(() => {});
+          base44.asServiceRole.entities.Contact.delete(dup.id).catch(e =>
+            console.warn(`[DEDUP] ⚠️ Erro ao deletar duplicado ${dup.id}:`, e.message)
+          );
         }
       }
 
@@ -117,24 +87,21 @@ Deno.serve(async (req) => {
 
       resolveLock();
       _locks.delete(lockKey);
-      return Response.json({
+      return {
         success: true,
         contact: contatoExistente,
         action: 'found_by_canonical',
         deduplicated: existentes.length - 1
-      });
+      };
     }
 
-    // ═══════════════════════════════════════════════════════════
     // FALLBACK: Buscar por telefone normalizado (para históricos sem canonical)
-    // Isso drena progressivamente os 500+ contacts sem telefone_canonico
-    // ═══════════════════════════════════════════════════════════
     console.log(`[DEDUP] 🔄 FALLBACK: buscando por telefone histórico para ${telefoneFinal}`);
     
     const variacoes = [
       telefoneFinal,
       canonico,
-      `+55${canonico.replace(/^55/, '')}` // sem país
+      `+55${canonico.replace(/^55/, '')}`
     ].filter(Boolean);
 
     let contatoHistorico = null;
@@ -174,17 +141,15 @@ Deno.serve(async (req) => {
       
       resolveLock();
       _locks.delete(lockKey);
-      return Response.json({
+      return {
         success: true,
         contact: contatoHistorico,
         action: 'found_by_fallback_and_fixed',
         telefoneCanonicoPreenchido: true
-      });
+      };
     }
 
-    // ═══════════════════════════════════════════════════════════
     // PASSO 2: Não existe — criar novo Contact
-    // ═══════════════════════════════════════════════════════════
     console.log(`[DEDUP] 🆕 Criando novo Contact para: ${telefoneFinal}`);
 
     const novoContato = await base44.asServiceRole.entities.Contact.create({
@@ -202,39 +167,45 @@ Deno.serve(async (req) => {
     console.log(`[DEDUP] ✅ CRIADO: ${novoContato.id} | ${novoContato.nome}`);
 
     // Anti-race: se 2 requisições criaram ao mesmo tempo, manter o mais antigo
-    const recheck = await base44.asServiceRole.entities.Contact.filter(
-      { telefone_canonico: canonico },
-      'created_date',
-      2
-    ).catch(() => []);
+    try {
+      const recheck = await base44.asServiceRole.entities.Contact.filter(
+        { telefone_canonico: canonico },
+        'created_date',
+        2
+      ).catch(() => []);
 
-    if (recheck && recheck.length > 1) {
-      const maisAntigo = recheck[0];
-      if (maisAntigo.id !== novoContato.id) {
-        await base44.asServiceRole.entities.Contact.delete(novoContato.id).catch(() => {});
-        console.log(`[DEDUP] 🔀 Race condition: mantendo ${maisAntigo.id}, descartando novo`);
-        resolveLock();
-        _locks.delete(lockKey);
-        return Response.json({
-          success: true,
-          contact: maisAntigo,
-          action: 'deduplicated_on_race'
-        });
+      if (recheck && recheck.length > 1) {
+        const maisAntigo = recheck[0];
+        if (maisAntigo.id !== novoContato.id) {
+          await base44.asServiceRole.entities.Contact.delete(novoContato.id).catch(() => {});
+          console.log(`[DEDUP] 🔀 Race condition: mantendo ${maisAntigo.id}, descartando novo`);
+          resolveLock();
+          _locks.delete(lockKey);
+          return {
+            success: true,
+            contact: maisAntigo,
+            action: 'deduplicated_on_race'
+          };
+        }
       }
+    } catch (e) {
+      console.warn(`[DEDUP] ⚠️ Erro no re-check anti-race:`, e.message);
     }
 
     resolveLock();
     _locks.delete(lockKey);
-    return Response.json({
+    return {
       success: true,
       contact: novoContato,
       action: 'created'
-    });
+    };
 
   } catch (error) {
     console.error('[DEDUP] ❌ Erro geral:', error.message);
     resolveLock();
     _locks.delete(lockKey);
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    throw error;
   }
-});
+}
+
+export { resolverOuCriarContatoDedup };
