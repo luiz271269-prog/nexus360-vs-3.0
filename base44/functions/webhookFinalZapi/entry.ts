@@ -413,19 +413,16 @@ Deno.serve(async (req) => {
       return jsonBadRequest({ success: false, error: 'json_invalido' });
     }
 
-    // ✅ FIX 403 MessageStatusCallback: retornar ANTES do SDK para evitar erro de auth
-    // Z-API envia status callbacks sem token de usuário → SDK explode com 403
+    // ✅ FIX 403 MessageStatusCallback: retornar IMEDIATAMENTE antes de criar o SDK
+    // Z-API envia status callbacks sem token de usuário autenticado → SDK explode com 403
     const tipoPayload = String(payload.type ?? payload.event ?? '').toLowerCase();
     const temIds = Array.isArray(payload.ids) && payload.ids.length > 0;
-    const ehStatusCallback = tipoPayload.includes('messagestatuscallback') || 
+    const ehStatusCallback = tipoPayload.includes('messagestatuscallback') ||
                              tipoPayload.includes('message-status') ||
                              (temIds && !payload.senderName && !payload.chatName && !payload.pushName);
     if (ehStatusCallback) {
-      // Processar update de status diretamente (sem SDK completo)
-      // O handleMessageUpdate é chamado abaixo após init do SDK — aqui só protegemos o 403
-      console.log(`[${VERSION}] 📋 StatusCallback detectado early — processando sem SDK auth`);
-      // Não retornar ainda: deixar cair no fluxo normal mas sem o 403
-      // A proteção real é: deveIgnorar retorna null para status válidos → SDK é criado com token de sistema
+      console.log(`[${VERSION}] 📋 StatusCallback — early return (evita 403 SDK)`);
+      return jsonOk({ received: true, skipped: 'status_callback' });
     }
 
     console.log(`[${VERSION}] 📥 Payload recebido (1/2):`, JSON.stringify(payload).substring(0, 1000));
