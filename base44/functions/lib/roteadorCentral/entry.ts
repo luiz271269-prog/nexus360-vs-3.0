@@ -15,7 +15,12 @@ const TIPOS_VALIDOS = ['novo', 'lead', 'cliente', 'eventual', 'ex_cliente', 'for
  *   comportamento: 'normal' | 'eventual' | 'reativacao'
  */
 export function classificarContato(contact) {
-  const fidelizado = contact.is_cliente_fidelizado === true;
+  // ✅ Fidelizado = flag manual OR qualquer atendente dedicado por setor
+  const fidelizado = contact.is_cliente_fidelizado === true ||
+    !!(contact.atendente_fidelizado_vendas ||
+       contact.atendente_fidelizado_assistencia ||
+       contact.atendente_fidelizado_financeiro ||
+       contact.atendente_fidelizado_fornecedor);
   let tipo = contact.tipo_contato || 'novo';
 
   // ✅ Garantir que tipos novos (eventual, ex_cliente) sejam reconhecidos
