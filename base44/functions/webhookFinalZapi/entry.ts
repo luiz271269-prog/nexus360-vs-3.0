@@ -648,6 +648,12 @@ async function handleMessage(dados, payloadBruto, base44) {
     const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
     console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
+  // 🛡️ PATCH A — Guard fromMe: ignorar mensagens enviadas pelo próprio chip
+  if (dados.fromMe === true || (connectedPhone && dados.from && dados.from.replace(/\D/g, '') === connectedPhone.replace(/\D/g, ''))) {
+    console.log(`[${VERSION}] ⏭️ Ignorado: from_own_chip (${dados.from})`);
+    return jsonOk({ success: true, ignored: true, reason: 'from_own_chip' });
+  }
+
   // 🗓️ DETECÇÃO IMEDIATA - AGENDA NEXUS IA
   if (dados.from === '+559999999999') {
     console.log('╔════════════════════════════════════════════════════════════════╗');
