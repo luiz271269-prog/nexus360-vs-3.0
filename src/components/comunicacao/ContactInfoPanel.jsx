@@ -257,12 +257,15 @@ export default function ContactInfoPanel({
   };
 
   const tiposContato = [
-    { value: 'lead', label: 'Lead', icon: '🎯' },
-    { value: 'cliente', label: 'Cliente', icon: '💎' },
-    { value: 'fornecedor', label: 'Fornecedor', icon: '🏭' },
-    { value: 'parceiro', label: 'Parceiro', icon: '🤝' }
+    { value: 'lead',       label: 'Lead',        icon: '🎯', cor: 'from-blue-500 to-blue-600',     desc: 'Prospecção ativa' },
+    { value: 'cliente',    label: 'Cliente',     icon: '💎', cor: 'from-green-500 to-emerald-600', desc: 'Compra recorrente' },
+    { value: 'eventual',   label: 'Eventual',    icon: '🛒', cor: 'from-amber-500 to-orange-500',  desc: 'Compra esporádica' },
+    { value: 'ex_cliente', label: 'Ex-Cliente',  icon: '🔄', cor: 'from-slate-500 to-slate-600',   desc: 'Inativo / Reativar' },
+    { value: 'fornecedor', label: 'Fornecedor',  icon: '🏭', cor: 'from-purple-500 to-violet-600', desc: 'Fornece produtos/serviços' },
+    { value: 'parceiro',   label: 'Parceiro',    icon: '🤝', cor: 'from-pink-500 to-rose-500',     desc: 'Parceria comercial' },
+    { value: 'novo',       label: 'Sem definição', icon: '❓', cor: 'from-gray-400 to-gray-500',   desc: 'Não classificado' },
   ];
-  const tipoAtual = tiposContato.find(t => t.value === formData.tipo_contato);
+  const tipoAtual = tiposContato.find(t => t.value === formData.tipo_contato) || tiposContato[6];
 
   // Renderizar seletor de atendente usando UsuarioDisplay
   const renderSeletorAtendente = (campo, placeholder, setorFiltro = null) => {
@@ -331,15 +334,23 @@ export default function ContactInfoPanel({
 
           {/* Cards Classificação - 1cm */}
           <div className="p-3 space-y-2 bg-slate-50 border-b">
-            <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
+            <div className={`bg-gradient-to-r ${tipoAtual?.cor || 'from-orange-500 to-red-500'} text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2`}>
               <Tag className="w-4 h-4 flex-shrink-0" />
-              <Select value={formData.tipo_contato} onValueChange={(value) => handleChange('tipo_contato', value)}>
+              <Select value={formData.tipo_contato} onValueChange={(value) => handleChange('tipo_contato', value)} disabled={!podeEditarContatos}>
                 <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                  <SelectValue />
+                  <SelectValue>
+                    <span className="font-semibold">{tipoAtual?.icon} {tipoAtual?.label}</span>
+                    {tipoAtual?.desc && <span className="text-white/70 text-xs ml-2">— {tipoAtual.desc}</span>}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {tiposContato.map(tipo => (
-                    <SelectItem key={tipo.value} value={tipo.value}>{tipo.icon} {tipo.label}</SelectItem>
+                    <SelectItem key={tipo.value} value={tipo.value}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{tipo.icon} {tipo.label}</span>
+                        <span className="text-xs text-slate-400">{tipo.desc}</span>
+                      </div>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -545,18 +556,27 @@ export default function ContactInfoPanel({
         <TabsContent value="dados" className="flex-1 overflow-y-auto m-0">
           {/* Cards Classificação - 1cm altura NO TOPO */}
           <div className="p-3 space-y-2 bg-slate-50 border-b">
-            <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
+            <div className={`bg-gradient-to-r ${tipoAtual?.cor || 'from-orange-500 to-red-500'} text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2`}>
               <Tag className="w-4 h-4 flex-shrink-0" />
               <Select
                 value={formData.tipo_contato}
                 onValueChange={(value) => handleChange('tipo_contato', value)}
+                disabled={!podeEditarContatos}
               >
                 <SelectTrigger className="border-0 bg-transparent text-white h-6 p-0 focus:ring-0 flex-1">
-                  <SelectValue />
+                  <SelectValue>
+                    <span className="font-semibold">{tipoAtual?.icon} {tipoAtual?.label}</span>
+                    {tipoAtual?.desc && <span className="text-white/70 text-xs ml-2">— {tipoAtual.desc}</span>}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {tiposContato.map(tipo => (
-                    <SelectItem key={tipo.value} value={tipo.value}>{tipo.icon} {tipo.label}</SelectItem>
+                    <SelectItem key={tipo.value} value={tipo.value}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{tipo.icon} {tipo.label}</span>
+                        <span className="text-xs text-slate-400">{tipo.desc}</span>
+                      </div>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -569,7 +589,7 @@ export default function ContactInfoPanel({
               </div>
             )}
 
-            {(formData.tipo_contato === 'cliente' || formData.tipo_contato === 'lead') && (
+            {(formData.tipo_contato === 'cliente' || formData.tipo_contato === 'lead' || formData.tipo_contato === 'eventual' || formData.tipo_contato === 'ex_cliente') && (
               <div className="bg-purple-500 text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2">
                 <User className="w-4 h-4 flex-shrink-0" />
                 {renderSeletorAtendente('atendente_fidelizado_vendas', 'Atendente', 'vendas')}
