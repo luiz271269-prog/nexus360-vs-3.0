@@ -264,9 +264,13 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.Contact.update(contatoExistente.id, update);
       console.log(`[${VERSION}] 🔄 Contato atualizado: ${contatoExistente.id}`);
 
+      resolveLock();
+      _locks.delete(lockKey);
       return Response.json({ success: true, contact: contatoExistente, action: 'updated' });
     } catch (e) {
       console.error(`[${VERSION}] ❌ Erro ao atualizar:`, e.message);
+      resolveLock();
+      _locks.delete(lockKey);
       return Response.json({ success: true, contact: contatoExistente, action: 'found' });
     }
   }
