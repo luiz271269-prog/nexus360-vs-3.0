@@ -52,13 +52,13 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
         ? await fetchMessagesBackend(threadId)
         : await base44.entities.Message.filter(
             { thread_id: threadId },
-            '-sent_at',
+            '-created_date',
             20
           );
 
       const reversed = msgs.reverse();
       setMessages(reversed);
-      setOldestLoadedAt(reversed[0]?.sent_at || null);
+      setOldestLoadedAt(reversed[0]?.created_date || reversed[0]?.sent_at || null);
       setHasMore(msgs.length === 20); // Se trouxe 20, pode ter mais
 
       console.log('[PAGINACAO] ✅ Inicial carregada:', reversed.length, 'msgs');
@@ -88,9 +88,9 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
         : await base44.entities.Message.filter(
             {
               thread_id: threadId,
-              sent_at: { $lt: oldestLoadedAt }
+              created_date: { $lt: oldestLoadedAt }
             },
-            '-sent_at',
+            '-created_date',
             20
           );
 
@@ -102,7 +102,7 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
 
       const reversed = older.reverse();
       setMessages(prev => [...reversed, ...prev]);
-      setOldestLoadedAt(reversed[0]?.sent_at);
+      setOldestLoadedAt(reversed[0]?.created_date || reversed[0]?.sent_at);
       setHasMore(older.length === 20);
 
       console.log('[PAGINACAO] ✅ +', reversed.length, 'mensagens antigas carregadas');
