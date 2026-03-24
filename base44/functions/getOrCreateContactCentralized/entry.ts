@@ -5,11 +5,28 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 // FUNÇÃO CENTRALIZADORA ÚNICA - CONTATO (ANTI-DUPLICAÇÃO)
 // v3.0.0 - Lock em memória por número canônico (elimina race condition real)
 // ============================================================================
-const VERSION = 'v3.0.0-MEMORY-LOCK';
+const VERSION = 'v3.1.0-RETRY-DEDUP';
 
 // Lock em memória: Map<canonico, Promise>
-// Garante que execuções concorrentes para o mesmo número aguardem em fila
 const _locks = new Map();
+
+// Retry com backoff exponencial para 429
+async function retryOn429(fn, maxTentativas = 3, delayBase = 500) {
+  for (let i = 0; i < maxTentativas; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const is429 = e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa');
+      if (is429 && i < maxTentativas - 1) {
+        const delay = delayBase * Math.pow(2, i);
+        console.warn(`[CENTRALIZED] 429 na busca, aguardando ${delay}ms (tentativa ${i+1})`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw e;
+    }
+  }
+}
 
 function normalizarTelefone(telefone) {
   if (!telefone) return null;
@@ -147,18 +164,26 @@ Deno.serve(async (req) => {
 
   try {
     // ═══════════════════════════════════════════════════════════════
-    // STEP 1: Busca pelo canonico (campo telefone_canonico)
-    // Campo sempre em dígitos puros — mais confiável para novos contatos
+    // STEP 1: Busca pelo canonico — limit 5 para detectar e consolidar duplicados
     // ═══════════════════════════════════════════════════════════════
     try {
-      const r1 = await base44.asServiceRole.entities.Contact.filter(
+      const r1 = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
         { telefone_canonico: canonico },
-        '-created_date',
-        1
-      );
+        'created_date', // mais antigo primeiro
+        5
+      ));
       if (r1 && r1.length > 0) {
-        contatoExistente = r1[0];
+        contatoExistente = r1[0]; // mais antigo = canônico
         console.log(`[${VERSION}] ✅ ENCONTRADO por telefone_canonico="${canonico}" | ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
+        // Auto-cleanup: deletar duplicados encontrados (silencioso)
+        if (r1.length > 1) {
+          console.warn(`[${VERSION}] 🧹 Auto-cleanup: ${r1.length - 1} duplicado(s) para canonico=${canonico}`);
+          for (const dup of r1.slice(1)) {
+            base44.asServiceRole.entities.Contact.delete(dup.id).catch(e =>
+              console.warn(`[${VERSION}] ⚠️ Erro ao deletar duplicado ${dup.id}:`, e.message)
+            );
+          }
+        }
       }
     } catch (e) {
       console.warn(`[${VERSION}] ⚠️ Erro busca telefone_canonico:`, e.message);
@@ -170,14 +195,21 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════════
     if (!contatoExistente) {
       try {
-        const r2 = await base44.asServiceRole.entities.Contact.filter(
+        const r2 = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
           { telefone: telefoneNormalizado },
-          '-created_date',
-          1
-        );
+          'created_date',
+          5
+        ));
         if (r2 && r2.length > 0) {
           contatoExistente = r2[0];
           console.log(`[${VERSION}] ✅ ENCONTRADO por telefone="${telefoneNormalizado}" | ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
+          // Auto-cleanup de duplicados por telefone
+          if (r2.length > 1) {
+            console.warn(`[${VERSION}] 🧹 Auto-cleanup telefone: ${r2.length - 1} duplicado(s)`);
+            for (const dup of r2.slice(1)) {
+              base44.asServiceRole.entities.Contact.delete(dup.id).catch(() => {});
+            }
+          }
         }
       } catch (e) {
         console.warn(`[${VERSION}] ⚠️ Erro busca telefone:`, e.message);
@@ -195,11 +227,11 @@ Deno.serve(async (req) => {
 
         for (const campo of ['telefone', 'telefone_canonico']) {
           try {
-            const r = await base44.asServiceRole.entities.Contact.filter(
+            const r = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
               { [campo]: variacao },
-              '-created_date',
+              'created_date',
               1
-            );
+            ));
             if (r && r.length > 0) {
               contatoExistente = r[0];
               console.log(`[${VERSION}] ✅ ENCONTRADO (legado) por ${campo}="${variacao}" | ID: ${contatoExistente.id}`);
