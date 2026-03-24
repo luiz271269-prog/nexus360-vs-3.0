@@ -89,7 +89,7 @@ export default function CorrecaoCirurgicaVinculacao({ telefoneContato, onAnalise
     }
   };
 
-  // ✅ CORRIGIR TUDO: Consolidar duplicatas e re-rodar análise
+  // ✅ CORRIGIR TUDO: Usa função backend mergeContacts (centralizada)
   const handleCorrigirTudo = async () => {
     if (!diagnostico || diagnostico.duplicados <= 1) {
       toast.warning('Nada para corrigir');
@@ -115,57 +115,43 @@ export default function CorrecaoCirurgicaVinculacao({ telefoneContato, onAnalise
       const contatosAlt = await base44.entities.Contact.filter({ telefone: telefoneContato });
       const todosContatos = Array.from(
         new Map([...contatos, ...contatosAlt].map(c => [c.id, c])).values()
-      );
+      ).filter(c => !c.observacoes?.includes('[MERGED'));
 
       if (todosContatos.length < 2) {
         throw new Error('Não há duplicatas para corrigir');
       }
 
-      // Selecionar contato mestre (mais antigo/com mais dados)
-      const mestre = todosContatos.sort((a, b) => 
+      // Selecionar contato mestre (mais antigo)
+      const ordenados = [...todosContatos].sort((a, b) =>
         new Date(a.created_date) - new Date(b.created_date)
-      )[0];
+      );
+      const mestre = ordenados[0];
+      const duplicatasIds = ordenados.slice(1).map(c => c.id);
 
-      const duplicatas = todosContatos.filter(c => c.id !== mestre.id);
+      // ✅ CHAMAR FUNÇÃO BACKEND CENTRALIZADA (igual ao UnificadorContatosCentralizado)
+      const response = await base44.functions.invoke('mergeContacts', {
+        masterContactId: mestre.id,
+        duplicateContactIds: duplicatasIds
+      });
 
-      // Mover threads para mestre
-      let threadsMov = 0;
-      let mensagensCorr = 0;
-
-      for (const dup of duplicatas) {
-        const threads = await base44.entities.MessageThread.filter({ contact_id: dup.id });
-
-        for (const thread of threads) {
-          // Atualizar thread para apontar ao mestre
-          await base44.entities.MessageThread.update(thread.id, {
-            contact_id: mestre.id
-          });
-          threadsMov++;
-
-          // Buscar mensagens desta thread
-          const mensagens = await base44.entities.Message.filter({ thread_id: thread.id });
-          mensagensCorr += mensagens.length;
-        }
-
-        // ✅ OPCIONAL: Deletar contato duplicado (cuidado com permissões)
-        // await base44.entities.Contact.delete(dup.id);
+      if (!response?.data?.success) {
+        throw new Error(response?.data?.error || 'Erro desconhecido na unificação');
       }
+
+      const { stats, masterContactName } = response.data;
 
       toast.dismiss(loadingToast);
       toast.success(
         `✅ CORREÇÃO CONCLUÍDA!\n\n` +
-        `📊 Resultado:\n` +
-        `→ ${duplicatas.length} duplicata(s) consolidada(s)\n` +
-        `→ ${threadsMov} thread(s) movida(s)\n` +
-        `→ ${mensagensCorr} mensagem(s) corrigida(s)\n` +
-        `🎯 Mestre: ${mestre.nome}`,
+        `→ ${stats.duplicatasProcessadas} duplicata(s) removida(s)\n` +
+        `→ ${stats.threadsMovidas} thread(s) movida(s)\n` +
+        `→ ${stats.mensagensMovidas} mensagem(s) movida(s)\n` +
+        `🎯 Mestre: ${masterContactName}`,
         { duration: 6000 }
       );
 
-      // ✅ CRITICAL FIX: Re-rodar análise automaticamente após correção
-      setTimeout(() => {
-        handleAnalisar();
-      }, 1000);
+      // Re-rodar análise para confirmar resultado
+      setTimeout(() => { handleAnalisar(); }, 1000);
     } catch (error) {
       console.error('[CorrecaoCirurgica] Erro ao corrigir:', error);
       toast.dismiss(loadingToast);
