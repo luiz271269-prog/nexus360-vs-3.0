@@ -64,6 +64,21 @@ Deno.serve(async (req) => {
   const { message, integration, provider, messageContent, rawPayload } = payload;
   let { contact, thread } = payload;
 
+  // ════════════════════════════════════════════════════════════════
+  // GUARD ECHO: Bloquear mensagens enviadas pelo próprio sistema.
+  // fromMe=true, fromMe=null, ou sender_type='user' = mensagem de saída.
+  // Sem este guard, a W-API re-entrega o webhook das msgs enviadas
+  // pelo sistema e o pipeline processa como se fosse o cliente.
+  // ════════════════════════════════════════════════════════════════
+  const isFromMe = rawPayload?.fromMe === true ||
+    rawPayload?.key?.fromMe === true ||
+    message?.sender_type === 'user';
+
+  if (isFromMe) {
+    console.log(`[${VERSION}] 🛑 ECHO GUARD: mensagem de saída ignorada (fromMe=true ou sender_type=user)`);
+    return Response.json({ success: true, skipped: true, reason: 'echo_outbound' });
+  }
+
   console.log(`[${VERSION}] 📩 Message: ${message?.id} | Contact: ${contact?.nome} | Thread: ${thread?.id}`);
 
   const result = { pipeline: [], actions: [] };
