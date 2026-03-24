@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
 
     if (existentes && existentes.length > 0) {
       const contatoExistente = existentes[0]; // Usa o mais antigo
-      console.log(`[DEDUP] ✅ ENCONTRADO: ${contatoExistente.id} | ${contatoExistente.nome}`);
+      console.log(`[DEDUP] ✅ ENCONTRADO por telefone_canonico: ${contatoExistente.id} | ${contatoExistente.nome}`);
 
       // Cleanup: deletar duplicatas silenciosamente (sem bloquear resposta)
       if (existentes.length > 1) {
@@ -120,8 +120,65 @@ Deno.serve(async (req) => {
       return Response.json({
         success: true,
         contact: contatoExistente,
-        action: 'found_and_updated',
+        action: 'found_by_canonical',
         deduplicated: existentes.length - 1
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // FALLBACK: Buscar por telefone normalizado (para históricos sem canonical)
+    // Isso drena progressivamente os 500+ contacts sem telefone_canonico
+    // ═══════════════════════════════════════════════════════════
+    console.log(`[DEDUP] 🔄 FALLBACK: buscando por telefone histórico para ${telefoneFinal}`);
+    
+    const variacoes = [
+      telefoneFinal,
+      canonico,
+      `+55${canonico.replace(/^55/, '')}` // sem país
+    ].filter(Boolean);
+
+    let contatoHistorico = null;
+    for (const variacao of variacoes) {
+      if (contatoHistorico) break;
+      try {
+        const resultado = await base44.asServiceRole.entities.Contact.filter(
+          { telefone: variacao },
+          'created_date',
+          1
+        ).catch(() => []);
+        if (resultado && resultado.length > 0) {
+          contatoHistorico = resultado[0];
+          break;
+        }
+      } catch (e) {
+        // silencioso
+      }
+    }
+
+    if (contatoHistorico) {
+      console.log(`[DEDUP] ✅ ENCONTRADO (fallback histórico): ${contatoHistorico.id}`);
+      // Autocorrigir: preencher o campo canonical que faltava
+      const updateHistorico = { telefone_canonico: canonico };
+      if (nome && (!contatoHistorico.nome || contatoHistorico.nome === contatoHistorico.telefone)) {
+        updateHistorico.nome = nome || pushName;
+      }
+      if (profilePicUrl && contatoHistorico.foto_perfil_url !== profilePicUrl) {
+        updateHistorico.foto_perfil_url = profilePicUrl;
+        updateHistorico.foto_perfil_atualizada_em = new Date().toISOString();
+      }
+      if (integracaoId && !contatoHistorico.conexao_origem) {
+        updateHistorico.conexao_origem = integracaoId;
+      }
+      
+      await base44.asServiceRole.entities.Contact.update(contatoHistorico.id, updateHistorico).catch(() => {});
+      
+      resolveLock();
+      _locks.delete(lockKey);
+      return Response.json({
+        success: true,
+        contact: contatoHistorico,
+        action: 'found_by_fallback_and_fixed',
+        telefoneCanonicoPreenchido: true
       });
     }
 
