@@ -213,8 +213,11 @@ export default function UnificadorContatosCentralizado({
         setDuplicatas([]);
         setMestreEscolhido(null);
 
+        // Re-buscar após 1.5s para confirmar que duplicatas foram removidas
+        setTimeout(() => buscarDuplicatas(telefone), 1500);
+
         if (onClose) {
-          setTimeout(onClose, 2000);
+          setTimeout(onClose, 3500);
         }
       } else {
         throw new Error(error || 'Erro desconhecido na unificação');
