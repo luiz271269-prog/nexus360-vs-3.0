@@ -184,17 +184,31 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
 
           {/* Botão Copiloto IA no final do menu */}
           <button
-            onClick={onOpenCopiloto}
-            className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-purple-600 to-violet-700 hover:from-purple-500 hover:to-violet-600 shadow-lg shadow-purple-500/25 transition-all duration-300 hover:scale-105 group relative mt-2"
-            title="Copiloto IA"
+           onClick={onOpenCopiloto}
+           className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-purple-600 to-violet-700 hover:from-purple-500 hover:to-violet-600 shadow-lg shadow-purple-500/25 transition-all duration-300 hover:scale-105 group relative mt-2"
+           title="Copiloto IA"
           >
-            <Bot className="h-6 w-6 text-white" />
-            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-green-400 rounded-full border border-white" />
-            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
-              🤖 Copiloto IA <span className="text-green-400 ml-1">Online</span>
-            </div>
+           <Bot className="h-6 w-6 text-white" />
+           <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-green-400 rounded-full border border-white" />
+           <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
+             🤖 Copiloto IA <span className="text-green-400 ml-1">Online</span>
+           </div>
           </button>
-        </nav>
+
+          {/* Atalho Neural Fin Flow */}
+          <a
+           href="https://neural-fin-flow.base44.app"
+           target="_blank"
+           rel="noopener noreferrer"
+           className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 shadow-lg shadow-emerald-500/25 transition-all duration-300 hover:scale-105 group relative mt-2"
+           title="Neural Fin Flow"
+          >
+           <Zap className="h-6 w-6 text-white" />
+           <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
+             💰 Neural Fin Flow
+           </div>
+          </a>
+          </nav>
 
         {/* Rodapé com autenticação unificada */}
         <div className="p-2 border-t border-slate-700/50">
