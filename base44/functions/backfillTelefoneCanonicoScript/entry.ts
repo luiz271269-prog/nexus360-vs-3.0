@@ -1,6 +1,5 @@
 // BACKFILL: Preenche telefone_canonico nos ~500 contacts históricos que não têm o campo
-// Chamar uma vez via GET /backfillTelefoneCanonicoScript (admin only)
-// v1.0.0 — 2026-03-25
+// v2.0.0 — 2026-03-25 — aceita params via body (POST) ou URL (GET)
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
@@ -24,25 +23,35 @@ Deno.serve(async (req) => {
 
   const base44 = createClientFromRequest(req);
 
-  // Admin only
   const user = await base44.auth.me().catch(() => null);
   if (user?.role !== 'admin') {
     return Response.json({ error: 'Forbidden' }, { status: 403, headers });
   }
 
+  // Aceitar params via body (POST/test) OU URL query string (GET)
+  let bodyParams = {};
+  try {
+    const text = await req.text();
+    if (text) bodyParams = JSON.parse(text);
+  } catch {}
+
   const urlParams = new URL(req.url).searchParams;
-  const skip = parseInt(urlParams.get('skip') || '0');
-  const limit = parseInt(urlParams.get('limit') || '100');
-  const dryRun = urlParams.get('dry_run') !== 'false'; // default: dry_run=true
+
+  const skip    = parseInt(bodyParams.skip    ?? urlParams.get('skip')    ?? '0');
+  const limit   = parseInt(bodyParams.limit   ?? urlParams.get('limit')   ?? '600');
+  const dryRun  = bodyParams.dry_run !== undefined
+    ? Boolean(bodyParams.dry_run)
+    : urlParams.get('dry_run') !== 'false'; // default: dry_run=true
 
   console.log(`[BACKFILL] skip=${skip} limit=${limit} dry_run=${dryRun}`);
 
-  // Buscar contacts sem telefone_canonico mas com telefone
+  // Buscar em lotes paginados (SDK lista máx 50 por padrão, usar limit explícito)
   let contacts = [];
   try {
-    // Não tem query $exists no SDK — buscar em lote e filtrar em memória
+    // Buscar limit+skip registros e fatiar
     const todos = await base44.asServiceRole.entities.Contact.list('-created_date', limit + skip);
     contacts = todos.slice(skip, skip + limit).filter(c => c.telefone && !c.telefone_canonico);
+    console.log(`[BACKFILL] total carregados: ${todos.length} | sem canonico: ${contacts.length}`);
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500, headers });
   }
@@ -63,9 +72,10 @@ Deno.serve(async (req) => {
       try {
         await base44.asServiceRole.entities.Contact.update(c.id, { telefone_canonico: canonico });
         atualizados++;
+        console.log(`[BACKFILL] ✅ ${c.id} | ${c.nome} | ${c.telefone} → ${canonico}`);
       } catch (e) {
         erros++;
-        console.warn(`[BACKFILL] Erro ${c.id}:`, e.message);
+        console.warn(`[BACKFILL] ❌ Erro ${c.id}:`, e.message);
       }
     } else {
       detalhes.push({ id: c.id, nome: c.nome, telefone: c.telefone, canonico });
@@ -81,6 +91,6 @@ Deno.serve(async (req) => {
     sem_telefone_valido: semTelefone,
     atualizados,
     erros,
-    ...(dryRun ? { preview: detalhes.slice(0, 20) } : {})
+    ...(dryRun ? { preview: detalhes } : {})
   }, { headers });
 });
