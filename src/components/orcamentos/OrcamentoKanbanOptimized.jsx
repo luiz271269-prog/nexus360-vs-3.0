@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MoreHorizontal, Edit, Calendar, DollarSign, User, Filter, Brain, MessageSquare, Building2, Handshake, X } from 'lucide-react';
+import { MoreHorizontal, Edit, Calendar, DollarSign, User, Filter, Brain, MessageSquare, Building2, Handshake, X, ArrowRight, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from "@/api/base44Client";
 
@@ -82,29 +82,30 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
               <h4 className="font-semibold text-slate-800 text-[11px] leading-tight truncate flex-1 uppercase">
                 {orcamento.cliente_nome || '—'}
               </h4>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost" size="icon"
-                    className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700 flex-shrink-0"
-                    // ✅ Impede que o menu dispare o drag
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    <MoreHorizontal className="w-3 h-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="text-xs">
-                  <DropdownMenuItem onClick={() => onEdit?.(orcamento)} className="text-xs py-1.5">
-                    <Edit className="w-3 h-3 mr-1.5" /> Editar
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-slate-400">
-                {orcamento.numero_orcamento ? `#${orcamento.numero_orcamento}` : `#${orcamento.id?.slice(-4)}`}
-              </span>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-mono text-slate-400">
+                  {orcamento.numero_orcamento ? `#${orcamento.numero_orcamento}` : `#${orcamento.id?.slice(-4)}`}
+                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost" size="icon"
+                      className="h-5 w-5 p-0 text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex-shrink-0 rounded"
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <MoreHorizontal className="w-3 h-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="text-xs w-40">
+                    <DropdownMenuItem onClick={() => onEdit?.(orcamento)} className="text-xs py-1.5 flex items-center gap-2">
+                      <Edit className="w-3 h-3" /> Editar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               <span className="text-[11px] font-bold text-green-600">
                 {formatCurrency(orcamento.valor_total)}
               </span>
