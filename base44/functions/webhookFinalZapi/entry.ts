@@ -548,9 +548,26 @@ async function handleMessage(dados, payloadBruto, base44) {
   const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
   console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
-  // Guard own_chip — rejeitar mensagens do próprio número do chip
+  // ✅ CAMADA 2B: Guard inter-chips — rejeitar mensagens ENTRE chips internos
+  const fromCanon = String(dados.from).replace(/\D/g, '').replace(/^0+/, '');
+  try {
+    const integracoes = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
+      { status: 'conectado' }, '-created_date', 100
+    ));
+    const chipNumbers = integracoes
+      .map(i => (i.numero_telefone || '').replace(/\D/g, '').replace(/^0+/, ''))
+      .filter(n => n && n.length > 8);
+    if (chipNumbers.includes(fromCanon)) {
+      const chipInfo = integracoes.find(i => (i.numero_telefone || '').replace(/\D/g, '').replace(/^0+/, '') === fromCanon);
+      console.log(`[${VERSION}] 🛡️ GUARD inter-chips: from=${dados.from} é um chip interno (${chipInfo?.nome_instancia})`);
+      return jsonOk({ success: true, ignored: true, reason: 'mensagem_interna_entre_chips' });
+    }
+  } catch (e) {
+    console.warn(`[${VERSION}] ⚠️ Erro ao verificar chips internos (prosseguindo):`, e?.message);
+  }
+
+  // Guard own_chip — rejeitar mensagens do próprio número do chip (failsafe)
   if (dados.from && connectedPhone) {
-    const fromCanon = String(dados.from).replace(/\D/g, '').replace(/^0+/, '');
     const chipCanon = String(connectedPhone).replace(/\D/g, '').replace(/^0+/, '');
     if (fromCanon === chipCanon) {
       console.log(`[${VERSION}] 🛡️ GUARD own_chip: from=${dados.from} === chip=${connectedPhone}`);
