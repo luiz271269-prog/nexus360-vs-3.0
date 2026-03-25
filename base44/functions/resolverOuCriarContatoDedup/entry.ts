@@ -1,4 +1,5 @@
-// Resolver ou Criar Contato — Deduplicação por telefone_canonico
+// DEPRECATED — usar getOrCreateContactCentralized. Mantido apenas para compatibilidade.
+// Esta função NÃO tem lock em memória e pode criar duplicatas em race condition.
 // v1.3 — Retry-on-rate-limit (sem lock em memória, funciona em serverless)
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';

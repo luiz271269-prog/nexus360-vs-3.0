@@ -532,29 +532,31 @@ async function handleMessageUpdate(dados, base44) {
 async function handleMessage(dados, payloadBruto, base44) {
   const inicio = Date.now();
   const _tsInicio = Date.now();
+
+  // ✅ CAMADA 1: Guard fromMe IMEDIATAMENTE — antes de qualquer lógica
+  if (dados.fromMe === true || payloadBruto.fromApi === true) {
+    console.log(`[${VERSION}] ⏭️ fromMe=true ou fromApi=true — sync, IGNORADO`);
+    return jsonOk({ success: true, skipped: true, reason: 'from_me_sync' });
+  }
+
+  // ✅ CAMADA 2: Validar telefone mínimo — antes de criar contato ou buscar integração
+  if (!dados.from || dados.from.replace(/\D/g, '').length < 8) {
+    console.log(`[${VERSION}] ⏭️ Telefone inválido: ${dados.from}`);
+    return jsonOk({ success: true, skipped: true, reason: 'telefone_invalido' });
+  }
+
   const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
   console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
-  // ✅ GUARD CANONIZADO — compara apenas dígitos sem zeros à esquerda
-  // Resolve o caso: from=+554830452076 vs connectedPhone=554830452076
-  if (dados.fromMe === true) {
-    console.log(`[${VERSION}] ⏭️ fromMe=true, ignorado`);
-    return jsonOk({ success: true, ignored: true, reason: 'from_me' });
-  }
+  // Guard own_chip — rejeitar mensagens do próprio número do chip
   if (dados.from && connectedPhone) {
     const fromCanon = String(dados.from).replace(/\D/g, '').replace(/^0+/, '');
     const chipCanon = String(connectedPhone).replace(/\D/g, '').replace(/^0+/, '');
     if (fromCanon === chipCanon) {
-      console.log(`[${VERSION}] 🛡️ GUARD own_chip: from=${dados.from} === chip=${connectedPhone} | canon=${fromCanon}`);
+      console.log(`[${VERSION}] 🛡️ GUARD own_chip: from=${dados.from} === chip=${connectedPhone}`);
       return jsonOk({ success: true, ignored: true, reason: 'from_own_chip' });
     }
   }
-
-  if (dados.from === '+559999999999') {
-    console.log(`[${VERSION}] 🗓️ AGENDA NEXUS IA DETECTADA`);
-  }
-
-  const isFromMe = payloadBruto.fromMe === true;
 
   // DEDUPLICAÇÃO por messageId
   if (dados.messageId) {

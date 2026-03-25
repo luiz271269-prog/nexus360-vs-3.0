@@ -333,7 +333,9 @@ Deno.serve(async (req) => {
     const clienteVincular = payload._clienteParaVincular || null;
 
     const novoContato = await base44.asServiceRole.entities.Contact.create({
-      nome: pushName || telefoneNormalizado,
+      nome: (pushName && pushName.trim().length > 2 && pushName !== telefoneNormalizado)
+        ? pushName.trim()
+        : `Contato ${telefoneNormalizado.slice(-8)}`,
       telefone: telefoneNormalizado,
       telefone_canonico: canonico,
       tipo_contato: clienteVincular ? 'cliente' : 'lead',
