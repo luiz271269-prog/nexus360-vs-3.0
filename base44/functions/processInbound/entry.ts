@@ -274,8 +274,8 @@ Deno.serve(async (req) => {
         whatsapp_message_id: message.whatsapp_message_id,
         'metadata.whatsapp_integration_id': integration.id
       }, '-created_date', 1);
-      if (existing?.length > 1) { // > 1 porque a própria msg já foi gravada
-        console.log(`[${VERSION}] ⏭️ DUPLICATA: ${message.whatsapp_message_id}`);
+      if (existing?.length >= 1) { // >= 1: msg já foi salva (retry detectado)
+        console.log(`[${VERSION}] ⏭️ DUPLICATA: ${message.whatsapp_message_id}`)
         result.actions.push('skipped_duplicate');
         return Response.json({ success: true, skipped: true, reason: 'duplicate', pipeline: result.pipeline, actions: result.actions });
       }
