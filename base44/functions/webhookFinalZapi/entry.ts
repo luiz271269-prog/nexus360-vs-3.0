@@ -530,10 +530,19 @@ async function handleMessage(dados, payloadBruto, base44) {
   const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
   console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
-  // 🛡️ GUARD A — Ignorar mensagens enviadas pelo próprio chip (ANTES de qualquer DB call)
-  if (dados.fromMe === true || (connectedPhone && dados.from && isSamePhone(dados.from, connectedPhone))) {
-    console.log(`[${VERSION}] ⏭️ Ignorado: from_own_chip (${dados.from})`);
-    return jsonOk({ success: true, ignored: true, reason: 'from_own_chip' });
+  // ✅ GUARD CANONIZADO — compara apenas dígitos sem zeros à esquerda
+  // Resolve o caso: from=+554830452076 vs connectedPhone=554830452076
+  if (dados.fromMe === true) {
+    console.log(`[${VERSION}] ⏭️ fromMe=true, ignorado`);
+    return jsonOk({ success: true, ignored: true, reason: 'from_me' });
+  }
+  if (dados.from && connectedPhone) {
+    const fromCanon = String(dados.from).replace(/\D/g, '').replace(/^0+/, '');
+    const chipCanon = String(connectedPhone).replace(/\D/g, '').replace(/^0+/, '');
+    if (fromCanon === chipCanon) {
+      console.log(`[${VERSION}] 🛡️ GUARD own_chip: from=${dados.from} === chip=${connectedPhone} | canon=${fromCanon}`);
+      return jsonOk({ success: true, ignored: true, reason: 'from_own_chip' });
+    }
   }
 
   if (dados.from === '+559999999999') {
