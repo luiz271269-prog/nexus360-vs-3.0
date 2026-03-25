@@ -128,28 +128,65 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], con
     });
   };
 
-  const renderContatoCard = (thread) => {
-    // ✅ FIX: usar dados da thread como fallback quando contato não está hidratado
-    const contato = thread.contato || {
-      id: thread.contact_id,
-      nome: thread.last_message_sender_name || null,
-      telefone: null,
-      empresa: null,
-      cargo: null,
-      tipo_contato: 'novo',
-      tags: []
-    };
-
-    const estaSelecionado = contatosSelecionados.some((t) => t.id === thread.id);
-
-    // Nome de exibição: preferir nome do contato hidratado, fallback para dados da thread
-    let nomeExibicao = "";
-    if (contato.empresa) nomeExibicao += contato.empresa;
-    if (contato.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + contato.cargo;
-    if (contato.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
-    if (!nomeExibicao || nomeExibicao.trim() === '') {
-      nomeExibicao = contato.telefone || thread.contact_id?.slice(-8) || "Sem Nome";
+  // ✅ NOVO: Abrir detalhes com diagnóstico automático
+  const abrirDetalhesParaCorrigir = async (thread, contato) => {
+    try {
+      setCarregandoMensagens(true);
+      const mensagens = await base44.entities.Message.filter(
+        { thread_id: thread.id },
+        '-sent_at',
+        200
+      );
+      
+      setChatAberto({
+        thread,
+        contato: {
+          id: contato.id,
+          nome: contato.nome,
+          empresa: contato.empresa,
+          telefone: contato.telefone,
+          tipo_contato: contato.tipo_contato
+        },
+        abaInicial: 'diagnostico'
+      });
+      setMensagensChat(mensagens.reverse());
+    } catch (error) {
+      toast.error(`❌ ${error.message}`);
+    } finally {
+      setCarregandoMensagens(false);
     }
+  };
+
+  const renderContatoCard = (thread) => {
+    // ✅ FIX: Botão SEMPRE ativo para corrigir contatos incompletos
+    const abrirDetalhesAutomatico = async (e) => {
+      e.stopPropagation();
+      try {
+        setCarregandoMensagens(true);
+        const mensagens = await base44.entities.Message.filter(
+          { thread_id: thread.id },
+          '-sent_at',
+          200
+        );
+        
+        setChatAberto({
+          thread,
+          contato: {
+            id: contato.id,
+            nome: contato.nome,
+            empresa: contato.empresa,
+            telefone: contato.telefone,
+            tipo_contato: contato.tipo_contato
+          },
+          abaInicial: 'diagnostico' // 👈 ABRE DIRETO NA ABA DE DIAGNÓSTICO
+        });
+        setMensagensChat(mensagens.reverse());
+      } catch (error) {
+        toast.error(`❌ ${error.message}`);
+      } finally {
+        setCarregandoMensagens(false);
+      }
+    };
 
     return (
       <div
@@ -270,6 +307,19 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], con
               <AlertTriangle className="w-2 h-2" />
               Sem atrib.
             </span>
+
+            {/* ✅ BOTÃO SEMPRE ATIVO PARA CORRIGIR */}
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                abrirDetalhesParaCorrigir(thread, contato);
+              }}
+              className="ml-auto h-5 px-2 text-[8px] font-bold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded shadow-md"
+              title="Abrir detalhes e diagnóstico do contato"
+            >
+              🔧 Corrigir
+            </Button>
           </div>
         </div>
       </div>
