@@ -474,10 +474,7 @@ export function buildUserPermissions(usuario, allIntegracoes = []) {
 
 export function isAtribuidoAoUsuario(userPermissions, thread) {
   if (!userPermissions || !thread) return false;
-  // ✅ Comparação robusta: normaliza strings e compara ambas as formas
-  const assignedId = String(thread.assigned_user_id || '').trim();
-  const userId = String(userPermissions.id || '').trim();
-  return assignedId === userId && assignedId !== '';
+  return thread.assigned_user_id === userPermissions.id;
 }
 
 export function isFidelizadoAoUsuario(userPermissions, contact) {
