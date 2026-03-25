@@ -40,23 +40,24 @@ const jsonOk = (data, extra = {}) =>
 const jsonErr = (error, status = 500) =>
   Response.json({ success: false, error }, { status, headers: corsHeaders });
 
+// Fonte: functions/lib/phoneNormalizer.js (inlined — Deno não suporta imports locais)
 function normalizarTelefone(telefone) {
   if (!telefone) return null;
-  let apenasNumeros = String(telefone).split('@')[0].replace(/\D/g, '');
-  if (!apenasNumeros || apenasNumeros.length < 10) return null;
-  apenasNumeros = apenasNumeros.replace(/^0+/, '');
-  if (!apenasNumeros.startsWith('55')) {
-    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
-      apenasNumeros = '55' + apenasNumeros;
-    }
+  let n = String(telefone).split('@')[0].replace(/\D/g, '');
+  if (!n || n.length < 10) return null;
+  n = n.replace(/^0+/, '');
+  if (!n.startsWith('55')) {
+    if (n.length === 10 || n.length === 11) n = '55' + n;
   }
-  if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
-    const primeiroDigito = apenasNumeros[4];
-    if (['6', '7', '8', '9'].includes(primeiroDigito)) {
-      apenasNumeros = apenasNumeros.substring(0, 4) + '9' + apenasNumeros.substring(4);
-    }
+  if (n.startsWith('55') && n.length === 12) {
+    if (['6','7','8','9'].includes(n[4])) n = n.substring(0, 4) + '9' + n.substring(4);
   }
-  return '+' + apenasNumeros;
+  return '+' + n;
+}
+function isSamePhone(a, b) {
+  const n1 = normalizarTelefone(a);
+  const n2 = normalizarTelefone(b);
+  return !!(n1 && n2 && n1 === n2);
 }
 
 // ============================================================================
@@ -588,14 +589,9 @@ async function handleMessage(dados, payloadBruto, base44) {
   const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
 
   // 🛡️ GUARD: Se dados.from === próprio número da instância, não processar
-  // Evita criar contacts fantasma com nome do chip para eventos internos
-  if (connectedPhone && dados.from) {
-    const fromNormalizado = dados.from.replace(/\D/g, '');
-    const chipNormalizado = connectedPhone.replace(/\D/g, '');
-    if (fromNormalizado === chipNormalizado || fromNormalizado.endsWith(chipNormalizado)) {
-      console.log(`[WAPI] 🛡️ Evento interno do chip (${connectedPhone}), ignorando`);
-      return jsonOk({ success: true, ignored: true, reason: 'event_from_own_chip' });
-    }
+  if (connectedPhone && dados.from && isSamePhone(dados.from, connectedPhone)) {
+    console.log(`[WAPI] 🛡️ Evento interno do chip (${connectedPhone}), ignorando`);
+    return jsonOk({ success: true, ignored: true, reason: 'event_from_own_chip' });
   }
 
   // ✅ SINCRONIZAÇÃO WHATSAPP WEB: mensagens enviadas fora do app (fromMe=true)
@@ -640,10 +636,8 @@ async function handleMessage(dados, payloadBruto, base44) {
       const todasWAPI = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
         { api_provider: 'w_api' }, '-created_date', 50
       );
-      const phoneLimpo = connectedPhone.replace(/\D/g, '');
       for (const int of (todasWAPI || [])) {
-        const numeroInt = (int.numero_telefone || '').replace(/\D/g, '');
-        if (numeroInt && phoneLimpo && numeroInt === phoneLimpo) {
+        if (isSamePhone(connectedPhone, int.numero_telefone)) {
           integracaoId = int.id;
           integracaoInfo = { nome: int.nome_instancia, numero: int.numero_telefone };
           console.log(`[WAPI] 🔑 PORTEIRO FALLBACK: Integração encontrada por connectedPhone. ID: ${int.id}`);
@@ -657,15 +651,7 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[WAPI] 🏛️ PORTEIRO RESULTADO: ${integracaoId ? '✅ Integração encontrada' : '❌ Não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // 🛡️ GUARD: Se dados.from === próprio número da instância, não processar
-  if (connectedPhone && dados.from) {
-    const fromNormalizado = dados.from.replace(/\D/g, '');
-    const chipNormalizado = connectedPhone.replace(/\D/g, '');
-    if (fromNormalizado === chipNormalizado || fromNormalizado.endsWith(chipNormalizado)) {
-      console.log(`[WAPI] 🛡️ Evento interno do chip (${connectedPhone}), ignorando`);
-      return jsonOk({ success: true, ignored: true, reason: 'event_from_own_chip' });
-    }
-  }
+  // 🛡️ GUARD duplicado removido (já verificado acima)
 
   // CONTATO — usar nova função com dedup robusto
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;

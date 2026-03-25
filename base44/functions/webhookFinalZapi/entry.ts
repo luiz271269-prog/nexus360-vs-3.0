@@ -1,4 +1,4 @@
-// redeploy: 2026-03-20T16:00-FIX-403-HUMAN-ACTIVE
+// redeploy: 2026-03-25T00:00-FIX-AUTOMERGE-GUARD
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // Fonte: functions/lib/phoneNormalizer.js (inlined — Deno não suporta imports locais)
@@ -22,12 +22,10 @@ function isSamePhone(a, b) {
 }
 
 // ============================================================================
-// WEBHOOK WHATSAPP Z-API - v10.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
+// WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-// SIMETRIA COM W-API: Webhook burro, inteligência em processInbound
-// ============================================================================
-const VERSION = 'v10.0.0-PURE-INGESTION';
-const BUILD_DATE = '2025-12-18';
+const VERSION = 'v11.0.0-CLEAN';
+const BUILD_DATE = '2026-03-25';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -39,9 +37,15 @@ const corsHeaders = {
 function jsonOk(body, init = {}) {
   return Response.json(body, { status: 200, headers: corsHeaders, ...init });
 }
+function jsonBadRequest(body) {
+  return Response.json(body, { status: 400, headers: corsHeaders });
+}
+function jsonServerError(body) {
+  return Response.json(body, { status: 500, headers: corsHeaders });
+}
 
 // ============================================================================
-// RETRY COM BACKOFF EXPONENCIAL PARA 429 (Rate Limit)
+// RETRY COM BACKOFF EXPONENCIAL PARA 429
 // ============================================================================
 async function retryOn429(fn, maxTentativas = 3, delayBase = 1000) {
   for (let i = 0; i < maxTentativas; i++) {
@@ -50,7 +54,7 @@ async function retryOn429(fn, maxTentativas = 3, delayBase = 1000) {
     } catch (e) {
       const is429 = e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa');
       if (is429 && i < maxTentativas - 1) {
-        const delay = delayBase * Math.pow(2, i); // 1s, 2s, 4s
+        const delay = delayBase * Math.pow(2, i);
         console.warn(`[RETRY] 429 detectado, aguardando ${delay}ms (tentativa ${i + 1}/${maxTentativas})`);
         await new Promise(r => setTimeout(r, delay));
         continue;
@@ -59,15 +63,9 @@ async function retryOn429(fn, maxTentativas = 3, delayBase = 1000) {
     }
   }
 }
-function jsonBadRequest(body) {
-  return Response.json(body, { status: 400, headers: corsHeaders });
-}
-function jsonServerError(body) {
-  return Response.json(body, { status: 500, headers: corsHeaders });
-}
 
 // --------------------------------------------------------------------------------------
-// FILTRO ULTRA-RÁPIDO - Retorna motivo se IGNORAR, null se processar
+// FILTRO ULTRA-RÁPIDO
 // --------------------------------------------------------------------------------------
 function deveIgnorar(payload) {
   if (!payload || typeof payload !== 'object') return 'payload_invalido';
@@ -76,13 +74,11 @@ function deveIgnorar(payload) {
   const phone = String(payload.phone ?? payload.from ?? '').toLowerCase();
   const isGroup = payload.isGroup === true || String(payload.chatId ?? '').includes('@g.us');
 
-  // ✅ FIX CRÍTICO: fromMe+fromApi = mensagem automática do sistema (URA, ACK fora horário)
-  // Ignorar ANTES de qualquer DB call — evita criar contatos/threads fantasma em 429
+  // fromMe+fromApi = mensagem automática do sistema (URA, ACK)
   if (payload.fromMe === true && payload.fromApi === true) {
     return 'fromMe_fromApi_auto';
   }
 
-  // IGNORAR IMEDIATAMENTE: status@broadcast e JIDs de sistema
   if (
     phone.includes('status@') ||
     phone.includes('@broadcast') ||
@@ -93,38 +89,31 @@ function deveIgnorar(payload) {
     return 'jid_sistema';
   }
 
-  // PERMITIR: QR Code, Connection e Desconexão
   if (tipo.includes('qrcode') || tipo.includes('connection') || tipo.includes('disconnect')) {
     return null;
   }
 
-  // IGNORAR: Eventos de presença/digitação/chamada (alto volume)
-  // MAS APENAS SE NÃO TIVER messageId (mensagem real)
   const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
   const temMessageId = payload.messageId || payload.id;
   if (!temMessageId && eventosLixo.some((e) => tipo.includes(e))) {
     return 'evento_sistema';
   }
 
-  // MessageStatusCallback - ignorar se for de status@broadcast
   if (tipo.includes('messagestatuscallback') || tipo.includes('message-status')) {
     if (phone.includes('status@') || phone.includes('@broadcast')) {
       return 'status_broadcast';
     }
-    return null; // Processar atualizações de status válidas
+    return null;
   }
 
-  // Para mensagens recebidas - verificar messageId E phone (mensagem real)
   const hasMsgId = payload.messageId || payload.id;
   const hasPhone = payload.phone || payload.from;
   const hasContent = payload.text || payload.body || payload.message || payload.image || payload.video || payload.audio || payload.document;
 
-  // Se tem messageId + phone + conteúdo = é mensagem real (incluindo fromMe para sync do WhatsApp Web)
   if (hasMsgId && hasPhone && (hasContent || payload.momment)) {
-    return null; // PROCESSAR! (fromMe=true será tratado no handleMessage como outbound)
+    return null;
   }
 
-  // ReceivedCallback explícito
   if (tipo.includes('receivedcallback')) {
     if (!payload.phone && !payload.from) return 'sem_telefone';
     return null;
@@ -155,7 +144,6 @@ function normalizarPayload(payload) {
     payload.instance_id_provider ??
     null;
 
-  // QR Code
   if (tipoRaw.includes('qrcode') || payload.qrcode || payload.qr) {
     return {
       type: 'qrcode',
@@ -164,7 +152,6 @@ function normalizarPayload(payload) {
     };
   }
 
-  // Connection / Disconnection
   if (tipoRaw.includes('disconnect')) {
     return {
       type: 'disconnection',
@@ -182,19 +169,15 @@ function normalizarPayload(payload) {
     };
   }
 
-  // ⚠️ IMPORTANTE: Detectar se é MENSAGEM REAL antes de status update
-  // Mensagem real tem: messageId + phone + (text/senderName/chatName) + fromMe=false
-  const temConteudoMensagem = payload.text || payload.body || payload.message || 
-                              payload.image || payload.video || payload.audio || 
+  const temConteudoMensagem = payload.text || payload.body || payload.message ||
+                              payload.image || payload.video || payload.audio ||
                               payload.document || payload.sticker;
   const temIndicadoresMensagem = payload.senderName || payload.chatName || payload.pushName;
-  const ehMensagemReal = payload.messageId && 
-                         payload.phone && 
-                         payload.fromMe === false && 
+  const ehMensagemReal = payload.messageId &&
+                         payload.phone &&
+                         payload.fromMe === false &&
                          (temConteudoMensagem || temIndicadoresMensagem);
 
-  // Status de mensagem - APENAS se NÃO for mensagem real
-  // MessageStatusCallback geralmente vem com array "ids" e sem senderName
   if (!ehMensagemReal && (tipoRaw.includes('messagestatuscallback') || tipoRaw.includes('message-status') || (Array.isArray(payload.ids) && payload.ids.length > 0))) {
     const messageId =
       (Array.isArray(payload.ids) && payload.ids[0]) ||
@@ -209,7 +192,6 @@ function normalizarPayload(payload) {
     };
   }
 
-  // Mensagem real
   const telefoneOrig = payload.phone ?? payload.from ?? payload.chatId ?? '';
   const numeroLimpo = normalizarTelefone(telefoneOrig);
   if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
@@ -231,55 +213,36 @@ function normalizarPayload(payload) {
     payload.caption ??
     '';
 
-  // LOG DETALHADO PARA DEBUG DE MÍDIA
   const mediaFields = ['image', 'video', 'audio', 'document', 'sticker', 'imageUrl', 'videoUrl', 'audioUrl', 'documentUrl', 'mediaUrl', 'forwardedFrom'];
   const presentMediaFields = mediaFields.filter(f => payload[f]);
   if (presentMediaFields.length > 0) {
     console.log(`[${VERSION}] 📎 Campos de mídia presentes:`, presentMediaFields);
-    for (const field of presentMediaFields) {
-      const fieldValue = payload[field];
-      const preview = typeof fieldValue === 'object' ? JSON.stringify(fieldValue).substring(0, 200) : String(fieldValue).substring(0, 200);
-      console.log(`[${VERSION}] 📎 ${field}:`, preview);
-    }
-  }
-  
-  // LOG ESPECIAL PARA MENSAGENS ENCAMINHADAS
-  if (payload.isForwarded || payload.forwardedFrom) {
-    console.log(`[${VERSION}] 📨 MENSAGEM ENCAMINHADA detectada!`);
-    console.log(`[${VERSION}] 📨 forwardedFrom:`, JSON.stringify(payload.forwardedFrom || {}).substring(0, 200));
   }
 
-  // Z-API pode enviar mídia de várias formas:
-  // 1. { image: { imageUrl: "...", caption: "..." } }
-  // 2. { image: "base64..." } 
-  // 3. { imageUrl: "..." } direto no root
-  // 4. { mediaUrl: "..." } genérico
-  
-  // ✅ PRIMEIRO: Verificar se é mensagem encaminhada com mídia
+  if (payload.isForwarded || payload.forwardedFrom) {
+    console.log(`[${VERSION}] 📨 MENSAGEM ENCAMINHADA detectada!`);
+  }
+
   const forwardedImage = payload.forwardedFrom?.image || payload.isForwarded && payload.image;
-  
+
   if (payload.image || forwardedImage) {
     mediaType = 'image';
     const imgData = payload.image || forwardedImage;
     if (typeof imgData === 'object') {
       mediaUrl = imgData.imageUrl ?? imgData.url ?? imgData.link ?? imgData.mediaUrl ?? null;
-      // ✅ FIX VISUAL: Garante texto
       conteudo = imgData.caption || '📷 [Imagem recebida]';
     } else if (typeof imgData === 'string' && imgData.startsWith('http')) {
       mediaUrl = imgData;
       conteudo = '📷 [Imagem recebida]';
     }
   } else if (payload.imageUrl) {
-    // URL direta no root
     mediaType = 'image';
     mediaUrl = payload.imageUrl;
-    // ✅ FIX VISUAL
     conteudo = payload.caption || '📷 [Imagem recebida]';
   } else if (payload.video) {
     mediaType = 'video';
     if (typeof payload.video === 'object') {
       mediaUrl = payload.video.videoUrl ?? payload.video.url ?? payload.video.link ?? payload.video.mediaUrl ?? null;
-      // ✅ FIX VISUAL
       conteudo = payload.video.caption || '🎥 [Vídeo recebido]';
     } else if (typeof payload.video === 'string' && payload.video.startsWith('http')) {
       mediaUrl = payload.video;
@@ -288,7 +251,6 @@ function normalizarPayload(payload) {
   } else if (payload.videoUrl) {
     mediaType = 'video';
     mediaUrl = payload.videoUrl;
-    // ✅ FIX VISUAL
     conteudo = payload.caption || '🎥 [Vídeo recebido]';
   } else if (payload.audio) {
     mediaType = 'audio';
@@ -297,7 +259,6 @@ function normalizarPayload(payload) {
     } else if (typeof payload.audio === 'string' && payload.audio.startsWith('http')) {
       mediaUrl = payload.audio;
     }
-    // ✅ FIX VISUAL
     conteudo = '🎤 [Áudio recebido]';
   } else if (payload.audioUrl) {
     mediaType = 'audio';
@@ -305,11 +266,8 @@ function normalizarPayload(payload) {
     conteudo = '🎤 [Áudio recebido]';
   } else if (payload.document || payload.documentUrl) {
     mediaType = 'document';
-    
-    // ✅ CRÍTICO: Extrair URL do documento (pode vir de várias formas)
     let documentUrl = null;
     let rawFileName = null;
-    
     if (typeof payload.document === 'object') {
       documentUrl = payload.document.documentUrl ?? payload.document.url ?? payload.document.link ?? payload.document.mediaUrl ?? null;
       rawFileName = payload.document.fileName || null;
@@ -318,23 +276,14 @@ function normalizarPayload(payload) {
     } else if (payload.documentUrl) {
       documentUrl = payload.documentUrl;
     }
-    
     mediaUrl = documentUrl;
-    
-    // ✅ NORMALIZAR FILE NAME: extrair extensão e garantir segurança
     const ext = (mediaUrl?.split('.').pop()?.split('?')[0] || 'pdf').toLowerCase();
     const fileNameBase = rawFileName || payload.fileName || 'documento';
-    const fileNameSeguro = fileNameBase
-      .replace(/[\/:*?"<>|\\[\]]/g, '_')  // Remover caracteres perigosos e colchetes
-      .slice(0, 100)                       // Limitar tamanho
-      .replace(/^\.+/, '');                // Remover pontos no início
-    
-    // Garantir extensão
+    const fileNameSeguro = fileNameBase.replace(/[\/:*?"<>|\\[\]]/g, '_').slice(0, 100).replace(/^\.+/, '');
     let fileNameFinal;
     if (!fileNameSeguro.toLowerCase().endsWith(`.${ext}`)) {
       const lastDot = fileNameSeguro.lastIndexOf('.');
       if (lastDot > 0 && lastDot < fileNameSeguro.length - 5) {
-        // Tem ponto no meio mas não é extensão válida, remover
         fileNameFinal = `${fileNameSeguro.substring(0, lastDot)}.${ext}`;
       } else {
         fileNameFinal = `${fileNameSeguro}.${ext}`;
@@ -342,14 +291,9 @@ function normalizarPayload(payload) {
     } else {
       fileNameFinal = fileNameSeguro;
     }
-    
-    // ✅ RENDERIZAÇÃO: Caption exibe o nome do arquivo (igual imagem com caption)
     conteudo = fileNameFinal;
-    
-    // ✅ PRESERVAR fileName no mediaCaption para o frontend renderizar corretamente
-    // Sem isso, MessageBubble mostra "[Documento]" genérico
     if (!payload.caption && !payload.document?.caption) {
-      payload.caption = fileNameFinal; // Força caption para ser propagado
+      payload.caption = fileNameFinal;
     }
   } else if (payload.sticker) {
     mediaType = 'sticker';
@@ -366,11 +310,9 @@ function normalizarPayload(payload) {
     mediaType = 'location';
     conteudo = '📍 [Localização]';
   }
-  
-  // Fallback: mediaUrl genérico no root
+
   if (mediaType === 'none' && payload.mediaUrl) {
     mediaUrl = payload.mediaUrl;
-    // Tentar detectar tipo pela extensão
     const ext = (payload.mediaUrl.split('.').pop() || '').toLowerCase().split('?')[0];
     if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
       mediaType = 'image';
@@ -387,7 +329,6 @@ function normalizarPayload(payload) {
     }
   }
 
-  // Log final de mídia detectada
   if (mediaType !== 'none') {
     console.log(`[${VERSION}] 📎 Mídia detectada: ${mediaType} | URL: ${mediaUrl ? mediaUrl.substring(0, 80) + '...' : 'null'}`);
   }
@@ -430,8 +371,6 @@ Deno.serve(async (req) => {
       return jsonBadRequest({ success: false, error: 'metodo_nao_suportado' });
     }
 
-    // ✅ FIX 403: Ler e filtrar payload ANTES de instanciar o SDK
-    // PresenceChatCallback não carrega token → SDK exploderia com 403
     let payload;
     try {
       const body = await req.text();
@@ -444,14 +383,12 @@ Deno.serve(async (req) => {
     console.log(`[${VERSION}] 📥 Payload recebido (1/2):`, JSON.stringify(payload).substring(0, 1000));
     console.log(`[${VERSION}] 📥 Carga recebida (2/2):`, JSON.stringify(payload).substring(1000, 2000));
 
-    // Early return SEM usar SDK — evita 403 em eventos de sistema
     const motivoIgnorar = deveIgnorar(payload);
     if (motivoIgnorar) {
       console.log(`[${VERSION}] ⏭️ Ignorado: ${motivoIgnorar}`);
       return jsonOk({ success: true, ignored: true, reason: motivoIgnorar });
     }
 
-    // Só instancia o SDK após confirmar que é evento que precisamos processar
     let base44;
     try {
       base44 = createClientFromRequest(req);
@@ -466,25 +403,18 @@ Deno.serve(async (req) => {
       return jsonOk({ success: true, ignored: true, reason: dados.error });
     }
 
-    // ✅ GUARD: fromMe = mensagem enviada pelo próprio chip, não processar
     if (dados.type === 'message' && dados.fromMe === true) {
       console.log(`[${VERSION}] ⏭️ fromMe: mensagem própria do chip, ignorado`);
       return jsonOk({ success: true, ignored: true, reason: 'fromMe_outbound' });
     }
 
     switch (dados.type) {
-      case 'qrcode':
-        return await handleQRCode(dados, base44);
-      case 'connection':
-        return await handleConnection(dados, base44);
-      case 'disconnection':
-        return await handleDisconnection(dados, base44);
-      case 'message_update':
-        return await handleMessageUpdate(dados, base44);
-      case 'message':
-        return await handleMessage(dados, payload, base44);
-      default:
-        return jsonOk({ success: true, ignored: true, reason: 'tipo_desconhecido' });
+      case 'qrcode':        return await handleQRCode(dados, base44);
+      case 'connection':    return await handleConnection(dados, base44);
+      case 'disconnection': return await handleDisconnection(dados, base44);
+      case 'message_update':return await handleMessageUpdate(dados, base44);
+      case 'message':       return await handleMessage(dados, payload, base44);
+      default:              return jsonOk({ success: true, ignored: true, reason: 'tipo_desconhecido' });
     }
   } catch (error) {
     console.error(`[${VERSION}] ❌ ERRO não tratado:`, error?.message || error);
@@ -496,88 +426,56 @@ Deno.serve(async (req) => {
 // HANDLERS
 // --------------------------------------------------------------------------------------
 async function handleQRCode(dados, base44) {
-  console.log(`[${VERSION}] 📱 QR Code recebido para: ${dados.instanceId}`);
-  
   if (!dados.instanceId) return jsonOk({ success: true, processed: 'qrcode', note: 'sem_instance' });
-
   try {
     const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { instance_id_provider: dados.instanceId },
-      '-created_date',
-      1
+      { instance_id_provider: dados.instanceId }, '-created_date', 1
     );
-
     if (integracoes.length > 0) {
       await base44.asServiceRole.entities.WhatsAppIntegration.update(integracoes[0].id, {
         qr_code_url: dados.qrCodeUrl ?? null,
         status: 'pendente_qrcode',
         ultima_atividade: new Date().toISOString(),
       });
-      console.log(`[${VERSION}] ✅ QR Code atualizado para integração: ${integracoes[0].nome_instancia}`);
     }
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro QR Code:`, e?.message);
   }
-
   return jsonOk({ success: true, processed: 'qrcode' });
 }
 
 async function handleConnection(dados, base44) {
-  console.log(`[${VERSION}] 🔌 Connection: ${dados.instanceId} -> ${dados.status}`);
-  
   if (!dados.instanceId) return jsonOk({ success: true, processed: 'connection', note: 'sem_instance' });
-
   try {
     const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { instance_id_provider: dados.instanceId },
-      '-created_date',
-      1
+      { instance_id_provider: dados.instanceId }, '-created_date', 1
     );
-
     if (integracoes.length > 0) {
       await base44.asServiceRole.entities.WhatsAppIntegration.update(integracoes[0].id, {
         status: dados.status,
         ultima_atividade: new Date().toISOString(),
       });
-      console.log(`[${VERSION}] ✅ Status atualizado: ${integracoes[0].nome_instancia} -> ${dados.status}`);
     }
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro Connection:`, e?.message);
   }
-
   return jsonOk({ success: true, processed: 'connection', status: dados.status });
 }
 
-// ============================================================================
-// HANDLE DISCONNECTION
-// ============================================================================
 async function handleDisconnection(dados, base44) {
-  console.log(`[${VERSION}] 🔴 Disconnection: ${dados.instanceId}`);
-  
   if (!dados.instanceId) return jsonOk({ success: true, ignored: true, reason: 'no_instance_id' });
-
   try {
     const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { instance_id_provider: dados.instanceId },
-      '-created_date',
-      1
+      { instance_id_provider: dados.instanceId }, '-created_date', 1
     );
-
-    if (integracoes.length === 0) {
-      console.warn(`[${VERSION}] ⚠️ Instância não mapeada: ${dados.instanceId}`);
-      return jsonOk({ success: true, ignored: true, reason: 'unmapped_instance' });
-    }
+    if (integracoes.length === 0) return jsonOk({ success: true, ignored: true, reason: 'unmapped_instance' });
 
     const integracao = integracoes[0];
     const timestamp = dados.moment ? new Date(dados.moment * 1000).toISOString() : new Date().toISOString();
 
-    // Anti-spam: não processar se já está desconectado recentemente
     if (integracao.status === 'desconectado' && integracao.last_disconnected_at) {
       const diffMs = Date.now() - new Date(integracao.last_disconnected_at).getTime();
-      if (diffMs < 120000) { // 2 minutos
-        console.log(`[${VERSION}] ⏭️ Desconexão já registrada recentemente`);
-        return jsonOk({ success: true, ignored: true, reason: 'already_disconnected' });
-      }
+      if (diffMs < 120000) return jsonOk({ success: true, ignored: true, reason: 'already_disconnected' });
     }
 
     await base44.asServiceRole.entities.WhatsAppIntegration.update(integracao.id, {
@@ -587,9 +485,6 @@ async function handleDisconnection(dados, base44) {
       ultima_atividade: timestamp
     });
 
-    console.log(`[${VERSION}] 🔴 DESCONEXÃO REGISTRADA: ${integracao.nome_instancia} às ${timestamp}`);
-
-    // Criar notificação para usuários com acesso
     try {
       await base44.asServiceRole.entities.NotificationEvent.create({
         tipo: 'integration_disconnected',
@@ -597,19 +492,13 @@ async function handleDisconnection(dados, base44) {
         mensagem: `A instância ${integracao.nome_instancia} foi desconectada às ${new Date(timestamp).toLocaleTimeString('pt-BR')}`,
         prioridade: 'alta',
         integration_id: integracao.id,
-        metadata: {
-          integration_name: integracao.nome_instancia,
-          phone: integracao.numero_telefone,
-          disconnected_at: timestamp,
-          provider: 'z_api'
-        }
+        metadata: { integration_name: integracao.nome_instancia, phone: integracao.numero_telefone, disconnected_at: timestamp, provider: 'z_api' }
       });
     } catch (notifErr) {
       console.warn(`[${VERSION}] ⚠️ Erro ao criar notificação:`, notifErr.message);
     }
 
     return jsonOk({ success: true, processed: 'disconnection', integration_id: integracao.id });
-
   } catch (error) {
     console.error(`[${VERSION}] ❌ Erro ao processar desconexão:`, error.message);
     return jsonOk({ success: true, error: 'processing_failed', details: error.message });
@@ -617,99 +506,67 @@ async function handleDisconnection(dados, base44) {
 }
 
 async function handleMessageUpdate(dados, base44) {
-  console.log(`[${VERSION}] 📋 Status Update: ${dados.messageId} -> ${dados.status}`);
-  
   if (!dados.messageId) return jsonOk({ success: true, processed: 'status_update', note: 'sem_message_id' });
-
   try {
     const mensagens = await base44.asServiceRole.entities.Message.filter(
-      { whatsapp_message_id: dados.messageId },
-      '-created_date',
-      1
+      { whatsapp_message_id: dados.messageId }, '-created_date', 1
     );
-
     if (mensagens.length > 0) {
-      const statusMap = {
-        READ: 'lida',
-        READ_BY_ME: 'lida',
-        DELIVERED: 'entregue',
-        SENT: 'enviada',
-        RECEIVED: 'recebida',
-      };
-      const key = String(dados.status ?? '').toUpperCase();
-      const novoStatus = statusMap[key];
+      const statusMap = { READ: 'lida', READ_BY_ME: 'lida', DELIVERED: 'entregue', SENT: 'enviada', RECEIVED: 'recebida' };
+      const novoStatus = statusMap[String(dados.status ?? '').toUpperCase()];
       if (novoStatus) {
         await base44.asServiceRole.entities.Message.update(mensagens[0].id, { status: novoStatus });
-        console.log(`[${VERSION}] ✅ Mensagem ${dados.messageId} -> ${novoStatus}`);
       }
     }
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro Status Update:`, e?.message);
   }
-
   return jsonOk({ success: true, processed: 'status_update' });
 }
 
 async function handleMessage(dados, payloadBruto, base44) {
-    const inicio = Date.now();
-    const _tsInicio = Date.now(); // SkillExecution: medir duration_ms
-    const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
-    console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
+  const inicio = Date.now();
+  const _tsInicio = Date.now();
+  const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
+  console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
-  // 🛡️ PATCH A — Guard fromMe: ignorar mensagens enviadas pelo próprio chip
+  // 🛡️ GUARD A — Ignorar mensagens enviadas pelo próprio chip (ANTES de qualquer DB call)
   if (dados.fromMe === true || (connectedPhone && dados.from && isSamePhone(dados.from, connectedPhone))) {
     console.log(`[${VERSION}] ⏭️ Ignorado: from_own_chip (${dados.from})`);
     return jsonOk({ success: true, ignored: true, reason: 'from_own_chip' });
   }
 
-  // 🗓️ DETECÇÃO IMEDIATA - AGENDA NEXUS IA
   if (dados.from === '+559999999999') {
-    console.log('╔════════════════════════════════════════════════════════════════╗');
-    console.log('║  🗓️ AGENDA NEXUS IA DETECTADA - NÚMERO VIRTUAL +559999999999   ║');
-    console.log('║  📱 Roteamento automático para processScheduleIntent           ║');
-    console.log('║  ✅ DDD 99 não existe - Número exclusivo do sistema            ║');
-    console.log('╚════════════════════════════════════════════════════════════════╝');
+    console.log(`[${VERSION}] 🗓️ AGENDA NEXUS IA DETECTADA`);
   }
 
-  // ✅ DECLARAR threadCanonica NO INÍCIO (antes de qualquer uso)
-  let threadCanonica = null;
-
-  // ✅ SINCRONIZAÇÃO WHATSAPP WEB: mensagens enviadas fora do app (fromMe=true)
   const isFromMe = payloadBruto.fromMe === true;
 
-  // ✅ DEDUPLICAÇÃO RIGOROSA - Se duplicata, ignora (simples)
+  // DEDUPLICAÇÃO por messageId
   if (dados.messageId) {
     try {
       const dup = await retryOn429(() => base44.asServiceRole.entities.Message.filter(
-        { whatsapp_message_id: dados.messageId },
-        '-created_date',
-        1
+        { whatsapp_message_id: dados.messageId }, '-created_date', 1
       ));
       if (dup.length > 0) {
-        console.log(`[${VERSION}] ⏭️ DUPLICATA por messageId: ${dados.messageId} (já processada antes)`);
+        console.log(`[${VERSION}] ⏭️ DUPLICATA por messageId: ${dados.messageId}`);
         return jsonOk({ success: true, ignored: true, reason: 'duplicata_message_id' });
       }
     } catch (err) {
       console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata por messageId:`, err.message);
-      // Continua processamento mesmo com erro na verificação
     }
   }
 
-  // Buscar integração — normalizar ambos os lados para comparação (Fix #2)
-  // Evita falha de match entre '554830452076' e '+55 48 3045-2076'
+  // Buscar integração — 1 query, normalização canônica
   let integracaoId = null;
   let integracaoInfo = null;
-
   try {
     const todasIntegracoes = await retryOn429(() =>
       base44.asServiceRole.entities.WhatsAppIntegration.filter({}, '-created_date', 50)
     );
-    const connectedNormalizado = connectedPhone ? normalizarTelefone(connectedPhone) : null;
-    const instanceNorm = dados.instanceId;
-
     for (const int of (todasIntegracoes || [])) {
-      const matchPhone = connectedNormalizado && isSamePhone(connectedNormalizado, int.numero_telefone);
-      const matchInstance = instanceNorm && int.instance_id_provider === instanceNorm;
+      const matchPhone = connectedPhone && isSamePhone(connectedPhone, int.numero_telefone);
+      const matchInstance = dados.instanceId && int.instance_id_provider === dados.instanceId;
       if (matchPhone || matchInstance) {
         integracaoId = int.id;
         integracaoInfo = { nome: int.nome_instancia, numero: int.numero_telefone };
@@ -722,192 +579,88 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
-  // ✅ BUSCAR/CRIAR CONTATO - NOVA FUNÇÃO COM DEDUP ROBUSTO
+  // BUSCAR/CRIAR CONTATO
   let contato;
   try {
     console.log(`[${VERSION}] 🎯 Chamando resolverOuCriarContatoDedup para: ${dados.from}`);
-    
     const resultado = await retryOn429(() => base44.asServiceRole.functions.invoke('resolverOuCriarContatoDedup', {
       telefone: dados.from,
       pushName: dados.pushName || null,
       profilePicUrl: null,
       integracaoId: integracaoId
     }));
-    
     if (!resultado?.data?.success || !resultado?.data?.contact) {
       console.error(`[${VERSION}] ❌ resolverOuCriarContatoDedup falhou:`, resultado?.data);
       return jsonServerError({ success: false, error: 'erro_contato_dedup' });
     }
-
     contato = resultado.data.contact;
     console.log(`[${VERSION}] ✅ Contato via dedup: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
-
-    } catch (e) {
+  } catch (e) {
     console.error(`[${VERSION}] ❌ Erro ao chamar resolverOuCriarContatoDedup:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_contato' });
-    }
+  }
 
-  // ✅ VERIFICAÇÃO ADICIONAL: Duplicata por timestamp + telefone (últimos 2 segundos)
-  // MOVIDO PARA DEPOIS da criação do contato para ter contato.id disponível
-  
-  // 🔧 AUTO-MERGE: Unificar todas as threads antigas deste contato (ANTES de criar/usar)
+  // BUSCAR/CRIAR THREAD — sem AUTO-MERGE (pertence ao UnificadorContatosCentralizado, não ao webhook)
+  let thread = null;
   try {
-    const todasThreadsContato = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
-      { contact_id: contato.id },
-      '-primeira_mensagem_at',
-      20
+    console.log(`[${VERSION}] 🔍 Buscando thread canônica para contact_id: "${contato.id}"`);
+    const threads = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
+      { contact_id: contato.id, is_canonical: true, status: 'aberta' },
+      '-last_message_at',
+      1
     ));
 
-    if (todasThreadsContato && todasThreadsContato.length > 1) {
-      console.log(`[${VERSION}] 🔀 AUTO-MERGE: ${todasThreadsContato.length} threads encontradas para contact ${contato.id}`);
+    if (threads && threads.length > 0) {
+      thread = threads[0];
+      console.log(`[${VERSION}] ✅ canonical-thread-found: ${thread.id}`);
 
-      // Eleger a mais antiga como canônica (preserva histórico)
-      threadCanonica = todasThreadsContato[todasThreadsContato.length - 1]; // Última (mais antiga por ordenação)
-      
-      // ✅ COLETAR HISTÓRICO: Todas integrações usadas nas threads antigas
-      const integracoesHistoricas = new Set();
-      if (integracaoId) integracoesHistoricas.add(integracaoId); // Integração atual
-      
-      todasThreadsContato.forEach(t => {
-        if (t.whatsapp_integration_id) integracoesHistoricas.add(t.whatsapp_integration_id);
-        if (t.origin_integration_ids?.length > 0) {
-          t.origin_integration_ids.forEach(id => integracoesHistoricas.add(id));
-        }
-      });
-      
-      // Marcar canônica COM propagação de integrações
-      await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, {
+      // Atualizar integração se mudou (chip migrou)
+      if (integracaoId && thread.whatsapp_integration_id !== integracaoId) {
+        const historicoAtual = thread.origin_integration_ids || [];
+        const novoHistorico = [...new Set([...historicoAtual, integracaoId])];
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          whatsapp_integration_id: integracaoId,
+          origin_integration_ids: novoHistorico
+        });
+      }
+    } else {
+      console.log(`[${VERSION}] 🆕 Criando thread ÚNICA para este contato.`);
+      const agora = new Date().toISOString();
+      thread = await base44.asServiceRole.entities.MessageThread.create({
+        contact_id: contato.id,
+        whatsapp_integration_id: integracaoId,
+        conexao_id: integracaoId,
+        origin_integration_ids: integracaoId ? [integracaoId] : [],
+        thread_type: 'contact_external',
+        channel: 'whatsapp',
         is_canonical: true,
         status: 'aberta',
-        whatsapp_integration_id: integracaoId || threadCanonica.whatsapp_integration_id, // ✅ Atualizar se possível
-        origin_integration_ids: Array.from(integracoesHistoricas), // ✅ HISTÓRICO COMPLETO
-        ultima_atividade: new Date().toISOString()
+        primeira_mensagem_at: agora,
+        last_message_at: agora,
+        last_inbound_at: agora,
+        last_message_sender: 'contact',
+        last_message_content: String(dados.content || '').substring(0, 100),
+        last_media_type: dados.mediaType || 'none',
+        total_mensagens: 1,
+        unread_count: 1,
       });
-      console.log(`[${VERSION}] ✅ Thread canônica eleita: ${threadCanonica.id} (${integracoesHistoricas.size} integrações no histórico)`);
-
-      // Marcar demais como merged
-      for (const threadAntiga of todasThreadsContato) {
-        if (threadAntiga.id !== threadCanonica.id) {
-          try {
-            await base44.asServiceRole.entities.MessageThread.update(threadAntiga.id, {
-              status: 'merged',
-              merged_into: threadCanonica.id,
-              is_canonical: false
-            });
-            console.log(`[${VERSION}] 🔀 Thread merged: ${threadAntiga.id} → ${threadCanonica.id}`);
-          } catch (e) {
-            console.error(`[${VERSION}] ⚠️ Erro ao marcar thread merged:`, e.message);
-          }
-        }
-      }
-    } else if (todasThreadsContato && todasThreadsContato.length === 1) {
-      threadCanonica = todasThreadsContato[0];
-      // Garantir que está marcada como canônica E atualizar integração
-      const needsUpdate = !threadCanonica.is_canonical || 
-                          (integracaoId && threadCanonica.whatsapp_integration_id !== integracaoId);
-      
-      if (needsUpdate) {
-        const updateData = {
-          is_canonical: true,
-          status: 'aberta'
-        };
-        
-        if (integracaoId && threadCanonica.whatsapp_integration_id !== integracaoId) {
-          updateData.whatsapp_integration_id = integracaoId;
-          const historicoAtual = threadCanonica.origin_integration_ids || [];
-          if (!historicoAtual.includes(integracaoId)) {
-            updateData.origin_integration_ids = [...historicoAtual, integracaoId];
-          }
-        }
-        
-        await base44.asServiceRole.entities.MessageThread.update(threadCanonica.id, updateData);
-      }
+      console.log(`[${VERSION}] ✅ new-canonical-thread-created: ${thread.id}`);
     }
-  } catch (err) {
-    console.warn(`[${VERSION}] ⚠️ Erro ao fazer auto-merge:`, err.message);
+  } catch (e) {
+    if (e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa')) {
+      console.warn(`[${VERSION}] ⚠️ Rate limit ao buscar/criar thread — descartando sem criar thread fantasma`);
+      return jsonOk({ success: true, received: true, queued: true, reason: 'rate_limit_thread' });
+    }
+    console.error(`[${VERSION}] ❌ Erro thread:`, e?.message || e);
+    return jsonServerError({ success: false, error: 'erro_thread' });
   }
 
-  // ✅ BUSCAR/CRIAR THREAD - LÓGICA ATÔMICA (CANONICAL THREAD)
-  // 🎯 Usar threadCanonica se auto-merge encontrou, senão buscar/criar
-  let thread = threadCanonica;
-  
-  if (!thread) {
-    try {
-      console.log(`[${VERSION}] 🔍 Buscando thread canônica para contact_id: "${contato.id}"`);
-      const threads = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
-          { 
-              contact_id: contato.id,
-              is_canonical: true,
-              status: 'aberta'
-          },
-          '-last_message_at',
-          1
-      ));
-
-      if (threads && threads.length > 0) {
-          thread = threads[0];
-          console.log(`[${VERSION}] ✅ canonical-thread-found: ${thread.id} | Unificada para todas as integrações`);
-          
-          // ✅ ATUALIZAR integração se mudou (Z-API pode migrar de chip)
-          const needsIntegrationUpdate = integracaoId && thread.whatsapp_integration_id !== integracaoId;
-          if (needsIntegrationUpdate) {
-            const historicoAtual = thread.origin_integration_ids || [];
-            const novoHistorico = [...new Set([...historicoAtual, integracaoId])];
-            
-            await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-              whatsapp_integration_id: integracaoId,
-              origin_integration_ids: novoHistorico
-            });
-            console.log(`[${VERSION}] 🔄 Integração atualizada: ${thread.whatsapp_integration_id?.substring(0, 8)} → ${integracaoId.substring(0, 8)}`);
-          }
-
-      } else {
-          console.log(`[${VERSION}] 🆕 canonical-thread-not-found: Criando thread ÚNICA para este contato.`);
-          const agora = new Date().toISOString();
-
-          if (!contato || !contato.id) {
-              console.error(`[${VERSION}] ❌ ERRO CRÍTICO: Tentando criar thread SEM contact_id!`);
-              return jsonServerError({ success: false, error: 'contact_id_missing' });
-          }
-
-          thread = await base44.asServiceRole.entities.MessageThread.create({
-              contact_id: contato.id,
-              whatsapp_integration_id: integracaoId,
-              conexao_id: integracaoId, // Compatibilidade
-              origin_integration_ids: integracaoId ? [integracaoId] : [], // ✅ INICIALIZAR histórico
-              thread_type: 'contact_external',
-              channel: 'whatsapp',
-              is_canonical: true,
-              status: 'aberta',
-              primeira_mensagem_at: agora,
-              last_message_at: agora,
-              last_inbound_at: agora,
-              last_message_sender: 'contact',
-              last_message_content: String(dados.content || '').substring(0, 100),
-              last_media_type: dados.mediaType || 'none',
-              total_mensagens: 1,
-              unread_count: 1,
-          });
-          console.log(`[${VERSION}] ✅ new-canonical-thread-created: ${thread.id} | Thread UNIFICADA criada`);
-      }
-    } catch (e) {
-      // Fix #3: 429 ao buscar/criar thread — retornar 200 sem criar thread fantasma
-      if (e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa')) {
-        console.warn(`[${VERSION}] ⚠️ Rate limit ao buscar/criar thread — descartando sem criar thread fantasma`);
-        return jsonOk({ success: true, received: true, queued: true, reason: 'rate_limit_thread' });
-      }
-      console.error(`[${VERSION}] ❌ Erro thread:`, e?.message || e);
-      return jsonServerError({ success: false, error: 'erro_thread' });
-    }
-  }
-  
-  // Validação final
   if (!thread || !thread.id) {
     console.error(`[${VERSION}] ❌ ERRO CRÍTICO: Thread não foi criada/encontrada!`);
     return jsonServerError({ success: false, error: 'thread_not_found' });
   }
-  
-  // ✅ VERIFICAÇÃO DE DUPLICATA POR CONTEÚDO - Agora com contato.id disponível
+
+  // DEDUPLICAÇÃO POR CONTEÚDO
   try {
     const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
     const msgRecentes = await retryOn429(() => base44.asServiceRole.entities.Message.filter({
@@ -915,58 +668,32 @@ async function handleMessage(dados, payloadBruto, base44) {
       sender_type: 'contact',
       created_date: { $gte: doisSegundosAtras }
     }, '-created_date', 10));
-    
-    const duplicadaPorConteudo = msgRecentes.find(m => 
+    const duplicadaPorConteudo = msgRecentes.find(m =>
       m.media_type === dados.mediaType &&
       m.content === dados.content &&
       Math.abs(new Date(m.created_date) - Date.now()) < 2000
     );
-    
     if (duplicadaPorConteudo) {
-      console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO: Mensagem similar ID ${duplicadaPorConteudo.id}`);
+      console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO: ${duplicadaPorConteudo.id}`);
       return jsonOk({ success: true, ignored: true, reason: 'duplicata_conteudo' });
     }
   } catch (err) {
     console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata por conteúdo:`, err.message);
   }
 
-  // ============================================================================
-  // ✅ PERSISTIR MÍDIA - Baixar de URL temporária e salvar permanentemente
-  // ============================================================================
+  // MÍDIA
   let mediaUrlFinal = dados.mediaUrl ?? null;
   let midiaPersistida = false;
-
   if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none') {
-    console.log(`[${VERSION}] 📎 Mídia detectada: ${dados.mediaType} | URL temp: ${dados.mediaUrl?.substring(0, 60)}...`);
-
-    // ⚠️ CRÍTICO: Z-API retorna URLs com Backblaze B2 que são TEMPORÁRIAS (expiram em ~2h)
-    // Verificar se é URL temporária (SEMPRE fazer persist para URLs de provedor)
-    const isUrlTemporaria = dados.mediaUrl.includes('mmg.whatsapp.net') || 
+    const isUrlTemporaria = dados.mediaUrl.includes('mmg.whatsapp.net') ||
                             dados.mediaUrl.includes('z-api.io') ||
                             dados.mediaUrl.includes('api.z-api.io') ||
-                            dados.mediaUrl.includes('backblazeb2.com') ||  // ⚠️ Z-API usa B2 (TEMPORÁRIO!)
+                            dados.mediaUrl.includes('backblazeb2.com') ||
                             dados.mediaUrl.includes('temp-file-download');
-    
-    if (isUrlTemporaria) {
-      console.log(`[${VERSION}] 📥 URL temporária detectada, tentando persistir via persistirMidiaWapi...`);
-      
-      try {
-        // Salvar mensagem primeiro com URL temporária para ter message_id
-        // A persistência definitiva é feita após criação da mensagem — ver bloco abaixo
-        midiaPersistida = false;
-      } catch (e) {
-        midiaPersistida = false;
-      }
-    } else if (dados.mediaUrl.includes('base44.app') || dados.mediaUrl.includes('storage.googleapis.com') || dados.mediaUrl.includes('supabase.co')) {
-      console.log(`[${VERSION}] ℹ️ URL já é permanente (storage), não precisa persistir`);
-      midiaPersistida = true;
-    } else {
-      console.log(`[${VERSION}] ℹ️ URL externa, assumindo permanente`);
-      midiaPersistida = true;
-    }
+    if (!isUrlTemporaria) midiaPersistida = true;
   }
 
-  // Salvar mensagem
+  // SALVAR MENSAGEM
   let mensagem;
   try {
     mensagem = await base44.asServiceRole.entities.Message.create({
@@ -1007,27 +734,19 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonServerError({ success: false, error: 'erro_salvar_mensagem' });
   }
 
-  // ✅ DISPARAR WORKER DE MÍDIA (assíncrono) — igual ao webhookWapi
+  // WORKER DE MÍDIA (fire-and-forget)
   if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none' && !midiaPersistida) {
-    const isUrlTemporaria = dados.mediaUrl.includes('backblazeb2.com') ||
-                            dados.mediaUrl.includes('temp-file-download') ||
-                            dados.mediaUrl.includes('z-api.io') ||
-                            dados.mediaUrl.includes('mmg.whatsapp.net');
-    if (isUrlTemporaria) {
-      console.log(`[${VERSION}] 🏛️ Disparando worker de mídia (Z-API)...`, { type: dados.mediaType, hasUrl: !!dados.mediaUrl });
-      // Fire-and-forget: não bloquear resposta ao WhatsApp
-      base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
-        file_id: dados.messageId || mensagem.id,
-        integration_id: integracaoId,
-        media_type: dados.mediaType,
-        media_url: dados.mediaUrl,
-        message_id: mensagem.id,
-        filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
-      }).catch(e => console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message));
-    }
+    base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
+      file_id: dados.messageId || mensagem.id,
+      integration_id: integracaoId,
+      media_type: dados.mediaType,
+      media_url: dados.mediaUrl,
+      message_id: mensagem.id,
+      filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+    }).catch(e => console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message));
   }
 
-  // ✅ ATUALIZAR THREAD - Incrementar contadores DEPOIS de salvar mensagem
+  // ATUALIZAR THREAD
   try {
     const agora = new Date().toISOString();
     const threadUpdate = {
@@ -1039,22 +758,14 @@ async function handleMessage(dados, payloadBruto, base44) {
       status: 'aberta',
       whatsapp_integration_id: integracaoId || thread.whatsapp_integration_id
     };
-    // Apenas atualiza last_inbound_at e unread_count para mensagens do cliente
     if (!isFromMe) {
       threadUpdate.last_inbound_at = agora;
       threadUpdate.unread_count = (thread.unread_count || 0) + 1;
     } else {
       threadUpdate.last_outbound_at = agora;
-      // ✅ FIX: só setar last_human_message_at se veio do WhatsApp Web (fromMe=true)
-      // E se NÃO foi enviado pela própria API do sistema (fromApi=true)
-      // fromApi=true = mensagem enviada programaticamente pelo sistema (URA, automações)
-      // fromApi=false = mensagem digitada manualmente no WA Web pelo atendente
       const fromApi = payloadBruto?.fromApi === true;
       if (!fromApi) {
         threadUpdate.last_human_message_at = agora;
-        console.log(`[${VERSION}] 👤 Mensagem manual do atendente (WA Web) → last_human_message_at atualizado`);
-      } else {
-        console.log(`[${VERSION}] 🤖 Mensagem de API (fromApi=true) → last_human_message_at NÃO atualizado`);
       }
     }
     await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
@@ -1063,13 +774,8 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.error(`[${VERSION}] ⚠️ Erro ao atualizar thread:`, updateError.message);
   }
 
-  // ============================================================================
-  // ✅ PROCESSAR VIA CÉREBRO CENTRAL (INBOUND CORE)
-  // ============================================================================
+  // PROCESSAR VIA CÉREBRO CENTRAL
   try {
-    console.log(`[${VERSION}] 🎯 Invocando processInbound (adaptador) para thread: ${thread.id}`);
-    
-    // Buscar integração completa
     let integracaoCompleta = null;
     if (integracaoId) {
       try {
@@ -1078,22 +784,17 @@ async function handleMessage(dados, payloadBruto, base44) {
         console.warn(`[${VERSION}] ⚠️ Erro ao buscar integração completa:`, e.message);
       }
     }
-    // Fallback: recuperar integração salva na thread (evita integration.id=null no processInbound)
     if (!integracaoCompleta && thread.whatsapp_integration_id) {
       try {
         integracaoCompleta = await base44.asServiceRole.entities.WhatsAppIntegration.get(thread.whatsapp_integration_id);
-        console.log(`[${VERSION}] 🔄 Integração recuperada via thread.whatsapp_integration_id`);
       } catch (e) { /* silencioso */ }
     }
-    
-    // ✅ Não processar URA/automação para mensagens enviadas pelo atendente via WA Web
+
     if (isFromMe) {
       console.log(`[${VERSION}] ⏭️ fromMe=true — sync salvo, processInbound SKIPPED`);
       return jsonOk({ success: true, message_id: mensagem.id, synced_from_whatsapp_web: true });
     }
 
-    // ✅ FIX CPU LIMIT: fire-and-forget — resposta 200 já foi entregue antes do processInbound
-    // Evita timeout do isolamento Deno por processamento pesado
     base44.asServiceRole.functions.invoke('processInbound', {
       message: mensagem,
       contact: contato,
@@ -1109,10 +810,9 @@ async function handleMessage(dados, payloadBruto, base44) {
     });
   } catch (error) {
     console.error(`[${VERSION}] ⚠️ Erro ao preparar processInbound:`, error?.message || error);
-    // Continua mesmo se houver erro
   }
 
-  // Audit log
+  // AUDIT LOG
   try {
     await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
       payload_bruto: payloadBruto,
@@ -1125,33 +825,22 @@ async function handleMessage(dados, payloadBruto, base44) {
       provider: 'z_api'
     });
   } catch (auditErr) {
-    console.warn(`[${VERSION}] ⚠️ Erro ao salvar audit log (não-crítico):`, auditErr?.message);
+    console.warn(`[${VERSION}] ⚠️ Erro ao salvar audit log:`, auditErr?.message);
   }
 
   const duracao = Date.now() - inicio;
   console.log(`[${VERSION}] ✅ SUCESSO! Msg: ${mensagem.id} | De: ${dados.from} | Int: ${integracaoId} | ${duracao}ms`);
 
-  // SkillExecution - Fire-and-forget
   ;(async () => {
     try {
       await base44.asServiceRole.entities.SkillExecution.create({
         skill_name: 'webhook_zapi_inbound',
         triggered_by: 'webhook',
         execution_mode: 'autonomous_safe',
-        context: {
-          integration_id: integracaoId,
-          canal: integracaoInfo?.numero || connectedPhone,
-          telefone_origem: dados.from,
-          media_type: dados.mediaType
-        },
+        context: { integration_id: integracaoId, canal: integracaoInfo?.numero || connectedPhone, telefone_origem: dados.from, media_type: dados.mediaType },
         success: true,
         duration_ms: Date.now() - _tsInicio,
-        metricas: {
-          mensagens_processadas: 1,
-          midia_persistida: midiaPersistida ? 1 : 0,
-          auto_merge_executado: threadCanonica ? 1 : 0,
-          tempo_total_ms: duracao
-        }
+        metricas: { mensagens_processadas: 1, midia_persistida: midiaPersistida ? 1 : 0, tempo_total_ms: duracao }
       });
     } catch (e) {
       console.warn('[webhookFinalZapi] SkillExecution falhou (non-blocking):', e.message);
