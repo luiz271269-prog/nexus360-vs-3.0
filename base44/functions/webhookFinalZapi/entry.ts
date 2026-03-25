@@ -694,52 +694,29 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   }
 
-  // Buscar integração - PRIORIZAR connectedPhone para identificar canal exato
+  // Buscar integração — normalizar ambos os lados para comparação (Fix #2)
+  // Evita falha de match entre '554830452076' e '+55 48 3045-2076'
   let integracaoId = null;
   let integracaoInfo = null;
 
-  // Primeiro: tentar por connectedPhone (mais preciso - identifica QUAL conexão recebeu)
-  if (connectedPhone) {
-    try {
-      // Normalizar o connectedPhone para busca
-      const phoneVariacoes = [
-        '+' + connectedPhone,
-        connectedPhone,
-        '+55' + connectedPhone.replace(/^55/, '')
-      ];
+  try {
+    const todasIntegracoes = await retryOn429(() =>
+      base44.asServiceRole.entities.WhatsAppIntegration.filter({}, '-created_date', 50)
+    );
+    const connectedNorm = connectedPhone ? connectedPhone.replace(/\D/g, '') : null;
+    const instanceNorm = dados.instanceId;
 
-      for (const tel of phoneVariacoes) {
-        if (integracaoId) break;
-        const int = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
-          { numero_telefone: tel },
-          '-created_date',
-          1
-        ));
-        if (int.length > 0) {
-          integracaoId = int[0].id;
-          integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
-        }
+    for (const int of (todasIntegracoes || [])) {
+      const numeroNorm = (int.numero_telefone || '').replace(/\D/g, '');
+      if ((connectedNorm && numeroNorm && numeroNorm === connectedNorm) ||
+          (instanceNorm && int.instance_id_provider === instanceNorm)) {
+        integracaoId = int.id;
+        integracaoInfo = { nome: int.nome_instancia, numero: int.numero_telefone };
+        break;
       }
-    } catch {
-      // silencioso
     }
-  }
-
-  // Fallback: buscar por instanceId
-  if (!integracaoId && dados.instanceId) {
-    try {
-      const int = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
-        { instance_id_provider: dados.instanceId },
-        '-created_date',
-        1
-      ));
-      if (int.length > 0) {
-        integracaoId = int[0].id;
-        integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
-      }
-    } catch {
-      // silencioso
-    }
+  } catch {
+    // silencioso — segue sem integração
   }
 
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
@@ -913,6 +890,11 @@ async function handleMessage(dados, payloadBruto, base44) {
           console.log(`[${VERSION}] ✅ new-canonical-thread-created: ${thread.id} | Thread UNIFICADA criada`);
       }
     } catch (e) {
+      // Fix #3: 429 ao buscar/criar thread — retornar 200 sem criar thread fantasma
+      if (e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa')) {
+        console.warn(`[${VERSION}] ⚠️ Rate limit ao buscar/criar thread — descartando sem criar thread fantasma`);
+        return jsonOk({ success: true, received: true, queued: true, reason: 'rate_limit_thread' });
+      }
       console.error(`[${VERSION}] ❌ Erro thread:`, e?.message || e);
       return jsonServerError({ success: false, error: 'erro_thread' });
     }

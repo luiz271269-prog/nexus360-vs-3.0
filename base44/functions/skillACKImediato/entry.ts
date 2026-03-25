@@ -51,19 +51,19 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // GUARD 2: Webhook duplicado?
+    // GUARD 2: ACK recente no banco — dedup robusto contra concorrência
+    // (substitui lock em memória que falhava com múltiplas instâncias paralelas)
     // ═══════════════════════════════════════════════════════════
-    if (message_id) {
-      const msgs = await base44.asServiceRole.entities.Message.filter({
-        thread_id,
-        sender_id: 'skill_ack'
-      }, '-created_date', 5).catch(() => []);
+    const cincoMinAtras = new Date(Date.now() - 300_000).toISOString();
+    const ackRecentes = await base44.asServiceRole.entities.Message.filter({
+      thread_id,
+      sender_id: 'skill_ack',
+      created_date: { $gte: cincoMinAtras }
+    }, '-created_date', 1).catch(() => []);
 
-      const ja_enviou = msgs.some(m => m.metadata?.msg_id === message_id);
-      if (ja_enviou) {
-        console.log('[SKILL-ACK] ⏭️ Webhook duplicado — rejeitando');
-        return Response.json({ success: true, skipped: true, reason: 'webhook_duplicado' }, { headers });
-      }
+    if (ackRecentes.length > 0) {
+      console.log('[SKILL-ACK] ⏭️ ACK recente no banco — rejeitando (dedup DB)');
+      return Response.json({ success: true, skipped: true, reason: 'ack_recente_db' }, { headers });
     }
 
     // Buscar contato e integração
