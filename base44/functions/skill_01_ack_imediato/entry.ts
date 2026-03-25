@@ -75,29 +75,46 @@ Deno.serve(async (req) => {
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // STEP 1: Buscar thread + contato + último ACK
+    // STEP 1: Buscar thread + contato
     // ══════════════════════════════════════════════════════════════════
-    const [thread, contact, ultimoAck] = await Promise.all([
+    const [thread, contact] = await Promise.all([
       base44.asServiceRole.entities.MessageThread.get(thread_id),
-      base44.asServiceRole.entities.Contact.get(contact_id),
-      base44.asServiceRole.entities.Message.filter({
-        thread_id,
-        sender_id: 'skill_ack',
-        created_date: { $gte: new Date(Date.now() - 60 * 60 * 1000).toISOString() }
-      }, '-created_date', 1)
+      base44.asServiceRole.entities.Contact.get(contact_id)
     ]);
 
-    // IDEMPOTÊNCIA: se já enviou ACK na última 1h, pula
+    // LOCK ATÔMICO: verificar ACK recente (1h) ANTES de gravar lock
+    const umaHoraAtras = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const ultimoAck = await base44.asServiceRole.entities.Message.filter({
+      thread_id,
+      sender_id: 'skill_ack',
+      created_date: { $gte: umaHoraAtras }
+    }, '-created_date', 1).catch(() => []);
+
     if (ultimoAck && ultimoAck.length > 0) {
       console.log(`[SKILL-ACK] ⏭️ ACK já enviado há menos de 1h para thread ${thread_id}`);
-      return Response.json({
-        success: true,
-        skipped: true,
-        reason: 'ack_already_sent'
-      }, { headers });
+      return Response.json({ success: true, skipped: true, reason: 'ack_already_sent' }, { headers });
     }
 
-    // ══════════════════════════════════════════════════════════════════
+    // ✅ GRAVAR LOCK IMEDIATAMENTE antes de enviar
+    // Qualquer instância paralela encontrará este registro e será bloqueada
+    const lockRecord = await base44.asServiceRole.entities.Message.create({
+      thread_id,
+      sender_id: 'skill_ack',
+      sender_type: 'user',
+      content: '...', // placeholder — atualizado após envio
+      channel: 'whatsapp',
+      status: 'enviando',
+      sent_at: new Date().toISOString(),
+      visibility: 'public_to_customer',
+      metadata: { is_ack: true, ack_tipo: 'lock_placeholder' }
+    }).catch(() => null);
+
+    if (!lockRecord) {
+      console.warn('[SKILL-ACK] ⚠️ Não foi possível gravar lock — abortando para evitar duplicata');
+      return Response.json({ success: true, skipped: true, reason: 'lock_failed' }, { headers });
+    }
+    console.log('[SKILL-ACK] 🔒 Lock atômico gravado:', lockRecord.id);
+
     // STEP 2: Detectar tipo de contato + mensagem ACK
     // ══════════════════════════════════════════════════════════════════
     const ackConfig = detectarTipoAck(
@@ -120,22 +137,12 @@ Deno.serve(async (req) => {
         });
 
         if (respEnvio.data?.success) {
-          // Salvar ACK no histórico
-          await base44.asServiceRole.entities.Message.create({
-            thread_id,
-            sender_id: 'skill_ack',
-            sender_type: 'user',
+          // ✅ Atualizar o lock record com conteúdo real (em vez de criar nova mensagem)
+          await base44.asServiceRole.entities.Message.update(lockRecord.id, {
             content: ackConfig.mensagem,
-            channel: 'whatsapp',
             status: 'enviada',
-            sent_at: new Date().toISOString(),
-            visibility: 'public_to_customer',
-            metadata: {
-              is_ai_response: true,
-              ai_agent: 'skill_ack_imediato',
-              ack_tipo: ackConfig.tipo
-            }
-          });
+            metadata: { is_ai_response: true, ai_agent: 'skill_ack_imediato', ack_tipo: ackConfig.tipo }
+          }).catch(() => {});
 
           // Atualizar thread
           await base44.asServiceRole.entities.MessageThread.update(thread_id, {
@@ -156,6 +163,8 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         console.error(`[SKILL-ACK] ❌ Erro ao enviar WhatsApp:`, e.message);
+        // Limpar lock para não bloquear próxima tentativa
+        await base44.asServiceRole.entities.Message.delete(lockRecord.id).catch(() => {});
       }
     }
 

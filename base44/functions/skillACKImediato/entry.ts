@@ -51,8 +51,9 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // GUARD 2: ACK recente no banco — dedup robusto contra concorrência
-    // (substitui lock em memória que falhava com múltiplas instâncias paralelas)
+    // GUARD 2: LOCK ATÔMICO no banco (fix race condition entre instâncias paralelas)
+    // Padrão: GRAVAR o lock PRIMEIRO, depois verificar, depois enviar.
+    // Isso garante que mesmo com 10 instâncias paralelas, só uma passa.
     // ═══════════════════════════════════════════════════════════
     const cincoMinAtras = new Date(Date.now() - 300_000).toISOString();
     const ackRecentes = await base44.asServiceRole.entities.Message.filter({
@@ -62,9 +63,31 @@ Deno.serve(async (req) => {
     }, '-created_date', 1).catch(() => []);
 
     if (ackRecentes.length > 0) {
-      console.log('[SKILL-ACK] ⏭️ ACK recente no banco — rejeitando (dedup DB)');
+      console.log('[SKILL-ACK] ⏭️ Lock atômico: ACK recente no banco — rejeitando');
       return Response.json({ success: true, skipped: true, reason: 'ack_recente_db' }, { headers });
     }
+
+    // ✅ GRAVAR LOCK IMEDIATAMENTE antes de qualquer envio
+    // Qualquer instância paralela que chegar depois vai encontrar este registro
+    const lockRecord = await base44.asServiceRole.entities.Message.create({
+      thread_id,
+      sender_id: 'skill_ack',
+      sender_type: 'user',
+      recipient_id: contact_id,
+      recipient_type: 'contact',
+      content: '...', // placeholder — atualizado após envio
+      channel: 'whatsapp',
+      status: 'enviando',
+      sent_at: new Date().toISOString(),
+      visibility: 'public_to_customer',
+      metadata: { is_ack: true, ack_tipo: 'lock_placeholder', msg_id: message_id }
+    }).catch(() => null);
+
+    if (!lockRecord) {
+      console.warn('[SKILL-ACK] ⚠️ Não foi possível gravar lock — abortando para evitar duplicata');
+      return Response.json({ success: true, skipped: true, reason: 'lock_failed' }, { headers });
+    }
+    console.log('[SKILL-ACK] 🔒 Lock atômico gravado:', lockRecord.id);
 
     // Buscar contato e integração
     const [contact, integ] = await Promise.all([
@@ -77,8 +100,11 @@ Deno.serve(async (req) => {
       // W-API requer client-token — validar
       if (integ?.api_provider === 'w_api' && !integ?.security_client_token_header) {
         console.warn('[SKILL-ACK] ⚠️ W-API sem client-token — ACK pulado');
+        // Limpar lock placeholder
+        await base44.asServiceRole.entities.Message.delete(lockRecord.id).catch(() => {});
         return Response.json({ success: true, skipped: true, reason: 'wapi_no_client_token' }, { headers });
       }
+      await base44.asServiceRole.entities.Message.delete(lockRecord.id).catch(() => {});
       return Response.json({ success: false, error: 'Invalid credentials' }, { status: 400, headers });
     }
 
@@ -129,26 +155,20 @@ Deno.serve(async (req) => {
     const ok = isWAPI ? (resp.messageId || resp.insertedId) : resp.success === true;
     if (!ok) {
       console.error('[SKILL-ACK] Envio falhou:', JSON.stringify(resp));
+      // Limpar lock para não bloquear próxima tentativa
+      await base44.asServiceRole.entities.Message.delete(lockRecord.id).catch(() => {});
       return Response.json({ success: false, error: 'Send failed' }, { status: 500, headers });
     }
 
     const msgId = resp.messageId || resp.key?.id || resp.id || 'unknown';
     console.log('[SKILL-ACK] ✅ Enviado:', msgId);
 
-    // Persistir
-    await base44.asServiceRole.entities.Message.create({
-      thread_id,
-      sender_id: 'skill_ack',
-      sender_type: 'user',
-      recipient_id: contact_id,
-      recipient_type: 'contact',
+    // ✅ Atualizar o lock record com conteúdo real (em vez de criar nova mensagem)
+    await base44.asServiceRole.entities.Message.update(lockRecord.id, {
       content: ack.msg,
-      channel: 'whatsapp',
       status: 'enviada',
-      sent_at: new Date().toISOString(),
-      visibility: 'public_to_customer',
-      metadata: { is_ack: true, ack_tipo: ack.tipo, msg_id: message_id }
-    });
+      metadata: { is_ack: true, ack_tipo: ack.tipo, msg_id: message_id, whatsapp_msg_id: msgId }
+    }).catch(() => {});
 
     // Calcular tempo_primeira_resposta_minutos
     let tempoResposta = null;
