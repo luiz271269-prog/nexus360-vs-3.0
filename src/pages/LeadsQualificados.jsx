@@ -280,6 +280,42 @@ export default function LeadsQualificados() {
     }
   };
 
+  // ✅ BULK UPDATE: Atualizar todos os orçamentos de um vendedor para "Enviado" + deduplicar
+  const handleBulkUpdateOrcamentos = async (vendedor) => {
+    if (!vendedor) { toast.error('Selecione um vendedor'); return; }
+    if (!confirm(`Tem certeza? Isso vai:\n1. Mover todos os orçamentos de "${vendedor}" para "Enviado"\n2. Remover duplicatas\n3. Reorganizar resumos`)) return;
+
+    try {
+      setSincronizando(true);
+      toast.info(`⏳ Processando orçamentos de ${vendedor}...`);
+
+      const response = await fetch('/api/bulkUpdateOrcamentosTarefa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vendedor, novoStatus: 'enviado', deduplicate: true })
+      });
+
+      if (!response.ok) throw new Error('Erro ao processar');
+      const { sucesso, resumo } = await response.json();
+
+      if (sucesso) {
+        toast.success(
+          `✅ Processado!\n` +
+          `📋 Total: ${resumo.total_inicial}\n` +
+          `🗑️ Duplicatas removidas: ${resumo.duplicatas_removidas}\n` +
+          `✏️ Atualizados: ${resumo.atualizados}`,
+          { duration: 5000 }
+        );
+        await queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+      }
+    } catch (error) {
+      console.error('Erro:', error);
+      toast.error('Erro ao processar orçamentos');
+    } finally {
+      setSincronizando(false);
+    }
+  };
+
   const handleEditarCliente = (cliente) => {
     setEditingCliente(cliente);
     setPendingStatusChange(null);
@@ -460,53 +496,43 @@ export default function LeadsQualificados() {
             <div className="flex items-center gap-2 flex-wrap">
               {/* FILTRO GLOBAL DE VENDEDOR — visível só para admin/gerente/coordenador */}
               {(usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role)) && (
-                <Select value={filtroVendedorGlobal} onValueChange={setFiltroVendedorGlobal}>
-                  <SelectTrigger className="h-8 w-[160px] text-xs bg-white/10 border-white/30 text-white">
-                    <SelectValue placeholder="👤 Vendedor" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 text-white border-slate-600">
-                    <SelectItem value="todos" className="text-xs">Todos os vendedores</SelectItem>
-                    <SelectItem value="meus" className="text-xs">Meus registros</SelectItem>
-                    {atendentes.map((v) =>
-                      <SelectItem key={v.value} value={v.label} className="text-xs">{v.label}</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
+                <>
+                  <Select value={filtroVendedorGlobal} onValueChange={setFiltroVendedorGlobal}>
+                    <SelectTrigger className="h-8 w-[160px] text-xs bg-white/10 border-white/30 text-white">
+                      <SelectValue placeholder="👤 Vendedor" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 text-white border-slate-600">
+                      <SelectItem value="todos" className="text-xs">Todos os vendedores</SelectItem>
+                      <SelectItem value="meus" className="text-xs">Meus registros</SelectItem>
+                      {atendentes.map((v) =>
+                        <SelectItem key={v.value} value={v.label} className="text-xs">{v.label}</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
 
-              <Button
-                onClick={handleSincronizar}
-                disabled={sincronizando}
-                size="sm"
-                variant="outline"
-                className="bg-white/10 border-white/30 text-white hover:bg-white/20 h-8 text-xs">
-                <RefreshCw className={`w-3 h-3 mr-1 ${sincronizando ? 'animate-spin' : ''}`} />
-                Sync
-              </Button>
+                  {/* ✅ BOTÃO BULK UPDATE para Thiago */}
+                  {filtroVendedorGlobal && filtroVendedorGlobal !== 'todos' && (
+                    <Button
+                      onClick={() => handleBulkUpdateOrcamentos(filtroVendedorGlobal)}
+                      disabled={sincronizando}
+                      size="sm"
+                      variant="destructive"
+                      className="bg-red-500 hover:bg-red-600 h-8 text-xs">
+                      ⚡ Bulk Update "{filtroVendedorGlobal}" → Enviado
+                    </Button>
+                  )}
+                </>
+                )}
+                </div>
+                </div>
+                </div>
 
-              <Button
-                onClick={() => {
-                  if (activeTab === 'orcamentos') {
-                    navigate(createPageUrl('OrcamentoDetalhes'));
-                  } else {
-                    handleNovoLead();
-                  }
-                }}
-                size="sm"
-                className="bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white shadow-md h-8 text-xs">
-                <Plus className="w-4 h-4 mr-1" />
-                {activeTab === 'leads' ? 'Novo Lead' : activeTab === 'clientes' ? 'Novo Cliente' : 'Novo Orçamento'}
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* TABS + FILTROS INTEGRADOS */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="bg-gradient-to-r from-black via-orange-900/50 to-black rounded-lg border border-orange-500/20 p-2">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-              {/* TABS - scroll horizontal no mobile */}
-              <TabsList className="bg-transparent h-9 p-0 gap-1 overflow-x-auto flex-wrap sm:flex-nowrap w-full sm:w-auto">
+                {/* TABS + FILTROS INTEGRADOS */}
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <div className="bg-gradient-to-r from-black via-orange-900/50 to-black rounded-lg border border-orange-500/20 p-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                {/* TABS - scroll horizontal no mobile */}
+                <TabsList className="bg-transparent h-9 p-0 gap-1 overflow-x-auto flex-wrap sm:flex-nowrap w-full sm:w-auto">
                 <TabsTrigger
                   value="orcamentos"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
@@ -534,10 +560,10 @@ export default function LeadsQualificados() {
                   <Zap className="w-3 h-3 mr-1" />
                   Nexus
                 </TabsTrigger>
-              </TabsList>
+                </TabsList>
 
-              {/* FILTROS COMPACTOS — busca + status por tab */}
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {/* FILTROS COMPACTOS — busca + status por tab */}
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
                   <Input
@@ -579,18 +605,18 @@ export default function LeadsQualificados() {
                     </Button>
                   </>
                 )}
-              </div>
-            </div>
-          </div>
+                </div>
+                </div>
+                </div>
 
-          {/* TAB: FUNIL DE LEADS */}
-          <TabsContent value="leads" className="space-y-2 mt-2">
-            {loading ?
-              <div className="flex items-center justify-center py-20">
+                {/* TAB: FUNIL DE LEADS */}
+                <TabsContent value="leads" className="space-y-2 mt-2">
+                {loading ?
+                <div className="flex items-center justify-center py-20">
                 <Activity className="w-8 h-8 animate-spin text-orange-500" />
                 <span className="ml-3 text-slate-600">Carregando leads...</span>
-              </div> :
-              <ClienteKanban
+                </div> :
+                <ClienteKanban
                 clientes={leadsFiltrados}
                 scores={scoresParaKanban}
                 onStatusChange={handleStatusChange}
@@ -598,30 +624,30 @@ export default function LeadsQualificados() {
                 loading={loading}
                 verDetalhes={verDetalhes}
                 mode="leads" />
-            }
-          </TabsContent>
+                }
+                </TabsContent>
 
-          {/* TAB: CLIENTES ATIVOS */}
-          <TabsContent value="clientes" className="space-y-2 mt-2">
-            <ClienteKanban
-              clientes={clientesAtivos}
-              scores={scoresParaKanban}
-              onStatusChange={handleStatusChange}
-              onEdit={handleEditarCliente}
-              loading={loadingClientes}
-              verDetalhes={verDetalhes}
-              mode="clientes" />
-          </TabsContent>
+                {/* TAB: CLIENTES ATIVOS */}
+                <TabsContent value="clientes" className="space-y-2 mt-2">
+                <ClienteKanban
+                clientes={clientesAtivos}
+                scores={scoresParaKanban}
+                onStatusChange={handleStatusChange}
+                onEdit={handleEditarCliente}
+                loading={loadingClientes}
+                verDetalhes={verDetalhes}
+                mode="clientes" />
+                </TabsContent>
 
-          {/* TAB: PIPELINE DE ORÇAMENTOS */}
-          <TabsContent value="orcamentos" className="space-y-2 mt-2">
-            {loadingOrcamentos ? (
-              <div className="flex items-center justify-center py-20">
+                {/* TAB: PIPELINE DE ORÇAMENTOS */}
+                <TabsContent value="orcamentos" className="space-y-2 mt-2">
+                {loadingOrcamentos ? (
+                <div className="flex items-center justify-center py-20">
                 <Activity className="w-8 h-8 animate-spin text-orange-500" />
                 <span className="ml-3 text-slate-600">Carregando orçamentos...</span>
-              </div>
-            ) : viewMode === 'kanban' ? (
-              <OrcamentoKanbanOptimized
+                </div>
+                ) : viewMode === 'kanban' ? (
+                <OrcamentoKanbanOptimized
                 orcamentos={orcamentosFiltrados}
                 onView={handleViewOrcamento}
                 onEdit={handleEditOrcamento}
@@ -632,25 +658,25 @@ export default function LeadsQualificados() {
                   queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
                   toast.success(`Orçamento movido para "${status}"`);
                 }}
-              />
-            ) : (
-              <OrcamentoTable
+                />
+                ) : (
+                <OrcamentoTable
                 orcamentos={orcamentosFiltrados}
                 onView={handleViewOrcamento}
                 onEdit={handleEditOrcamento}
                 onDelete={handleDeleteOrcamento}
-              />
-            )}
-          </TabsContent>
+                />
+                )}
+                </TabsContent>
 
-          {/* TAB: NEXUS COMMAND CENTER */}
-          <TabsContent value="nexus" className="mt-2">
-            <ControlCenter />
-          </TabsContent>
-        </Tabs>
+                {/* TAB: NEXUS COMMAND CENTER */}
+                <TabsContent value="nexus" className="mt-2">
+                <ControlCenter />
+                </TabsContent>
+                </Tabs>
 
-        {/* MODAL DE FORMULÁRIO */}
-        {showClienteForm &&
+                {/* MODAL DE FORMULÁRIO */}
+                {showClienteForm &&
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-auto border border-slate-200">
               <ClienteForm
