@@ -137,9 +137,21 @@ export function useThreadsFiltradas({
       if (!existente) {
         threadMaisRecentePorContacto.set(contactId, thread);
       } else {
-        const tsExistente = new Date(existente.last_message_at || existente.updated_date || 0).getTime();
-        const tsAtual = new Date(thread.last_message_at || thread.updated_date || 0).getTime();
-        if (tsAtual > tsExistente) threadMaisRecentePorContacto.set(contactId, thread);
+        const uid = usuario?.id;
+        // ✅ PRIORIDADE: thread atribuída ao usuário atual SEMPRE vence, mesmo se mais antiga
+        const existenteAtribuida = existente.assigned_user_id === uid;
+        const atualAtribuida = thread.assigned_user_id === uid;
+        if (!existenteAtribuida && atualAtribuida) {
+          // Thread atual é atribuída ao usuário e a existente não é → substituir
+          threadMaisRecentePorContacto.set(contactId, thread);
+        } else if (existenteAtribuida && !atualAtribuida) {
+          // Existente já é atribuída ao usuário → manter
+        } else {
+          // Ambas ou nenhuma: usar a mais recente
+          const tsExistente = new Date(existente.last_message_at || existente.updated_date || 0).getTime();
+          const tsAtual = new Date(thread.last_message_at || thread.updated_date || 0).getTime();
+          if (tsAtual > tsExistente) threadMaisRecentePorContacto.set(contactId, thread);
+        }
       }
     });
 
