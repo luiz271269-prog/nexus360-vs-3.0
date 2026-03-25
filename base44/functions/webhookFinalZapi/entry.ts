@@ -722,22 +722,25 @@ async function handleMessage(dados, payloadBruto, base44) {
     if (!isUrlTemporaria) midiaPersistida = true;
   }
 
+  // isFromMe já foi filtrado nas camadas 1 e 2 acima — aqui sempre false
+  const isFromMe = false;
+
   // SALVAR MENSAGEM
   let mensagem;
   try {
     mensagem = await base44.asServiceRole.entities.Message.create({
       thread_id: thread.id,
-      sender_id: isFromMe ? (integracaoId || 'system') : contato.id,
-      sender_type: isFromMe ? 'user' : 'contact',
-      recipient_id: isFromMe ? contato.id : null,
-      recipient_type: isFromMe ? 'contact' : null,
+      sender_id: contato.id,
+      sender_type: 'contact',
+      recipient_id: null,
+      recipient_type: null,
       content: dados.content,
       media_url: mediaUrlFinal,
       media_type: dados.mediaType,
       media_caption: dados.mediaCaption ?? null,
       channel: 'whatsapp',
       visibility: 'public_to_customer',
-      status: isFromMe ? 'enviada' : 'recebida',
+      status: 'recebida',
       whatsapp_message_id: dados.messageId ?? null,
       sent_at: new Date().toISOString(),
       metadata: {
@@ -754,7 +757,7 @@ async function handleMessage(dados, payloadBruto, base44) {
         quoted_message: dados.quotedMessage ?? null,
         processed_by: VERSION,
         original_media_url: dados.mediaUrl ?? null,
-        synced_from_whatsapp_web: isFromMe,
+        synced_from_whatsapp_web: false,
       },
     });
     console.log(`[${VERSION}] ✅ Mensagem salva: ${mensagem.id} | Mídia persistida: ${midiaPersistida}`);
