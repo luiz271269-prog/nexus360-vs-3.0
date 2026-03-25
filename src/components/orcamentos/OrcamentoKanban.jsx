@@ -188,7 +188,8 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
     if (isAdmin) {
       return filtroVendedor === 'todos' ? true : o.vendedor === filtroVendedor;
     }
-    return pertenceAoUsuario(o);
+    // Não-admin vê: orçamentos atribuídos a ele OU orçamentos sem vendedor atribuído
+    return pertenceAoUsuario(o) || !o.vendedor;
   });
 
   // Agrupar por status (com filtro aplicado)
@@ -202,6 +203,8 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
   const vendedoresUnicos = isAdmin
     ? [...new Set(orcamentos.map(o => (o.vendedor || '').trim()).filter(Boolean))].sort()
     : [];
+
+
 
   const abrirChatComCliente = async (orcamento) => {
     try {
@@ -409,6 +412,17 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
           </select>
         </div>
       )}
+
+      {/* BOTÃO NOVO ORÇAMENTO */}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => navigate(createPageUrl('OrcamentoDetalhes'))}
+          className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold shadow-lg"
+        >
+          <Plus className="w-4 h-4" />
+          Novo Orçamento
+        </Button>
+      </div>
 
       {/* Kanban Board - COM ABAS FUTURISTAS ESTILO MENU PRINCIPAL */}
       <Tabs defaultValue="interna" className="w-full">

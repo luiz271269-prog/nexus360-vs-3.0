@@ -280,6 +280,11 @@ Deno.serve(async (req) => {
         return Response.json({ success: true, skipped: true, reason: 'duplicate', pipeline: result.pipeline, actions: result.actions });
       }
     } catch (e) {
+      // ✅ FIX: Se rate limited durante idempotência, abortar com segurança
+      if (e.message?.includes('429') || e.message?.includes('Rate limit')) {
+        console.warn(`[${VERSION}] ⚠️ Rate limit (429) na idempotência — abortando para evitar duplicação`);
+        return Response.json({ success: true, skipped: true, reason: 'rate_limit_idempotency', pipeline: result.pipeline, actions: ['rate_limit_idempotency'] });
+      }
       console.warn(`[${VERSION}] ⚠️ Erro idempotência:`, e.message);
     }
   }
