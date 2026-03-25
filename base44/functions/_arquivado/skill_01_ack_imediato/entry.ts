@@ -1,4 +1,4 @@
-// ============================================================================
+// DEPRECATED — skill orphan, nunca foi invocada. usar skillACKImediato.
 // SKILL 01: ACK IMEDIATO v1.0.0
 // ============================================================================
 // Objetivo: Zero contatos ignorados. Responde em <2 segundos.

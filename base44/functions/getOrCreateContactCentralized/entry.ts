@@ -330,17 +330,15 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, contact: existente, action: 'deduplicated_pre_create' });
     }
 
-    const clienteVincular = payload._clienteParaVincular || null;
-
     const novoContato = await base44.asServiceRole.entities.Contact.create({
       nome: (pushName && pushName.trim().length > 2 && pushName !== telefoneNormalizado)
         ? pushName.trim()
         : `Contato ${telefoneNormalizado.slice(-8)}`,
       telefone: telefoneNormalizado,
       telefone_canonico: canonico,
-      tipo_contato: clienteVincular ? 'cliente' : 'lead',
-      cliente_id: clienteVincular ? clienteVincular.id : null,
-      empresa: clienteVincular ? (clienteVincular.nome_fantasia || clienteVincular.razao_social) : null,
+      tipo_contato: 'lead',
+      cliente_id: null,
+      empresa: null,
       whatsapp_status: 'verificado',
       conexao_origem: conexaoFinal || null,
       foto_perfil_url: profilePicUrl || null,
@@ -348,7 +346,7 @@ Deno.serve(async (req) => {
       ultima_interacao: new Date().toISOString()
     });
 
-    console.log(`[${VERSION}] 🆕 Novo contato criado: ${novoContato.id} | ${novoContato.nome}${clienteVincular ? ' | vinculado a ' + clienteVincular.razao_social : ''}`);
+    console.log(`[${VERSION}] 🆕 Novo contato criado: ${novoContato.id} | ${novoContato.nome}`);
 
     // Anti-race pós-create: se dois processos criaram ao mesmo tempo, manter o mais antigo
     try {
