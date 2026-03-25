@@ -139,8 +139,8 @@ export function useThreadsFiltradas({
       } else {
         const uid = usuario?.id;
         // ✅ PRIORIDADE: thread atribuída ao usuário atual SEMPRE vence, mesmo se mais antiga
-        const existenteAtribuida = existente.assigned_user_id === uid;
-        const atualAtribuida = thread.assigned_user_id === uid;
+        const existenteAtribuida = uid && existente.assigned_user_id === uid;
+        const atualAtribuida = uid && thread.assigned_user_id === uid;
         if (!existenteAtribuida && atualAtribuida) {
           // Thread atual é atribuída ao usuário e a existente não é → substituir
           threadMaisRecentePorContacto.set(contactId, thread);
