@@ -588,10 +588,15 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
 
-  // 🛡️ GUARD: Se dados.from === próprio número da instância, não processar
-  if (connectedPhone && dados.from && isSamePhone(dados.from, connectedPhone)) {
-    console.log(`[WAPI] 🛡️ Evento interno do chip (${connectedPhone}), ignorando`);
-    return jsonOk({ success: true, ignored: true, reason: 'event_from_own_chip' });
+  // ✅ GUARD CANONIZADO — compara apenas dígitos sem zeros à esquerda
+  // Resolve o caso: from=+554830452076 vs connectedPhone=554830452076
+  if (dados.from && connectedPhone) {
+    const fromCanon = String(dados.from).replace(/\D/g, '').replace(/^0+/, '');
+    const chipCanon = String(connectedPhone).replace(/\D/g, '').replace(/^0+/, '');
+    if (fromCanon === chipCanon) {
+      console.log(`[WAPI] 🛡️ GUARD own_chip: from=${dados.from} === chip=${connectedPhone} | canon=${fromCanon}`);
+      return jsonOk({ success: true, ignored: true, reason: 'from_own_chip' });
+    }
   }
 
   // ✅ SINCRONIZAÇÃO WHATSAPP WEB: mensagens enviadas fora do app (fromMe=true)
