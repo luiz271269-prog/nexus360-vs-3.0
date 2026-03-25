@@ -24,7 +24,7 @@ import ClienteTable from "../components/clientes/ClienteTable";
 import ClienteForm from "../components/clientes/ClienteForm";
 import { listarVendedoresParaSelect, sincronizarClientesComVendedores } from '../components/lib/vendedorSync';
 import { validarMudancaStatus, getMensagemMotivacional, getProximaAcaoSugerida } from '../components/clientes/ClienteFormValidation';
-import OrcamentoKanban from "../components/orcamentos/OrcamentoKanban";
+import OrcamentoKanbanOptimized from "../components/orcamentos/OrcamentoKanbanOptimized";
 import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
 import ControlCenter from "../components/dashboard/ControlCenter";
 import { createPageUrl } from "@/utils";
@@ -621,7 +621,7 @@ export default function LeadsQualificados() {
                 <span className="ml-3 text-slate-600">Carregando orçamentos...</span>
               </div>
             ) : viewMode === 'kanban' ? (
-              <OrcamentoKanban
+              <OrcamentoKanbanOptimized
                 orcamentos={orcamentosFiltrados}
                 onView={handleViewOrcamento}
                 onEdit={handleEditOrcamento}
