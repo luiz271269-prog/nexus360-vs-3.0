@@ -393,6 +393,11 @@ Deno.serve(async (req) => {
     try {
       base44 = createClientFromRequest(req);
     } catch (e) {
+      // Se falhar autenticação, é provável que seja webhook sem token válido — ignorar silenciosamente
+      if (e?.message?.includes('private') || e?.message?.includes('auth') || e?.message?.includes('403')) {
+        console.log(`[${VERSION}] ⏭️ Webhook sem autenticação válida (normal para Z-API), ignorado`);
+        return jsonOk({ success: true, ignored: true, reason: 'webhook_no_auth' });
+      }
       console.error(`[${VERSION}] SDK init error:`, e?.message || e);
       return jsonServerError({ success: false, error: 'sdk_init_error' });
     }
