@@ -131,7 +131,8 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'invalid_json' }, { status: 400 });
   }
 
-  const { telefone, pushName, profilePicUrl, conexaoId } = payload;
+  const { telefone, pushName, profilePicUrl, conexaoId, integracaoId } = payload;
+  const conexaoFinal = conexaoId || integracaoId || null;
 
   if (!telefone) {
     return Response.json({ success: false, error: 'telefone_required' }, { status: 400 });
@@ -289,8 +290,8 @@ Deno.serve(async (req) => {
         update.foto_perfil_url = profilePicUrl;
         update.foto_perfil_atualizada_em = agora;
       }
-      if (conexaoId && !contatoExistente.conexao_origem) {
-        update.conexao_origem = conexaoId;
+      if (conexaoFinal && !contatoExistente.conexao_origem) {
+        update.conexao_origem = conexaoFinal;
       }
 
       await base44.asServiceRole.entities.Contact.update(contatoExistente.id, update);
@@ -339,7 +340,7 @@ Deno.serve(async (req) => {
       cliente_id: clienteVincular ? clienteVincular.id : null,
       empresa: clienteVincular ? (clienteVincular.nome_fantasia || clienteVincular.razao_social) : null,
       whatsapp_status: 'verificado',
-      conexao_origem: conexaoId || null,
+      conexao_origem: conexaoFinal || null,
       foto_perfil_url: profilePicUrl || null,
       foto_perfil_atualizada_em: profilePicUrl ? new Date().toISOString() : null,
       ultima_interacao: new Date().toISOString()

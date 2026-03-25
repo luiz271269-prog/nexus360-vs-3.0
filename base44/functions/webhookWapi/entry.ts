@@ -658,20 +658,20 @@ async function handleMessage(dados, payloadBruto, base44) {
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
   let contato;
   try {
-    const resultado = await base44.asServiceRole.functions.invoke('resolverOuCriarContatoDedup', {
+    const resultado = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
       telefone: dados.from,
       pushName: dados.pushName || null,
       profilePicUrl,
       integracaoId: integracaoId
     });
     if (!resultado?.data?.success || !resultado?.data?.contact) {
-      console.error(`[WAPI] ❌ resolverOuCriarContatoDedup falhou:`, resultado?.data);
+      console.error(`[WAPI] ❌ getOrCreateContactCentralized falhou:`, resultado?.data);
       return jsonErr('erro_contato_dedup', 500);
     }
     contato = resultado.data.contact;
-    console.log(`[WAPI] ✅ Contato via dedup: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
+    console.log(`[WAPI] ✅ Contato: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
   } catch (e) {
-    console.error(`[WAPI] ❌ Erro ao chamar resolverOuCriarContatoDedup:`, e?.message);
+    console.error(`[WAPI] ❌ Erro ao chamar getOrCreateContactCentralized:`, e?.message);
     return jsonErr('erro_contato', 500);
   }
 

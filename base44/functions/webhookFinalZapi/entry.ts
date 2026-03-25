@@ -560,21 +560,34 @@ async function handleMessage(dados, payloadBruto, base44) {
   // Buscar integração — 1 query, normalização canônica
   let integracaoId = null;
   let integracaoInfo = null;
-  try {
-    const todasIntegracoes = await retryOn429(() =>
-      base44.asServiceRole.entities.WhatsAppIntegration.filter({}, '-created_date', 50)
-    );
-    for (const int of (todasIntegracoes || [])) {
-      const matchPhone = connectedPhone && isSamePhone(connectedPhone, int.numero_telefone);
-      const matchInstance = dados.instanceId && int.instance_id_provider === dados.instanceId;
-      if (matchPhone || matchInstance) {
-        integracaoId = int.id;
-        integracaoInfo = { nome: int.nome_instancia, numero: int.numero_telefone };
-        break;
+
+  // Query direta por instanceId (evita fetch de 50 registros)
+  if (dados.instanceId) {
+    try {
+      const r = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
+        { instance_id_provider: dados.instanceId }, '-created_date', 1
+      ));
+      if (r && r.length > 0) {
+        integracaoId = r[0].id;
+        integracaoInfo = { nome: r[0].nome_instancia, numero: r[0].numero_telefone };
       }
-    }
-  } catch {
-    // silencioso — segue sem integração
+    } catch { /* silencioso */ }
+  }
+
+  // Fallback por connectedPhone
+  if (!integracaoId && connectedPhone) {
+    try {
+      const norm = normalizarTelefone(connectedPhone);
+      if (norm) {
+        const r = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
+          { numero_telefone: norm }, '-created_date', 1
+        ));
+        if (r && r.length > 0) {
+          integracaoId = r[0].id;
+          integracaoInfo = { nome: r[0].nome_instancia, numero: r[0].numero_telefone };
+        }
+      }
+    } catch { /* silencioso */ }
   }
 
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
@@ -582,21 +595,21 @@ async function handleMessage(dados, payloadBruto, base44) {
   // BUSCAR/CRIAR CONTATO
   let contato;
   try {
-    console.log(`[${VERSION}] 🎯 Chamando resolverOuCriarContatoDedup para: ${dados.from}`);
-    const resultado = await retryOn429(() => base44.asServiceRole.functions.invoke('resolverOuCriarContatoDedup', {
+    console.log(`[${VERSION}] 🎯 Chamando getOrCreateContactCentralized para: ${dados.from}`);
+    const resultado = await retryOn429(() => base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
       telefone: dados.from,
       pushName: dados.pushName || null,
       profilePicUrl: null,
       integracaoId: integracaoId
     }));
     if (!resultado?.data?.success || !resultado?.data?.contact) {
-      console.error(`[${VERSION}] ❌ resolverOuCriarContatoDedup falhou:`, resultado?.data);
+      console.error(`[${VERSION}] ❌ getOrCreateContactCentralized falhou:`, resultado?.data);
       return jsonServerError({ success: false, error: 'erro_contato_dedup' });
     }
     contato = resultado.data.contact;
-    console.log(`[${VERSION}] ✅ Contato via dedup: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
+    console.log(`[${VERSION}] ✅ Contato: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
   } catch (e) {
-    console.error(`[${VERSION}] ❌ Erro ao chamar resolverOuCriarContatoDedup:`, e?.message || e);
+    console.error(`[${VERSION}] ❌ Erro ao chamar getOrCreateContactCentralized:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_contato' });
   }
 
