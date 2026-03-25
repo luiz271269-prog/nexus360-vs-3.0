@@ -1,23 +1,24 @@
 // redeploy: 2026-03-20T16:00-FIX-403-HUMAN-ACTIVE
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
+// Fonte: functions/lib/phoneNormalizer.js (inlined — Deno não suporta imports locais)
 function normalizarTelefone(telefone) {
   if (!telefone) return null;
-  let apenasNumeros = String(telefone).split('@')[0].replace(/\D/g, '');
-  if (!apenasNumeros || apenasNumeros.length < 10) return null;
-  apenasNumeros = apenasNumeros.replace(/^0+/, '');
-  if (!apenasNumeros.startsWith('55')) {
-    if (apenasNumeros.length === 10 || apenasNumeros.length === 11) {
-      apenasNumeros = '55' + apenasNumeros;
-    }
+  let n = String(telefone).split('@')[0].replace(/\D/g, '');
+  if (!n || n.length < 10) return null;
+  n = n.replace(/^0+/, '');
+  if (!n.startsWith('55')) {
+    if (n.length === 10 || n.length === 11) n = '55' + n;
   }
-  if (apenasNumeros.startsWith('55') && apenasNumeros.length === 12) {
-    const primeiroDigitoNumero = apenasNumeros[4];
-    if (['6', '7', '8', '9'].includes(primeiroDigitoNumero)) {
-      apenasNumeros = apenasNumeros.substring(0, 4) + '9' + apenasNumeros.substring(4);
-    }
+  if (n.startsWith('55') && n.length === 12) {
+    if (['6','7','8','9'].includes(n[4])) n = n.substring(0, 4) + '9' + n.substring(4);
   }
-  return '+' + apenasNumeros;
+  return '+' + n;
+}
+function isSamePhone(a, b) {
+  const n1 = normalizarTelefone(a);
+  const n2 = normalizarTelefone(b);
+  return !!(n1 && n2 && n1 === n2);
 }
 
 // ============================================================================
@@ -656,7 +657,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
   // 🛡️ PATCH A — Guard fromMe: ignorar mensagens enviadas pelo próprio chip
-  if (dados.fromMe === true || (connectedPhone && dados.from && dados.from.replace(/\D/g, '') === connectedPhone.replace(/\D/g, ''))) {
+  if (dados.fromMe === true || (connectedPhone && dados.from && isSamePhone(dados.from, connectedPhone))) {
     console.log(`[${VERSION}] ⏭️ Ignorado: from_own_chip (${dados.from})`);
     return jsonOk({ success: true, ignored: true, reason: 'from_own_chip' });
   }
@@ -703,13 +704,13 @@ async function handleMessage(dados, payloadBruto, base44) {
     const todasIntegracoes = await retryOn429(() =>
       base44.asServiceRole.entities.WhatsAppIntegration.filter({}, '-created_date', 50)
     );
-    const connectedNorm = connectedPhone ? connectedPhone.replace(/\D/g, '') : null;
+    const connectedNormalizado = connectedPhone ? normalizarTelefone(connectedPhone) : null;
     const instanceNorm = dados.instanceId;
 
     for (const int of (todasIntegracoes || [])) {
-      const numeroNorm = (int.numero_telefone || '').replace(/\D/g, '');
-      if ((connectedNorm && numeroNorm && numeroNorm === connectedNorm) ||
-          (instanceNorm && int.instance_id_provider === instanceNorm)) {
+      const matchPhone = connectedNormalizado && isSamePhone(connectedNormalizado, int.numero_telefone);
+      const matchInstance = instanceNorm && int.instance_id_provider === instanceNorm;
+      if (matchPhone || matchInstance) {
         integracaoId = int.id;
         integracaoInfo = { nome: int.nome_instancia, numero: int.numero_telefone };
         break;
