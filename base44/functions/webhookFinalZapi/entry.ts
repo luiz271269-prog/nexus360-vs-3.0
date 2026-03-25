@@ -75,6 +75,12 @@ function deveIgnorar(payload) {
   const phone = String(payload.phone ?? payload.from ?? '').toLowerCase();
   const isGroup = payload.isGroup === true || String(payload.chatId ?? '').includes('@g.us');
 
+  // ✅ FIX CRÍTICO: fromMe+fromApi = mensagem automática do sistema (URA, ACK fora horário)
+  // Ignorar ANTES de qualquer DB call — evita criar contatos/threads fantasma em 429
+  if (payload.fromMe === true && payload.fromApi === true) {
+    return 'fromMe_fromApi_auto';
+  }
+
   // IGNORAR IMEDIATAMENTE: status@broadcast e JIDs de sistema
   if (
     phone.includes('status@') ||
@@ -398,6 +404,7 @@ function normalizarPayload(payload) {
     mediaType,
     mediaUrl,
     mediaCaption: payload.image?.caption ?? payload.video?.caption ?? payload.document?.caption ?? payload.caption ?? null,
+    fromMe: payload.fromMe === true,
     pushName: payload.senderName ?? payload.pushName ?? null,
     vcard: payload.contactMessage ?? payload.vcard ?? null,
     location: payload.location ?? null,
