@@ -299,16 +299,25 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ✅ NOVO: Adicionar assigned_user_id aos participants[] (para "Minhas Conversas" funcionar)
+  // ✅ Garantir que assigned_user_id está em participants[] E atendentes_historico[]
+  // Isso garante que a thread aparece em "Minhas Conversas" do atendente
   if (thread?.assigned_user_id && message?.sender_type === 'contact') {
     try {
       const participants = Array.isArray(thread.participants) ? [...thread.participants] : [];
+      const atendentesHistorico = Array.isArray(thread.atendentes_historico) ? [...thread.atendentes_historico] : [];
+      const updateData = {};
+      
       if (!participants.includes(thread.assigned_user_id)) {
         participants.push(thread.assigned_user_id);
-        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-          participants
-        });
-        console.log(`[${VERSION}] ✅ Adicionado ${thread.assigned_user_id} aos participants[]`);
+        updateData.participants = participants;
+      }
+      if (!atendentesHistorico.includes(thread.assigned_user_id)) {
+        atendentesHistorico.push(thread.assigned_user_id);
+        updateData.atendentes_historico = atendentesHistorico;
+      }
+      if (Object.keys(updateData).length > 0) {
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, updateData);
+        console.log(`[${VERSION}] ✅ assigned_user_id adicionado a participants[] e atendentes_historico[]`);
       }
     } catch (e) {
       console.warn(`[${VERSION}] ⚠️ Erro ao atualizar participants[]:`, e.message);

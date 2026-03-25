@@ -16,6 +16,26 @@ export function aplicarFiltroEscopo(thread, usuario, filtros, userPermissions, D
     return true;
   }
 
+  // ✅ Também verificar se é o assigned_user (mesmo sem estar em participants[])
+  if (filtros.scope === 'my' && thread.assigned_user_id === usuario?.id) {
+    if (DEBUG_VIS) {
+      console.log('[FILTER] ✅ Thread passou: usuário é o assigned_user_id');
+    }
+    return true;
+  }
+
+  // ✅ Verificar histórico (atendentes_historico, shared_with_users)
+  if (filtros.scope === 'my') {
+    const uid = usuario?.id;
+    const estaNoHistorico =
+      thread.shared_with_users?.includes(uid) ||
+      thread.atendentes_historico?.includes(uid);
+    if (estaNoHistorico) {
+      if (DEBUG_VIS) console.log('[FILTER] ✅ Thread passou: usuário está no histórico');
+      return true;
+    }
+  }
+
   // Aplicar filtro tradicional de escopo
   const escopoConfig = {
     id: filtros.scope,

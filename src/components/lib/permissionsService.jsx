@@ -911,11 +911,12 @@ export function aplicarFiltroEscopo(threads, escopo, userPermissions) {
       return threads.filter(t => {
         const isAtribuido = isAtribuidoAoUsuario(userPermissions, t);
         const isFidelizado = t.contato && isFidelizadoAoUsuario(userPermissions, t.contato);
-        // ✅ HISTÓRICO: cobre shared_with_users + atendentes_historico
         const uid = userPermissions.id;
+        // ✅ Cobrir todos os campos de histórico/participação
         const estaNoHistorico =
           t.shared_with_users?.includes(uid) ||
-          t.atendentes_historico?.includes(uid);
+          t.atendentes_historico?.includes(uid) ||
+          t.participants?.includes(uid);
         return isAtribuido || isFidelizado || estaNoHistorico;
       });
     
