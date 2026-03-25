@@ -259,24 +259,36 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     isAdmin ? [...new Set(orcamentos.map(o => (o.vendedor || '').trim()).filter(Boolean))].sort() : []
   , [orcamentos, isAdmin]);
 
-  // ✅ OPTIMISTIC DRAG: move o card localmente de imediato, salva em background
-  const onDragEnd = useCallback((result) => {
+  // ✅ DRAG com confirmação: o card fica na nova posição SÓ após sucesso do servidor
+  const onDragEnd = useCallback(async (result) => {
     const { source, destination, draggableId } = result;
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
     const novoStatus = destination.droppableId;
+    const statusAnterior = source.droppableId;
 
-    // 1. Atualiza o estado LOCAL imediatamente (sem aguardar servidor)
+    // 1. Atualiza LOCAL imediatamente (feedback visual instantâneo)
     setLocalOrcamentos(prev => {
       const base = prev ?? orcamentosProps;
       return base.map(o => o.id === draggableId ? { ...o, status: novoStatus } : o);
     });
 
-    // 2. Persiste em background
+    // 2. Envia para servidor e AGUARDA confirmação
     if (typeof onUpdateStatus === 'function') {
-      onUpdateStatus(draggableId, novoStatus);
-      toast.success(`Movido para "${statusLabels[novoStatus] || novoStatus}"`);
+      try {
+        // Aguarda a resposta do servidor (await)
+        await onUpdateStatus(draggableId, novoStatus);
+        toast.success(`Movido para "${statusLabels[novoStatus] || novoStatus}"`);
+      } catch (error) {
+        console.error('Erro ao mover orçamento:', error);
+        // Se falhar, reverte para a posição anterior
+        setLocalOrcamentos(prev => {
+          const base = prev ?? orcamentosProps;
+          return base.map(o => o.id === draggableId ? { ...o, status: statusAnterior } : o);
+        });
+        toast.error('Erro ao mover orçamento. Revertendo...');
+      }
     }
   }, [onUpdateStatus, orcamentosProps]);
 
@@ -363,7 +375,6 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
           {Object.entries(etapasFluxo).map(([key, etapa]) => (
             <TabsContent key={key} value={key} className="mt-4">
               <div className={`${etapa.containerBg} rounded-2xl p-4 border-2 border-white/50 shadow-2xl`}>
-                {/* ✅ overflow-x com scroll suave, sem re-layout durante drag */}
                 <div
                   className="flex gap-3 overflow-x-auto pb-4"
                   style={{ minHeight: 560 }}
