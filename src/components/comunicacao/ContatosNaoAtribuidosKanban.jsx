@@ -20,18 +20,25 @@ import { createPageUrl } from '@/utils';
 import ChatWindow from './ChatWindow';
 import { isNaoAtribuida } from '../lib/threadVisibility';
 
-export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], contatos = [], onClose }) {
-  const [contatosSelecionados, setContatosSelecionados] = useState([]);
+export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], contatos = [], integracoes = [], onClose }) {
   const [usuariosMap, setUsuariosMap] = useState({});
   const [chatAberto, setChatAberto] = useState(null);
   const [mensagensChat, setMensagensChat] = useState([]);
   const [carregandoMensagens, setCarregandoMensagens] = useState(false);
   const [etiquetasSelecionadas, setEtiquetasSelecionadas] = useState([]);
 
+  // 🔍 DEBUG: Verificar se contatos chegaram
+  useEffect(() => {
+    console.log(`[ContatosNaoAtributados] contatos recebidos: ${contatos.length}, threads: ${threads.length}`);
+  }, [contatos, threads]);
+
   // Mapa de contatos para hidratação rápida
   const contatosMap = useMemo(() => {
     const mapa = {};
     contatos.forEach(c => { mapa[c.id] = c; });
+    if (contatos.length > 0 && Object.keys(mapa).length === 0) {
+      console.warn('[ContatosNaoAtributados] ⚠️ contatos vazio ou sem IDs!');
+    }
     return mapa;
   }, [contatos]);
 
@@ -122,17 +129,26 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], con
   };
 
   const renderContatoCard = (thread) => {
-    const contato = thread.contato;
-    if (!contato) return null;
+    // ✅ FIX: usar dados da thread como fallback quando contato não está hidratado
+    const contato = thread.contato || {
+      id: thread.contact_id,
+      nome: thread.last_message_sender_name || null,
+      telefone: null,
+      empresa: null,
+      cargo: null,
+      tipo_contato: 'novo',
+      tags: []
+    };
 
     const estaSelecionado = contatosSelecionados.some((t) => t.id === thread.id);
 
+    // Nome de exibição: preferir nome do contato hidratado, fallback para dados da thread
     let nomeExibicao = "";
     if (contato.empresa) nomeExibicao += contato.empresa;
     if (contato.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + contato.cargo;
     if (contato.nome && contato.nome !== contato.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
     if (!nomeExibicao || nomeExibicao.trim() === '') {
-      nomeExibicao = contato.telefone || "Sem Nome";
+      nomeExibicao = contato.telefone || thread.contact_id?.slice(-8) || "Sem Nome";
     }
 
     return (
