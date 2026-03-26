@@ -33,7 +33,7 @@ function fmt(v) {
   return v >= 1 ? v.toFixed(2) : v.toFixed(4);
 }
 
-const PERIODOS = { hoje: 'Hoje', semana: 'Esta semana', mes: 'Este mês' };
+const PERIODOS = { hoje: 'Hoje', semana: 'Esta semana', mes: 'Este mês', total: 'Nov → Hoje' };
 
 export default function CustoAutomacoesTab() {
   const [periodo, setPeriodo] = useState('mes');
@@ -44,25 +44,43 @@ export default function CustoAutomacoesTab() {
     const d = new Date();
     if (periodo === 'hoje') { d.setHours(0, 0, 0, 0); }
     else if (periodo === 'semana') { d.setDate(d.getDate() - 7); d.setHours(0,0,0,0); }
-    else { d.setDate(1); d.setHours(0, 0, 0, 0); }
+    else if (periodo === 'mes') { d.setDate(1); d.setHours(0, 0, 0, 0); }
+    else { d.setFullYear(2025, 10, 1); d.setHours(0, 0, 0, 0); } // Nov 2025
     return d.toISOString();
   }, [periodo]);
 
   useEffect(() => {
     setLoading(true);
-    base44.entities.SkillExecution.filter(
-      { created_date: { $gte: desde } },
-      '-created_date',
-      1000
-    ).then(r => { setExecucoes(r || []); setLoading(false); })
-     .catch(() => setLoading(false));
+    const filtroData = { created_date: { $gte: desde } };
+    Promise.all([
+      base44.entities.SkillExecution.filter(filtroData, '-created_date', 1000).catch(() => []),
+      base44.entities.AutomationLog.filter({ timestamp: { $gte: desde }, origem: 'cron' }, '-timestamp', 1000).catch(() => []),
+    ]).then(([skills, logs]) => {
+      // Normalizar AutomationLog para o mesmo formato
+      const logsNorm = logs.map(l => ({
+        skill_name: l.detalhes?.funcao || l.metadata?.funcao || l.acao || 'outro',
+        success: l.resultado === 'sucesso',
+        created_date: l.timestamp,
+      }));
+      setExecucoes([...skills, ...logsNorm]);
+      setLoading(false);
+    });
   }, [desde]);
+
+  // Mapeamento de nomes alternativos para chave canônica
+  const ALIAS = {
+    'follow_up_automatico': 'processarFilaPromocoes',
+    'roteamento_lead': 'primeiro_contato_autonomo',
+    'resposta_ia': 'skill_intent_router',
+    'qualificacao_automatica': 'gerarTarefasDeAnalise',
+  };
 
   // Agrupamento por skill_name
   const porSkill = useMemo(() => {
     const map = {};
     for (const e of execucoes) {
-      const k = e.skill_name || 'outro';
+      const raw = e.skill_name || 'outro';
+      const k = ALIAS[raw] || raw;
       if (!map[k]) map[k] = { total: 0, falha: 0 };
       map[k].total++;
       if (!e.success) map[k].falha++;
@@ -87,7 +105,7 @@ export default function CustoAutomacoesTab() {
   const diario = useMemo(() => {
     const map = {};
     for (const e of execucoes) {
-      const dia = e.created_date?.substring(0, 10);
+      const dia = (e.created_date || e.timestamp)?.substring(0, 10);
       if (!dia) continue;
       if (!map[dia]) map[dia] = 0;
       map[dia] += custoUnitario(e.skill_name || 'outro');
