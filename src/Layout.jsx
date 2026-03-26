@@ -198,7 +198,7 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
 
           {/* Atalho Gestão de Compras */}
           <a
-           href="https://app.base44.com/apps/69c530ac2befe8eafb45b38d/editor/preview"
+           href="https://prophetic-smart-buy-flow.base44.app"
            target="_blank"
            rel="noopener noreferrer"
            className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 shadow-lg shadow-blue-500/25 transition-all duration-300 hover:scale-105 group relative mt-2"
