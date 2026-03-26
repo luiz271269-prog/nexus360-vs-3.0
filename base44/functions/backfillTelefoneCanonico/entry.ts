@@ -1,9 +1,14 @@
 // Backfill: Preencher telefone_canonico para contatos antigos sem o campo
+// v2.0 — Com delay, paginação, e autenticação admin
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+
+const LOTE_TAMANHO = 100;
+const DELAY_MS = 150; // 150ms entre updates evita 429
 
 function extrairCanonicopTeléfone(telefone) {
   if (!telefone) return null;
-  return String(telefone).replace(/\D/g, '');
+  const canonico = String(telefone).replace(/\D/g, '');
+  return canonico && canonico.length >= 8 ? canonico : null;
 }
 
 Deno.serve(async (req) => {
@@ -15,74 +20,105 @@ Deno.serve(async (req) => {
   try {
     base44 = createClientFromRequest(req);
   } catch (e) {
+    console.error('❌ SDK init error:', e.message);
     return Response.json({ error: 'sdk_init_error', details: e.message }, { status: 500 });
   }
 
   try {
-    // Buscar contatos sem telefone_canonico (null ou '')
-    console.log('🔍 Buscando contatos sem telefone_canonico...');
-    const contatos = await base44.asServiceRole.entities.Contact.filter(
-      { telefone_canonico: { $in: [null, ''] } },
-      '-created_date',
-      100
-    );
-
-    if (!contatos || contatos.length === 0) {
-      return Response.json({ 
-        success: true, 
-        message: 'Nenhum contato com telefone_canonico vazio encontrado',
-        totalProcessado: 0
-      });
+    // ✅ Validação: apenas admin pode executar
+    const user = await base44.auth.me().catch(() => null);
+    if (!user || user.role !== 'admin') {
+      console.warn('⚠️ Tentativa de acesso não-admin ao backfill');
+      return Response.json({ error: 'forbidden', message: 'Apenas administradores podem executar' }, { status: 403 });
     }
 
-    console.log(`📞 Encontrados ${contatos.length} contatos para processar`);
-
+    console.log('🔍 [BACKFILL] Iniciando preenchimento de telefone_canonico...');
     let totalProcessado = 0;
     let totalErro = 0;
+    let totalPulado = 0;
     const erros = [];
 
-    for (const contato of contatos) {
-      try {
-        if (!contato.telefone) {
-          console.warn(`⚠️ Contato ${contato.id} sem telefone, pulando...`);
-          totalErro++;
-          continue;
-        }
+    // ✅ Paginação: processa todos os contatos, não apenas 100
+    let offset = 0;
+    while (true) {
+      console.log(`📖 [BACKFILL] Buscando lote com offset ${offset}...`);
+      
+      const contatos = await base44.asServiceRole.entities.Contact.filter(
+        { telefone_canonico: { $in: [null, ''] } },
+        '-created_date',
+        LOTE_TAMANHO
+      );
 
-        const canonico = extrairCanonicopTeléfone(contato.telefone);
-        if (!canonico) {
-          console.warn(`⚠️ Contato ${contato.id} com telefone inválido: ${contato.telefone}`);
-          totalErro++;
-          continue;
-        }
-
-        // Atualizar com telefone_canonico
-        await base44.asServiceRole.entities.Contact.update(contato.id, {
-          telefone_canonico: canonico
-        });
-
-        totalProcessado++;
-        if (totalProcessado % 10 === 0) {
-          console.log(`✅ Processados ${totalProcessado}/${contatos.length}`);
-        }
-      } catch (e) {
-        totalErro++;
-        erros.push({ id: contato.id, error: e.message });
-        console.error(`❌ Erro ao atualizar ${contato.id}:`, e.message);
+      if (!contatos || contatos.length === 0) {
+        console.log('✅ [BACKFILL] Fim da paginação');
+        break;
       }
+
+      console.log(`📞 [BACKFILL] Processando lote de ${contatos.length} contatos`);
+
+      for (const contato of contatos) {
+        try {
+          // Validar telefone
+          if (!contato.telefone) {
+            console.debug(`⊘ [BACKFILL] ${contato.id}: sem telefone, pulando`);
+            totalPulado++;
+            continue;
+          }
+
+          const canonico = extrairCanonicopTeléfone(contato.telefone);
+          if (!canonico) {
+            console.debug(`⊘ [BACKFILL] ${contato.id}: telefone inválido "${contato.telefone}"`);
+            totalPulado++;
+            continue;
+          }
+
+          // ✅ Atualizar com delay para evitar 429
+          await base44.asServiceRole.entities.Contact.update(contato.id, {
+            telefone_canonico: canonico
+          });
+
+          totalProcessado++;
+          
+          // ✅ Delay entre updates
+          if (totalProcessado % 10 === 0) {
+            console.log(`✅ [BACKFILL] ${totalProcessado} processados até aqui...`);
+          }
+          await new Promise(r => setTimeout(r, DELAY_MS));
+          
+        } catch (e) {
+          totalErro++;
+          const errorMsg = `${contato.id}: ${e.message}`;
+          erros.push({ id: contato.id, error: e.message });
+          console.error(`❌ [BACKFILL] Erro ao atualizar:`, errorMsg);
+          
+          // Delay mesmo em caso de erro
+          await new Promise(r => setTimeout(r, DELAY_MS));
+        }
+      }
+
+      // Se recebeu menos que o lote, é a última página
+      if (contatos.length < LOTE_TAMANHO) {
+        console.log('✅ [BACKFILL] Última página atingida');
+        break;
+      }
+
+      offset += LOTE_TAMANHO;
     }
 
-    console.log(`🎉 Backfill concluído: ${totalProcessado} sucesso, ${totalErro} erro`);
+    const duracao = totalProcessado * DELAY_MS / 1000;
+    console.log(`🎉 [BACKFILL] Concluído em ~${duracao}s: ${totalProcessado} processados, ${totalPulado} pulados, ${totalErro} erros`);
 
     return Response.json({
       success: true,
       totalProcessado,
       totalErro,
-      totalEncontrado: contatos.length,
-      erros: erros.length > 0 ? erros : undefined
+      totalPulado,
+      estimadoDuracao: `${duracao.toFixed(1)}s`,
+      erros: erros.length > 0 ? erros.slice(0, 10) : undefined
     });
+
   } catch (e) {
-    console.error('❌ Erro fatal:', e.message);
+    console.error('❌ [BACKFILL] Erro fatal:', e.message);
     return Response.json({ 
       error: 'backfill_error', 
       details: e.message 
