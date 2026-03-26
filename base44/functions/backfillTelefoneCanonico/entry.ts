@@ -3,7 +3,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 const LOTE_TAMANHO = 100;
-const DELAY_MS = 150; // 150ms entre updates evita 429
+const DELAY_MS = 500; // 500ms entre updates (150ms foi insuficiente, test atingiu 429)
 
 function extrairCanonicopTeléfone(telefone) {
   if (!telefone) return null;
