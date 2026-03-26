@@ -176,32 +176,59 @@ Deno.serve(async (req) => {
       if (r1 && r1.length > 0) {
         contatoExistente = r1[0];
         console.log(`[${VERSION}] ✅ ENCONTRADO por telefone_canonico="${canonico}" | ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
-        // Auto-cleanup com MERGE: preserva dados ricos antes de deletar duplicados
+        // MERGE SEMPRE: agrupar todos os duplicados no mais antigo, nunca perder dados
         if (r1.length > 1) {
-          console.warn(`[${VERSION}] 🧹 Auto-cleanup com MERGE: ${r1.length - 1} duplicado(s)`);
-          const campos = ['nome','empresa','email','cargo','ramo_atividade','tags','tipo_contato',
-            'is_cliente_fidelizado','is_vip','is_prioridade','vendedor_responsavel',
-            'atendente_fidelizado_vendas','atendente_fidelizado_assistencia',
+          console.warn(`[${VERSION}] 🔀 MERGE: ${r1.length} registros encontrados. Agrupando no mais antigo: ${contatoExistente.id}`);
+          const camposEscalares = [
+            'nome','empresa','email','cargo','ramo_atividade','tipo_contato',
+            'vendedor_responsavel','atendente_fidelizado_vendas','atendente_fidelizado_assistencia',
             'atendente_fidelizado_financeiro','atendente_fidelizado_fornecedor',
-            'cliente_id','observacoes','classe_abc','score_abc'];
+            'cliente_id','observacoes','classe_abc','score_abc','cliente_score',
+            'instagram_id','facebook_id','conexao_origem','foto_perfil_url'
+          ];
+          const camposBoolean = ['is_cliente_fidelizado','is_vip','is_prioridade'];
           const vazio = (v) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
           const mergeData = {};
+          // Acumular tags como união de todos os duplicados
+          let tagsUnificadas = Array.isArray(contatoExistente.tags) ? [...contatoExistente.tags] : [];
           for (const dup of r1.slice(1)) {
-            for (const campo of campos) {
-              if (vazio(contatoExistente[campo]) && !vazio(dup[campo])) {
+            // Campos escalares: pegar do dup se canonical estiver vazio
+            for (const campo of camposEscalares) {
+              const valAtual = mergeData[campo] !== undefined ? mergeData[campo] : contatoExistente[campo];
+              if (vazio(valAtual) && !vazio(dup[campo])) {
                 mergeData[campo] = dup[campo];
               }
             }
+            // Campos booleanos: true prevalece (se qualquer duplicado tiver true, mantém true)
+            for (const campo of camposBoolean) {
+              const valAtual = mergeData[campo] !== undefined ? mergeData[campo] : contatoExistente[campo];
+              if (!valAtual && dup[campo] === true) {
+                mergeData[campo] = true;
+              }
+            }
+            // Tags: união de todos os arrays
+            if (Array.isArray(dup.tags)) {
+              for (const tag of dup.tags) {
+                if (!tagsUnificadas.includes(tag)) tagsUnificadas.push(tag);
+              }
+            }
+            // Deletar duplicado APÓS coletar dados
             base44.asServiceRole.entities.Contact.delete(dup.id).catch((e) =>
               console.warn(`[${VERSION}] Erro ao deletar duplicado ${dup.id}:`, e.message)
             );
           }
+          // Incluir tags unificadas se houver novas
+          if (tagsUnificadas.length > (contatoExistente.tags || []).length) {
+            mergeData.tags = tagsUnificadas;
+          }
           if (Object.keys(mergeData).length > 0) {
-            console.log(`[${VERSION}] 🔀 Merge:`, Object.keys(mergeData));
-            base44.asServiceRole.entities.Contact.update(contatoExistente.id, mergeData).catch((e) =>
+            console.log(`[${VERSION}] ✅ Merge de campos:`, Object.keys(mergeData));
+            await base44.asServiceRole.entities.Contact.update(contatoExistente.id, mergeData).catch((e) =>
               console.warn(`[${VERSION}] Erro merge:`, e.message)
             );
             Object.assign(contatoExistente, mergeData);
+          } else {
+            console.log(`[${VERSION}] ✅ Merge: nenhum campo novo para mesclar.`);
           }
         }
       }
@@ -336,16 +363,34 @@ Deno.serve(async (req) => {
 
     console.log(`[${VERSION}] 🆕 Novo contato criado: ${novoContato.id} | ${novoContato.nome}`);
 
-    // Anti-race pós-create: se dois processos criaram ao mesmo tempo, manter o mais antigo
+    // Anti-race pós-create: se dois processos criaram ao mesmo tempo, manter o mais antigo com MERGE
     try {
       const recheck = await base44.asServiceRole.entities.Contact.filter(
         { telefone_canonico: canonico }, 'created_date', 2
       );
       if (recheck && recheck.length > 1) {
         const maisAntigo = recheck[0];
+        const descartado = recheck[1];
         if (maisAntigo.id !== novoContato.id) {
-          await base44.asServiceRole.entities.Contact.delete(novoContato.id);
-          console.log(`[${VERSION}] 🔀 Race condition: descartando ${novoContato.id}, usando canônico ${maisAntigo.id}`);
+          // Merge dados do novo no mais antigo antes de descartar
+          const mergeRace = {};
+          const camposRace = ['nome','empresa','email','cargo','tipo_contato','vendedor_responsavel',
+            'atendente_fidelizado_vendas','atendente_fidelizado_assistencia',
+            'atendente_fidelizado_financeiro','atendente_fidelizado_fornecedor',
+            'is_cliente_fidelizado','is_vip','is_prioridade','cliente_id','observacoes'];
+          const vazioR = (v) => v === null || v === undefined || v === '';
+          for (const c of camposRace) {
+            if (vazioR(maisAntigo[c]) && !vazioR(novoContato[c])) mergeRace[c] = novoContato[c];
+            if (!maisAntigo[c] && novoContato[c] === true) mergeRace[c] = true;
+          }
+          const tagsRace = [...(maisAntigo.tags || []), ...(novoContato.tags || []).filter(t => !(maisAntigo.tags||[]).includes(t))];
+          if (tagsRace.length > (maisAntigo.tags||[]).length) mergeRace.tags = tagsRace;
+          if (Object.keys(mergeRace).length > 0) {
+            await base44.asServiceRole.entities.Contact.update(maisAntigo.id, mergeRace).catch(() => {});
+            Object.assign(maisAntigo, mergeRace);
+          }
+          await base44.asServiceRole.entities.Contact.delete(novoContato.id).catch(() => {});
+          console.log(`[${VERSION}] 🔀 Race condition: merge+descarte de ${novoContato.id} → canônico ${maisAntigo.id}`);
           return Response.json({ success: true, contact: maisAntigo, action: 'deduplicated' });
         }
       }
