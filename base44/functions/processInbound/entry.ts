@@ -110,44 +110,6 @@ Deno.serve(async (req) => {
   }
 
   // ════════════════════════════════════════════════════════════════
-  // LOCK POR CONTATO: Serializa processamento do mesmo contato.
-  // Se já existe instância rodando para este contact_id, descarta.
-  // Lock expira em 10s automaticamente (cobre falhas/retornos antecipados).
-  // ════════════════════════════════════════════════════════════════
-  let lockMsgId = null;
-  if (contact?.id) {
-    try {
-      const dezSegAtras = new Date(Date.now() - 10_000).toISOString();
-      const lockExistente = await base44.asServiceRole.entities.Message.filter({
-        whatsapp_message_id: 'lock_' + contact.id,
-        status: 'processando',
-        created_date: { $gte: dezSegAtras }
-      }, '-created_date', 1);
-
-      if (lockExistente?.length > 0) {
-        console.log(`[${VERSION}] 🔒 CONTACT LOCK: já existe instância processando contact_id=${contact.id} — descartando`);
-        return Response.json({ success: true, skipped: true, reason: 'contact_lock' });
-      }
-
-      // Criar lock
-      const lockMsg = await base44.asServiceRole.entities.Message.create({
-        thread_id: thread?.id || contact.id,
-        sender_id: contact.id,
-        sender_type: 'contact',
-        content: '[LOCK]',
-        channel: 'interno',
-        whatsapp_message_id: 'lock_' + contact.id,
-        status: 'processando',
-        visibility: 'internal_only'
-      });
-      lockMsgId = lockMsg?.id;
-      console.log(`[${VERSION}] 🔓 CONTACT LOCK criado: ${lockMsgId} para contact_id=${contact.id}`);
-    } catch (e) {
-      console.warn(`[${VERSION}] ⚠️ Erro ao criar lock (prosseguindo sem lock):`, e.message);
-    }
-  }
-
-  // ════════════════════════════════════════════════════════════════
   // [INBOUND-GATE] CAMADA 5 — BATCH WINDOW (10 segundos)
   if (contact?.id) {
     try {
@@ -597,33 +559,43 @@ Deno.serve(async (req) => {
     }
   }
 
-  let shouldDispatch = false;
-  if (isUraActive) shouldDispatch = true;
-  // Evita que múltiplos webhooks paralelos (mensagens rápidas) disparem
-  // o pré-atendimento mais de uma vez.
   // ════════════════════════════════════════════════════════════════
-  if (shouldDispatch) {
-    try {
-      const threadFresca = await base44.asServiceRole.entities.MessageThread.get(thread.id);
-      const lockAtivo =
-        threadFresca.pre_atendimento_ativo === true &&
-        threadFresca.pre_atendimento_started_at &&
-        (Date.now() - new Date(threadFresca.pre_atendimento_started_at).getTime()) < 45_000;
-
-      if (lockAtivo) {
-        console.log(`[${VERSION}] 🔒 Lock ativo (started_at=${threadFresca.pre_atendimento_started_at}) — abortando dispatch para evitar duplicação`);
-        result.actions.push('skipped_lock_active');
-        return Response.json({ success: true, skipped: true, reason: 'pre_atendimento_lock_active', pipeline: result.pipeline, actions: result.actions });
+  // OPÇÃO C: Re-buscar thread fresca ANTES de calcular shouldDispatch.
+  // Garante que o 2º webhook lê pre_atendimento_ativo=true gravado pelo 1º.
+  // ════════════════════════════════════════════════════════════════
+  try {
+    const threadFresca = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+    if (threadFresca.pre_atendimento_ativo === true) {
+      const ageMs = threadFresca.pre_atendimento_started_at
+        ? Date.now() - new Date(threadFresca.pre_atendimento_started_at).getTime()
+        : 0;
+      if (ageMs < 45_000) {
+        console.log(`[${VERSION}] 🔒 Opção C: pre_atendimento_ativo=true no banco (age=${ageMs}ms) — skip`);
+        result.actions.push('skipped_pre_atendimento_already_active');
+        return Response.json({ success: true, skipped: true, reason: 'pre_atendimento_already_active', pipeline: result.pipeline, actions: result.actions });
       }
+    }
+    thread = threadFresca; // usar dados frescos
+  } catch (e) {
+    console.warn(`[${VERSION}] ⚠️ Erro ao re-buscar thread fresca (prosseguindo):`, e.message);
+  }
 
-      // Adquirir lock
+  let shouldDispatch = false;
+  const isUraActiveFresco = thread.pre_atendimento_ativo === true;
+  if (isUraActiveFresco) shouldDispatch = true;
+  else if (novoCiclo) shouldDispatch = true;
+  else if (isHumanDormant && messageContent?.length > 4) shouldDispatch = true;
+  else if (!thread.assigned_user_id) shouldDispatch = true;
+
+  if (shouldDispatch) {
+    // Gravar lock no banco antes de disparar
+    try {
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         pre_atendimento_ativo: true,
         pre_atendimento_started_at: new Date().toISOString()
       });
-      thread = { ...thread, pre_atendimento_ativo: true };
     } catch (e) {
-      console.warn(`[${VERSION}] ⚠️ Erro ao verificar/adquirir lock:`, e.message);
+      console.warn(`[${VERSION}] ⚠️ Erro ao gravar lock dispatch:`, e.message);
     }
   }
 
@@ -691,13 +663,6 @@ Deno.serve(async (req) => {
   result.pipeline.push('normal_message');
   result.actions.push('message_in_cycle_no_ura');
   console.log(`[${VERSION}] ✅ Mensagem processada`);
-
-  // Liberar lock ao final do processamento bem-sucedido
-  if (lockMsgId) {
-    base44.asServiceRole.entities.Message.delete(lockMsgId).catch(e =>
-      console.warn(`[${VERSION}] ⚠️ Erro ao liberar lock ${lockMsgId}:`, e.message)
-    );
-  }
 
   return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
 });
