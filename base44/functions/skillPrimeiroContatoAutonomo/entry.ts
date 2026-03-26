@@ -411,27 +411,28 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false,
     let mensagemBoasVindas = null;
 
     try {
-      const prompt = `Você é o atendente ${atendente.full_name || 'da equipe'} de ${setorDetectado}.
+      const primeiroNomeContato = contact.nome?.split(' ')[0] || contact.nome || '';
+      const prompt = `Você é um assistente da equipe de ${setorDetectado}.
 
 TIPO DE CONTATO: ${tipoContatoAtualizado}
-Cliente: ${contact.nome}
-Mensagem: "${textoCompleto}"
+Cliente: ${primeiroNomeContato}
+Mensagem do cliente: "${textoCompleto}"
 
-Gere boas-vindas ESPECÍFICAS para o tipo:
+Gere uma mensagem de boas-vindas CURTA e HUMANIZADA, falando SEMPRE em primeira pessoa do plural ("nossa equipe", "estamos aqui", "vamos te ajudar").
+NUNCA mencione nomes de atendentes específicos.
+NUNCA diga "Vou te conectar com [nome]".
 
-NOVO/LEAD → Saudação calorosa + validar interesse + oferecer ajuda
-  Ex: "Olá João! Vi que você quer montar um PC gamer. Vou te ajudar a encontrar as melhores opções! 🎮"
+Exemplos por tipo:
+NOVO/LEAD → "Olá ${primeiroNomeContato}! Que bom receber você. Nossa equipe de ${setorDetectado} está aqui para te ajudar! 😊"
+CLIENTE → "Olá ${primeiroNomeContato}! Que bom ter você de volta. Já estamos verificando o que você precisa!"
+FORNECEDOR → "Olá! Obrigado pelo contato. Nossa equipe de compras vai te atender agora."
 
-CLIENTE → Reconhecer relacionamento + agradecer preferência + resolver demanda
-  Ex: "Olá Maria! Que bom ter você de volta. Vou te ajudar com [assunto] agora mesmo!"
-
-FORNECEDOR → Tom profissional + agradecer contato + processo de fornecimento
-  Ex: "Olá! Obrigado pelo contato. Vou direcionar sua solicitação para nossa equipe de compras."
-
-PARCEIRO → Tom colaborativo + valorizar parceria + abrir conversa comercial
-  Ex: "Olá Pedro! Ótimo ter você aqui. Vamos conversar sobre a parceria!"
-
-Regras: máximo 2 linhas, máximo 1 emoji, tom profissional mas humano.`;
+Regras OBRIGATÓRIAS:
+- Máximo 2 linhas
+- Máximo 1 emoji
+- Tom profissional mas humano
+- JAMAIS mencionar nome de atendente
+- SEMPRE falar como equipe (primeira pessoa do plural)`;
 
       const resposta = await base44.asServiceRole.integrations.Core.InvokeLLM({
         prompt,
