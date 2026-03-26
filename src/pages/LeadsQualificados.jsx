@@ -494,6 +494,18 @@ export default function LeadsQualificados() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {/* BOTÃO NOVO — contextual por tab */}
+              <Button
+                onClick={() => {
+                  if (activeTab === 'orcamentos') navigate(createPageUrl('OrcamentoDetalhes'));
+                  else handleNovoLead();
+                }}
+                size="sm"
+                className="h-8 text-xs bg-white text-orange-600 hover:bg-orange-50 font-semibold gap-1">
+                <Plus className="w-3.5 h-3.5" />
+                {activeTab === 'orcamentos' ? 'Novo Orçamento' : 'Novo Lead'}
+              </Button>
+
               {/* FILTRO GLOBAL DE VENDEDOR — visível só para admin/gerente/coordenador */}
               {(usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role)) && (
                 <>
