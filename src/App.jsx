@@ -23,6 +23,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import SuperAgente from '@/pages/SuperAgente';
 import NotasFiscais from '@/pages/NotasFiscais';
 import CustoAutomacoes from '@/pages/CustoAutomacoes';
+import Compras from '@/pages/Compras';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -109,6 +110,14 @@ const AuthenticatedApp = () => {
           element={
             <LayoutWrapper currentPageName="CustoAutomacoes">
               <CustoAutomacoes />
+            </LayoutWrapper>
+          } 
+        />
+        <Route 
+          path="/Compras" 
+          element={
+            <LayoutWrapper currentPageName="Compras">
+              <Compras />
             </LayoutWrapper>
           } 
         />

@@ -24,7 +24,8 @@ import {
   Activity,
   Workflow,
   Shield,
-  FileText
+  FileText,
+  ShoppingCart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -271,7 +272,8 @@ export default function Layout({ children, currentPageName }) {
     { name: "Auditoria", icon: Shield, page: "Auditoria" },
     { name: "Configuração do Sistema", icon: Settings, page: "ConfiguracaoIA" },
     { name: "Notas Fiscais", icon: FileText, page: "NotasFiscais" },
-    { name: "Super Agente", icon: Zap, page: "SuperAgente" }
+    { name: "Super Agente", icon: Zap, page: "SuperAgente" },
+    { name: "Compras", icon: ShoppingCart, page: "Compras" }
     // ⚠️ DEPRECATED: TagManager removido do menu - usar GerenciadorEtiquetasUnificado em Automações
   ];
 
@@ -315,6 +317,11 @@ export default function Layout({ children, currentPageName }) {
         if (setor === 'fornecedor') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'Automacoes', 'NotasFiscais'
+        ].includes(item.page));
+        }
+        if (setor === 'compras') {
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'Compras', 'Produtos', 'Dashboard', 'NotasFiscais'
         ].includes(item.page));
         }
         // Gerência geral
