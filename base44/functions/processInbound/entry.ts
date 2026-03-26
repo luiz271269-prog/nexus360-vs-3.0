@@ -539,14 +539,32 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // GUARD OUTBOUND: Se há mensagem do sistema nos últimos 30s, URA já está ativa.
+  // Resolve a race condition onde 2 webhooks chegam com < 500ms de diferença
+  // e ambos passam pelo lock check antes de qualquer um gravar no banco.
+  // ════════════════════════════════════════════════════════════════
+  if (message?.sender_type === 'contact') {
+    try {
+      const trintaSegAtras = new Date(Date.now() - 30000).toISOString();
+      const msgsSistema = await base44.asServiceRole.entities.Message.filter({
+        thread_id: thread.id,
+        sender_type: 'user',
+        created_date: { $gte: trintaSegAtras }
+      }, '-created_date', 1);
+
+      if (msgsSistema && msgsSistema.length > 0) {
+        console.log(`[${VERSION}] 🔒 GUARD OUTBOUND: já existe resposta do sistema nos últimos 30s (${msgsSistema[0].id}) — skip dispatch`);
+        result.actions.push('skipped_outbound_guard');
+        return Response.json({ success: true, skipped: true, reason: 'outbound_guard_30s', pipeline: result.pipeline, actions: result.actions });
+      }
+    } catch (e) {
+      console.warn(`[${VERSION}] ⚠️ Erro no outbound guard (prosseguindo):`, e.message);
+    }
+  }
+
   let shouldDispatch = false;
   if (isUraActive) shouldDispatch = true;
-  else if (novoCiclo) shouldDispatch = true;
-  else if (isHumanDormant && messageContent?.length > 4) shouldDispatch = true;
-  else if (!thread.assigned_user_id) shouldDispatch = true;
-
-  // ════════════════════════════════════════════════════════════════
-  // LOCK ANTI-DUPLICAÇÃO: Re-buscar thread fresca do banco antes de despachar.
   // Evita que múltiplos webhooks paralelos (mensagens rápidas) disparem
   // o pré-atendimento mais de uma vez.
   // ════════════════════════════════════════════════════════════════
