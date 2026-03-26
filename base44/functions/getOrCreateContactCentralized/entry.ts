@@ -1,31 +1,35 @@
-// redeploy: 2026-03-24T14:00-LOCK-IN-MEMORY
+// redeploy: 2026-03-26T17:50-SIMPLIFÍCADO
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // ============================================================================
 // FUNÇÃO CENTRALIZADORA ÚNICA - CONTATO (ANTI-DUPLICAÇÃO)
-// v3.0.0 - Lock em memória por número canônico (elimina race condition real)
+// v3.2.0-SIMPLIFICADO - Remove mecanismos não-funcionais em Deno Deploy
+// ✅ Retry 429 + busca variações + anti-race pós-create com merge
+// ❌ Sem lock em memória (não funciona entre instâncias isoladas)
 // ============================================================================
-const VERSION = 'v3.1.0-RETRY-DEDUP';
-
-// Lock em memória: Map<canonico, Promise>
-const _locks = new Map();
+const VERSION = 'v3.2.0-SIMPLIFIED';
 
 // Retry com backoff exponencial para 429
 async function retryOn429(fn, maxTentativas = 3, delayBase = 500) {
+  let lastError;
   for (let i = 0; i < maxTentativas; i++) {
     try {
       return await fn();
     } catch (e) {
-      const is429 = e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa');
+      lastError = e;
+      const is429 = e?.message?.includes('429') || 
+                    e?.message?.includes('Rate limit') || 
+                    e?.message?.includes('Limite de taxa');
       if (is429 && i < maxTentativas - 1) {
         const delay = delayBase * Math.pow(2, i);
-        console.warn(`[CENTRALIZED] 429 na busca, aguardando ${delay}ms (tentativa ${i+1})`);
+        console.warn(`[${VERSION}] 429 na busca, aguardando ${delay}ms (tentativa ${i+1})`);
         await new Promise(r => setTimeout(r, delay));
         continue;
       }
       throw e;
     }
   }
+  throw lastError;
 }
 
 function normalizarTelefone(telefone) {
@@ -43,53 +47,38 @@ function normalizarTelefone(telefone) {
   return '+' + n;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Extrai o valor CANONICO (apenas dígitos) do telefone normalizado
-// ═══════════════════════════════════════════════════════════════
 function extrairCanonicopTeléfone(telefoneNormalizado) {
   if (!telefoneNormalizado) return null;
   return telefoneNormalizado.replace(/\D/g, '');
 }
 
-// Gera TODAS as variações canônicas possíveis de um número
-// para busca tolerante a formatos legados no banco
 function gerarVariacoes(telefoneNormalizado) {
   if (!telefoneNormalizado) return [];
-  const base = telefoneNormalizado.replace(/\D/g, ''); // ex: 5548988634900 (13 digits)
+  const base = telefoneNormalizado.replace(/\D/g, '');
   const variacoes = new Set();
 
-  // Com e sem +
   variacoes.add('+' + base);
   variacoes.add(base);
 
   if (base.startsWith('55')) {
-    const semPais = base.substring(2);  // ex: 48988634900 (11 digits, DDD+número)
+    const semPais = base.substring(2);
     variacoes.add(semPais);
     variacoes.add('+55' + semPais);
 
-    // Com 13 dígitos (tem 9 após DDD): adicionar versão sem o 9 (12 dígitos)
-    // Formato: 55 + DD(2) + 9 + número(8) = 13 dígitos
-    // O nono dígito fica na posição 4 (índice 4), APÓS os 2 dígitos de DDD
     if (base.length === 13) {
-      // semPais tem 11 dígitos: DD(2) + 9 + número(8)
-      // Remover o 9 da posição 2 de semPais (= posição 4 de base)
-      const semPaisSem9 = semPais.substring(0, 2) + semPais.substring(3); // DD + número(8) = 10 dígitos
-      const sem9 = '55' + semPaisSem9; // 5500000000 (12 dígitos)
+      const semPaisSem9 = semPais.substring(0, 2) + semPais.substring(3);
+      const sem9 = '55' + semPaisSem9;
       variacoes.add('+' + sem9);
       variacoes.add(sem9);
-      variacoes.add(semPaisSem9); // sem país sem 9: 10 dígitos
+      variacoes.add(semPaisSem9);
     }
 
-    // Com 12 dígitos (sem 9 após DDD): adicionar versão com o 9 (13 dígitos)
-    // Formato: 55 + DD(2) + número(8) = 12 dígitos
     if (base.length === 12) {
-      // semPais tem 10 dígitos: DD(2) + número(8)
-      // Inserir 9 após os 2 dígitos de DDD (posição 2 de semPais = posição 4 de base)
-      const semPaisCom9 = semPais.substring(0, 2) + '9' + semPais.substring(2); // DD + 9 + número(8) = 11 dígitos
-      const com9 = '55' + semPaisCom9; // 13 dígitos
+      const semPaisCom9 = semPais.substring(0, 2) + '9' + semPais.substring(2);
+      const com9 = '55' + semPaisCom9;
       variacoes.add('+' + com9);
       variacoes.add(com9);
-      variacoes.add(semPaisCom9); // sem país com 9: 11 dígitos
+      variacoes.add(semPaisCom9);
     }
   }
 
@@ -110,11 +99,7 @@ Deno.serve(async (req) => {
 
   let base44;
   try {
-    // ✅ FIX 2026-03-18: Usar asServiceRole direto — esta função é sempre chamada
-    // via invoke() interno (webhookWapi, webhookFinalZapi, etc.) sem token de usuário.
-    // createClientFromRequest com req interno causa 403 "app privado".
     base44 = createClientFromRequest(req);
-    // Garantir que asServiceRole está disponível independente do token do req
     if (!base44.asServiceRole) {
       throw new Error('asServiceRole não disponível');
     }
@@ -146,191 +131,127 @@ Deno.serve(async (req) => {
   const canonico = extrairCanonicopTeléfone(telefoneNormalizado);
   const variacoes = gerarVariacoes(telefoneNormalizado);
 
-  console.log(`[${VERSION}] 📞 Buscando: ${telefoneNormalizado} | canonico: ${canonico} | variações: ${variacoes.length}`);
+  console.log(`[${VERSION}] 📞 Buscando: ${telefoneNormalizado} | canonico: ${canonico}`);
 
   // ═══════════════════════════════════════════════════════════════
-  // LOCK EM MEMÓRIA: Serializa execuções concorrentes para o mesmo número
-  // Elimina race condition onde 2 webhooks simultâneos criam contato duplo
+  // STEP 1: Buscar por telefone_canonico
   // ═══════════════════════════════════════════════════════════════
-  const lockKey = canonico;
-  const existingLock = _locks.get(lockKey) || Promise.resolve();
-  let resolveLock;
-  const newLock = new Promise(r => { resolveLock = r; });
-  _locks.set(lockKey, existingLock.then(() => newLock));
-
-  // Aguarda qualquer execução anterior para o mesmo número terminar
-  await existingLock;
-
-  let contatoExistente = null;
-
+  let contatoEncontrado = null;
   try {
-    // ═══════════════════════════════════════════════════════════════
-    // BUSCA COMPLETA: coleta TODOS os contatos possíveis (por canônico, telefone e variações)
-    // Depois: merge no mais antigo → deleta os demais (await garantido)
-    // ═══════════════════════════════════════════════════════════════
-    const todosEncontrados = new Map(); // Map<id, contato> para deduplicar
-
-    // Busca 1: por telefone_canonico (pega até 10 para detectar todas as duplicatas)
-    try {
-      const r1 = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
-        { telefone_canonico: canonico }, 'created_date', 10
-      ));
-      if (r1) r1.forEach(c => todosEncontrados.set(c.id, c));
-    } catch (e) { console.warn(`[${VERSION}] ⚠️ Erro busca canonico:`, e.message); }
-
-    // Busca 2: por telefone normalizado (legado sem campo canonico)
-    try {
-      const r2 = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
-        { telefone: telefoneNormalizado }, 'created_date', 5
-      ));
-      if (r2) r2.forEach(c => todosEncontrados.set(c.id, c));
-    } catch (e) { console.warn(`[${VERSION}] ⚠️ Erro busca telefone:`, e.message); }
-
-    // Busca 3: variações legadas (sem 9, sem código de país)
-    for (const variacao of variacoes) {
-      if (variacao === telefoneNormalizado || variacao === canonico) continue;
-      for (const campo of ['telefone', 'telefone_canonico']) {
-        try {
-          const r = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
-            { [campo]: variacao }, 'created_date', 3
-          ));
-          if (r) r.forEach(c => todosEncontrados.set(c.id, c));
-        } catch (e) { /* silencioso */ }
-      }
+    const contatos = await retryOn429(() => 
+      base44.asServiceRole.entities.Contact.filter(
+        { telefone_canonico: canonico }, 'created_date', 1
+      )
+    );
+    if (contatos && contatos.length > 0) {
+      contatoEncontrado = contatos[0];
+      console.log(`[${VERSION}] ✅ STEP 1: Encontrado por canonico: ${contatoEncontrado.id}`);
     }
-
-    if (todosEncontrados.size === 0) {
-      console.log(`[${VERSION}] 🆕 Nenhum contato encontrado. Criando novo para: ${telefoneNormalizado}`);
-    } else {
-      // Ordenar por created_date ASC: o mais antigo fica na posição 0
-      const lista = [...todosEncontrados.values()].sort((a, b) =>
-        new Date(a.created_date || 0) - new Date(b.created_date || 0)
-      );
-      contatoExistente = lista[0];
-      console.log(`[${VERSION}] ✅ ENCONTRADO: ${lista.length} registro(s) | Canônico mais antigo: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
-
-      // MERGE + DELETE se houver duplicatas
-      if (lista.length > 1) {
-        console.warn(`[${VERSION}] 🔀 MERGE: ${lista.length - 1} duplicata(s) → agrupando no mais antigo`);
-        const camposEscalares = [
-          'nome','empresa','email','cargo','ramo_atividade','tipo_contato',
-          'vendedor_responsavel','atendente_fidelizado_vendas','atendente_fidelizado_assistencia',
-          'atendente_fidelizado_financeiro','atendente_fidelizado_fornecedor',
-          'cliente_id','observacoes','classe_abc','score_abc','cliente_score',
-          'instagram_id','facebook_id','conexao_origem','foto_perfil_url'
-        ];
-        const camposBoolean = ['is_cliente_fidelizado','is_vip','is_prioridade'];
-        const vazio = (v) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
-        const mergeData = {};
-        let tagsUnificadas = Array.isArray(contatoExistente.tags) ? [...contatoExistente.tags] : [];
-
-        for (const dup of lista.slice(1)) {
-          // Escalares: preenche campo vazio do canônico com valor do duplicado
-          for (const campo of camposEscalares) {
-            const valAtual = mergeData[campo] !== undefined ? mergeData[campo] : contatoExistente[campo];
-            if (vazio(valAtual) && !vazio(dup[campo])) {
-              mergeData[campo] = dup[campo];
-            }
-          }
-          // Booleanos: true prevalece
-          for (const campo of camposBoolean) {
-            const valAtual = mergeData[campo] !== undefined ? mergeData[campo] : contatoExistente[campo];
-            if (!valAtual && dup[campo] === true) mergeData[campo] = true;
-          }
-          // Tags: união completa
-          if (Array.isArray(dup.tags)) {
-            for (const tag of dup.tags) {
-              if (!tagsUnificadas.includes(tag)) tagsUnificadas.push(tag);
-            }
-          }
-        }
-
-        if (tagsUnificadas.length > (contatoExistente.tags || []).length) {
-          mergeData.tags = tagsUnificadas;
-        }
-        // Garantir que o telefone_canonico está correto no canônico
-        if (contatoExistente.telefone_canonico !== canonico) mergeData.telefone_canonico = canonico;
-        if (contatoExistente.telefone !== telefoneNormalizado) mergeData.telefone = telefoneNormalizado;
-
-        // PASSO 1: salvar merge no canônico (await)
-        if (Object.keys(mergeData).length > 0) {
-          console.log(`[${VERSION}] 💾 Salvando merge:`, Object.keys(mergeData));
-          await base44.asServiceRole.entities.Contact.update(contatoExistente.id, mergeData);
-          Object.assign(contatoExistente, mergeData);
-        }
-
-        // PASSO 2: deletar duplicatas (await em sequência)
-        for (const dup of lista.slice(1)) {
-          try {
-            await base44.asServiceRole.entities.Contact.delete(dup.id);
-            console.log(`[${VERSION}] 🗑️ Duplicata deletada: ${dup.id} (${dup.nome})`);
-          } catch (e) {
-            console.warn(`[${VERSION}] ⚠️ Erro ao deletar duplicata ${dup.id}:`, e.message);
-          }
-        }
-      }
-    }
-
   } catch (e) {
-    console.error(`[${VERSION}] ❌ Erro geral na busca:`, e.message);
-    return Response.json({ success: false, error: 'search_error' }, { status: 500 });
+    const is429 = e?.message?.includes('429');
+    if (is429) {
+      console.error(`[${VERSION}] ❌ STEP 1 falhou com 429 após retries`);
+      return Response.json({ success: false, error: 'rate_limit' }, { status: 429 });
+    }
+    console.warn(`[${VERSION}] ⚠️ STEP 1 erro (não-429):`, e.message);
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // CONTATO EXISTENTE — ATUALIZAR
+  // STEP 2: Se não encontrou, buscar por telefone normalizado
   // ═══════════════════════════════════════════════════════════════
-  if (contatoExistente) {
+  if (!contatoEncontrado) {
+    try {
+      const contatos = await retryOn429(() =>
+        base44.asServiceRole.entities.Contact.filter(
+          { telefone: telefoneNormalizado }, 'created_date', 1
+        )
+      );
+      if (contatos && contatos.length > 0) {
+        contatoEncontrado = contatos[0];
+        console.log(`[${VERSION}] ✅ STEP 2: Encontrado por telefone: ${contatoEncontrado.id}`);
+      }
+    } catch (e) {
+      const is429 = e?.message?.includes('429');
+      if (is429) {
+        console.error(`[${VERSION}] ❌ STEP 2 falhou com 429 após retries`);
+        return Response.json({ success: false, error: 'rate_limit' }, { status: 429 });
+      }
+      console.warn(`[${VERSION}] ⚠️ STEP 2 erro (não-429):`, e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // STEP 3: Se ainda não encontrou, buscar por variações
+  // ═══════════════════════════════════════════════════════════════
+  if (!contatoEncontrado) {
+    for (const variacao of variacoes) {
+      if (variacao === telefoneNormalizado || variacao === canonico) continue;
+      
+      for (const campo of ['telefone_canonico', 'telefone']) {
+        try {
+          const contatos = await retryOn429(() =>
+            base44.asServiceRole.entities.Contact.filter(
+              { [campo]: variacao }, 'created_date', 1
+            )
+          );
+          if (contatos && contatos.length > 0) {
+            contatoEncontrado = contatos[0];
+            console.log(`[${VERSION}] ✅ STEP 3: Encontrado por variação ${variacao}: ${contatoEncontrado.id}`);
+            break;
+          }
+        } catch (e) {
+          const is429 = e?.message?.includes('429');
+          if (is429) {
+            console.error(`[${VERSION}] ❌ STEP 3 falhou com 429 após retries`);
+            return Response.json({ success: false, error: 'rate_limit' }, { status: 429 });
+          }
+        }
+      }
+      
+      if (contatoEncontrado) break;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // CONTATO ENCONTRADO: Atualizar
+  // ═══════════════════════════════════════════════════════════════
+  if (contatoEncontrado) {
     try {
       const agora = new Date().toISOString();
       const update = { ultima_interacao: agora };
 
-      if (pushName && (!contatoExistente.nome || contatoExistente.nome === contatoExistente.telefone)) {
+      if (pushName && (!contatoEncontrado.nome || contatoEncontrado.nome === contatoEncontrado.telefone)) {
         update.nome = pushName;
       }
-      if (profilePicUrl && contatoExistente.foto_perfil_url !== profilePicUrl) {
+      if (profilePicUrl && contatoEncontrado.foto_perfil_url !== profilePicUrl) {
         update.foto_perfil_url = profilePicUrl;
         update.foto_perfil_atualizada_em = agora;
       }
-      if (conexaoFinal && !contatoExistente.conexao_origem) {
+      if (conexaoFinal && !contatoEncontrado.conexao_origem) {
         update.conexao_origem = conexaoFinal;
       }
+      // Garantir que telefone_canonico está correto
+      if (contatoEncontrado.telefone_canonico !== canonico) {
+        update.telefone_canonico = canonico;
+      }
+      if (contatoEncontrado.telefone !== telefoneNormalizado) {
+        update.telefone = telefoneNormalizado;
+      }
 
-      await base44.asServiceRole.entities.Contact.update(contatoExistente.id, update);
-      console.log(`[${VERSION}] 🔄 Contato atualizado: ${contatoExistente.id}`);
-
-      resolveLock();
-      _locks.delete(lockKey);
-      return Response.json({ success: true, contact: contatoExistente, action: 'updated' });
+      await base44.asServiceRole.entities.Contact.update(contatoEncontrado.id, update);
+      console.log(`[${VERSION}] 🔄 Contato atualizado: ${contatoEncontrado.id}`);
+      
+      return Response.json({ success: true, contact: contatoEncontrado, action: 'updated' });
     } catch (e) {
       console.error(`[${VERSION}] ❌ Erro ao atualizar:`, e.message);
-      resolveLock();
-      _locks.delete(lockKey);
-      return Response.json({ success: true, contact: contatoExistente, action: 'found' });
+      return Response.json({ success: true, contact: contatoEncontrado, action: 'found_but_update_failed' });
     }
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // ═══════════════════════════════════════════════════════════════
-  // CONTATO NOVO — CRIAR
-  // Anti-race: delay 80ms + re-check antes do create
+  // CONTATO NÃO ENCONTRADO: Criar novo
   // ═══════════════════════════════════════════════════════════════
   try {
-    await new Promise(r => setTimeout(r, 80));
-    const recheckAntes = await base44.asServiceRole.entities.Contact.filter(
-      { telefone_canonico: canonico }, '-created_date', 1
-    ).catch(() => []);
-    if (recheckAntes && recheckAntes.length > 0) {
-      const existente = recheckAntes[0];
-      console.log(`[${VERSION}] 🔒 Anti-race pre-create: usando ${existente.id}`);
-      await base44.asServiceRole.entities.Contact.update(existente.id, {
-        ultima_interacao: new Date().toISOString(),
-        ...(pushName && (!existente.nome || existente.nome === existente.telefone) ? { nome: pushName } : {})
-      }).catch(() => {});
-      resolveLock();
-      _locks.delete(lockKey);
-      return Response.json({ success: true, contact: existente, action: 'deduplicated_pre_create' });
-    }
-
     const novoContato = await base44.asServiceRole.entities.Contact.create({
       nome: (pushName && pushName.trim().length > 2 && pushName !== telefoneNormalizado)
         ? pushName.trim()
@@ -349,39 +270,78 @@ Deno.serve(async (req) => {
 
     console.log(`[${VERSION}] 🆕 Novo contato criado: ${novoContato.id} | ${novoContato.nome}`);
 
-    // Anti-race pós-create: se dois processos criaram ao mesmo tempo, manter o mais antigo com MERGE
+    // ═══════════════════════════════════════════════════════════════
+    // ANTI-RACE PÓS-CREATE: se alguém criou antes, fazer merge
+    // ═══════════════════════════════════════════════════════════════
     try {
       const recheck = await base44.asServiceRole.entities.Contact.filter(
         { telefone_canonico: canonico }, 'created_date', 2
       );
+      
       if (recheck && recheck.length > 1) {
         const maisAntigo = recheck[0];
-        const descartado = recheck[1];
+        
+        // Se o novo que acabamos de criar NÃO é o mais antigo
         if (maisAntigo.id !== novoContato.id) {
-          // Merge dados do novo no mais antigo antes de descartar
-          const mergeRace = {};
-          const camposRace = ['nome','empresa','email','cargo','tipo_contato','vendedor_responsavel',
-            'atendente_fidelizado_vendas','atendente_fidelizado_assistencia',
-            'atendente_fidelizado_financeiro','atendente_fidelizado_fornecedor',
-            'is_cliente_fidelizado','is_vip','is_prioridade','cliente_id','observacoes'];
-          const vazioR = (v) => v === null || v === undefined || v === '';
-          for (const c of camposRace) {
-            if (vazioR(maisAntigo[c]) && !vazioR(novoContato[c])) mergeRace[c] = novoContato[c];
-            if (!maisAntigo[c] && novoContato[c] === true) mergeRace[c] = true;
+          console.warn(`[${VERSION}] 🔄 ANTI-RACE: Detectado outro contato mais antigo. Fazendo merge...`);
+          
+          // Merge: preencher campos vazios do antigo com dados do novo
+          const mergeData = {};
+          const camposPrioritarios = [
+            'nome', 'empresa', 'email', 'cargo', 'tipo_contato',
+            'vendedor_responsavel', 'cliente_id', 'ramo_atividade',
+            'instagram_id', 'facebook_id'
+          ];
+          
+          const vazio = (v) => v === null || v === undefined || v === '';
+          
+          for (const campo of camposPrioritarios) {
+            if (vazio(maisAntigo[campo]) && !vazio(novoContato[campo])) {
+              mergeData[campo] = novoContato[campo];
+            }
           }
-          const tagsRace = [...(maisAntigo.tags || []), ...(novoContato.tags || []).filter(t => !(maisAntigo.tags||[]).includes(t))];
-          if (tagsRace.length > (maisAntigo.tags||[]).length) mergeRace.tags = tagsRace;
-          if (Object.keys(mergeRace).length > 0) {
-            await base44.asServiceRole.entities.Contact.update(maisAntigo.id, mergeRace).catch(() => {});
-            Object.assign(maisAntigo, mergeRace);
+          
+          // Booleanos: true prevalece
+          const camposBoolean = ['is_cliente_fidelizado', 'is_vip', 'is_prioridade'];
+          for (const campo of camposBoolean) {
+            if (!maisAntigo[campo] && novoContato[campo] === true) {
+              mergeData[campo] = true;
+            }
           }
-          await base44.asServiceRole.entities.Contact.delete(novoContato.id).catch(() => {});
-          console.log(`[${VERSION}] 🔀 Race condition: merge+descarte de ${novoContato.id} → canônico ${maisAntigo.id}`);
+          
+          // Tags: union
+          const tagsUnificadas = [...(maisAntigo.tags || [])];
+          if (Array.isArray(novoContato.tags)) {
+            for (const tag of novoContato.tags) {
+              if (!tagsUnificadas.includes(tag)) {
+                tagsUnificadas.push(tag);
+              }
+            }
+          }
+          if (tagsUnificadas.length > (maisAntigo.tags || []).length) {
+            mergeData.tags = tagsUnificadas;
+          }
+          
+          // Garantir que telefone_canonico está correto
+          mergeData.telefone_canonico = canonico;
+          mergeData.telefone = telefoneNormalizado;
+          
+          // Salvar merge no mais antigo
+          if (Object.keys(mergeData).length > 0) {
+            await base44.asServiceRole.entities.Contact.update(maisAntigo.id, mergeData);
+            console.log(`[${VERSION}] 💾 Merge salvo no contato antigo: ${maisAntigo.id}`);
+          }
+          
+          // Deletar o novo
+          await base44.asServiceRole.entities.Contact.delete(novoContato.id);
+          console.log(`[${VERSION}] 🗑️ Novo contato deletado (race condition): ${novoContato.id}`);
+          
           return Response.json({ success: true, contact: maisAntigo, action: 'deduplicated' });
         }
       }
     } catch (e) {
-      console.warn(`[${VERSION}] ⚠️ Erro no re-check anti-race:`, e.message);
+      console.warn(`[${VERSION}] ⚠️ Erro no anti-race pós-create:`, e.message);
+      // Continua mesmo com erro no anti-race
     }
 
     return Response.json({ success: true, contact: novoContato, action: 'created' });
