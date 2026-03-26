@@ -31,15 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 import NexusChat from "../components/global/NexusChat";
-import LembreteFlutuanteIA from "../components/global/LembreteFlutuanteIA";
 import NotificationSystem from "../components/comunicacao/NotificationSystem";
-import { toast } from "sonner";
-import InitializadorSistema from "../components/global/InitializadorSistema";
-import DeploymentBanner from "../components/global/DeploymentBanner";
-import CacheBuster from "../components/global/CacheBuster";
-// import FeedbackAutomaticoCapturado from "../components/inteligencia/FeedbackAutomaticoCapturado";
-import { calcularLembretesGlobal } from "../components/global/MotorLembretesGlobal";
-import UserAuthWidget from "../components/global/UserAuthWidget";
 import CopilotoIA from "../components/global/CopilotoIA";
 
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
@@ -358,6 +350,11 @@ export default function Layout({ children, currentPageName }) {
           'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'NotasFiscais'
         ].includes(item.page));
       }
+      if (setor === 'compras') {
+        return todosMenuItems.filter(item => [
+          'Comunicacao', 'Compras', 'Produtos', 'Dashboard', 'NotasFiscais'
+        ].includes(item.page));
+      }
       if (setor === 'fornecedor') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Produtos', 'Importacao', 'Agenda', 'Dashboard', 'NotasFiscais'
@@ -367,16 +364,14 @@ export default function Layout({ children, currentPageName }) {
         'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'NotasFiscais'
       ].includes(item.page));
     }
-
-    // Atendente (junior/pleno)
-    if (setor === 'vendas') {
-      return todosMenuItems.filter(item => [
-        'Comunicacao', 'LeadsQualificados', 'Clientes', 'Produtos', 'Agenda', 'Dashboard', 'NotasFiscais'
-      ].includes(item.page));
-    }
     if (setor === 'assistencia') {
       return todosMenuItems.filter(item => [
         'Comunicacao', 'Clientes', 'Produtos', 'Agenda', 'Dashboard', 'NotasFiscais'
+      ].includes(item.page));
+    }
+    if (setor === 'compras') {
+      return todosMenuItems.filter(item => [
+        'Comunicacao', 'Compras', 'Produtos', 'Dashboard', 'NotasFiscais'
       ].includes(item.page));
     }
     if (setor === 'fornecedor') {
