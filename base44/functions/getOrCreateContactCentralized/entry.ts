@@ -170,19 +170,38 @@ Deno.serve(async (req) => {
     try {
       const r1 = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
         { telefone_canonico: canonico },
-        'created_date', // mais antigo primeiro
+        'created_date',
         5
       ));
       if (r1 && r1.length > 0) {
-        contatoExistente = r1[0]; // mais antigo = canônico
+        contatoExistente = r1[0];
         console.log(`[${VERSION}] ✅ ENCONTRADO por telefone_canonico="${canonico}" | ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
-        // Auto-cleanup: deletar duplicados encontrados (silencioso)
+        // Auto-cleanup com MERGE: preserva dados ricos antes de deletar duplicados
         if (r1.length > 1) {
-          console.warn(`[${VERSION}] 🧹 Auto-cleanup: ${r1.length - 1} duplicado(s) para canonico=${canonico}`);
+          console.warn(`[${VERSION}] 🧹 Auto-cleanup com MERGE: ${r1.length - 1} duplicado(s)`);
+          const campos = ['nome','empresa','email','cargo','ramo_atividade','tags','tipo_contato',
+            'is_cliente_fidelizado','is_vip','is_prioridade','vendedor_responsavel',
+            'atendente_fidelizado_vendas','atendente_fidelizado_assistencia',
+            'atendente_fidelizado_financeiro','atendente_fidelizado_fornecedor',
+            'cliente_id','observacoes','classe_abc','score_abc'];
+          const vazio = (v) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
+          const mergeData = {};
           for (const dup of r1.slice(1)) {
-            base44.asServiceRole.entities.Contact.delete(dup.id).catch(e =>
-              console.warn(`[${VERSION}] ⚠️ Erro ao deletar duplicado ${dup.id}:`, e.message)
+            for (const campo of campos) {
+              if (vazio(contatoExistente[campo]) && !vazio(dup[campo])) {
+                mergeData[campo] = dup[campo];
+              }
+            }
+            base44.asServiceRole.entities.Contact.delete(dup.id).catch((e) =>
+              console.warn(`[${VERSION}] Erro ao deletar duplicado ${dup.id}:`, e.message)
             );
+          }
+          if (Object.keys(mergeData).length > 0) {
+            console.log(`[${VERSION}] 🔀 Merge:`, Object.keys(mergeData));
+            base44.asServiceRole.entities.Contact.update(contatoExistente.id, mergeData).catch((e) =>
+              console.warn(`[${VERSION}] Erro merge:`, e.message)
+            );
+            Object.assign(contatoExistente, mergeData);
           }
         }
       }
@@ -191,26 +210,18 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // STEP 2: Busca por telefone (campo normalizado com +)
-    // Cobre contatos legados que não têm telefone_canonico populado
+    // STEP 2: Busca por telefone normalizado (cobre legados sem telefone_canonico)
     // ═══════════════════════════════════════════════════════════════
     if (!contatoExistente) {
       try {
         const r2 = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
           { telefone: telefoneNormalizado },
           'created_date',
-          5
+          1
         ));
         if (r2 && r2.length > 0) {
           contatoExistente = r2[0];
-          console.log(`[${VERSION}] ✅ ENCONTRADO por telefone="${telefoneNormalizado}" | ID: ${contatoExistente.id} | Nome: ${contatoExistente.nome}`);
-          // Auto-cleanup de duplicados por telefone
-          if (r2.length > 1) {
-            console.warn(`[${VERSION}] 🧹 Auto-cleanup telefone: ${r2.length - 1} duplicado(s)`);
-            for (const dup of r2.slice(1)) {
-              base44.asServiceRole.entities.Contact.delete(dup.id).catch(() => {});
-            }
-          }
+          console.log(`[${VERSION}] ✅ ENCONTRADO por telefone="${telefoneNormalizado}" | ID: ${contatoExistente.id}`);
         }
       } catch (e) {
         console.warn(`[${VERSION}] ⚠️ Erro busca telefone:`, e.message);
@@ -219,13 +230,11 @@ Deno.serve(async (req) => {
 
     // ═══════════════════════════════════════════════════════════════
     // STEP 3: Busca tolerante — variações sem o 9 e sem código de país
-    // Cobre contatos salvos em formatos antigos (legado pré-normalização)
     // ═══════════════════════════════════════════════════════════════
     if (!contatoExistente) {
       for (const variacao of variacoes) {
         if (contatoExistente) break;
-        if (variacao === telefoneNormalizado || variacao === canonico) continue; // já testado
-
+        if (variacao === telefoneNormalizado || variacao === canonico) continue;
         for (const campo of ['telefone', 'telefone_canonico']) {
           try {
             const r = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
@@ -239,33 +248,12 @@ Deno.serve(async (req) => {
               break;
             }
           } catch (e) {
-            // silencioso — continua próxima variação
+            // silencioso
           }
         }
       }
     }
 
-    // Normalizar telefone do contato encontrado se estiver desatualizado
-    if (contatoExistente) {
-      const precisaNormalizar = contatoExistente.telefone !== telefoneNormalizado ||
-                                 contatoExistente.telefone_canonico !== canonico;
-      if (precisaNormalizar) {
-        try {
-          await base44.asServiceRole.entities.Contact.update(contatoExistente.id, {
-            telefone: telefoneNormalizado,
-            telefone_canonico: canonico
-          });
-          contatoExistente.telefone = telefoneNormalizado;
-          contatoExistente.telefone_canonico = canonico;
-          console.log(`[${VERSION}] 🔧 Telefone normalizado para: ${telefoneNormalizado}`);
-        } catch (e) {
-          console.warn(`[${VERSION}] ⚠️ Erro ao normalizar telefone:`, e.message);
-        }
-      }
-    }
-
-    // STEP 4 removido: o match por pushName na tabela Cliente causava falsos positivos
-    // (ex: WhatsApp Business com nome da empresa = criava contato com nome errado)
     if (!contatoExistente) {
       console.log(`[${VERSION}] 🆕 Não encontrado. Criando novo contato para: ${telefoneNormalizado}`);
     }
