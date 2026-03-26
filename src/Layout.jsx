@@ -196,6 +196,20 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
            </div>
           </button>
 
+          {/* Atalho Gestão de Compras */}
+          <a
+           href="https://app.base44.com/apps/69c530ac2befe8eafb45b38d/editor/preview"
+           target="_blank"
+           rel="noopener noreferrer"
+           className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 shadow-lg shadow-blue-500/25 transition-all duration-300 hover:scale-105 group relative mt-2"
+           title="Gestão de Compras"
+          >
+           <ShoppingCart className="h-6 w-6 text-white" />
+           <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
+             🛒 Gestão de Compras
+           </div>
+          </a>
+
           {/* Atalho Neural Fin Flow */}
           <a
            href="https://neural-fin-flow.base44.app"
