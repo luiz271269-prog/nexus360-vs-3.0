@@ -1,13 +1,14 @@
-// redeploy: 2026-03-26T17:50-SIMPLIFÍCADO
+// redeploy: 2026-03-26T18:05-FIX-STEP3-429
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 // ============================================================================
 // FUNÇÃO CENTRALIZADORA ÚNICA - CONTATO (ANTI-DUPLICAÇÃO)
 // v3.2.0-SIMPLIFICADO - Remove mecanismos não-funcionais em Deno Deploy
 // ✅ Retry 429 + busca variações + anti-race pós-create com merge
+// ✅ FIX: Step 3 agora retorna 429 explicitamente (não silencioso)
 // ❌ Sem lock em memória (não funciona entre instâncias isoladas)
 // ============================================================================
-const VERSION = 'v3.2.0-SIMPLIFIED';
+const VERSION = 'v3.2.0-SIMPLIFIED+FIX';
 
 // Retry com backoff exponencial para 429
 async function retryOn429(fn, maxTentativas = 3, delayBase = 500) {
@@ -200,11 +201,15 @@ Deno.serve(async (req) => {
             break;
           }
         } catch (e) {
-          const is429 = e?.message?.includes('429');
+          const is429 = e?.message?.includes('429') || 
+                        e?.message?.includes('Rate limit') || 
+                        e?.message?.includes('Limite de taxa');
           if (is429) {
-            console.error(`[${VERSION}] ❌ STEP 3 falhou com 429 após retries`);
+            console.error(`[${VERSION}] ❌ STEP 3 falhou com 429 na variação ${variacao} após retries`);
             return Response.json({ success: false, error: 'rate_limit' }, { status: 429 });
           }
+          // Erros não-429 são ignorados, continua próxima variação
+          console.warn(`[${VERSION}] ⚠️ STEP 3 erro em variação ${variacao}:`, e.message);
         }
       }
       
