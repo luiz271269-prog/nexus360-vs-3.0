@@ -64,26 +64,22 @@ function detectarTipoContato(mensagem, tipoAtual) {
   return 'lead'; // Default: tratar como lead
 }
 
-async function buscarAtendenteDisponivel(base44, setor) {
+async function buscarAtendenteDisponivel(base44, setor, _cache = null) {
   try {
-    // Buscar todos do setor (sem filtro de availability_status — horário comercial já garantido por processInbound)
-    const todos = await base44.asServiceRole.entities.User.list('-created_date', 100);
+    // Usar cache pré-carregado se disponível (modo batch)
+    const todos = _cache?.usuarios || await base44.asServiceRole.entities.User.list('-created_date', 100);
+    const threadsCounts = _cache?.threadsCounts || await base44.asServiceRole.entities.MessageThread.filter({
+      status: 'aberta',
+      assigned_user_id: { $in: todos.map(u => u.id) }
+    }, '-created_date', 500);
 
     const candidatos = todos.filter(u => {
-      // Deve ter nome ou email válido
       if (!u.full_name && !u.email) return false;
-      // Deve ser do setor correto (ou geral aceita qualquer setor)
       if (setor === 'geral') return true;
       return u.attendant_sector === setor;
     });
 
     if (candidatos.length === 0) return null;
-
-    // Contar threads abertas por atendente para balanceamento por carga
-    const threadsCounts = await base44.asServiceRole.entities.MessageThread.filter({
-      status: 'aberta',
-      assigned_user_id: { $in: candidatos.map(u => u.id) }
-    }, '-created_date', 500);
 
     const contagemPor = {};
     for (const t of threadsCounts) {
@@ -92,7 +88,6 @@ async function buscarAtendenteDisponivel(base44, setor) {
       }
     }
 
-    // Ordenar por menor carga
     const melhor = [...candidatos].sort((a, b) =>
       (contagemPor[a.id] || 0) - (contagemPor[b.id] || 0)
     )[0];
@@ -158,6 +153,22 @@ Deno.serve(async (req) => {
         status: 'aberta'
       }, '-last_message_at', 20);
 
+      // ✅ PRÉ-CARREGAR usuários e cargas UMA VEZ só para o batch inteiro
+      let batchCache = null;
+      if (threadsTravadas.length > 0) {
+        try {
+          const usuarios = await base44.asServiceRole.entities.User.list('-created_date', 100);
+          const threadsCounts = await base44.asServiceRole.entities.MessageThread.filter({
+            status: 'aberta',
+            assigned_user_id: { $in: usuarios.map(u => u.id) }
+          }, '-created_date', 500);
+          batchCache = { usuarios, threadsCounts };
+          console.log(`[SKILL-BATCH] ✅ Cache carregado: ${usuarios.length} usuários, ${threadsCounts.length} threads abertas`);
+        } catch (e) {
+          console.warn('[SKILL-BATCH] ⚠️ Erro ao pré-carregar cache:', e.message);
+        }
+      }
+
       const resultados = {
         processadas: 0,
         resgatadas: 0,
@@ -167,7 +178,7 @@ Deno.serve(async (req) => {
 
       for (const thread of threadsTravadas) {
         try {
-          const resultado = await processarThread(base44, thread.id, tsInicio);
+          const resultado = await processarThread(base44, thread.id, tsInicio, false, batchCache);
           resultados.processadas++;
           if (resultado.action === 'primeiro_contato_completado') resultados.resgatadas++;
           if (resultado.action === 'enfileirado') resultados.enfileiradas++;
@@ -180,6 +191,7 @@ Deno.serve(async (req) => {
       return Response.json({
         success: true,
         batch_mode: true,
+        threads_encontradas: threadsTravadas.length,
         resultados
       }, { headers });
     }
@@ -194,7 +206,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const resultado = await processarThread(base44, thread_id, tsInicio, force_retry);
+    const resultado = await processarThread(base44, thread_id, tsInicio, force_retry, null);
     return Response.json(resultado, { headers });
 
   } catch (error) {
@@ -225,7 +237,7 @@ Deno.serve(async (req) => {
 // ══════════════════════════════════════════════════════════════════════
 // Função principal de processamento
 // ══════════════════════════════════════════════════════════════════════
-async function processarThread(base44, thread_id, tsInicio, force_retry = false) {
+async function processarThread(base44, thread_id, tsInicio, force_retry = false, batchCache = null) {
    const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
 
      // Só atua em threads SEM atendente ou em estado de pré-atendimento travado
@@ -245,9 +257,7 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false)
        };
      }
 
-    // ══════════════════════════════════════════════════════════════════
     // STEP 2: Buscar contexto
-    // ══════════════════════════════════════════════════════════════════
     const [contact, mensagens] = await Promise.all([
       thread.contact_id 
         ? base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null)
@@ -266,25 +276,20 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false)
       };
     }
 
-    // ══════════════════════════════════════════════════════════════════
     // STEP 3: Análise de intenção com LLM + confidence score
-    // ══════════════════════════════════════════════════════════════════
-    // Limitar contexto a 500 chars FINAIS (mais relevantes)
     let textoCompleto = mensagens
       .map(m => m.content)
       .filter(Boolean)
       .join(' ');
     
     if (textoCompleto.length > 500) {
-      textoCompleto = textoCompleto.slice(-500); // Últimos 500 chars
+      textoCompleto = textoCompleto.slice(-500);
     }
 
     const tsAnalise = Date.now();
     let analiseIA = null;
     let metodoDeteccao = 'keywords';
     
-    // STEP 1: Pattern Matcher primeiro (sem LLM)
-    // Padrões inline para evitar imports complexos em Deno
     const PATTERNS_RAPIDOS = {
       vendas: /orcamento|orçamento|cotacao|cotação|preco|preço|quanto custa|tabela|produto|comprar|vender/i,
       financeiro: /boleto|fatura|nota fiscal|nf|pagamento|cobranca|cobrança|vencimento|atrasado|dinheiro|pagou|pagar/i,
@@ -310,27 +315,11 @@ async function processarThread(base44, thread_id, tsInicio, force_retry = false)
       console.log(`[SKILL-PRIMEIRO-CONTATO] 🎯 Pattern Match: ${analiseIA.setor} (${(analiseIA.confidence * 100).toFixed(0)}%)`);
     }
     
-    // STEP 2: LLM só se pattern não detectou (condição de confiança)
     if (!analiseIA || analiseIA.confidence < 0.75) {
       try {
         const respLLM = await base44.asServiceRole.integrations.Core.InvokeLLM({
           model: 'gemini_3_flash',
-          prompt: `Analise a mensagem do cliente e classifique:
-
-MENSAGEM: "${textoCompleto}"
-TIPO ATUAL: ${contact.tipo_contato || 'novo'}
-
-Retorne JSON estruturado com:
-- intencao: descrição curta da intenção (ex: "compra_pc_gamer", "suporte_defeito")
-- setor: "vendas" | "assistencia" | "financeiro" | "fornecedor"
-- tipo_contato: "lead" | "cliente" | "fornecedor" | "parceiro"
-- confidence: 0.0 a 1.0 (confiança da classificação)
-
-Regras:
-- Fornecedor → setor sempre "fornecedor"
-- Cliente com problema → "assistencia"
-- Cliente com boleto → "financeiro"
-- Lead novo → "vendas"`,
+          prompt: `Analise a mensagem do cliente e classifique:\n\nMENSAGEM: "${textoCompleto}"\nTIPO ATUAL: ${contact.tipo_contato || 'novo'}\n\nRetorne JSON estruturado com:\n- intencao: descrição curta da intenção (ex: "compra_pc_gamer", "suporte_defeito")\n- setor: "vendas" | "assistencia" | "financeiro" | "fornecedor"\n- tipo_contato: "lead" | "cliente" | "fornecedor" | "parceiro"\n- confidence: 0.0 a 1.0 (confiança da classificação)\n\nRegras:\n- Fornecedor → setor sempre "fornecedor"\n- Cliente com problema → "assistencia"\n- Cliente com boleto → "financeiro"\n- Lead novo → "vendas"`,
           response_json_schema: {
             type: 'object',
             properties: {
@@ -347,7 +336,6 @@ Regras:
         console.log(`[SKILL-PRIMEIRO-CONTATO] 🧠 LLM: ${analiseIA.setor} (${(analiseIA.confidence * 100).toFixed(0)}%)`);
       } catch (e) {
         console.warn('[SKILL-PRIMEIRO-CONTATO] ⚠️ LLM falhou, usando padrão seguro:', e.message);
-        // Fallback conservador
         analiseIA = {
           setor: 'vendas',
           confidence: 0.5,
@@ -358,25 +346,21 @@ Regras:
       }
     }
 
-    // Fallback para keywords se LLM falhou
     const tipoContatoAtualizado = analiseIA?.tipo_contato || detectarTipoContato(textoCompleto, contact.tipo_contato);
     const setorDetectado = analiseIA?.setor || detectarSetorPorIntencao(textoCompleto, tipoContatoAtualizado);
-    const confidence = analiseIA?.confidence || 0.8; // Keywords = 80% confiança
+    const confidence = analiseIA?.confidence || 0.8;
     const intencaoDetectada = analiseIA?.intencao || 'intent_keywords';
     
     console.log(`[SKILL-PRIMEIRO-CONTATO] 🎯 Tipo: ${tipoContatoAtualizado} | Setor: ${setorDetectado} | Conf: ${(confidence * 100).toFixed(0)}%`);
 
-    // Atualizar tipo se mudou
     if (tipoContatoAtualizado !== contact.tipo_contato) {
       await base44.asServiceRole.entities.Contact.update(contact.id, {
         tipo_contato: tipoContatoAtualizado
       });
     }
 
-    // ══════════════════════════════════════════════════════════════════
-    // STEP 4: Buscar atendente disponível
-    // ══════════════════════════════════════════════════════════════════
-    const atendente = await buscarAtendenteDisponivel(base44, setorDetectado);
+    // STEP 4: Buscar atendente disponível (usa cache do batch se disponível)
+    const atendente = await buscarAtendenteDisponivel(base44, setorDetectado, batchCache);
 
     if (!atendente) {
       console.warn(`[SKILL-PRIMEIRO-CONTATO] ⚠️ Nenhum atendente disponível em ${setorDetectado} — criando WorkQueueItem`);
