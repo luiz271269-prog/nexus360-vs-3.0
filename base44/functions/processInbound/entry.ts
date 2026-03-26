@@ -110,11 +110,45 @@ Deno.serve(async (req) => {
   }
 
   // ════════════════════════════════════════════════════════════════
-  // [INBOUND-GATE] CAMADA 5 — BATCH WINDOW (10 segundos)
-  // Foto + legenda chegam como 2 webhooks separados (1-3s de diferença).
-  // Se há 2+ mensagens do mesmo contato nos últimos 10s, aguarda 3s
-  // para agrupar antes de prosseguir — evita duplo disparo de URA.
+  // LOCK POR CONTATO: Serializa processamento do mesmo contato.
+  // Se já existe instância rodando para este contact_id, descarta.
+  // Lock expira em 10s automaticamente (cobre falhas/retornos antecipados).
   // ════════════════════════════════════════════════════════════════
+  let lockMsgId = null;
+  if (contact?.id) {
+    try {
+      const dezSegAtras = new Date(Date.now() - 10_000).toISOString();
+      const lockExistente = await base44.asServiceRole.entities.Message.filter({
+        whatsapp_message_id: 'lock_' + contact.id,
+        status: 'processando',
+        created_date: { $gte: dezSegAtras }
+      }, '-created_date', 1);
+
+      if (lockExistente?.length > 0) {
+        console.log(`[${VERSION}] 🔒 CONTACT LOCK: já existe instância processando contact_id=${contact.id} — descartando`);
+        return Response.json({ success: true, skipped: true, reason: 'contact_lock' });
+      }
+
+      // Criar lock
+      const lockMsg = await base44.asServiceRole.entities.Message.create({
+        thread_id: thread?.id || contact.id,
+        sender_id: contact.id,
+        sender_type: 'contact',
+        content: '[LOCK]',
+        channel: 'interno',
+        whatsapp_message_id: 'lock_' + contact.id,
+        status: 'processando',
+        visibility: 'internal_only'
+      });
+      lockMsgId = lockMsg?.id;
+      console.log(`[${VERSION}] 🔓 CONTACT LOCK criado: ${lockMsgId} para contact_id=${contact.id}`);
+    } catch (e) {
+      console.warn(`[${VERSION}] ⚠️ Erro ao criar lock (prosseguindo sem lock):`, e.message);
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // [INBOUND-GATE] CAMADA 5 — BATCH WINDOW (10 segundos)
   if (contact?.id) {
     try {
       const dezSegAtras = new Date(Date.now() - 10_000).toISOString();
@@ -657,5 +691,13 @@ Deno.serve(async (req) => {
   result.pipeline.push('normal_message');
   result.actions.push('message_in_cycle_no_ura');
   console.log(`[${VERSION}] ✅ Mensagem processada`);
+
+  // Liberar lock ao final do processamento bem-sucedido
+  if (lockMsgId) {
+    base44.asServiceRole.entities.Message.delete(lockMsgId).catch(e =>
+      console.warn(`[${VERSION}] ⚠️ Erro ao liberar lock ${lockMsgId}:`, e.message)
+    );
+  }
+
   return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
 });
