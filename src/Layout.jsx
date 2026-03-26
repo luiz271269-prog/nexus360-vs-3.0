@@ -33,6 +33,10 @@ import { Badge } from "@/components/ui/badge";
 import NexusChat from "../components/global/NexusChat";
 import NotificationSystem from "../components/comunicacao/NotificationSystem";
 import CopilotoIA from "../components/global/CopilotoIA";
+import InitializadorSistema from "../components/global/InitializadorSistema";
+import CacheBuster from "../components/global/CacheBuster";
+import DeploymentBanner from "../components/global/DeploymentBanner";
+import UserAuthWidget from "../components/global/UserAuthWidget";
 
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
   const isActive = window.location.pathname === new URL(href, window.location.origin).pathname;
