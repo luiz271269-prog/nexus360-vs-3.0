@@ -5,6 +5,7 @@ import PlaybookManagerURA from "./PlaybookManagerURA";
 import PlaybookManager from "./PlaybookManager";
 import QuickRepliesManager from "../comunicacao/QuickRepliesManager";
 import GerenciadorPromocoes from "./GerenciadorPromocoes";
+import CustoAutomacoesTab from "./CustoAutomacoesTab";
 
 /**
  * Biblioteca de Automações 2.0
@@ -91,19 +92,9 @@ export default function BibliotecaAutomacoes() {
           />
         </TabsContent>
 
-        {/* TAB 5: DASHBOARD GLOBAL */}
+        {/* TAB 5: DASHBOARD / CUSTO */}
         <TabsContent value="dashboard" className="m-0">
-          <div className="bg-white rounded-xl p-8 border border-slate-200 shadow-sm">
-            <div className="text-center">
-              <BarChart3 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                Dashboard de Automações
-              </h3>
-              <p className="text-slate-600 text-sm">
-                Métricas consolidadas de URAs, Playbooks e Promoções em breve
-              </p>
-            </div>
-          </div>
+          <CustoAutomacoesTab />
         </TabsContent>
       </Tabs>
     </div>
