@@ -301,18 +301,13 @@ export default function MessageInput({
         onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0], 'image')}
         style={{ display: 'none' }}
       />
-      {/* Input de câmera - aceita foto E vídeo */}
+      {/* Input de câmera - apenas câmera no mobile */}
       <input
         ref={cameraInputRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*"
         capture="environment"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          const type = file.type.startsWith('video/') ? 'video' : 'image';
-          handleFileSelect(file, type);
-        }}
+        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0], 'image')}
         style={{ display: 'none' }}
       />
       <input
