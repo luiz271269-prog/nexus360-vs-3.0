@@ -312,10 +312,9 @@ export default function MessageInput({
           if (!file) return;
           const type = file.type.startsWith('video/') ? 'video' : 'image';
           handleFileSelect(file, type);
-          // Reset input para permitir selecionar o mesmo arquivo novamente
           if (cameraInputRef.current) cameraInputRef.current.value = '';
         }}
-        style={{ opacity: '0', position: 'absolute', pointerEvents: 'none', width: 0, height: 0 }}
+        style={{ position: 'fixed', left: '-9999px', top: '-9999px' }}
       />
       <input
         ref={videoInputRef}
