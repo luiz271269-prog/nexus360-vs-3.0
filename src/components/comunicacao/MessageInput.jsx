@@ -414,7 +414,7 @@ export default function MessageInput({
             variant="ghost"
             size="icon"
             className="bg-transparent text-slate-50 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-8 w-8 md:h-9 md:w-9 flex-shrink-0"
-            disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || !podeEnviarMidias}
+            disabled={enviando || (thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group' && carregandoContato) || gravandoAudio || modoSelecao || !podeEnviarMidias}
             onClick={() => setShowAttachMenu(!showAttachMenu)}
             title={!podeEnviarMidias ? "Sem permissão para enviar mídias" : "Anexar arquivo"}
           >
@@ -516,9 +516,9 @@ export default function MessageInput({
             variant="ghost"
             size="icon"
             className="md:hidden text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-8 w-8 flex-shrink-0"
-            disabled={enviando || gravandoAudio || modoSelecao || uploadingPastedFile}
+            disabled={enviando || gravandoAudio || modoSelecao || uploadingPastedFile || false}
             onClick={() => cameraInputRef.current?.click()}
-            title="Tirar foto"
+            title="Foto / Vídeo"
           >
             <Camera className="w-4 h-4 text-slate-600" />
           </Button>
@@ -655,7 +655,7 @@ export default function MessageInput({
               modoSelecao || 
               uploadingPastedFile || 
               !podeEnviarMensagens || 
-              (!modoSelecaoMultipla && carregandoContato) ||
+              (!modoSelecaoMultipla && carregandoContato && thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group') ||
               (!mensagemTexto.trim() && !pastedImage && !selectedFile)
             }
             className={cn(
