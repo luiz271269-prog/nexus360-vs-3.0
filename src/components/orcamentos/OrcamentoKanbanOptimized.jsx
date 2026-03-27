@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MoreHorizontal, Edit, Calendar, DollarSign, User, Filter, Brain, MessageSquare, Building2, Handshake, X, ArrowRight, Plus } from 'lucide-react';
+import { MoreHorizontal, Edit, Calendar, DollarSign, User, Brain, MessageSquare, Building2, Handshake, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from "@/api/base44Client";
 
@@ -232,33 +232,14 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
 
   const isAdmin = usuario?.role === 'admin';
 
-  const pertenceAoUsuario = useCallback((orcamento) => {
-    if (!usuario) return false;
-    const v = (orcamento.vendedor || '').toLowerCase().trim();
-    const fn = (usuario.full_name || '').toLowerCase().trim();
-    const el = (usuario.email || '').toLowerCase().split('@')[0];
-    const ep = el.split(/[\.\-\_]/)[0];
-    return v === fn || v === el || v === ep || fn.includes(v) || v.includes(ep);
-  }, [usuario]);
-
-  const orcamentosFiltrados = useMemo(() => {
-    return orcamentos.filter(o => {
-      if (isAdmin) return filtroVendedor === 'todos' ? true : o.vendedor === filtroVendedor;
-      return pertenceAoUsuario(o);
-    });
-  }, [orcamentos, isAdmin, filtroVendedor, pertenceAoUsuario]);
-
+  // Orçamentos chegam pré-filtrados pela página pai — sem filtro duplo interno
   const orcamentosPorStatus = useMemo(() => {
     const todos = Object.values(etapasFluxo).flatMap(e => e.statuses);
     return todos.reduce((acc, status) => {
-      acc[status] = orcamentosFiltrados.filter(o => o.status === status);
+      acc[status] = orcamentos.filter(o => o.status === status);
       return acc;
     }, {});
-  }, [orcamentosFiltrados]);
-
-  const vendedoresUnicos = useMemo(() =>
-    isAdmin ? [...new Set(orcamentos.map(o => (o.vendedor || '').trim()).filter(Boolean))].sort() : []
-  , [orcamentos, isAdmin]);
+  }, [orcamentos]);
 
   // ✅ DRAG com confirmação: o card fica na nova posição SÓ após sucesso do servidor
   const onDragEnd = useCallback(async (result) => {
