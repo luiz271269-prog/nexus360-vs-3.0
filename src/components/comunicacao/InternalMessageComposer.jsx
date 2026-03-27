@@ -580,7 +580,6 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                           <button
                             key={usuario.id}
                             onClick={(e) => { e.stopPropagation(); toggleUser(usuario.id); }}
-                            onTouchEnd={(e) => { e.stopPropagation(); toggleUser(usuario.id); }}
                             className={`w-full flex items-center gap-2 px-3 py-3 rounded-lg transition-all text-left border text-xs ${
                               isSelected ? 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300 shadow-sm' : 'hover:bg-slate-50 border-transparent hover:border-slate-200'
                             }`}
