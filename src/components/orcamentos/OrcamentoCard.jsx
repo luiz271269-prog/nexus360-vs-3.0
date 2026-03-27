@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, MoreHorizontal, Calendar, User } from 'lucide-react';
+import { MessageSquare, Pencil, Calendar, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
@@ -51,12 +51,7 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
           <h4 className="font-semibold text-slate-800 text-xs leading-tight truncate flex-1 uppercase tracking-tight">
             {orcamento.cliente_nome || '—'}
           </h4>
-          <button
-            className="text-slate-300 hover:text-slate-600 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-            onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(orcamento); }}
-          >
-            <MoreHorizontal className="w-3.5 h-3.5" />
-          </button>
+
         </div>
 
         {/* Linha 2: Número + Valor */}
@@ -92,21 +87,31 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
               {orcamento.probabilidade}
             </span>
           )}
-          <button
-            className={`ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
-              temTelefone
-                ? 'bg-green-500 hover:bg-green-600 text-white'
-                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            }`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (temTelefone && onWhatsApp) onWhatsApp(orcamento);
-            }}
-            disabled={!temTelefone}
-          >
-            <MessageSquare className="w-2.5 h-2.5" />
-            Msg
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+              onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(orcamento); }}
+              title="Editar orçamento"
+            >
+              <Pencil className="w-2.5 h-2.5" />
+              Editar
+            </button>
+            <button
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                temTelefone
+                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (temTelefone && onWhatsApp) onWhatsApp(orcamento);
+              }}
+              disabled={!temTelefone}
+            >
+              <MessageSquare className="w-2.5 h-2.5" />
+              Msg
+            </button>
+          </div>
         </div>
       </div>
     </div>
