@@ -89,22 +89,14 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                 <span className="text-[10px] font-mono text-slate-400">
                   {orcamento.numero_orcamento ? `#${orcamento.numero_orcamento}` : `#${orcamento.id?.slice(-4)}`}
                 </span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-5 w-5 p-0 text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex-shrink-0 rounded"
-                      onPointerDown={(e) => e.stopPropagation()}
-                    >
-                      <MoreHorizontal className="w-3 h-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="text-xs w-40">
-                    <DropdownMenuItem onClick={() => onEdit?.(orcamento)} className="text-xs py-1.5 flex items-center gap-2">
-                      <Edit className="w-3 h-3" /> Editar
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); onEdit?.(orcamento); }}
+                  className="h-5 w-5 p-0 flex items-center justify-center text-slate-400 hover:text-orange-600 hover:bg-orange-50 flex-shrink-0 rounded transition-colors"
+                  title="Editar orçamento"
+                >
+                  <Edit className="w-3 h-3" />
+                </button>
               </div>
               <span className="text-[11px] font-bold text-green-600">
                 {formatCurrency(orcamento.valor_total)}
