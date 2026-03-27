@@ -33,7 +33,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
           <TableRow>
             <TableHead className="w-[300px]">Razão Social / Fantasia</TableHead>
             <TableHead>CNPJ</TableHead>
-            <TableHead>Vendedor</TableHead>
+            <TableHead>Responsável</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Segmento</TableHead>
             <TableHead className="text-right">Valor Mensal</TableHead>

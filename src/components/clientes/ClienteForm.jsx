@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X, Save, Sparkles, AlertCircle, Info, Check, Loader2, Clock, MessageSquare } from "lucide-react";
 import VoiceInput from "../ui/VoiceInput";
-import { listarVendedoresParaSelect } from '../lib/vendedorSync';
+import { listarVendedoresParaSelect } from '../lib/vendedorSync'; // usa User internamente
 import { REGRAS_VALIDACAO_POR_ETAPA } from './ClienteFormValidation';
 import { toast } from "sonner";
 import HistoricoQualificacaoCliente from './HistoricoQualificacaoCliente';

@@ -367,38 +367,17 @@ export default function LeadsQualificados() {
     navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`));
   };
 
-  // ✅ PERMISSÕES: Carregar usuário atual + vendedor vinculado
+  // ✅ PERMISSÕES: Carregar usuário atual
   const [usuarioAtual, setUsuarioAtual] = React.useState(null);
-  const [vendedorDoUsuario, setVendedorDoUsuario] = React.useState(null); // nome do vendedor vinculado ao user
+  const [vendedorDoUsuario, setVendedorDoUsuario] = React.useState(null);
   
   React.useEffect(() => {
     const carregarUsuario = async () => {
       try {
         const user = await base44.auth.me();
         setUsuarioAtual(user);
-
-        // ✅ Buscar Vendedor vinculado a este user_id para filtros corretos
-        if (user) {
-          try {
-            const vendedores = await base44.entities.Vendedor.list();
-            // Procurar pelo user_id vinculado
-            const vendedor = vendedores.find(v => v.user_id === user.id);
-            if (vendedor) {
-              setVendedorDoUsuario(vendedor.nome);
-              console.log(`[CRM] Vendedor vinculado: "${vendedor.nome}" (user_id: ${user.id})`);
-            } else {
-              // Fallback: comparar pelo full_name
-              const porNome = vendedores.find(v =>
-                v.nome?.toLowerCase().trim() === user.full_name?.toLowerCase().trim()
-              );
-              setVendedorDoUsuario(porNome?.nome || user.full_name);
-              console.log(`[CRM] Vendedor por nome: "${porNome?.nome || user.full_name}"`);
-            }
-          } catch (e) {
-            console.warn('[CRM] Erro ao buscar vendedor do usuário:', e.message);
-            setVendedorDoUsuario(user.full_name);
-          }
-        }
+        // Vendedor = o próprio user (fonte unificada)
+        if (user) setVendedorDoUsuario(user.full_name);
       } catch (error) {
         console.error('Erro ao carregar usuário:', error);
       }

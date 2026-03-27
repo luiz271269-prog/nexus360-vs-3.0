@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Orcamento } from "@/entities/Orcamento";
-import { Cliente } from "@/entities/Cliente";
-import { Vendedor } from "@/entities/Vendedor";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,18 +23,19 @@ export default function OrcamentoForm({ orcamento, onSave, onClose }) {
   });
   
   const [clientes, setClientes] = useState([]);
-  const [vendedores, setVendedores] = useState([]);
+  const [usuarios, setUsuarios] = useState([]); // users como vendedores
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const carregarDadosApoio = async () => {
       try {
-        const [clientesData, vendedoresData] = await Promise.all([
-          Cliente.list(),
-          Vendedor.list()
+        const [clientesData, usersData] = await Promise.all([
+          base44.entities.Cliente.list(),
+          base44.entities.User.list()
         ]);
         setClientes(clientesData);
-        setVendedores(vendedoresData);
+        // Filtrar users que são vendedores
+        setUsuarios(usersData.filter(u => u.codigo || u.attendant_sector === 'vendas'));
       } catch (error) {
         console.error("Erro ao carregar dados de apoio:", error);
       }
@@ -71,13 +70,11 @@ export default function OrcamentoForm({ orcamento, onSave, onClose }) {
     const { name, value } = e.target;
     const novosProdutos = [...formData.produtos];
     novosProdutos[index][name] = value;
-    
     if (name === 'quantidade' || name === 'valor_unitario') {
       const qtd = Number(novosProdutos[index].quantidade) || 0;
       const valor = Number(novosProdutos[index].valor_unitario) || 0;
       novosProdutos[index].valor_total = qtd * valor;
     }
-    
     setFormData(prev => ({ ...prev, produtos: novosProdutos }));
   };
 
@@ -89,10 +86,7 @@ export default function OrcamentoForm({ orcamento, onSave, onClose }) {
   };
 
   const removerProduto = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      produtos: formData.produtos.filter((_, i) => i !== index)
-    }));
+    setFormData(prev => ({ ...prev, produtos: formData.produtos.filter((_, i) => i !== index) }));
   };
 
   const handleSubmit = async (e) => {
@@ -103,22 +97,21 @@ export default function OrcamentoForm({ orcamento, onSave, onClose }) {
         ...formData,
         valor_total: Number(formData.valor_total),
         produtos: formData.produtos.map(p => ({
-            ...p,
-            quantidade: Number(p.quantidade),
-            valor_unitario: Number(p.valor_unitario),
-            valor_total: Number(p.valor_total)
+          ...p,
+          quantidade: Number(p.quantidade),
+          valor_unitario: Number(p.valor_unitario),
+          valor_total: Number(p.valor_total)
         }))
       };
-
       if (orcamento) {
-        await Orcamento.update(orcamento.id, dataToSave);
+        await base44.entities.Orcamento.update(orcamento.id, dataToSave);
       } else {
-        await Orcamento.create(dataToSave);
+        await base44.entities.Orcamento.create(dataToSave);
       }
       onSave();
     } catch (error) {
       console.error("Erro ao salvar orçamento:", error);
-      alert("Erro ao salvar orçamento. Verifique os campos e tente novamente.");
+      alert("Erro ao salvar orçamento.");
     }
     setLoading(false);
   };
@@ -138,22 +131,18 @@ export default function OrcamentoForm({ orcamento, onSave, onClose }) {
             <div>
               <Label htmlFor="cliente_nome" className="text-slate-300">Cliente</Label>
               <Select name="cliente_nome" onValueChange={(value) => handleSelectChange('cliente_nome', value)} value={formData.cliente_nome}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                  <SelectValue placeholder="Selecione um cliente" />
-                </SelectTrigger>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white"><SelectValue placeholder="Selecione um cliente" /></SelectTrigger>
                 <SelectContent className="bg-slate-700 border-slate-600 text-white">
                   {clientes.map(c => <SelectItem key={c.id} value={c.razao_social}>{c.razao_social}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="vendedor" className="text-slate-300">Vendedor</Label>
-               <Select name="vendedor" onValueChange={(value) => handleSelectChange('vendedor', value)} value={formData.vendedor}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                  <SelectValue placeholder="Selecione um vendedor" />
-                </SelectTrigger>
+              <Label htmlFor="vendedor" className="text-slate-300">Responsável</Label>
+              <Select name="vendedor" onValueChange={(value) => handleSelectChange('vendedor', value)} value={formData.vendedor}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white"><SelectValue placeholder="Selecione o responsável" /></SelectTrigger>
                 <SelectContent className="bg-slate-700 border-slate-600 text-white">
-                  {vendedores.map(v => <SelectItem key={v.id} value={v.nome}>{v.nome}</SelectItem>)}
+                  {usuarios.map(u => <SelectItem key={u.id} value={u.full_name || u.email}>{u.full_name || u.email}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -165,22 +154,22 @@ export default function OrcamentoForm({ orcamento, onSave, onClose }) {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <Label htmlFor="data_orcamento" className="text-slate-300">Data</Label>
+              <Label className="text-slate-300">Data</Label>
               <Input type="date" name="data_orcamento" value={formData.data_orcamento} onChange={handleChange} className="bg-slate-700 border-slate-600 text-white" />
             </div>
-             <div>
-              <Label htmlFor="prazo_validade" className="text-slate-300">Validade</Label>
+            <div>
+              <Label className="text-slate-300">Validade</Label>
               <Input type="date" name="prazo_validade" value={formData.prazo_validade} onChange={handleChange} className="bg-slate-700 border-slate-600 text-white" />
             </div>
             <div>
-              <Label htmlFor="condicao_pagamento" className="text-slate-300">Cond. Pagamento</Label>
+              <Label className="text-slate-300">Cond. Pagamento</Label>
               <Input type="text" name="condicao_pagamento" value={formData.condicao_pagamento} onChange={handleChange} className="bg-slate-700 border-slate-600 text-white" />
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <Label htmlFor="status" className="text-slate-300">Status</Label>
+              <Label className="text-slate-300">Status</Label>
               <Select name="status" onValueChange={(value) => handleSelectChange('status', value)} value={formData.status}>
                 <SelectTrigger className="bg-slate-700 border-slate-600 text-white"><SelectValue/></SelectTrigger>
                 <SelectContent className="bg-slate-700 border-slate-600 text-white">
@@ -191,8 +180,8 @@ export default function OrcamentoForm({ orcamento, onSave, onClose }) {
                 </SelectContent>
               </Select>
             </div>
-             <div>
-              <Label htmlFor="probabilidade" className="text-slate-300">Probabilidade</Label>
+            <div>
+              <Label className="text-slate-300">Probabilidade</Label>
               <Select name="probabilidade" onValueChange={(value) => handleSelectChange('probabilidade', value)} value={formData.probabilidade}>
                 <SelectTrigger className="bg-slate-700 border-slate-600 text-white"><SelectValue/></SelectTrigger>
                 <SelectContent className="bg-slate-700 border-slate-600 text-white">
@@ -204,7 +193,6 @@ export default function OrcamentoForm({ orcamento, onSave, onClose }) {
             </div>
           </div>
 
-          {/* Produtos/Serviços */}
           <div>
             <h3 className="text-lg font-semibold text-white mb-3">Produtos/Serviços</h3>
             <div className="space-y-3">
@@ -213,47 +201,43 @@ export default function OrcamentoForm({ orcamento, onSave, onClose }) {
                   <div className="col-span-4">
                     <Input type="text" name="nome" placeholder="Nome do Produto" value={produto.nome} onChange={(e) => handleProdutoChange(index, e)} className="bg-slate-700 border-slate-600 text-white h-9" />
                   </div>
-                   <div className="col-span-2">
+                  <div className="col-span-2">
                     <Input type="number" name="quantidade" placeholder="Qtd" value={produto.quantidade} onChange={(e) => handleProdutoChange(index, e)} className="bg-slate-700 border-slate-600 text-white h-9" />
                   </div>
-                   <div className="col-span-2">
+                  <div className="col-span-2">
                     <Input type="number" step="0.01" name="valor_unitario" placeholder="Vl. Unit." value={produto.valor_unitario} onChange={(e) => handleProdutoChange(index, e)} className="bg-slate-700 border-slate-600 text-white h-9" />
                   </div>
-                   <div className="col-span-3">
+                  <div className="col-span-3">
                     <Input type="number" step="0.01" name="valor_total" placeholder="Vl. Total" value={produto.valor_total} readOnly className="bg-slate-900 border-slate-700 text-white h-9" />
                   </div>
                   <div className="col-span-1">
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removerProduto(index)} className="text-red-500 hover:bg-red-500/10 hover:text-red-400">
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removerProduto(index)} className="text-red-500 hover:bg-red-500/10">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
               ))}
             </div>
-             <Button type="button" variant="outline" onClick={adicionarProduto} className="mt-3 bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar Produto
+            <Button type="button" variant="outline" onClick={adicionarProduto} className="mt-3 bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700">
+              <Plus className="w-4 h-4 mr-2" /> Adicionar Produto
             </Button>
           </div>
           
-           <div>
-              <Label htmlFor="observacoes" className="text-slate-300">Observações</Label>
-              <Textarea name="observacoes" value={formData.observacoes} onChange={handleChange} className="bg-slate-700 border-slate-600 text-white" />
-            </div>
-
+          <div>
+            <Label className="text-slate-300">Observações</Label>
+            <Textarea name="observacoes" value={formData.observacoes} onChange={handleChange} className="bg-slate-700 border-slate-600 text-white" />
+          </div>
         </form>
         
         <div className="p-6 border-t border-slate-700 flex justify-between items-center bg-slate-800/50">
-           <div className="text-white">
-              <span className="text-slate-400">Valor Total:</span>
-              <span className="text-2xl font-bold ml-2 text-amber-400">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(formData.valor_total)}
-              </span>
-           </div>
+          <div className="text-white">
+            <span className="text-slate-400">Valor Total:</span>
+            <span className="text-2xl font-bold ml-2 text-amber-400">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(formData.valor_total)}
+            </span>
+          </div>
           <div className="flex gap-3">
-            <Button onClick={onClose} variant="outline" className="bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white">
-              Cancelar
-            </Button>
+            <Button onClick={onClose} variant="outline" className="bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700">Cancelar</Button>
             <Button onClick={handleSubmit} disabled={loading} className="bg-amber-500 hover:bg-amber-600 text-white font-semibold min-w-[120px]">
               {loading ? <Loader2 className="animate-spin w-5 h-5" /> : 'Salvar Orçamento'}
             </Button>

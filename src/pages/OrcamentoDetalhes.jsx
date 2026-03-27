@@ -153,7 +153,10 @@ RETORNE o JSON estruturado conforme o schema.`;
         : origemImportacao ? 'importacao'
         : 'novo';
 
-      const vendedoresData = await base44.entities.Vendedor.list();
+      const usersData = await base44.entities.User.list();
+      const vendedoresData = usersData
+        .filter(u => u.codigo || u.attendant_sector === 'vendas')
+        .map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
       setVendedores(Array.isArray(vendedoresData) ? vendedoresData : []);
 
       if (modoOperacao === 'edicao') {
@@ -398,10 +401,13 @@ RETORNE o JSON estruturado conforme o schema.`;
       setImagemAnexada(fileUrl);
 
       toast.info('🔍 Carregando dados da base...');
-      const [clientes, vendedoresBase] = await Promise.all([
+      const [clientes, usersBase] = await Promise.all([
         base44.entities.Cliente.list(),
-        base44.entities.Vendedor.list()
+        base44.entities.User.list()
       ]);
+      const vendedoresBase = usersBase
+        .filter(u => u.codigo || u.attendant_sector === 'vendas')
+        .map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
 
       const clientesInfo = clientes.map(c => ({
         id: c.id,
