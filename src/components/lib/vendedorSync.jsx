@@ -1,49 +1,29 @@
 /**
- * ╔═══════════════════════════════════════════════════════════════╗
- * ║  SINCRONIZADOR DE VENDEDORES/ATENDENTES                      ║
- * ║  Normaliza e sincroniza dados entre Cliente e Vendedor       ║
- * ╚═══════════════════════════════════════════════════════════════╝
+ * Sincronizador de Vendedores — agora vendedor = User com campo "codigo" preenchido
+ * Fonte única: entidade User
  */
 
 import { base44 } from "@/api/base44Client";
 
-/**
- * Normaliza o nome do vendedor (remove espaços extras, acentos, etc)
- */
 export function normalizarNome(nome) {
   if (!nome) return '';
-  
-  return nome
-    .trim()
-    .replace(/\s+/g, ' ') // Remove espaços duplicados
-    .normalize("NFD") // Normaliza caracteres Unicode
-    .replace(/[\u0300-\u036f]/g, ""); // Remove acentos
+  return nome.trim().replace(/\s+/g, ' ').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 /**
- * Busca vendedor por nome (com normalização)
+ * Busca User (vendedor) pelo full_name ou display_name
  */
 export async function buscarVendedorPorNome(nome) {
   if (!nome) return null;
-  
   try {
-    const vendedores = await base44.entities.Vendedor.list();
-    const nomeNormalizado = normalizarNome(nome).toLowerCase();
-    
-    // Busca exata primeiro
-    let vendedor = vendedores.find(v => 
-      normalizarNome(v.nome).toLowerCase() === nomeNormalizado
-    );
-    
-    // Se não encontrou, busca parcial
-    if (!vendedor) {
-      vendedor = vendedores.find(v => 
-        normalizarNome(v.nome).toLowerCase().includes(nomeNormalizado) ||
-        nomeNormalizado.includes(normalizarNome(v.nome).toLowerCase())
-      );
-    }
-    
-    return vendedor;
+    const users = await base44.entities.User.list();
+    const nomeNorm = normalizarNome(nome).toLowerCase();
+
+    return users.find(u =>
+      normalizarNome(u.full_name || '').toLowerCase() === nomeNorm ||
+      normalizarNome(u.full_name || '').toLowerCase().includes(nomeNorm) ||
+      nomeNorm.includes(normalizarNome(u.full_name || '').toLowerCase())
+    ) || null;
   } catch (error) {
     console.error('Erro ao buscar vendedor:', error);
     return null;
@@ -51,168 +31,94 @@ export async function buscarVendedorPorNome(nome) {
 }
 
 /**
- * Sincroniza todos os clientes com vendedores
- * Atualiza vendedor_id baseado em vendedor_responsavel
+ * Sincroniza clientes com Users (vendedores) por nome
  */
 export async function sincronizarClientesComVendedores() {
-  console.log('🔄 Iniciando sincronização de Clientes com Vendedores...');
-  
+  console.log('🔄 Sincronizando Clientes com Users (vendedores)...');
   try {
-    // Carregar todos os vendedores e clientes
-    const [vendedores, clientes] = await Promise.all([
-      base44.entities.Vendedor.list(),
+    const [users, clientes] = await Promise.all([
+      base44.entities.User.list(),
       base44.entities.Cliente.list()
     ]);
-    
-    console.log(`📊 Encontrados ${vendedores.length} vendedores e ${clientes.length} clientes`);
-    
-    let atualizados = 0;
-    let erros = 0;
-    let semVendedor = 0;
-    
-    // Criar mapa de vendedores (nome normalizado -> vendedor)
+
+    const vendedores = users.filter(u => u.codigo || u.attendant_sector === 'vendas');
+
     const vendedorMap = new Map();
-    vendedores.forEach(v => {
-      const nomeNormalizado = normalizarNome(v.nome).toLowerCase();
-      vendedorMap.set(nomeNormalizado, v);
+    vendedores.forEach(u => {
+      const nome = normalizarNome(u.full_name || '').toLowerCase();
+      if (nome) vendedorMap.set(nome, u);
     });
-    
-    // Processar cada cliente
+
+    let atualizados = 0, erros = 0, semVendedor = 0;
+
     for (const cliente of clientes) {
-      try {
-        if (!cliente.vendedor_responsavel) {
-          semVendedor++;
-          continue;
-        }
-        
-        const nomeNormalizado = normalizarNome(cliente.vendedor_responsavel).toLowerCase();
-        const vendedor = vendedorMap.get(nomeNormalizado);
-        
-        if (vendedor) {
-          // Atualizar cliente com ID do vendedor E nome normalizado
+      if (!cliente.vendedor_responsavel) { semVendedor++; continue; }
+      const nomeNorm = normalizarNome(cliente.vendedor_responsavel).toLowerCase();
+      const user = vendedorMap.get(nomeNorm);
+      if (user) {
+        try {
           await base44.entities.Cliente.update(cliente.id, {
-            vendedor_id: vendedor.id,
-            vendedor_responsavel: vendedor.nome // Normaliza o nome também
+            vendedor_id: user.id,
+            vendedor_responsavel: user.full_name
           });
           atualizados++;
-          
-          if (atualizados % 10 === 0) {
-            console.log(`✅ ${atualizados} clientes sincronizados...`);
-          }
-        } else {
-          console.warn(`⚠️ Vendedor não encontrado para cliente "${cliente.razao_social}": "${cliente.vendedor_responsavel}"`);
-          erros++;
-        }
-      } catch (error) {
-        console.error(`❌ Erro ao sincronizar cliente ${cliente.id}:`, error);
+        } catch { erros++; }
+      } else {
         erros++;
       }
     }
-    
-    const resultado = {
-      total: clientes.length,
-      atualizados,
-      erros,
-      semVendedor,
-      sucesso: true
-    };
-    
+
+    const resultado = { total: clientes.length, atualizados, erros, semVendedor, sucesso: true };
     console.log('✅ Sincronização concluída:', resultado);
     return resultado;
-    
   } catch (error) {
-    console.error('❌ Erro na sincronização:', error);
-    return {
-      sucesso: false,
-      erro: error.message
-    };
-  }
-}
-
-/**
- * Atribui vendedor a um cliente (usando ID)
- */
-export async function atribuirVendedorAoCliente(clienteId, vendedorId) {
-  try {
-    const vendedor = await base44.entities.Vendedor.get(vendedorId);
-    
-    if (!vendedor) {
-      throw new Error('Vendedor não encontrado');
-    }
-    
-    await base44.entities.Cliente.update(clienteId, {
-      vendedor_id: vendedor.id,
-      vendedor_responsavel: vendedor.nome
-    });
-    
-    return { sucesso: true, vendedor };
-  } catch (error) {
-    console.error('Erro ao atribuir vendedor:', error);
+    console.error('❌ Erro:', error);
     return { sucesso: false, erro: error.message };
   }
 }
 
 /**
- * Lista vendedores formatados para Select/Combobox
+ * Atribui vendedor (User) a um cliente
  */
-export async function listarVendedoresParaSelect() {
+export async function atribuirVendedorAoCliente(clienteId, userId) {
   try {
-    const vendedores = await base44.entities.Vendedor.list('nome');
-    
-    // ✅ Deduplicar por nome (evita "Thiago" aparecendo 2x)
-    const nomesVistos = new Set();
-    return vendedores
-      .filter(v => {
-        if (!v.nome) return false;
-        const nomeNorm = v.nome.trim().toLowerCase();
-        if (nomesVistos.has(nomeNorm)) return false;
-        nomesVistos.add(nomeNorm);
-        return true;
-      })
-      .map(v => ({
-        value: v.id,
-        label: v.nome,
-        email: v.email,
-        codigo: v.codigo
-      }));
+    const user = await base44.entities.User.get(userId);
+    if (!user) throw new Error('Usuário não encontrado');
+    await base44.entities.Cliente.update(clienteId, {
+      vendedor_id: user.id,
+      vendedor_responsavel: user.full_name
+    });
+    return { sucesso: true, vendedor: user };
   } catch (error) {
-    console.error('Erro ao listar vendedores:', error);
-    return [];
+    return { sucesso: false, erro: error.message };
   }
 }
 
 /**
- * Verifica e corrige duplicatas de vendedores
+ * Lista Users que são vendedores (têm codigo ou setor=vendas) para Select/Combobox
  */
-export async function verificarDuplicatasVendedores() {
+export async function listarVendedoresParaSelect() {
   try {
-    const vendedores = await base44.entities.Vendedor.list();
-    const nomesMap = new Map();
-    const duplicatas = [];
-    
-    vendedores.forEach(v => {
-      const nomeNormalizado = normalizarNome(v.nome).toLowerCase();
-      
-      if (nomesMap.has(nomeNormalizado)) {
-        duplicatas.push({
-          nome: v.nome,
-          duplicadoDe: nomesMap.get(nomeNormalizado).nome,
-          ids: [nomesMap.get(nomeNormalizado).id, v.id]
-        });
-      } else {
-        nomesMap.set(nomeNormalizado, v);
-      }
-    });
-    
-    if (duplicatas.length > 0) {
-      console.warn('⚠️ Duplicatas de vendedores encontradas:', duplicatas);
-    } else {
-      console.log('✅ Nenhuma duplicata de vendedor encontrada');
-    }
-    
-    return duplicatas;
+    const users = await base44.entities.User.list();
+    const vendedores = users.filter(u => u.codigo || u.attendant_sector === 'vendas');
+
+    // Deduplicar por nome
+    const nomesVistos = new Set();
+    return vendedores
+      .filter(u => {
+        const nome = (u.full_name || '').trim().toLowerCase();
+        if (!nome || nomesVistos.has(nome)) return false;
+        nomesVistos.add(nome);
+        return true;
+      })
+      .map(u => ({
+        value: u.id,
+        label: u.full_name || u.email,
+        email: u.email,
+        codigo: u.codigo
+      }));
   } catch (error) {
-    console.error('Erro ao verificar duplicatas:', error);
+    console.error('Erro ao listar vendedores:', error);
     return [];
   }
 }

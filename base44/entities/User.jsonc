@@ -1,0 +1,296 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "display_name": {
+      "type": "string",
+      "description": "Nome de exibi\u00e7\u00e3o customizado (ex: Rafa, Mari)"
+    },
+    "attendant_sector": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "compras",
+        "geral"
+      ],
+      "description": "Setor de atua\u00e7\u00e3o do atendente"
+    },
+    "attendant_role": {
+      "type": "string",
+      "enum": [
+        "junior",
+        "pleno",
+        "senior",
+        "coordenador",
+        "gerente"
+      ],
+      "default": "pleno",
+      "description": "N\u00edvel do atendente na hierarquia"
+    },
+    "paginas_acesso": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Lista de p\u00e1ginas que o usu\u00e1rio pode acessar (vazio = todas)"
+    },
+    "agenda_publica": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se permite agendamentos externos (Agenda IA) sem ser respons\u00e1vel direto"
+    },
+    "permissoes_nexus": {
+      "type": "object",
+      "description": "Permiss\u00f5es customizadas do Nexus360",
+      "properties": {
+        "can_send_messages": {
+          "type": "boolean",
+          "default": true
+        },
+        "can_view_all_threads": {
+          "type": "boolean",
+          "default": false
+        },
+        "can_manage_contacts": {
+          "type": "boolean",
+          "default": true
+        },
+        "can_assign_threads": {
+          "type": "boolean",
+          "default": false
+        },
+        "can_view_analytics": {
+          "type": "boolean",
+          "default": false
+        },
+        "blocked_sectors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "blocked_integrations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "blocked_channels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "custom_actions": {
+          "type": "object",
+          "default": {}
+        }
+      }
+    },
+    "diagnostico_nexus": {
+      "type": "object",
+      "description": "Configura\u00e7\u00e3o de diagn\u00f3stico avan\u00e7ado",
+      "properties": {
+        "ativo": {
+          "type": "boolean",
+          "default": false,
+          "description": "Ativar logs detalhados de decis\u00f5es"
+        },
+        "log_level": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warn",
+            "error",
+            "debug"
+          ],
+          "default": "info"
+        }
+      }
+    },
+    "calendar_sync_config": {
+      "type": "object",
+      "description": "Configura\u00e7\u00e3o de sincroniza\u00e7\u00e3o com calend\u00e1rios externos",
+      "properties": {
+        "google_calendar_enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "google_calendar_id": {
+          "type": "string"
+        },
+        "outlook_calendar_enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "outlook_refresh_token": {
+          "type": "string"
+        },
+        "outlook_token_expires_at": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "sync_mode": {
+          "type": "string",
+          "enum": [
+            "todos",
+            "apenas_meus",
+            "meu_setor"
+          ],
+          "default": "apenas_meus"
+        },
+        "sync_direction": {
+          "type": "string",
+          "enum": [
+            "bidirectional",
+            "nexus_to_calendar",
+            "calendar_to_nexus"
+          ],
+          "default": "bidirectional"
+        },
+        "last_sync_at": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "whatsapp_permissions": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "default": [],
+      "description": "Permiss\u00f5es por integra\u00e7\u00e3o WhatsApp"
+    },
+    "permissoes_visualizacao": {
+      "type": "object",
+      "description": "Filtros de visualiza\u00e7\u00e3o por setor/integra\u00e7\u00e3o"
+    },
+    "codigo": {
+      "type": "string",
+      "description": "C\u00f3digo do vendedor (ex: V-01). Presente = usu\u00e1rio \u00e9 vendedor."
+    },
+    "telefone_ramal": {
+      "type": "string",
+      "description": "Ramal/telefone do vendedor"
+    },
+    "foto_url": {
+      "type": "string",
+      "description": "URL da foto de perfil (3x4)"
+    },
+    "meta_mensal": {
+      "type": "number",
+      "description": "Meta de faturamento mensal em R$"
+    },
+    "meta_semanal": {
+      "type": "number",
+      "description": "Meta de faturamento semanal em R$"
+    },
+    "meta_ligacoes_diarias": {
+      "type": "number",
+      "default": 10,
+      "description": "Meta de liga\u00e7\u00f5es por dia"
+    },
+    "meta_whatsapp_diarios": {
+      "type": "number",
+      "default": 5,
+      "description": "Meta de mensagens WhatsApp por dia"
+    },
+    "meta_emails_diarios": {
+      "type": "number",
+      "default": 3,
+      "description": "Meta de e-mails por dia"
+    },
+    "status_vendedor": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "inativo",
+        "ferias"
+      ],
+      "default": "ativo",
+      "description": "Status do vendedor"
+    },
+    "comissao_percentual": {
+      "type": "number",
+      "description": "% de comiss\u00e3o"
+    },
+    "data_admissao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de admiss\u00e3o"
+    },
+    "carga_trabalho_atual": {
+      "type": "number",
+      "default": 0,
+      "description": "N\u00famero de leads atribu\u00eddos"
+    },
+    "capacidade_maxima": {
+      "type": "number",
+      "default": 20,
+      "description": "M\u00e1ximo de leads simult\u00e2neos"
+    },
+    "disponivel_agora": {
+      "type": "boolean",
+      "default": true
+    },
+    "score_roteamento": {
+      "type": "number",
+      "default": 0
+    },
+    "ultima_alocacao": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "segmentos_especialidade": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "perfil_vendedor": {
+      "type": "string",
+      "enum": [
+        "analitico",
+        "consultivo",
+        "agressivo",
+        "relacional"
+      ],
+      "default": "consultivo"
+    },
+    "horario_atendimento": {
+      "type": "object",
+      "properties": {
+        "inicio": {
+          "type": "string",
+          "default": "08:00"
+        },
+        "fim": {
+          "type": "string",
+          "default": "18:00"
+        },
+        "dias_semana": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "default": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      }
+    }
+  },
+  "required": []
+}
