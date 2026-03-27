@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MoreHorizontal, Edit, Calendar, DollarSign, User, Brain, MessageSquare, Building2, Handshake, X, Plus } from 'lucide-react';
+import { MoreHorizontal, Edit, Calendar, DollarSign, User, Brain, MessageSquare, Building2, Handshake } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from "@/api/base44Client";
 
@@ -215,9 +215,6 @@ KanbanColumn.displayName = 'KanbanColumn';
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, onUpdateStatus, usuario, onEdit, onMostrarInsightsIA }) {
-  const [chatAberto, setChatAberto] = useState(false);
-  const [orcamentoChat, setOrcamentoChat] = useState(null);
-  const [filtroVendedor, setFiltroVendedor] = useState('todos');
 
   // ✅ OPTIMISTIC STATE: estado local que antecipa a mudança sem esperar o servidor
   const [localOrcamentos, setLocalOrcamentos] = useState(null);
@@ -276,14 +273,13 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
 
   const onAbrirChat = useCallback(async (orcamento) => {
     const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;
-    if (!telefone) { toast.error('Telefone não cadastrado'); return; }
+    if (!telefone) { toast.error('Telefone não cadastrado neste orçamento'); return; }
     try {
       const contatos = await base44.entities.Contact.filter({ telefone_canonico: telefone.replace(/\D/g, '') });
       if (contatos?.length > 0) {
-        setOrcamentoChat({ ...orcamento, contact_id: contatos[0].id });
-        setChatAberto(true);
+        window.location.href = `/Comunicacao?contact_id=${contatos[0].id}`;
       } else {
-        toast.error('Contato não encontrado');
+        toast.error('Contato não encontrado na Central de Comunicação');
       }
     } catch { toast.error('Erro ao buscar contato'); }
   }, []);
@@ -291,39 +287,6 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="space-y-4">
-
-        {/* Chat flutuante */}
-        {chatAberto && orcamentoChat && (
-          <div className="fixed inset-0 bg-black/30 z-40 flex items-end md:items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full md:w-96 h-[500px] flex flex-col border border-slate-200">
-              <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 rounded-t-2xl flex items-center justify-between">
-                <h3 className="text-white font-semibold text-sm">{orcamentoChat.cliente_nome}</h3>
-                <button onClick={() => setChatAberto(false)} className="text-white hover:bg-white/20 p-1 rounded">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex-1 bg-slate-50 flex items-center justify-center text-slate-500 text-sm">
-                💬 Abrindo conversa com {orcamentoChat.cliente_nome}...
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Filtro de vendedor (admin) */}
-        {isAdmin && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg border border-slate-200">
-            <Filter className="w-4 h-4 text-slate-600" />
-            <label className="text-xs font-medium text-slate-600">Filtrar por Vendedor:</label>
-            <select
-              value={filtroVendedor}
-              onChange={e => setFiltroVendedor(e.target.value)}
-              className="text-xs px-2 py-1 border border-slate-300 rounded bg-white cursor-pointer hover:border-orange-400 focus:ring-2 focus:ring-orange-400"
-            >
-              <option value="todos">Todos os Vendedores</option>
-              {vendedoresUnicos.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-          </div>
-        )}
 
         {/* Tabs por etapa */}
         <Tabs defaultValue="negociacao" className="w-full">
