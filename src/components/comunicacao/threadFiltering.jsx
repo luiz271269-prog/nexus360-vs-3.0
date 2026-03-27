@@ -24,6 +24,15 @@ export function aplicarFiltroEscopo(thread, usuario, filtros, userPermissions, D
     return true;
   }
 
+  // ✅ Verificar delegacao: se assigned_user_id é alguem que delegou para mim
+  if (filtros.scope === 'my') {
+    const delegadores = userPermissions?.delegadoresPorMim || [];
+    if (delegadores.length > 0 && thread.assigned_user_id && delegadores.includes(thread.assigned_user_id)) {
+      if (DEBUG_VIS) console.log('[FILTER] ✅ Thread passou: delegacao ativa do usuario', thread.assigned_user_id);
+      return true;
+    }
+  }
+
   // ✅ Verificar histórico (atendentes_historico, shared_with_users)
   if (filtros.scope === 'my') {
     const uid = usuario?.id;

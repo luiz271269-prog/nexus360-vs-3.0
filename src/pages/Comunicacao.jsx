@@ -65,6 +65,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
 import { aplicarFiltroEscopo, calcularThreadsFiltradas, calcularListaRecentes, calcularListaBusca } from "../components/comunicacao/threadFiltering";
+import { useDelegacoesRecebidas } from "../components/comunicacao/useDelegacoesRecebidas";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
@@ -95,12 +96,15 @@ export default function Comunicacao() {
     }
   });
 
-  // ✅ NEXUS360: Construir permissões processadas
+  // ✅ Delegadores: usuarios que delegaram acesso para mim
+  const delegadoresPorMim = useDelegacoesRecebidas(usuario?.id);
+
+  // ✅ NEXUS360: Construir permissões processadas + injetar delegadores
   const userPermissions = React.useMemo(() => {
     if (!usuario) return null;
-
-    return permissionsService.buildUserPermissions(usuario, todasIntegracoes);
-  }, [usuario, todasIntegracoes]);
+    const perms = permissionsService.buildUserPermissions(usuario, todasIntegracoes);
+    return { ...perms, delegadoresPorMim };
+  }, [usuario, todasIntegracoes, delegadoresPorMim]);
 
   const [threadAtiva, setThreadAtiva] = React.useState(null);
   const [activeTab, setActiveTab] = React.useState("conversas");

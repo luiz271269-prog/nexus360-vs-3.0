@@ -585,7 +585,6 @@ export const VISIBILITY_MATRIX = [
     priority: 2.5,
     name: 'historico_atendimento',
     check: (userPerms, thread, contact) => {
-      // ✅ Cobre todos os campos de histórico (shared_with_users, atendentes_historico, metadata.atendentes_anteriores, ultimo_atendente_id)
       const uid = userPerms.id;
       const jaParticipou =
         thread.shared_with_users?.includes(uid) ||
@@ -598,6 +597,24 @@ export const VISIBILITY_MATRIX = [
           motivo: 'Usuário já atendeu esta conversa (histórico)',
           decision_path: ['ALLOW:historico_atendimento'],
           reason_code: 'HISTORY_ACCESS'
+        };
+      }
+      return null;
+    }
+  },
+
+  {
+    priority: 2.8,
+    name: 'delegacao_acesso',
+    check: (userPerms, thread, contact) => {
+      // Se o assigned_user_id da thread é um dos usuários que delegaram para mim
+      const delegadores = userPerms.delegadoresPorMim || [];
+      if (delegadores.length > 0 && thread.assigned_user_id && delegadores.includes(thread.assigned_user_id)) {
+        return {
+          visible: true,
+          motivo: 'Thread pertence a usuario que delegou acesso para mim',
+          decision_path: ['ALLOW:delegacao_acesso'],
+          reason_code: 'DELEGATION_ACCESS'
         };
       }
       return null;
