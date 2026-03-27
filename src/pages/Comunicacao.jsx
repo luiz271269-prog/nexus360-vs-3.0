@@ -175,8 +175,8 @@ export default function Comunicacao() {
 
   React.useEffect(() => {
     if (usuario && !localStorage.getItem('filterScope')) {
-      const isManager = usuario.role === 'admin' || usuario.role === 'supervisor';
-      setFilterScope(isManager ? 'all' : 'my');
+      // ✅ FIX: Todos os usuários iniciam com 'all' — segurança aplicada por canUserSeeThreadBase
+      setFilterScope('all');
     }
   }, [usuario]);
 
