@@ -24,7 +24,7 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.1.0-RATE-LIMIT-GUARD';
+const VERSION = 'v11.2.0-DEDUP-GUARD';
 const BUILD_DATE = '2026-03-27';
 
 const corsHeaders = {
@@ -626,36 +626,55 @@ async function handleMessage(dados, payloadBruto, base44) {
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
   // BUSCAR/CRIAR CONTATO
+  // ⚡ CAMADA 1: Busca rápida direta por telefone_canonico (evita race condition)
+  const telefoneCanonico = dados.from.replace(/\D/g, '');
   let contato;
   try {
-    console.log(`[${VERSION}] 🎯 Chamando getOrCreateContactCentralized para: ${dados.from}`);
-    const resultado = await retryOn429(() => base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
-      telefone: dados.from,
-      pushName: dados.pushName || null,
-      profilePicUrl: null,
-      integracaoId: integracaoId
-    }));
-    // ✅ CORREÇÃO v11.1.0: Se centralizada retornou rate_limit, não criar contato alternativo
-    if (resultado?.data?.error === 'rate_limit') {
-      console.warn(`[${VERSION}] ⚠️ rate_limit_contact: getOrCreateContactCentralized retornou rate_limit — Z-API fará retry automático`);
-      return jsonOk({ success: true, skipped: true, reason: 'rate_limit_contact' });
+    const buscaRapida = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
+      { telefone_canonico: telefoneCanonico }, 'created_date', 1
+    ));
+    if (buscaRapida?.length > 0) {
+      contato = buscaRapida[0];
+      console.log(`[${VERSION}] ⚡ Contato encontrado por busca rápida (Camada 1): ${contato.id} | ${contato.nome}`);
+      // Atualizar ultima_interacao de forma não-bloqueante
+      base44.asServiceRole.entities.Contact.update(contato.id, {
+        ultima_interacao: new Date().toISOString()
+      }).catch(() => {});
+    } else {
+      // Só chama centralizada se busca rápida não encontrou
+      console.log(`[${VERSION}] 🎯 Busca rápida vazia — chamando getOrCreateContactCentralized para: ${dados.from}`);
+      const resultado = await retryOn429(() => base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+        telefone: dados.from,
+        pushName: dados.pushName || null,
+        profilePicUrl: null,
+        integracaoId: integracaoId
+      }));
+      if (resultado?.data?.error === 'rate_limit') {
+        console.warn(`[${VERSION}] ⚠️ rate_limit_contact: getOrCreateContactCentralized retornou rate_limit — Z-API fará retry automático`);
+        return jsonOk({ success: true, skipped: true, reason: 'rate_limit_contact' });
+      }
+      if (!resultado?.data?.success || !resultado?.data?.contact) {
+        console.error(`[${VERSION}] ❌ getOrCreateContactCentralized falhou:`, resultado?.data);
+        return jsonServerError({ success: false, error: 'erro_contato_dedup' });
+      }
+      contato = resultado.data.contact;
+      console.log(`[${VERSION}] ✅ Contato: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
     }
-    if (!resultado?.data?.success || !resultado?.data?.contact) {
-      console.error(`[${VERSION}] ❌ getOrCreateContactCentralized falhou:`, resultado?.data);
-      return jsonServerError({ success: false, error: 'erro_contato_dedup' });
-    }
-    contato = resultado.data.contact;
-    console.log(`[${VERSION}] ✅ Contato: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
   } catch (e) {
-    // ✅ CORREÇÃO v11.1.0: 429 após retries = Z-API fará retry automático, não criar contato fantasma
     const is429 = e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa') || e?.message?.includes('rate_limit');
     if (is429) {
       console.warn(`[${VERSION}] ⚠️ rate_limit_contact (catch): 429 persistente após retries — descartando sem criar contato fantasma`);
       return jsonOk({ success: true, skipped: true, reason: 'rate_limit_contact' });
     }
-    console.error(`[${VERSION}] ❌ Erro ao chamar getOrCreateContactCentralized:`, e?.message || e);
+    console.error(`[${VERSION}] ❌ Erro ao buscar/criar contato:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_contato' });
   }
+
+  // 🔧 CAMADA 2: Reconciliação automática fire-and-forget (limpa duplicatas criadas por race condition)
+  base44.asServiceRole.functions.invoke('limparContatosDuplicados', {
+    telefone_filter: telefoneCanonico,
+    max_grupos: 1
+  }).catch(() => {});
 
   // BUSCAR/CRIAR THREAD — sem AUTO-MERGE (pertence ao UnificadorContatosCentralizado, não ao webhook)
   let thread = null;
