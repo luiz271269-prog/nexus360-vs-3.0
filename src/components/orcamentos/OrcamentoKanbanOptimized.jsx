@@ -90,9 +90,9 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                   {orcamento.numero_orcamento ? `#${orcamento.numero_orcamento}` : `#${orcamento.id?.slice(-4)}`}
                 </span>
                 <button
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); onEdit?.(orcamento); }}
-                  className="h-5 w-5 p-0 flex items-center justify-center text-slate-400 hover:text-orange-600 hover:bg-orange-50 flex-shrink-0 rounded transition-colors"
+                   onPointerDown={(e) => e.stopPropagation()}
+                   onClick={(e) => { e.stopPropagation(); onEdit?.(orcamento); }}
+                   className="h-5 w-5 p-0 flex items-center justify-center text-slate-400 hover:text-orange-600 hover:bg-orange-50 flex-shrink-0 rounded transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-110 active:scale-95"
                   title="Editar orçamento"
                 >
                   <Edit className="w-3 h-3" />
@@ -139,7 +139,7 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); onAbrirChat(orcamento); }}
-                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-green-500 hover:bg-green-600 text-white rounded text-[9px] font-semibold"
+                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-green-500 hover:bg-green-600 text-white rounded text-[9px] font-semibold transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
                 >
                   <MessageSquare className="w-2.5 h-2.5" /> Msg
                 </button>
