@@ -37,6 +37,7 @@ import InitializadorSistema from "../components/global/InitializadorSistema";
 import CacheBuster from "../components/global/CacheBuster";
 import DeploymentBanner from "../components/global/DeploymentBanner";
 import UserAuthWidget from "../components/global/UserAuthWidget";
+import { calcularLembretesGlobal } from "../components/global/MotorLembretesGlobal";
 
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
   const isActive = window.location.pathname === new URL(href, window.location.origin).pathname;
