@@ -11,14 +11,13 @@ export function normalizarNome(nome) {
 }
 
 /**
- * Busca User (vendedor) pelo full_name ou display_name
+ * Busca User (vendedor) pelo full_name
  */
 export async function buscarVendedorPorNome(nome) {
   if (!nome) return null;
   try {
     const users = await base44.entities.User.list();
     const nomeNorm = normalizarNome(nome).toLowerCase();
-
     return users.find(u =>
       normalizarNome(u.full_name || '').toLowerCase() === nomeNorm ||
       normalizarNome(u.full_name || '').toLowerCase().includes(nomeNorm) ||
@@ -42,7 +41,6 @@ export async function sincronizarClientesComVendedores() {
     ]);
 
     const vendedores = users.filter(u => u.codigo || u.attendant_sector === 'vendas');
-
     const vendedorMap = new Map();
     vendedores.forEach(u => {
       const nome = normalizarNome(u.full_name || '').toLowerCase();
@@ -118,16 +116,13 @@ export async function sincronizarOrcamentosComUsuarios() {
     for (const orc of orcamentos) {
       let user = null;
 
-      // 1. Tentar pelo vendedor_id
       if (orc.vendedor_id) user = userById.get(orc.vendedor_id) || null;
 
-      // 2. Tentar pelo nome exato
       if (!user && orc.vendedor) {
         const nomeNorm = normalizarNome(orc.vendedor).toLowerCase();
         user = userByNome.get(nomeNorm) || null;
       }
 
-      // 3. Tentar match parcial (cobre "vendas1", "vendas5" que podem ser emails/logins)
       if (!user && orc.vendedor) {
         const nomeNorm = normalizarNome(orc.vendedor).toLowerCase();
         user = users.find(u =>
@@ -138,7 +133,6 @@ export async function sincronizarOrcamentosComUsuarios() {
 
       if (user) {
         const nomeCorreto = user.full_name || user.email;
-        // Só atualiza se o nome está diferente
         if (orc.vendedor !== nomeCorreto || orc.vendedor_id !== user.id) {
           try {
             await base44.entities.Orcamento.update(orc.id, {
@@ -146,7 +140,9 @@ export async function sincronizarOrcamentosComUsuarios() {
               vendedor_id: user.id
             });
             atualizados++;
-          } catch (e) { console.error('Erro ao atualizar orçamento:', orc.id, e); }
+          } catch (e) {
+            console.error('Erro ao atualizar orçamento:', orc.id, e);
+          }
         }
       } else {
         semMatch++;
@@ -170,7 +166,6 @@ export async function listarVendedoresParaSelect() {
     const users = await base44.entities.User.list();
     const vendedores = users.filter(u => u.codigo || u.attendant_sector === 'vendas');
 
-    // Deduplicar por nome
     const nomesVistos = new Set();
     return vendedores
       .filter(u => {
