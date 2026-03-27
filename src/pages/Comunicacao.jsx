@@ -57,7 +57,6 @@ import GoToConnectionSetup from "../components/comunicacao/GoToConnectionSetup";
 import DiagnosticoThreadsInvisiveis from "../components/comunicacao/DiagnosticoThreadsInvisiveis";
 import DiagnosticoComparativoThreads from "../components/comunicacao/DiagnosticoComparativoThreads";
 import LogsFiltragemViewer from "../components/comunicacao/LogsFiltragemViewer";
-import DiagnosticoMensagensInternas from "../components/comunicacao/DiagnosticoMensagensInternas";
 import DiagnosticoVisibilidadeContato from "../components/comunicacao/DiagnosticoVisibilidadeContato";
 import DesktopChatArea from "../components/comunicacao/DesktopChatArea";
 
@@ -1955,7 +1954,6 @@ export default function Comunicacao() {
               <div className="h-full overflow-y-auto p-6 space-y-6">
                 <DiagnosticoVisibilidadeContato integracoes={todasIntegracoes} />
                 <DiagnosticoCirurgicoEmbed />
-                <DiagnosticoMensagensInternas />
               </div>
             </TabsContent>
 
