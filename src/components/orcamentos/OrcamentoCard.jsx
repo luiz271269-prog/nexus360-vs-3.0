@@ -89,7 +89,7 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
           )}
           <div className="ml-auto flex items-center gap-1">
             <button
-              className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 transition-all duration-150 hover:bg-slate-200 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
               onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(orcamento); }}
               title="Editar orçamento"
             >
@@ -97,16 +97,19 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
               Editar
             </button>
             <button
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95 ${
                 temTelefone
-                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                  ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
                   : 'bg-slate-100 text-slate-400 cursor-not-allowed'
               }`}
               onClick={(e) => {
                 e.stopPropagation();
-                if (temTelefone && onWhatsApp) onWhatsApp(orcamento);
+                if (!temTelefone) return;
+                const telefone = (orcamento.cliente_celular || orcamento.cliente_telefone || '').replace(/\D/g, '');
+                navigate(createPageUrl(`Comunicacao?busca=${encodeURIComponent(orcamento.cliente_nome || '')}${telefone ? '&telefone=' + telefone : ''}`));
               }}
               disabled={!temTelefone}
+              title={temTelefone ? 'Abrir chat' : 'Sem telefone cadastrado'}
             >
               <MessageSquare className="w-2.5 h-2.5" />
               Msg
