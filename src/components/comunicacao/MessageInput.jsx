@@ -306,7 +306,7 @@ export default function MessageInput({
         ref={cameraInputRef}
         type="file"
         accept="image/*,video/*"
-        capture="environment"
+        capture
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (!file) return;
