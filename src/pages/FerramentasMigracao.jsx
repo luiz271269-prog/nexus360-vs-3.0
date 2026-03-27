@@ -14,7 +14,8 @@ import {
   Eye,
   Zap,
   Users,
-  Activity
+  Activity,
+  Link2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,7 +24,8 @@ export default function FerramentasMigracao() {
   const [resultados, setResultados] = useState({
     diagnostico: null,
     migracao_threads: null,
-    auto_permissoes: null
+    auto_permissoes: null,
+    sync_crm: null
   });
 
   const executarDiagnostico = async () => {
@@ -100,6 +102,31 @@ export default function FerramentasMigracao() {
       }
     } catch (error) {
       console.error('[FERRAMENTAS] Erro:', error);
+      toast.error('Erro ao executar: ' + error.message);
+    } finally {
+      setExecutando(null);
+    }
+  };
+
+  const executarSyncCRM = async (dryRun = true) => {
+    setExecutando('sync_crm');
+    try {
+      const modo = dryRun ? 'DRY-RUN (apenas análise)' : 'EXECUÇÃO REAL';
+      toast.info(`🔗 Sincronizando CRM (${modo})...`);
+
+      const response = await base44.functions.invoke('sincronizarCRMVendedores', { dryRun });
+
+      if (response.data.success) {
+        setResultados(prev => ({ ...prev, sync_crm: response.data }));
+        if (dryRun) {
+          toast.success(`✅ ${response.data.mensagem}`);
+        } else {
+          toast.success(`✅ ${response.data.resultados.corrigidos} orçamentos corrigidos!`);
+        }
+      } else {
+        toast.error('Erro: ' + response.data.error);
+      }
+    } catch (error) {
       toast.error('Erro ao executar: ' + error.message);
     } finally {
       setExecutando(null);
@@ -442,7 +469,115 @@ export default function FerramentasMigracao() {
           </CardContent>
         </Card>
 
-        {/* Card 4: Documentação Rápida */}
+        {/* Card 4: Sincronização CRM - Vínculos Vendedor */}
+        <Card className="border-green-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-900">
+              <Link2 className="w-5 h-5" />
+              4. Sincronização CRM — Vínculo Orçamentos x Vendedor
+            </CardTitle>
+            <CardDescription>
+              Analisa todos os orçamentos e corrige o vendedor_id para o User correto, usando nome, email ou quem criou como fallback
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-3">
+              <Button
+                onClick={() => executarSyncCRM(true)}
+                disabled={executando === 'sync_crm'}
+                variant="outline"
+                className="border-green-300"
+              >
+                {executando === 'sync_crm' ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Eye className="w-4 h-4 mr-2" />
+                )}
+                DRY-RUN (Analisar)
+              </Button>
+
+              <Button
+                onClick={() => {
+                  if (!confirm('⚠️ Aplicar correção de vínculos CRM em todos os orçamentos?')) return;
+                  executarSyncCRM(false);
+                }}
+                disabled={executando === 'sync_crm'}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {executando === 'sync_crm' ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                Corrigir Vínculos
+              </Button>
+            </div>
+
+            {resultados.sync_crm && (
+              <div className="p-4 bg-slate-50 border rounded-lg space-y-3">
+                <div className="flex items-center gap-2">
+                  {resultados.sync_crm.dry_run ? (
+                    <Badge className="bg-blue-600 text-white">DRY-RUN</Badge>
+                  ) : (
+                    <Badge className="bg-green-600 text-white">EXECUTADO</Badge>
+                  )}
+                  <span className="text-sm font-medium">{resultados.sync_crm.mensagem}</span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="p-2 bg-white rounded border text-center">
+                    <div className="text-xs text-slate-500">Total</div>
+                    <div className="text-lg font-bold text-slate-900">{resultados.sync_crm.resultados.total}</div>
+                  </div>
+                  <div className="p-2 bg-green-50 rounded border border-green-200 text-center">
+                    <div className="text-xs text-green-700">Já Corretos</div>
+                    <div className="text-lg font-bold text-green-600">{resultados.sync_crm.resultados.ja_corretos}</div>
+                  </div>
+                  <div className="p-2 bg-blue-50 rounded border border-blue-200 text-center">
+                    <div className="text-xs text-blue-700">{resultados.sync_crm.dry_run ? 'Seriam Corrigidos' : 'Corrigidos'}</div>
+                    <div className="text-lg font-bold text-blue-600">{resultados.sync_crm.resultados.corrigidos}</div>
+                  </div>
+                  <div className="p-2 bg-red-50 rounded border border-red-200 text-center">
+                    <div className="text-xs text-red-700">Sem Match</div>
+                    <div className="text-lg font-bold text-red-600">{resultados.sync_crm.resultados.nao_resolvidos}</div>
+                  </div>
+                </div>
+
+                {resultados.sync_crm.resultados.detalhes?.length > 0 && (
+                  <details className="mt-3">
+                    <summary className="text-xs text-green-600 cursor-pointer hover:underline">
+                      Ver detalhes ({resultados.sync_crm.resultados.detalhes.length})
+                    </summary>
+                    <div className="mt-2 space-y-2 max-h-80 overflow-y-auto">
+                      {resultados.sync_crm.resultados.detalhes.map((d, idx) => (
+                        <div key={idx} className={`p-2 border rounded text-xs ${
+                          d.status === 'nao_resolvido' ? 'bg-red-50 border-red-200' : 'bg-white'
+                        }`}>
+                          <div className="font-semibold text-slate-900">
+                            #{d.numero} — {d.status === 'nao_resolvido' ? '❌ Sem match' : '✅ ' + d.metodo}
+                          </div>
+                          {d.status !== 'nao_resolvido' ? (
+                            <div className="text-slate-600">
+                              <span className="line-through text-red-500">{d.vendedor_campo_antigo}</span>
+                              {' → '}
+                              <span className="text-green-700 font-medium">{d.vendedor_novo}</span>
+                            </div>
+                          ) : (
+                            <div className="text-red-600">
+                              Campo vendedor: &quot;{d.vendedor_campo}&quot; | Criado por: {d.created_by}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Card 5: Documentação Rápida */}
         <Card className="border-slate-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-slate-900">
