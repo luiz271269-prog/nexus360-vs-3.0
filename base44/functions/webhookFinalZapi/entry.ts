@@ -24,8 +24,8 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.0.0-CLEAN';
-const BUILD_DATE = '2026-03-25';
+const VERSION = 'v11.1.0-RATE-LIMIT-GUARD';
+const BUILD_DATE = '2026-03-27';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -635,6 +635,11 @@ async function handleMessage(dados, payloadBruto, base44) {
       profilePicUrl: null,
       integracaoId: integracaoId
     }));
+    // ✅ CORREÇÃO v11.1.0: Se centralizada retornou rate_limit, não criar contato alternativo
+    if (resultado?.data?.error === 'rate_limit') {
+      console.warn(`[${VERSION}] ⚠️ rate_limit_contact: getOrCreateContactCentralized retornou rate_limit — Z-API fará retry automático`);
+      return jsonOk({ success: true, skipped: true, reason: 'rate_limit_contact' });
+    }
     if (!resultado?.data?.success || !resultado?.data?.contact) {
       console.error(`[${VERSION}] ❌ getOrCreateContactCentralized falhou:`, resultado?.data);
       return jsonServerError({ success: false, error: 'erro_contato_dedup' });
@@ -642,6 +647,12 @@ async function handleMessage(dados, payloadBruto, base44) {
     contato = resultado.data.contact;
     console.log(`[${VERSION}] ✅ Contato: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
   } catch (e) {
+    // ✅ CORREÇÃO v11.1.0: 429 após retries = Z-API fará retry automático, não criar contato fantasma
+    const is429 = e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa') || e?.message?.includes('rate_limit');
+    if (is429) {
+      console.warn(`[${VERSION}] ⚠️ rate_limit_contact (catch): 429 persistente após retries — descartando sem criar contato fantasma`);
+      return jsonOk({ success: true, skipped: true, reason: 'rate_limit_contact' });
+    }
     console.error(`[${VERSION}] ❌ Erro ao chamar getOrCreateContactCentralized:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_contato' });
   }
