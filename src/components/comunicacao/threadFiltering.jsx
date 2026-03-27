@@ -106,8 +106,18 @@ export function calcularThreadsFiltradas({ threads, contatos, clientes, atendent
     if (selectedTipoContato && selectedTipoContato !== 'all' && contato && contato.tipo_contato !== selectedTipoContato) return false;
     if (selectedTagContato && selectedTagContato !== 'all' && contato) { const tags = contato.tags || []; if (!tags.includes(selectedTagContato)) return false; }
     if (isFilterUnassigned) { if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) { if (!threadsNaoAtribuidasVisiveis.has(thread.id)) return false; } return true; }
+    // ✅ CIRÚRGICA: Threads externas (contact_external) sempre visíveis se o usuário tem permissão base
+    // O escopo é uma OPÇÃO, não um bloqueio obrigatório para externas
     const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
     if (!podeVerBase) return false;
+    
+    // ✅ Se é thread contact_external e tem permissão base, mostrar sempre
+    // (escopo 'my' é opcional para filtrar mais, não obrigatório)
+    if (thread.thread_type === 'contact_external' && thread.status === 'aberta') {
+      return true; // Já passou na verificação de podeVerBase
+    }
+    
+    // Para threads internas ou outros tipos, aplicar escopo
     const passouEscopo = aplicarFiltroEscopo(thread, usuario, filtros, userPermissions, DEBUG_VIS);
     if (!passouEscopo) return false;
     return true;
