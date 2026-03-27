@@ -306,15 +306,16 @@ export default function MessageInput({
         ref={cameraInputRef}
         type="file"
         accept="image/*,video/*"
-        capture="environment"
+        capture
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (!file) return;
           const type = file.type.startsWith('video/') ? 'video' : 'image';
           handleFileSelect(file, type);
-          if (cameraInputRef.current) cameraInputRef.current.value = '';
+          e.target.value = '';
         }}
-        style={{ position: 'absolute', width: '1px', height: '1px', visibility: 'hidden' }}
+        onClick={(e) => { e.currentTarget.value = ''; }}
+        style={{ display: 'none' }}
       />
       <input
         ref={videoInputRef}
