@@ -148,8 +148,8 @@ export default function Dashboard() {
 
   const filtrarDadosPorPerfil = (usuario, dados) => {
     if (usuario.role === 'user') {
-      const vendedorAtual = dados.vendedores.find((v) => v.email === usuario.email);
-      const nomeVendedor = vendedorAtual?.nome || usuario.full_name;
+      const vendedorAtual = dados.vendedores.find((v) => v.email === usuario.email || v.id === usuario.id);
+      const nomeVendedor = vendedorAtual?.full_name || usuario.full_name;
 
       return {
         vendedores: dados.vendedores.filter((v) => v.email === usuario.email),
@@ -260,13 +260,15 @@ export default function Dashboard() {
     try {
       const usuarioAtual = await base44.auth.me();
 
-      const [vendedoresData, clientesData, vendasData, orcamentosData, interacoesData] = await Promise.all([
-        base44.entities.Vendedor.list('-created_date', 100),
+      const [usersData, clientesData, vendasData, orcamentosData, interacoesData] = await Promise.all([
+        base44.entities.User.list(),
         base44.entities.Cliente.list('-updated_date', 500),
         base44.entities.Venda.list('-data_venda', 500),
         base44.entities.Orcamento.list('-data_orcamento', 300),
         base44.entities.Interacao.list('-data_interacao', 500)
       ]);
+      // Vendedores = Users com codigo preenchido ou setor vendas
+      const vendedoresData = usersData.filter(u => u.codigo || u.attendant_sector === 'vendas');
 
       const dadosCarregados = {
         usuario: usuarioAtual,

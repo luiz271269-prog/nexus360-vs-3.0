@@ -326,20 +326,22 @@ function calcularMetricasVendedores(dados, usuario) {
 
   // Calcular métricas por vendedor
   const vendedoresComMetricas = dados.vendedores.map((vendedor) => {
-    const vendasVendedor = dados.vendas.filter((v) => v.vendedor === vendedor.nome);
+    const nomeVendedor = vendedor.full_name || vendedor.nome || vendedor.email || '';
+    const vendasVendedor = dados.vendas.filter((v) => v.vendedor === nomeVendedor || v.vendedor_id === vendedor.id);
     const faturamentoVendedor = vendasVendedor.reduce((sum, v) => sum + (v.valor_total || 0), 0);
     const percentualMeta = (vendedor.meta_mensal || 0) > 0 ?
     Math.round(faturamentoVendedor / vendedor.meta_mensal * 100) :
     0;
 
-    const orcamentosVendedor = dados.orcamentos.filter((o) => o.vendedor === vendedor.nome);
-    const clientesVendedor = dados.clientes.filter((c) => c.vendedor_responsavel === vendedor.nome && c.status === 'Ativo');
+    const orcamentosVendedor = dados.orcamentos.filter((o) => o.vendedor === nomeVendedor || o.vendedor_id === vendedor.id);
+    const clientesVendedor = dados.clientes.filter((c) => (c.vendedor_responsavel === nomeVendedor || c.vendedor_id === vendedor.id) && c.status === 'Ativo');
     const taxaConversaoIndividual = orcamentosVendedor.length > 0 ?
     Math.round(vendasVendedor.length / orcamentosVendedor.length * 100) :
     0;
 
     return {
       ...vendedor,
+      nome: nomeVendedor,
       faturamento: faturamentoVendedor,
       percentualMeta,
       quantidadeVendas: vendasVendedor.length,
@@ -358,7 +360,7 @@ function calcularMetricasVendedores(dados, usuario) {
   const metaTotal = dados.vendedores.reduce((sum, v) => sum + (v.meta_mensal || 0), 0);
   const percentualMetaColetiva = metaTotal > 0 ? Math.round(faturamentoTotal / metaTotal * 100) : 0;
   const ticketMedio = dados.vendas.length > 0 ? Math.round(faturamentoTotal / dados.vendas.length) : 0;
-  const vendedoresAtivos = dados.vendedores.filter((v) => v.status === 'ativo').length;
+  const vendedoresAtivos = dados.vendedores.filter((v) => v.status_vendedor === 'ativo' || v.status === 'ativo').length;
 
   // Performance vs Meta para gráfico
   const performanceVsMeta = rankingVendedores.map((v) => ({
