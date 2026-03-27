@@ -95,6 +95,74 @@ export async function atribuirVendedorAoCliente(clienteId, userId) {
 }
 
 /**
+ * Sincroniza orçamentos: atualiza campo "vendedor" com full_name do User via vendedor_id
+ * ou via match de nome aproximado. Resolve nomes legados como "vendas1", "vendas5", etc.
+ */
+export async function sincronizarOrcamentosComUsuarios() {
+  console.log('🔄 Sincronizando Orçamentos com Users...');
+  try {
+    const [users, orcamentos] = await Promise.all([
+      base44.entities.User.list(),
+      base44.entities.Orcamento.list()
+    ]);
+
+    const userById = new Map(users.map(u => [u.id, u]));
+    const userByNome = new Map();
+    users.forEach(u => {
+      const nome = normalizarNome(u.full_name || '').toLowerCase();
+      if (nome) userByNome.set(nome, u);
+    });
+
+    let atualizados = 0, semMatch = 0;
+
+    for (const orc of orcamentos) {
+      let user = null;
+
+      // 1. Tentar pelo vendedor_id
+      if (orc.vendedor_id) user = userById.get(orc.vendedor_id) || null;
+
+      // 2. Tentar pelo nome exato
+      if (!user && orc.vendedor) {
+        const nomeNorm = normalizarNome(orc.vendedor).toLowerCase();
+        user = userByNome.get(nomeNorm) || null;
+      }
+
+      // 3. Tentar match parcial (cobre "vendas1", "vendas5" que podem ser emails/logins)
+      if (!user && orc.vendedor) {
+        const nomeNorm = normalizarNome(orc.vendedor).toLowerCase();
+        user = users.find(u =>
+          normalizarNome(u.full_name || '').toLowerCase().includes(nomeNorm) ||
+          (u.email || '').toLowerCase().includes(nomeNorm)
+        ) || null;
+      }
+
+      if (user) {
+        const nomeCorreto = user.full_name || user.email;
+        // Só atualiza se o nome está diferente
+        if (orc.vendedor !== nomeCorreto || orc.vendedor_id !== user.id) {
+          try {
+            await base44.entities.Orcamento.update(orc.id, {
+              vendedor: nomeCorreto,
+              vendedor_id: user.id
+            });
+            atualizados++;
+          } catch (e) { console.error('Erro ao atualizar orçamento:', orc.id, e); }
+        }
+      } else {
+        semMatch++;
+      }
+    }
+
+    const resultado = { total: orcamentos.length, atualizados, semMatch, sucesso: true };
+    console.log('✅ Orçamentos sincronizados:', resultado);
+    return resultado;
+  } catch (error) {
+    console.error('❌ Erro:', error);
+    return { sucesso: false, erro: error.message };
+  }
+}
+
+/**
  * Lista Users que são vendedores (têm codigo ou setor=vendas) para Select/Combobox
  */
 export async function listarVendedoresParaSelect() {

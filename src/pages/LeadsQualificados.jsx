@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import ClienteKanban from "../components/clientes/ClienteKanban";
 import ClienteTable from "../components/clientes/ClienteTable";
 import ClienteForm from "../components/clientes/ClienteForm";
-import { listarVendedoresParaSelect, sincronizarClientesComVendedores } from '../components/lib/vendedorSync';
+import { listarVendedoresParaSelect, sincronizarClientesComVendedores, sincronizarOrcamentosComUsuarios } from '../components/lib/vendedorSync';
 import { validarMudancaStatus, getMensagemMotivacional, getProximaAcaoSugerida } from '../components/clientes/ClienteFormValidation';
 import OrcamentoKanbanOptimized from "../components/orcamentos/OrcamentoKanbanOptimized";
 import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
@@ -261,13 +261,18 @@ export default function LeadsQualificados() {
 
   const handleSincronizar = async () => {
     setSincronizando(true);
-    toast.info('Sincronizando vendedores...');
+    toast.info('Sincronizando dados com usuários...');
 
     try {
-      const resultado = await sincronizarClientesComVendedores();
+      const [resClientes, resOrcamentos] = await Promise.all([
+        sincronizarClientesComVendedores(),
+        sincronizarOrcamentosComUsuarios()
+      ]);
 
-      if (resultado.sucesso) {
-        toast.success(`✅ ${resultado.atualizados} clientes sincronizados!`);
+      if (resClientes.sucesso || resOrcamentos.sucesso) {
+        toast.success(`✅ Clientes: ${resClientes.atualizados || 0} | Orçamentos: ${resOrcamentos.atualizados || 0} sincronizados!`);
+        await queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+        await queryClient.invalidateQueries({ queryKey: ['clientes'] });
         await carregarDados();
       } else {
         toast.error('Erro na sincronização');
@@ -441,7 +446,15 @@ export default function LeadsQualificados() {
 
   const orcamentosFiltrados = orcamentos.filter(orcamento => {
     const vendedorFiltro = resolverFiltroVendedor(orcamento.vendedor);
-    if (vendedorFiltro && orcamento.vendedor !== vendedorFiltro) return false;
+    if (vendedorFiltro) {
+      // Verifica por nome OU por vendedor_id (caso dados ainda não migrados)
+      const filtroUserId = atendentes.find(a => a.label === vendedorFiltro)?.value;
+      const matchNome = orcamento.vendedor === vendedorFiltro;
+      const matchId = filtroUserId && orcamento.vendedor_id === filtroUserId;
+      // Para filtro "meus": também aceita por usuarioAtual.id
+      const matchMeuId = filtroVendedorGlobal === 'meus' && usuarioAtual && orcamento.vendedor_id === usuarioAtual.id;
+      if (!matchNome && !matchId && !matchMeuId) return false;
+    }
 
     const matchesSearch = searchTerm === '' ||
       orcamento.numero_orcamento?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -501,8 +514,18 @@ export default function LeadsQualificados() {
                     </SelectContent>
                   </Select>
 
-                  {/* ✅ BOTÃO BULK UPDATE para Thiago */}
-                  {filtroVendedorGlobal && filtroVendedorGlobal !== 'todos' && (
+                  <Button
+                    onClick={handleSincronizar}
+                    disabled={sincronizando}
+                    size="sm"
+                    variant="outline"
+                    className="bg-white/10 border-white/30 text-white hover:bg-white/20 h-8 text-xs gap-1">
+                    <RefreshCw className={`w-3 h-3 ${sincronizando ? 'animate-spin' : ''}`} />
+                    Sincronizar
+                  </Button>
+
+                  {/* ✅ BOTÃO BULK UPDATE para vendedor específico */}
+                  {filtroVendedorGlobal && filtroVendedorGlobal !== 'todos' && filtroVendedorGlobal !== 'meus' && (
                     <Button
                       onClick={() => handleBulkUpdateOrcamentos(filtroVendedorGlobal)}
                       disabled={sincronizando}
