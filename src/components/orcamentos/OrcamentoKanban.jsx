@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, MoreHorizontal, Edit, Calendar, DollarSign, User, Filter, Brain, MessageSquare, Building2, Handshake, X } from 'lucide-react';
+import { Plus, Edit, Calendar, DollarSign, User, Filter, Brain, MessageSquare, Building2, Handshake, X } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from 'sonner';
@@ -288,19 +288,6 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
                                 <h4 className="font-semibold text-slate-800 text-[11px] leading-tight truncate flex-1 uppercase">
                                   {orcamento.cliente_nome || '—'}
                                 </h4>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700 flex-shrink-0">
-                                      <MoreHorizontal className="w-3 h-3" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="text-xs">
-                                    <DropdownMenuItem onClick={() => onEdit && onEdit(orcamento)} className="text-xs py-1.5">
-                                      <Edit className="w-3 h-3 mr-1.5" />
-                                      Editar
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
                               </div>
 
                               {/* Número + Valor */}
@@ -341,8 +328,15 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
                                 <div className="ml-auto flex gap-1">
                                   {onMostrarInsightsIA && (
                                     <button
+                                      onClick={(e) => { e.stopPropagation(); onEdit && onEdit(orcamento); }}
+                                      className="flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-[9px] font-semibold transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                                    >
+                                      <Edit className="w-2.5 h-2.5" />
+                                      Editar
+                                    </button>
+                                    <button
                                       onClick={(e) => { e.stopPropagation(); onMostrarInsightsIA(orcamento); }}
-                                      className="flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-[9px] font-semibold border border-indigo-200 transition-colors"
+                                      className="flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-[9px] font-semibold border border-indigo-200 transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
                                     >
                                       <Brain className="w-2.5 h-2.5" />
                                       IA
@@ -350,7 +344,7 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
                                   )}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); abrirChatComCliente(orcamento); }}
-                                    className="flex items-center gap-0.5 px-1.5 py-0.5 bg-green-500 hover:bg-green-600 text-white rounded text-[9px] font-semibold transition-colors"
+                                    className="flex items-center gap-0.5 px-1.5 py-0.5 bg-green-500 hover:bg-green-600 text-white rounded text-[9px] font-semibold transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
                                   >
                                     <MessageSquare className="w-2.5 h-2.5" />
                                     Msg

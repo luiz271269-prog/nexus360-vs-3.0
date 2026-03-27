@@ -157,7 +157,7 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
             }}
             size="sm"
             variant="ghost"
-            className="flex-1 h-6 text-[10px] hover:bg-blue-500 hover:text-white px-1"
+            className="flex-1 h-6 text-[10px] hover:bg-blue-500 hover:text-white px-1 transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
           >
             <Eye className="w-3 h-3 mr-0.5" />
             Ver
@@ -169,7 +169,7 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
             }}
             size="sm"
             variant="ghost"
-            className="flex-1 h-6 text-[10px] hover:bg-orange-500 hover:text-white px-1"
+            className="flex-1 h-6 text-[10px] hover:bg-orange-500 hover:text-white px-1 transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
           >
             <Edit className="w-3 h-3 mr-0.5" />
             Editar
