@@ -106,10 +106,8 @@ export function calcularThreadsFiltradas({ threads, contatos, clientes, atendent
     if (selectedTipoContato && selectedTipoContato !== 'all' && contato && contato.tipo_contato !== selectedTipoContato) return false;
     if (selectedTagContato && selectedTagContato !== 'all' && contato) { const tags = contato.tags || []; if (!tags.includes(selectedTagContato)) return false; }
     if (isFilterUnassigned) { if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) { if (!threadsNaoAtribuidasVisiveis.has(thread.id)) return false; } return true; }
-    // Verificar permissão base
     const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
     if (!podeVerBase) return false;
-    // Aplicar filtro de escopo normalmente (funciona para 'all', 'my', etc)
     const passouEscopo = aplicarFiltroEscopo(thread, usuario, filtros, userPermissions, DEBUG_VIS);
     if (!passouEscopo) return false;
     return true;
