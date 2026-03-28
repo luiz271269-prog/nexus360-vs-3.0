@@ -80,6 +80,7 @@ export function calcularThreadsFiltradas({ threads, contatos, clientes, atendent
   const contatosComThreadExistente = new Set(threadsUnicas.map((t) => t.contact_id).filter(Boolean));
   const filtros = { atendenteId: selectedAttendantId, integracaoId: selectedIntegrationId, scope: filterScope };
   const threadsFiltrados = threadsUnicas.filter((thread) => {
+    if (usuario?.role === 'admin') return true;
     if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
       if (isAdmin) return true; // Admin vê todas as threads internas
       const parts = thread.participants || [];
