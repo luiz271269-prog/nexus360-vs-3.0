@@ -3,48 +3,64 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, AlertCircle, Download, RefreshCw, Copy, Zap } from 'lucide-react';
+import { MessageSquare, AlertCircle, Download, RefreshCw, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function DiagnosticoMensagensOrfas() {
   const [loading, setLoading] = useState(false);
-  const [aplicando, setAplicando] = useState(false);
   const [mensagensOrfas, setMensagensOrfas] = useState([]);
   const [contatosMapeados, setContatosMapeados] = useState({});
   const [expandido, setExpandido] = useState({});
-  const [resultadoAplicado, setResultadoAplicado] = useState(null);
 
   const buscarMensagensOrfas = async () => {
     setLoading(true);
     try {
-      // Buscar mensagens de contatos
+      // Buscar TODAS as mensagens
       const todasMensagens = await base44.entities.Message.list('-sent_at', 5000);
-      // Buscar threads existentes
-      const todasThreads = await base44.entities.MessageThread.list('-created_date', 5000);
-      // Buscar contatos
+      
+      // Buscar TODOS os contatos
       const todosContatos = await base44.entities.Contact.list('-created_date', 5000);
+      
+      // Buscar TODAS as threads
+      const todasThreads = await base44.entities.MessageThread.list('-created_date', 5000);
 
-      // Set de contact_ids que JÁ TÊM thread
-      const contactIdsComThread = new Set(
-        todasThreads.filter(t => t.contact_id).map(t => t.contact_id)
+      // Criar mapa de contact_ids das threads
+      const contactIdsEmThreads = new Set(
+        todasThreads
+          .filter(t => t.contact_id)
+          .map(t => t.contact_id)
       );
 
-      // Agrupar mensagens de contatos SEM thread
+      // Filtrar mensagens órfãs (contatos sem threads visíveis)
       const mensagensPorContato = {};
-      for (const msg of todasMensagens) {
-        if (msg.sender_type !== 'contact' || !msg.sender_id) continue;
-        if (contactIdsComThread.has(msg.sender_id)) continue;
-        if (!mensagensPorContato[msg.sender_id]) mensagensPorContato[msg.sender_id] = [];
-        mensagensPorContato[msg.sender_id].push(msg);
-      }
+      const contatosOrfaos = new Set();
 
-      const contatoMap = new Map(todosContatos.map(c => [c.id, c]));
+      todasMensagens.forEach(msg => {
+        if (msg.sender_type === 'contact' && msg.sender_id) {
+          if (!contactIdsEmThreads.has(msg.sender_id)) {
+            contatosOrfaos.add(msg.sender_id);
+            if (!mensagensPorContato[msg.sender_id]) {
+              mensagensPorContato[msg.sender_id] = [];
+            }
+            mensagensPorContato[msg.sender_id].push(msg);
+          }
+        }
+      });
+
+      // Enriquecer com dados do contato
+      const mapeamento = {};
+      contatosOrfaos.forEach(contactId => {
+        const contato = todosContatos.find(c => c.id === contactId);
+        mapeamento[contactId] = contato || { id: contactId, nome: 'Desconhecido' };
+      });
+
+      setContatosMapeados(mapeamento);
 
       const resultado = Object.entries(mensagensPorContato).map(([contactId, msgs]) => ({
         contactId,
-        contato: contatoMap.get(contactId) || { id: contactId, nome: 'Desconhecido' },
-        totalMensagens: msgs.length,
-        mensagens: msgs.sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at))
+        contato: mapeamento[contactId],
+        mensagens: msgs.sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at)),
+        totalMensagens: msgs.length
       }));
 
       setMensagensOrfas(resultado.sort((a, b) => b.totalMensagens - a.totalMensagens));
@@ -54,54 +70,6 @@ export default function DiagnosticoMensagensOrfas() {
       toast.error('Erro ao buscar dados: ' + error.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const aplicarRecuperacao = async () => {
-    if (mensagensOrfas.length === 0) return;
-    setAplicando(true);
-    try {
-      // Buscar integração ativa
-      const integracoes = await base44.entities.WhatsAppIntegration.list();
-      const integracaoAtiva = integracoes.find(i => i.status === 'conectado');
-      if (!integracaoAtiva) {
-        toast.error('Nenhuma integração WhatsApp conectada');
-        return;
-      }
-
-      const criadas = [];
-      for (const item of mensagensOrfas) {
-        try {
-          const ultimaMsg = item.mensagens[0];
-          const novaThread = await base44.entities.MessageThread.create({
-            contact_id: item.contactId,
-            whatsapp_integration_id: integracaoAtiva.id,
-            conexao_id: integracaoAtiva.id,
-            thread_type: 'contact_external',
-            channel: 'whatsapp',
-            is_canonical: true,
-            status: 'aberta',
-            unread_count: item.totalMensagens,
-            total_mensagens: item.totalMensagens,
-            last_message_at: ultimaMsg?.sent_at,
-            last_message_content: ultimaMsg?.content?.substring(0, 100),
-            last_message_sender: 'contact',
-            primeira_mensagem_at: ultimaMsg?.sent_at
-          });
-          criadas.push({ contactId: item.contactId, threadId: novaThread.id });
-        } catch (e) {
-          console.error(`Erro ao criar thread para ${item.contactId}:`, e.message);
-        }
-      }
-
-      setResultadoAplicado(criadas);
-      toast.success(`✅ ${criadas.length} conversa(s) recuperada(s)! Atualize a Central para vê-las.`);
-      await buscarMensagensOrfas();
-    } catch (error) {
-      console.error('Erro ao aplicar recuperação:', error);
-      toast.error('Erro: ' + error.message);
-    } finally {
-      setAplicando(false);
     }
   };
 
@@ -155,10 +123,10 @@ export default function DiagnosticoMensagensOrfas() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2">
           <Button
             onClick={buscarMensagensOrfas}
-            disabled={loading || aplicando}
+            disabled={loading}
             className="bg-orange-500 hover:bg-orange-600 text-white"
           >
             {loading ? (
@@ -175,35 +143,16 @@ export default function DiagnosticoMensagensOrfas() {
           </Button>
 
           {mensagensOrfas.length > 0 && (
-            <>
-              <Button
-                onClick={aplicarRecuperacao}
-                disabled={loading || aplicando}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {aplicando ? (
-                  <><RefreshCw className="w-4 h-4 animate-spin mr-2" />Recuperando...</>
-                ) : (
-                  <><Zap className="w-4 h-4 mr-2" />Recuperar Todas ({mensagensOrfas.length})</>
-                )}
-              </Button>
-              <Button
-                onClick={exportarDados}
-                variant="outline"
-                className="text-blue-600 border-blue-300"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Exportar JSON
-              </Button>
-            </>
+            <Button
+              onClick={exportarDados}
+              variant="outline"
+              className="text-blue-600 border-blue-300"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Exportar JSON
+            </Button>
           )}
         </div>
-
-        {resultadoAplicado && (
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
-            ✅ <strong>{resultadoAplicado.length}</strong> conversa(s) criada(s) com sucesso! Atualize a aba Conversas para vê-las.
-          </div>
-        )}
 
         {mensagensOrfas.length > 0 && (
           <div className="space-y-3 max-h-[600px] overflow-y-auto border border-slate-200 rounded-lg p-3">
