@@ -105,6 +105,9 @@ export default function MessageInput({
   // Detectar se é mobile
   const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
+  // Detectar tipo de thread
+  const isInternalThread = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
+
   const handleImageDetected = useCallback((file) => {
     setPastedImage(file);
     const previewUrl = URL.createObjectURL(file);
@@ -301,12 +304,12 @@ export default function MessageInput({
         onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0], 'image')}
         style={{ display: 'none' }}
       />
-      {/* Input de câmera - aceita foto E vídeo */}
+      {/* Input de câmera - interno: galeria livre | externo: câmera direta */}
       <input
         ref={cameraInputRef}
         type="file"
-        accept="image/*,video/*"
-        capture="environment"
+        accept={isInternalThread ? 'image/*,video/*' : 'image/*'}
+        {...(!isInternalThread ? { capture: 'environment' } : {})}
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (!file) return;
@@ -522,7 +525,7 @@ export default function MessageInput({
             variant="ghost"
             size="icon"
             className="md:hidden text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-8 w-8 flex-shrink-0"
-            disabled={enviando || gravandoAudio || modoSelecao || uploadingPastedFile || false}
+            disabled={enviando || (!isInternalThread && carregandoContato) || gravandoAudio || modoSelecao || uploadingPastedFile}
             onClick={() => cameraInputRef.current?.click()}
             title="Foto / Vídeo"
           >
