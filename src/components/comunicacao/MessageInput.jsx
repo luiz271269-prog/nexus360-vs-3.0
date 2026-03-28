@@ -304,12 +304,11 @@ export default function MessageInput({
         onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0], 'image')}
         style={{ display: 'none' }}
       />
-      {/* Input de câmera - interno: galeria livre | externo: câmera direta */}
+      {/* Input de câmera - galeria livre para todos os tipos de thread */}
       <input
         ref={cameraInputRef}
         type="file"
-        accept={isInternalThread ? 'image/*,video/*' : 'image/*'}
-        {...(!isInternalThread ? { capture: 'environment' } : {})}
+        accept="image/*,video/*"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (!file) return;
