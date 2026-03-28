@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 /**
  * Análise em Lote de Contatos (Leads/Clientes)
@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
       
       // ✅ BUSCAR CONTATOS INATIVOS + CONTATOS FIDELIZADOS/VIP SEPARADAMENTE
       // Contatos leais (fidelizados/VIP) SEMPRE devem aparecer, independente de inatividade
-      const [contatosInativos, contatosLeais] = await Promise.all([
+      const [contatosInativosRaw, contatosLeaisRaw] = await Promise.all([
         client.entities.Contact.filter(queryContatos, '-ultima_interacao', limit || 9999),
         client.entities.Contact.filter(
           {
@@ -133,6 +133,8 @@ Deno.serve(async (req) => {
           200
         ).catch(() => []) // silencioso se falhar
       ]);
+      const contatosInativos = Array.isArray(contatosInativosRaw) ? contatosInativosRaw : [];
+      const contatosLeais = Array.isArray(contatosLeaisRaw) ? contatosLeaisRaw : [];
       
       // Unificar sem duplicatas (leais têm prioridade)
       const idsLeais = new Set(contatosLeais.map(c => c.id));
