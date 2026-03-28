@@ -2,7 +2,7 @@
 // Função matinal: reativa threads que chegaram fora do horário de atendimento
 // Executa às 08:00 seg-sab via automação agendada
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 const SETOR_HUMANIZADO = {
   vendas: 'Vendas',
