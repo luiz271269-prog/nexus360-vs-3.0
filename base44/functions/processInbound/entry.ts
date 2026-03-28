@@ -1,5 +1,5 @@
 // redeploy: 2026-03-20T16:00-FIX-HUMAN-ACTIVE
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // ============================================================================
 // PROCESS INBOUND - v11.0.0 INLINE (sem imports locais)
