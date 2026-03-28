@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // ============================================================================
 // WORKER DE BROADCAST - Processa WorkQueueItems do tipo 'enviar_broadcast_avulso'

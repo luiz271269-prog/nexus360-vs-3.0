@@ -1,5 +1,5 @@
 // redeploy: 2026-03-03T14:35
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // --- Inline from promotionEngine (NO local imports allowed in Deno Edge) ---
 
