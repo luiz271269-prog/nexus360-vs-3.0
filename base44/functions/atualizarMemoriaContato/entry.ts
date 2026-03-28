@@ -2,7 +2,7 @@
 // Coleta dados reais do banco, calcula padrões e grava/atualiza ContactMemory
 // Fire-and-forget: chamado pelo nexusAgentBrain sem bloquear resposta
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   try {

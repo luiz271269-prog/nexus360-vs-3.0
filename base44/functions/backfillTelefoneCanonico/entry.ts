@@ -1,6 +1,6 @@
 // Backfill: Preencher telefone_canonico para contatos antigos sem o campo
 // v2.0 — Com delay, paginação, e autenticação admin
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 const LOTE_TAMANHO = 100;
 const DELAY_MS = 500; // 500ms entre updates (150ms foi insuficiente, test atingiu 429)

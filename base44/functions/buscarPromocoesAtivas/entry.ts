@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // ============================================================================
 // BUSCAR PROMOÇÕES ATIVAS - v2.0.0 (Alinhado com Promotion Engine)

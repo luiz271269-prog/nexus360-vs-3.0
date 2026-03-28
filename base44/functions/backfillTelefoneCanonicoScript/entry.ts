@@ -1,7 +1,7 @@
 // BACKFILL: Preenche telefone_canonico nos ~500 contacts históricos que não têm o campo
 // v3.0.0 — 2026-03-25 — retry com backoff para 429
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 function normalizarCanonicoDerivado(telefone) {
   if (!telefone) return null;

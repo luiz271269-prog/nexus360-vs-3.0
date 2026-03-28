@@ -1,6 +1,6 @@
 // backfillVisibilidade - Corrige mensagens antigas com visibility = null/undefined
 // Regra: sender_type='contact' → public_to_customer | sender_type='user' → internal_only
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
