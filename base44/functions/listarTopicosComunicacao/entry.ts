@@ -10,7 +10,7 @@
 // 4. Enriquecer com dados do Cliente (ramo_atividade, vendedor, etc.)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // FUNÇÕES AUXILIARES DE NORMALIZAÇÃO
