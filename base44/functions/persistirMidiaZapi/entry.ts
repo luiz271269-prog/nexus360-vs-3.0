@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.0';
 import { createHash } from 'node:crypto';
 
