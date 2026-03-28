@@ -107,9 +107,9 @@ export function calcularThreadsFiltradas({ threads, contatos, clientes, atendent
     if (selectedTipoContato && selectedTipoContato !== 'all' && contato && contato.tipo_contato !== selectedTipoContato) return false;
     if (selectedTagContato && selectedTagContato !== 'all' && contato) { const tags = contato.tags || []; if (!tags.includes(selectedTagContato)) return false; }
     if (isFilterUnassigned) { if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) { if (!threadsNaoAtribuidasVisiveis.has(thread.id)) return false; } return true; }
+    if (isAdmin) return true; // Admin sempre vê todas (ignora canUserSeeThreadBase e filterScope)
     const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
     if (!podeVerBase) return false;
-    if (isAdmin) return true; // Admin sempre vê todas (ignora filterScope)
     const passouEscopo = aplicarFiltroEscopo(thread, usuario, filtros, userPermissions, DEBUG_VIS);
     if (!passouEscopo) return false;
     return true;
