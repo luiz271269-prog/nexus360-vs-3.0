@@ -1,5 +1,5 @@
 // SKILL 01 — ACK IMEDIATO v1.2 (anti-duplicação reforçado)
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 function getACKMessage(tipo, nome, isVIP, hora) {
   if (hora < 8 || hora > 18) {
