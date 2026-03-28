@@ -105,9 +105,6 @@ export default function MessageInput({
   // Detectar se é mobile
   const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-  // Detectar tipo de thread
-  const isInternalThread = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
-
   const handleImageDetected = useCallback((file) => {
     setPastedImage(file);
     const previewUrl = URL.createObjectURL(file);
@@ -304,19 +301,13 @@ export default function MessageInput({
         onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0], 'image')}
         style={{ display: 'none' }}
       />
-      {/* Input de câmera - galeria livre para todos os tipos de thread */}
+      {/* Input de câmera - galeria + câmera sem forçar captura */}
       <input
         ref={cameraInputRef}
         type="file"
-        accept="image/*,video/*"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          const type = file.type.startsWith('video/') ? 'video' : 'image';
-          handleFileSelect(file, type);
-          if (cameraInputRef.current) cameraInputRef.current.value = '';
-        }}
-        style={{ position: 'fixed', left: '-9999px', top: '-9999px' }}
+        accept="image/*"
+        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0], 'image')}
+        style={{ display: 'none' }}
       />
       <input
         ref={videoInputRef}
@@ -422,7 +413,7 @@ export default function MessageInput({
             variant="ghost"
             size="icon"
             className="bg-transparent text-slate-50 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-8 w-8 md:h-9 md:w-9 flex-shrink-0"
-            disabled={enviando || (thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group' && carregandoContato) || gravandoAudio || modoSelecao || !podeEnviarMidias}
+            disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || !podeEnviarMidias}
             onClick={() => setShowAttachMenu(!showAttachMenu)}
             title={!podeEnviarMidias ? "Sem permissão para enviar mídias" : "Anexar arquivo"}
           >
@@ -524,9 +515,9 @@ export default function MessageInput({
             variant="ghost"
             size="icon"
             className="md:hidden text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-8 w-8 flex-shrink-0"
-            disabled={enviando || (!isInternalThread && carregandoContato) || gravandoAudio || modoSelecao || uploadingPastedFile}
+            disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile}
             onClick={() => cameraInputRef.current?.click()}
-            title="Foto / Vídeo"
+            title="Tirar foto"
           >
             <Camera className="w-4 h-4 text-slate-600" />
           </Button>
@@ -663,7 +654,7 @@ export default function MessageInput({
               modoSelecao || 
               uploadingPastedFile || 
               !podeEnviarMensagens || 
-              (!modoSelecaoMultipla && carregandoContato && thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group') ||
+              (!modoSelecaoMultipla && carregandoContato) ||
               (!mensagemTexto.trim() && !pastedImage && !selectedFile)
             }
             className={cn(

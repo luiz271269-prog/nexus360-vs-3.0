@@ -28,6 +28,7 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     
+    // Verificar autenticação
     const user = await base44.auth.me();
     if (!user) {
       return Response.json({ error: 'Não autenticado' }, { status: 401 });
@@ -39,23 +40,19 @@ Deno.serve(async (req) => {
       incluirInternas = true 
     } = await req.json();
 
-    // Buscar TODAS as threads abertas sem filtro de thread_type no banco.
-    // Threads externas antigas podem ter thread_type null/undefined e seriam
-    // excluídas se filtrássemos por 'contact_external' diretamente.
-    const todasThreads = await base44.asServiceRole.entities.MessageThread.filter(
-      { status },
+    // Buscar threads sem RLS
+    const filter = { status };
+    if (!incluirInternas) {
+      filter.thread_type = 'contact_external';
+    }
+
+    const threads = await base44.asServiceRole.entities.MessageThread.filter(
+      filter,
       '-last_message_at',
       limit
     );
 
-    // Filtrar internas em JS (preserva externas sem thread_type definido)
-    const threads = incluirInternas
-      ? todasThreads
-      : todasThreads.filter(t =>
-          t.thread_type !== 'team_internal' && t.thread_type !== 'sector_group'
-        );
-
-    // Buscar contatos associados
+    // Buscar contatos associados (em batch para performance)
     const contactIds = [...new Set(
       threads
         .filter(t => t.contact_id)
