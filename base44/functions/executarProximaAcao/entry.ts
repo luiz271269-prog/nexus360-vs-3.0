@@ -17,7 +17,7 @@
  * - escalar_gerente: Notifica gerente e atualiza prioridade
  */
 
-import { createClient } from 'npm:@base44/sdk@0.7.1';
+import { createClient } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   try {

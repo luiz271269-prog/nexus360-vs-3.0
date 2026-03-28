@@ -359,7 +359,7 @@ Deno.cron("Healthcheck VendaPro", "*/10 * * * *", async () => {
     }
     
     // Importar SDK e criar cliente service role manualmente
-    const { createClient } = await import('npm:@base44/sdk@0.7.1');
+    const { createClient } = await import('npm:@base44/sdk@0.8.23');
     const base44 = createClient(BASE44_APP_ID, BASE44_SERVICE_KEY);
     
     await executarHealthcheck(base44);
