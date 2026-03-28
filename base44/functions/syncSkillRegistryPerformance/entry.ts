@@ -2,7 +2,7 @@
 // Executa: 1x/hora
 // Objetivo: Manter registros de performance atualizados em vez de estáticos
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   const headers = { 'Content-Type': 'application/json' };
