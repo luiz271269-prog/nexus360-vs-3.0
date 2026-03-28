@@ -8,7 +8,7 @@
 // 4. Envia boas-vindas humanizadas
 // ============================================================================
 
-import { createClientFromRequest, createClient } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest, createClient } from 'npm:@base44/sdk@0.8.23';
 
 const SETOR_MAP = {
   'vendas': ['venda', 'comprar', 'orçamento', 'preço', 'cotação', 'produto', 'pc', 'notebook', 'gamer', 'quanto custa', 'valor'],

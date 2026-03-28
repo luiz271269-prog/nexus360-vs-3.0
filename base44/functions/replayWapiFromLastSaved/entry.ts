@@ -7,7 +7,7 @@
 // e reprocessar eventos desde esse ponto até agora.
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   try {

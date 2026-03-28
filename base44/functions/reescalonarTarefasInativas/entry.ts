@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 import Anthropic from 'npm:@anthropic-ai/sdk@0.39.0';
 
 // ============================================================================

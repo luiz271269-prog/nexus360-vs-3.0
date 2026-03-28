@@ -5,7 +5,7 @@
 // Sem atendente: enfileira + pergunta qualificadora + boas-vindas LLM
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 interface QueuePayload {
   thread_id: string;

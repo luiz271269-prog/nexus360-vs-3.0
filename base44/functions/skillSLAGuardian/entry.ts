@@ -5,7 +5,7 @@
 // Cooldown via jarvis_next_check_after. Executado pelo jarvisEventLoop a cada 5min
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 async function enviarMsgWhatsApp(base44: any, integration_id: string, telefone: string, mensagem: string): Promise<boolean> {
   try {

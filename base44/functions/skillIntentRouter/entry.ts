@@ -5,7 +5,7 @@
 // Sticky: usa thread.sector_id anterior como hint para o LLM
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 const PATTERNS = [
   {

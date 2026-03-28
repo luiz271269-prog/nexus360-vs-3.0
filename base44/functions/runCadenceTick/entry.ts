@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // ============================================================================
 // CADENCE TICK - Motor de Cadência 1/7..5/7

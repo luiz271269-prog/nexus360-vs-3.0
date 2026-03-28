@@ -3,7 +3,7 @@
 // → move/cria Orcamento no pipeline de vendas
 // CORRIGIDO: ouve MessageThread (não Message), pois categorias ficam em MessageThread.categorias
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   try {

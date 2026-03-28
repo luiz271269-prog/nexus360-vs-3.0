@@ -1,4 +1,4 @@
-import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔄 WORKER DE SINCRONIZAÇÃO BIDIRECIONAL - CALENDÁRIOS

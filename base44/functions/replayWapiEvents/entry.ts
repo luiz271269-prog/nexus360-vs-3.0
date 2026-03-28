@@ -7,7 +7,7 @@
 // que não foram gravadas devido a quedas de banco, falhas ou inconsistências.
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 import { processInboundEvent } from './lib/inboundCore.js';
 
 /**

@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // ═════════════════════════════════════════════════════════════════════════
 // PROCESSADOR ASSÍNCRONO - ANÁLISE IA E PERSISTÊNCIA DE MÍDIA
