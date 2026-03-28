@@ -5,6 +5,9 @@ export function aplicarFiltroEscopo(thread, usuario, filtros, userPermissions, D
   if (!filtros.scope || filtros.scope === 'all') {
     return true; // Sem filtro de escopo
   }
+  if (usuario?.role === 'admin') {
+    return true;
+  }
 
   // ✅ NOVO: Verificar participação em participants[] (Opção A)
   const participaComoParticipante = thread.participants?.includes(usuario?.id);
