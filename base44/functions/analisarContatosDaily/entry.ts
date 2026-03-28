@@ -5,7 +5,7 @@
 // nas últimas 24h, distribuindo carga ao longo do dia.
 // ============================================================================
 
-import { createClientFromRequest, createClient } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest, createClient } from 'npm:@base44/sdk@0.8.23';
 
 const BATCH_SIZE = 96; // ✅ Aumentado: 12×8 contatos por execução diária
 const ANALYSIS_WINDOW_HOURS = 24;

@@ -6,7 +6,7 @@
 // Se detectado, busca a nota no banco e retorna os dados para envio.
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // Palavras-chave de alto valor para detecção sem LLM (fast-track)
 const KEYWORDS_DOC_FISCAL = [

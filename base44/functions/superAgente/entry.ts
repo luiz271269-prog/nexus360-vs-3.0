@@ -1,7 +1,7 @@
 // ============================================================================
 // SUPER AGENTE v1.0.0 - Orquestrador Universal de Skills
 // ============================================================================
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // Modos de execução
 const EXECUTION_MODES = {
