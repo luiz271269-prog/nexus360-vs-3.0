@@ -2,7 +2,7 @@
 // Executa UMA VEZ, após deploy
 // Remove: registros IDÊNTICOS (mesmos dados contexto), mantém: registros ÚNICOS (dados diferentes)
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   try {

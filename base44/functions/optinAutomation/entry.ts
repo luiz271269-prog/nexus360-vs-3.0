@@ -15,7 +15,7 @@
  * 4. Registrar no AutomationLog
  */
 
-import { createClient } from 'npm:@base44/sdk@0.7.1';
+import { createClient } from 'npm:@base44/sdk@0.8.23';
 
 // Configurar cron para executar a cada 6 horas
 Deno.cron("Opt-in Automation", "0 */6 * * *", async () => {

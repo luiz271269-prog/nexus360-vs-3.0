@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // Busca mensagens de threads internas (grupo) sem restrição de RLS
 // Necessário porque mensagens de grupo têm recipient_id=null (RLS bloqueia para não-remetentes)

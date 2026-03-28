@@ -1,5 +1,5 @@
 // redeploy: 2026-03-26T17:50-SIMPLIFÍCADO
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // ============================================================================
 // FUNÇÃO CENTRALIZADORA ÚNICA - CONTATO (ANTI-DUPLICAÇÃO)

@@ -2,7 +2,7 @@
 // owner_user_id = 'system', tipo = 'aprendizado_semanal', criados em 16/03 (antes de 18/03)
 // Esses registros dizem "zero decisões, zero atividade" — ruído para o sistema
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   try {
