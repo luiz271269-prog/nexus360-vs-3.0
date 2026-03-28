@@ -1,5 +1,5 @@
 // redeploy: 2026-03-25T00:00-FIX-AUTOMERGE-GUARD
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // Fonte: functions/lib/phoneNormalizer.js (inlined — Deno não suporta imports locais)
 function normalizarTelefone(telefone) {
