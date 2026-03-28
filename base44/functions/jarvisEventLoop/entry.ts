@@ -10,7 +10,7 @@
 //   STEP 3: Orçamentos: negociando>3d, enviado>7d, vencido<14d
 // ═══════════════════════════════════════════════════════════════════════
 
-import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
+import { createClient, createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 const COOLDOWN_HORAS = 4;          // padrão — sobrescrito por ConfiguracaoSistema: jarvis_cooldown_horas
 const MAX_THREADS_POR_CICLO = 3;   // padrão — sobrescrito por ConfiguracaoSistema: jarvis_max_threads
