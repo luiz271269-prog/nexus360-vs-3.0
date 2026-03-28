@@ -85,6 +85,7 @@ export function calcularThreadsFiltradas({ threads, contatos, clientes, atendent
   const filtros = { atendenteId: selectedAttendantId, integracaoId: selectedIntegrationId, scope: filterScope };
   const threadsFiltrados = threadsUnicas.filter((thread) => {
     if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+      if (isAdmin) return true; // Admin vê todas as threads internas
       const parts = thread.participants || [];
       return parts.includes(usuario.id);
     }
@@ -108,6 +109,7 @@ export function calcularThreadsFiltradas({ threads, contatos, clientes, atendent
     if (isFilterUnassigned) { if (!(thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')) { if (!threadsNaoAtribuidasVisiveis.has(thread.id)) return false; } return true; }
     const podeVerBase = permissionsService.canUserSeeThreadBase(userPermissions, thread, contato);
     if (!podeVerBase) return false;
+    if (isAdmin) return true; // Admin sempre vê todas (ignora filterScope)
     const passouEscopo = aplicarFiltroEscopo(thread, usuario, filtros, userPermissions, DEBUG_VIS);
     if (!passouEscopo) return false;
     return true;
