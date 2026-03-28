@@ -3,52 +3,45 @@ import * as permissionsService from "../lib/permissionsService";
 
 export function aplicarFiltroEscopo(thread, usuario, filtros, userPermissions, DEBUG_VIS = false) {
   if (!filtros.scope || filtros.scope === 'all') {
-    return true; // Sem filtro de escopo
+    return true;
   }
+
+  // ADMIN vê TUDO - bypass total
   if (usuario?.role === 'admin') {
     return true;
   }
 
-  // ✅ NOVO: Verificar participação em participants[] (Opção A)
   const participaComoParticipante = thread.participants?.includes(usuario?.id);
   
   if (filtros.scope === 'my' && participaComoParticipante) {
-    if (DEBUG_VIS) {
-      console.log('[FILTER] ✅ Thread passou: usuário está em participants[]');
-    }
+    if (DEBUG_VIS) console.log('[FILTER] Thread passou: participants[]');
     return true;
   }
 
-  // ✅ Também verificar se é o assigned_user (mesmo sem estar em participants[])
   if (filtros.scope === 'my' && thread.assigned_user_id === usuario?.id) {
-    if (DEBUG_VIS) {
-      console.log('[FILTER] ✅ Thread passou: usuário é o assigned_user_id');
-    }
+    if (DEBUG_VIS) console.log('[FILTER] Thread passou: assigned_user_id');
     return true;
   }
 
-  // ✅ Verificar delegacao: se assigned_user_id é alguem que delegou para mim
   if (filtros.scope === 'my') {
     const delegadores = userPermissions?.delegadoresPorMim || [];
     if (delegadores.length > 0 && thread.assigned_user_id && delegadores.includes(thread.assigned_user_id)) {
-      if (DEBUG_VIS) console.log('[FILTER] ✅ Thread passou: delegacao ativa do usuario', thread.assigned_user_id);
+      if (DEBUG_VIS) console.log('[FILTER] Thread passou: delegacao');
       return true;
     }
   }
 
-  // ✅ Verificar histórico (atendentes_historico, shared_with_users)
   if (filtros.scope === 'my') {
     const uid = usuario?.id;
     const estaNoHistorico =
       thread.shared_with_users?.includes(uid) ||
       thread.atendentes_historico?.includes(uid);
     if (estaNoHistorico) {
-      if (DEBUG_VIS) console.log('[FILTER] ✅ Thread passou: usuário está no histórico');
+      if (DEBUG_VIS) console.log('[FILTER] Thread passou: historico');
       return true;
     }
   }
 
-  // Aplicar filtro tradicional de escopo
   const escopoConfig = {
     id: filtros.scope,
     regra: filtros.scope === 'my' ? 'atribuido_ou_fidelizado' : 'sem_assigned_user_id'
