@@ -1,5 +1,5 @@
 // redeploy: 2026-03-20T16:00-FIX-HUMAN-ACTIVE
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
 // ║  WEBHOOK WHATSAPP W-API - v26.0.0-MEDIA-FIX                           ║
