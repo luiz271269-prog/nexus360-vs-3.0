@@ -1,10 +1,40 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
-
 /**
  * Busca livre de threads no banco (sem RLS)
- * Retorna threads + contatos associados
- * Filtragem de permissões aplicada no frontend
+ * PATCH: Desabilita Brotli no Node.js compat layer para evitar bug de descompressão no Deno
  */
+
+// Patch ANTES de qualquer import do SDK (que usa node:https internamente)
+import https from 'node:https';
+import http from 'node:http';
+
+function patchRequestToDisableBrotli(mod) {
+  const origRequest = mod.request.bind(mod);
+  mod.request = function(options, callback) {
+    // Normaliza options como objeto
+    if (typeof options === 'string' || options instanceof URL) {
+      const url = new URL(options.toString());
+      options = {
+        hostname: url.hostname,
+        port: url.port || (mod === https ? 443 : 80),
+        path: url.pathname + url.search,
+        method: 'GET',
+      };
+    }
+    if (!options.headers) options.headers = {};
+    // Força apenas gzip/deflate, sem br (brotli)
+    options.headers['accept-encoding'] = 'gzip, deflate';
+    return origRequest(options, callback);
+  };
+}
+
+try {
+  patchRequestToDisableBrotli(https);
+  patchRequestToDisableBrotli(http);
+} catch(e) {
+  console.warn('[buscarThreadsLivre] Patch Brotli falhou (non-blocking):', e.message);
+}
+
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -28,7 +58,6 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     
-    // Verificar autenticação
     const user = await base44.auth.me();
     if (!user) {
       return Response.json({ error: 'Não autenticado' }, { status: 401 });
@@ -40,7 +69,6 @@ Deno.serve(async (req) => {
       incluirInternas = true 
     } = await req.json();
 
-    // Buscar threads sem RLS
     const filter = { status };
     if (!incluirInternas) {
       filter.thread_type = 'contact_external';
@@ -52,7 +80,6 @@ Deno.serve(async (req) => {
       limit
     );
 
-    // Buscar contatos associados (em batch para performance)
     const contactIds = [...new Set(
       threads
         .filter(t => t.contact_id)
@@ -61,15 +88,14 @@ Deno.serve(async (req) => {
 
     let contatosMap = {};
     if (contactIds.length > 0) {
-      const contatos = await base44.asServiceRole.entities.Contact.list('-created_date', 1000);
-      contatosMap = Object.fromEntries(
-        contatos
-          .filter(c => contactIds.includes(c.id))
-          .map(c => [c.id, c])
+      const contatos = await base44.asServiceRole.entities.Contact.filter(
+        { id: { $in: contactIds } },
+        '-created_date',
+        contactIds.length
       );
+      contatosMap = Object.fromEntries(contatos.map(c => [c.id, c]));
     }
 
-    // Enriquecer threads com dados de contato
     const threadsEnriquecidas = threads.map(thread => ({
       ...thread,
       contato: thread.contact_id ? contatosMap[thread.contact_id] : null
