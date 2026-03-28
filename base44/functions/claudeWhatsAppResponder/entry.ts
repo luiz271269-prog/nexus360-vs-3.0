@@ -3,7 +3,7 @@
 // Ativado quando: sem humano ativo + sem URA ativa + mensagem requer resposta
 // MELHORIAS v2: Promise.all, retry+timeout, reqId, metadata enriquecida, fallback ao cliente
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 import Anthropic from 'npm:@anthropic-ai/sdk@0.39.0';
 
 const anthropic = new Anthropic({
