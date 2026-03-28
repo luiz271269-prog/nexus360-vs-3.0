@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // ============================================================================
 // FUNÇÃO UNIFICADA DE ENVIO WHATSAPP - v2.0.0
