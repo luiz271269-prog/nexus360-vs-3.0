@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, Target, Users, TrendingUp, AlertCircle, CheckCircle, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from "recharts";
 
-export default function VisaoGeralEmpresa({ dados }) {
-  const kpis = calcularKPIsEmpresa(dados);
-  const tendencias = calcularTendencias(dados);
+export default function VisaoGeralEmpresa({ dados, notasFiscais }) {
+  const nf = notasFiscais || [];
+  const kpis = calcularKPIsEmpresa(dados, nf);
+  const tendencias = calcularTendencias(dados, nf);
   const distribuicoes = calcularDistribuicoes(dados);
 
   return (
@@ -255,90 +256,72 @@ function KPICard({ titulo, valor, variacao, icon: Icon, cor }) {
 }
 
 // Funções auxiliares para cálculos
-function calcularKPIsEmpresa(dados) {
-  const faturamentoTotal = dados.vendas.reduce((acc, venda) => acc + (venda.valor_total || 0), 0);
+function calcularKPIsEmpresa(dados, notas) {
+  // Prioriza notas fiscais para faturamento real
+  const faturamentoTotal = notas.length > 0
+    ? notas.reduce((acc, n) => acc + (n.valor_total || 0), 0)
+    : dados.vendas.reduce((acc, venda) => acc + (venda.valor_total || 0), 0);
   const metaTotal = dados.vendedores.reduce((acc, vendedor) => acc + (vendedor.meta_mensal || 0), 0);
   const percentualMeta = metaTotal > 0 ? Math.round(faturamentoTotal / metaTotal * 100) : 0;
-
   const clientesAtivos = dados.clientes.filter((c) => c.status === 'Ativo').length;
   const totalOrcamentos = dados.orcamentos.length;
   const orcamentosAprovados = dados.orcamentos.filter((o) => o.status === 'Aprovado').length;
   const taxaConversao = totalOrcamentos > 0 ? Math.round(orcamentosAprovados / totalOrcamentos * 100) : 0;
-
-  // Manter cálculo para outros usos, mas remover do retorno da função se não for mais necessário
-  // This calculation is no longer needed since it's not returned and not used elsewhere in this file.
-  // const vendedoresFaturamento = dados.vendedores.map((vendedor) => {
-  //   const vendasVendedor = dados.vendas.filter((v) => v.vendedor === vendedor.nome);
-  //   const faturamento = vendasVendedor.reduce((acc, venda) => acc + (venda.valor_total || 0), 0);
-  //   const percentualMeta = vendedor.meta_mensal > 0 ? Math.round(faturamento / vendedor.meta_mensal * 100) : 0;
-  //   return { ...vendedor, faturamento, percentualMeta };
-  // }).sort((a, b) => b.faturamento - a.faturamento);
-
   return {
     faturamentoTotal,
     percentualMeta,
     clientesAtivos,
     taxaConversao,
-    crescimentoFaturamento: 12, // Placeholder
-    variacao_meta: 8, // Placeholder
-    crescimentoClientes: 5, // Placeholder
-    variacaoConversao: -2 // Placeholder
-    // topVendedores não é mais retornado
+    crescimentoFaturamento: 12,
+    variacao_meta: 8,
+    crescimentoClientes: 5,
+    variacaoConversao: -2
   };
 }
 
-function calcularTendencias(dados) {
+function calcularTendencias(dados, notas) {
   const hoje = new Date();
   const ultimosMeses = [];
-
-  // Generate last 4 months (current month + 3 previous)
   for (let i = 3; i >= 0; i--) {
     const data = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-    const mesAno = data.toISOString().slice(0, 7); // YYYY-MM
-    // Format to "Jan", "Feb", etc.
+    const mesAno = data.toISOString().slice(0, 7);
     const nomeMs = data.toLocaleDateString('pt-BR', { month: 'short' });
     ultimosMeses.push({ mes: mesAno, nome: nomeMs });
   }
 
-  // Agrupar vendas por mês para os meses relevantes
+  // Agrupar notas fiscais por mês (fonte primária)
+  const notasPorMesObj = {};
+  (notas || []).forEach(n => {
+    const d = (n.data_emissao || n.created_date || '').slice(0, 7);
+    if (d) notasPorMesObj[d] = (notasPorMesObj[d] || 0) + (n.valor_total || 0);
+  });
+
+  // Fallback: vendas internas
   const vendasPorMesObj = {};
-  dados.vendas.forEach((venda) => {
+  dados.vendas.forEach(venda => {
     if (venda.data_venda) {
-      const mes = venda.data_venda.slice(0, 7); // YYYY-MM
-      // Only consider sales within the last 4 relevant months
-      if (ultimosMeses.some((m) => m.mes === mes)) {
+      const mes = venda.data_venda.slice(0, 7);
+      if (ultimosMeses.some(m => m.mes === mes))
         vendasPorMesObj[mes] = (vendasPorMesObj[mes] || 0) + (venda.valor_total || 0);
-      }
     }
   });
 
+  const temNotas = Object.keys(notasPorMesObj).length > 0;
+  const metaTotalEmpresa = dados.vendedores.reduce((acc, v) => acc + (v.meta_mensal || 0), 0);
+
   const faturamentoPorMes = ultimosMeses.map(({ mes, nome }) => ({
     mes: nome,
-    faturamento: vendasPorMesObj[mes] || 0
+    faturamento: temNotas ? (notasPorMesObj[mes] || 0) : (vendasPorMesObj[mes] || 0)
   }));
 
-  // Calcular meta total da empresa para performance vs meta e performance mensal
-  const metaTotalEmpresa = dados.vendedores.reduce((acc, vendedor) => acc + (vendedor.meta_mensal || 0), 0);
-
-  // Performance vs Meta
   const performanceVsMeta = ultimosMeses.map(({ mes, nome }) => {
-    const faturamentoRealizado = vendasPorMesObj[mes] || 0;
-    const percentualRealizado = metaTotalEmpresa > 0 ? Math.round(faturamentoRealizado / metaTotalEmpresa * 100) : 0;
-    return {
-      mes: nome,
-      realizado: percentualRealizado,
-      meta: 100
-    };
+    const fat = temNotas ? (notasPorMesObj[mes] || 0) : (vendasPorMesObj[mes] || 0);
+    return { mes: nome, realizado: metaTotalEmpresa > 0 ? Math.round(fat / metaTotalEmpresa * 100) : 0, meta: 100 };
   });
 
-  // Performance Mensal
   const performanceMensal = ultimosMeses.map(({ mes, nome }) => {
-    const faturamentoRealizado = vendasPorMesObj[mes] || 0;
-    const performance = metaTotalEmpresa > 0 ? Math.round(faturamentoRealizado / metaTotalEmpresa * 100) : 0;
-    return {
-      mes: nome,
-      performance: performance
-    };
+    const fat = temNotas ? (notasPorMesObj[mes] || 0) : (vendasPorMesObj[mes] || 0);
+    return { mes: nome, performance: metaTotalEmpresa > 0 ? Math.round(fat / metaTotalEmpresa * 100) : 0 };
   });
 
   return { faturamentoPorMes, performanceVsMeta, performanceMensal };

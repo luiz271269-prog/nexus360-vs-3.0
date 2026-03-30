@@ -5,9 +5,14 @@ import { Progress } from "@/components/ui/progress";
 import { Award, TrendingUp, Target, DollarSign, Users, Phone, Calendar, Star, Trophy, User, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 
-export default function PerformanceVendedores({ dados, filtros, isGerente, usuario }) {
+export default function PerformanceVendedores({ dados, filtros, isGerente, usuario, notasFiscais }) {
   const dadosFiltrados = aplicarFiltroData(dados, filtros);
-  const metricas = calcularMetricasVendedores(dadosFiltrados, dados, usuario);
+  const nf = (notasFiscais || []).filter(n => {
+    if (!filtros?.dataInicio || !filtros?.dataFim) return true;
+    const d = (n.data_emissao || n.created_date || '').slice(0, 10);
+    return d >= filtros.dataInicio && d <= filtros.dataFim;
+  });
+  const metricas = calcularMetricasVendedores(dadosFiltrados, dados, usuario, nf);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -314,7 +319,7 @@ function aplicarFiltroData(dados, filtros) {
   };
 }
 
-function calcularMetricasVendedores(dados, dadosCompletos, usuario) {
+function calcularMetricasVendedores(dados, dadosCompletos, usuario, notas) {
   if (!dados || !Array.isArray(dados.vendedores) || !Array.isArray(dados.vendas) || !Array.isArray(dados.interacoes) || !Array.isArray(dados.orcamentos) || !Array.isArray(dados.clientes)) {
     return {
       rankingVendedores: [],
@@ -339,8 +344,15 @@ function calcularMetricasVendedores(dados, dadosCompletos, usuario) {
   // Calcular métricas por vendedor
   const vendedoresComMetricas = dados.vendedores.map((vendedor) => {
     const nomeVendedor = vendedor.full_name || vendedor.nome || vendedor.email || '';
+    const primeiroNome = nomeVendedor.split(' ')[0].toLowerCase();
     const vendasVendedor = dados.vendas.filter((v) => v.vendedor === nomeVendedor || v.vendedor_id === vendedor.id);
-    const faturamentoVendedor = vendasVendedor.reduce((sum, v) => sum + (v.valor_total || 0), 0);
+    // Faturamento: prioriza notas fiscais do vendedor
+    const notasVendedor = (notas || []).filter(n =>
+      n.vendedor && n.vendedor.toLowerCase().includes(primeiroNome)
+    );
+    const faturamentoVendedor = notasVendedor.length > 0
+      ? notasVendedor.reduce((sum, n) => sum + (n.valor_total || 0), 0)
+      : vendasVendedor.reduce((sum, v) => sum + (v.valor_total || 0), 0);
     const percentualMeta = (vendedor.meta_mensal || 0) > 0 ?
     Math.round(faturamentoVendedor / vendedor.meta_mensal * 100) :
     0;
@@ -367,8 +379,10 @@ function calcularMetricasVendedores(dados, dadosCompletos, usuario) {
   const rankingVendedores = vendedoresComMetricas.sort((a, b) => b.faturamento - a.faturamento);
   const topVendedor = rankingVendedores[0];
 
-  // Métricas gerais
-  const faturamentoTotal = dados.vendas.reduce((sum, v) => sum + (v.valor_total || 0), 0);
+  // Métricas gerais: prioriza notas fiscais
+  const faturamentoTotal = (notas && notas.length > 0)
+    ? notas.reduce((sum, n) => sum + (n.valor_total || 0), 0)
+    : dados.vendas.reduce((sum, v) => sum + (v.valor_total || 0), 0);
   const metaTotal = dados.vendedores.reduce((sum, v) => sum + (v.meta_mensal || 0), 0);
   const percentualMetaColetiva = metaTotal > 0 ? Math.round(faturamentoTotal / metaTotal * 100) : 0;
   const ticketMedio = dados.vendas.length > 0 ? Math.round(faturamentoTotal / dados.vendas.length) : 0;
