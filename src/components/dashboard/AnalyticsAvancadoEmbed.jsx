@@ -49,6 +49,7 @@ import {
 } from "recharts";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
+import { buscarNotasFiscaisExternas } from "@/functions/buscarNotasFiscaisExternas";
 
 export default function AnalyticsAvancadoEmbed() {
   const [periodoSelecionado, setPeriodoSelecionado] = useState('ano');
@@ -63,20 +64,24 @@ export default function AnalyticsAvancadoEmbed() {
   const carregarDados = async () => {
     setLoading(true);
     try {
-      const [vendedores, clientes, vendas, orcamentos, interacoes] = await Promise.all([
+      const [vendedores, clientes, vendas, orcamentos, interacoes, notasResp] = await Promise.all([
         base44.entities.Vendedor.list(),
         base44.entities.Cliente.list(),
         base44.entities.Venda.list('-data_venda', 500),
         base44.entities.Orcamento.list('-data_orcamento', 500),
-        base44.entities.Interacao.list('-data_interacao', 1000)
+        base44.entities.Interacao.list('-data_interacao', 1000),
+        buscarNotasFiscaisExternas({}).catch(() => ({ data: { notas: [] } }))
       ]);
+
+      const notas = notasResp?.data?.notas || [];
 
       const dadosProcessados = processarDados({
         vendedores,
         clientes,
         vendas,
         orcamentos,
-        interacoes
+        interacoes,
+        notas
       }, periodoSelecionado);
 
       setDados(dadosProcessados);
@@ -519,14 +524,23 @@ function processarDados(dados, periodo) {
   const filtro = getFiltroData(periodo);
 
   let vendasFiltradas = dados.vendas;
+  let notasFiltradas = dados.notas || [];
   let orcamentosFiltrados = dados.orcamentos;
 
   if (filtro) {
     vendasFiltradas = dados.vendas.filter(v => v.data_venda >= filtro.inicio && v.data_venda <= filtro.fim);
+    notasFiltradas = notasFiltradas.filter(n => {
+      const d = (n.data_emissao || n.created_date || '').slice(0, 10);
+      return d >= filtro.inicio && d <= filtro.fim;
+    });
     orcamentosFiltrados = dados.orcamentos.filter(o => o.data_orcamento >= filtro.inicio && o.data_orcamento <= filtro.fim);
   }
 
-  const faturamentoTotal = vendasFiltradas.reduce((acc, v) => acc + (v.valor_total || 0), 0);
+  // Faturamento: prioriza notas fiscais se disponíveis, senão usa vendas
+  const faturamentoTotal = notasFiltradas.length > 0
+    ? notasFiltradas.reduce((acc, n) => acc + (n.valor_total || 0), 0)
+    : vendasFiltradas.reduce((acc, v) => acc + (v.valor_total || 0), 0);
+
   const totalVendas = vendasFiltradas.length;
   const taxaConversao = orcamentosFiltrados.length > 0
     ? Math.round((totalVendas / orcamentosFiltrados.length) * 100)
@@ -539,10 +553,11 @@ function processarDados(dados, periodo) {
     taxaConversao,
     clientesAtivos,
     crescimentoFaturamento: faturamentoTotal > 0 ? 15 : 0,
+    faturamentoTotal,
     crescimentoVendas: totalVendas > 0 ? 8 : 0,
     variacaoConversao: taxaConversao > 0 ? -3 : 0,
     crescimentoClientes: clientesAtivos > 0 ? 5 : 0,
-    evolucaoTemporal: gerarEvolucaoTemporal(dados.vendas),
+    evolucaoTemporal: gerarEvolucaoTemporal(dados.vendas, dados.notas || []),
     faturamentoPorSegmento: calcularFaturamentoPorSegmento(dados.clientes, vendasFiltradas),
     ticketMedioPorPeriodo: gerarTicketMedio(vendasFiltradas),
     vendasPorTipo: calcularVendasPorTipo(vendasFiltradas),
@@ -577,7 +592,7 @@ function gerarInsights(dados) {
   return insights;
 }
 
-function gerarEvolucaoTemporal(vendas) {
+function gerarEvolucaoTemporal(vendas, notas) {
   const ultimos4Meses = [];
   const hoje = new Date();
   for (let i = 3; i >= 0; i--) {
@@ -585,7 +600,10 @@ function gerarEvolucaoTemporal(vendas) {
     const mesAno = data.toISOString().slice(0, 7);
     const nomeMs = data.toLocaleDateString('pt-BR', { month: 'short' });
     const vendasMes = vendas.filter(v => v.data_venda?.slice(0, 7) === mesAno);
-    const faturamento = vendasMes.reduce((acc, v) => acc + (v.valor_total || 0), 0);
+    const notasMes = (notas || []).filter(n => (n.data_emissao || n.created_date || '').slice(0, 7) === mesAno);
+    const faturamento = notasMes.length > 0
+      ? notasMes.reduce((acc, n) => acc + (n.valor_total || 0), 0)
+      : vendasMes.reduce((acc, v) => acc + (v.valor_total || 0), 0);
     ultimos4Meses.push({ periodo: nomeMs, faturamento, vendas: vendasMes.length });
   }
   return ultimos4Meses;
