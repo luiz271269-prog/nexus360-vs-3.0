@@ -561,13 +561,7 @@ function processarDados(dados, periodo) {
     faturamentoPorSegmento: calcularFaturamentoPorSegmento(dados.clientes, vendasFiltradas),
     ticketMedioPorPeriodo: gerarTicketMedio(vendasFiltradas),
     vendasPorTipo: calcularVendasPorTipo(vendasFiltradas),
-    distribuicaoScore: [
-      { faixa: '0-200', quantidade: 15 },
-      { faixa: '201-400', quantidade: 25 },
-      { faixa: '401-600', quantidade: 35 },
-      { faixa: '601-800', quantidade: 20 },
-      { faixa: '801-1000', quantidade: 5 }
-    ],
+    distribuicaoScore: calcularDistribuicaoScore(dados.clientes),
     clientesRisco: identificarClientesRisco(dados.clientes),
     previsaoFaturamento: gerarPrevisaoFaturamento(vendasFiltradas),
     recomendacoesIA: [
@@ -646,15 +640,41 @@ function calcularVendasPorTipo(vendas) {
   return Object.values(tipos);
 }
 
+function calcularDistribuicaoScore(clientes) {
+  const faixas = [
+    { faixa: '0-20', min: 0, max: 20 },
+    { faixa: '21-40', min: 21, max: 40 },
+    { faixa: '41-60', min: 41, max: 60 },
+    { faixa: '61-80', min: 61, max: 80 },
+    { faixa: '81-100', min: 81, max: 100 }
+  ];
+  return faixas.map(f => ({
+    faixa: f.faixa,
+    quantidade: clientes.filter(c => {
+      const score = c.score_qualificacao_lead || c.cliente_score || 0;
+      return score >= f.min && score <= f.max;
+    }).length
+  }));
+}
+
 function identificarClientesRisco(clientes) {
-  return clientes
-    .filter(c => c.status === 'Em Risco' || c.status === 'Inativo')
-    .slice(0, 10)
-    .map(c => ({
-      nome: c.razao_social,
-      risco_churn: 'alto',
-      dias_sem_contato: Math.floor(Math.random() * 30) + 7
-    }));
+  const hoje = new Date();
+  const riscos = clientes.filter(c =>
+    c.status === 'Em Risco' || c.status === 'Inativo' ||
+    (c.score_qualificacao_lead !== undefined && c.score_qualificacao_lead < 30) ||
+    (c.cliente_score !== undefined && c.cliente_score < 30)
+  );
+  return riscos.slice(0, 10).map(c => {
+    const ultimo = c.ultimo_contato || c.updated_date;
+    const dias = ultimo
+      ? Math.floor((hoje - new Date(ultimo)) / (1000 * 60 * 60 * 24))
+      : null;
+    return {
+      nome: c.razao_social || c.nome_fantasia,
+      risco_churn: c.status === 'Em Risco' ? 'alto' : 'médio',
+      dias_sem_contato: dias ?? '–'
+    };
+  });
 }
 
 function gerarPrevisaoFaturamento(vendas) {
