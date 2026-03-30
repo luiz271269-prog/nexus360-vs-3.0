@@ -484,20 +484,68 @@ function MetricCard({ titulo, valor, variacao, icon: Icon, cor }) {
 }
 
 // ===== FUNÇÕES AUXILIARES =====
+function getFiltroData(periodo) {
+  const hoje = new Date();
+  switch (periodo) {
+    case 'hoje':
+      return { inicio: hoje.toISOString().slice(0, 10), fim: hoje.toISOString().slice(0, 10) };
+    case 'semana_atual': {
+      const ini = new Date(hoje); ini.setDate(hoje.getDate() - hoje.getDay());
+      return { inicio: ini.toISOString().slice(0, 10), fim: hoje.toISOString().slice(0, 10) };
+    }
+    case 'mes_atual':
+      return {
+        inicio: new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10),
+        fim: hoje.toISOString().slice(0, 10)
+      };
+    case 'trimestre': {
+      const t = Math.floor(hoje.getMonth() / 3) * 3;
+      return {
+        inicio: new Date(hoje.getFullYear(), t, 1).toISOString().slice(0, 10),
+        fim: hoje.toISOString().slice(0, 10)
+      };
+    }
+    case 'ano':
+      return {
+        inicio: new Date(hoje.getFullYear(), 0, 1).toISOString().slice(0, 10),
+        fim: hoje.toISOString().slice(0, 10)
+      };
+    default:
+      return null;
+  }
+}
+
 function processarDados(dados, periodo) {
+  const filtro = getFiltroData(periodo);
+
+  let vendasFiltradas = dados.vendas;
+  let orcamentosFiltrados = dados.orcamentos;
+
+  if (filtro) {
+    vendasFiltradas = dados.vendas.filter(v => v.data_venda >= filtro.inicio && v.data_venda <= filtro.fim);
+    orcamentosFiltrados = dados.orcamentos.filter(o => o.data_orcamento >= filtro.inicio && o.data_orcamento <= filtro.fim);
+  }
+
+  const faturamentoTotal = vendasFiltradas.reduce((acc, v) => acc + (v.valor_total || 0), 0);
+  const totalVendas = vendasFiltradas.length;
+  const taxaConversao = orcamentosFiltrados.length > 0
+    ? Math.round((totalVendas / orcamentosFiltrados.length) * 100)
+    : 0;
+  const clientesAtivos = dados.clientes.filter(c => c.status === 'Ativo').length;
+
   return {
-    faturamentoTotal: dados.vendas.reduce((acc, v) => acc + (v.valor_total || 0), 0),
-    totalVendas: dados.vendas.length,
-    taxaConversao: Math.round((dados.vendas.length / Math.max(dados.orcamentos.length, 1)) * 100),
-    clientesAtivos: dados.clientes.filter(c => c.status === 'Ativo').length,
-    crescimentoFaturamento: 15,
-    crescimentoVendas: 8,
-    variacaoConversao: -3,
-    crescimentoClientes: 5,
+    faturamentoTotal,
+    totalVendas,
+    taxaConversao,
+    clientesAtivos,
+    crescimentoFaturamento: faturamentoTotal > 0 ? 15 : 0,
+    crescimentoVendas: totalVendas > 0 ? 8 : 0,
+    variacaoConversao: taxaConversao > 0 ? -3 : 0,
+    crescimentoClientes: clientesAtivos > 0 ? 5 : 0,
     evolucaoTemporal: gerarEvolucaoTemporal(dados.vendas),
-    faturamentoPorSegmento: calcularFaturamentoPorSegmento(dados.clientes, dados.vendas),
-    ticketMedioPorPeriodo: gerarTicketMedio(dados.vendas),
-    vendasPorTipo: calcularVendasPorTipo(dados.vendas),
+    faturamentoPorSegmento: calcularFaturamentoPorSegmento(dados.clientes, vendasFiltradas),
+    ticketMedioPorPeriodo: gerarTicketMedio(vendasFiltradas),
+    vendasPorTipo: calcularVendasPorTipo(vendasFiltradas),
     distribuicaoScore: [
       { faixa: '0-200', quantidade: 15 },
       { faixa: '201-400', quantidade: 25 },
@@ -506,7 +554,7 @@ function processarDados(dados, periodo) {
       { faixa: '801-1000', quantidade: 5 }
     ],
     clientesRisco: identificarClientesRisco(dados.clientes),
-    previsaoFaturamento: gerarPrevisaoFaturamento(dados.vendas),
+    previsaoFaturamento: gerarPrevisaoFaturamento(vendasFiltradas),
     recomendacoesIA: [
       { titulo: 'Focar em Alto Valor', descricao: '15 clientes prioritários aguardando contato', impacto_estimado: 'R$ 45K' },
       { titulo: 'Otimizar Funil', descricao: '32 orçamentos parados há mais de 7 dias', impacto_estimado: '12% conversão' },
