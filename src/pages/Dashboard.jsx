@@ -156,7 +156,10 @@ export default function Dashboard() {
         clientes: dados.clientes.filter((c) => c.vendedor_responsavel === nomeVendedor),
         vendas: dados.vendas.filter((v) => v.vendedor === nomeVendedor),
         orcamentos: dados.orcamentos.filter((o) => o.vendedor === nomeVendedor),
-        interacoes: dados.interacoes.filter((i) => i.vendedor === nomeVendedor)
+        interacoes: dados.interacoes.filter((i) => i.vendedor === nomeVendedor),
+        contatosFidelizados: (dados.contatosFidelizados || []).filter(
+          (c) => c.atendente_fidelizado_vendas === usuario.id || c.vendedor_responsavel === nomeVendedor
+        )
       };
     }
 
@@ -260,12 +263,13 @@ export default function Dashboard() {
     try {
       const usuarioAtual = await base44.auth.me();
 
-      const [usersData, clientesData, vendasData, orcamentosData, interacoesData] = await Promise.all([
+      const [usersData, clientesData, vendasData, orcamentosData, interacoesData, contatosFidelizadosData] = await Promise.all([
         base44.entities.User.list(),
         base44.entities.Cliente.list('-updated_date', 500),
         base44.entities.Venda.list('-data_venda', 500),
         base44.entities.Orcamento.list('-data_orcamento', 300),
-        base44.entities.Interacao.list('-data_interacao', 500)
+        base44.entities.Interacao.list('-data_interacao', 500),
+        base44.entities.Contact.filter({ is_cliente_fidelizado: true }, '-ultima_interacao', 500)
       ]);
       // Vendedores = Users com codigo preenchido ou setor vendas
       const vendedoresData = usersData.filter(u => u.codigo || u.attendant_sector === 'vendas');
@@ -276,7 +280,8 @@ export default function Dashboard() {
         clientes: clientesData,
         vendas: vendasData,
         orcamentos: orcamentosData,
-        interacoes: interacoesData
+        interacoes: interacoesData,
+        contatosFidelizados: contatosFidelizadosData
       };
 
       dashboardCache.data = dadosCarregados;
@@ -310,7 +315,8 @@ export default function Dashboard() {
         clientes: dadosCarregados.clientes,
         vendas: dadosCarregados.vendas,
         orcamentos: dadosCarregados.orcamentos,
-        interacoes: dadosCarregados.interacoes
+        interacoes: dadosCarregados.interacoes,
+        contatosFidelizados: dadosCarregados.contatosFidelizados
       });
 
       dadosFiltrados = aplicarFiltros(dadosFiltrados, filtros);
@@ -322,7 +328,8 @@ export default function Dashboard() {
         clientes: [],
         vendas: [],
         orcamentos: [],
-        interacoes: []
+        interacoes: [],
+        contatosFidelizados: []
       });
     }
     setLoading(false);

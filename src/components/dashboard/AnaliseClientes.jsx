@@ -12,9 +12,9 @@ export default function AnaliseClientes({ dados, filtros, isGerente }) {
       {/* KPIs de Clientes */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <ClienteKPI
-          titulo="Total de Clientes"
-          valor={analises.totalClientes}
-          subtitulo={`${analises.clientesAtivos} ativos`}
+          titulo="Total Unificado"
+          valor={analises.totalUnificado}
+          subtitulo={`${analises.totalClientes} CRM + ${analises.totalFidelizados} fidelizados`}
           icon={Users}
           cor="blue"
         />
@@ -178,6 +178,11 @@ export default function AnaliseClientes({ dados, filtros, isGerente }) {
                           }`}>
                             {vendedor.ativos} ativos
                           </Badge>
+                          {vendedor.fidelizados > 0 && (
+                            <Badge className="text-xs bg-purple-800 text-purple-200">
+                              {vendedor.fidelizados} fidelizados
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -261,79 +266,126 @@ function ClienteKPI({ titulo, valor, subtitulo, icon: Icon, cor }) {
   );
 }
 
+// Deduplicar e unificar Cliente (CRM) + Contact (fidelizados)
+function buildUnificados(clientes, contatosFidelizados, vendedores) {
+  const clienteIds = new Set(clientes.map(c => c.id));
+  // Chaves já presentes no CRM (por id linkado ou empresa normalizada)
+  const clienteLinkedIds = new Set(clientes.map(c => c.id));
+  const empresasNoCRM = new Set(
+    clientes.map(c => (c.razao_social || c.nome_fantasia || '').trim().toLowerCase()).filter(Boolean)
+  );
+
+  // Mapa de user_id → nome para resolver atendente_fidelizado_vendas
+  const userMap = new Map((vendedores || []).map(v => [v.id, v.full_name || v.nome || v.id]));
+
+  const extras = (contatosFidelizados || []).filter(c => {
+    if (c.cliente_id && clienteLinkedIds.has(c.cliente_id)) return false;
+    const emp = (c.empresa || c.nome || '').trim().toLowerCase();
+    if (emp && empresasNoCRM.has(emp)) return false;
+    return true;
+  }).map(c => {
+    const atendenteId = c.atendente_fidelizado_vendas;
+    const nomeAtendente = atendenteId ? (userMap.get(atendenteId) || c.vendedor_responsavel || '') : (c.vendedor_responsavel || '');
+    return {
+      id: c.id,
+      razao_social: c.nome,
+      nome_fantasia: c.empresa || c.nome,
+      segmento: c.segmento_atual ? segmentoLabel(c.segmento_atual) : 'Não definido',
+      status: c.tipo_contato === 'cliente' ? 'Ativo' : (c.tipo_contato === 'lead' ? 'Prospect' : 'Inativo'),
+      valor_recorrente_mensal: 0,
+      vendedor_responsavel: nomeAtendente,
+      classe_abc: c.classe_abc,
+      cliente_score: c.cliente_score,
+      ultimo_contato: c.ultima_interacao,
+      _source: 'contact_fidelizado',
+      is_fidelizado: true
+    };
+  });
+
+  return [
+    ...clientes.map(c => ({ ...c, _source: 'cliente' })),
+    ...extras
+  ];
+}
+
+function segmentoLabel(s) {
+  const map = { lead_frio: 'Lead Frio', lead_morno: 'Lead Morno', lead_quente: 'Lead Quente',
+    cliente_ativo: 'Cliente Ativo', cliente_inativo: 'Inativo', suporte: 'Suporte',
+    vip: 'VIP', risco_churn: 'Em Risco' };
+  return map[s] || s;
+}
+
 // Função para calcular análises de clientes melhorada
 function calcularAnaliseClientes(dados) {
+  const unificados = buildUnificados(dados.clientes || [], dados.contatosFidelizados || [], dados.vendedores || []);
+
   const totalClientes = dados.clientes.length;
-  const clientesAtivos = dados.clientes.filter(c => c.status === 'Ativo').length;
-  const clientesEmRisco = dados.clientes.filter(c => c.status === 'Em Risco').length;
-  const percentualRisco = totalClientes > 0 ? Math.round((clientesEmRisco / totalClientes) * 100) : 0;
-  
-  // Receita média
-  const receitaTotal = dados.clientes.reduce((acc, c) => acc + (c.valor_recorrente_mensal || 0), 0);
-  const receitaMedia = totalClientes > 0 ? Math.round(receitaTotal / totalClientes) : 0;
+  const totalFidelizados = (dados.contatosFidelizados || []).length;
+  const totalUnificado = unificados.length;
+
+  const clientesAtivos = unificados.filter(c => c.status === 'Ativo').length;
+  const clientesEmRisco = unificados.filter(c => c.status === 'Em Risco' || c.status === 'Inativo').length;
+  const percentualRisco = totalUnificado > 0 ? Math.round((clientesEmRisco / totalUnificado) * 100) : 0;
+
+  // Receita média (só CRM tem valor_recorrente_mensal)
+  const receitaTotal = unificados.reduce((acc, c) => acc + (c.valor_recorrente_mensal || 0), 0);
+  const receitaMedia = totalUnificado > 0 ? Math.round(receitaTotal / totalUnificado) : 0;
 
   // Novos clientes baseado em vendas recentes
   const mesAtual = new Date().toISOString().slice(0, 7);
-  const novosClientes = (dados.vendas || []).filter(v => 
+  const novosClientes = (dados.vendas || []).filter(v =>
     v.data_venda?.slice(0, 7) === mesAtual && v.tipo_venda === 'Nova Venda'
   ).length;
 
-  // Distribuição por segmento
+  // Distribuição por segmento (dados unificados)
   const segmentos = {};
-  dados.clientes.forEach(cliente => {
+  unificados.forEach(cliente => {
     const segmento = cliente.segmento || 'Não definido';
     segmentos[segmento] = (segmentos[segmento] || 0) + 1;
   });
-
-  const porSegmento = Object.entries(segmentos).map(([segmento, quantidade]) => ({
-    segmento,
-    quantidade
-  }));
+  const porSegmento = Object.entries(segmentos).map(([segmento, quantidade]) => ({ segmento, quantidade }));
 
   // Receita por segmento
   const receitaSegmentos = {};
-  dados.clientes.forEach(cliente => {
+  unificados.forEach(cliente => {
     const segmento = cliente.segmento || 'Não definido';
     receitaSegmentos[segmento] = (receitaSegmentos[segmento] || 0) + (cliente.valor_recorrente_mensal || 0);
   });
+  const receitaPorSegmento = Object.entries(receitaSegmentos).map(([segmento, receita]) => ({ segmento, receita }));
 
-  const receitaPorSegmento = Object.entries(receitaSegmentos).map(([segmento, receita]) => ({
-    segmento,
-    receita
-  }));
-
-  // Top clientes
-  const topClientes = [...dados.clientes]
-    .sort((a, b) => (b.valor_recorrente_mensal || 0) - (a.valor_recorrente_mensal || 0))
+  // Top clientes (unificados, pelo valor ou score)
+  const topClientes = [...unificados]
+    .sort((a, b) => {
+      const va = (b.valor_recorrente_mensal || 0) || (b.cliente_score || 0);
+      const vb = (a.valor_recorrente_mensal || 0) || (a.cliente_score || 0);
+      return va - vb;
+    })
     .slice(0, 10);
 
-  // Clientes por vendedor com foto
-  const vendedoresMap = new Map((dados.vendedores || []).map(v => [v.nome, v]));
+  // Clientes por vendedor (unificados)
+  const userMap = new Map((dados.vendedores || []).map(v => [v.id, v]));
   const vendedorClientes = {};
-  dados.clientes.forEach(cliente => {
+  unificados.forEach(cliente => {
     const vendedorNome = cliente.vendedor_responsavel || 'Não atribuído';
     if (!vendedorClientes[vendedorNome]) {
-      vendedorClientes[vendedorNome] = { total: 0, ativos: 0 };
+      vendedorClientes[vendedorNome] = { total: 0, ativos: 0, fidelizados: 0, foto_url: null };
     }
     vendedorClientes[vendedorNome].total++;
-    if (cliente.status === 'Ativo') {
-      vendedorClientes[vendedorNome].ativos++;
-    }
+    if (cliente.status === 'Ativo') vendedorClientes[vendedorNome].ativos++;
+    if (cliente.is_fidelizado || cliente._source === 'contact_fidelizado') vendedorClientes[vendedorNome].fidelizados++;
+  });
+  // Tentar buscar foto do vendedor
+  (dados.vendedores || []).forEach(v => {
+    const nome = v.full_name || v.nome || '';
+    if (vendedorClientes[nome]) vendedorClientes[nome].foto_url = v.foto_url || null;
   });
 
   const clientesPorVendedor = Object.entries(vendedorClientes)
-    .map(([vendedorNome, dadosVendedor]) => {
-        const vendedorInfo = vendedoresMap.get(vendedorNome);
-        return {
-            vendedor: vendedorNome,
-            foto_url: vendedorInfo?.foto_url || null,
-            ...dadosVendedor
-        };
-    })
+    .map(([vendedorNome, dv]) => ({ vendedor: vendedorNome, ...dv }))
     .sort((a, b) => b.total - a.total);
 
   // Clientes que precisam de atenção
-  const clientesAtencao = dados.clientes
+  const clientesAtencao = unificados
     .filter(c => c.status === 'Em Risco' || c.status === 'Inativo')
     .map(cliente => ({
       ...cliente,
@@ -343,6 +395,8 @@ function calcularAnaliseClientes(dados) {
 
   return {
     totalClientes,
+    totalFidelizados,
+    totalUnificado,
     clientesAtivos,
     clientesEmRisco,
     percentualRisco,
