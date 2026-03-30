@@ -20,6 +20,7 @@ import { createPageUrl } from "@/utils";
 
 import AlertasInteligentesIA from "../components/global/AlertasInteligentesIA";
 import BotaoNexusFlutuante from "../components/global/BotaoNexusFlutuante";
+import MetricasNotasFiscais from "../components/dashboard/MetricasNotasFiscais";
 
 // Cache global para evitar chamadas desnecessárias
 const dashboardCache = {
@@ -666,13 +667,11 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Métricas de Notas Fiscais */}
+        {isGerente && <MetricasNotasFiscais />}
+
         {/* Conteúdo Dinâmico por Perspectiva */}
-        {loading ?
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array(6).fill(0).map((_, i) =>
-              <div key={i} className="bg-slate-100 rounded-xl h-40 md:h-64 animate-pulse border border-slate-200" />
-            )}
-          </div> :
+        {
           <>
             {viewMode === 'empresa' && isGerente &&
               <VisaoGeralEmpresa dados={dados} filtros={filtros} usuario={usuario} />
