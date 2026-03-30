@@ -152,17 +152,20 @@ export default function Dashboard() {
 
   const filtrarDadosPorPerfil = (usuario, dados) => {
     if (usuario.role === 'user') {
-      const vendedorAtual = dados.vendedores.find((v) => v.email === usuario.email || v.id === usuario.id);
-      const nomeVendedor = vendedorAtual?.full_name || usuario.full_name;
+      const nomeVendedor = usuario.full_name;
+      const userId = usuario.id;
+
+      // Se não tem nome definido, mostra todos os dados
+      if (!nomeVendedor) return dados;
 
       return {
-        vendedores: dados.vendedores.filter((v) => v.email === usuario.email),
-        clientes: dados.clientes.filter((c) => c.vendedor_responsavel === nomeVendedor),
-        vendas: dados.vendas.filter((v) => v.vendedor === nomeVendedor),
-        orcamentos: dados.orcamentos.filter((o) => o.vendedor === nomeVendedor),
+        vendedores: dados.vendedores.filter((v) => v.email === usuario.email || v.id === userId),
+        clientes: dados.clientes.filter((c) => c.vendedor_id === userId || c.vendedor_responsavel === nomeVendedor),
+        vendas: dados.vendas.filter((v) => v.vendedor === nomeVendedor || v.vendedor_id === userId),
+        orcamentos: dados.orcamentos.filter((o) => o.vendedor === nomeVendedor || o.vendedor_id === userId),
         interacoes: dados.interacoes.filter((i) => i.vendedor === nomeVendedor),
         contatosFidelizados: (dados.contatosFidelizados || []).filter(
-          (c) => c.atendente_fidelizado_vendas === usuario.id || c.vendedor_responsavel === nomeVendedor
+          (c) => c.atendente_fidelizado_vendas === userId || c.vendedor_responsavel === nomeVendedor
         )
       };
     }
