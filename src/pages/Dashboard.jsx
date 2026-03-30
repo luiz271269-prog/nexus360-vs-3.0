@@ -702,7 +702,7 @@ export default function Dashboard() {
               </>
             }
             {viewMode === 'vendedores' &&
-              <PerformanceVendedores dados={dados} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiscais} />
+              <PerformanceVendedores dados={dadosCompletos} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiscais} />
             }
             {viewMode === 'clientes' && <AnaliseClientes dados={dados} filtros={filtros} isGerente={isGerente} />}
             {viewMode === 'operacional' &&
