@@ -682,14 +682,14 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Métricas de Notas Fiscais */}
-        {isGerente && <MetricasNotasFiscais />}
-
         {/* Conteúdo Dinâmico por Perspectiva */}
         {
           <>
             {viewMode === 'empresa' && isGerente &&
-              <VisaoGeralEmpresa dados={dados} filtros={filtros} usuario={usuario} notasFiscais={notasFiscais} />
+              <>
+                <MetricasNotasFiscais />
+                <VisaoGeralEmpresa dados={dados} filtros={filtros} usuario={usuario} notasFiscais={notasFiscais} />
+              </>
             }
             {viewMode === 'vendedores' &&
               <PerformanceVendedores dados={dados} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiscais} />
