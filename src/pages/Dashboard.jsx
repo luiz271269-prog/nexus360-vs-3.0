@@ -22,6 +22,7 @@ import AlertasInteligentesIA from "../components/global/AlertasInteligentesIA";
 import BotaoNexusFlutuante from "../components/global/BotaoNexusFlutuante";
 import MetricasNotasFiscais from "../components/dashboard/MetricasNotasFiscais";
 import { dedupById, dedupClientes, dedupVendas, dedupOrcamentos, dedupContatos } from "../utils/dedup";
+import { buscarNotasFiscaisExternas } from "@/functions/buscarNotasFiscaisExternas";
 
 // Cache global para evitar chamadas desnecessárias
 const dashboardCache = {
@@ -126,6 +127,7 @@ export default function Dashboard() {
     orcamentos: [],
     interacoes: []
   });
+  const [notasFiscais, setNotasFiscais] = useState([]);
 
   const [usuario, setUsuario] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -336,6 +338,15 @@ export default function Dashboard() {
     setLoading(false);
   }, [filtros, carregarDadosComCache]);
 
+  const carregarNotasFiscais = async () => {
+    try {
+      const resp = await buscarNotasFiscaisExternas({});
+      if (resp.data?.success) setNotasFiscais(dedupById(resp.data.notas || []));
+    } catch (e) {
+      console.warn('[Dashboard] Notas fiscais indisponíveis:', e.message);
+    }
+  };
+
   const carregarMetricasIA = async () => {
     try {
       const anoAtual = new Date().getFullYear();
@@ -451,6 +462,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     carregarDados();
+    carregarNotasFiscais();
     base44.analytics.track({
       eventName: "dashboard_viewed",
       properties: { view_mode: viewMode, is_gerente: isGerente }
@@ -674,10 +686,10 @@ export default function Dashboard() {
         {
           <>
             {viewMode === 'empresa' && isGerente &&
-              <VisaoGeralEmpresa dados={dados} filtros={filtros} usuario={usuario} />
+              <VisaoGeralEmpresa dados={dados} filtros={filtros} usuario={usuario} notasFiscais={notasFiscais} />
             }
             {viewMode === 'vendedores' &&
-              <PerformanceVendedores dados={dados} filtros={filtros} isGerente={isGerente} usuario={usuario} />
+              <PerformanceVendedores dados={dados} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiscais} />
             }
             {viewMode === 'clientes' && <AnaliseClientes dados={dados} filtros={filtros} isGerente={isGerente} />}
             {viewMode === 'operacional' &&

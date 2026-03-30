@@ -17,14 +17,20 @@ export default function MetricasNotasFiscais() {
   const carregarNotas = async () => {
     setLoading(true);
     setErro(null);
-    const resp = await buscarNotasFiscaisExternas({});
-    if (resp.data?.success) {
-      setNotas(dedupById(resp.data.notas || []));
-    } else {
-      setErro(resp.data?.error || "Erro ao carregar");
+    try {
+      const resp = await buscarNotasFiscaisExternas({});
+      if (resp.data?.success) {
+        setNotas(dedupById(resp.data.notas || []));
+      } else {
+        setErro(resp.data?.error || 'Erro ao carregar');
+      }
+    } catch(e) {
+      setErro(e.message);
     }
     setLoading(false);
   };
+
+  useEffect(() => { carregarNotas(); }, []);
 
   // Filtrar notas pelo mês/ano selecionado
   const notasMes = useMemo(() => {
@@ -81,12 +87,21 @@ export default function MetricasNotasFiscais() {
     );
   }
 
+  const fmt = (v) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
   const totalFaturado = notasMes.reduce((s, n) => s + (n.valor_total || 0), 0);
   const totalRecebido = notasMes.reduce((s, n) => s + (n.valor_recebido || 0), 0);
   const totalAberto = notasMes.reduce((s, n) => s + (n.valor_aberto || 0), 0);
   const vencidas = notasMes.filter(n => n.status === 'vencido');
   const aVencer = notasMes.filter(n => n.status === 'a_vencer');
   const pagas = notasMes.filter(n => n.status === 'pago');
+
+  const cards = [
+    { titulo: 'Total Faturado', valor: fmt(totalFaturado), sub: `${notasMes.length} notas`, cor: 'from-slate-700 to-slate-600', icon: FileText },
+    { titulo: 'Recebido', valor: fmt(totalRecebido), sub: `${pagas.length} pagas`, cor: 'from-emerald-800 to-emerald-700', icon: CheckCircle },
+    { titulo: 'Em Aberto', valor: fmt(totalAberto), sub: `${aVencer.length} a vencer`, cor: 'from-amber-800 to-amber-700', icon: Clock },
+    { titulo: 'Vencidas', valor: fmt(vencidas.reduce((s,n) => s+(n.valor_aberto||0),0)), sub: `${vencidas.length} NFs`, cor: 'from-red-800 to-red-700', icon: AlertTriangle },
+  ];
 
   return (
     <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-5 border border-slate-700">
