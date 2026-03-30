@@ -127,6 +127,13 @@ export default function Dashboard() {
     orcamentos: [],
     interacoes: []
   });
+  const [dadosCompletos, setDadosCompletos] = useState({
+    vendedores: [],
+    clientes: [],
+    vendas: [],
+    orcamentos: [],
+    interacoes: []
+  });
   const [notasFiscais, setNotasFiscais] = useState([]);
 
   const [usuario, setUsuario] = useState(null);
@@ -324,6 +331,9 @@ export default function Dashboard() {
         interacoes: dadosCarregados.interacoes,
         contatosFidelizados: dadosCarregados.contatosFidelizados
       });
+
+      // Salva dados completos (sem filtro de data) para gráficos históricos
+      setDadosCompletos({ ...dadosFiltrados });
 
       dadosFiltrados = aplicarFiltros(dadosFiltrados, filtros);
       setDados(dadosFiltrados);
@@ -688,7 +698,7 @@ export default function Dashboard() {
             {viewMode === 'empresa' && isGerente &&
               <>
                 <MetricasNotasFiscais />
-                <VisaoGeralEmpresa dados={dados} filtros={filtros} usuario={usuario} notasFiscais={notasFiscais} />
+                <VisaoGeralEmpresa dados={dadosCompletos} filtros={filtros} usuario={usuario} notasFiscais={notasFiscais} />
               </>
             }
             {viewMode === 'vendedores' &&
