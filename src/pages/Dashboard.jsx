@@ -21,6 +21,7 @@ import { createPageUrl } from "@/utils";
 import AlertasInteligentesIA from "../components/global/AlertasInteligentesIA";
 import BotaoNexusFlutuante from "../components/global/BotaoNexusFlutuante";
 import MetricasNotasFiscais from "../components/dashboard/MetricasNotasFiscais";
+import { dedupById, dedupClientes, dedupVendas, dedupOrcamentos, dedupContatos } from "../utils/dedup";
 
 // Cache global para evitar chamadas desnecessárias
 const dashboardCache = {
@@ -272,17 +273,16 @@ export default function Dashboard() {
         base44.entities.Interacao.list('-data_interacao', 500),
         base44.entities.Contact.filter({ is_cliente_fidelizado: true }, '-ultima_interacao', 500)
       ]);
-      // Vendedores = Users com codigo preenchido ou setor vendas
-      const vendedoresData = usersData.filter(u => u.codigo || u.attendant_sector === 'vendas');
+      const vendedoresData = dedupById(usersData).filter(u => u.codigo || u.attendant_sector === 'vendas');
 
       const dadosCarregados = {
         usuario: usuarioAtual,
         vendedores: vendedoresData,
-        clientes: clientesData,
-        vendas: vendasData,
-        orcamentos: orcamentosData,
-        interacoes: interacoesData,
-        contatosFidelizados: contatosFidelizadosData
+        clientes: dedupClientes(clientesData),
+        vendas: dedupVendas(vendasData),
+        orcamentos: dedupOrcamentos(orcamentosData),
+        interacoes: dedupById(interacoesData),
+        contatosFidelizados: dedupContatos(contatosFidelizadosData)
       };
 
       dashboardCache.data = dadosCarregados;

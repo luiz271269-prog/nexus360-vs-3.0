@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { dedupById } from "../../utils/dedup";
 import { buscarNotasFiscaisExternas } from "@/functions/buscarNotasFiscaisExternas";
 import { CheckCircle, Clock, AlertTriangle, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,7 @@ export default function MetricasNotasFiscais() {
     setErro(null);
     const resp = await buscarNotasFiscaisExternas({});
     if (resp.data?.success) {
-      setNotas(resp.data.notas || []);
+      setNotas(dedupById(resp.data.notas || []));
     } else {
       setErro(resp.data?.error || "Erro ao carregar");
     }
