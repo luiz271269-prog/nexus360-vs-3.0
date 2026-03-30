@@ -1,7 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 const EXTERNAL_APP_ID = '69c2ec97bab310deafd37881';
-const EXTERNAL_BASE_URL = `https://api.base44.com/api/apps/${EXTERNAL_APP_ID}/entities`;
 
 Deno.serve(async (req) => {
   try {
@@ -15,7 +14,9 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const filters = body.filters || {};
 
-    const url = `${EXTERNAL_BASE_URL}/NotaFiscal?sort=-data_emissao&limit=500`;
+    const baseUrl = 'https://app.base44.com/api/apps/' + EXTERNAL_APP_ID + '/entities';
+    const url = baseUrl + '/NotaFiscal?sort=-data_emissao&limit=500';
+
     const resp = await fetch(url, {
       headers: {
         'api_key': apiKey,
@@ -25,16 +26,18 @@ Deno.serve(async (req) => {
 
     if (!resp.ok) {
       const errText = await resp.text();
-      console.error(`[NotasFiscais] HTTP ${resp.status}:`, errText);
-      return Response.json({ error: `Erro ${resp.status}: ${errText}` }, { status: resp.status });
+      console.error('[NotasFiscais] HTTP ' + resp.status + ':', errText.substring(0, 200));
+      return Response.json({ error: 'Erro ' + resp.status }, { status: resp.status });
     }
 
     const notas = await resp.json();
-    console.log(`[NotasFiscais] OK - ${notas.length} notas carregadas`);
+    console.log('[NotasFiscais] OK - ' + notas.length + ' notas carregadas');
 
     let resultado = notas;
     if (filters.mes_referencia) {
-      resultado = notas.filter(n => (n.mes_referencia || n.data_emissao || '').startsWith(filters.mes_referencia));
+      resultado = notas.filter(function(n) {
+        return (n.mes_referencia || n.data_emissao || '').startsWith(filters.mes_referencia);
+      });
     }
 
     return Response.json({ success: true, notas: resultado, total: resultado.length });
