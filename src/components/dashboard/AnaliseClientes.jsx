@@ -5,7 +5,7 @@ import { Users, Target, TrendingUp, AlertTriangle, Award, DollarSign, Calendar, 
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Legend } from "recharts";
 
 export default function AnaliseClientes({ dados, filtros, isGerente }) {
-  const analises = calcularAnaliseClientes(dados);
+  const analises = calcularAnaliseClientes(dados, filtros);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -316,7 +316,7 @@ function segmentoLabel(s) {
 }
 
 // Função para calcular análises de clientes melhorada
-function calcularAnaliseClientes(dados) {
+function calcularAnaliseClientes(dados, filtros) {
   const unificados = buildUnificados(dados.clientes || [], dados.contatosFidelizados || [], dados.vendedores || []);
 
   const totalClientes = dados.clientes.length;
@@ -331,11 +331,13 @@ function calcularAnaliseClientes(dados) {
   const receitaTotal = unificados.reduce((acc, c) => acc + (c.valor_recorrente_mensal || 0), 0);
   const receitaMedia = totalUnificado > 0 ? Math.round(receitaTotal / totalUnificado) : 0;
 
-  // Novos clientes baseado em vendas recentes
-  const mesAtual = new Date().toISOString().slice(0, 7);
-  const novosClientes = (dados.vendas || []).filter(v =>
-    v.data_venda?.slice(0, 7) === mesAtual && v.tipo_venda === 'Nova Venda'
-  ).length;
+  // Novos clientes baseado no período selecionado
+  const novosClientes = (dados.vendas || []).filter(v => {
+    if (!v.data_venda) return false;
+    if (filtros?.dataInicio && v.data_venda < filtros.dataInicio) return false;
+    if (filtros?.dataFim && v.data_venda > filtros.dataFim) return false;
+    return true;
+  }).length;
 
   // Distribuição por segmento (dados unificados)
   const segmentos = {};

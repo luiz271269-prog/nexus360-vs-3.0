@@ -5,7 +5,8 @@ import { Target, TrendingUp, Clock, CheckCircle, AlertCircle, Phone, MessageCirc
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 
 export default function MetricasOperacionais({ dados, filtros, isGerente }) {
-  const metricas = calcularMetricasOperacionais(dados);
+  const dadosFiltrados = aplicarFiltroData(dados, filtros);
+  const metricas = calcularMetricasOperacionais(dadosFiltrados, dados);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -253,8 +254,19 @@ function OperacionalKPI({ titulo, valor, subtitulo, icon: Icon, cor }) {
   );
 }
 
+function aplicarFiltroData(dados, filtros) {
+  if (!filtros?.dataInicio || !filtros?.dataFim) return dados;
+  const { dataInicio, dataFim } = filtros;
+  return {
+    ...dados,
+    vendas: (dados.vendas || []).filter(v => v.data_venda >= dataInicio && v.data_venda <= dataFim),
+    orcamentos: (dados.orcamentos || []).filter(o => o.data_orcamento >= dataInicio && o.data_orcamento <= dataFim),
+    interacoes: (dados.interacoes || []).filter(i => i.data_interacao?.slice(0,10) >= dataInicio && i.data_interacao?.slice(0,10) <= dataFim),
+  };
+}
+
 // Função para calcular métricas operacionais com dados reais
-function calcularMetricasOperacionais(dados) {
+function calcularMetricasOperacionais(dados, dadosCompletos) {
   const totalOrcamentos = dados.orcamentos.length;
   const orcamentosAprovados = dados.orcamentos.filter(o => o.status === 'Aprovado').length;
   const vendasFechadas = dados.vendas.length;
@@ -326,14 +338,14 @@ function calcularMetricasOperacionais(dados) {
   const vendasPorMes = {};
   const orcamentosPorMes = {};
 
-  dados.vendas.forEach(venda => {
+  (dadosCompletos?.vendas || dados.vendas).forEach(venda => {
     if (venda.data_venda) {
       const mes = venda.data_venda.slice(0, 7);
       vendasPorMes[mes] = (vendasPorMes[mes] || 0) + 1;
     }
   });
 
-  dados.orcamentos.forEach(orc => {
+  (dadosCompletos?.orcamentos || dados.orcamentos).forEach(orc => {
     if (orc.data_orcamento) {
       const mes = orc.data_orcamento.slice(0, 7);
       orcamentosPorMes[mes] = (orcamentosPorMes[mes] || 0) + 1;

@@ -6,7 +6,8 @@ import { Award, TrendingUp, Target, DollarSign, Users, Phone, Calendar, Star, Tr
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 
 export default function PerformanceVendedores({ dados, filtros, isGerente, usuario }) {
-  const metricas = calcularMetricasVendedores(dados, usuario);
+  const dadosFiltrados = aplicarFiltroData(dados, filtros);
+  const metricas = calcularMetricasVendedores(dadosFiltrados, dados, usuario);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -302,7 +303,18 @@ function getVendedorColor(index) {
   return colors[index % colors.length];
 }
 
-function calcularMetricasVendedores(dados, usuario) {
+function aplicarFiltroData(dados, filtros) {
+  if (!filtros?.dataInicio || !filtros?.dataFim) return dados;
+  const { dataInicio, dataFim } = filtros;
+  return {
+    ...dados,
+    vendas: (dados.vendas || []).filter(v => v.data_venda >= dataInicio && v.data_venda <= dataFim),
+    orcamentos: (dados.orcamentos || []).filter(o => o.data_orcamento >= dataInicio && o.data_orcamento <= dataFim),
+    interacoes: (dados.interacoes || []).filter(i => i.data_interacao?.slice(0,10) >= dataInicio && i.data_interacao?.slice(0,10) <= dataFim),
+  };
+}
+
+function calcularMetricasVendedores(dados, dadosCompletos, usuario) {
   if (!dados || !Array.isArray(dados.vendedores) || !Array.isArray(dados.vendas) || !Array.isArray(dados.interacoes) || !Array.isArray(dados.orcamentos) || !Array.isArray(dados.clientes)) {
     return {
       rankingVendedores: [],
@@ -376,16 +388,16 @@ function calcularMetricasVendedores(dados, usuario) {
     valor: v.faturamento
   }));
 
-  // Evolução mensal
-  const evolucaoMensal = [
-  { mes: 'Jan', faturamento: faturamentoTotal * 0.8 },
-  { mes: 'Fev', faturamento: faturamentoTotal * 0.9 },
-  { mes: 'Mar', faturamento: faturamentoTotal * 1.1 },
-  { mes: 'Abr', faturamento: faturamentoTotal }].
-  map((data) => ({
-    ...data,
-    faturamento: Math.max(0, data.faturamento)
-  }));
+  // Evolução mensal — últimos 6 meses com dados reais
+  const hoje = new Date();
+  const evolucaoMensal = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const mesAno = d.toISOString().slice(0, 7);
+    const nomeMs = d.toLocaleDateString('pt-BR', { month: 'short' });
+    const vendasMes = (dadosCompletos?.vendas || []).filter(v => v.data_venda?.slice(0, 7) === mesAno);
+    evolucaoMensal.push({ mes: nomeMs, faturamento: vendasMes.reduce((s, v) => s + (v.valor_total || 0), 0) });
+  }
 
   const nomeUsuario = usuario?.full_name || usuario?.nome || '';
 
