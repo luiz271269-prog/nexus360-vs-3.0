@@ -1,6 +1,7 @@
-import { createClientFromRequest, createClient } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 const EXTERNAL_APP_ID = '69c2ec97bab310deafd37881';
+const EXTERNAL_BASE_URL = `https://api.base44.com/api/apps/${EXTERNAL_APP_ID}/entities`;
 
 Deno.serve(async (req) => {
   try {
@@ -8,18 +9,29 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const serviceToken = Deno.env.get('NEURAL_FIN_API_KEY');
-    if (!serviceToken) return Response.json({ error: 'NEURAL_FIN_API_KEY não configurada' }, { status: 500 });
+    const apiKey = Deno.env.get('NEURAL_FIN_API_KEY');
+    if (!apiKey) return Response.json({ error: 'NEURAL_FIN_API_KEY nao configurada' }, { status: 500 });
 
-    const { filters = {} } = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
+    const filters = body.filters || {};
 
-    // SDK Base44 com serviceToken para app externo
-    const externalClient = createClient(EXTERNAL_APP_ID, { serviceToken });
+    const url = `${EXTERNAL_BASE_URL}/NotaFiscal?sort=-data_emissao&limit=500`;
+    const resp = await fetch(url, {
+      headers: {
+        'api_key': apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
 
-    const notas = await externalClient.asServiceRole.entities.NotaFiscal.list('-data_emissao', 500);
-    console.log(`[NotasFiscais] ✅ ${notas.length} notas carregadas`);
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error(`[NotasFiscais] HTTP ${resp.status}:`, errText);
+      return Response.json({ error: `Erro ${resp.status}: ${errText}` }, { status: resp.status });
+    }
 
-    // Filtro local por mês se solicitado
+    const notas = await resp.json();
+    console.log(`[NotasFiscais] OK - ${notas.length} notas carregadas`);
+
     let resultado = notas;
     if (filters.mes_referencia) {
       resultado = notas.filter(n => (n.mes_referencia || n.data_emissao || '').startsWith(filters.mes_referencia));
