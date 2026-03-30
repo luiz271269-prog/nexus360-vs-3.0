@@ -706,7 +706,7 @@ export default function Dashboard() {
             }
             {viewMode === 'clientes' && <AnaliseClientes dados={dadosCompletos} filtros={filtros} isGerente={isGerente} />}
             {viewMode === 'operacional' &&
-              <MetricasOperacionais dados={dados} filtros={filtros} isGerente={isGerente} />
+              <MetricasOperacionais dados={dadosCompletos} filtros={filtros} isGerente={isGerente} />
             }
             {viewMode === 'analytics' && isGerente &&
               <AnalyticsAvancadoEmbed />
