@@ -51,7 +51,7 @@ import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 
 export default function AnalyticsAvancadoEmbed() {
-  const [periodoSelecionado, setPeriodoSelecionado] = useState('mes_atual');
+  const [periodoSelecionado, setPeriodoSelecionado] = useState('ano');
   const [loading, setLoading] = useState(true);
   const [dados, setDados] = useState(null);
   const [insights, setInsights] = useState([]);
@@ -602,12 +602,19 @@ function calcularFaturamentoPorSegmento(clientes, vendas) {
 }
 
 function gerarTicketMedio(vendas) {
-  return [
-    { periodo: 'Jan', ticket_medio: 5000, meta_ticket: 4500 },
-    { periodo: 'Fev', ticket_medio: 5500, meta_ticket: 4500 },
-    { periodo: 'Mar', ticket_medio: 4800, meta_ticket: 4500 },
-    { periodo: 'Abr', ticket_medio: 6200, meta_ticket: 4500 }
-  ];
+  const hoje = new Date();
+  const ultimos6Meses = [];
+  for (let i = 5; i >= 0; i--) {
+    const data = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const mesAno = data.toISOString().slice(0, 7);
+    const nomeMs = data.toLocaleDateString('pt-BR', { month: 'short' });
+    const vendasMes = vendas.filter(v => v.data_venda?.slice(0, 7) === mesAno);
+    const ticket = vendasMes.length > 0
+      ? vendasMes.reduce((acc, v) => acc + (v.valor_total || 0), 0) / vendasMes.length
+      : 0;
+    ultimos6Meses.push({ periodo: nomeMs, ticket_medio: Math.round(ticket), meta_ticket: 4500 });
+  }
+  return ultimos6Meses;
 }
 
 function calcularVendasPorTipo(vendas) {
