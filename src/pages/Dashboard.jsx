@@ -447,7 +447,7 @@ export default function Dashboard() {
           quantidade: fluxosComErro.length,
           tipo: 'fluxos'
         },
-        onAcao: () => navigate(createPageUrl('Automacao'))
+        onAcao: () => navigate(createPageUrl('Automacoes'))
       });
     }
 
@@ -657,7 +657,7 @@ export default function Dashboard() {
 
           <button
             onClick={() => {
-              navigate(createPageUrl('Orcamentos'));
+              navigate(createPageUrl('LeadsQualificados'));
               base44.analytics.track({ eventName: "dashboard_kanban_clicked", properties: { kanban: "orcamentos" } });
             }}
             className="bg-gradient-to-br from-amber-500 to-orange-600 text-white p-4 rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200 text-left">
