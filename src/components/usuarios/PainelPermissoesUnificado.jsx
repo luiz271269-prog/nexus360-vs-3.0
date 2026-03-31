@@ -8,13 +8,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Shield, Eye, Lock, Unlock, AlertTriangle, CheckCircle2, Info, Zap, Settings, Users } from 'lucide-react';
+import { Shield, Eye, Lock, Unlock, AlertTriangle, CheckCircle2, Info, Zap, Settings, Users, ExternalLink } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PERMISSIONS_PRESETS, buildUserPermissions } from '@/components/lib/permissionsService';
 import GuiaRegraP1P12 from './GuiaRegraP1P12';
 import { toast } from 'sonner';
 
 export default function PainelPermissoesUnificado({ usuario, integracoes = [], onSalvar, runtimeMode = 'nexus360' }) {
+  const [paginasAcesso, setPaginasAcesso] = useState([]);
+
   const [configuracao, setConfiguracao] = useState({
     modo_visibilidade: 'padrao_liberado',
     regras_bloqueio: [],
@@ -47,6 +49,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
     if (usuario?.diagnostico_nexus) {
       setDiagnostico(usuario.diagnostico_nexus);
     }
+
+    if (usuario?.paginas_acesso) {
+      setPaginasAcesso(usuario.paginas_acesso);
+    }
     
     // Detectar preset baseado em attendant_role
     if (usuario?.attendant_role) {
@@ -68,7 +74,8 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
       await onSalvar(usuario.id, {
         configuracao_visibilidade_nexus: configuracao,
         permissoes_acoes_nexus: permissoesAcoes,
-        diagnostico_nexus: diagnostico
+        diagnostico_nexus: diagnostico,
+        paginas_acesso: paginasAcesso
       });
       
       toast.success('✅ Permissões Nexus360 salvas com sucesso');
@@ -1311,6 +1318,41 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
               </div>
             </CardContent>
           </Card>
+
+      {/* SEÇÃO ATALHOS EXTERNOS */}
+      <Card className="border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ExternalLink className="w-5 h-5 text-emerald-600" />
+            Atalhos de Aplicativos Externos
+          </CardTitle>
+          <CardDescription>
+            Controla quais atalhos externos aparecem no menu lateral do usuário
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {[
+            { key: 'NeuralFinFlow', label: 'Neural Fin Flow', desc: 'Atalho para o sistema financeiro Neural Fin Flow', emoji: '💰', cor: 'text-emerald-700' },
+            { key: 'Compras', label: 'Gestão de Compras', desc: 'Atalho para o sistema de gestão de compras', emoji: '🛒', cor: 'text-blue-700' },
+            { key: 'RHNexus', label: 'RH Nexus', desc: 'Atalho para o sistema de RH', emoji: '👥', cor: 'text-purple-700' },
+          ].map(({ key, label, desc, emoji, cor }) => (
+            <div key={key} className="flex items-start justify-between p-3 border rounded-lg bg-white hover:bg-slate-50 transition-colors">
+              <div className="flex-1 mr-4">
+                <div className={`text-sm font-medium ${cor}`}>{emoji} {label}</div>
+                <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+              </div>
+              <Switch
+                checked={paginasAcesso.includes(key)}
+                onCheckedChange={(checked) => {
+                  setPaginasAcesso(prev =>
+                    checked ? [...prev, key] : prev.filter(p => p !== key)
+                  );
+                }}
+              />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {/* SEÇÃO 5: Preview Consolidado */}
       <Card className="border-slate-300 bg-slate-50">
