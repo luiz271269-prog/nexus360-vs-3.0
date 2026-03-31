@@ -61,6 +61,17 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'invalid_json' }, { status: 400 });
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // [ANTI-429] JITTER ALEATÓRIO: Espalha chamadas DB simultâneas
+  // Quando múltiplos webhooks chegam ao mesmo tempo, cada instância
+  // espera um tempo aleatório diferente, evitando o thundering herd
+  // que causa cascata de erros 429.
+  // ════════════════════════════════════════════════════════════════
+  const jitter = Math.floor(Math.random() * 700); // 0~700ms
+  if (jitter > 50) {
+    await new Promise(r => setTimeout(r, jitter));
+  }
+
   const { message, integration, provider, messageContent, rawPayload } = payload;
   let { contact, thread } = payload;
 
@@ -91,21 +102,31 @@ Deno.serve(async (req) => {
   // ════════════════════════════════════════════════════════════════
   if (!contact?.id && contact?.telefone) {
     console.log(`[${VERSION}] 🆕 FIX 1: Contato sem ID encontrado, criando...`);
-    try {
-      const createResult = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
-        telefone: contact.telefone,
-        pushName: contact.nome || null,
-        profilePicUrl: contact.foto_perfil_url || null,
-        conexaoId: integration?.id || null
-      });
-      if (createResult.data?.success && createResult.data?.contact?.id) {
-        contact = createResult.data.contact;
-        console.log(`[${VERSION}] ✅ FIX 1: Contato criado/recuperado: ${contact.id}`);
-        result.actions.push('contact_ensured');
+    let createResult = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        createResult = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+          telefone: contact.telefone,
+          pushName: contact.nome || null,
+          profilePicUrl: contact.foto_perfil_url || null,
+          conexaoId: integration?.id || null
+        });
+        break;
+      } catch (retryErr) {
+        const is429 = retryErr.message?.includes('429') || retryErr.message?.includes('Rate limit');
+        if (is429 && attempt < 3) {
+          const waitMs = attempt * 1200;
+          console.warn(`[${VERSION}] ⏳ 429 em getOrCreateContact (tentativa ${attempt}/3) — aguardando ${waitMs}ms`);
+          await new Promise(r => setTimeout(r, waitMs));
+        } else {
+          console.error(`[${VERSION}] ❌ FIX 1: Erro ao garantir contato:`, retryErr.message);
+          return Response.json({ success: false, error: 'contact_creation_failed' }, { status: 500 });
+        }
       }
-    } catch (e) {
-      console.error(`[${VERSION}] ❌ FIX 1: Erro ao garantir contato:`, e.message);
-      return Response.json({ success: false, error: 'contact_creation_failed' }, { status: 500 });
+    }
+    if (createResult?.data?.success && createResult?.data?.contact?.id) {
+      contact = createResult.data.contact;
+      console.log(`[${VERSION}] ✅ FIX 1: Contato criado/recuperado: ${contact.id}`);
     }
   }
 

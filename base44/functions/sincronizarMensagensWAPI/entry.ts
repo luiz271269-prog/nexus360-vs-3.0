@@ -382,8 +382,8 @@ Deno.serve(async (req) => {
             console.error(`[SYNC] ❌ Erro ao sincronizar: ${msgFaltando.message_id}`);
           }
           
-          // Delay para evitar rate limit
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Delay maior para evitar rate limit durante sincronização em lote
+          await new Promise(resolve => setTimeout(resolve, 600));
           
         } catch (error) {
           resultadoSync.erros_sync++;
