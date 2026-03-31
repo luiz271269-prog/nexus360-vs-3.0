@@ -1,5 +1,20 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
-import { normalizePhone } from './lib/phoneNormalizer.js';
+
+// Inline phone normalizer (no local imports allowed in backend functions)
+function normalizePhone(phone) {
+  if (!phone) return null;
+  let digits = String(phone).replace(/\D/g, '');
+  if (!digits || digits.length < 8) return null;
+  // Remove leading zeros
+  digits = digits.replace(/^0+/, '');
+  // If starts with 55 (Brazil) and has 12-13 digits, keep as is
+  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) return digits;
+  // If 10-11 digits, assume Brazil
+  if (digits.length === 10 || digits.length === 11) return '55' + digits;
+  // Otherwise return as is if reasonable length
+  if (digits.length >= 8 && digits.length <= 15) return digits;
+  return null;
+}
 
 // ============================================================================
 // UTILITÁRIO DE LIMPEZA - CONSOLIDAR CONTATOS DUPLICADOS
