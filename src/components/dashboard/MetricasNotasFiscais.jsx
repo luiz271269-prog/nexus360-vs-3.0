@@ -6,13 +6,16 @@ import { Badge } from "@/components/ui/badge";
 
 const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
-export default function MetricasNotasFiscais() {
+export default function MetricasNotasFiscais({ mesSel: mesProp, anoSel: anoProp, modoAnual }) {
   const hoje = new Date();
   const [notas, setNotas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
-  const [mesSel, setMesSel] = useState(hoje.getMonth()); // 0-indexed
+  // Controlado externamente quando recebe props, caso contrário usa estado interno
+  const [mesSel, setMesSel] = useState(hoje.getMonth());
   const [anoSel, setAnoSel] = useState(hoje.getFullYear());
+  const mesFinal = mesProp !== undefined && mesProp !== null ? mesProp : mesSel;
+  const anoFinal = anoProp !== undefined ? anoProp : anoSel;
 
   const carregarNotas = async () => {
     setLoading(true);
@@ -38,9 +41,10 @@ export default function MetricasNotasFiscais() {
       const d = n.data_emissao || n.created_date || '';
       if (!d) return false;
       const dt = new Date(d);
-      return dt.getMonth() === mesSel && dt.getFullYear() === anoSel;
+      if (modoAnual) return dt.getFullYear() === anoFinal;
+      return dt.getMonth() === mesFinal && dt.getFullYear() === anoFinal;
     });
-  }, [notas, mesSel, anoSel]);
+  }, [notas, mesFinal, anoFinal, modoAnual]);
 
   // Resumo mensal agrupado para comparação
   const resumoMensal = useMemo(() => {
@@ -60,6 +64,8 @@ export default function MetricasNotasFiscais() {
   }, [notas]);
 
   const irMes = (delta) => {
+    // Só altera estado interno se não controlado por props
+    if (mesProp !== undefined) return;
     let m = mesSel + delta;
     let a = anoSel;
     if (m < 0) { m = 11; a--; }
@@ -114,7 +120,7 @@ export default function MetricasNotasFiscais() {
           <button onClick={() => irMes(-1)} className="w-7 h-7 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-300">
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="text-white font-semibold text-sm min-w-[90px] text-center">{MESES[mesSel]} {anoSel}</span>
+          <span className="text-white font-semibold text-sm min-w-[90px] text-center">{modoAnual ? `Anual ${anoFinal}` : `${MESES[mesFinal]} ${anoFinal}`}</span>
           <button onClick={() => irMes(1)} disabled={mesSel === hoje.getMonth() && anoSel === hoje.getFullYear()} className="w-7 h-7 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-300 disabled:opacity-30">
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -157,7 +163,7 @@ export default function MetricasNotasFiscais() {
 
       {/* Últimas notas do mês */}
       <div className="mt-4">
-        <p className="text-xs text-slate-400 mb-2">Emissões de {MESES[mesSel]}/{anoSel}</p>
+        <p className="text-xs text-slate-400 mb-2">Emissões de {modoAnual ? anoFinal : `${MESES[mesFinal]}/${anoFinal}`}</p>
         <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
           {notasMes.slice(0, 10).map((n) => (
             <div key={n.id} className="flex items-center justify-between bg-slate-800/60 rounded-lg px-3 py-2 text-sm">

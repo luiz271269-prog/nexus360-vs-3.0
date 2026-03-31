@@ -31,7 +31,7 @@ const dashboardCache = {
   CACHE_DURATION: 60000 // 1 minuto
 };
 
-const FiltroMes = ({ mesSelecionado, onMesChange }) => {
+const FiltroMes = ({ mesSelecionado, anoSelecionado, modoAnual, onMesChange, onAnoChange, onModoAnual }) => {
   const meses = [
     { value: 1, label: "Janeiro" },
     { value: 2, label: "Fevereiro" },
@@ -46,21 +46,34 @@ const FiltroMes = ({ mesSelecionado, onMesChange }) => {
     { value: 11, label: "Novembro" },
     { value: 12, label: "Dezembro" }
   ];
+  const anoAtual = new Date().getFullYear();
+  const anos = [anoAtual, anoAtual - 1, anoAtual - 2];
 
   return (
-    <div className="flex items-center gap-2">
-      <label htmlFor="mes-filtro" className="text-sm font-medium text-white">Mês:</label>
+    <div className="flex items-center gap-2 flex-wrap">
+      <label className="text-sm font-medium text-white">Mês:</label>
       <select
-        id="mes-filtro"
         value={mesSelecionado}
         onChange={onMesChange}
-        className="p-2 border border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-slate-700 text-white">
+        disabled={modoAnual}
+        className="p-2 border border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-slate-700 text-white disabled:opacity-50">
         {meses.map((mes) =>
-          <option key={mes.value} value={mes.value}>
-            {mes.label}
-          </option>
+          <option key={mes.value} value={mes.value}>{mes.label}</option>
         )}
       </select>
+      <select
+        value={anoSelecionado}
+        onChange={onAnoChange}
+        className="p-2 border border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-slate-700 text-white">
+        {anos.map(a => <option key={a} value={a}>{a}</option>)}
+      </select>
+      <button
+        onClick={onModoAnual}
+        className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-all ${
+          modoAnual ? 'bg-orange-500 border-orange-400 text-white' : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-orange-400'
+        }`}>
+        Anual
+      </button>
     </div>
   );
 };
@@ -151,6 +164,16 @@ export default function Dashboard() {
   });
 
   const [mesSelecionado, setMesSelecionado] = useState(new Date().getMonth() + 1);
+  const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
+  const [modoAnual, setModoAnual] = useState(false);
+
+  // Notas fiscais filtradas pelo período selecionado
+  const notasFiltradas = notasFiscais.filter(n => {
+    const d = new Date(n.data_emissao || n.created_date || '');
+    if (isNaN(d.getTime())) return false;
+    if (modoAnual) return d.getFullYear() === anoSelecionado;
+    return d.getMonth() + 1 === mesSelecionado && d.getFullYear() === anoSelecionado;
+  });
 
   // Novas métricas de IA
   const [metricasIA, setMetricasIA] = useState(null);
@@ -239,25 +262,34 @@ export default function Dashboard() {
     return { vendedores, clientes, vendas, orcamentos, interacoes };
   };
 
+  const aplicarFiltroMesAno = (mes, ano, anual) => {
+    const dataInicio = anual
+      ? new Date(ano, 0, 1).toISOString().slice(0, 10)
+      : new Date(ano, mes - 1, 1).toISOString().slice(0, 10);
+    const dataFim = anual
+      ? new Date(ano, 11, 31).toISOString().slice(0, 10)
+      : new Date(ano, mes, 0).toISOString().slice(0, 10);
+    setFiltros(prev => ({ ...prev, periodo: 'personalizado', dataInicio, dataFim }));
+    base44.analytics.track({ eventName: "dashboard_period_changed", properties: { mes, ano, anual } });
+  };
+
   const handleMesChange = (e) => {
-    const selectedMonth = parseInt(e.target.value);
-    setMesSelecionado(selectedMonth);
+    const mes = parseInt(e.target.value);
+    setMesSelecionado(mes);
+    setModoAnual(false);
+    aplicarFiltroMesAno(mes, anoSelecionado, false);
+  };
 
-    const anoAtual = new Date().getFullYear();
-    const dataInicioMes = new Date(anoAtual, selectedMonth - 1, 1).toISOString().slice(0, 10);
-    const dataFimMes = new Date(anoAtual, selectedMonth, 0).toISOString().slice(0, 10);
+  const handleAnoChange = (e) => {
+    const ano = parseInt(e.target.value);
+    setAnoSelecionado(ano);
+    aplicarFiltroMesAno(mesSelecionado, ano, modoAnual);
+  };
 
-    setFiltros((prevFiltros) => ({
-      ...prevFiltros,
-      periodo: 'personalizado',
-      dataInicio: dataInicioMes,
-      dataFim: dataFimMes
-    }));
-
-    base44.analytics.track({
-      eventName: "dashboard_period_changed",
-      properties: { month: selectedMonth, year: anoAtual }
-    });
+  const handleModoAnual = () => {
+    const novoModo = !modoAnual;
+    setModoAnual(novoModo);
+    aplicarFiltroMesAno(mesSelecionado, anoSelecionado, novoModo);
   };
 
   const carregarDadosComCache = useCallback(async () => {
@@ -553,7 +585,7 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-3">
               <FiltrosAvancados filtros={filtros} onFiltrosChange={setFiltros} vendedores={dados.vendedores} isGerente={isGerente} />
-              <FiltroMes mesSelecionado={mesSelecionado} onMesChange={handleMesChange} />
+              <FiltroMes mesSelecionado={mesSelecionado} anoSelecionado={anoSelecionado} modoAnual={modoAnual} onMesChange={handleMesChange} onAnoChange={handleAnoChange} onModoAnual={handleModoAnual} />
               <ExportadorDashboard dados={dados} filtros={filtros} viewMode={viewMode} />
             </div>
           </div>
@@ -566,7 +598,7 @@ export default function Dashboard() {
             <p className="text-slate-400 text-xs">{isGerente ? 'Desempenho comercial' : `Olá, ${nomeUsuario}`}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <FiltroMes mesSelecionado={mesSelecionado} onMesChange={handleMesChange} />
+            <FiltroMes mesSelecionado={mesSelecionado} anoSelecionado={anoSelecionado} modoAnual={modoAnual} onMesChange={handleMesChange} onAnoChange={handleAnoChange} onModoAnual={handleModoAnual} />
           </div>
         </div>
 
@@ -697,12 +729,12 @@ export default function Dashboard() {
           <>
             {viewMode === 'empresa' && isGerente &&
               <>
-                <MetricasNotasFiscais />
-                <VisaoGeralEmpresa dados={dadosCompletos} filtros={filtros} usuario={usuario} notasFiscais={notasFiscais} />
+                <MetricasNotasFiscais mesSel={modoAnual ? null : mesSelecionado - 1} anoSel={anoSelecionado} modoAnual={modoAnual} />
+                <VisaoGeralEmpresa dados={dadosCompletos} filtros={filtros} usuario={usuario} notasFiscais={notasFiltradas} />
               </>
             }
             {viewMode === 'vendedores' &&
-              <PerformanceVendedores dados={dadosCompletos} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiscais} />
+              <PerformanceVendedores dados={dadosCompletos} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiltradas} />
             }
             {viewMode === 'clientes' && <AnaliseClientes dados={dadosCompletos} filtros={filtros} isGerente={isGerente} />}
             {viewMode === 'operacional' &&
