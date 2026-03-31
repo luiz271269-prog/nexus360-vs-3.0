@@ -46,8 +46,11 @@ export default function UsuariosPage() {
   async function salvarUsuario(usuario) {
     console.log('[Usuarios] 💾 Salvando usuário:', usuario.email);
     
-    // IMPORTANTE: paginas_acesso armazena as permissões de páginas/recursos
-    const permissoesParaSalvar = usuario.permissoes || usuario.paginas_acesso || [];
+    // IMPORTANTE: paginas_acesso armazena tanto permissões de menu QUANTO atalhos externos
+    const ATALHOS_EXTERNOS = ['NeuralFinFlow', 'Compras', 'RHNexus'];
+    const permissoesMenu = (usuario.permissoes || []).filter(p => !ATALHOS_EXTERNOS.includes(p));
+    const atalhosAtivos = (usuario.paginas_acesso || []).filter(p => ATALHOS_EXTERNOS.includes(p));
+    const permissoesParaSalvar = [...new Set([...permissoesMenu, ...atalhosAtivos])];
     
     let payload = {
       display_name: usuario.nome,
