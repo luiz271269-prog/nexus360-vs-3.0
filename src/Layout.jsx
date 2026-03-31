@@ -580,7 +580,7 @@ export default function Layout({ children, currentPageName }) {
         onToggle={() => setSidebarOpen(prev => !prev)}
         isAdmin={globalUsuario?.role === 'admin'}
         podeVerNeuralFin={globalUsuario?.role === 'admin' || (globalUsuario?.paginas_acesso || []).includes('NeuralFinFlow')}
-        podeVerCompras={globalUsuario?.role === 'admin' || baseMenuItems.some(item => item.page === 'Compras')}
+        podeVerCompras={globalUsuario?.role === 'admin' || (globalUsuario?.paginas_acesso || []).includes('Compras')}
         podeVerRH={globalUsuario?.role === 'admin' || (globalUsuario?.paginas_acesso || []).includes('RHNexus')}
       />
 
