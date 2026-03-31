@@ -99,7 +99,7 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
 
 
 
-function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, onOpenCopiloto, agentSession, onToggle, isAdmin }) {
+function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, onOpenCopiloto, agentSession, onToggle, isAdmin, podeVerNeuralFin, podeVerCompras, podeVerRH }) {
   return (
     <aside
         className={`fixed inset-y-0 left-0 z-50 w-20 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transform ${
@@ -194,7 +194,7 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
           </button>
 
           {/* Atalho Neural Fin Flow */}
-          <a
+          {podeVerNeuralFin && <a
            href={isAdmin ? "https://app.base44.com/apps/69c2ec97bab310deafd37881" : "https://neural-fin-flow.base44.app"}
            target="_blank"
            rel="noopener noreferrer"
@@ -205,10 +205,10 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
              💰 Neural Fin Flow{isAdmin && <span className="ml-1 text-amber-400">(Admin)</span>}
            </div>
-          </a>
+          </a>}
 
           {/* Atalho Gestão de Compras */}
-          <a
+          {podeVerCompras && <a
            href={isAdmin ? "https://app.base44.com/apps/68924e0293d0965f5376cc08" : "https://prophetic-smart-buy-flow.base44.app"}
            target="_blank"
            rel="noopener noreferrer"
@@ -219,10 +219,10 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
              🛒 Gestão de Compras{isAdmin && <span className="ml-1 text-amber-400">(Admin)</span>}
            </div>
-          </a>
+          </a>}
 
           {/* Atalho RH Nexus */}
-          <a
+          {podeVerRH && <a
            href={isAdmin ? "https://app.base44.com/apps/69c530ac2befe8eafb45b38d" : "https://fluxos-rh-nexus.neuraltec360.com.br"}
            target="_blank"
            rel="noopener noreferrer"
@@ -233,7 +233,7 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
              👥 RH Nexus{isAdmin && <span className="ml-1 text-amber-400">(Admin)</span>}
            </div>
-          </a>
+          </a>}
           </nav>
 
         {/* Rodapé com autenticação unificada */}
@@ -579,6 +579,9 @@ export default function Layout({ children, currentPageName }) {
         agentSession={agentSession}
         onToggle={() => setSidebarOpen(prev => !prev)}
         isAdmin={globalUsuario?.role === 'admin'}
+        podeVerNeuralFin={globalUsuario?.role === 'admin' || (globalUsuario?.paginas_acesso || []).includes('NeuralFinFlow')}
+        podeVerCompras={globalUsuario?.role === 'admin' || baseMenuItems.some(item => item.page === 'Compras')}
+        podeVerRH={globalUsuario?.role === 'admin' || (globalUsuario?.paginas_acesso || []).includes('RHNexus')}
       />
 
       {sidebarOpen && (
