@@ -449,10 +449,11 @@ export default function LeadsQualificados() {
 
     if (!temPermissaoVerOutros && usuarioAtual) {
       // Usuário comum: filtra SEMPRE pelos seus orçamentos
-      // Aceita por vendedor_id (confiável) OU por nome (fallback legacy)
+      // Aceita por vendedor_id (confiável), nome (fallback legacy) OU email created_by
       const matchId = orcamento.vendedor_id === usuarioAtual.id;
       const matchNome = orcamento.vendedor === usuarioAtual.full_name;
-      if (!matchId && !matchNome) return false;
+      const matchCreatedBy = orcamento.created_by === usuarioAtual.email;
+      if (!matchId && !matchNome && !matchCreatedBy) return false;
     } else if (temPermissaoVerOutros) {
       // Admin/gerente: aplica filtro global escolhido
       const vendedorFiltro = resolverFiltroVendedor(orcamento.vendedor);
