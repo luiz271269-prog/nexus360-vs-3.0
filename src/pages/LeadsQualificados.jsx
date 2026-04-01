@@ -448,22 +448,15 @@ export default function LeadsQualificados() {
     const temPermissaoVerOutros = usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
 
     if (!temPermissaoVerOutros && usuarioAtual) {
-      // Usuário comum: filtra SEMPRE pelos seus orçamentos
-      // Aceita por vendedor_id (confiável), nome (fallback legacy) OU email created_by
-      const matchId = orcamento.vendedor_id === usuarioAtual.id;
-      const matchNome = orcamento.vendedor === usuarioAtual.full_name;
-      const matchCreatedBy = orcamento.created_by === usuarioAtual.email;
-      if (!matchId && !matchNome && !matchCreatedBy) return false;
+      // Usuário comum: filtra pelo vendedor_id (fonte de verdade)
+      if (orcamento.vendedor_id !== usuarioAtual.id) return false;
     } else if (temPermissaoVerOutros) {
       // Admin/gerente: aplica filtro global escolhido
-      const vendedorFiltro = resolverFiltroVendedor(orcamento.vendedor);
-      if (vendedorFiltro) {
-        const filtroUserId = atendentes.find(a => a.label === vendedorFiltro)?.value;
-        const matchNome = orcamento.vendedor === vendedorFiltro;
-        const matchId = filtroUserId && orcamento.vendedor_id === filtroUserId;
-        const matchMeuId = filtroVendedorGlobal === 'meus' && usuarioAtual && orcamento.vendedor_id === usuarioAtual.id;
-        const matchMeuNome = filtroVendedorGlobal === 'meus' && usuarioAtual && orcamento.vendedor === usuarioAtual.full_name;
-        if (!matchNome && !matchId && !matchMeuId && !matchMeuNome) return false;
+      if (filtroVendedorGlobal === 'meus' && usuarioAtual) {
+        if (orcamento.vendedor_id !== usuarioAtual.id) return false;
+      } else if (filtroVendedorGlobal !== 'todos') {
+        const filtroUserId = atendentes.find(a => a.label === filtroVendedorGlobal)?.value;
+        if (filtroUserId && orcamento.vendedor_id !== filtroUserId) return false;
       }
     }
 
