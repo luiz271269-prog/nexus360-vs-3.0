@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ArrowLeft, Save, Plus, Trash2, Loader2, Sparkles, FileText, ShoppingCart, DollarSign,
-  User, Upload, Image as ImageIcon, CheckCircle, AlertTriangle
+  User, Image as ImageIcon
 } from 'lucide-react';
 import { toast } from "sonner";
 import { createPageUrl } from '@/utils';
@@ -25,11 +25,11 @@ export default function OrcamentoDetalhes() {
   const [saving, setSaving] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(null);
-  const [imagemAnexada, setImagemAnexada] = useState(null); // New state for attached image URL
+  const [imagemAnexada, setImagemAnexada] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   const calcularTotal = useCallback((items) => {
     if (!Array.isArray(items)) return 0;
     return items
@@ -37,47 +37,256 @@ export default function OrcamentoDetalhes() {
       .reduce((acc, item) => acc + (parseFloat(item.valor_total) || 0), 0);
   }, []);
 
-  const processarImagemUrl = async (imageUrl, clientes, vendedoresBase) => {
+  const loadData = useCallback(async () => {
+    setLoading(true);
     try {
-      const clientesInfo = clientes.map(c => ({
-        id: c.id,
-        razao_social: c.razao_social,
-        nome_fantasia: c.nome_fantasia,
-        cnpj: c.cnpj,
-        telefone: c.telefone
-      }));
+      const params = new URLSearchParams(location.search);
+      const orcamentoId = params.get('id');
+      const carrinhoData = params.get('carrinho');
+      const origemChat = params.get('origem') === 'chat';
+      const origemImportacao = params.get('importacao') === 'true';
+      const mediaUrlFromChat = params.get('media_url');
 
-      const vendedoresInfo = vendedoresBase.map(v => ({
-        id: v.id,
-        nome: v.nome,
-        codigo: v.codigo,
-        email: v.email
-      }));
+      const modoOperacao = orcamentoId ? 'edicao'
+        : carrinhoData ? 'carrinho'
+        : origemChat ? 'chat'
+        : origemImportacao ? 'importacao'
+        : 'novo';
 
-      const prompt = `Analise este orçamento/proposta e extraia TODOS os itens/produtos.
+      // Load vendors safely
+      try {
+        const usersData = await base44.entities.User.list();
+        const vendedoresData = usersData
+          .filter(u => u.codigo || u.attendant_sector === 'vendas')
+          .map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
+        setVendedores(Array.isArray(vendedoresData) ? vendedoresData : []);
+      } catch (userErr) {
+        console.warn('Erro ao carregar vendedores (não crítico):', userErr);
+        setVendedores([]);
+      }
 
-CLIENTES DISPONÍVEIS NA BASE:
-${JSON.stringify(clientesInfo, null, 2)}
+      if (modoOperacao === 'edicao') {
+        const [orcData, itensData] = await Promise.all([
+          base44.entities.Orcamento.get(orcamentoId),
+          base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })
+        ]);
+        setOrcamento(orcData);
+        setItens(Array.isArray(itensData) ? itensData : []);
+      } else if (modoOperacao === 'carrinho') {
+        try {
+          const produtosCarrinho = JSON.parse(decodeURIComponent(carrinhoData));
+          const itensIniciais = Array.isArray(produtosCarrinho) ? produtosCarrinho.map((produto, idx) => ({
+            _tempId: `carrinho-${idx}-${Date.now()}`,
+            produto_id: produto.id || null,
+            nome_produto: produto.nome,
+            descricao: produto.descricao || '',
+            marca: produto.marca || '',
+            modelo: produto.modelo || '',
+            referencia: produto.referencia || '',
+            quantidade: produto.quantidade || 1,
+            valor_unitario: produto.preco_venda || 0,
+            valor_total: (produto.quantidade || 1) * (produto.preco_venda || 0),
+            is_opcional: produto.is_opcional || false
+          })) : [];
+          setOrcamento({
+            cliente_id: null, cliente_nome: "", cliente_telefone: "", cliente_celular: "",
+            cliente_email: "", cliente_empresa: "", vendedor: "",
+            data_orcamento: new Date().toISOString().slice(0, 10), data_vencimento: "",
+            status: "rascunho", valor_total: calcularTotal(itensIniciais),
+            observacoes: "Orçamento criado a partir do carrinho de produtos"
+          });
+          setItens(itensIniciais);
+        } catch (error) {
+          console.error("Erro ao processar carrinho:", error);
+          toast.error("Erro ao carregar produtos do carrinho.");
+        }
+      } else if (modoOperacao === 'chat') {
+        const cliente_nome = params.get('cliente_nome') || '';
+        const cliente_telefone = params.get('cliente_telefone') || '';
+        const cliente_email = params.get('cliente_email') || '';
+        const cliente_empresa = params.get('cliente_empresa') || '';
+        const vendedor = params.get('vendedor') || '';
+        const observacoes_chat = params.get('observacoes') || '';
+        const numero_orcamento = params.get('numero_orcamento') || '';
+        const condicao_pagamento = params.get('condicao_pagamento') || '';
+        const data_vencimento = params.get('data_vencimento') || '';
+        const status_kanban = params.get('status') || 'rascunho';
 
-VENDEDORES DISPONÍVEIS NA BASE:
-${JSON.stringify(vendedoresInfo, null, 2)}
+        let observacoesFinal = '🗨️ OPORTUNIDADE CRIADA DA CENTRAL DE COMUNICAÇÃO\n\n';
+        if (observacoes_chat) observacoesFinal += `${decodeURIComponent(observacoes_chat)}\n`;
 
-INSTRUÇÕES:
-1. EXTRAIA todos os itens/produtos com quantidade, descrição e valores
-2. Se encontrar dados do cliente, extraia também (mas foco principal nos ITENS)
-3. EXTRAIA número da proposta, datas, condições de pagamento se houver
+        let itensExtraidos = [];
+        const itensParam = params.get('itens_extraidos');
+        if (itensParam) {
+          try {
+            const itensDecoded = JSON.parse(decodeURIComponent(itensParam));
+            itensExtraidos = itensDecoded.map((item, idx) => ({
+              _tempId: `chat-ia-${Date.now()}-${idx}`,
+              produto_id: null,
+              nome_produto: item.nome_produto || '',
+              descricao: item.descricao || '',
+              marca: item.marca || '',
+              modelo: item.modelo || '',
+              referencia: item.referencia || item.codigo || '',
+              quantidade: parseFloat(item.quantidade || 1),
+              valor_unitario: parseFloat(item.valor_unitario || 0),
+              valor_total: parseFloat(item.quantidade || 1) * parseFloat(item.valor_unitario || 0),
+              is_opcional: false
+            }));
+            if (itensExtraidos.length > 0) toast.success(`✅ ${itensExtraidos.length} item(ns) extraído(s) da conversa!`, { duration: 3000 });
+          } catch (error) {
+            console.error('[ORCAMENTO] Erro ao processar itens extraídos:', error);
+          }
+        }
 
+        if (mediaUrlFromChat) {
+          setImagemAnexada(mediaUrlFromChat);
+          observacoesFinal += `\n[Imagem anexada aguardando processamento]\nImagem: ${mediaUrlFromChat}`;
+        }
+
+        setOrcamento({
+          cliente_id: null,
+          cliente_nome: decodeURIComponent(cliente_nome),
+          cliente_telefone: decodeURIComponent(cliente_telefone),
+          cliente_celular: '',
+          cliente_email: decodeURIComponent(cliente_email),
+          cliente_empresa: decodeURIComponent(cliente_empresa),
+          vendedor: decodeURIComponent(vendedor),
+          numero_orcamento: numero_orcamento ? decodeURIComponent(numero_orcamento) : '',
+          data_orcamento: new Date().toISOString().slice(0, 10),
+          data_vencimento: data_vencimento ? decodeURIComponent(data_vencimento) : '',
+          condicao_pagamento: condicao_pagamento ? decodeURIComponent(condicao_pagamento) : '',
+          status: status_kanban,
+          valor_total: calcularTotal(itensExtraidos),
+          observacoes: observacoesFinal
+        });
+        setItens(itensExtraidos);
+      } else if (modoOperacao === 'importacao') {
+        const dadosImportados = location.state?.dadosImportados;
+        if (dadosImportados) {
+          const { dadosCabecalho, itens: importedItens } = dadosImportados;
+          const itensIniciais = Array.isArray(importedItens) ? importedItens.map((item, idx) => ({
+            _tempId: `import-${Date.now()}-${idx}`,
+            produto_id: null,
+            nome_produto: item.nome || item.descricao || '',
+            descricao: item.descricao || '',
+            marca: item.marca || '',
+            modelo: item.modelo || '',
+            referencia: item.codigo || '',
+            quantidade: parseFloat(item.quantidade || 0),
+            valor_unitario: parseFloat(item.valor_unitario || 0),
+            valor_total: parseFloat(item.quantidade || 0) * parseFloat(item.valor_unitario || 0),
+            is_opcional: false
+          })) : [];
+          setOrcamento({
+            cliente_id: null,
+            cliente_nome: dadosCabecalho?.cliente_nome || "",
+            cliente_telefone: dadosCabecalho?.cliente_telefone || "",
+            cliente_celular: "",
+            cliente_email: dadosCabecalho?.cliente_email || "",
+            cliente_empresa: "",
+            vendedor: dadosCabecalho?.vendedor_nome || "",
+            data_orcamento: dadosCabecalho?.data_orcamento || new Date().toISOString().slice(0, 10),
+            data_vencimento: dadosCabecalho?.data_validade || "",
+            status: "rascunho",
+            valor_total: calcularTotal(itensIniciais),
+            observacoes: dadosCabecalho?.observacoes ? `[Importado via IA]\n\n${dadosCabecalho.observacoes}` : "[Importado via IA]"
+          });
+          setItens(itensIniciais);
+          toast.success(`✅ Orçamento importado com ${itensIniciais.length} itens!`, { duration: 4000 });
+        } else {
+          setOrcamento({
+            cliente_id: null, cliente_nome: "", cliente_telefone: "", cliente_celular: "",
+            cliente_email: "", cliente_empresa: "", vendedor: "",
+            data_orcamento: new Date().toISOString().slice(0, 10), data_vencimento: "",
+            status: "rascunho", valor_total: 0, observacoes: ""
+          });
+          setItens([]);
+        }
+      } else {
+        setOrcamento({
+          cliente_id: null, cliente_nome: "", cliente_telefone: "", cliente_celular: "",
+          cliente_email: "", cliente_empresa: "", vendedor: "",
+          data_orcamento: new Date().toISOString().slice(0, 10), data_vencimento: "",
+          status: "rascunho", valor_total: 0, observacoes: ""
+        });
+        setItens([]);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+      toast.error("Falha ao carregar dados do orçamento.");
+    } finally {
+      setLoading(false);
+    }
+  }, [location.search, location.state, calcularTotal]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // PASTE LISTENER
+  useEffect(() => {
+    const handlePaste = async (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const file = items[i].getAsFile();
+          if (file) {
+            toast.info('🖼️ Imagem detectada! Processando com IA...');
+            await processarImagemCompleta(file);
+          }
+          break;
+        }
+      }
+    };
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [itens]);
+
+  const processarImagemCompleta = async (file) => {
+    setProcessing(true);
+    try {
+      toast.info('📤 Salvando imagem...');
+      const uploadResult = await base44.integrations.Core.UploadFile({ file });
+      const fileUrl = uploadResult.file_url;
+      setImagemAnexada(fileUrl);
+
+      toast.info('🔍 Carregando dados da base...');
+      const [clientes, usersBase] = await Promise.all([
+        base44.entities.Cliente.list(),
+        base44.entities.User.list()
+      ]);
+      const vendedoresBase = usersBase
+        .filter(u => u.codigo || u.attendant_sector === 'vendas')
+        .map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
+
+      const clientesInfo = clientes.map(c => ({ id: c.id, razao_social: c.razao_social, nome_fantasia: c.nome_fantasia, cnpj: c.cnpj, telefone: c.telefone }));
+      const vendedoresInfo = vendedoresBase.map(v => ({ id: v.id, nome: v.nome, codigo: v.codigo, email: v.email }));
+
+      const prompt = `Analise este orçamento/proposta comercial e extraia TODOS os dados estruturados com PRECISÃO MÁXIMA.
+CLIENTES: ${JSON.stringify(clientesInfo, null, 2)}
+VENDEDORES: ${JSON.stringify(vendedoresInfo, null, 2)}
+Extraia: código do orçamento, cliente, telefone, email, vendedor, data emissão, itens (código, nome, descrição, quantidade, valor unitário, total), observações.
 RETORNE o JSON estruturado conforme o schema.`;
 
       const schema = {
         type: "object",
         properties: {
+          numero_orcamento: { type: "string" },
           cliente_encontrado: { type: "boolean" },
           cliente_id: { type: "string" },
           cliente_nome: { type: "string" },
-          numero_orcamento: { type: "string" },
+          cliente_telefone: { type: "string" },
+          cliente_email: { type: "string" },
+          cliente_empresa: { type: "string" },
+          vendedor_encontrado: { type: "boolean" },
+          vendedor_nome: { type: "string" },
           data_orcamento: { type: "string" },
+          data_validade: { type: "string" },
           condicao_pagamento: { type: "string" },
+          observacoes: { type: "string" },
           itens: {
             type: "array",
             items: {
@@ -93,208 +302,11 @@ RETORNE o JSON estruturado conforme o schema.`;
             }
           }
         },
-        required: ["itens"]
-      };
-
-      const iaResult = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        response_json_schema: schema,
-        file_urls: [imageUrl],
-      });
-
-      if (!iaResult || !iaResult.itens || iaResult.itens.length === 0) {
-        return { itens: [], dados: {} };
-      }
-
-      const novosItens = iaResult.itens.map((item, idx) => ({
-        _tempId: `chat-img-${Date.now()}-${idx}`,
-        produto_id: null,
-        nome_produto: item.nome || item.descricao || '',
-        descricao: item.descricao || '',
-        marca: item.marca || '',
-        modelo: item.modelo || '',
-        referencia: item.codigo || '',
-        quantidade: parseFloat(item.quantidade || 0),
-        valor_unitario: parseFloat(item.valor_unitario || 0),
-        valor_total: parseFloat(item.quantidade || 0) * parseFloat(item.valor_unitario || 0),
-        is_opcional: false
-      }));
-
-      return { 
-        itens: novosItens, 
-        dados: {
-          numero_orcamento: iaResult.numero_orcamento,
-          data_orcamento: iaResult.data_orcamento,
-          condicao_pagamento: iaResult.condicao_pagamento
-        }
-      };
-
-    } catch (error) {
-      console.error('Erro ao processar imagem do chat:', error);
-      toast.error('❌ Erro ao processar imagem: ' + error.message);
-      return { itens: [], dados: {} };
-    }
-  };
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Parse URL params inside loadData to avoid dependency issues
-      const urlParams = new URLSearchParams(location.search);
-      const orcamentoId = urlParams.get('id');
-      const carrinhoData = urlParams.get('carrinho');
-      const origemChat = urlParams.get('origem') === 'chat';
-      const origemImportacao = urlParams.get('importacao') === 'true';
-      const mediaUrlFromChat = urlParams.get('media_url');
-
-      const modoOperacao = orcamentoId ? 'edicao' 
-        : carrinhoData ? 'carrinho' 
-        : origemChat ? 'chat'
-        : origemImportacao ? 'importacao'
-        : 'novo';
-
-      // Load vendors safely - don't let this failure block orcamento creation
-      try {
-        const usersData = await base44.entities.User.list();
-        const vendedoresData = usersData
-          .filter(u => u.codigo || u.attendant_sector === 'vendas')
-          .map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
-        setVendedores(Array.isArray(vendedoresData) ? vendedoresData : []);
-      } catch (userErr) {
-        console.warn('Erro ao carregar vendedores (não crítico):', userErr);
-        setVendedores([]);
-      }
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  // PASTE LISTENER - Detecta quando o usuário cola uma imagem
-  useEffect(() => {
-    const handlePaste = async (e) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-          e.preventDefault();
-          const file = items[i].getAsFile();
-          if (file) {
-            toast.info('🖼️ Imagem detectada! Processando com IA...');
-            await processarImagemCompleta(file);
-          }
-          break;
-        }
-      }
-    };
-
-    document.addEventListener('paste', handlePaste);
-    return () => document.removeEventListener('paste', handlePaste);
-  }, [itens]);
-
-  const processarImagemCompleta = async (file) => {
-    setProcessing(true);
-    try {
-      toast.info('📤 Salvando imagem...');
-      const uploadResult = await base44.integrations.Core.UploadFile({ file });
-      const fileUrl = uploadResult.file_url;
-      
-      setImagemAnexada(fileUrl);
-
-      toast.info('🔍 Carregando dados da base...');
-      const [clientes, usersBase] = await Promise.all([
-        base44.entities.Cliente.list(),
-        base44.entities.User.list()
-      ]);
-      const vendedoresBase = usersBase
-        .filter(u => u.codigo || u.attendant_sector === 'vendas')
-        .map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
-
-      const clientesInfo = clientes.map(c => ({
-        id: c.id,
-        razao_social: c.razao_social,
-        nome_fantasia: c.nome_fantasia,
-        cnpj: c.cnpj,
-        telefone: c.telefone
-      }));
-
-      const vendedoresInfo = vendedoresBase.map(v => ({
-        id: v.id,
-        nome: v.nome,
-        codigo: v.codigo,
-        email: v.email
-      }));
-
-      const prompt = `Analise este orçamento/proposta comercial e extraia TODOS os dados estruturados com PRECISÃO MÁXIMA.
-
-      CLIENTES DISPONÍVEIS NA BASE:
-      ${JSON.stringify(clientesInfo, null, 2)}
-
-      VENDEDORES DISPONÍVEIS NA BASE:
-      ${JSON.stringify(vendedoresInfo, null, 2)}
-
-      INSTRUÇÕES DE EXTRAÇÃO:
-      1. CÓDIGO DO ORÇAMENTO: Procure por "Proposta Nº", "Orçamento", "Pedido", etc.
-      2. CLIENTE: Nome completo, CNPJ, razão social. Verifique se existe na base de clientes.
-      3. TELEFONE: Qualquer telefone de contato do cliente (fixo ou celular)
-      4. EMAIL: Email de contato do cliente
-      5. VENDEDOR: Nome do vendedor/atendente responsável. Verifique se existe na base.
-      6. DATA DE EMISSÃO: Data em que o orçamento foi emitido
-      7. ITENS: TODOS os produtos/serviços com código, descrição, quantidade, valor unitário e total
-      8. OBSERVAÇÕES: Condições gerais, formas de pagamento, prazo de validade, informações adicionais
-
-      RETORNE o JSON estruturado conforme o schema.`;
-
-      const schema = {
-        type: "object",
-        properties: {
-          numero_orcamento: { type: "string", description: "Código/número do orçamento" },
-
-          cliente_encontrado: { type: "boolean" },
-          cliente_id: { type: "string" },
-          cliente_nome: { type: "string", description: "Nome ou razão social do cliente" },
-          cliente_cnpj: { type: "string" },
-          cliente_telefone: { type: "string", description: "Telefone do cliente" },
-          cliente_email: { type: "string", description: "Email do cliente" },
-          cliente_empresa: { type: "string", description: "Nome fantasia ou empresa do cliente" },
-
-          vendedor_encontrado: { type: "boolean" },
-          vendedor_id: { type: "string" },
-          vendedor_nome: { type: "string", description: "Nome do vendedor/atendente" },
-
-          data_orcamento: { type: "string", description: "Data de emissão (formato: YYYY-MM-DD)" },
-          data_validade: { type: "string", description: "Data de validade/vencimento (formato: YYYY-MM-DD)" },
-
-          condicao_pagamento: { type: "string", description: "Condições de pagamento" },
-          observacoes: { type: "string", description: "Observações gerais, termos e condições" },
-
-          valor_total: { type: "number", description: "Valor total do orçamento" },
-
-          itens: {
-            type: "array",
-            description: "Lista de produtos/serviços",
-            items: {
-              type: "object",
-              properties: {
-                codigo: { type: "string", description: "Código/referência do produto" },
-                nome: { type: "string", description: "Nome do produto/serviço" },
-                descricao: { type: "string", description: "Descrição detalhada" },
-                quantidade: { type: "number", description: "Quantidade" },
-                valor_unitario: { type: "number", description: "Valor unitário" },
-                valor_total: { type: "number", description: "Valor total do item" }
-              }
-            }
-          }
-        },
         required: ["cliente_nome", "itens"]
       };
 
       toast.info('🤖 IA analisando orçamento...');
-      const iaResult = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        response_json_schema: schema,
-        file_urls: [fileUrl],
-      });
+      const iaResult = await base44.integrations.Core.InvokeLLM({ prompt, response_json_schema: schema, file_urls: [fileUrl] });
 
       if (!iaResult || !iaResult.itens || iaResult.itens.length === 0) {
         toast.warning('⚠️ Nenhum item foi encontrado no orçamento.');
@@ -316,8 +328,6 @@ RETORNE o JSON estruturado conforme o schema.`;
       }));
 
       const itensAtualizados = [...itens, ...novosItens];
-      const totalCalculado = calcularTotal(itensAtualizados);
-
       setOrcamento(prev => ({
         ...prev,
         cliente_id: iaResult.cliente_id || prev.cliente_id,
@@ -331,20 +341,11 @@ RETORNE o JSON estruturado conforme o schema.`;
         data_vencimento: iaResult.data_validade || prev.data_vencimento,
         condicao_pagamento: iaResult.condicao_pagamento || prev.condicao_pagamento,
         observacoes: `${prev.observacoes ? prev.observacoes + '\n\n' : ''}[📄 Importado via IA - ${new Date().toLocaleString('pt-BR')}]\n\n${iaResult.observacoes || ''}\n\n📎 Imagem: ${fileUrl}`.trim(),
-        valor_total: totalCalculado
+        valor_total: calcularTotal(itensAtualizados)
       }));
-
       setItens(itensAtualizados);
-
       toast.success(`✅ ${novosItens.length} itens extraídos e adicionados!`, { duration: 4000 });
-
-      if (!iaResult.cliente_encontrado) {
-        toast.info('ℹ️ Cliente não encontrado na base. Será criado ao salvar.', { duration: 3000 });
-      }
-      if (!iaResult.vendedor_encontrado) {
-        toast.info('ℹ️ Vendedor não identificado. Verifique o campo.', { duration: 3000 });
-      }
-
+      if (!iaResult.cliente_encontrado) toast.info('ℹ️ Cliente não encontrado na base. Será criado ao salvar.', { duration: 3000 });
     } catch (error) {
       console.error('Erro ao processar imagem:', error);
       toast.error('❌ Erro ao processar: ' + error.message);
@@ -356,64 +357,43 @@ RETORNE o JSON estruturado conforme o schema.`;
   const processarApenasItens = async (file) => {
     setProcessing(true);
     try {
-      toast.info('📤 Salvando imagem...');
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadResult.file_url;
-
-      const prompt = `Extraia TODOS os produtos/itens desta imagem. Para cada um: código, nome, descrição, quantidade, valor unitário, valor total.`;
-
-      const schema = {
-        type: "object",
-        properties: {
-          produtos: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                codigo: { type: "string" },
-                nome: { type: "string" },
-                descricao: { type: "string" },
-                quantidade: { type: "number" },
-                valor_unitario: { type: "number" },
-                valor_total: { type: "number" }
+      const iaResult = await base44.integrations.Core.InvokeLLM({
+        prompt: `Extraia TODOS os produtos/itens desta imagem. Para cada um: código, nome, descrição, quantidade, valor unitário, valor total.`,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            produtos: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  codigo: { type: "string" }, nome: { type: "string" }, descricao: { type: "string" },
+                  quantidade: { type: "number" }, valor_unitario: { type: "number" }, valor_total: { type: "number" }
+                }
               }
             }
           }
-        }
-      };
-
-      toast.info('🤖 IA extraindo itens...');
-      const iaResult = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        response_json_schema: schema,
+        },
         file_urls: [fileUrl],
       });
 
-      if (!iaResult || !iaResult.produtos || iaResult.produtos.length === 0) {
-        toast.warning('⚠️ Nenhum item foi encontrado.');
-        return;
-      }
+      if (!iaResult?.produtos?.length) { toast.warning('⚠️ Nenhum item foi encontrado.'); return; }
 
       const novosItens = iaResult.produtos.map(p => ({
         _tempId: `import-${Date.now()}-${Math.random()}`,
-        produto_id: null,
-        nome_produto: p.nome,
-        descricao: p.descricao || '',
-        referencia: p.codigo || '',
-        quantidade: parseFloat(p.quantidade || 0),
+        produto_id: null, nome_produto: p.nome, descricao: p.descricao || '',
+        referencia: p.codigo || '', quantidade: parseFloat(p.quantidade || 0),
         valor_unitario: parseFloat(p.valor_unitario || 0),
         valor_total: parseFloat(p.quantidade || 0) * parseFloat(p.valor_unitario || 0),
         is_opcional: false
       }));
 
       const itensAtualizados = [...itens, ...novosItens];
-      const totalCalculado = calcularTotal(itensAtualizados);
-
       setItens(itensAtualizados);
-      setOrcamento(prev => ({ ...prev, valor_total: totalCalculado }));
-      
+      setOrcamento(prev => ({ ...prev, valor_total: calcularTotal(itensAtualizados) }));
       toast.success(`✅ ${novosItens.length} itens adicionados!`);
-
     } catch (error) {
       console.error('Erro ao processar itens:', error);
       toast.error('❌ Erro: ' + error.message);
@@ -427,23 +407,10 @@ RETORNE o JSON estruturado conforme o schema.`;
     setDragOver(null);
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-      if (tipo === 'completo') {
-        processarImagemCompleta(file);
-      } else {
-        processarApenasItens(file);
-      }
+      tipo === 'completo' ? processarImagemCompleta(file) : processarApenasItens(file);
     } else {
       toast.error('Por favor, envie uma imagem.');
     }
-  };
-
-  const handleDragOver = (e, tipo) => {
-    e.preventDefault();
-    setDragOver(tipo);
-  };
-
-  const handleDragLeave = () => {
-    setDragOver(null);
   };
 
   const handleOrcamentoChange = (e) => {
@@ -457,129 +424,76 @@ RETORNE o JSON estruturado conforme o schema.`;
 
   const adicionarItemLivre = () => {
     const novoItem = {
-      _tempId: Date.now().toString(),
-      produto_id: null,
-      nome_produto: '',
-      descricao: '',
-      marca: '',
-      modelo: '',
-      referencia: '',
-      quantidade: 1,
-      valor_unitario: 0,
-      valor_total: 0,
-      is_opcional: false
+      _tempId: Date.now().toString(), produto_id: null, nome_produto: '', descricao: '',
+      marca: '', modelo: '', referencia: '', quantidade: 1, valor_unitario: 0, valor_total: 0, is_opcional: false
     };
-    const itensAtualizados = Array.isArray(itens) ? [...itens, novoItem] : [novoItem];
-    setItens(itensAtualizados);
+    setItens(Array.isArray(itens) ? [...itens, novoItem] : [novoItem]);
   };
 
   const atualizarItem = useCallback((itemId, campo, valor) => {
     setItens(prev => {
       if (!Array.isArray(prev)) return [];
-      const itensAtualizados = prev.map(item => {
+      const updated = prev.map(item => {
         const id = item.id || item._tempId;
         if (id !== itemId) return item;
-
         const itemAtualizado = { ...item, [campo]: valor };
-
-        if (campo === 'quantidade' || campo === 'valor_unitario' || campo === 'is_opcional') {
-          const qtd = parseFloat(itemAtualizado.quantidade) || 0;
-          const vlrUnit = parseFloat(itemAtualizado.valor_unitario) || 0;
-          itemAtualizado.valor_total = qtd * vlrUnit;
+        if (campo === 'quantidade' || campo === 'valor_unitario') {
+          itemAtualizado.valor_total = (parseFloat(itemAtualizado.quantidade) || 0) * (parseFloat(itemAtualizado.valor_unitario) || 0);
         }
-
         return itemAtualizado;
       });
-
-      const totalCalculado = calcularTotal(itensAtualizados);
-      setOrcamento(orcPrev => ({ ...orcPrev, valor_total: totalCalculado }));
-
-      return itensAtualizados;
+      setOrcamento(orcPrev => ({ ...orcPrev, valor_total: calcularTotal(updated) }));
+      return updated;
     });
   }, [calcularTotal]);
 
   const removerItem = async (itemId) => {
     if (!Array.isArray(itens)) return;
-    
     const itemToRemove = itens.find(item => (item.id || item._tempId) === itemId);
-    if (itemToRemove && itemToRemove.id) {
+    if (itemToRemove?.id) {
       try {
         await base44.entities.ItemOrcamento.delete(itemToRemove.id);
         toast.success("Item removido.");
       } catch (error) {
-        console.error("Erro ao remover item:", error);
         toast.error("Erro ao remover item.");
         return;
       }
     }
-    
-    const itensAtualizados = itens.filter(item => {
-      const id = item.id || item._tempId;
-      return id !== itemId;
-    });
-    
-    const totalCalculado = calcularTotal(itensAtualizados);
-    
+    const itensAtualizados = itens.filter(item => (item.id || item._tempId) !== itemId);
     setItens(itensAtualizados);
-    setOrcamento(prev => ({ ...prev, valor_total: totalCalculado }));
+    setOrcamento(prev => ({ ...prev, valor_total: calcularTotal(itensAtualizados) }));
   };
 
   const validarFormulario = useCallback(() => {
     if (!orcamento) return false;
-    if (!orcamento.cliente_nome) {
-      toast.error("O nome do cliente é obrigatório.");
-      return false;
-    }
-    if (!Array.isArray(itens) || itens.length === 0) {
-      toast.error("O orçamento deve ter pelo menos um item.");
-      return false;
-    }
-    const invalidItems = itens.filter(item =>
-      !item.nome_produto ||
-      parseFloat(item.quantidade) <= 0 ||
-      parseFloat(item.valor_unitario) < 0 ||
-      isNaN(parseFloat(item.quantidade)) ||
-      isNaN(parseFloat(item.valor_unitario))
-    );
-    if (invalidItems.length > 0) {
-      toast.error("Preencha todos os campos obrigatórios dos itens.");
-      return false;
-    }
+    if (!orcamento.cliente_nome) { toast.error("O nome do cliente é obrigatório."); return false; }
+    if (!Array.isArray(itens) || itens.length === 0) { toast.error("O orçamento deve ter pelo menos um item."); return false; }
+    const invalidItems = itens.filter(item => !item.nome_produto || parseFloat(item.quantidade) <= 0 || isNaN(parseFloat(item.quantidade)));
+    if (invalidItems.length > 0) { toast.error("Preencha todos os campos obrigatórios dos itens."); return false; }
     return true;
   }, [orcamento, itens]);
 
   const handleSalvar = async () => {
     if (!validarFormulario()) return;
-
     setSaving(true);
     try {
       const totalCalculado = calcularTotal(itens);
+      const orcamentoDataToSave = { ...orcamento, valor_total: totalCalculado };
 
-      const orcamentoDataToSave = {
-        ...orcamento,
-        valor_total: totalCalculado,
-      };
-
-      // Buscar modoOperacao dentro da função
-      const urlParamsSave = new URLSearchParams(location.search);
-      const orcamentoIdSave = urlParamsSave.get('id');
-      const origemChatSave = urlParamsSave.get('origem') === 'chat';
+      const saveParams = new URLSearchParams(location.search);
+      const origemChatSave = saveParams.get('origem') === 'chat';
 
       let clienteIdFinal = orcamento.cliente_id;
       if (!clienteIdFinal && orcamento.cliente_nome) {
         try {
-          const clientesExistentes = await base44.entities.Cliente.filter({ 
-            razao_social: orcamento.cliente_nome 
-          });
-
-          if (clientesExistentes && clientesExistentes.length > 0) {
+          const clientesExistentes = await base44.entities.Cliente.filter({ razao_social: orcamento.cliente_nome });
+          if (clientesExistentes?.length > 0) {
             clienteIdFinal = clientesExistentes[0].id;
             toast.info(`Cliente "${orcamento.cliente_nome}" já existe no sistema.`);
           } else {
             const novoCliente = await base44.entities.Cliente.create({
               razao_social: orcamento.cliente_nome,
               telefone: orcamento.cliente_telefone,
-              celular: orcamento.cliente_celular,
               email: orcamento.cliente_email,
               nome_fantasia: orcamento.cliente_empresa || orcamento.cliente_nome,
               origem: origemChatSave ? 'WhatsApp' : 'Orçamento',
@@ -587,7 +501,6 @@ RETORNE o JSON estruturado conforme o schema.`;
             clienteIdFinal = novoCliente.id;
             toast.success(`Novo cliente "${orcamento.cliente_nome}" criado!`);
           }
-          
           orcamentoDataToSave.cliente_id = clienteIdFinal;
         } catch (clientError) {
           console.error('Erro ao buscar/criar cliente:', clientError);
@@ -597,46 +510,33 @@ RETORNE o JSON estruturado conforme o schema.`;
 
       let savedOrcamento;
       if (orcamento.id) {
-        // Editando orçamento existente
         savedOrcamento = await base44.entities.Orcamento.update(orcamento.id, orcamentoDataToSave);
         toast.success('✅ Orçamento atualizado!');
       } else {
-        // Criando novo orçamento
         savedOrcamento = await base44.entities.Orcamento.create(orcamentoDataToSave);
-        setOrcamento(prev => ({...prev, id: savedOrcamento.id}));
+        setOrcamento(prev => ({ ...prev, id: savedOrcamento.id }));
         toast.success('✅ Orçamento criado!');
       }
 
-      // Salvar itens
       if (Array.isArray(itens)) {
         for (const item of itens) {
           const itemData = {
             orcamento_id: savedOrcamento.id,
             produto_id: item.produto_id || null,
-            nome_produto: item.nome_produto,
-            descricao: item.descricao,
-            marca: item.marca,
-            modelo: item.modelo,
-            referencia: item.referencia,
-            quantidade: parseFloat(item.quantidade),
-            valor_unitario: parseFloat(item.valor_unitario),
-            valor_total: parseFloat(item.valor_total),
-            is_opcional: item.is_opcional,
+            nome_produto: item.nome_produto, descricao: item.descricao,
+            marca: item.marca, modelo: item.modelo, referencia: item.referencia,
+            quantidade: parseFloat(item.quantidade), valor_unitario: parseFloat(item.valor_unitario),
+            valor_total: parseFloat(item.valor_total), is_opcional: item.is_opcional,
           };
-
           if (item.id) {
             await base44.entities.ItemOrcamento.update(item.id, itemData);
           } else {
             const novoItem = await base44.entities.ItemOrcamento.create(itemData);
-            // Atualizar o item local com o ID do banco
-            setItens(prev => prev.map(i => 
-              (i._tempId === item._tempId) ? {...i, id: novoItem.id, _tempId: undefined} : i
-            ));
+            setItens(prev => prev.map(i => (i._tempId === item._tempId) ? { ...i, id: novoItem.id, _tempId: undefined } : i));
           }
         }
       }
 
-      // Redirecionar apenas se era novo (não tinha ID antes)
       if (!orcamento.id) {
         navigate(createPageUrl(`OrcamentoDetalhes?id=${savedOrcamento.id}`), { replace: true });
       }
@@ -659,10 +559,10 @@ RETORNE o JSON estruturado conforme o schema.`;
   if (!orcamento) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
-        <Card className="bg-slate-800 p-8 border-slate-700">
+        <Card className="bg-slate-800 p-8 border-slate-700 text-center">
           <FileText className="w-16 h-16 text-red-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-2">Orçamento não encontrado</h2>
-          <Button onClick={() => navigate(createPageUrl('Orcamentos'))} className="mt-4 bg-amber-500">
+          <Button onClick={() => navigate(createPageUrl('LeadsQualificados'))} className="mt-4 bg-amber-500">
             Voltar aos Orçamentos
           </Button>
         </Card>
@@ -670,17 +570,17 @@ RETORNE o JSON estruturado conforme o schema.`;
     );
   }
 
-  // Parse URL params for display purposes (outside loadData)
+  // Display params (no conflict with loadData scope)
   const displayParams = new URLSearchParams(location.search);
-  const orcamentoId = displayParams.get('id');
-  const origemChat = displayParams.get('origem') === 'chat';
-  const origemImportacao = displayParams.get('importacao') === 'true';
-  const carrinhoData = displayParams.get('carrinho');
+  const currentOrcamentoId = displayParams.get('id');
+  const currentOrigemChat = displayParams.get('origem') === 'chat';
+  const currentOrigemImportacao = displayParams.get('importacao') === 'true';
+  const currentCarrinhoData = displayParams.get('carrinho');
 
-  const modoOperacao = orcamentoId ? 'edicao' 
-    : carrinhoData ? 'carrinho' 
-    : origemChat ? 'chat'
-    : origemImportacao ? 'importacao'
+  const modoOperacao = currentOrcamentoId ? 'edicao'
+    : currentCarrinhoData ? 'carrinho'
+    : currentOrigemChat ? 'chat'
+    : currentOrigemImportacao ? 'importacao'
     : 'novo';
 
   const getTitulo = () => {
@@ -706,7 +606,7 @@ RETORNE o JSON estruturado conforme o schema.`;
       <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-slate-700 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate(createPageUrl('Orcamentos'))} className="text-white">
+            <Button variant="ghost" size="icon" onClick={() => navigate(createPageUrl('LeadsQualificados'))} className="text-white">
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2">
@@ -719,15 +619,9 @@ RETORNE o JSON estruturado conforme o schema.`;
               </div>
             </div>
           </div>
-
           <div className="flex items-center gap-3">
             {modoOperacao === 'edicao' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.print()}
-                className="text-white border-slate-600 hover:bg-slate-700"
-              >
+              <Button variant="outline" size="sm" onClick={() => window.print()} className="text-white border-slate-600 hover:bg-slate-700">
                 Imprimir
               </Button>
             )}
@@ -738,7 +632,7 @@ RETORNE o JSON estruturado conforme o schema.`;
               </p>
             </div>
             <Button onClick={handleSalvar} disabled={saving} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
-              {saving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="w-4 h-4 mr-2" />} 
+              {saving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="w-4 h-4 mr-2" />}
               Salvar
             </Button>
           </div>
@@ -748,42 +642,31 @@ RETORNE o JSON estruturado conforme o schema.`;
       {/* STATUS PIPELINE */}
       {modoOperacao === 'edicao' && (
         <div className="max-w-7xl mx-auto px-4 py-3">
-          <StatusPipeline currentStatus={orcamento.status} onStatusChange={(status) => setOrcamento(prev => ({...prev, status}))} />
+          <StatusPipeline currentStatus={orcamento.status} onStatusChange={(status) => setOrcamento(prev => ({ ...prev, status }))} />
         </div>
       )}
 
       <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
-        
-        {/* ✅ PREVIEW DA IMAGEM ANEXADA */}
+
+        {/* PREVIEW DA IMAGEM ANEXADA */}
         {imagemAnexada && (
           <Card className="bg-slate-800/50 border-slate-700">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm text-white flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-amber-400" /> 
-                  Imagem Anexada
+                  <ImageIcon className="w-4 h-4 text-amber-400" /> Imagem Anexada
                 </CardTitle>
-                <Button 
-                  size="sm" 
-                  onClick={async () => {
-                    const response = await fetch(imagemAnexada);
-                    const blob = await response.blob();
-                    const file = new File([blob], "imagem.png", { type: blob.type });
-                    await processarImagemCompleta(file);
-                  }}
-                  className="bg-amber-500 hover:bg-amber-600 h-7"
-                >
-                  <Sparkles className="w-3 h-3 mr-1" />
-                  Processar com IA
+                <Button size="sm" onClick={async () => {
+                  const response = await fetch(imagemAnexada);
+                  const blob = await response.blob();
+                  await processarImagemCompleta(new File([blob], "imagem.png", { type: blob.type }));
+                }} className="bg-amber-500 hover:bg-amber-600 h-7">
+                  <Sparkles className="w-3 h-3 mr-1" /> Processar com IA
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <img 
-                src={imagemAnexada} 
-                alt="Imagem da proposta" 
-                className="w-full max-h-96 object-contain rounded-lg border border-slate-600"
-              />
+              <img src={imagemAnexada} alt="Imagem da proposta" className="w-full max-h-96 object-contain rounded-lg border border-slate-600" />
             </CardContent>
           </Card>
         )}
@@ -791,92 +674,47 @@ RETORNE o JSON estruturado conforme o schema.`;
         {/* ZONAS DE IMPORTAÇÃO COM IA */}
         {(modoOperacao === 'novo' || modoOperacao === 'chat') && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* IMPORTAÇÃO COMPLETA */}
             <div
               onDrop={(e) => handleDrop(e, 'completo')}
-              onDragOver={(e) => handleDragOver(e, 'completo')}
-              onDragLeave={handleDragLeave}
-              className={`relative border-2 border-dashed rounded-lg p-2 transition-all cursor-pointer ${
-                dragOver === 'completo'
-                  ? 'border-amber-400 bg-amber-500/10'
-                  : 'border-amber-500/50 bg-gradient-to-br from-amber-900/10 to-orange-900/10 hover:border-amber-400'
-              }`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver('completo'); }}
+              onDragLeave={() => setDragOver(null)}
+              className={`relative border-2 border-dashed rounded-lg p-2 transition-all cursor-pointer ${dragOver === 'completo' ? 'border-amber-400 bg-amber-500/10' : 'border-amber-500/50 bg-gradient-to-br from-amber-900/10 to-orange-900/10 hover:border-amber-400'}`}
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
                   <ImageIcon className="w-4 h-4 text-white" />
                 </div>
-                
                 <div className="flex-1">
                   <h3 className="text-xs font-bold text-white">Importar Orçamento Completo</h3>
                   <p className="text-[10px] text-slate-400">IA extrai cliente, vendedor e itens</p>
                 </div>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => e.target.files?.[0] && processarImagemCompleta(e.target.files[0])}
-                  className="hidden"
-                  id="upload-completo"
-                />
+                <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarImagemCompleta(e.target.files[0])} className="hidden" id="upload-completo" />
                 <label htmlFor="upload-completo">
-                  <Button type="button" size="sm" className="bg-amber-500 hover:bg-amber-600 h-7 px-2">
-                    <Sparkles className="w-3 h-3" />
-                  </Button>
+                  <Button type="button" size="sm" className="bg-amber-500 hover:bg-amber-600 h-7 px-2"><Sparkles className="w-3 h-3" /></Button>
                 </label>
               </div>
             </div>
-
-            {/* IMPORTAÇÃO APENAS ITENS */}
             <div
               onDrop={(e) => handleDrop(e, 'itens')}
-              onDragOver={(e) => handleDragOver(e, 'itens')}
-              onDragLeave={handleDragLeave}
-              className={`relative border-2 border-dashed rounded-lg p-2 transition-all cursor-pointer ${
-                dragOver === 'itens'
-                  ? 'border-purple-400 bg-purple-500/10'
-                  : 'border-purple-500/50 bg-gradient-to-br from-purple-900/10 to-indigo-900/10 hover:border-purple-400'
-              }`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver('itens'); }}
+              onDragLeave={() => setDragOver(null)}
+              className={`relative border-2 border-dashed rounded-lg p-2 transition-all cursor-pointer ${dragOver === 'itens' ? 'border-purple-400 bg-purple-500/10' : 'border-purple-500/50 bg-gradient-to-br from-purple-900/10 to-indigo-900/10 hover:border-purple-400'}`}
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
                   <ShoppingCart className="w-4 h-4 text-white" />
                 </div>
-                
                 <div className="flex-1">
                   <h3 className="text-xs font-bold text-white">Importar Apenas Itens</h3>
                   <p className="text-[10px] text-slate-400">Adicione produtos com IA</p>
                 </div>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => e.target.files?.[0] && processarApenasItens(e.target.files[0])}
-                  className="hidden"
-                  id="upload-itens"
-                />
+                <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarApenasItens(e.target.files[0])} className="hidden" id="upload-itens" />
                 <label htmlFor="upload-itens">
-                  <Button type="button" size="sm" className="bg-purple-500 hover:bg-purple-600 h-7 px-2">
-                    <Plus className="w-3 h-3" />
-                  </Button>
+                  <Button type="button" size="sm" className="bg-purple-500 hover:bg-purple-600 h-7 px-2"><Plus className="w-3 h-3" /></Button>
                 </label>
               </div>
             </div>
           </div>
-        )}
-
-        {/* ALERTA DE PASTE */}
-        {(modoOperacao === 'novo' || modoOperacao === 'chat') && (
-          <Card className="bg-gradient-to-r from-indigo-900/20 to-purple-900/20 border border-indigo-500/50">
-            <CardContent className="p-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                <p className="text-xs text-slate-300">
-                  <strong className="text-white">💡 Dica:</strong> Cole uma imagem (Ctrl+V) para extração automática!
-                </p>
-              </div>
-            </CardContent>
-          </Card>
         )}
 
         {/* DADOS DO ORÇAMENTO */}
@@ -890,13 +728,7 @@ RETORNE o JSON estruturado conforme o schema.`;
             <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Código</Label>
-                <Input 
-                  name="numero_orcamento" 
-                  value={orcamento.numero_orcamento || ''} 
-                  onChange={handleOrcamentoChange} 
-                  placeholder="Código do orçamento"
-                  className="bg-slate-900 border-slate-600 text-white h-9 text-sm" 
-                />
+                <Input name="numero_orcamento" value={orcamento.numero_orcamento || ''} onChange={handleOrcamentoChange} placeholder="Código do orçamento" className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Cliente *</Label>
@@ -915,11 +747,10 @@ RETORNE o JSON estruturado conforme o schema.`;
                 <Input name="cliente_empresa" value={orcamento.cliente_empresa || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Vendedor</Label>
-                <Select value={orcamento.vendedor} onValueChange={(value) => handleSelectChange('vendedor', value)}>
+                <Select value={orcamento.vendedor || ''} onValueChange={(value) => handleSelectChange('vendedor', value)}>
                   <SelectTrigger className="bg-slate-900 border-slate-600 text-white h-9 text-sm">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
@@ -932,36 +763,26 @@ RETORNE o JSON estruturado conforme o schema.`;
               </div>
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Etapa do Kanban</Label>
-                <Select value={orcamento.status} onValueChange={(value) => handleSelectChange('status', value)}>
+                <Select value={orcamento.status || 'rascunho'} onValueChange={(value) => handleSelectChange('status', value)}>
                   <SelectTrigger className="bg-slate-900 border-slate-600 text-white h-9 text-sm">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-700">
-                    <SelectItem value="rascunho" className="text-white text-sm">Rascunho</SelectItem>
-                    <SelectItem value="aguardando_cotacao" className="text-white text-sm">Aguardando Cotação</SelectItem>
-                    <SelectItem value="cotando" className="text-white text-sm">Cotando</SelectItem>
-                    <SelectItem value="aguardando_analise" className="text-white text-sm">Aguardando Análise</SelectItem>
-                    <SelectItem value="analisando" className="text-white text-sm">Analisando</SelectItem>
-                    <SelectItem value="aguardando_liberacao" className="text-white text-sm">Aguardando Liberação</SelectItem>
-                    <SelectItem value="liberado" className="text-white text-sm">Liberado</SelectItem>
-                    <SelectItem value="enviado" className="text-white text-sm">Enviado</SelectItem>
-                    <SelectItem value="negociando" className="text-white text-sm">Negociando</SelectItem>
-                    <SelectItem value="aprovado" className="text-white text-sm">Aprovado</SelectItem>
-                    <SelectItem value="rejeitado" className="text-white text-sm">Rejeitado</SelectItem>
-                    <SelectItem value="vencido" className="text-white text-sm">Vencido</SelectItem>
+                    {['rascunho','aguardando_cotacao','cotando','aguardando_analise','analisando','aguardando_liberacao','liberado','enviado','negociando','aprovado','rejeitado','vencido'].map(s => (
+                      <SelectItem key={s} value={s} className="text-white text-sm">{s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Data Emissão *</Label>
-                <Input name="data_orcamento" type="date" value={orcamento.data_orcamento} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
+                <Input name="data_orcamento" type="date" value={orcamento.data_orcamento || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Validade</Label>
                 <Input name="data_vencimento" type="date" value={orcamento.data_vencimento || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
             </div>
-
             <div>
               <Label className="text-slate-300 text-xs mb-1">Observações</Label>
               <Textarea name="observacoes" value={orcamento.observacoes || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white text-sm h-16" />
@@ -992,7 +813,6 @@ RETORNE o JSON estruturado conforme o schema.`;
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
                     <div className="md:col-span-2">
                       <Input value={item.nome_produto || ''} onChange={(e) => atualizarItem(itemId, 'nome_produto', e.target.value)} placeholder="Nome *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" />
@@ -1026,7 +846,7 @@ RETORNE o JSON estruturado conforme o schema.`;
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <PlanosPagamento orcamentoId={orcamentoId || 'temp'} valorTotal={orcamento.valor_total} onPlanosChange={() => {}} />
+              <PlanosPagamento orcamentoId={currentOrcamentoId || 'temp'} valorTotal={orcamento.valor_total} onPlanosChange={() => {}} />
             </CardContent>
           </Card>
         )}
