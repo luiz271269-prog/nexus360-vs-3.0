@@ -153,216 +153,17 @@ RETORNE o JSON estruturado conforme o schema.`;
         : origemImportacao ? 'importacao'
         : 'novo';
 
-      const usersData = await base44.entities.User.list();
-      const vendedoresData = usersData
-        .filter(u => u.codigo || u.attendant_sector === 'vendas')
-        .map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
-      setVendedores(Array.isArray(vendedoresData) ? vendedoresData : []);
-
-      if (modoOperacao === 'edicao') {
-        const [orcData, itensData] = await Promise.all([
-          base44.entities.Orcamento.get(orcamentoId),
-          base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })
-        ]);
-        setOrcamento(orcData);
-        setItens(Array.isArray(itensData) ? itensData : []);
-      } 
-      else if (modoOperacao === 'carrinho') {
-        try {
-          const produtosCarrinho = JSON.parse(decodeURIComponent(carrinhoData));
-          const itensIniciais = Array.isArray(produtosCarrinho) ? produtosCarrinho.map((produto, idx) => ({
-            _tempId: `carrinho-${idx}-${Date.now()}`,
-            produto_id: produto.id || null,
-            nome_produto: produto.nome,
-            descricao: produto.descricao || '',
-            marca: produto.marca || '',
-            modelo: produto.modelo || '',
-            referencia: produto.referencia || '',
-            quantidade: produto.quantidade || 1,
-            valor_unitario: produto.preco_venda || 0,
-            valor_total: (produto.quantidade || 1) * (produto.preco_venda || 0),
-            is_opcional: produto.is_opcional || false
-          })) : [];
-
-          const initialTotal = calcularTotal(itensIniciais);
-
-          setOrcamento({
-            cliente_id: null,
-            cliente_nome: "",
-            cliente_telefone: "",
-            cliente_celular: "",
-            cliente_email: "",
-            cliente_empresa: "",
-            vendedor: "",
-            data_orcamento: new Date().toISOString().slice(0, 10),
-            data_vencimento: "",
-            status: "rascunho",
-            valor_total: initialTotal,
-            observacoes: "Orçamento criado a partir do carrinho de produtos"
-          });
-
-          setItens(itensIniciais);
-        } catch (error) {
-          console.error("Erro ao processar carrinho:", error);
-          toast.error("Erro ao carregar produtos do carrinho.");
-        }
-      } 
-      else if (modoOperacao === 'chat') {
-        const cliente_nome = urlParams.get('cliente_nome') || '';
-        const cliente_telefone = urlParams.get('cliente_telefone') || '';
-        const cliente_email = urlParams.get('cliente_email') || '';
-        const cliente_empresa = urlParams.get('cliente_empresa') || '';
-        const vendedor = urlParams.get('vendedor') || '';
-        const observacoes_chat = urlParams.get('observacoes') || '';
-        const thread_id = urlParams.get('thread_id') || '';
-        const numero_orcamento = urlParams.get('numero_orcamento') || '';
-        const condicao_pagamento = urlParams.get('condicao_pagamento') || '';
-        const data_vencimento = urlParams.get('data_vencimento') || '';
-        const status_kanban = urlParams.get('status') || 'rascunho';
-
-        let observacoesFinal = '🗨️ OPORTUNIDADE CRIADA DA CENTRAL DE COMUNICAÇÃO\n\n';
-        if (observacoes_chat) {
-          observacoesFinal += `${decodeURIComponent(observacoes_chat)}\n`;
-        }
-
-        // Processar itens extraídos pela IA
-        let itensExtraidos = [];
-        const itensParam = urlParams.get('itens_extraidos');
-        if (itensParam) {
-          try {
-            const itensDecoded = JSON.parse(decodeURIComponent(itensParam));
-            itensExtraidos = itensDecoded.map((item, idx) => ({
-              _tempId: `chat-ia-${Date.now()}-${idx}`,
-              produto_id: null,
-              nome_produto: item.nome_produto || '',
-              descricao: item.descricao || '',
-              marca: item.marca || '',
-              modelo: item.modelo || '',
-              referencia: item.referencia || item.codigo || '',
-              quantidade: parseFloat(item.quantidade || 1),
-              valor_unitario: parseFloat(item.valor_unitario || 0),
-              valor_total: parseFloat(item.quantidade || 1) * parseFloat(item.valor_unitario || 0),
-              is_opcional: false
-            }));
-
-            if (itensExtraidos.length > 0) {
-              toast.success(`✅ ${itensExtraidos.length} item(ns) extraído(s) da conversa!`, { duration: 3000 });
-            }
-          } catch (error) {
-            console.error('[ORCAMENTO] Erro ao processar itens extraídos:', error);
-          }
-        }
-
-        // Anexar imagem se houver
-        if (mediaUrlFromChat) {
-          setImagemAnexada(mediaUrlFromChat);
-          observacoesFinal += `\n[Imagem anexada aguardando processamento]\nImagem: ${mediaUrlFromChat}`;
-        }
-
-        const totalCalculado = calcularTotal(itensExtraidos);
-
-        setOrcamento({
-          cliente_id: null,
-          cliente_nome: decodeURIComponent(cliente_nome),
-          cliente_telefone: decodeURIComponent(cliente_telefone),
-          cliente_celular: '',
-          cliente_email: decodeURIComponent(cliente_email),
-          cliente_empresa: decodeURIComponent(cliente_empresa),
-          vendedor: decodeURIComponent(vendedor),
-          numero_orcamento: numero_orcamento ? decodeURIComponent(numero_orcamento) : '',
-          data_orcamento: new Date().toISOString().slice(0, 10),
-          data_vencimento: data_vencimento ? decodeURIComponent(data_vencimento) : '',
-          condicao_pagamento: condicao_pagamento ? decodeURIComponent(condicao_pagamento) : '',
-          status: status_kanban,
-          valor_total: totalCalculado,
-          observacoes: observacoesFinal
-        });
-
-        setItens(itensExtraidos);
+      // Load vendors safely - don't let this failure block orcamento creation
+      try {
+        const usersData = await base44.entities.User.list();
+        const vendedoresData = usersData
+          .filter(u => u.codigo || u.attendant_sector === 'vendas')
+          .map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
+        setVendedores(Array.isArray(vendedoresData) ? vendedoresData : []);
+      } catch (userErr) {
+        console.warn('Erro ao carregar vendedores (não crítico):', userErr);
+        setVendedores([]);
       }
-      else if (modoOperacao === 'importacao') {
-        const dadosImportados = location.state?.dadosImportados;
-        
-        if (dadosImportados) {
-          const { dadosCabecalho, itens: importedItens } = dadosImportados;
-          
-          const itensIniciais = Array.isArray(importedItens) ? importedItens.map((item, idx) => ({
-            _tempId: `import-${Date.now()}-${idx}`,
-            produto_id: null,
-            nome_produto: item.nome || item.descricao || '',
-            descricao: item.descricao || '',
-            marca: item.marca || '',
-            modelo: item.modelo || '',
-            referencia: item.codigo || '',
-            quantidade: parseFloat(item.quantidade || 0),
-            valor_unitario: parseFloat(item.valor_unitario || 0),
-            valor_total: (parseFloat(item.quantidade || 0) * parseFloat(item.valor_unitario || 0)),
-            is_opcional: false
-          })) : [];
-          
-          const totalCalculado = calcularTotal(itensIniciais);
-          
-          setOrcamento({
-            cliente_id: null,
-            cliente_nome: dadosCabecalho?.cliente_nome || "",
-            cliente_telefone: dadosCabecalho?.cliente_telefone || "",
-            cliente_celular: "",
-            cliente_email: dadosCabecalho?.cliente_email || "",
-            cliente_empresa: "",
-            vendedor: dadosCabecalho?.vendedor_nome || "",
-            data_orcamento: dadosCabecalho?.data_orcamento || new Date().toISOString().slice(0, 10),
-            data_vencimento: dadosCabecalho?.data_validade || "",
-            status: "rascunho",
-            valor_total: totalCalculado,
-            observacoes: dadosCabecalho?.observacoes ? `[Importado via IA]\n\n${dadosCabecalho.observacoes}` : "[Importado via IA]"
-          });
-          
-          setItens(itensIniciais);
-          
-          toast.success(`✅ Orçamento importado com ${itensIniciais.length} itens!`, { duration: 4000 });
-        } else {
-          setOrcamento({
-            cliente_id: null,
-            cliente_nome: "",
-            cliente_telefone: "",
-            cliente_celular: "",
-            cliente_email: "",
-            cliente_empresa: "",
-            vendedor: "",
-            data_orcamento: new Date().toISOString().slice(0, 10),
-            data_vencimento: "",
-            status: "rascunho",
-            valor_total: 0,
-            observacoes: ""
-          });
-          setItens([]);
-        }
-      }
-      else {
-        setOrcamento({
-          cliente_id: null,
-          cliente_nome: "",
-          cliente_telefone: "",
-          cliente_celular: "",
-          cliente_email: "",
-          cliente_empresa: "",
-          vendedor: "",
-          data_orcamento: new Date().toISOString().slice(0, 10),
-          data_vencimento: "",
-          status: "rascunho",
-          valor_total: 0,
-          observacoes: ""
-        });
-
-        setItens([]);
-      }
-    } catch (error) {
-      console.error("Erro ao carregar dados:", error);
-      toast.error("Falha ao carregar dados do orçamento.");
-    } finally {
-      setLoading(false);
-    }
-  }, [location.search, location.state, calcularTotal]);
 
   useEffect(() => {
     loadData();
@@ -870,11 +671,11 @@ RETORNE o JSON estruturado conforme o schema.`;
   }
 
   // Parse URL params for display purposes (outside loadData)
-  const urlParams = new URLSearchParams(location.search);
-  const orcamentoId = urlParams.get('id');
-  const origemChat = urlParams.get('origem') === 'chat';
-  const origemImportacao = urlParams.get('importacao') === 'true';
-  const carrinhoData = urlParams.get('carrinho');
+  const displayParams = new URLSearchParams(location.search);
+  const orcamentoId = displayParams.get('id');
+  const origemChat = displayParams.get('origem') === 'chat';
+  const origemImportacao = displayParams.get('importacao') === 'true';
+  const carrinhoData = displayParams.get('carrinho');
 
   const modoOperacao = orcamentoId ? 'edicao' 
     : carrinhoData ? 'carrinho' 
@@ -1099,7 +900,7 @@ RETORNE o JSON estruturado conforme o schema.`;
               </div>
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Cliente *</Label>
-                <ClienteCombobox value={orcamento.cliente_nome} onSelect={(value) => handleSelectChange('cliente_nome', value)} />
+                <ClienteCombobox value={orcamento.cliente_nome} onChange={(value) => handleSelectChange('cliente_nome', value)} />
               </div>
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Telefone</Label>
