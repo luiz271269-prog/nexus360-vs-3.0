@@ -53,17 +53,28 @@ export default function OrcamentoDetalhes() {
         : origemImportacao ? 'importacao'
         : 'novo';
 
+      // Load current user first (always works)
+      let currentUser = null;
+      try {
+        currentUser = await base44.auth.me();
+      } catch (e) { /* ignore */ }
+
       // Load vendors safely (User.list() only works for admins)
+      let vendedoresData = [];
       try {
         const usersData = await base44.entities.User.list();
-        const vendedoresData = (usersData || [])
+        vendedoresData = (usersData || [])
           .filter(u => u.codigo || u.attendant_sector === 'vendas')
           .map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
-        setVendedores(vendedoresData);
       } catch (userErr) {
-        // Non-admin users can't list users — silently ignore
-        setVendedores([]);
+        // Non-admin users can't list users — use only current user
       }
+
+      // Always ensure current user is in the list
+      if (currentUser && !vendedoresData.find(v => v.id === currentUser.id)) {
+        vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];
+      }
+      setVendedores(vendedoresData);
 
       if (modoOperacao === 'edicao') {
         const [orcData, itensData] = await Promise.all([
@@ -206,7 +217,9 @@ export default function OrcamentoDetalhes() {
       } else {
         setOrcamento({
           cliente_id: null, cliente_nome: "", cliente_telefone: "", cliente_celular: "",
-          cliente_email: "", cliente_empresa: "", vendedor: "",
+          cliente_email: "", cliente_empresa: "",
+          vendedor: currentUser?.full_name || currentUser?.email || "",
+          vendedor_id: currentUser?.id || null,
           data_orcamento: new Date().toISOString().slice(0, 10), data_vencimento: "",
           status: "rascunho", valor_total: 0, observacoes: ""
         });
@@ -781,7 +794,10 @@ RETORNE o JSON estruturado conforme o schema.`;
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Vendedor</Label>
-                <Select value={orcamento.vendedor || ''} onValueChange={(value) => handleSelectChange('vendedor', value)}>
+                <Select value={orcamento.vendedor || ''} onValueChange={(value) => {
+                  const v = vendedores.find(v => v.nome === value);
+                  setOrcamento(prev => ({ ...prev, vendedor: value, vendedor_id: v?.id || prev.vendedor_id }));
+                }}>
                   <SelectTrigger className="bg-slate-900 border-slate-600 text-white h-9 text-sm">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
