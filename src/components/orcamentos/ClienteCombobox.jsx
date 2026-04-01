@@ -53,14 +53,14 @@ export default function ClienteCombobox({ value, onChange, onNovoCliente }) {
     setShowSuggestions(true);
     setSelectedIndex(0);
     
-    if (!valor) {
+    if (!valor && typeof onChange === 'function') {
       onChange('');
     }
   };
 
   const handleSelect = (cliente) => {
     setTermoBusca(cliente.razao_social);
-    onChange(cliente.razao_social);
+    if (typeof onChange === 'function') onChange(cliente.razao_social);
     setShowSuggestions(false);
   };
 
