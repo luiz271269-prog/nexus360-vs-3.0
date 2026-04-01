@@ -445,15 +445,25 @@ export default function LeadsQualificados() {
   });
 
   const orcamentosFiltrados = orcamentos.filter(orcamento => {
-    const vendedorFiltro = resolverFiltroVendedor(orcamento.vendedor);
-    if (vendedorFiltro) {
-      // Verifica por nome OU por vendedor_id (caso dados ainda não migrados)
-      const filtroUserId = atendentes.find(a => a.label === vendedorFiltro)?.value;
-      const matchNome = orcamento.vendedor === vendedorFiltro;
-      const matchId = filtroUserId && orcamento.vendedor_id === filtroUserId;
-      // Para filtro "meus": também aceita por usuarioAtual.id
-      const matchMeuId = filtroVendedorGlobal === 'meus' && usuarioAtual && orcamento.vendedor_id === usuarioAtual.id;
-      if (!matchNome && !matchId && !matchMeuId) return false;
+    const temPermissaoVerOutros = usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
+
+    if (!temPermissaoVerOutros && usuarioAtual) {
+      // Usuário comum: filtra SEMPRE pelos seus orçamentos
+      // Aceita por vendedor_id (confiável) OU por nome (fallback legacy)
+      const matchId = orcamento.vendedor_id === usuarioAtual.id;
+      const matchNome = orcamento.vendedor === usuarioAtual.full_name;
+      if (!matchId && !matchNome) return false;
+    } else if (temPermissaoVerOutros) {
+      // Admin/gerente: aplica filtro global escolhido
+      const vendedorFiltro = resolverFiltroVendedor(orcamento.vendedor);
+      if (vendedorFiltro) {
+        const filtroUserId = atendentes.find(a => a.label === vendedorFiltro)?.value;
+        const matchNome = orcamento.vendedor === vendedorFiltro;
+        const matchId = filtroUserId && orcamento.vendedor_id === filtroUserId;
+        const matchMeuId = filtroVendedorGlobal === 'meus' && usuarioAtual && orcamento.vendedor_id === usuarioAtual.id;
+        const matchMeuNome = filtroVendedorGlobal === 'meus' && usuarioAtual && orcamento.vendedor === usuarioAtual.full_name;
+        if (!matchNome && !matchId && !matchMeuId && !matchMeuNome) return false;
+      }
     }
 
     const matchesSearch = searchTerm === '' ||
