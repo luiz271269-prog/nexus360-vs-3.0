@@ -266,10 +266,21 @@ export default function OrcamentoDetalhes() {
       const clientesInfo = clientes.map(c => ({ id: c.id, razao_social: c.razao_social, nome_fantasia: c.nome_fantasia, cnpj: c.cnpj, telefone: c.telefone }));
       const vendedoresInfo = vendedoresBase.map(v => ({ id: v.id, nome: v.nome, codigo: v.codigo, email: v.email }));
 
-      const prompt = `Analise este orçamento/proposta comercial e extraia TODOS os dados estruturados com PRECISÃO MÁXIMA.
-CLIENTES: ${JSON.stringify(clientesInfo, null, 2)}
-VENDEDORES: ${JSON.stringify(vendedoresInfo, null, 2)}
-Extraia: código do orçamento, cliente, telefone, email, vendedor, data emissão, itens (código, nome, descrição, quantidade, valor unitário, total), observações.
+      const prompt = `Você é um extrator de dados de orçamentos comerciais. Analise a imagem e extraia os dados com PRECISÃO MÁXIMA.
+
+LISTA DE CLIENTES CADASTRADOS (use o id e razao_social exatos se encontrar correspondência):
+${JSON.stringify(clientesInfo, null, 2)}
+
+LISTA DE VENDEDORES CADASTRADOS (use o id e nome exatos se encontrar correspondência):
+${JSON.stringify(vendedoresInfo, null, 2)}
+
+REGRAS IMPORTANTES:
+1. "cliente_nome" deve ser o nome da EMPRESA/CLIENTE do orçamento (razão social ou nome fantasia). NÃO deixe vazio.
+2. Se o nome do cliente da imagem bater com algum da lista acima, preencha "cliente_id" com o id correspondente.
+3. "cliente_empresa" é o mesmo que "cliente_nome" — use o nome da empresa encontrado.
+4. Para "vendedor_nome": procure na LISTA DE VENDEDORES acima. Se não encontrar, use o nome que aparece no documento.
+5. Extraia: código do orçamento, cliente/empresa, telefone, email, vendedor, data emissão, condição pagamento, itens (código, nome, descrição, quantidade, valor unitário, total), observações.
+
 RETORNE o JSON estruturado conforme o schema.`;
 
       const schema = {
