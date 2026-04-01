@@ -4,7 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import VisualEditAgent from '@/lib/VisualEditAgent'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -109,6 +109,7 @@ const AuthenticatedApp = () => {
             </LayoutWrapper>
           } 
         />
+        <Route path="/orcamentos" element={<Navigate to="/LeadsQualificados" replace />} />
         <Route path="*" element={<PageNotFound />} />
       </Routes>
     </>
