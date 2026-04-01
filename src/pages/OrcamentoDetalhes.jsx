@@ -53,15 +53,15 @@ export default function OrcamentoDetalhes() {
         : origemImportacao ? 'importacao'
         : 'novo';
 
-      // Load vendors safely
+      // Load vendors safely (User.list() only works for admins)
       try {
         const usersData = await base44.entities.User.list();
-        const vendedoresData = usersData
+        const vendedoresData = (usersData || [])
           .filter(u => u.codigo || u.attendant_sector === 'vendas')
           .map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
-        setVendedores(Array.isArray(vendedoresData) ? vendedoresData : []);
+        setVendedores(vendedoresData);
       } catch (userErr) {
-        console.warn('Erro ao carregar vendedores (não crítico):', userErr);
+        // Non-admin users can't list users — silently ignore
         setVendedores([]);
       }
 
@@ -254,13 +254,14 @@ export default function OrcamentoDetalhes() {
       setImagemAnexada(fileUrl);
 
       toast.info('🔍 Carregando dados da base...');
-      const [clientes, usersBase] = await Promise.all([
+      const [clientesResult, usersResult] = await Promise.allSettled([
         base44.entities.Cliente.list(),
         base44.entities.User.list()
       ]);
-      const vendedoresBase = usersBase
-        .filter(u => u.codigo || u.attendant_sector === 'vendas')
-        .map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
+      const clientes = clientesResult.status === 'fulfilled' ? (clientesResult.value || []) : [];
+      const vendedoresBase = usersResult.status === 'fulfilled'
+        ? (usersResult.value || []).filter(u => u.codigo || u.attendant_sector === 'vendas').map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }))
+        : vendedores;
 
       const clientesInfo = clientes.map(c => ({ id: c.id, razao_social: c.razao_social, nome_fantasia: c.nome_fantasia, cnpj: c.cnpj, telefone: c.telefone }));
       const vendedoresInfo = vendedoresBase.map(v => ({ id: v.id, nome: v.nome, codigo: v.codigo, email: v.email }));
