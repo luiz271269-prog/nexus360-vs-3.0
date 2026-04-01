@@ -445,18 +445,22 @@ export default function LeadsQualificados() {
   });
 
   const orcamentosFiltrados = orcamentos.filter(orcamento => {
+    // Se usuário ainda não carregou, mostra todos
+    if (!usuarioAtual) return true;
+
     const temPermissaoVerOutros = usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
 
-    if (!temPermissaoVerOutros && usuarioAtual) {
-      // Usuário comum: filtra pelo vendedor_id (fonte de verdade)
-      if (orcamento.vendedor_id !== usuarioAtual.id) return false;
-    } else if (temPermissaoVerOutros) {
-      // Admin/gerente: aplica filtro global escolhido
-      if (filtroVendedorGlobal === 'meus' && usuarioAtual) {
-        if (orcamento.vendedor_id !== usuarioAtual.id) return false;
-      } else if (filtroVendedorGlobal !== 'todos') {
+    // Filtro por vendedor
+    if (!temPermissaoVerOutros) {
+      // Usuário comum: mostra se é seu ou se não tem vendedor_id (compatibilidade)
+      if (orcamento.vendedor_id && orcamento.vendedor_id !== usuarioAtual.id) return false;
+    } else if (temPermissaoVerOutros && filtroVendedorGlobal !== 'todos') {
+      // Admin/gerente: aplica filtro global
+      if (filtroVendedorGlobal === 'meus') {
+        if (orcamento.vendedor_id && orcamento.vendedor_id !== usuarioAtual.id) return false;
+      } else {
         const filtroUserId = atendentes.find(a => a.label === filtroVendedorGlobal)?.value;
-        if (filtroUserId && orcamento.vendedor_id !== filtroUserId) return false;
+        if (filtroUserId && orcamento.vendedor_id && orcamento.vendedor_id !== filtroUserId) return false;
       }
     }
 
