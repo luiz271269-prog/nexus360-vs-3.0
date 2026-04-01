@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# ─────────────────────────────────────────────────────────────
+# DOCUMENTAÇÃO (arquivos .md NÃO são componentes React)
+# Estão dentro de src/ apenas como referência — NÃO devem ser
+# processados pelo Vite/linter como código JSX.
+# ─────────────────────────────────────────────────────────────
+src/**/*.md
+src/**/*.md.jsx
+src/**/ANALISE_*.jsx
+src/**/ARQUITETURA_*.jsx
+src/**/PLANO_*.jsx
+src/**/COMPARACAO_*.jsx
+src/**/VALIDACAO_*.jsx
+src/**/DIAGNOSTICO_*.jsx
+src/**/FLUXO_*.jsx
+src/**/MAPEAMENTO_*.jsx
+src/**/CONTRATO_*.jsx
+src/**/DECISAO_*.jsx
+src/**/APLICAVEL_*.jsx
+src/**/CONFIRMACAO_*.jsx
+src/**/PROJETO_*.jsx
+src/**/MELHORIAS_*.jsx
+src/**/RECONCILIACAO_*.jsx
+src/**/PRINCIPIO_*.jsx
+src/**/ESTRATEGIA_*.jsx
+src/**/LINHA_LOGICA_*.jsx
