@@ -24,28 +24,17 @@ export default defineConfig({
   },
   server: {
     watch: {
-      // Ignorar arquivos .md nas pastas de componentes para evitar
-      // hot-reload desnecessário e erros de lint em loop
+      // Ignorar TODOS os arquivos de documentação para evitar lint loop
       ignored: [
         '**/src/**/*.md',
-        '**/src/**/ANALISE_*.jsx',
-        '**/src/**/ARQUITETURA_*.jsx',
-        '**/src/**/PLANO_*.jsx',
-        '**/src/**/COMPARACAO_*.jsx',
-        '**/src/**/VALIDACAO_*.jsx',
-        '**/src/**/DIAGNOSTICO_*.jsx',
-        '**/src/**/FLUXO_*.jsx',
-        '**/src/**/MAPEAMENTO_*.jsx',
-        '**/src/**/CONTRATO_*.jsx',
-        '**/src/**/DECISAO_*.jsx',
-        '**/src/**/APLICAVEL_*.jsx',
-        '**/src/**/CONFIRMACAO_*.jsx',
-        '**/src/**/PROJETO_*.jsx',
-        '**/src/**/MELHORIAS_*.jsx',
-        '**/src/**/RECONCILIACAO_*.jsx',
-        '**/src/**/PRINCIPIO_*.jsx',
-        '**/src/**/ESTRATEGIA_*.jsx',
+        '**/src/**/*.md.jsx',
+        /src[\\/].*[A-Z_]{4,}.*\.jsx$/,
       ],
+    },
+  },
+  build: {
+    rollupOptions: {
+      external: (id) => /[A-Z_]{4,}.*\.jsx$/.test(id) || id.endsWith('.md'),
     },
   },
 })
