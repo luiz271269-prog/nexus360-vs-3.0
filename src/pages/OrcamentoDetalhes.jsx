@@ -314,7 +314,7 @@ RETORNE o JSON estruturado conforme o schema.`;
             }
           }
         },
-        required: ["cliente_nome", "itens"]
+        required: ["cliente_nome", "itens", "data_orcamento"]
       };
 
       toast.info('🤖 IA analisando orçamento...');
@@ -340,24 +340,43 @@ RETORNE o JSON estruturado conforme o schema.`;
       }));
 
       const itensAtualizados = [...itens, ...novosItens];
+      // Normaliza datas para YYYY-MM-DD
+      const parseIADate = (d) => {
+        if (!d) return '';
+        // já está no formato correto
+        if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
+        // DD/MM/YYYY
+        const m = d.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+        try { return new Date(d).toISOString().slice(0, 10); } catch { return ''; }
+      };
+
+      // Resolve vendedor pelo id retornado ou pelo nome exato na lista
+      const vendedorResolvido = vendedoresBase.find(v =>
+        (iaResult.vendedor_id && v.id === iaResult.vendedor_id) ||
+        (iaResult.vendedor_nome && v.nome?.toLowerCase() === iaResult.vendedor_nome?.toLowerCase())
+      );
+
       setOrcamento(prev => ({
         ...prev,
         cliente_id: iaResult.cliente_id || prev.cliente_id,
         cliente_nome: iaResult.cliente_nome || prev.cliente_nome,
         cliente_telefone: iaResult.cliente_telefone || prev.cliente_telefone,
         cliente_email: iaResult.cliente_email || prev.cliente_email,
-        cliente_empresa: iaResult.cliente_empresa || prev.cliente_empresa,
-        vendedor: iaResult.vendedor_nome || prev.vendedor,
+        cliente_empresa: iaResult.cliente_empresa || iaResult.cliente_nome || prev.cliente_empresa,
+        vendedor: vendedorResolvido?.nome || iaResult.vendedor_nome || prev.vendedor,
+        vendedor_id: vendedorResolvido?.id || prev.vendedor_id,
         numero_orcamento: iaResult.numero_orcamento || prev.numero_orcamento,
-        data_orcamento: iaResult.data_orcamento || prev.data_orcamento,
-        data_vencimento: iaResult.data_validade || prev.data_vencimento,
+        data_orcamento: parseIADate(iaResult.data_orcamento) || prev.data_orcamento,
+        data_vencimento: parseIADate(iaResult.data_validade) || prev.data_vencimento,
         condicao_pagamento: iaResult.condicao_pagamento || prev.condicao_pagamento,
-        observacoes: `${prev.observacoes ? prev.observacoes + '\n\n' : ''}[📄 Importado via IA - ${new Date().toLocaleString('pt-BR')}]\n\n${iaResult.observacoes || ''}\n\n📎 Imagem: ${fileUrl}`.trim(),
+        observacoes: `${prev.observacoes ? prev.observacoes + '\n\n' : ''}[\uD83D\uDCC4 Importado via IA - ${new Date().toLocaleString('pt-BR')}]\n\n${iaResult.observacoes || ''}\n\n\uD83D\uDCCE Imagem: ${fileUrl}`.trim(),
         valor_total: calcularTotal(itensAtualizados)
       }));
       setItens(itensAtualizados);
       toast.success(`✅ ${novosItens.length} itens extraídos e adicionados!`, { duration: 4000 });
       if (!iaResult.cliente_encontrado) toast.info('ℹ️ Cliente não encontrado na base. Será criado ao salvar.', { duration: 3000 });
+      if (!vendedorResolvido) toast.info('ℹ️ Vendedor não encontrado na lista — verifique manualmente.', { duration: 3000 });
     } catch (error) {
       console.error('Erro ao processar imagem:', error);
       toast.error('❌ Erro ao processar: ' + error.message);
