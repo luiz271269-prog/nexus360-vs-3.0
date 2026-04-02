@@ -78,7 +78,7 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
         snapshot.isDragging ? 'shadow-2xl ring-2 ' + gradient.ring + ' rotate-1 opacity-95 scale-105 z-50' : ''}`
         }>
         
-          <div className="p-2 space-y-1.5">
+          <div className="p-2 space-y-0">
             <div className="flex items-start justify-between gap-1">
               <h4 className="font-semibold text-slate-800 text-[11px] leading-tight truncate flex-1 uppercase">
                 {orcamento.cliente_nome || '—'}
