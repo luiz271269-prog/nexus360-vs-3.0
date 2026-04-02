@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ArrowLeft, Save, Plus, Trash2, Loader2, Sparkles, FileText, ShoppingCart, DollarSign,
-  User, Image as ImageIcon
-} from 'lucide-react';
+  User, Image as ImageIcon } from
+'lucide-react';
 import { toast } from "sonner";
 import { createPageUrl } from '@/utils';
 import StatusPipeline from '../components/orcamentos/StatusPipeline';
@@ -33,9 +33,9 @@ export default function OrcamentoDetalhes() {
 
   const calcularTotal = useCallback((items) => {
     if (!Array.isArray(items)) return 0;
-    return items
-      .filter((item) => !item.is_opcional)
-      .reduce((acc, item) => acc + (parseFloat(item.valor_total) || 0), 0);
+    return items.
+    filter((item) => !item.is_opcional).
+    reduce((acc, item) => acc + (parseFloat(item.valor_total) || 0), 0);
   }, []);
 
   const loadData = useCallback(async () => {
@@ -48,43 +48,43 @@ export default function OrcamentoDetalhes() {
       const origemImportacao = params.get('importacao') === 'true';
       const mediaUrlFromChat = params.get('media_url');
 
-      const modoOperacao = orcamentoId ? 'edicao'
-        : carrinhoData ? 'carrinho'
-        : origemChat ? 'chat'
-        : origemImportacao ? 'importacao'
-        : 'novo';
+      const modoOperacao = orcamentoId ? 'edicao' :
+      carrinhoData ? 'carrinho' :
+      origemChat ? 'chat' :
+      origemImportacao ? 'importacao' :
+      'novo';
 
       // Load current user first (always works)
       let currentUser = null;
       try {
         currentUser = await base44.auth.me();
-      } catch (e) { /* ignore */ }
+      } catch (e) {/* ignore */}
 
       // Load vendors safely (User.list() only works for admins)
       let vendedoresData = [];
       try {
         const usersData = await base44.entities.User.list();
-        vendedoresData = (usersData || [])
-          .filter(u => u.codigo || u.attendant_sector === 'vendas')
-          .map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
+        vendedoresData = (usersData || []).
+        filter((u) => u.codigo || u.attendant_sector === 'vendas').
+        map((u) => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
       } catch (userErr) {
+
         // Non-admin users can't list users — use only current user
       }
-
       // Always ensure current user is in the list
-      if (currentUser && !vendedoresData.find(v => v.id === currentUser.id)) {
+      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {
         vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];
       }
       setVendedores(vendedoresData);
 
       if (modoOperacao === 'edicao') {
         const [orcData, itensData] = await Promise.all([
-          base44.entities.Orcamento.get(orcamentoId),
-          base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })
-        ]);
+        base44.entities.Orcamento.get(orcamentoId),
+        base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })]
+        );
         // Fase 1: garantir que nome do vendedor reflete User.full_name atual
-        if (orcData.usuario_id) {
-          const nomeAtual = await resolverNomeVendedor(orcData.usuario_id);
+        if (orcData.vendedor_id) {
+          const nomeAtual = await resolverNomeVendedor(orcData.vendedor_id);
           if (nomeAtual && nomeAtual !== orcData.vendedor) {
             orcData.vendedor = nomeAtual;
           }
@@ -94,7 +94,7 @@ export default function OrcamentoDetalhes() {
 
         // Extrai URLs de imagem das observações (criadas via chat) se não estiverem em estudos_anexos
         const anexosExistentes = Array.isArray(orcData.estudos_anexos) ? orcData.estudos_anexos : [];
-        const urlsExistentes = new Set(anexosExistentes.map(a => a.url));
+        const urlsExistentes = new Set(anexosExistentes.map((a) => a.url));
         const urlsExtraidas = [];
         if (orcData.observacoes) {
           const regex = /(?:📎\s*)?[Ii]magem:\s*(https?:\/\/\S+)/g;
@@ -244,7 +244,7 @@ export default function OrcamentoDetalhes() {
           cliente_id: null, cliente_nome: "", cliente_telefone: "", cliente_celular: "",
           cliente_email: "", cliente_empresa: "",
           vendedor: currentUser?.full_name || currentUser?.email || "",
-          usuario_id: currentUser?.id || null,
+          vendedor_id: currentUser?.id || null,
           data_orcamento: new Date().toISOString().slice(0, 10), data_vencimento: "",
           status: "rascunho", valor_total: 0, observacoes: ""
         });
@@ -289,7 +289,7 @@ export default function OrcamentoDetalhes() {
       toast.info('📤 Anexando imagem...');
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const novoAnexo = { url: uploadResult.file_url, descricao: 'Imagem anexada manualmente', data_anexo: new Date().toISOString(), tipo_estudo: 'manual', is_opcional: true };
-      setEstudosAnexos(prev => [...prev, novoAnexo]);
+      setEstudosAnexos((prev) => [...prev, novoAnexo]);
       toast.success('✅ Imagem anexada!');
     } catch (error) {
       toast.error('❌ Erro ao anexar: ' + error.message);
@@ -299,11 +299,11 @@ export default function OrcamentoDetalhes() {
   };
 
   const removerAnexo = (index) => {
-    setEstudosAnexos(prev => prev.filter((_, i) => i !== index));
+    setEstudosAnexos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const toggleOpcionalAnexo = (index) => {
-    setEstudosAnexos(prev => prev.map((a, i) => i === index ? { ...a, is_opcional: !a.is_opcional } : a));
+    setEstudosAnexos((prev) => prev.map((a, i) => i === index ? { ...a, is_opcional: !a.is_opcional } : a));
   };
 
   const processarImagemCompleta = async (file) => {
@@ -312,20 +312,20 @@ export default function OrcamentoDetalhes() {
       toast.info('📤 Salvando imagem...');
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadResult.file_url;
-      setEstudosAnexos(prev => [...prev, { url: fileUrl, descricao: 'Processado pela IA (completo)', data_anexo: new Date().toISOString(), tipo_estudo: 'orcamento_completo_ia', is_opcional: false }]);
+      setEstudosAnexos((prev) => [...prev, { url: fileUrl, descricao: 'Processado pela IA (completo)', data_anexo: new Date().toISOString(), tipo_estudo: 'orcamento_completo_ia', is_opcional: false }]);
 
       toast.info('🔍 Carregando dados da base...');
       const [clientesResult, usersResult] = await Promise.allSettled([
-        base44.entities.Cliente.list(),
-        base44.entities.User.list()
-      ]);
-      const clientes = clientesResult.status === 'fulfilled' ? (clientesResult.value || []) : [];
-      const vendedoresBase = usersResult.status === 'fulfilled'
-        ? (usersResult.value || []).filter(u => u.codigo || u.attendant_sector === 'vendas').map(u => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }))
-        : vendedores;
+      base44.entities.Cliente.list(),
+      base44.entities.User.list()]
+      );
+      const clientes = clientesResult.status === 'fulfilled' ? clientesResult.value || [] : [];
+      const vendedoresBase = usersResult.status === 'fulfilled' ?
+      (usersResult.value || []).filter((u) => u.codigo || u.attendant_sector === 'vendas').map((u) => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email })) :
+      vendedores;
 
-      const clientesInfo = clientes.map(c => ({ id: c.id, razao_social: c.razao_social, nome_fantasia: c.nome_fantasia, cnpj: c.cnpj, telefone: c.telefone }));
-      const vendedoresInfo = vendedoresBase.map(v => ({ id: v.id, nome: v.nome, codigo: v.codigo, email: v.email }));
+      const clientesInfo = clientes.map((c) => ({ id: c.id, razao_social: c.razao_social, nome_fantasia: c.nome_fantasia, cnpj: c.cnpj, telefone: c.telefone }));
+      const vendedoresInfo = vendedoresBase.map((v) => ({ id: v.id, nome: v.nome, codigo: v.codigo, email: v.email }));
 
       const prompt = `Você é um extrator de dados de orçamentos comerciais. Analise a imagem e extraia os dados com PRECISÃO MÁXIMA.
 
@@ -409,16 +409,16 @@ RETORNE o JSON estruturado conforme o schema.`;
         // DD/MM/YYYY
         const m = d.match(/(\d{2})\/(\d{2})\/(\d{4})/);
         if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-        try { return new Date(d).toISOString().slice(0, 10); } catch { return ''; }
+        try {return new Date(d).toISOString().slice(0, 10);} catch {return '';}
       };
 
       // Resolve vendedor pelo id retornado ou pelo nome exato na lista
-      const vendedorResolvido = vendedoresBase.find(v =>
-        (iaResult.vendedor_id && v.id === iaResult.vendedor_id) ||
-        (iaResult.vendedor_nome && v.nome?.toLowerCase() === iaResult.vendedor_nome?.toLowerCase())
+      const vendedorResolvido = vendedoresBase.find((v) =>
+      iaResult.vendedor_id && v.id === iaResult.vendedor_id ||
+      iaResult.vendedor_nome && v.nome?.toLowerCase() === iaResult.vendedor_nome?.toLowerCase()
       );
 
-      setOrcamento(prev => ({
+      setOrcamento((prev) => ({
         ...prev,
         cliente_id: iaResult.cliente_id || prev.cliente_id,
         cliente_nome: iaResult.cliente_nome || prev.cliente_nome,
@@ -451,7 +451,7 @@ RETORNE o JSON estruturado conforme o schema.`;
     try {
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadResult.file_url;
-      setEstudosAnexos(prev => [...prev, { url: fileUrl, descricao: 'Processado pela IA (itens)', data_anexo: new Date().toISOString(), tipo_estudo: 'itens_ia', is_opcional: true }]);
+      setEstudosAnexos((prev) => [...prev, { url: fileUrl, descricao: 'Processado pela IA (itens)', data_anexo: new Date().toISOString(), tipo_estudo: 'itens_ia', is_opcional: true }]);
       const iaResult = await base44.integrations.Core.InvokeLLM({
         prompt: `Extraia TODOS os produtos/itens desta imagem. Para cada um: código, nome, descrição, quantidade, valor unitário, valor total.`,
         response_json_schema: {
@@ -469,12 +469,12 @@ RETORNE o JSON estruturado conforme o schema.`;
             }
           }
         },
-        file_urls: [fileUrl],
+        file_urls: [fileUrl]
       });
 
-      if (!iaResult?.produtos?.length) { toast.warning('⚠️ Nenhum item foi encontrado.'); return; }
+      if (!iaResult?.produtos?.length) {toast.warning('⚠️ Nenhum item foi encontrado.');return;}
 
-      const novosItens = iaResult.produtos.map(p => ({
+      const novosItens = iaResult.produtos.map((p) => ({
         _tempId: `import-${Date.now()}-${Math.random()}`,
         produto_id: null, nome_produto: p.nome, descricao: p.descricao || '',
         referencia: p.codigo || '', quantidade: parseFloat(p.quantidade || 0),
@@ -485,7 +485,7 @@ RETORNE o JSON estruturado conforme o schema.`;
 
       const itensAtualizados = [...itens, ...novosItens];
       setItens(itensAtualizados);
-      setOrcamento(prev => ({ ...prev, valor_total: calcularTotal(itensAtualizados) }));
+      setOrcamento((prev) => ({ ...prev, valor_total: calcularTotal(itensAtualizados) }));
       toast.success(`✅ ${novosItens.length} itens adicionados!`);
     } catch (error) {
       console.error('Erro ao processar itens:', error);
@@ -500,9 +500,9 @@ RETORNE o JSON estruturado conforme o schema.`;
     setDragOver(null);
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-      if (tipo === 'completo') processarImagemCompleta(file);
-      else if (tipo === 'itens') processarApenasItens(file);
-      else somenteAnexarImagem(file);
+      if (tipo === 'completo') processarImagemCompleta(file);else
+      if (tipo === 'itens') processarApenasItens(file);else
+      somenteAnexarImagem(file);
     } else {
       toast.error('Por favor, envie uma imagem.');
     }
@@ -526,9 +526,9 @@ RETORNE o JSON estruturado conforme o schema.`;
   };
 
   const atualizarItem = useCallback((itemId, campo, valor) => {
-    setItens(prev => {
+    setItens((prev) => {
       if (!Array.isArray(prev)) return [];
-      const updated = prev.map(item => {
+      const updated = prev.map((item) => {
         const id = item.id || item._tempId;
         if (id !== itemId) return item;
         const itemAtualizado = { ...item, [campo]: valor };
@@ -537,14 +537,14 @@ RETORNE o JSON estruturado conforme o schema.`;
         }
         return itemAtualizado;
       });
-      setOrcamento(orcPrev => ({ ...orcPrev, valor_total: calcularTotal(updated) }));
+      setOrcamento((orcPrev) => ({ ...orcPrev, valor_total: calcularTotal(updated) }));
       return updated;
     });
   }, [calcularTotal]);
 
   const removerItem = async (itemId) => {
     if (!Array.isArray(itens)) return;
-    const itemToRemove = itens.find(item => (item.id || item._tempId) === itemId);
+    const itemToRemove = itens.find((item) => (item.id || item._tempId) === itemId);
     if (itemToRemove?.id) {
       try {
         await base44.entities.ItemOrcamento.delete(itemToRemove.id);
@@ -554,17 +554,17 @@ RETORNE o JSON estruturado conforme o schema.`;
         return;
       }
     }
-    const itensAtualizados = itens.filter(item => (item.id || item._tempId) !== itemId);
+    const itensAtualizados = itens.filter((item) => (item.id || item._tempId) !== itemId);
     setItens(itensAtualizados);
-    setOrcamento(prev => ({ ...prev, valor_total: calcularTotal(itensAtualizados) }));
+    setOrcamento((prev) => ({ ...prev, valor_total: calcularTotal(itensAtualizados) }));
   };
 
   const validarFormulario = useCallback(() => {
     if (!orcamento) return false;
-    if (!orcamento.cliente_nome) { toast.error("O nome do cliente é obrigatório."); return false; }
-    if (!Array.isArray(itens) || itens.length === 0) { toast.error("O orçamento deve ter pelo menos um item."); return false; }
-    const invalidItems = itens.filter(item => !item.nome_produto || parseFloat(item.quantidade) <= 0 || isNaN(parseFloat(item.quantidade)));
-    if (invalidItems.length > 0) { toast.error("Preencha todos os campos obrigatórios dos itens."); return false; }
+    if (!orcamento.cliente_nome) {toast.error("O nome do cliente é obrigatório.");return false;}
+    if (!Array.isArray(itens) || itens.length === 0) {toast.error("O orçamento deve ter pelo menos um item.");return false;}
+    const invalidItems = itens.filter((item) => !item.nome_produto || parseFloat(item.quantidade) <= 0 || isNaN(parseFloat(item.quantidade)));
+    if (invalidItems.length > 0) {toast.error("Preencha todos os campos obrigatórios dos itens.");return false;}
     return true;
   }, [orcamento, itens]);
 
@@ -591,7 +591,7 @@ RETORNE o JSON estruturado conforme o schema.`;
               telefone: orcamento.cliente_telefone,
               email: orcamento.cliente_email,
               nome_fantasia: orcamento.cliente_empresa || orcamento.cliente_nome,
-              origem: origemChatSave ? 'WhatsApp' : 'Orçamento',
+              origem: origemChatSave ? 'WhatsApp' : 'Orçamento'
             });
             clienteIdFinal = novoCliente.id;
             toast.success(`Novo cliente "${orcamento.cliente_nome}" criado!`);
@@ -609,7 +609,7 @@ RETORNE o JSON estruturado conforme o schema.`;
         toast.success('✅ Orçamento atualizado!');
       } else {
         savedOrcamento = await base44.entities.Orcamento.create(orcamentoDataToSave);
-        setOrcamento(prev => ({ ...prev, id: savedOrcamento.id }));
+        setOrcamento((prev) => ({ ...prev, id: savedOrcamento.id }));
         toast.success('✅ Orçamento criado!');
       }
 
@@ -621,13 +621,13 @@ RETORNE o JSON estruturado conforme o schema.`;
             nome_produto: item.nome_produto, descricao: item.descricao,
             marca: item.marca, modelo: item.modelo, referencia: item.referencia,
             quantidade: parseFloat(item.quantidade), valor_unitario: parseFloat(item.valor_unitario),
-            valor_total: parseFloat(item.valor_total), is_opcional: item.is_opcional,
+            valor_total: parseFloat(item.valor_total), is_opcional: item.is_opcional
           };
           if (item.id) {
             await base44.entities.ItemOrcamento.update(item.id, itemData);
           } else {
             const novoItem = await base44.entities.ItemOrcamento.create(itemData);
-            setItens(prev => prev.map(i => (i._tempId === item._tempId) ? { ...i, id: novoItem.id, _tempId: undefined } : i));
+            setItens((prev) => prev.map((i) => i._tempId === item._tempId ? { ...i, id: novoItem.id, _tempId: undefined } : i));
           }
         }
       }
@@ -647,8 +647,8 @@ RETORNE o JSON estruturado conforme o schema.`;
     return (
       <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-900 to-slate-800">
         <Loader2 className="w-12 h-12 animate-spin text-amber-500" />
-      </div>
-    );
+      </div>);
+
   }
 
   if (!orcamento) {
@@ -661,8 +661,8 @@ RETORNE o JSON estruturado conforme o schema.`;
             Voltar aos Orçamentos
           </Button>
         </Card>
-      </div>
-    );
+      </div>);
+
   }
 
   // Display params (no conflict with loadData scope)
@@ -672,11 +672,11 @@ RETORNE o JSON estruturado conforme o schema.`;
   const currentOrigemImportacao = displayParams.get('importacao') === 'true';
   const currentCarrinhoData = displayParams.get('carrinho');
 
-  const modoOperacao = currentOrcamentoId ? 'edicao'
-    : currentCarrinhoData ? 'carrinho'
-    : currentOrigemChat ? 'chat'
-    : currentOrigemImportacao ? 'importacao'
-    : 'novo';
+  const modoOperacao = currentOrcamentoId ? 'edicao' :
+  currentCarrinhoData ? 'carrinho' :
+  currentOrigemChat ? 'chat' :
+  currentOrigemImportacao ? 'importacao' :
+  'novo';
 
   const getTitulo = () => {
     if (modoOperacao === 'edicao') return `#${orcamento.numero_orcamento || orcamento.id?.slice(-6)}`;
@@ -688,14 +688,14 @@ RETORNE o JSON estruturado conforme o schema.`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 pb-16">
-      {processing && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
+      {processing &&
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-slate-800 rounded-xl p-8 border border-amber-500 shadow-2xl">
             <Loader2 className="w-16 h-16 text-amber-400 animate-spin mx-auto mb-4" />
             <p className="text-white text-lg font-semibold">🤖 IA processando dados...</p>
           </div>
         </div>
-      )}
+      }
 
       {/* HEADER */}
       <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-slate-700 shadow-xl">
@@ -715,26 +715,26 @@ RETORNE o JSON estruturado conforme o schema.`;
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {modoOperacao === 'edicao' && (
-              <div className="flex flex-col items-start gap-0.5">
+            {modoOperacao === 'edicao' &&
+            <div className="flex flex-col items-start gap-0.5">
                 <span className="text-[10px] text-slate-400 font-medium">Etapa do Kanban</span>
                 <Select value={orcamento.status || 'rascunho'} onValueChange={(value) => handleSelectChange('status', value)}>
                   <SelectTrigger className="h-8 border border-amber-500/60 bg-amber-500/10 text-amber-300 text-xs font-semibold rounded-full px-3 min-w-[140px] focus:ring-0 focus:ring-offset-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-700">
-                    {['rascunho','aguardando_cotacao','cotando','aguardando_analise','analisando','aguardando_liberacao','liberado','enviado','negociando','aprovado','rejeitado','vencido'].map(s => (
-                      <SelectItem key={s} value={s} className="text-white text-xs">{s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
-                    ))}
+                    {['rascunho', 'aguardando_cotacao', 'cotando', 'aguardando_analise', 'analisando', 'aguardando_liberacao', 'liberado', 'enviado', 'negociando', 'aprovado', 'rejeitado', 'vencido'].map((s) =>
+                  <SelectItem key={s} value={s} className="text-white text-xs">{s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</SelectItem>
+                  )}
                   </SelectContent>
                 </Select>
               </div>
-            )}
-            {modoOperacao === 'edicao' && (
-              <Button variant="outline" size="sm" onClick={() => window.print()} className="text-white border-slate-600 hover:bg-slate-700">
+            }
+            {modoOperacao === 'edicao' &&
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="text-white border-slate-600 hover:bg-slate-700">
                 Imprimir
               </Button>
-            )}
+            }
             <div className="text-right bg-slate-800 rounded-lg px-3 py-1.5 border border-slate-700">
               <p className="text-xs text-slate-400">Total</p>
               <p className="text-xl font-bold text-green-400">
@@ -755,8 +755,8 @@ RETORNE o JSON estruturado conforme o schema.`;
         <div className="flex gap-4">
 
           {/* COLUNA ESQUERDA: IMAGENS ANEXADAS */}
-          {(estudosAnexos.length > 0 || modoOperacao === 'edicao') && (
-            <div className="w-64 flex-shrink-0">
+          {(estudosAnexos.length > 0 || modoOperacao === 'edicao') &&
+          <div className="w-64 flex-shrink-0">
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden sticky top-4">
                 {/* Cabeçalho com título + botões de importação */}
                 <div className="px-2 pt-1.5 pb-1 border-b border-slate-700">
@@ -764,11 +764,11 @@ RETORNE o JSON estruturado conforme o schema.`;
                     <ImageIcon className="w-3 h-3 text-amber-400 flex-shrink-0" />
                     <span className="text-[10px] font-semibold text-white">Imagens ({estudosAnexos.length})</span>
                   </div>
-                  {(modoOperacao === 'novo' || modoOperacao === 'chat' || modoOperacao === 'edicao') && (
-                    <div className="flex gap-1">
+                  {(modoOperacao === 'novo' || modoOperacao === 'chat' || modoOperacao === 'edicao') &&
+                <div className="flex gap-1">
                       <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarImagemCompleta(e.target.files[0])} className="hidden" id="upload-completo" />
                       <label htmlFor="upload-completo" title="Importar Completo" className="cursor-pointer flex-1">
-                        <div className="bg-amber-500 hover:bg-amber-600 rounded px-1.5 py-1 flex items-center gap-1 transition-colors">
+                        <div className="bg-amber-500 py-3 rounded hover:bg-amber-600 flex items-center gap-1 transition-colors">
                           <Sparkles className="w-2.5 h-2.5 text-white flex-shrink-0" />
                           <div>
                             <p className="text-[8px] font-bold text-white leading-none">Importar Completo</p>
@@ -797,42 +797,42 @@ RETORNE o JSON estruturado conforme o schema.`;
                         </div>
                       </label>
                     </div>
-                  )}
+                }
                 </div>
 
                 <div className="p-2 space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto">
-                  {estudosAnexos.length === 0 && (
-                    <div className="text-center py-6 px-2">
+                  {estudosAnexos.length === 0 &&
+                <div className="text-center py-6 px-2">
                       <ImageIcon className="w-8 h-8 text-slate-600 mx-auto mb-2" />
                       <p className="text-xs text-slate-500">Nenhuma imagem anexada</p>
                     </div>
-                  )}
+                }
                   {estudosAnexos.map((anexo, index) => {
-                    const dataFormatada = anexo.data_anexo
-                      ? new Date(anexo.data_anexo).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' })
-                      : null;
-                    return (
+                  const dataFormatada = anexo.data_anexo ?
+                  new Date(anexo.data_anexo).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' }) :
+                  null;
+                  return (
                     <div key={index} className="bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden">
                       <div className="flex items-center justify-between px-2 py-1 bg-slate-800/80 border-b border-slate-600">
                         <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                          anexo.tipo_estudo === 'orcamento_completo_ia' ? 'bg-amber-500 text-white' :
-                          anexo.tipo_estudo === 'itens_ia' ? 'bg-purple-500 text-white' :
-                          'bg-slate-600 text-slate-300'
-                        }`}>
+                        anexo.tipo_estudo === 'orcamento_completo_ia' ? 'bg-amber-500 text-white' :
+                        anexo.tipo_estudo === 'itens_ia' ? 'bg-purple-500 text-white' :
+                        'bg-slate-600 text-slate-300'}`
+                        }>
                           {anexo.tipo_estudo === 'orcamento_completo_ia' ? '✨ IA Completo' :
-                           anexo.tipo_estudo === 'itens_ia' ? '🛒 IA Itens' : '📎 Manual'}
+                          anexo.tipo_estudo === 'itens_ia' ? '🛒 IA Itens' : '📎 Manual'}
                         </span>
-                        {dataFormatada && (
-                          <span className="text-[9px] text-slate-400">{dataFormatada}</span>
-                        )}
+                        {dataFormatada &&
+                        <span className="text-[9px] text-slate-400">{dataFormatada}</span>
+                        }
                       </div>
                       <div className="relative">
                         <img
                           src={anexo.url}
                           alt={anexo.descricao || `Anexo ${index + 1}`}
                           className="w-full h-32 object-contain bg-slate-900 cursor-pointer"
-                          onClick={() => window.open(anexo.url, '_blank')}
-                        />
+                          onClick={() => window.open(anexo.url, '_blank')} />
+                        
                       </div>
                       <div className="p-1.5 flex items-center justify-between gap-1">
                         <div className="flex items-center gap-1 min-w-0">
@@ -841,8 +841,8 @@ RETORNE o JSON estruturado conforme o schema.`;
                             checked={!anexo.is_opcional}
                             onChange={() => toggleOpcionalAnexo(index)}
                             className="w-3 h-3 flex-shrink-0"
-                            title="Marcar como obrigatório"
-                          />
+                            title="Marcar como obrigatório" />
+                          
                           <span className="text-[9px] text-slate-400 truncate">{anexo.descricao || `Anexo ${index + 1}`}</span>
                         </div>
                         <div className="flex gap-0.5 flex-shrink-0">
@@ -854,27 +854,27 @@ RETORNE o JSON estruturado conforme o schema.`;
                               const blob = await resp.blob();
                               processarImagemCompleta(new File([blob], 'reimport.png', { type: blob.type }));
                             }}
-                            title="Reprocessar com IA"
-                          >
+                            title="Reprocessar com IA">
+                            
                             <Sparkles className="w-2.5 h-2.5" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-5 w-5 p-0 text-red-400 hover:text-red-300"
-                            onClick={() => removerAnexo(index)}
-                          >
+                            onClick={() => removerAnexo(index)}>
+                            
                             <Trash2 className="w-2.5 h-2.5" />
                           </Button>
                         </div>
                       </div>
-                    </div>
-                    );
-                  })}
+                    </div>);
+
+                })}
                 </div>
               </div>
             </div>
-          )}
+          }
 
           {/* COLUNA DIREITA: CONTEÚDO PRINCIPAL */}
           <div className="flex-1 min-w-0 space-y-4">
@@ -912,17 +912,17 @@ RETORNE o JSON estruturado conforme o schema.`;
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Vendedor</Label>
-                <Select value={orcamento.usuario_id || ''} onValueChange={(value) => {
-                  const v = vendedores.find(u => u.id === value);
-                  setOrcamento(prev => ({ ...prev, usuario_id: value, vendedor: v?.nome || v?.email || '' }));
-                }}>
+                <Select value={orcamento.vendedor_id || ''} onValueChange={(value) => {
+                      const v = vendedores.find((u) => u.id === value);
+                      setOrcamento((prev) => ({ ...prev, vendedor_id: value, vendedor: v?.nome || v?.email || '' }));
+                    }}>
                   <SelectTrigger className="bg-slate-900 border-slate-600 text-white h-9 text-sm">
                     <SelectValue placeholder={orcamento.vendedor || 'Selecionar vendedor'} />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-700">
-                    {vendedores.map(v => (
-                      <SelectItem key={v.id} value={v.id} className="text-white text-sm">{v.nome || v.email}</SelectItem>
-                    ))}
+                    {vendedores.map((v) =>
+                        <SelectItem key={v.id} value={v.id} className="text-white text-sm">{v.nome || v.email}</SelectItem>
+                        )}
                   </SelectContent>
                 </Select>
               </div>
@@ -960,9 +960,9 @@ RETORNE o JSON estruturado conforme o schema.`;
           </CardHeader>
           <CardContent className="space-y-2">
             {Array.isArray(itens) && itens.map((item, index) => {
-              const itemId = item.id || item._tempId;
-              return (
-                <div key={itemId} className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+                  const itemId = item.id || item._tempId;
+                  return (
+                    <div key={itemId} className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs text-slate-400">#{index + 1}</span>
                     <Button variant="ghost" size="icon" onClick={() => removerItem(itemId)} className="h-6 w-6 text-red-400 hover:text-red-300">
@@ -987,15 +987,15 @@ RETORNE o JSON estruturado conforme o schema.`;
                       <span className="text-xs text-slate-400">Opcional</span>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                </div>);
+
+                })}
           </CardContent>
         </Card>
 
         {/* PLANOS DE PAGAMENTO */}
-        {orcamento.valor_total > 0 && (
-          <Card className="bg-slate-800/50 border-slate-700">
+        {orcamento.valor_total > 0 &&
+            <Card className="bg-slate-800/50 border-slate-700">
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-white flex items-center gap-2">
                 <DollarSign className="w-4 h-4" /> Planos de Pagamento
@@ -1005,11 +1005,11 @@ RETORNE o JSON estruturado conforme o schema.`;
               <PlanosPagamento orcamentoId={currentOrcamentoId || 'temp'} valorTotal={orcamento.valor_total} onPlanosChange={() => {}} />
             </CardContent>
           </Card>
-        )}
+            }
 
           </div> {/* fim coluna direita */}
         </div> {/* fim flex */}
       </div>
-    </div>
-  );
+    </div>);
+
 }
