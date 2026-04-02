@@ -26,6 +26,7 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], con
   const [mensagensChat, setMensagensChat] = useState([]);
   const [carregandoMensagens, setCarregandoMensagens] = useState(false);
   const [etiquetasSelecionadas, setEtiquetasSelecionadas] = useState([]);
+  const [contatosSelecionados, setContatosSelecionados] = useState([]);
 
   // 🔍 DEBUG: Verificar se contatos chegaram
   useEffect(() => {
@@ -158,6 +159,9 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], con
   };
 
   const renderContatoCard = (thread) => {
+    const contato = thread.contato || {};
+    const nomeExibicao = contato.empresa || contato.nome || thread.contact_id || 'Sem nome';
+    const estaSelecionado = contatosSelecionados.some((t) => t.id === thread.id);
     // ✅ FIX: Botão SEMPRE ativo para corrigir contatos incompletos
     const abrirDetalhesAutomatico = async (e) => {
       e.stopPropagation();
