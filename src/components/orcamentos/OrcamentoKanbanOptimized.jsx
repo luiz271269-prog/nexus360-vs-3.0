@@ -4,9 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MoreHorizontal, Edit, Calendar, DollarSign, User, Brain, MessageSquare, Building2, Handshake } from 'lucide-react';
+import { MoreHorizontal, Edit, Calendar, DollarSign, User, Brain, MessageSquare, Building2, Handshake, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from "@/api/base44Client";
+import OrcamentoTagModal from './OrcamentoTagModal';
 
 const statusLabels = {
   rascunho: 'Rascunho',
@@ -60,7 +61,7 @@ const formatDate = (dateString) => {
 };
 
 // ─── Card memorizado ──────────────────────────────────────────────────────────
-const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat }) => {
+const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, etiquetasMap }) => {
   return (
     <Draggable draggableId={orcamento.id} index={index}>
       {(provided, snapshot) => (
@@ -118,6 +119,22 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
               )}
             </div>
 
+            {/* Etiquetas aplicadas */}
+            {orcamento.etiquetas?.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {orcamento.etiquetas.map(id => {
+                  const et = etiquetasMap?.[id];
+                  if (!et) return null;
+                  return (
+                    <span key={id} className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold text-white"
+                      style={{ backgroundColor: et.cor || '#f59e0b' }} title={et.observacao || et.nome}>
+                      {et.nome}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="flex items-center gap-1 pt-1 border-t border-slate-100">
               {orcamento.probabilidade && (
                 <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${
@@ -127,6 +144,14 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                 }`}>{orcamento.probabilidade}</span>
               )}
               <div className="ml-auto flex gap-1">
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); onTag?.(orcamento); }}
+                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded text-[9px] font-semibold border border-amber-200"
+                  title="Etiquetas"
+                >
+                  <Tag className="w-2.5 h-2.5" />
+                </button>
                 {onMostrarInsightsIA && (
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
@@ -154,7 +179,7 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
 OrcamentoCard.displayName = 'OrcamentoCard';
 
 // ─── Coluna Droppable memorizada ──────────────────────────────────────────────
-const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamentos, onEdit, onMostrarInsightsIA, onAbrirChat }) => {
+const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamentos, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, etiquetasMap }) => {
   const gradient = statusGradients[status];
   const totalValor = useMemo(() => colOrcamentos.reduce((s, o) => s + (o.valor_total || 0), 0), [colOrcamentos]);
 
@@ -194,6 +219,8 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
                 onEdit={onEdit}
                 onMostrarInsightsIA={onMostrarInsightsIA}
                 onAbrirChat={onAbrirChat}
+                onTag={onTag}
+                etiquetasMap={etiquetasMap}
               />
             ))}
             {provided.placeholder}
@@ -207,9 +234,25 @@ KanbanColumn.displayName = 'KanbanColumn';
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, onUpdateStatus, usuario, onEdit, onMostrarInsightsIA }) {
-
+  const [tagModalOrcamento, setTagModalOrcamento] = useState(null);
+  const [etiquetas, setEtiquetas] = useState([]);
   // ✅ OPTIMISTIC STATE: estado local que antecipa a mudança sem esperar o servidor
   const [localOrcamentos, setLocalOrcamentos] = useState(null);
+
+  useEffect(() => {
+    base44.entities.EtiquetaOrcamento.list().then(data => setEtiquetas(data || [])).catch(() => {});
+  }, []);
+
+  const etiquetasMap = useMemo(() => {
+    return etiquetas.reduce((acc, et) => { acc[et.id] = et; return acc; }, {});
+  }, [etiquetas]);
+
+  const handleTagSave = useCallback((orcamentoAtualizado) => {
+    setLocalOrcamentos(prev => {
+      const base = prev ?? orcamentosProps;
+      return base.map(o => o.id === orcamentoAtualizado.id ? { ...o, etiquetas: orcamentoAtualizado.etiquetas } : o);
+    });
+  }, [orcamentosProps]);
 
   // Sincroniza quando chegam novos dados do servidor
   const orcamentos = localOrcamentos ?? orcamentosProps;
@@ -325,6 +368,8 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
                       onEdit={onEdit}
                       onMostrarInsightsIA={onMostrarInsightsIA}
                       onAbrirChat={onAbrirChat}
+                      onTag={setTagModalOrcamento}
+                      etiquetasMap={etiquetasMap}
                     />
                   ))}
                 </div>
@@ -333,6 +378,13 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
           ))}
         </Tabs>
       </div>
+      {tagModalOrcamento && (
+        <OrcamentoTagModal
+          orcamento={tagModalOrcamento}
+          onClose={() => setTagModalOrcamento(null)}
+          onSave={handleTagSave}
+        />
+      )}
     </DragDropContext>
   );
 }
