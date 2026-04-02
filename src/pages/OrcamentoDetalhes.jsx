@@ -74,11 +74,11 @@ export default function OrcamentoDetalhes() {
 
 
 
+
+
         // Non-admin users can't list users — use only current user
       } // Always ensure current user is in the list
-      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];}setVendedores(vendedoresData);
-      if (modoOperacao === 'edicao') {
-        const [orcData, itensData] = await Promise.all([
+      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];}setVendedores(vendedoresData);if (modoOperacao === 'edicao') {const [orcData, itensData] = await Promise.all([
         base44.entities.Orcamento.get(orcamentoId),
         base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })]
         );
@@ -962,7 +962,7 @@ RETORNE o JSON estruturado conforme o schema.`;
             {Array.isArray(itens) && itens.map((item, index) => {
                   const itemId = item.id || item._tempId;
                   return (
-                    <div key={itemId} className="bg-slate-700/50 px-1 rounded-lg border border-slate-600">
+                    <div key={itemId} className="bg-slate-700/50 rounded-lg border border-slate-600">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs text-slate-400">#{index + 1}</span>
                     <Button variant="ghost" size="icon" onClick={() => removerItem(itemId)} className="h-6 w-6 text-red-400 hover:text-red-300">
@@ -974,7 +974,7 @@ RETORNE o JSON estruturado conforme o schema.`;
                       <Input value={item.nome_produto || ''} onChange={(e) => atualizarItem(itemId, 'nome_produto', e.target.value)} placeholder="Nome *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" />
                     </div>
                     <div>
-                      <Input type="number" value={item.quantidade || 0} onChange={(e) => atualizarItem(itemId, 'quantidade', e.target.value)} placeholder="Qtd *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" />
+                      <Input type="number" value={item.quantidade || 0} onChange={(e) => atualizarItem(itemId, 'quantidade', e.target.value)} placeholder="Qtd *" className="bg-slate-800 text-white px-5 py-1 text-sm rounded-md flex w-full border shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm border-slate-600 h-8" />
                     </div>
                     <div>
                       <Input type="number" step="0.01" value={item.valor_unitario || 0} onChange={(e) => atualizarItem(itemId, 'valor_unitario', e.target.value)} placeholder="Vlr Unit *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" />
