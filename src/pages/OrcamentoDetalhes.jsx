@@ -962,32 +962,20 @@ RETORNE o JSON estruturado conforme o schema.`;
             {Array.isArray(itens) && itens.map((item, index) => {
                   const itemId = item.id || item._tempId;
                   return (
-                    <div key={itemId} className="bg-slate-700/50 rounded-lg border border-slate-600">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-slate-400">#{index + 1}</span>
-                    <Button variant="ghost" size="icon" onClick={() => removerItem(itemId)} className="h-6 w-6 text-red-400 hover:text-red-300">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
-                    <div className="md:col-span-2">
-                      <Input value={item.nome_produto || ''} onChange={(e) => atualizarItem(itemId, 'nome_produto', e.target.value)} placeholder="Nome *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" />
+                    <div key={itemId} className="bg-slate-700/50 rounded-lg border border-slate-600 p-3">
+                      <div className="flex items-center gap-2 w-full">
+                        <span className="text-xs text-slate-400 min-w-[30px]">#{index + 1}</span>
+                        <Input value={item.nome_produto || ''} onChange={(e) => atualizarItem(itemId, 'nome_produto', e.target.value)} placeholder="Nome *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm flex-1" />
+                        <Input type="number" value={item.quantidade || 0} onChange={(e) => atualizarItem(itemId, 'quantidade', e.target.value)} placeholder="Qtd" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" style={{width: '60px'}} />
+                        <Input type="number" step="0.01" value={item.valor_unitario || 0} onChange={(e) => atualizarItem(itemId, 'valor_unitario', e.target.value)} placeholder="Vlr Unit" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" style={{width: '120px'}} />
+                        <Input type="number" value={(item.valor_total || 0).toFixed(2)} readOnly className="bg-slate-900 border-slate-700 text-green-400 font-bold h-8 text-sm" style={{width: '100px'}} />
+                        <input type="checkbox" checked={item.is_opcional || false} onChange={(e) => atualizarItem(itemId, 'is_opcional', e.target.checked)} className="w-4 h-4" title="Opcional" />
+                        <Button variant="ghost" size="icon" onClick={() => removerItem(itemId)} className="h-8 w-8 p-0 text-red-400 hover:text-red-300 flex-shrink-0">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div>
-                      <Input type="number" value={item.quantidade || 0} onChange={(e) => atualizarItem(itemId, 'quantidade', e.target.value)} placeholder="Qtd *" className="bg-slate-800 text-white mx-3 px-5 text-sm rounded-md flex w-full border shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm border-slate-600 h-8" />
-                    </div>
-                    <div>
-                      <Input type="number" step="0.01" value={item.valor_unitario || 0} onChange={(e) => atualizarItem(itemId, 'valor_unitario', e.target.value)} placeholder="Vlr Unit *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" />
-                    </div>
-                    <div>
-                      <Input type="number" value={(item.valor_total || 0).toFixed(2)} readOnly className="bg-slate-900 border-slate-700 text-green-400 font-bold h-8 text-sm" />
-                    </div>
-                    <div className="flex items-center">
-                      <input type="checkbox" checked={item.is_opcional || false} onChange={(e) => atualizarItem(itemId, 'is_opcional', e.target.checked)} className="mr-1" />
-                      <span className="text-xs text-slate-400">Opcional</span>
-                    </div>
-                  </div>
-                </div>);
+                  );
 
                 })}
           </CardContent>
