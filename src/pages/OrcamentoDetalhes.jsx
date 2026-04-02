@@ -725,80 +725,83 @@ RETORNE o JSON estruturado conforme o schema.`;
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="flex gap-4">
 
-        {/* GALERIA DE IMAGENS ANEXADAS - sempre visível */}
-        {estudosAnexos.length > 0 && (
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-white flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-amber-400" /> Imagens Anexadas ({estudosAnexos.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {estudosAnexos.map((anexo, index) => (
-                  <div key={index} className="bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden">
-                    <div className="relative">
-                      <img
-                        src={anexo.url}
-                        alt={anexo.descricao || `Anexo ${index + 1}`}
-                        className="w-full h-44 object-contain bg-slate-900 cursor-pointer"
-                        onClick={() => window.open(anexo.url, '_blank')}
-                      />
-                      <div className="absolute top-1 right-1 flex gap-1">
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                          anexo.tipo_estudo === 'orcamento_completo_ia' ? 'bg-amber-500 text-white' :
-                          anexo.tipo_estudo === 'itens_ia' ? 'bg-purple-500 text-white' :
-                          'bg-slate-600 text-slate-300'
-                        }`}>
-                          {anexo.tipo_estudo === 'orcamento_completo_ia' ? 'IA COMPLETO' :
-                           anexo.tipo_estudo === 'itens_ia' ? 'IA ITENS' : 'MANUAL'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-2 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <input
-                          type="checkbox"
-                          checked={!anexo.is_opcional}
-                          onChange={() => toggleOpcionalAnexo(index)}
-                          className="w-3 h-3 flex-shrink-0"
-                          title="Marcar como obrigatório"
+          {/* COLUNA ESQUERDA: IMAGENS ANEXADAS */}
+          {estudosAnexos.length > 0 && (
+            <div className="w-64 flex-shrink-0">
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden sticky top-4">
+                <div className="px-3 py-2 border-b border-slate-700 flex items-center gap-2">
+                  <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="text-xs font-semibold text-white">Imagens ({estudosAnexos.length})</span>
+                </div>
+                <div className="p-2 space-y-2 max-h-[calc(100vh-180px)] overflow-y-auto">
+                  {estudosAnexos.map((anexo, index) => (
+                    <div key={index} className="bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden">
+                      <div className="relative">
+                        <img
+                          src={anexo.url}
+                          alt={anexo.descricao || `Anexo ${index + 1}`}
+                          className="w-full h-32 object-contain bg-slate-900 cursor-pointer"
+                          onClick={() => window.open(anexo.url, '_blank')}
                         />
-                        <span className="text-[10px] text-slate-400 truncate">{anexo.descricao || `Anexo ${index + 1}`}</span>
+                        <div className="absolute top-1 right-1">
+                          <span className={`text-[8px] px-1 py-0.5 rounded font-bold ${
+                            anexo.tipo_estudo === 'orcamento_completo_ia' ? 'bg-amber-500 text-white' :
+                            anexo.tipo_estudo === 'itens_ia' ? 'bg-purple-500 text-white' :
+                            'bg-slate-600 text-slate-300'
+                          }`}>
+                            {anexo.tipo_estudo === 'orcamento_completo_ia' ? 'IA' :
+                             anexo.tipo_estudo === 'itens_ia' ? 'ITENS' : 'MAN'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex gap-1 flex-shrink-0">
-                        <Button
-                          size="sm"
-                          className="h-6 px-2 bg-amber-500 hover:bg-amber-600 text-[10px]"
-                          onClick={async () => {
-                            const resp = await fetch(anexo.url);
-                            const blob = await resp.blob();
-                            processarImagemCompleta(new File([blob], 'reimport.png', { type: blob.type }));
-                          }}
-                          title="Reprocessar com IA"
-                        >
-                          <Sparkles className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-red-400 hover:text-red-300"
-                          onClick={() => removerAnexo(index)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                      <div className="p-1.5 flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={!anexo.is_opcional}
+                            onChange={() => toggleOpcionalAnexo(index)}
+                            className="w-3 h-3 flex-shrink-0"
+                            title="Marcar como obrigatório"
+                          />
+                          <span className="text-[9px] text-slate-400 truncate">{anexo.descricao || `Anexo ${index + 1}`}</span>
+                        </div>
+                        <div className="flex gap-0.5 flex-shrink-0">
+                          <Button
+                            size="sm"
+                            className="h-5 w-5 p-0 bg-amber-500 hover:bg-amber-600"
+                            onClick={async () => {
+                              const resp = await fetch(anexo.url);
+                              const blob = await resp.blob();
+                              processarImagemCompleta(new File([blob], 'reimport.png', { type: blob.type }));
+                            }}
+                            title="Reprocessar com IA"
+                          >
+                            <Sparkles className="w-2.5 h-2.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 text-red-400 hover:text-red-300"
+                            onClick={() => removerAnexo(index)}
+                          >
+                            <Trash2 className="w-2.5 h-2.5" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          )}
 
-        {/* ZONAS DE IMPORTAÇÃO COM IA */}
+          {/* COLUNA DIREITA: CONTEÚDO PRINCIPAL */}
+          <div className="flex-1 min-w-0 space-y-4">
+
+        {/* ZONAS DE IMPORTAÇÃO COM IA — importar completo / apenas itens / fixar imagem */}
         {(modoOperacao === 'novo' || modoOperacao === 'chat' || modoOperacao === 'edicao') && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div
@@ -1000,6 +1003,9 @@ RETORNE o JSON estruturado conforme o schema.`;
             </CardContent>
           </Card>
         )}
+
+          </div> {/* fim coluna direita */}
+        </div> {/* fim flex */}
       </div>
     </div>
   );
