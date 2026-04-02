@@ -748,90 +748,35 @@ RETORNE o JSON estruturado conforme o schema.`;
           {(estudosAnexos.length > 0 || modoOperacao === 'edicao') && (
             <div className="w-64 flex-shrink-0">
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden sticky top-4">
-                {/* Cabeçalho com título */}
-                <div className="px-3 py-2 border-b border-slate-700 flex items-center gap-2">
-                  <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="text-xs font-semibold text-white">Imagens ({estudosAnexos.length})</span>
+                {/* Cabeçalho com título + botões de importação */}
+                <div className="px-2 py-1.5 border-b border-slate-700 flex items-center gap-1.5">
+                  <ImageIcon className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                  <span className="text-[10px] font-semibold text-white flex-1">Imagens ({estudosAnexos.length})</span>
+                  {(modoOperacao === 'novo' || modoOperacao === 'chat' || modoOperacao === 'edicao') && (
+                    <>
+                      <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarImagemCompleta(e.target.files[0])} className="hidden" id="upload-completo" />
+                      <label htmlFor="upload-completo" title="Importar Completo (IA extrai cliente + itens)" className="cursor-pointer">
+                        <div className="w-5 h-5 bg-amber-500 hover:bg-amber-600 rounded flex items-center justify-center transition-colors">
+                          <Sparkles className="w-2.5 h-2.5 text-white" />
+                        </div>
+                      </label>
+                      <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarApenasItens(e.target.files[0])} className="hidden" id="upload-itens" />
+                      <label htmlFor="upload-itens" title="Importar Itens (IA extrai apenas produtos)" className="cursor-pointer">
+                        <div className="w-5 h-5 bg-purple-500 hover:bg-purple-600 rounded flex items-center justify-center transition-colors">
+                          <ShoppingCart className="w-2.5 h-2.5 text-white" />
+                        </div>
+                      </label>
+                      <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && somenteAnexarImagem(e.target.files[0])} className="hidden" id="upload-manual" />
+                      <label htmlFor="upload-manual" title="Fixar Imagem (sem IA)" className="cursor-pointer">
+                        <div className="w-5 h-5 bg-blue-500 hover:bg-blue-600 rounded flex items-center justify-center transition-colors">
+                          <Plus className="w-2.5 h-2.5 text-white" />
+                        </div>
+                      </label>
+                    </>
+                  )}
                 </div>
 
-                {/* Botões de importação compactos */}
-                {(modoOperacao === 'novo' || modoOperacao === 'chat' || modoOperacao === 'edicao') && (
-                  <div className="p-2 space-y-1.5 border-b border-slate-700">
-                    {/* Importar Completo */}
-                    <div
-                      onDrop={(e) => handleDrop(e, 'completo')}
-                      onDragOver={(e) => { e.preventDefault(); setDragOver('completo'); }}
-                      onDragLeave={() => setDragOver(null)}
-                      className={`flex items-center gap-2 p-1.5 rounded-lg border transition-all ${
-                        dragOver === 'completo' ? 'border-amber-400 bg-amber-500/20' : 'border-amber-500/40 bg-amber-900/10 hover:border-amber-400'
-                      }`}
-                    >
-                      <div className="w-6 h-6 bg-gradient-to-br from-amber-500 to-orange-600 rounded flex items-center justify-center flex-shrink-0">
-                        <ImageIcon className="w-3 h-3 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-bold text-white leading-tight">Importar Completo</p>
-                        <p className="text-[9px] text-slate-400 leading-tight">IA extrai cliente + itens</p>
-                      </div>
-                      <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarImagemCompleta(e.target.files[0])} className="hidden" id="upload-completo" />
-                      <label htmlFor="upload-completo" className="cursor-pointer">
-                        <div className="w-6 h-6 bg-amber-500 hover:bg-amber-600 rounded flex items-center justify-center">
-                          <Sparkles className="w-3 h-3 text-white" />
-                        </div>
-                      </label>
-                    </div>
-
-                    {/* Importar Itens */}
-                    <div
-                      onDrop={(e) => handleDrop(e, 'itens')}
-                      onDragOver={(e) => { e.preventDefault(); setDragOver('itens'); }}
-                      onDragLeave={() => setDragOver(null)}
-                      className={`flex items-center gap-2 p-1.5 rounded-lg border transition-all ${
-                        dragOver === 'itens' ? 'border-purple-400 bg-purple-500/20' : 'border-purple-500/40 bg-purple-900/10 hover:border-purple-400'
-                      }`}
-                    >
-                      <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-indigo-600 rounded flex items-center justify-center flex-shrink-0">
-                        <ShoppingCart className="w-3 h-3 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-bold text-white leading-tight">Importar Itens</p>
-                        <p className="text-[9px] text-slate-400 leading-tight">IA extrai apenas produtos</p>
-                      </div>
-                      <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarApenasItens(e.target.files[0])} className="hidden" id="upload-itens" />
-                      <label htmlFor="upload-itens" className="cursor-pointer">
-                        <div className="w-6 h-6 bg-purple-500 hover:bg-purple-600 rounded flex items-center justify-center">
-                          <Plus className="w-3 h-3 text-white" />
-                        </div>
-                      </label>
-                    </div>
-
-                    {/* Fixar Imagem */}
-                    <div
-                      onDrop={(e) => handleDrop(e, 'manual')}
-                      onDragOver={(e) => { e.preventDefault(); setDragOver('manual'); }}
-                      onDragLeave={() => setDragOver(null)}
-                      className={`flex items-center gap-2 p-1.5 rounded-lg border transition-all ${
-                        dragOver === 'manual' ? 'border-blue-400 bg-blue-500/20' : 'border-blue-500/40 bg-blue-900/10 hover:border-blue-400'
-                      }`}
-                    >
-                      <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-cyan-600 rounded flex items-center justify-center flex-shrink-0">
-                        <ImageIcon className="w-3 h-3 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-bold text-white leading-tight">Fixar Imagem</p>
-                        <p className="text-[9px] text-slate-400 leading-tight">Somente anexar, sem IA</p>
-                      </div>
-                      <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && somenteAnexarImagem(e.target.files[0])} className="hidden" id="upload-manual" />
-                      <label htmlFor="upload-manual" className="cursor-pointer">
-                        <div className="w-6 h-6 bg-blue-500 hover:bg-blue-600 rounded flex items-center justify-center">
-                          <Plus className="w-3 h-3 text-white" />
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                )}
-
-                <div className="p-2 space-y-2 max-h-[calc(100vh-320px)] overflow-y-auto">
+                <div className="p-2 space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto">
                   {estudosAnexos.length === 0 && (
                     <div className="text-center py-6 px-2">
                       <ImageIcon className="w-8 h-8 text-slate-600 mx-auto mb-2" />
