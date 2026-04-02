@@ -115,10 +115,23 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                 {orcamento.etiquetas.map(id => {
                   const et = etiquetasMap?.[id];
                   if (!et) return null;
+                  const IconComp = (() => {
+                    const icones = { Star: () => <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>, Flame: () => <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 24 24"><path d="M17.66 11.2C17.43 10.9 17.15 10.64 16.89 10.38C16.22 9.78 15.46 9.35 14.82 8.72C13.33 7.26 13 4.85 13.95 3C13 3.23 12.17 3.75 11.46 4.32C8.87 6.4 7.85 10.07 9.07 13.22C9.11 13.32 9.15 13.42 9.15 13.55C9.15 13.77 9 13.97 8.8 14.05C8.57 14.15 8.33 14.09 8.14 13.93C8.08 13.88 8.04 13.83 8 13.76C6.87 12.33 6.69 10.28 7.45 8.64C5.78 10 4.87 12.3 5 14.47C5.06 14.97 5.12 15.47 5.29 15.97C5.43 16.57 5.7 17.17 6 17.7C7.08 19.43 8.95 20.67 10.96 20.92C13.1 21.19 15.39 20.8 17.03 19.32C18.86 17.66 19.5 15 18.56 12.72L18.43 12.46C18.22 12 17.66 11.2 17.66 11.2Z"/></svg> };
+                    return icones[et.icone] || null;
+                  })();
                   return (
-                    <span key={id} className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold text-white"
-                      style={{ backgroundColor: et.cor || '#f59e0b' }} title={et.observacao || et.nome}>
+                    <span
+                      key={id}
+                      className="relative group inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold text-white cursor-default"
+                      style={{ backgroundColor: et.cor || '#f59e0b' }}
+                    >
+                      {IconComp && <span className="text-white/80">{IconComp}</span>}
                       {et.nome}
+                      {et.observacao && (
+                        <span className="absolute bottom-full left-0 mb-1 hidden group-hover:block z-50 bg-slate-900 text-white text-[9px] rounded px-2 py-1 whitespace-nowrap shadow-xl max-w-[150px] break-words pointer-events-none">
+                          {et.observacao}
+                        </span>
+                      )}
                     </span>
                   );
                 })}
@@ -246,11 +259,16 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     return etiquetas.reduce((acc, et) => { acc[et.id] = et; return acc; }, {});
   }, [etiquetas]);
 
-  const handleTagSave = useCallback((orcamentoAtualizado) => {
+  const handleTagSave = useCallback(async (orcamentoAtualizado) => {
     setLocalOrcamentos(prev => {
       const base = prev ?? orcamentosProps;
       return base.map(o => o.id === orcamentoAtualizado.id ? { ...o, etiquetas: orcamentoAtualizado.etiquetas } : o);
     });
+    // Recarrega etiquetas para incluir novas criadas no modal
+    try {
+      const data = await base44.entities.EtiquetaOrcamento.list();
+      setEtiquetas(data || []);
+    } catch {}
   }, [orcamentosProps]);
 
   // Sincroniza quando chegam novos dados do servidor
