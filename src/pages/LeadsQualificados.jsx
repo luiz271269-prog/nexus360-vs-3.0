@@ -390,15 +390,20 @@ export default function LeadsQualificados() {
     carregarUsuario();
   }, []);
 
+  // Níveis de permissão
+  const isAdmin = usuarioAtual?.role === 'admin';
+  const isGestor = ['gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
+  const isSupervisor = usuarioAtual?.attendant_role === 'senior';
+  const podeVerTodos = isAdmin || isGestor || isSupervisor;
+
   // Resolve o nome do vendedor a aplicar no filtro global
   const resolverFiltroVendedor = (campoVendedor) => {
-    const temPermissaoVerOutros = usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
-    if (!temPermissaoVerOutros) {
+    if (!podeVerTodos) {
       // Usuário comum: sempre vê apenas os seus
       if (!vendedorDoUsuario) return null; // ainda carregando
       return vendedorDoUsuario;
     }
-    // Admin/gerente: aplica filtro global
+    // Admin/gestor/supervisor: aplica filtro global
     if (filtroVendedorGlobal === 'todos') return null;
     if (filtroVendedorGlobal === 'meus') return vendedorDoUsuario;
     return filtroVendedorGlobal;
@@ -445,22 +450,31 @@ export default function LeadsQualificados() {
   });
 
   const orcamentosFiltrados = orcamentos.filter(orcamento => {
-    // Se usuário ainda não carregou, mostra todos
-    if (!usuarioAtual) return true;
+    // Aguarda carregar usuário
+    if (!usuarioAtual) return false;
 
-    const temPermissaoVerOutros = usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
-
-    // Filtro por vendedor
-    if (!temPermissaoVerOutros) {
-      // Usuário comum: mostra se é seu ou se não tem vendedor_id (compatibilidade)
-      if (orcamento.vendedor_id && orcamento.vendedor_id !== usuarioAtual.id) return false;
-    } else if (temPermissaoVerOutros && filtroVendedorGlobal !== 'todos') {
-      // Admin/gerente: aplica filtro global
+    // ── FILTRO DE PROPRIEDADE ──
+    if (!podeVerTodos) {
+      // Usuário comum: só vê os seus
+      // Verifica por vendedor_id (preferência) ou por nome (fallback legado)
+      const ehSeu = orcamento.vendedor_id
+        ? orcamento.vendedor_id === usuarioAtual.id
+        : orcamento.vendedor === vendedorDoUsuario;
+      if (!ehSeu) return false;
+    } else if (filtroVendedorGlobal !== 'todos') {
+      // Admin/gestor/supervisor com filtro aplicado
       if (filtroVendedorGlobal === 'meus') {
-        if (orcamento.vendedor_id && orcamento.vendedor_id !== usuarioAtual.id) return false;
+        const ehSeu = orcamento.vendedor_id
+          ? orcamento.vendedor_id === usuarioAtual.id
+          : orcamento.vendedor === vendedorDoUsuario;
+        if (!ehSeu) return false;
       } else {
-        const filtroUserId = atendentes.find(a => a.label === filtroVendedorGlobal)?.value;
-        if (filtroUserId && orcamento.vendedor_id && orcamento.vendedor_id !== filtroUserId) return false;
+        // Filtro por vendedor específico: verifica id e nome
+        const atendenteAlvo = atendentes.find(a => a.label === filtroVendedorGlobal);
+        const ehDoVendedor = atendenteAlvo
+          ? (orcamento.vendedor_id === atendenteAlvo.value || orcamento.vendedor === atendenteAlvo.label)
+          : orcamento.vendedor === filtroVendedorGlobal;
+        if (!ehDoVendedor) return false;
       }
     }
 
@@ -506,8 +520,8 @@ export default function LeadsQualificados() {
                 {activeTab === 'orcamentos' ? 'Novo Orçamento' : 'Novo Lead'}
               </Button>
 
-              {/* FILTRO GLOBAL DE VENDEDOR — visível só para admin/gerente/coordenador */}
-              {(usuarioAtual?.role === 'admin' || ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role)) && (
+              {/* FILTRO GLOBAL DE VENDEDOR — visível só para admin/gestor/supervisor */}
+              {podeVerTodos && (
                 <>
                   <Select value={filtroVendedorGlobal} onValueChange={setFiltroVendedorGlobal}>
                     <SelectTrigger className="h-8 w-[160px] text-xs bg-white/10 border-white/30 text-white">
