@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MoreHorizontal, Edit, Calendar, DollarSign, User, Brain, MessageSquare, Building2, Handshake, Tag } from 'lucide-react';
+import { Calendar, DollarSign, User, Brain, Send, Building2, Handshake, Tags, PenLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from "@/api/base44Client";
 import OrcamentoTagModal from './OrcamentoTagModal';
@@ -86,22 +86,12 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] font-mono text-slate-400">
-                  {orcamento.numero_orcamento ? `#${orcamento.numero_orcamento}` : `#${orcamento.id?.slice(-4)}`}
-                </span>
-                <button
-                   onPointerDown={(e) => e.stopPropagation()}
-                   onClick={(e) => { e.stopPropagation(); onEdit?.(orcamento); }}
-                   className="h-5 w-5 p-0 flex items-center justify-center text-slate-400 hover:text-orange-600 hover:bg-orange-50 flex-shrink-0 rounded transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-110 active:scale-95"
-                  title="Editar orçamento"
-                >
-                  <Edit className="w-3 h-3" />
-                </button>
-              </div>
-              <span className="text-[11px] font-bold text-green-600">
-                {formatCurrency(orcamento.valor_total)}
-              </span>
+            <span className="text-[10px] font-mono text-slate-400">
+              {orcamento.numero_orcamento ? `#${orcamento.numero_orcamento}` : `#${orcamento.id?.slice(-4)}`}
+            </span>
+            <span className="text-[11px] font-bold text-green-600">
+              {formatCurrency(orcamento.valor_total)}
+            </span>
             </div>
 
             <div className="flex items-center justify-between text-[10px] text-slate-500">
@@ -147,16 +137,16 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); onTag?.(orcamento); }}
-                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded text-[9px] font-semibold border border-amber-200"
+                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded text-[9px] font-semibold border border-amber-200 transition-all hover:shadow-sm"
                   title="Etiquetas"
                 >
-                  <Tag className="w-2.5 h-2.5" />
+                  <Tags className="w-2.5 h-2.5" />
                 </button>
                 {onMostrarInsightsIA && (
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => { e.stopPropagation(); onMostrarInsightsIA(orcamento); }}
-                    className="flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-[9px] font-semibold border border-indigo-200"
+                    className="flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-[9px] font-semibold border border-indigo-200 transition-all hover:shadow-sm"
                   >
                     <Brain className="w-2.5 h-2.5" /> IA
                   </button>
@@ -164,9 +154,18 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); onAbrirChat(orcamento); }}
-                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-green-500 hover:bg-green-600 text-white rounded text-[9px] font-semibold transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-[9px] font-semibold transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-95"
+                  title="Abrir chat"
                 >
-                  <MessageSquare className="w-2.5 h-2.5" /> Msg
+                  <Send className="w-2.5 h-2.5" />
+                </button>
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); onEdit?.(orcamento); }}
+                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-orange-50 hover:bg-orange-500 text-orange-500 hover:text-white rounded text-[9px] font-semibold border border-orange-200 transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-95"
+                  title="Editar orçamento"
+                >
+                  <PenLine className="w-2.5 h-2.5" />
                 </button>
               </div>
             </div>
