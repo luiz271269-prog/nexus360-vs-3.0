@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X, Save, Sparkles, AlertCircle, Info, Check, Loader2, Clock, MessageSquare } from "lucide-react";
 import VoiceInput from "../ui/VoiceInput";
-import { listarVendedoresParaSelect } from '../lib/vendedorSync'; // usa User internamente
+import { listarVendedoresParaSelect } from '../lib/vendedorSync';
 import { REGRAS_VALIDACAO_POR_ETAPA } from './ClienteFormValidation';
 import { toast } from "sonner";
 import HistoricoQualificacaoCliente from './HistoricoQualificacaoCliente';
@@ -76,10 +76,16 @@ export default function ClienteForm({ cliente, novoStatus, onSave, onCancel }) {
     valor_recorrente_mensal: 0
   });
   const [interesseAtual, setInteresseAtual] = useState("");
+  const [vendedoresLista, setVendedoresLista] = useState([]);
 
   const [saveStatus, setSaveStatus] = useState('saved');
   const saveTimeoutRef = useRef(null);
   const isInitialMount = useRef(true);
+
+  // Fase 2 (escrita): carregar Users vendedores uma vez
+  useEffect(() => {
+    listarVendedoresParaSelect().then(setVendedoresLista).catch(() => {});
+  }, []);
 
   const statusAlvo = novoStatus || formData.status;
   const regrasEtapa = REGRAS_VALIDACAO_POR_ETAPA[statusAlvo];
@@ -433,6 +439,24 @@ export default function ClienteForm({ cliente, novoStatus, onSave, onCancel }) {
                     className="text-xs" />
                 </div>
               )}
+            </div>
+
+            {/* Fase 2: vendedor gravando User.id */}
+            <div>
+              <Label className="text-gray-300 text-[11px]">Vendedor Responsável</Label>
+              <GlassSelect
+                value={formData.vendedor_id || ''}
+                onValueChange={(userId) => {
+                  const v = vendedoresLista.find(v => v.value === userId);
+                  handleChange('vendedor_id', userId);
+                  handleChange('vendedor_responsavel', v?.label || formData.vendedor_responsavel);
+                }}
+                destacado={camposDestacados.includes('vendedor_id')}
+              >
+                {vendedoresLista.map(v => (
+                  <SelectItem key={v.value} value={v.value} className="text-xs">{v.label}</SelectItem>
+                ))}
+              </GlassSelect>
             </div>
 
             <h3 className="bg-orange-500 text-white px-2 py-1 font-bold text-xs rounded mt-2">Dados Operacionais</h3>

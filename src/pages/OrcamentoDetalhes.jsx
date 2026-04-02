@@ -799,7 +799,7 @@ RETORNE o JSON estruturado conforme o schema.`;
         )}
 
         {/* ZONAS DE IMPORTAÇÃO COM IA */}
-        {(modoOperacao === 'novo' || modoOperacao === 'chat') && (
+        {(modoOperacao === 'novo' || modoOperacao === 'chat' || modoOperacao === 'edicao') && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div
               onDrop={(e) => handleDrop(e, 'completo')}
