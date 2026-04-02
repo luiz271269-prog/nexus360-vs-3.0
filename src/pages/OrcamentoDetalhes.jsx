@@ -77,10 +77,10 @@ export default function OrcamentoDetalhes() {
 
 
 
+
         // Non-admin users can't list users — use only current user
       } // Always ensure current user is in the list
-      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];}setVendedores(vendedoresData);if (modoOperacao === 'edicao') {const [orcData, itensData] = await Promise.all([base44.entities.Orcamento.get(orcamentoId),
-          base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })]
+      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];}setVendedores(vendedoresData);if (modoOperacao === 'edicao') {const [orcData, itensData] = await Promise.all([base44.entities.Orcamento.get(orcamentoId), base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })]
         );
         // Fase 1: garantir que nome do vendedor reflete User.full_name atual
         if (orcData.vendedor_id) {
@@ -974,7 +974,7 @@ RETORNE o JSON estruturado conforme o schema.`;
                       <Input value={item.nome_produto || ''} onChange={(e) => atualizarItem(itemId, 'nome_produto', e.target.value)} placeholder="Nome *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" />
                     </div>
                     <div>
-                      <Input type="number" value={item.quantidade || 0} onChange={(e) => atualizarItem(itemId, 'quantidade', e.target.value)} placeholder="Qtd *" className="bg-slate-800 text-white mx-4 px-5 text-sm rounded-md flex w-full border shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm border-slate-600 h-8" />
+                      <Input type="number" value={item.quantidade || 0} onChange={(e) => atualizarItem(itemId, 'quantidade', e.target.value)} placeholder="Qtd *" className="bg-slate-800 text-white mx-3 px-5 text-sm rounded-md flex w-full border shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm border-slate-600 h-8" />
                     </div>
                     <div>
                       <Input type="number" step="0.01" value={item.valor_unitario || 0} onChange={(e) => atualizarItem(itemId, 'valor_unitario', e.target.value)} placeholder="Vlr Unit *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" />
