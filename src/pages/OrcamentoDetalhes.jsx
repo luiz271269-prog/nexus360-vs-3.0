@@ -877,7 +877,7 @@ RETORNE o JSON estruturado conforme o schema.`;
           )}
 
           {/* COLUNA DIREITA: CONTEÚDO PRINCIPAL */}
-          <div className="flex-1 min-w-0 space-y-4">
+          <div className="flex-1 min-w-0 space-y-2">
 
         {/* DADOS DO ORÇAMENTO */}
         <Card className="bg-slate-800/50 border-slate-700">
