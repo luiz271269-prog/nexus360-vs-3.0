@@ -729,7 +729,7 @@ RETORNE o JSON estruturado conforme o schema.`;
         <div className="flex gap-4">
 
           {/* COLUNA ESQUERDA: IMAGENS ANEXADAS */}
-          {estudosAnexos.length > 0 && (
+          {(estudosAnexos.length > 0 || modoOperacao === 'edicao') && (
             <div className="w-64 flex-shrink-0">
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden sticky top-4">
                 <div className="px-3 py-2 border-b border-slate-700 flex items-center gap-2">
@@ -737,6 +737,13 @@ RETORNE o JSON estruturado conforme o schema.`;
                   <span className="text-xs font-semibold text-white">Imagens ({estudosAnexos.length})</span>
                 </div>
                 <div className="p-2 space-y-2 max-h-[calc(100vh-180px)] overflow-y-auto">
+                  {estudosAnexos.length === 0 && (
+                    <div className="text-center py-6 px-2">
+                      <ImageIcon className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                      <p className="text-xs text-slate-500">Nenhuma imagem anexada</p>
+                      <p className="text-[10px] text-slate-600 mt-1">Use "Importar Completo" ou "Fixar Imagem" acima</p>
+                    </div>
+                  )}
                   {estudosAnexos.map((anexo, index) => (
                     <div key={index} className="bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden">
                       <div className="relative">
