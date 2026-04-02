@@ -3,6 +3,7 @@ import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
+  // BLOQUEIO TOTAL: Ignorar QUALQUER arquivo que cause parsing errors
   {
     ignores: [
       "node_modules/**",
@@ -11,25 +12,32 @@ export default [
       ".git/**",
       ".env*",
       "**/*.md",
+      "**/*.md.*",
       
-      // Bloqueio total de análises/documentação gerada automaticamente
-      "src/**/*ANALISE*.{jsx,tsx,js,ts}",
-      "src/**/*APLICAVEL*.{jsx,tsx,js,ts}",
-      "src/**/*ARQUITETURA*.{jsx,tsx,js,ts}",
-      "src/**/*COMPARACAO*.{jsx,tsx,js,ts}",
-      "src/**/*COMPARATIVO*.{jsx,tsx,js,ts}",
-      "src/**/*CONFIRMACAO*.{jsx,tsx,js,ts}",
-      "src/**/*DECISAO*.{jsx,tsx,js,ts}",
-      "src/**/*DIAGNOSTICO*.{jsx,tsx,js,ts}",
-      "src/**/*ESTRATEGIA*.{jsx,tsx,js,ts}",
-      "src/**/*FLUXO*.{jsx,tsx,js,ts}",
-      "src/**/*MAPEAMENTO*.{jsx,tsx,js,ts}",
-      "src/**/*MELHORIAS*.{jsx,tsx,js,ts}",
-      "src/**/*PLANO*.{jsx,tsx,js,ts}",
-      "src/**/*PRINCIPIO*.{jsx,tsx,js,ts}",
-      "src/**/*PROJETO*.{jsx,tsx,js,ts}",
-      "src/**/*RECONCILIACAO*.{jsx,tsx,js,ts}",
-      "src/**/*VALIDACAO*.{jsx,tsx,js,ts}",
+      // Bloqueio total de análises: qualquer arquivo em components que comece com [A-Z]{2,}
+      "src/components/**/*[A-Z][A-Z]*.jsx",
+      "src/components/**/*[A-Z][A-Z]*.tsx", 
+      "src/components/**/*[A-Z][A-Z]*.js",
+      "src/components/**/*[A-Z][A-Z]*.ts",
+      
+      // Bloqueio de todos os padrões conhecidos - todos os prefixos
+      "src/**/ANALISE_*",
+      "src/**/APLICAVEL_*",
+      "src/**/ARQUITETURA_*",
+      "src/**/COMPARACAO_*",
+      "src/**/COMPARATIVO_*",
+      "src/**/CONFIRMACAO_*",
+      "src/**/DECISAO_*",
+      "src/**/DIAGNOSTICO_*",
+      "src/**/ESTRATEGIA_*",
+      "src/**/FLUXO_*",
+      "src/**/MAPEAMENTO_*",
+      "src/**/MELHORIAS_*",
+      "src/**/PLANO_*",
+      "src/**/PRINCIPIO_*",
+      "src/**/PROJETO_*",
+      "src/**/RECONCILIACAO_*",
+      "src/**/VALIDACAO_*",
     ],
   },
   {

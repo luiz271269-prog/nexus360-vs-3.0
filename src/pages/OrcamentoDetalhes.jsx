@@ -645,25 +645,22 @@ RETORNE o JSON estruturado conforme o schema.`;
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-slate-50">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-slate-600">Carregando orçamento...</p>
-        </div>
+      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-900 to-slate-800">
+        <Loader2 className="w-12 h-12 animate-spin text-amber-500" />
       </div>);
 
   }
 
   if (!orcamento) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="bg-white rounded-lg p-8 border border-slate-200 text-center shadow-sm">
-          <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Orçamento não encontrado</h2>
-          <Button onClick={() => navigate(createPageUrl('LeadsQualificados'))} className="mt-4 bg-blue-600 hover:bg-blue-700">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
+        <Card className="bg-slate-800 p-8 border-slate-700 text-center">
+          <FileText className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Orçamento não encontrado</h2>
+          <Button onClick={() => navigate(createPageUrl('LeadsQualificados'))} className="mt-4 bg-amber-500">
             Voltar aos Orçamentos
           </Button>
-        </div>
+        </Card>
       </div>);
 
   }
@@ -690,7 +687,7 @@ RETORNE o JSON estruturado conforme o schema.`;
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-12">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 pb-16">
       {processing &&
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-slate-800 rounded-xl p-8 border border-amber-500 shadow-2xl">
@@ -700,36 +697,52 @@ RETORNE o JSON estruturado conforme o schema.`;
         </div>
       }
 
-      {/* HEADER MODERNO */}
-      <div className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+      {/* HEADER */}
+      <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-slate-700 shadow-xl">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate(createPageUrl('LeadsQualificados'))} className="text-slate-600">
+            <Button variant="ghost" size="icon" onClick={() => navigate(createPageUrl('LeadsQualificados'))} className="text-white">
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">{getTitulo()}</h1>
-              <p className="text-sm text-slate-500">{Array.isArray(itens) ? itens.length : 0} item(ns)</p>
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
+                <FileText className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-white">{getTitulo()}</h1>
+                <p className="text-xs text-slate-400">{Array.isArray(itens) ? itens.length : 0} {itens.length === 1 ? 'item' : 'itens'}</p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            {modoOperacao === 'edicao' && (
-              <Select value={orcamento.status || 'rascunho'} onValueChange={(value) => handleSelectChange('status', value)}>
-                <SelectTrigger className="h-9 w-[160px] text-sm border-slate-300 bg-white text-slate-900">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-slate-200">
-                  {['rascunho', 'aguardando_cotacao', 'cotando', 'aguardando_analise', 'analisando', 'aguardando_liberacao', 'liberado', 'enviado', 'negociando', 'aprovado', 'rejeitado', 'vencido'].map((s) =>
-                  <SelectItem key={s} value={s} className="text-slate-900">{s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</SelectItem>
+          <div className="flex items-center gap-3">
+            {modoOperacao === 'edicao' &&
+            <div className="flex flex-col items-start gap-0.5">
+                <span className="text-[10px] text-slate-400 font-medium">Etapa do Kanban</span>
+                <Select value={orcamento.status || 'rascunho'} onValueChange={(value) => handleSelectChange('status', value)}>
+                  <SelectTrigger className="h-8 border border-amber-500/60 bg-amber-500/10 text-amber-300 text-xs font-semibold rounded-full px-3 min-w-[140px] focus:ring-0 focus:ring-offset-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    {['rascunho', 'aguardando_cotacao', 'cotando', 'aguardando_analise', 'analisando', 'aguardando_liberacao', 'liberado', 'enviado', 'negociando', 'aprovado', 'rejeitado', 'vencido'].map((s) =>
+                  <SelectItem key={s} value={s} className="text-white text-xs">{s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</SelectItem>
                   )}
-                </SelectContent>
-              </Select>
-            )}
-            <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg px-4 py-2 text-white font-semibold">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(orcamento.valor_total || 0)}
+                  </SelectContent>
+                </Select>
+              </div>
+            }
+            {modoOperacao === 'edicao' &&
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="text-white border-slate-600 hover:bg-slate-700">
+                Imprimir
+              </Button>
+            }
+            <div className="text-right bg-slate-800 rounded-lg px-3 py-1.5 border border-slate-700">
+              <p className="text-xs text-slate-400">Total</p>
+              <p className="text-xl font-bold text-green-400">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(orcamento.valor_total || 0)}
+              </p>
             </div>
-            <Button onClick={handleSalvar} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
-              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="w-4 h-4" />}
+            <Button onClick={handleSalvar} disabled={saving} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
+              {saving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="w-4 h-4 mr-2" />}
               Salvar
             </Button>
           </div>
@@ -738,161 +751,258 @@ RETORNE o JSON estruturado conforme o schema.`;
 
 
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* COLUNA ESQUERDA: IMAGENS */}
-          {(estudosAnexos.length > 0 || modoOperacao === 'edicao') && (
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden sticky top-24">
-                <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <ImageIcon className="w-4 h-4 text-blue-600" />
-                    <span className="font-semibold text-slate-900">Documentos ({estudosAnexos.length})</span>
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="flex gap-4">
+
+          {/* COLUNA ESQUERDA: IMAGENS ANEXADAS */}
+          {(estudosAnexos.length > 0 || modoOperacao === 'edicao') &&
+          <div className="w-64 flex-shrink-0">
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden sticky top-4">
+                {/* Cabeçalho com título + botões de importação */}
+                <div className="px-2 pt-1.5 pb-1 border-b border-slate-700">
+                  <div className="flex items-center gap-1 mb-1.5">
+                    <ImageIcon className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                    <span className="text-[10px] font-semibold text-white">Imagens ({estudosAnexos.length})</span>
                   </div>
-                  {(modoOperacao === 'novo' || modoOperacao === 'chat' || modoOperacao === 'edicao') && (
-                    <div className="flex gap-2 mt-2">
+                  {(modoOperacao === 'novo' || modoOperacao === 'chat' || modoOperacao === 'edicao') &&
+                <div className="flex gap-1">
                       <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarImagemCompleta(e.target.files[0])} className="hidden" id="upload-completo" />
-                      <label htmlFor="upload-completo" className="flex-1 cursor-pointer">
-                        <div className="bg-blue-100 hover:bg-blue-200 text-blue-700 rounded px-2 py-1.5 text-xs font-semibold text-center transition">
-                          📷 IA Completo
+                      <label htmlFor="upload-completo" title="Importar Completo" className="cursor-pointer flex-1">
+                        <div className="bg-amber-500 hover:bg-amber-600 rounded px-1.5 py-1 flex items-center gap-1 transition-colors">
+                          <Sparkles className="w-2.5 h-2.5 text-white flex-shrink-0" />
+                          <div>
+                            <p className="text-[8px] font-bold text-white leading-none">Importar Completo</p>
+                            <p className="text-[7px] text-amber-100 leading-none mt-0.5">IA extrai tudo</p>
+                          </div>
                         </div>
                       </label>
                       <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarApenasItens(e.target.files[0])} className="hidden" id="upload-itens" />
-                      <label htmlFor="upload-itens" className="flex-1 cursor-pointer">
-                        <div className="bg-purple-100 hover:bg-purple-200 text-purple-700 rounded px-2 py-1.5 text-xs font-semibold text-center transition">
-                          🛒 Itens IA
+                      <label htmlFor="upload-itens" title="Importar Itens" className="cursor-pointer flex-1">
+                        <div className="bg-purple-500 py-4 rounded hover:bg-purple-600 flex items-center gap-1 transition-colors">
+                          <ShoppingCart className="w-2.5 h-2.5 text-white flex-shrink-0" />
+                          <div>
+                            <p className="text-[8px] font-bold text-white leading-none">Importar Itens</p>
+                            <p className="text-[7px] text-purple-100 leading-none mt-0.5">IA extrai produtos</p>
+                          </div>
+                        </div>
+                      </label>
+                      <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && somenteAnexarImagem(e.target.files[0])} className="hidden" id="upload-manual" />
+                      <label htmlFor="upload-manual" title="Fixar Imagem" className="cursor-pointer flex-1">
+                        <div className="bg-blue-500 py-4 rounded hover:bg-blue-600 flex items-center gap-1 transition-colors">
+                          <Plus className="w-2.5 h-2.5 text-white flex-shrink-0" />
+                          <div>
+                            <p className="text-[8px] font-bold text-white leading-none">Fixar Imagem</p>
+                            <p className="text-[7px] text-blue-100 leading-none mt-0.5">Somente anexar</p>
+                          </div>
                         </div>
                       </label>
                     </div>
-                  )}
+                }
                 </div>
-                <div className="p-3 space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto">
-                  {estudosAnexos.length === 0 ? (
-                    <div className="text-center py-8 text-slate-500">
-                      <ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Nenhum documento</p>
+
+                <div className="p-2 space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto">
+                  {estudosAnexos.length === 0 &&
+                <div className="text-center py-6 px-2">
+                      <ImageIcon className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                      <p className="text-xs text-slate-500">Nenhuma imagem anexada</p>
                     </div>
-                  ) : (
-                    estudosAnexos.map((anexo, index) => (
-                      <div key={index} className="rounded-lg overflow-hidden border border-slate-200 hover:shadow-md transition">
-                        <img src={anexo.url} alt={`Doc ${index + 1}`} className="w-full h-24 object-cover cursor-pointer hover:opacity-80" onClick={() => window.open(anexo.url, '_blank')} />
-                        <div className="p-2 flex items-center justify-between gap-2">
-                          <input type="checkbox" checked={!anexo.is_opcional} onChange={() => toggleOpcionalAnexo(index)} className="w-4 h-4" />
-                          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => removerAnexo(index)}>
-                            <Trash2 className="w-3 h-3 text-red-500" />
+                }
+                  {estudosAnexos.map((anexo, index) => {
+                  const dataFormatada = anexo.data_anexo ?
+                  new Date(anexo.data_anexo).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' }) :
+                  null;
+                  return (
+                    <div key={index} className="bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden">
+                      <div className="flex items-center justify-between px-2 py-1 bg-slate-800/80 border-b border-slate-600">
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                        anexo.tipo_estudo === 'orcamento_completo_ia' ? 'bg-amber-500 text-white' :
+                        anexo.tipo_estudo === 'itens_ia' ? 'bg-purple-500 text-white' :
+                        'bg-slate-600 text-slate-300'}`
+                        }>
+                          {anexo.tipo_estudo === 'orcamento_completo_ia' ? '✨ IA Completo' :
+                          anexo.tipo_estudo === 'itens_ia' ? '🛒 IA Itens' : '📎 Manual'}
+                        </span>
+                        {dataFormatada &&
+                        <span className="text-[9px] text-slate-400">{dataFormatada}</span>
+                        }
+                      </div>
+                      <div className="relative">
+                        <img
+                          src={anexo.url}
+                          alt={anexo.descricao || `Anexo ${index + 1}`}
+                          className="w-full h-32 object-contain bg-slate-900 cursor-pointer"
+                          onClick={() => window.open(anexo.url, '_blank')} />
+                        
+                      </div>
+                      <div className="p-1.5 flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={!anexo.is_opcional}
+                            onChange={() => toggleOpcionalAnexo(index)}
+                            className="w-3 h-3 flex-shrink-0"
+                            title="Marcar como obrigatório" />
+                          
+                          <span className="text-[9px] text-slate-400 truncate">{anexo.descricao || `Anexo ${index + 1}`}</span>
+                        </div>
+                        <div className="flex gap-0.5 flex-shrink-0">
+                          <Button
+                            size="sm"
+                            className="h-5 w-5 p-0 bg-amber-500 hover:bg-amber-600"
+                            onClick={async () => {
+                              const resp = await fetch(anexo.url);
+                              const blob = await resp.blob();
+                              processarImagemCompleta(new File([blob], 'reimport.png', { type: blob.type }));
+                            }}
+                            title="Reprocessar com IA">
+                            
+                            <Sparkles className="w-2.5 h-2.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 text-red-400 hover:text-red-300"
+                            onClick={() => removerAnexo(index)}>
+                            
+                            <Trash2 className="w-2.5 h-2.5" />
                           </Button>
                         </div>
                       </div>
-                    ))
-                  )}
+                    </div>);
+
+                })}
                 </div>
               </div>
             </div>
-          )}
+          }
 
-          {/* COLUNA DIREITA: CONTEÚDO */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* DADOS DO ORÇAMENTO */}
-            <div className="bg-white rounded-lg border border-slate-200 p-4">
-              <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <User className="w-5 h-5 text-blue-600" /> Dados do Orçamento
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-xs text-slate-600 mb-1.5 block">Código</Label>
-                  <Input name="numero_orcamento" value={orcamento.numero_orcamento || ''} onChange={handleOrcamentoChange} className="h-9 text-sm border-slate-300" />
-                </div>
-                <div className="sm:col-span-2 lg:col-span-1">
-                  <Label className="text-xs text-slate-600 mb-1.5 block">Cliente *</Label>
-                  <ClienteCombobox value={orcamento.cliente_nome} onChange={(value) => handleSelectChange('cliente_nome', value)} />
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-600 mb-1.5 block">Telefone</Label>
-                  <Input name="cliente_telefone" value={orcamento.cliente_telefone || ''} onChange={handleOrcamentoChange} className="h-9 text-sm border-slate-300" />
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-600 mb-1.5 block">Email</Label>
-                  <Input name="cliente_email" type="email" value={orcamento.cliente_email || ''} onChange={handleOrcamentoChange} className="h-9 text-sm border-slate-300" />
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-600 mb-1.5 block">Empresa</Label>
-                  <Input name="cliente_empresa" value={orcamento.cliente_empresa || ''} onChange={handleOrcamentoChange} className="h-9 text-sm border-slate-300" />
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-600 mb-1.5 block">Vendedor</Label>
-                  <Select value={orcamento.vendedor_id || ''} onValueChange={(value) => {const v = vendedores.find((u) => u.id === value); setOrcamento((prev) => ({ ...prev, vendedor_id: value, vendedor: v?.nome || v?.email || '' }));}}>
-                    <SelectTrigger className="h-9 text-sm border-slate-300">
-                      <SelectValue placeholder={orcamento.vendedor || 'Selecionar'} />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-slate-200">
-                      {vendedores.map((v) => <SelectItem key={v.id} value={v.id} className="text-slate-900 text-sm">{v.nome || v.email}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-600 mb-1.5 block">Data Orçamento</Label>
-                  <Input name="data_orcamento" type="date" value={orcamento.data_orcamento || ''} onChange={handleOrcamentoChange} className="h-9 text-sm border-slate-300" />
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-600 mb-1.5 block">Validade</Label>
-                  <Input name="data_vencimento" type="date" value={orcamento.data_vencimento || ''} onChange={handleOrcamentoChange} className="h-9 text-sm border-slate-300" />
-                </div>
-                <div>
-                  <Label className="text-xs text-slate-600 mb-1.5 block">Cond. Pagamento</Label>
-                  <Input name="condicao_pagamento" value={orcamento.condicao_pagamento || ''} onChange={handleOrcamentoChange} placeholder="Ex: 30/60/90" className="h-9 text-sm border-slate-300" />
-                </div>
+          {/* COLUNA DIREITA: CONTEÚDO PRINCIPAL */}
+          <div className="flex-1 min-w-0 space-y-4">
+
+        {/* DADOS DO ORÇAMENTO */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-white flex items-center gap-2">
+              <User className="w-4 h-4" /> Dados do Orçamento
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Código</Label>
+                <Input name="numero_orcamento" value={orcamento.numero_orcamento || ''} onChange={handleOrcamentoChange} placeholder="Código do orçamento" className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Cliente *</Label>
+                <ClienteCombobox value={orcamento.cliente_nome} onChange={(value) => handleSelectChange('cliente_nome', value)} />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Telefone</Label>
+                <Input name="cliente_telefone" value={orcamento.cliente_telefone || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Email</Label>
+                <Input name="cliente_email" type="email" value={orcamento.cliente_email || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Empresa</Label>
+                <Input name="cliente_empresa" value={orcamento.cliente_empresa || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Vendedor</Label>
+                <Select value={orcamento.vendedor_id || ''} onValueChange={(value) => {
+                      const v = vendedores.find((u) => u.id === value);
+                      setOrcamento((prev) => ({ ...prev, vendedor_id: value, vendedor: v?.nome || v?.email || '' }));
+                    }}>
+                  <SelectTrigger className="bg-slate-900 border-slate-600 text-white h-9 text-sm">
+                    <SelectValue placeholder={orcamento.vendedor || 'Selecionar vendedor'} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    {vendedores.map((v) =>
+                        <SelectItem key={v.id} value={v.id} className="text-white text-sm">{v.nome || v.email}</SelectItem>
+                        )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Data Orçamento</Label>
+                <Input name="data_orcamento" type="date" value={orcamento.data_orcamento || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Validade</Label>
+                <Input name="data_vencimento" type="date" value={orcamento.data_vencimento || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Cond. Pagamento</Label>
+                <Input name="condicao_pagamento" value={orcamento.condicao_pagamento || ''} onChange={handleOrcamentoChange} placeholder="Ex: 30/60/90" className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
             </div>
 
-            {/* ITENS */}
-            <div className="bg-white rounded-lg border border-slate-200 p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5 text-blue-600" /> Itens ({Array.isArray(itens) ? itens.length : 0})
-                </h2>
-                <Button size="sm" onClick={adicionarItemLivre} className="bg-green-600 hover:bg-green-700 h-8 gap-1">
-                  <Plus className="w-4 h-4" /> Adicionar
-                </Button>
-              </div>
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                {Array.isArray(itens) && itens.map((item, index) => {
+          </CardContent>
+        </Card>
+
+        {/* ITENS */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader className="px-3 flex flex-col space-y-1.5">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base text-white flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4" /> Itens ({Array.isArray(itens) ? itens.length : 0})
+              </CardTitle>
+              <Button size="sm" onClick={adicionarItemLivre} className="bg-green-500 hover:bg-green-600 h-8">
+                <Plus className="w-4 h-4 mr-1" /> Adicionar
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {Array.isArray(itens) && itens.map((item, index) => {
                   const itemId = item.id || item._tempId;
                   return (
-                    <div key={itemId} className="bg-slate-50 rounded p-3 border border-slate-200 flex gap-2 items-start">
-                      <span className="text-xs font-semibold text-slate-500 min-w-fit pt-2.5">#{index + 1}</span>
-                      <Input value={item.nome_produto || ''} onChange={(e) => atualizarItem(itemId, 'nome_produto', e.target.value)} placeholder="Nome *" className="h-9 text-sm flex-1 border-slate-300" />
-                      <Input type="number" value={item.quantidade || 0} onChange={(e) => atualizarItem(itemId, 'quantidade', e.target.value)} placeholder="Qtd" className="h-9 text-sm w-16 border-slate-300" />
-                      <Input type="number" step="0.01" value={item.valor_unitario || 0} onChange={(e) => atualizarItem(itemId, 'valor_unitario', e.target.value)} placeholder="Vlr Unit" className="h-9 text-sm w-24 border-slate-300" />
-                      <Input type="number" value={(item.valor_total || 0).toFixed(2)} readOnly className="h-9 text-sm w-24 border-slate-300 bg-slate-100 font-semibold text-slate-900" />
-                      <input type="checkbox" checked={item.is_opcional || false} onChange={(e) => atualizarItem(itemId, 'is_opcional', e.target.checked)} className="w-4 h-4 mt-2.5" title="Opcional" />
-                      <Button variant="ghost" size="icon" onClick={() => removerItem(itemId)} className="h-9 w-9 text-red-500 hover:text-red-700 hover:bg-red-50">
+                    <div key={itemId} className="bg-slate-700/50 rounded-lg p-2.5 flex items-center gap-2 w-full">
+                      <span className="text-xs text-slate-400 min-w-[28px] font-semibold">#{index + 1}</span>
+                      <Input value={item.nome_produto || ''} onChange={(e) => atualizarItem(itemId, 'nome_produto', e.target.value)} placeholder="Nome *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm flex-1" />
+                      <Input type="number" value={item.quantidade || 0} onChange={(e) => atualizarItem(itemId, 'quantidade', e.target.value)} placeholder="Qtd" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" style={{width: '60px'}} />
+                      <Input type="number" step="0.01" value={item.valor_unitario || 0} onChange={(e) => atualizarItem(itemId, 'valor_unitario', e.target.value)} placeholder="Vlr Unit" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" style={{width: '110px'}} />
+                      <Input type="number" value={(item.valor_total || 0).toFixed(2)} readOnly className="bg-slate-900 border-slate-700 text-green-400 font-bold h-8 text-sm" style={{width: '95px'}} />
+                      <input type="checkbox" checked={item.is_opcional || false} onChange={(e) => atualizarItem(itemId, 'is_opcional', e.target.checked)} className="w-4 h-4 flex-shrink-0" title="Opcional" />
+                      <Button variant="ghost" size="icon" onClick={() => removerItem(itemId)} className="h-8 w-8 p-0 text-red-400 hover:text-red-300 flex-shrink-0">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   );
                 })}
-              </div>
-            </div>
+          </CardContent>
+        </Card>
 
-            {/* OBSERVAÇÕES */}
-            <div className="bg-white rounded-lg border border-slate-200 p-4">
-              <h2 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
-                📝 Observações
-              </h2>
-              <Textarea name="observacoes" value={orcamento.observacoes || ''} onChange={handleOrcamentoChange} placeholder="Adicione observações..." className="text-sm border-slate-300 min-h-24" />
-            </div>
+        {/* OBSERVAÇÕES */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-white flex items-center gap-2">
+              📝 Observações
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea name="observacoes" value={orcamento.observacoes || ''} onChange={handleOrcamentoChange} placeholder="Adicione observações sobre o orçamento..." className="bg-slate-900 border-slate-600 text-white text-sm h-20" />
+          </CardContent>
+        </Card>
 
-            {/* PLANOS DE PAGAMENTO */}
-            {orcamento.valor_total > 0 && (
-              <div className="bg-white rounded-lg border border-slate-200 p-4">
-                <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-blue-600" /> Planos de Pagamento
-                </h2>
-                <PlanosPagamento orcamentoId={currentOrcamentoId || 'temp'} valorTotal={orcamento.valor_total} onPlanosChange={() => {}} />
-              </div>
-            )}
-          </div>
-        </div>
+        {/* PLANOS DE PAGAMENTO */}
+        {orcamento.valor_total > 0 &&
+            <Card className="bg-slate-800/50 border-slate-700">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-white flex items-center gap-2">
+                <DollarSign className="w-4 h-4" /> Planos de Pagamento
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PlanosPagamento orcamentoId={currentOrcamentoId || 'temp'} valorTotal={orcamento.valor_total} onPlanosChange={() => {}} />
+            </CardContent>
+          </Card>
+            }
+
+          </div> {/* fim coluna direita */}
+        </div> {/* fim flex */}
       </div>
     </div>);
 
