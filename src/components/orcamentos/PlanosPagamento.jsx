@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, Save } from 'lucide-react';
-import { toast } from 'sonner';
+import { X } from 'lucide-react';
 
 const FORMAS = [
   { id: 'vista', nome: 'À Vista', icon: '💵' },
-  { id: 'credito', nome: 'Cartão de Crédito', icon: '💳' },
+  { id: 'credito', nome: 'Crédito', icon: '💳' },
   { id: 'boleto', nome: 'Boleto', icon: '📋' },
   { id: 'pix', nome: 'PIX', icon: '📱' },
 ];
@@ -17,14 +16,7 @@ export default function PlanosPagamento({ orcamentoId, valorTotal, onPlanosChang
 
   const adicionarPlano = (parcelas) => {
     const valor = valorTotal / parcelas;
-    setPlanos([...planos, { 
-      forma: formaAtiva.nome, 
-      formaId: formaAtiva.id,
-      parcelas, 
-      valor,
-      valorTotal: parcelas * valor 
-    }]);
-    toast.success(`Plano de ${parcelas}x adicionado!`);
+    setPlanos([...planos, { forma: formaAtiva.nome, parcelas, valor }]);
     setShowModal(false);
   };
 
@@ -32,69 +24,12 @@ export default function PlanosPagamento({ orcamentoId, valorTotal, onPlanosChang
     setPlanos(planos.filter((_, i) => i !== index));
   };
 
-  const salvarPlanos = async () => {
-    if (planos.length === 0) {
-      toast.error('Adicione pelo menos um plano de pagamento');
-      return;
-    }
-    
-    try {
-      // TODO: Salvar planos no banco de dados
-      toast.success(`${planos.length} plano(s) de pagamento salvo(s)!`);
-      onPlanosChange?.(planos);
-    } catch (error) {
-      toast.error('Erro ao salvar planos');
-    }
-  };
-
   return (
     <div className="space-y-4">
-      {/* SEÇÃO SUPERIOR: PLANOS SELECIONADOS */}
-      {planos.length > 0 && (
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg p-4 border border-blue-500/30">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-blue-400">💰 Planos Selecionados para Salvar</h3>
-            <Button
-              onClick={salvarPlanos}
-              className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold gap-2 h-8"
-            >
-              <Save className="w-4 h-4" />
-              Salvar Planos
-            </Button>
-          </div>
-          <div className="space-y-2">
-            {planos.map((plano, idx) => (
-              <div key={idx} className="bg-slate-700/50 rounded-lg p-3 flex items-center justify-between border border-slate-600">
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-white">{plano.parcelas}x - {plano.forma}</p>
-                  <p className="text-xs text-slate-300">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(plano.valor)} cada parcela
-                  </p>
-                </div>
-                <p className="text-lg font-bold text-green-400 mr-3">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(plano.valorTotal)}
-                </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removerPlano(idx)}
-                  className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/30"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* GRID: FORMAS + CONFIGURAÇÃO */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* COLUNA: FORMAS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* COLUNA 1: FORMAS */}
         <div className="lg:col-span-1">
-          <h3 className="text-sm font-bold text-orange-400 mb-3 flex items-center gap-2">
-            💵 Formas
-          </h3>
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">Formas de Pagamento</h3>
           <div className="space-y-2">
             {FORMAS.map((forma) => (
               <button
@@ -103,97 +38,76 @@ export default function PlanosPagamento({ orcamentoId, valorTotal, onPlanosChang
                   setFormaAtiva(forma);
                   setShowModal(true);
                 }}
-                className={`w-full px-3 py-2.5 rounded-lg border-2 text-left flex items-center gap-2 transition font-medium text-sm ${
+                className={`w-full px-3 py-2.5 rounded-lg border-2 text-left flex items-center gap-2 transition ${
                   formaAtiva?.id === forma.id
-                    ? 'border-green-500 bg-green-500/10 text-green-400'
-                    : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-orange-500 hover:bg-slate-700'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
+                    : 'border-slate-300 bg-white text-slate-700 hover:border-blue-400'
                 }`}
               >
                 <span className="text-lg">{forma.icon}</span>
-                {forma.nome}
+                <span className="text-sm">{forma.nome}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* COLUNA: CONFIGURAÇÃO DA FORMA ATIVA */}
-        {formaAtiva && !showModal && (
-          <div className="lg:col-span-3 bg-slate-800/50 rounded-lg p-4 border border-orange-500/30">
-            <h4 className="text-sm font-bold text-orange-400 mb-4">⚙️ Configurar Plano - {formaAtiva.nome}</h4>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-400 block mb-2">Valor Total do Orçamento</label>
-                <p className="text-xl font-bold text-green-400">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorTotal)}
-                </p>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-400 block mb-2">Selecione Parcelas</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[1, 2, 3, 6, 12].map((parcelas) => {
-                    const valor = valorTotal / parcelas;
-                    return (
-                      <button
-                        key={parcelas}
-                        onClick={() => adicionarPlano(parcelas)}
-                        className="px-3 py-2 rounded-lg border-2 border-slate-600 bg-slate-700 hover:border-orange-500 hover:bg-orange-500/10 text-slate-300 hover:text-orange-400 transition font-semibold text-sm"
-                      >
-                        {parcelas}x
-                        <div className="text-xs text-slate-400 mt-1">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+        {/* COLUNA 2: PLANOS ESCOLHIDOS */}
+        <div className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-slate-700">Planos Selecionados</h3>
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">{planos.length} plano(s)</span>
           </div>
-        )}
+          <div className="bg-white rounded-lg border border-slate-200 p-3 space-y-2 min-h-[200px]">
+            {planos.length === 0 ? (
+              <p className="text-center text-slate-500 text-sm py-8">Selecione uma forma de pagamento para adicionar planos</p>
+            ) : (
+              planos.map((plano, idx) => (
+                <div key={idx} className="bg-slate-50 rounded p-3 flex items-center justify-between border border-slate-200">
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-slate-900">{plano.forma}</p>
+                    <p className="text-xs text-slate-600">
+                      {plano.parcelas}x de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(plano.valor)}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removerPlano(idx)}
+                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       {/* MODAL FLUTUANTE */}
       {showModal && formaAtiva && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl shadow-2xl w-full max-w-md border border-orange-500/30">
-            {/* Header */}
-            <div className="border-b border-slate-700 px-6 py-4 flex items-center justify-between">
-              <h3 className="font-bold text-white text-lg">📋 Planos Disponíveis</h3>
-              <p className="text-sm font-semibold text-orange-400">{formaAtiva.nome}</p>
-              <Button variant="ghost" size="icon" onClick={() => setShowModal(false)} className="h-8 w-8 p-0 text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md max-h-[80vh] overflow-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 p-4 flex items-center justify-between">
+              <h3 className="font-bold text-slate-900">Planos - {formaAtiva.nome}</h3>
+              <Button variant="ghost" size="icon" onClick={() => setShowModal(false)} className="h-7 w-7 p-0">
+                <X className="w-4 h-4" />
               </Button>
             </div>
-
-            {/* Body */}
-            <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto">
+            <div className="p-4 space-y-3">
               {[1, 2, 3, 6, 12].map((parcelas) => {
                 const valor = valorTotal / parcelas;
                 return (
                   <button
                     key={parcelas}
                     onClick={() => adicionarPlano(parcelas)}
-                    className="w-full px-4 py-3 rounded-lg border-2 border-slate-600 bg-slate-700/50 hover:border-orange-500 hover:bg-orange-500/10 transition group"
+                    className="w-full px-4 py-3 rounded-lg border-2 border-slate-300 hover:border-blue-500 hover:bg-blue-50 text-left transition"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="text-left">
-                        <p className="font-bold text-white group-hover:text-orange-400">{parcelas} Parcela{parcelas > 1 ? 's' : ''}</p>
-                        <p className="text-xs text-slate-400 group-hover:text-slate-300">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)} cada
-                        </p>
-                      </div>
-                      <p className="text-lg font-bold text-green-400">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorTotal)}
-                      </p>
-                    </div>
+                    <p className="font-semibold text-slate-900">{parcelas}x</p>
+                    <p className="text-sm text-slate-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)}</p>
                   </button>
                 );
               })}
-            </div>
-
-            {/* Footer */}
-            <div className="border-t border-slate-700 px-6 py-3 text-xs text-slate-400">
-              Selecione uma opção para adicionar o plano
             </div>
           </div>
         </div>
