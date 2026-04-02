@@ -138,7 +138,7 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
               </div>
           }
 
-            <div className="pt-1 rounded-none flex items-center gap-1 border-t border-slate-100">
+            <div className="bg-[#c2c9b5] pt-1 rounded-none flex items-center gap-1 border-t border-slate-100">
               {orcamento.probabilidade &&
             <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${
             orcamento.probabilidade === 'Alta' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
@@ -354,6 +354,10 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
                     data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-400 data-[state=active]:via-orange-500 data-[state=active]:to-red-500
                     data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-orange-500/30
                     flex items-center justify-between gap-3">
+
+
+
+                  
 
 
 
