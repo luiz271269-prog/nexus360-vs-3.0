@@ -764,30 +764,44 @@ RETORNE o JSON estruturado conforme o schema.`;
             <div className="w-64 flex-shrink-0">
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden sticky top-4">
                 {/* Cabeçalho com título + botões de importação */}
-                <div className="px-2 py-1.5 border-b border-slate-700 flex items-center gap-1.5">
-                  <ImageIcon className="w-3 h-3 text-amber-400 flex-shrink-0" />
-                  <span className="text-[10px] font-semibold text-white flex-1">Imagens ({estudosAnexos.length})</span>
+                <div className="px-2 pt-1.5 pb-1 border-b border-slate-700">
+                  <div className="flex items-center gap-1 mb-1.5">
+                    <ImageIcon className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                    <span className="text-[10px] font-semibold text-white">Imagens ({estudosAnexos.length})</span>
+                  </div>
                   {(modoOperacao === 'novo' || modoOperacao === 'chat' || modoOperacao === 'edicao') && (
-                    <>
+                    <div className="flex gap-1">
                       <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarImagemCompleta(e.target.files[0])} className="hidden" id="upload-completo" />
-                      <label htmlFor="upload-completo" title="Importar Completo (IA extrai cliente + itens)" className="cursor-pointer">
-                        <div className="w-5 h-5 bg-amber-500 hover:bg-amber-600 rounded flex items-center justify-center transition-colors">
-                          <Sparkles className="w-2.5 h-2.5 text-white" />
+                      <label htmlFor="upload-completo" title="Importar Completo" className="cursor-pointer flex-1">
+                        <div className="bg-amber-500 hover:bg-amber-600 rounded px-1.5 py-1 flex items-center gap-1 transition-colors">
+                          <Sparkles className="w-2.5 h-2.5 text-white flex-shrink-0" />
+                          <div>
+                            <p className="text-[8px] font-bold text-white leading-none">Importar Completo</p>
+                            <p className="text-[7px] text-amber-100 leading-none mt-0.5">IA extrai tudo</p>
+                          </div>
                         </div>
                       </label>
                       <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarApenasItens(e.target.files[0])} className="hidden" id="upload-itens" />
-                      <label htmlFor="upload-itens" title="Importar Itens (IA extrai apenas produtos)" className="cursor-pointer">
-                        <div className="w-5 h-5 bg-purple-500 hover:bg-purple-600 rounded flex items-center justify-center transition-colors">
-                          <ShoppingCart className="w-2.5 h-2.5 text-white" />
+                      <label htmlFor="upload-itens" title="Importar Itens" className="cursor-pointer flex-1">
+                        <div className="bg-purple-500 hover:bg-purple-600 rounded px-1.5 py-1 flex items-center gap-1 transition-colors">
+                          <ShoppingCart className="w-2.5 h-2.5 text-white flex-shrink-0" />
+                          <div>
+                            <p className="text-[8px] font-bold text-white leading-none">Importar Itens</p>
+                            <p className="text-[7px] text-purple-100 leading-none mt-0.5">IA extrai produtos</p>
+                          </div>
                         </div>
                       </label>
                       <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && somenteAnexarImagem(e.target.files[0])} className="hidden" id="upload-manual" />
-                      <label htmlFor="upload-manual" title="Fixar Imagem (sem IA)" className="cursor-pointer">
-                        <div className="w-5 h-5 bg-blue-500 hover:bg-blue-600 rounded flex items-center justify-center transition-colors">
-                          <Plus className="w-2.5 h-2.5 text-white" />
+                      <label htmlFor="upload-manual" title="Fixar Imagem" className="cursor-pointer flex-1">
+                        <div className="bg-blue-500 hover:bg-blue-600 rounded px-1.5 py-1 flex items-center gap-1 transition-colors">
+                          <Plus className="w-2.5 h-2.5 text-white flex-shrink-0" />
+                          <div>
+                            <p className="text-[8px] font-bold text-white leading-none">Fixar Imagem</p>
+                            <p className="text-[7px] text-blue-100 leading-none mt-0.5">Somente anexar</p>
+                          </div>
                         </div>
                       </label>
-                    </>
+                    </div>
                   )}
                 </div>
 
