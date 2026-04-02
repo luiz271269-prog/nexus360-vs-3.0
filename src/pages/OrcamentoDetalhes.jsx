@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { createPageUrl } from '@/utils';
 import StatusPipeline from '../components/orcamentos/StatusPipeline';
+import { resolverNomeVendedor } from '../components/lib/vendedorSync';
 import PlanosPagamento from '../components/orcamentos/PlanosPagamento';
 import ClienteCombobox from '../components/orcamentos/ClienteCombobox';
 
@@ -81,6 +82,13 @@ export default function OrcamentoDetalhes() {
           base44.entities.Orcamento.get(orcamentoId),
           base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })
         ]);
+        // Fase 1: garantir que nome do vendedor reflete User.full_name atual
+        if (orcData.vendedor_id) {
+          const nomeAtual = await resolverNomeVendedor(orcData.vendedor_id);
+          if (nomeAtual && nomeAtual !== orcData.vendedor) {
+            orcData.vendedor = nomeAtual;
+          }
+        }
         setOrcamento(orcData);
         setItens(Array.isArray(itensData) ? itensData : []);
         setEstudosAnexos(Array.isArray(orcData.estudos_anexos) ? orcData.estudos_anexos : []);

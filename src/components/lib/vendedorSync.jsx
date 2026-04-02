@@ -159,6 +159,21 @@ export async function sincronizarOrcamentosComUsuarios() {
 }
 
 /**
+ * Resolve o nome de exibição de um vendedor a partir do User.id
+ * Fase 1: leitura sempre via User, nunca via entidade Vendedor
+ */
+export async function resolverNomeVendedor(userId) {
+  if (!userId) return null;
+  try {
+    const users = await base44.entities.User.list();
+    const user = users.find(u => u.id === userId);
+    return user ? (user.full_name || user.email) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Lista Users que são vendedores (têm codigo ou setor=vendas) para Select/Combobox
  */
 export async function listarVendedoresParaSelect() {
