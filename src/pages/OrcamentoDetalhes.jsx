@@ -716,6 +716,21 @@ RETORNE o JSON estruturado conforme o schema.`;
           </div>
           <div className="flex items-center gap-3">
             {modoOperacao === 'edicao' && (
+              <div className="flex flex-col items-start gap-0.5">
+                <span className="text-[10px] text-slate-400 font-medium">Etapa do Kanban</span>
+                <Select value={orcamento.status || 'rascunho'} onValueChange={(value) => handleSelectChange('status', value)}>
+                  <SelectTrigger className="h-8 border border-amber-500/60 bg-amber-500/10 text-amber-300 text-xs font-semibold rounded-full px-3 min-w-[140px] focus:ring-0 focus:ring-offset-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    {['rascunho','aguardando_cotacao','cotando','aguardando_analise','analisando','aguardando_liberacao','liberado','enviado','negociando','aprovado','rejeitado','vencido'].map(s => (
+                      <SelectItem key={s} value={s} className="text-white text-xs">{s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {modoOperacao === 'edicao' && (
               <Button variant="outline" size="sm" onClick={() => window.print()} className="text-white border-slate-600 hover:bg-slate-700">
                 Imprimir
               </Button>
@@ -885,38 +900,9 @@ RETORNE o JSON estruturado conforme o schema.`;
                 <Input name="cliente_empresa" value={orcamento.cliente_empresa || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Vendedor</Label>
-                <Select value={orcamento.vendedor || ''} onValueChange={(value) => {
-                  const v = vendedores.find(v => v.nome === value);
-                  setOrcamento(prev => ({ ...prev, vendedor: value, vendedor_id: v?.id || prev.vendedor_id }));
-                }}>
-                  <SelectTrigger className="bg-slate-900 border-slate-600 text-white h-9 text-sm">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-slate-700">
-                    {Array.isArray(vendedores) && vendedores.map((v) => (
-                      <SelectItem key={v.id} value={v.nome} className="text-white text-sm">{v.nome}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-slate-300 text-xs mb-1">Etapa do Kanban</Label>
-                <Select value={orcamento.status || 'rascunho'} onValueChange={(value) => handleSelectChange('status', value)}>
-                  <SelectTrigger className="bg-slate-900 border-slate-600 text-white h-9 text-sm">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-slate-700">
-                    {['rascunho','aguardando_cotacao','cotando','aguardando_analise','analisando','aguardando_liberacao','liberado','enviado','negociando','aprovado','rejeitado','vencido'].map(s => (
-                      <SelectItem key={s} value={s} className="text-white text-sm">{s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-slate-300 text-xs mb-1">Data Emissão *</Label>
                 <Input name="data_orcamento" type="date" value={orcamento.data_orcamento || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
               <div>
