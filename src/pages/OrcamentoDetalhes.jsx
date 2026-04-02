@@ -72,10 +72,10 @@ export default function OrcamentoDetalhes() {
 
 
 
+
         // Non-admin users can't list users — use only current user
       } // Always ensure current user is in the list
-      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];}
-      setVendedores(vendedoresData);
+      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];}setVendedores(vendedoresData);
 
       if (modoOperacao === 'edicao') {
         const [orcData, itensData] = await Promise.all([
