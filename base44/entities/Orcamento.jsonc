@@ -31,7 +31,7 @@
       "type": "string",
       "description": "Nome do vendedor (compatibilidade legada)"
     },
-    "vendedor_id": {
+    "usuario_id": {
       "type": "string",
       "description": "ID do User respons\u00e1vel pelo or\u00e7amento (v\u00ednculo principal)"
     },

@@ -1,0 +1,240 @@
+{
+  "name": "Cliente",
+  "type": "object",
+  "properties": {
+    "razao_social": {
+      "type": "string",
+      "description": "Raz\u00e3o social da empresa"
+    },
+    "nome_fantasia": {
+      "type": "string",
+      "description": "Nome fantasia da empresa"
+    },
+    "cnpj": {
+      "type": "string",
+      "description": "CNPJ da empresa"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "Telefone principal"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "Email principal"
+    },
+    "endereco": {
+      "type": "string",
+      "description": "Endere\u00e7o completo"
+    },
+    "contato_principal_nome": {
+      "type": "string",
+      "description": "Nome do contato principal na empresa"
+    },
+    "contato_principal_cargo": {
+      "type": "string",
+      "description": "Cargo do contato principal"
+    },
+    "numero_maquinas": {
+      "type": "number",
+      "description": "N\u00famero de m\u00e1quinas/equipamentos"
+    },
+    "numero_funcionarios": {
+      "type": "number",
+      "description": "N\u00famero de funcion\u00e1rios da empresa"
+    },
+    "interesses_produtos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lista de produtos/servi\u00e7os de interesse"
+    },
+    "usuario_id": {
+      "type": "string",
+      "description": "ID do User respons\u00e1vel pela venda (para buscar full_name dinamicamente do User)"
+    },
+    "classificacao": {
+      "type": "string",
+      "enum": [
+        "A - Alto Potencial",
+        "B - M\u00e9dio Potencial",
+        "C - Baixo Potencial"
+      ],
+      "default": "B - M\u00e9dio Potencial",
+      "description": "Classifica\u00e7\u00e3o do cliente"
+    },
+    "segmento": {
+      "type": "string",
+      "enum": [
+        "Corporativo",
+        "PME",
+        "Micro"
+      ],
+      "default": "PME",
+      "description": "Segmento do cliente"
+    },
+    "ramo_atividade": {
+      "type": "string",
+      "description": "Ramo de atividade da empresa (ex: Varejo, Ind\u00fastria, Sa\u00fade, Tecnologia)"
+    },
+    "ramo_atividade_codigo": {
+      "type": "string",
+      "description": "C\u00f3digo CNAE ou c\u00f3digo interno do ramo de atividade"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "novo_lead",
+        "primeiro_contato",
+        "em_conversa",
+        "levantamento_dados",
+        "pre_qualificado",
+        "qualificacao_tecnica",
+        "em_aquecimento",
+        "lead_qualificado",
+        "desqualificado",
+        "Ativo",
+        "Inativo",
+        "Em Risco",
+        "Promotor",
+        "Prospect"
+      ],
+      "default": "novo_lead",
+      "description": "Status do lead/cliente no funil"
+    },
+    "motivo_desqualificacao": {
+      "type": "string",
+      "description": "Motivo da desqualifica\u00e7\u00e3o (se status = desqualificado)"
+    },
+    "necessidade_verificada": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a necessidade foi verificada na qualifica\u00e7\u00e3o t\u00e9cnica"
+    },
+    "capacidade_compra_verificada": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a capacidade de compra foi verificada"
+    },
+    "valor_recorrente_mensal": {
+      "type": "number",
+      "description": "Valor m\u00e9dio mensal de compras"
+    },
+    "data_primeiro_contrato": {
+      "type": "string",
+      "format": "date",
+      "description": "Data do primeiro contrato"
+    },
+    "ultimo_contato": {
+      "type": "string",
+      "format": "date",
+      "description": "Data do \u00faltimo contato"
+    },
+    "proximo_contato": {
+      "type": "string",
+      "format": "date",
+      "description": "Data do pr\u00f3ximo contato agendado"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre o cliente"
+    },
+    "origem_campanha": {
+      "type": "object",
+      "properties": {
+        "utm_source": {
+          "type": "string",
+          "description": "Fonte de tr\u00e1fego (ex: google, facebook, linkedin)"
+        },
+        "utm_medium": {
+          "type": "string",
+          "description": "Meio de marketing (ex: cpc, email, social)"
+        },
+        "utm_campaign": {
+          "type": "string",
+          "description": "Nome da campanha (ex: promo_natal_2025)"
+        },
+        "utm_term": {
+          "type": "string",
+          "description": "Termo de busca (para Google Ads)"
+        },
+        "utm_content": {
+          "type": "string",
+          "description": "Conte\u00fado espec\u00edfico do an\u00fancio"
+        },
+        "canal_entrada": {
+          "type": "string",
+          "enum": [
+            "whatsapp",
+            "site",
+            "indicacao",
+            "telefone",
+            "email",
+            "feira",
+            "outro"
+          ],
+          "description": "Canal de entrada principal"
+        },
+        "data_primeira_interacao": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Data da primeira intera\u00e7\u00e3o"
+        }
+      },
+      "description": "Origem da campanha de marketing que trouxe este cliente"
+    },
+    "perfil_cliente": {
+      "type": "string",
+      "enum": [
+        "analitico",
+        "pragmatico",
+        "relacional",
+        "inovador"
+      ],
+      "description": "Perfil comportamental do cliente (para matching com vendedor)"
+    },
+    "score_qualificacao_lead": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Score de qualifica\u00e7\u00e3o do lead (0-100) - calculado pela IA"
+    },
+    "data_ultima_qualificacao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data da \u00faltima qualifica\u00e7\u00e3o autom\u00e1tica"
+    },
+    "criterios_qualificacao": {
+      "type": "object",
+      "properties": {
+        "budget_confirmado": {
+          "type": "boolean",
+          "default": false
+        },
+        "autoridade_confirmada": {
+          "type": "boolean",
+          "default": false
+        },
+        "necessidade_clara": {
+          "type": "boolean",
+          "default": false
+        },
+        "timing_compra": {
+          "type": "string",
+          "enum": [
+            "imediato",
+            "1-3_meses",
+            "3-6_meses",
+            "indefinido"
+          ]
+        }
+      },
+      "description": "Crit\u00e9rios BANT de qualifica\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "razao_social",
+    "usuario_id"
+  ]
+}

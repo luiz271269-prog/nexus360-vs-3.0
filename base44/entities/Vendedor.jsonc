@@ -1,0 +1,185 @@
+{
+  "name": "Vendedor",
+  "type": "object",
+  "properties": {
+    "usuario_id": {
+      "type": "string",
+      "description": "ID do User associado (fonte \u00fanica de full_name, email, etc.)"
+    },
+    "codigo": {
+      "type": "string",
+      "description": "C\u00f3digo identificador do vendedor (ex: V-01)"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "Ramal/telefone espec\u00edfico do vendedor"
+    },
+    "foto_url": {
+      "type": "string",
+      "description": "URL da foto do vendedor (3x4)"
+    },
+    "meta_mensal": {
+      "type": "number",
+      "description": "Meta de faturamento mensal em R$"
+    },
+    "meta_semanal": {
+      "type": "number",
+      "description": "Meta de faturamento semanal em R$"
+    },
+    "meta_ligacoes_diarias": {
+      "type": "number",
+      "default": 10,
+      "description": "Meta de liga\u00e7\u00f5es por dia"
+    },
+    "meta_whatsapp_diarios": {
+      "type": "number",
+      "default": 5,
+      "description": "Meta de mensagens WhatsApp por dia"
+    },
+    "meta_emails_diarios": {
+      "type": "number",
+      "default": 3,
+      "description": "Meta de e-mails por dia"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "inativo",
+        "ferias"
+      ],
+      "default": "ativo",
+      "description": "Status do vendedor"
+    },
+    "comissao_percentual": {
+      "type": "number",
+      "description": "Percentual de comiss\u00e3o do vendedor"
+    },
+    "data_admissao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de admiss\u00e3o"
+    },
+    "carga_trabalho_atual": {
+      "type": "number",
+      "default": 0,
+      "description": "N\u00famero de leads/clientes atribu\u00eddos no momento"
+    },
+    "capacidade_maxima": {
+      "type": "number",
+      "default": 20,
+      "description": "N\u00famero m\u00e1ximo de leads simult\u00e2neos"
+    },
+    "segmentos_especialidade": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Segmentos em que o vendedor \u00e9 especialista"
+    },
+    "perfil_vendedor": {
+      "type": "string",
+      "enum": [
+        "analitico",
+        "consultivo",
+        "agressivo",
+        "relacional"
+      ],
+      "default": "consultivo",
+      "description": "Perfil de venda"
+    },
+    "horario_atendimento": {
+      "type": "object",
+      "properties": {
+        "inicio": {
+          "type": "string",
+          "default": "08:00"
+        },
+        "fim": {
+          "type": "string",
+          "default": "18:00"
+        },
+        "dias_semana": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "default": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        }
+      }
+    },
+    "metricas_performance": {
+      "type": "object",
+      "properties": {
+        "taxa_conversao_geral": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_conversao_por_perfil": {
+          "type": "object",
+          "properties": {
+            "analitico": {
+              "type": "number",
+              "default": 0
+            },
+            "pragmatico": {
+              "type": "number",
+              "default": 0
+            },
+            "relacional": {
+              "type": "number",
+              "default": 0
+            },
+            "inovador": {
+              "type": "number",
+              "default": 0
+            }
+          }
+        },
+        "taxa_conversao_por_segmento": {
+          "type": "object"
+        },
+        "tempo_medio_resposta_minutos": {
+          "type": "number",
+          "default": 0
+        },
+        "ticket_medio": {
+          "type": "number",
+          "default": 0
+        },
+        "total_conversoes": {
+          "type": "number",
+          "default": 0
+        },
+        "total_leads_recebidos": {
+          "type": "number",
+          "default": 0
+        }
+      }
+    },
+    "disponivel_agora": {
+      "type": "boolean",
+      "default": true
+    },
+    "score_roteamento": {
+      "type": "number",
+      "default": 0
+    },
+    "ultima_alocacao": {
+      "type": "string",
+      "format": "datetime"
+    }
+  },
+  "required": [
+    "usuario_id",
+    "codigo"
+  ]
+}

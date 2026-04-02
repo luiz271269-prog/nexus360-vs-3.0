@@ -83,8 +83,8 @@ export default function OrcamentoDetalhes() {
           base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })
         ]);
         // Fase 1: garantir que nome do vendedor reflete User.full_name atual
-        if (orcData.vendedor_id) {
-          const nomeAtual = await resolverNomeVendedor(orcData.vendedor_id);
+        if (orcData.usuario_id) {
+          const nomeAtual = await resolverNomeVendedor(orcData.usuario_id);
           if (nomeAtual && nomeAtual !== orcData.vendedor) {
             orcData.vendedor = nomeAtual;
           }
@@ -244,7 +244,7 @@ export default function OrcamentoDetalhes() {
           cliente_id: null, cliente_nome: "", cliente_telefone: "", cliente_celular: "",
           cliente_email: "", cliente_empresa: "",
           vendedor: currentUser?.full_name || currentUser?.email || "",
-          vendedor_id: currentUser?.id || null,
+          usuario_id: currentUser?.id || null,
           data_orcamento: new Date().toISOString().slice(0, 10), data_vencimento: "",
           status: "rascunho", valor_total: 0, observacoes: ""
         });
@@ -912,9 +912,9 @@ RETORNE o JSON estruturado conforme o schema.`;
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Vendedor</Label>
-                <Select value={orcamento.vendedor_id || ''} onValueChange={(value) => {
+                <Select value={orcamento.usuario_id || ''} onValueChange={(value) => {
                   const v = vendedores.find(u => u.id === value);
-                  setOrcamento(prev => ({ ...prev, vendedor_id: value, vendedor: v?.nome || v?.email || '' }));
+                  setOrcamento(prev => ({ ...prev, usuario_id: value, vendedor: v?.nome || v?.email || '' }));
                 }}>
                   <SelectTrigger className="bg-slate-900 border-slate-600 text-white h-9 text-sm">
                     <SelectValue placeholder={orcamento.vendedor || 'Selecionar vendedor'} />
