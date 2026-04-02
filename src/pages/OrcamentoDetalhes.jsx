@@ -939,18 +939,57 @@ RETORNE o JSON estruturado conforme o schema.`;
                 <Input name="condicao_pagamento" value={orcamento.condicao_pagamento || ''} onChange={handleOrcamentoChange} placeholder="Ex: 30/60/90" className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
             </div>
+            <div>
+              <Label className="text-slate-300 text-xs mb-1">Observações</Label>
+              <Textarea name="observacoes" value={orcamento.observacoes || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white text-sm h-16" />
+            </div>
           </CardContent>
         </Card>
 
-        {/* OBSERVAÇÕES */}
+        {/* ITENS */}
         <Card className="bg-slate-800/50 border-slate-700">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base text-white flex items-center gap-2">
-              <FileText className="w-4 h-4" /> Observações
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea name="observacoes" value={orcamento.observacoes || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white text-sm h-20" />
+          
+
+
+
+
+
+
+
+
+              
+          <CardContent className="space-y-2">
+            {Array.isArray(itens) && itens.map((item, index) => {
+                  const itemId = item.id || item._tempId;
+                  return (
+                    <div key={itemId} className="bg-slate-700/50 rounded-lg border border-slate-600">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-slate-400">#{index + 1}</span>
+                    <Button variant="ghost" size="icon" onClick={() => removerItem(itemId)} className="h-6 w-6 text-red-400 hover:text-red-300">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
+                    <div className="md:col-span-2">
+                      <Input value={item.nome_produto || ''} onChange={(e) => atualizarItem(itemId, 'nome_produto', e.target.value)} placeholder="Nome *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" />
+                    </div>
+                    <div>
+                      <Input type="number" value={item.quantidade || 0} onChange={(e) => atualizarItem(itemId, 'quantidade', e.target.value)} placeholder="Qtd *" className="bg-slate-800 text-white mx-3 px-5 text-sm rounded-md flex w-full border shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm border-slate-600 h-8" />
+                    </div>
+                    <div>
+                      <Input type="number" step="0.01" value={item.valor_unitario || 0} onChange={(e) => atualizarItem(itemId, 'valor_unitario', e.target.value)} placeholder="Vlr Unit *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm" />
+                    </div>
+                    <div>
+                      <Input type="number" value={(item.valor_total || 0).toFixed(2)} readOnly className="bg-slate-900 border-slate-700 text-green-400 font-bold h-8 text-sm" />
+                    </div>
+                    <div className="flex items-center">
+                      <input type="checkbox" checked={item.is_opcional || false} onChange={(e) => atualizarItem(itemId, 'is_opcional', e.target.checked)} className="mr-1" />
+                      <span className="text-xs text-slate-400">Opcional</span>
+                    </div>
+                  </div>
+                </div>);
+
+                })}
           </CardContent>
         </Card>
 
