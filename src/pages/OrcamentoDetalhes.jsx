@@ -909,14 +909,34 @@ RETORNE o JSON estruturado conforme o schema.`;
                 <Input name="cliente_empresa" value={orcamento.cliente_empresa || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Vendedor</Label>
+                <Select value={orcamento.vendedor_id || ''} onValueChange={(value) => {
+                  const v = vendedores.find(u => u.id === value);
+                  setOrcamento(prev => ({ ...prev, vendedor_id: value, vendedor: v?.nome || v?.email || '' }));
+                }}>
+                  <SelectTrigger className="bg-slate-900 border-slate-600 text-white h-9 text-sm">
+                    <SelectValue placeholder={orcamento.vendedor || 'Selecionar vendedor'} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-slate-700">
+                    {vendedores.map(v => (
+                      <SelectItem key={v.id} value={v.id} className="text-white text-sm">{v.nome || v.email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Data Orçamento</Label>
                 <Input name="data_orcamento" type="date" value={orcamento.data_orcamento || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Validade</Label>
                 <Input name="data_vencimento" type="date" value={orcamento.data_vencimento || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Cond. Pagamento</Label>
+                <Input name="condicao_pagamento" value={orcamento.condicao_pagamento || ''} onChange={handleOrcamentoChange} placeholder="Ex: 30/60/90" className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
             </div>
             <div>
