@@ -13,28 +13,32 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  // ─────────────────────────────────────────────────────────────────
-  // PREVINE que arquivos .md e arquivos de análise/documentação dentro
-  // de src/ sejam processados pelo bundler como módulos JavaScript/JSX.
-  // Esses arquivos são apenas documentação de referência.
-  // ─────────────────────────────────────────────────────────────────
   assetsInclude: ['**/*.md'],
   optimizeDeps: {
     exclude: [],
   },
   server: {
     watch: {
-      // Ignorar TODOS os arquivos de documentação para evitar lint loop
+      // Ignorar arquivos de documentação: .md, .md.jsx, e arquivos MAIÚSCULOS sem extensão
       ignored: [
-        '**/src/**/*.md',
-        '**/src/**/*.md.jsx',
-        /src[\\/].*[A-Z_]{4,}.*\.jsx$/,
+        '**/*.md',
+        '**/*.md.jsx',
+        // Arquivos sem extensão com nome em MAIÚSCULAS (padrão ANALISE_*, ARQUITETURA_*, etc)
+        (filePath) => {
+          const basename = filePath.split('/').pop();
+          return /^[A-Z][A-Z0-9_]{3,}$/.test(basename);
+        },
       ],
     },
   },
   build: {
     rollupOptions: {
-      external: (id) => /[A-Z_]{4,}.*\.jsx$/.test(id) || id.endsWith('.md'),
+      external: (id) => {
+        const basename = id.split('/').pop();
+        return /^[A-Z][A-Z0-9_]{3,}$/.test(basename) ||
+               /[A-Z_]{4,}.*\.jsx$/.test(id) ||
+               id.endsWith('.md');
+      },
     },
   },
 })

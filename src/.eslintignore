@@ -1,0 +1,9 @@
+# Ignorar arquivos de documentação em MAIÚSCULAS (ANALISE_*, ARQUITETURA_*, etc.)
+src/components/**/[A-Z]*_*.jsx
+src/components/**/[A-Z]*_*.md.jsx
+src/components/**/*.md.jsx
+src/components/comunicacao/**/[A-Z]*_*.jsx
+src/components/comunicacao/**/[A-Z]*_*.md.jsx
+
+# Padrão geral para qualquer subpasta
+src/**/*.md.jsx
