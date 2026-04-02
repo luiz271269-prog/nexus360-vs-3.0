@@ -91,7 +91,23 @@ export default function OrcamentoDetalhes() {
         }
         setOrcamento(orcData);
         setItens(Array.isArray(itensData) ? itensData : []);
-        setEstudosAnexos(Array.isArray(orcData.estudos_anexos) ? orcData.estudos_anexos : []);
+
+        // Extrai URLs de imagem das observações (criadas via chat) se não estiverem em estudos_anexos
+        const anexosExistentes = Array.isArray(orcData.estudos_anexos) ? orcData.estudos_anexos : [];
+        const urlsExistentes = new Set(anexosExistentes.map(a => a.url));
+        const urlsExtraidas = [];
+        if (orcData.observacoes) {
+          const regex = /(?:📎\s*)?[Ii]magem:\s*(https?:\/\/\S+)/g;
+          let match;
+          while ((match = regex.exec(orcData.observacoes)) !== null) {
+            const url = match[1].trim();
+            if (!urlsExistentes.has(url)) {
+              urlsExtraidas.push({ url, descricao: 'Imagem do chat', data_anexo: orcData.created_date || new Date().toISOString(), tipo_estudo: 'manual', is_opcional: true });
+              urlsExistentes.add(url);
+            }
+          }
+        }
+        setEstudosAnexos([...anexosExistentes, ...urlsExtraidas]);
       } else if (modoOperacao === 'carrinho') {
         try {
           const produtosCarrinho = JSON.parse(decodeURIComponent(carrinhoData));
