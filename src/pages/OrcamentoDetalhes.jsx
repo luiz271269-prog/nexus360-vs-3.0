@@ -749,12 +749,7 @@ RETORNE o JSON estruturado conforme o schema.`;
         </div>
       </div>
 
-      {/* STATUS PIPELINE */}
-      {modoOperacao === 'edicao' && (
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <StatusPipeline currentStatus={orcamento.status} onStatusChange={(status) => setOrcamento(prev => ({ ...prev, status }))} />
-        </div>
-      )}
+
 
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex gap-4">
