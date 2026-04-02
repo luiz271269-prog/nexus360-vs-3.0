@@ -3,47 +3,43 @@ import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
+  // NUCLEAR IGNORE: Block ALL_CAPS files before any processing
   {
     ignores: [
       "node_modules/**",
       "dist/**",
       "build/**",
       "**/*.md",
-      // Absolute block: ALL uppercase with underscores (documentation/analysis files)
-      "src/**/*[A-Z][A-Z0-9_]{2,}*",
-      "**/*[A-Z][A-Z0-9_]{2,}*.jsx",
-      "**/*[A-Z][A-Z0-9_]{2,}*.tsx",
-      "**/*[A-Z][A-Z0-9_]{2,}*.js",
       "**/*.md.jsx",
       "**/*.md.tsx",
       "**/*.md.js",
-      // Explicit directory blocks
-      "src/components/ANALISE_*",
-      "src/components/ARQUITETURA_*",
-      "src/components/APLICAVEL_*",
-      "src/components/COMPARATIVO_*",
-      "src/components/CONFIRMACAO_*",
-      "src/components/DECISAO_*",
-      "src/components/DIAGNOSTICO_*",
-      "src/components/ESTRATEGIA_*",
-      "src/components/FLUXO_*",
-      "src/components/MAPEAMENTO_*",
-      "src/components/MELHORIAS_*",
-      "src/components/PLANO_*",
-      "src/components/PRINCIPIO_*",
-      "src/components/PROJETO_*",
-      "src/components/RECONCILIACAO_*",
-      "src/components/VALIDACAO_*",
-      "src/components/comunicacao/ANALISE_*",
+      // Regex-style: Any file starting with 2+ uppercase + underscore pattern
+      "**/[A-Z][A-Z_]*.jsx",
+      "**/[A-Z][A-Z_]*.tsx",
+      "**/[A-Z][A-Z_]*.js",
+      "**/[A-Z][A-Z_]*.ts",
+      // Explicit prefixes
+      "src/**/ANALISE_*",
+      "src/**/ARQUITETURA_*",
+      "src/**/APLICAVEL_*",
+      "src/**/COMPARATIVO_*",
+      "src/**/COMPARACAO_*",
+      "src/**/CONFIRMACAO_*",
+      "src/**/DECISAO_*",
+      "src/**/DIAGNOSTICO_*",
+      "src/**/ESTRATEGIA_*",
+      "src/**/FLUXO_*",
+      "src/**/MAPEAMENTO_*",
+      "src/**/MELHORIAS_*",
+      "src/**/PLANO_*",
+      "src/**/PRINCIPIO_*",
+      "src/**/PROJETO_*",
+      "src/**/RECONCILIACAO_*",
+      "src/**/VALIDACAO_*",
     ],
   },
   {
     files: ["src/**/*.{js,jsx,ts,tsx}"],
-    ignores: [
-      "src/**/*[A-Z][A-Z0-9_]{2,}*",
-      "**/*.md.jsx",
-      "**/*.md.tsx",
-    ],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
