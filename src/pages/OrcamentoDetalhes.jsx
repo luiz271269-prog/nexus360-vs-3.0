@@ -25,7 +25,7 @@ export default function OrcamentoDetalhes() {
   const [saving, setSaving] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(null);
-  const [imagemAnexada, setImagemAnexada] = useState(null);
+  const [estudosAnexos, setEstudosAnexos] = useState([]);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -83,6 +83,7 @@ export default function OrcamentoDetalhes() {
         ]);
         setOrcamento(orcData);
         setItens(Array.isArray(itensData) ? itensData : []);
+        setEstudosAnexos(Array.isArray(orcData.estudos_anexos) ? orcData.estudos_anexos : []);
       } else if (modoOperacao === 'carrinho') {
         try {
           const produtosCarrinho = JSON.parse(decodeURIComponent(carrinhoData));
@@ -151,7 +152,7 @@ export default function OrcamentoDetalhes() {
         }
 
         if (mediaUrlFromChat) {
-          setImagemAnexada(mediaUrlFromChat);
+          setEstudosAnexos([{ url: mediaUrlFromChat, descricao: 'Imagem do chat', data_anexo: new Date().toISOString(), tipo_estudo: 'manual', is_opcional: false }]);
           observacoesFinal += `\n[Imagem anexada aguardando processamento]\nImagem: ${mediaUrlFromChat}`;
         }
 
@@ -258,13 +259,36 @@ export default function OrcamentoDetalhes() {
     return () => document.removeEventListener('paste', handlePaste);
   }, [itens]);
 
+  const somenteAnexarImagem = async (file) => {
+    setProcessing(true);
+    try {
+      toast.info('📤 Anexando imagem...');
+      const uploadResult = await base44.integrations.Core.UploadFile({ file });
+      const novoAnexo = { url: uploadResult.file_url, descricao: 'Imagem anexada manualmente', data_anexo: new Date().toISOString(), tipo_estudo: 'manual', is_opcional: true };
+      setEstudosAnexos(prev => [...prev, novoAnexo]);
+      toast.success('✅ Imagem anexada!');
+    } catch (error) {
+      toast.error('❌ Erro ao anexar: ' + error.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const removerAnexo = (index) => {
+    setEstudosAnexos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const toggleOpcionalAnexo = (index) => {
+    setEstudosAnexos(prev => prev.map((a, i) => i === index ? { ...a, is_opcional: !a.is_opcional } : a));
+  };
+
   const processarImagemCompleta = async (file) => {
     setProcessing(true);
     try {
       toast.info('📤 Salvando imagem...');
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadResult.file_url;
-      setImagemAnexada(fileUrl);
+      setEstudosAnexos(prev => [...prev, { url: fileUrl, descricao: 'Processado pela IA (completo)', data_anexo: new Date().toISOString(), tipo_estudo: 'orcamento_completo_ia', is_opcional: false }]);
 
       toast.info('🔍 Carregando dados da base...');
       const [clientesResult, usersResult] = await Promise.allSettled([
@@ -383,7 +407,7 @@ RETORNE o JSON estruturado conforme o schema.`;
         data_orcamento: parseIADate(iaResult.data_orcamento) || prev.data_orcamento,
         data_vencimento: parseIADate(iaResult.data_validade) || prev.data_vencimento,
         condicao_pagamento: iaResult.condicao_pagamento || prev.condicao_pagamento,
-        observacoes: `${prev.observacoes ? prev.observacoes + '\n\n' : ''}[\uD83D\uDCC4 Importado via IA - ${new Date().toLocaleString('pt-BR')}]\n\n${iaResult.observacoes || ''}\n\n\uD83D\uDCCE Imagem: ${fileUrl}`.trim(),
+        observacoes: `${prev.observacoes ? prev.observacoes + '\n\n' : ''}[\uD83D\uDCC4 Importado via IA - ${new Date().toLocaleString('pt-BR')}]\n\n${iaResult.observacoes || ''}`.trim(),
         valor_total: calcularTotal(itensAtualizados)
       }));
       setItens(itensAtualizados);
@@ -403,6 +427,7 @@ RETORNE o JSON estruturado conforme o schema.`;
     try {
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadResult.file_url;
+      setEstudosAnexos(prev => [...prev, { url: fileUrl, descricao: 'Processado pela IA (itens)', data_anexo: new Date().toISOString(), tipo_estudo: 'itens_ia', is_opcional: true }]);
       const iaResult = await base44.integrations.Core.InvokeLLM({
         prompt: `Extraia TODOS os produtos/itens desta imagem. Para cada um: código, nome, descrição, quantidade, valor unitário, valor total.`,
         response_json_schema: {
@@ -451,7 +476,9 @@ RETORNE o JSON estruturado conforme o schema.`;
     setDragOver(null);
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-      tipo === 'completo' ? processarImagemCompleta(file) : processarApenasItens(file);
+      if (tipo === 'completo') processarImagemCompleta(file);
+      else if (tipo === 'itens') processarApenasItens(file);
+      else somenteAnexarImagem(file);
     } else {
       toast.error('Por favor, envie uma imagem.');
     }
@@ -522,7 +549,7 @@ RETORNE o JSON estruturado conforme o schema.`;
     setSaving(true);
     try {
       const totalCalculado = calcularTotal(itens);
-      const orcamentoDataToSave = { ...orcamento, valor_total: totalCalculado };
+      const orcamentoDataToSave = { ...orcamento, valor_total: totalCalculado, estudos_anexos: estudosAnexos };
 
       const saveParams = new URLSearchParams(location.search);
       const origemChatSave = saveParams.get('origem') === 'chat';
@@ -692,32 +719,80 @@ RETORNE o JSON estruturado conforme o schema.`;
 
       <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
 
-        {/* PREVIEW DA IMAGEM ANEXADA */}
-        {imagemAnexada && (
+        {/* GALERIA DE IMAGENS ANEXADAS - sempre visível */}
+        {estudosAnexos.length > 0 && (
           <Card className="bg-slate-800/50 border-slate-700">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm text-white flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-amber-400" /> Imagem Anexada
-                </CardTitle>
-                <Button size="sm" onClick={async () => {
-                  const response = await fetch(imagemAnexada);
-                  const blob = await response.blob();
-                  await processarImagemCompleta(new File([blob], "imagem.png", { type: blob.type }));
-                }} className="bg-amber-500 hover:bg-amber-600 h-7">
-                  <Sparkles className="w-3 h-3 mr-1" /> Processar com IA
-                </Button>
-              </div>
+              <CardTitle className="text-sm text-white flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-amber-400" /> Imagens Anexadas ({estudosAnexos.length})
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <img src={imagemAnexada} alt="Imagem da proposta" className="w-full max-h-96 object-contain rounded-lg border border-slate-600" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {estudosAnexos.map((anexo, index) => (
+                  <div key={index} className="bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden">
+                    <div className="relative">
+                      <img
+                        src={anexo.url}
+                        alt={anexo.descricao || `Anexo ${index + 1}`}
+                        className="w-full h-44 object-contain bg-slate-900 cursor-pointer"
+                        onClick={() => window.open(anexo.url, '_blank')}
+                      />
+                      <div className="absolute top-1 right-1 flex gap-1">
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                          anexo.tipo_estudo === 'orcamento_completo_ia' ? 'bg-amber-500 text-white' :
+                          anexo.tipo_estudo === 'itens_ia' ? 'bg-purple-500 text-white' :
+                          'bg-slate-600 text-slate-300'
+                        }`}>
+                          {anexo.tipo_estudo === 'orcamento_completo_ia' ? 'IA COMPLETO' :
+                           anexo.tipo_estudo === 'itens_ia' ? 'IA ITENS' : 'MANUAL'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={!anexo.is_opcional}
+                          onChange={() => toggleOpcionalAnexo(index)}
+                          className="w-3 h-3 flex-shrink-0"
+                          title="Marcar como obrigatório"
+                        />
+                        <span className="text-[10px] text-slate-400 truncate">{anexo.descricao || `Anexo ${index + 1}`}</span>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <Button
+                          size="sm"
+                          className="h-6 px-2 bg-amber-500 hover:bg-amber-600 text-[10px]"
+                          onClick={async () => {
+                            const resp = await fetch(anexo.url);
+                            const blob = await resp.blob();
+                            processarImagemCompleta(new File([blob], 'reimport.png', { type: blob.type }));
+                          }}
+                          title="Reprocessar com IA"
+                        >
+                          <Sparkles className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-red-400 hover:text-red-300"
+                          onClick={() => removerAnexo(index)}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}
 
         {/* ZONAS DE IMPORTAÇÃO COM IA */}
         {(modoOperacao === 'novo' || modoOperacao === 'chat') && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div
               onDrop={(e) => handleDrop(e, 'completo')}
               onDragOver={(e) => { e.preventDefault(); setDragOver('completo'); }}
@@ -729,7 +804,7 @@ RETORNE o JSON estruturado conforme o schema.`;
                   <ImageIcon className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xs font-bold text-white">Importar Orçamento Completo</h3>
+                  <h3 className="text-xs font-bold text-white">Importar Completo</h3>
                   <p className="text-[10px] text-slate-400">IA extrai cliente, vendedor e itens</p>
                 </div>
                 <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarImagemCompleta(e.target.files[0])} className="hidden" id="upload-completo" />
@@ -749,12 +824,32 @@ RETORNE o JSON estruturado conforme o schema.`;
                   <ShoppingCart className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xs font-bold text-white">Importar Apenas Itens</h3>
-                  <p className="text-[10px] text-slate-400">Adicione produtos com IA</p>
+                  <h3 className="text-xs font-bold text-white">Importar Itens</h3>
+                  <p className="text-[10px] text-slate-400">IA extrai apenas produtos</p>
                 </div>
                 <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarApenasItens(e.target.files[0])} className="hidden" id="upload-itens" />
                 <label htmlFor="upload-itens">
                   <Button type="button" size="sm" className="bg-purple-500 hover:bg-purple-600 h-7 px-2"><Plus className="w-3 h-3" /></Button>
+                </label>
+              </div>
+            </div>
+            <div
+              onDrop={(e) => handleDrop(e, 'manual')}
+              onDragOver={(e) => { e.preventDefault(); setDragOver('manual'); }}
+              onDragLeave={() => setDragOver(null)}
+              className={`relative border-2 border-dashed rounded-lg p-2 transition-all cursor-pointer ${dragOver === 'manual' ? 'border-blue-400 bg-blue-500/10' : 'border-blue-500/50 bg-gradient-to-br from-blue-900/10 to-cyan-900/10 hover:border-blue-400'}`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <ImageIcon className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xs font-bold text-white">Fixar Imagem</h3>
+                  <p className="text-[10px] text-slate-400">Somente anexar, sem IA</p>
+                </div>
+                <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && somenteAnexarImagem(e.target.files[0])} className="hidden" id="upload-manual" />
+                <label htmlFor="upload-manual">
+                  <Button type="button" size="sm" className="bg-blue-500 hover:bg-blue-600 h-7 px-2"><Plus className="w-3 h-3" /></Button>
                 </label>
               </div>
             </div>

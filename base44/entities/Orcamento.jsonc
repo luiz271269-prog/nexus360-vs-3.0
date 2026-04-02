@@ -1,0 +1,187 @@
+{
+  "name": "Orcamento",
+  "type": "object",
+  "properties": {
+    "numero_orcamento": {
+      "type": "string",
+      "description": "N\u00famero do or\u00e7amento"
+    },
+    "cliente_id": {
+      "type": "string",
+      "description": "ID do cliente na entidade Cliente"
+    },
+    "cliente_nome": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "cliente_telefone": {
+      "type": "string",
+      "description": "Telefone do cliente"
+    },
+    "cliente_celular": {
+      "type": "string",
+      "description": "Celular do cliente"
+    },
+    "cliente_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Email do cliente"
+    },
+    "vendedor": {
+      "type": "string",
+      "description": "Nome do vendedor (compatibilidade legada)"
+    },
+    "vendedor_id": {
+      "type": "string",
+      "description": "ID do User respons\u00e1vel pelo or\u00e7amento (v\u00ednculo principal)"
+    },
+    "data_orcamento": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de emiss\u00e3o do or\u00e7amento"
+    },
+    "data_vencimento": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de vencimento do or\u00e7amento"
+    },
+    "valor_total": {
+      "type": "number",
+      "description": "Valor total do or\u00e7amento"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "rascunho",
+        "aguardando_cotacao",
+        "cotando",
+        "aguardando_analise",
+        "analisando",
+        "aguardando_liberacao",
+        "liberado",
+        "enviado",
+        "negociando",
+        "aprovado",
+        "rejeitado",
+        "vencido"
+      ],
+      "default": "rascunho",
+      "description": "Status do or\u00e7amento no pipeline"
+    },
+    "probabilidade": {
+      "type": "string",
+      "enum": [
+        "Alta",
+        "M\u00e9dia",
+        "Baixa"
+      ],
+      "default": "M\u00e9dia",
+      "description": "Probabilidade de fechamento"
+    },
+    "condicao_pagamento": {
+      "type": "string",
+      "description": "Condi\u00e7\u00e3o de pagamento"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre o or\u00e7amento"
+    },
+    "produtos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "quantidade": {
+            "type": "number"
+          },
+          "valor_unitario": {
+            "type": "number"
+          },
+          "valor_total": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Lista de produtos/servi\u00e7os do or\u00e7amento"
+    },
+    "origem_chat": {
+      "type": "object",
+      "description": "Dados de origem quando criado via chat",
+      "properties": {
+        "thread_id": {
+          "type": "string"
+        },
+        "message_id": {
+          "type": "string"
+        },
+        "media_url": {
+          "type": "string"
+        },
+        "media_type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "image",
+            "audio",
+            "video",
+            "document"
+          ]
+        }
+      }
+    },
+    "estudos_anexos": {
+      "type": "array",
+      "description": "Imagens e documentos anexados ao or\u00e7amento (prints, propostas, refer\u00eancias)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL da imagem/documento"
+          },
+          "descricao": {
+            "type": "string",
+            "description": "Descri\u00e7\u00e3o do anexo"
+          },
+          "data_anexo": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "tipo_estudo": {
+            "type": "string",
+            "enum": [
+              "orcamento_completo_ia",
+              "itens_ia",
+              "manual"
+            ],
+            "description": "Tipo: IA completo, IA apenas itens, ou manual"
+          },
+          "is_opcional": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "url",
+          "data_anexo",
+          "tipo_estudo"
+        ]
+      }
+    }
+  },
+  "required": [
+    "cliente_nome",
+    "vendedor",
+    "data_orcamento",
+    "valor_total"
+  ]
+}
