@@ -2,15 +2,6 @@ import js from "@eslint/js";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 
-// Regex to match documentation/analysis files with ALL_CAPS_UNDERSCORE naming
-const isDocFile = (filePath) => {
-  const basename = filePath.split('/').pop() || '';
-  // Matches: ANALISE_*.jsx, ARQUITETURA_*.jsx, PLANO_*.jsx, etc. (all-caps with underscores)
-  // Also matches *.md.jsx double-extension files
-  return /^[A-Z][A-Z0-9_]{3,}.*\.(jsx?|tsx?)$/.test(basename) || 
-         /\.md\.(jsx?|tsx?)$/.test(basename);
-};
-
 export default [
   {
     ignores: [
@@ -18,39 +9,23 @@ export default [
       "dist/**",
       "build/**",
       "**/*.md",
-      // All uppercase documentation/analysis component files
-      "src/**/*.md.jsx",
-      "src/**/*.md.tsx",
-      "src/**/*.md.js",
-      "src/**/[A-Z][A-Z]*_*.jsx",
-      "src/**/[A-Z][A-Z]*_*.js",
-      "src/**/[A-Z][A-Z]*_*.tsx",
-      // Explicit prefixes that keep reappearing
-      "src/**/ANALISE_**",
-      "src/**/ARQUITETURA_**",
-      "src/**/APLICAVEL_**",
-      "src/**/COMPARATIVO_**",
-      "src/**/COMPARACAO_**",
-      "src/**/CONFIRMACAO_**",
-      "src/**/DECISAO_**",
-      "src/**/DIAGNOSTICO_**",
-      "src/**/ESTRATEGIA_**",
-      "src/**/FLUXO_**",
-      "src/**/MAPEAMENTO_**",
-      "src/**/MELHORIAS_**",
-      "src/**/PLANO_**",
-      "src/**/PRINCIPIO_**",
-      "src/**/PROJETO_**",
-      "src/**/RECONCILIACAO_**",
-      "src/**/VALIDACAO_**",
+      // Aggressive ignore for ALL_CAPS documentation/analysis files
+      "**/*[A-Z][A-Z0-9_]{3,}*.jsx",
+      "**/*[A-Z][A-Z0-9_]{3,}*.tsx",
+      "**/*[A-Z][A-Z0-9_]{3,}*.js",
+      "**/*.md.jsx",
+      "**/*.md.tsx",
+      "**/*.md.js",
     ],
   },
   {
     files: ["src/**/*.{js,jsx,ts,tsx}"],
     ignores: [
-      // Double-ignore inside the files block for extra coverage
-      "src/**/*.md.jsx",
-      "src/**/*.md.tsx",
+      "**/*[A-Z][A-Z0-9_]{3,}*.jsx",
+      "**/*[A-Z][A-Z0-9_]{3,}*.tsx",
+      "**/*.md.jsx",
+      "**/*.md.tsx",
+      "src/components/**/*[A-Z][A-Z0-9_]*.jsx",
     ],
     languageOptions: {
       ecmaVersion: "latest",

@@ -962,7 +962,7 @@ RETORNE o JSON estruturado conforme o schema.`;
             {Array.isArray(itens) && itens.map((item, index) => {
                   const itemId = item.id || item._tempId;
                   return (
-                    <div key={itemId} className="bg-slate-700/50 rounded-lg border border-slate-600 p-3">
+                    <div key={itemId} className="bg-slate-700/50 rounded-lg p-3">
                       <div className="flex items-center gap-2 w-full">
                         <span className="text-xs text-slate-400 min-w-[30px]">#{index + 1}</span>
                         <Input value={item.nome_produto || ''} onChange={(e) => atualizarItem(itemId, 'nome_produto', e.target.value)} placeholder="Nome *" className="bg-slate-800 border-slate-600 text-white h-8 text-sm flex-1" />
