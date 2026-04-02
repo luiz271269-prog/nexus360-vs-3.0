@@ -11,15 +11,10 @@ export default [
       ".git/**",
       ".env*",
       "**/*.md",
-      "**/*.md.jsx",
-      "**/*.md.tsx",
+      "**/*.md.*",
       
-      // Ignorar TODOS os arquivos com ALL_CAPS (análises/docs geradas automaticamente)
-      "src/**/[A-Z][A-Z_]*",
-      "src/**/[A-Z][A-Z_]*.jsx",
-      "src/**/[A-Z][A-Z_]*.tsx",
-      "src/**/[A-Z][A-Z_]*.js",
-      "src/**/[A-Z][A-Z_]*.ts",
+      // Bloqueio agressivo: ignorar TODOS os arquivos com nomes em ALL_CAPS
+      "src/**/*[A-Z][A-Z]*",
       "src/**/*ANALISE*",
       "src/**/*APLICAVEL*",
       "src/**/*ARQUITETURA*",
