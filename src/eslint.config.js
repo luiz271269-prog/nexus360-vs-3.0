@@ -1,48 +1,73 @@
+// Parser vazio para arquivos de documentação (markdown disfarçado de JSX)
+const emptyParser = {
+  parse: () => ({
+    type: 'Program',
+    body: [],
+    sourceType: 'module',
+    range: [0, 0],
+    loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
+    tokens: [],
+    comments: [],
+  }),
+};
+
+// Padrões de arquivos de documentação que não devem ser lintados
+const DOC_PATTERNS = [
+  "**/*.md.jsx",
+  "**/*.md.tsx",
+  "**/*.md.js",
+  "**/ANALISE_*",
+  "**/ARQUITETURA_*",
+  "**/APLICAVEL_*",
+  "**/COMPARATIVO_*",
+  "**/COMPARACAO_*",
+  "**/CONFIRMACAO_*",
+  "**/DECISAO_*",
+  "**/DIAGNOSTICO_*",
+  "**/ESTRATEGIA_*",
+  "**/FLUXO_*",
+  "**/MAPEAMENTO_*",
+  "**/MELHORIAS_*",
+  "**/PLANO_*",
+  "**/PRINCIPIO_*",
+  "**/PROJETO_*",
+  "**/RECONCILIACAO_*",
+  "**/VALIDACAO_*",
+];
+
 export default [
+  // 1. Ignores globais
   {
-    ignores: [
-      // Markdown disfarçado de JSX
+    ignores: DOC_PATTERNS,
+  },
+  // 2. Fallback: para qualquer arquivo doc que passe pelo ignores, usar parser vazio
+  {
+    files: [
       "**/*.md.jsx",
       "**/*.md.tsx",
-      "**/*.md.js",
-      // Arquivos de documentação/análise (SCREAMING_SNAKE_CASE com prefixos conhecidos)
-      // Padrões com **/ (subdiretórios)
-      "**/ANALISE_*.jsx", "**/ANALISE_*.tsx", "**/ANALISE_*.js",
-      "**/ARQUITETURA_*.jsx", "**/ARQUITETURA_*.tsx", "**/ARQUITETURA_*.js",
-      "**/APLICAVEL_*.jsx", "**/APLICAVEL_*.tsx",
-      "**/COMPARATIVO_*.jsx", "**/COMPARATIVO_*.tsx",
-      "**/COMPARACAO_*.jsx", "**/COMPARACAO_*.tsx",
-      "**/CONFIRMACAO_*.jsx", "**/CONFIRMACAO_*.tsx",
-      "**/DECISAO_*.jsx", "**/DECISAO_*.tsx",
-      "**/DIAGNOSTICO_*.jsx", "**/DIAGNOSTICO_*.tsx",
-      "**/ESTRATEGIA_*.jsx", "**/ESTRATEGIA_*.tsx",
-      "**/FLUXO_*.jsx", "**/FLUXO_*.tsx",
-      "**/MAPEAMENTO_*.jsx", "**/MAPEAMENTO_*.tsx",
-      "**/MELHORIAS_*.jsx", "**/MELHORIAS_*.tsx",
-      "**/PLANO_*.jsx", "**/PLANO_*.tsx",
-      "**/PRINCIPIO_*.jsx", "**/PRINCIPIO_*.tsx",
-      "**/PROJETO_*.jsx", "**/PROJETO_*.tsx",
-      "**/RECONCILIACAO_*.jsx", "**/RECONCILIACAO_*.tsx",
-      "**/VALIDACAO_*.jsx", "**/VALIDACAO_*.tsx",
-      // Caminhos explícitos
-      "src/components/ANALISE_*.jsx",
-      "src/components/ARQUITETURA_*.jsx",
-      "src/components/APLICAVEL_*.jsx",
-      "src/components/COMPARATIVO_*.jsx",
-      "src/components/CONFIRMACAO_*.jsx",
-      "src/components/DECISAO_*.jsx",
-      "src/components/DIAGNOSTICO_*.jsx",
-      "src/components/ESTRATEGIA_*.jsx",
-      "src/components/FLUXO_*.jsx",
-      "src/components/MAPEAMENTO_*.jsx",
-      "src/components/MELHORIAS_*.jsx",
-      "src/components/PLANO_*.jsx",
-      "src/components/PRINCIPIO_*.jsx",
-      "src/components/PROJETO_*.jsx",
-      "src/components/RECONCILIACAO_*.jsx",
-      "src/components/VALIDACAO_*.jsx",
-      "src/components/comunicacao/ANALISE_*.jsx",
-      "src/components/comunicacao/ARQUITETURA_*.jsx",
+      "**/ANALISE_*.jsx",
+      "**/ANALISE_*.tsx",
+      "**/ARQUITETURA_*.jsx",
+      "**/ARQUITETURA_*.tsx",
+      "**/APLICAVEL_*.jsx",
+      "**/COMPARATIVO_*.jsx",
+      "**/COMPARACAO_*.jsx",
+      "**/CONFIRMACAO_*.jsx",
+      "**/DECISAO_*.jsx",
+      "**/DIAGNOSTICO_*.jsx",
+      "**/ESTRATEGIA_*.jsx",
+      "**/FLUXO_*.jsx",
+      "**/MAPEAMENTO_*.jsx",
+      "**/MELHORIAS_*.jsx",
+      "**/PLANO_*.jsx",
+      "**/PRINCIPIO_*.jsx",
+      "**/PROJETO_*.jsx",
+      "**/RECONCILIACAO_*.jsx",
+      "**/VALIDACAO_*.jsx",
     ],
+    languageOptions: {
+      parser: emptyParser,
+    },
+    rules: {},
   },
 ];

@@ -760,8 +760,26 @@ RETORNE o JSON estruturado conforme o schema.`;
                       <p className="text-[10px] text-slate-600 mt-1">Use "Importar Completo" ou "Fixar Imagem" acima</p>
                     </div>
                   )}
-                  {estudosAnexos.map((anexo, index) => (
+                  {estudosAnexos.map((anexo, index) => {
+                    const dataFormatada = anexo.data_anexo
+                      ? new Date(anexo.data_anexo).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' })
+                      : null;
+                    return (
                     <div key={index} className="bg-slate-700/50 rounded-lg border border-slate-600 overflow-hidden">
+                      {/* Cabeçalho com tipo + data */}
+                      <div className="flex items-center justify-between px-2 py-1 bg-slate-800/80 border-b border-slate-600">
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                          anexo.tipo_estudo === 'orcamento_completo_ia' ? 'bg-amber-500 text-white' :
+                          anexo.tipo_estudo === 'itens_ia' ? 'bg-purple-500 text-white' :
+                          'bg-slate-600 text-slate-300'
+                        }`}>
+                          {anexo.tipo_estudo === 'orcamento_completo_ia' ? '✨ IA Completo' :
+                           anexo.tipo_estudo === 'itens_ia' ? '🛒 IA Itens' : '📎 Manual'}
+                        </span>
+                        {dataFormatada && (
+                          <span className="text-[9px] text-slate-400">{dataFormatada}</span>
+                        )}
+                      </div>
                       <div className="relative">
                         <img
                           src={anexo.url}
@@ -769,16 +787,6 @@ RETORNE o JSON estruturado conforme o schema.`;
                           className="w-full h-32 object-contain bg-slate-900 cursor-pointer"
                           onClick={() => window.open(anexo.url, '_blank')}
                         />
-                        <div className="absolute top-1 right-1">
-                          <span className={`text-[8px] px-1 py-0.5 rounded font-bold ${
-                            anexo.tipo_estudo === 'orcamento_completo_ia' ? 'bg-amber-500 text-white' :
-                            anexo.tipo_estudo === 'itens_ia' ? 'bg-purple-500 text-white' :
-                            'bg-slate-600 text-slate-300'
-                          }`}>
-                            {anexo.tipo_estudo === 'orcamento_completo_ia' ? 'IA' :
-                             anexo.tipo_estudo === 'itens_ia' ? 'ITENS' : 'MAN'}
-                          </span>
-                        </div>
                       </div>
                       <div className="p-1.5 flex items-center justify-between gap-1">
                         <div className="flex items-center gap-1 min-w-0">
@@ -815,7 +823,8 @@ RETORNE o JSON estruturado conforme o schema.`;
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
