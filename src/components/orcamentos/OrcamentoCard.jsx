@@ -45,7 +45,7 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
         </div>
       )}
 
-      <div className="p-2.5 space-y-1.5">
+      <div className="p-2 space-y-0.5">
         {/* Linha 1: Nome + menu */}
         <div className="flex items-start justify-between gap-1">
           <h4 className="font-semibold text-slate-800 text-xs leading-tight truncate flex-1 uppercase tracking-tight">
