@@ -78,10 +78,10 @@ export default function OrcamentoDetalhes() {
 
 
 
+
         // Non-admin users can't list users — use only current user
       } // Always ensure current user is in the list
-      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];}setVendedores(vendedoresData);if (modoOperacao === 'edicao') {const [orcData, itensData] = await Promise.all([base44.entities.Orcamento.get(orcamentoId), base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })]
-        );
+      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];}setVendedores(vendedoresData);if (modoOperacao === 'edicao') {const [orcData, itensData] = await Promise.all([base44.entities.Orcamento.get(orcamentoId), base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })]);
         // Fase 1: garantir que nome do vendedor reflete User.full_name atual
         if (orcData.vendedor_id) {
           const nomeAtual = await resolverNomeVendedor(orcData.vendedor_id);
@@ -948,16 +948,16 @@ RETORNE o JSON estruturado conforme o schema.`;
 
         {/* ITENS */}
         <Card className="bg-slate-800/50 border-slate-700">
-          <CardHeader className="px-3 flex flex-col space-y-1.5">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base text-white flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4" /> Itens ({Array.isArray(itens) ? itens.length : 0})
-              </CardTitle>
-              <Button size="sm" onClick={adicionarItemLivre} className="bg-green-500 hover:bg-green-600 h-8">
-                <Plus className="w-4 h-4 mr-1" /> Adicionar
-              </Button>
-            </div>
-          </CardHeader>
+          
+
+
+
+
+
+
+
+
+              
           <CardContent className="space-y-2">
             {Array.isArray(itens) && itens.map((item, index) => {
                   const itemId = item.id || item._tempId;
