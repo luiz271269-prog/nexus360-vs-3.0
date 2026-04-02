@@ -3,42 +3,29 @@ import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
-  // MÁXIMA PRIORIDADE: Ignorar TUDO que corresponde ao padrão [A-Z]{2,}.*
+  // BLOQUEIO TOTAL: Ignorar QUALQUER arquivo que cause parsing errors
   {
     ignores: [
-      // Standard ignores
       "node_modules/**",
       "dist/**",
       "build/**",
       ".git/**",
       ".env*",
       "**/*.md",
-      "**/*.md.jsx",
-      "**/*.md.tsx",
-      "**/*.md.js",
-      "**/*.md.ts",
+      "**/*.md.*",
       
-      // CRITICAL: Bloqueia todos os arquivos que começam com 2+ letras maiúsculas
-      // Pattern: ANALISE_*, ARQUITETURA_*, APLICAVEL_*, COMPARATIVO_*, etc.
-      "**/*[A-Z][A-Z]*.jsx",
-      "**/*[A-Z][A-Z]*.tsx",
-      "**/*[A-Z][A-Z]*.js",
-      "**/*[A-Z][A-Z]*.ts",
-      
-      // Diretório inteiro src/components (se houver subpasta)
-      "src/components/*[A-Z][A-Z]*.jsx",
-      "src/components/*[A-Z][A-Z]*.tsx",
-      "src/components/comunicacao/*[A-Z][A-Z]*.jsx",
-      "src/components/comunicacao/*[A-Z][A-Z]*.tsx",
+      // Bloqueio total de análises: qualquer arquivo em components que comece com [A-Z]{2,}
       "src/components/**/*[A-Z][A-Z]*.jsx",
-      "src/components/**/*[A-Z][A-Z]*.tsx",
+      "src/components/**/*[A-Z][A-Z]*.tsx", 
+      "src/components/**/*[A-Z][A-Z]*.js",
+      "src/components/**/*[A-Z][A-Z]*.ts",
       
-      // Explícito: cada prefixo
+      // Bloqueio de todos os padrões conhecidos - todos os prefixos
       "src/**/ANALISE_*",
-      "src/**/ARQUITETURA_*",
       "src/**/APLICAVEL_*",
-      "src/**/COMPARATIVO_*",
+      "src/**/ARQUITETURA_*",
       "src/**/COMPARACAO_*",
+      "src/**/COMPARATIVO_*",
       "src/**/CONFIRMACAO_*",
       "src/**/DECISAO_*",
       "src/**/DIAGNOSTICO_*",

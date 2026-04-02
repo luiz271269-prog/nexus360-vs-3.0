@@ -939,10 +939,7 @@ RETORNE o JSON estruturado conforme o schema.`;
                 <Input name="condicao_pagamento" value={orcamento.condicao_pagamento || ''} onChange={handleOrcamentoChange} placeholder="Ex: 30/60/90" className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
             </div>
-            <div>
-              <Label className="text-slate-300 text-xs mb-1">Observações</Label>
-              <Textarea name="observacoes" value={orcamento.observacoes || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white text-sm h-16" />
-            </div>
+
           </CardContent>
         </Card>
 
@@ -975,6 +972,18 @@ RETORNE o JSON estruturado conforme o schema.`;
                     </div>
                   );
                 })}
+          </CardContent>
+        </Card>
+
+        {/* OBSERVAÇÕES */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-white flex items-center gap-2">
+              📝 Observações
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea name="observacoes" value={orcamento.observacoes || ''} onChange={handleOrcamentoChange} placeholder="Adicione observações sobre o orçamento..." className="bg-slate-900 border-slate-600 text-white text-sm h-20" />
           </CardContent>
         </Card>
 
