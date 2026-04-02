@@ -69,12 +69,12 @@ export default function OrcamentoDetalhes() {
         map((u) => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
       } catch (userErr) {
 
+
+
+
         // Non-admin users can't list users — use only current user
-      }
-      // Always ensure current user is in the list
-      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {
-        vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];
-      }
+      } // Always ensure current user is in the list
+      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];}
       setVendedores(vendedoresData);
 
       if (modoOperacao === 'edicao') {
@@ -768,7 +768,7 @@ RETORNE o JSON estruturado conforme o schema.`;
                 <div className="flex gap-1">
                       <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarImagemCompleta(e.target.files[0])} className="hidden" id="upload-completo" />
                       <label htmlFor="upload-completo" title="Importar Completo" className="cursor-pointer flex-1">
-                        <div className="bg-amber-500 py-3 rounded hover:bg-amber-600 flex items-center gap-1 transition-colors">
+                        <div className="bg-amber-500 hover:bg-amber-600 rounded px-1.5 py-1 flex items-center gap-1 transition-colors">
                           <Sparkles className="w-2.5 h-2.5 text-white flex-shrink-0" />
                           <div>
                             <p className="text-[8px] font-bold text-white leading-none">Importar Completo</p>
@@ -778,7 +778,7 @@ RETORNE o JSON estruturado conforme o schema.`;
                       </label>
                       <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && processarApenasItens(e.target.files[0])} className="hidden" id="upload-itens" />
                       <label htmlFor="upload-itens" title="Importar Itens" className="cursor-pointer flex-1">
-                        <div className="bg-purple-500 hover:bg-purple-600 rounded px-1.5 py-1 flex items-center gap-1 transition-colors">
+                        <div className="bg-purple-500 py-4 rounded hover:bg-purple-600 flex items-center gap-1 transition-colors">
                           <ShoppingCart className="w-2.5 h-2.5 text-white flex-shrink-0" />
                           <div>
                             <p className="text-[8px] font-bold text-white leading-none">Importar Itens</p>
@@ -788,7 +788,7 @@ RETORNE o JSON estruturado conforme o schema.`;
                       </label>
                       <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && somenteAnexarImagem(e.target.files[0])} className="hidden" id="upload-manual" />
                       <label htmlFor="upload-manual" title="Fixar Imagem" className="cursor-pointer flex-1">
-                        <div className="bg-blue-500 hover:bg-blue-600 rounded px-1.5 py-1 flex items-center gap-1 transition-colors">
+                        <div className="bg-blue-500 py-4 rounded hover:bg-blue-600 flex items-center gap-1 transition-colors">
                           <Plus className="w-2.5 h-2.5 text-white flex-shrink-0" />
                           <div>
                             <p className="text-[8px] font-bold text-white leading-none">Fixar Imagem</p>
@@ -948,7 +948,7 @@ RETORNE o JSON estruturado conforme o schema.`;
 
         {/* ITENS */}
         <Card className="bg-slate-800/50 border-slate-700">
-          <CardHeader className="pb-3">
+          <CardHeader className="px-3 flex flex-col space-y-1.5">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base text-white flex items-center gap-2">
                 <ShoppingCart className="w-4 h-4" /> Itens ({Array.isArray(itens) ? itens.length : 0})
