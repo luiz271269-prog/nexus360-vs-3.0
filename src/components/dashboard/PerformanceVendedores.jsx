@@ -1,4 +1,5 @@
 import React from "react";
+import { getNomeExibicao } from "@/components/lib/vendedorSync";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -343,7 +344,7 @@ function calcularMetricasVendedores(dados, dadosCompletos, usuario, notas) {
 
   // Calcular métricas por vendedor
   const vendedoresComMetricas = dados.vendedores.map((vendedor) => {
-    const nomeVendedor = vendedor.full_name || vendedor.nome || vendedor.email || '';
+    const nomeVendedor = getNomeExibicao(vendedor) || vendedor.full_name || vendedor.email || '';
     const primeiroNome = nomeVendedor.split(' ')[0].toLowerCase();
     const vendasVendedor = dados.vendas.filter((v) => v.vendedor === nomeVendedor || v.vendedor_id === vendedor.id);
     // Faturamento: prioriza notas fiscais do vendedor

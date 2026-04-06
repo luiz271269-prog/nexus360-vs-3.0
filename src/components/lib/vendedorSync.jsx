@@ -12,11 +12,16 @@ export function normalizarNome(nome) {
 
 /**
  * Retorna o nome de exibição preferencial do usuário
- * Prioridade: data.display_name > full_name > email
+ * Prioridade: display_name > full_name (se parecer nome real) > email > full_name
+ * full_name técnico (ex: "vendas1", sem espaços) cai para email
  */
 export function getNomeExibicao(user) {
   if (!user) return '';
-  return user.data?.display_name || user.full_name || user.email || '';
+  if (user.data?.display_name) return user.data.display_name;
+  const nome = user.full_name || '';
+  // Nome real tem espaço (ex: "João Silva"); nome técnico não (ex: "vendas1")
+  if (nome && nome.includes(' ')) return nome;
+  return user.email || nome || '';
 }
 
 /**

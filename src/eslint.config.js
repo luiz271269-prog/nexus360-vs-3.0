@@ -54,7 +54,13 @@ export default [
       "src/**/MAPA_*",
       "src/**/ONDE_*",
       "src/**/VERIFICACAO_*",
+      "src/**/RELATORIO_*",
+      "src/**/RESUMO_*",
+      "src/**/SPEC_*",
+      "src/**/PROMPT_*",
+      "src/**/LinhaLogica*",
       "src/**/*calcularPrioridade.ts*",
+      "src/components/skills/*.jsx",
     ],
   },
   {

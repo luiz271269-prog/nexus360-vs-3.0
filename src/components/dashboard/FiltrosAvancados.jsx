@@ -1,4 +1,5 @@
 import React from "react";
+import { getNomeExibicao } from "@/components/lib/vendedorSync";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -71,8 +72,8 @@ export default function FiltrosAvancados({ filtros, onFiltrosChange, vendedores,
                 <SelectContent className="bg-slate-700 border-slate-600 text-white">
                   <SelectItem value="todos">Todos os Vendedores</SelectItem>
                   {vendedores.map((vendedor) =>
-                <SelectItem key={vendedor.id} value={vendedor.nome}>
-                      {vendedor.nome}
+                <SelectItem key={vendedor.id} value={vendedor.full_name || vendedor.nome || vendedor.email}>
+                      {getNomeExibicao(vendedor)}
                     </SelectItem>
                 )}
                 </SelectContent>
