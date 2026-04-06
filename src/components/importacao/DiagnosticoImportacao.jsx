@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,7 +56,7 @@ export default function DiagnosticoImportacao({ arquivo, onResultado }) {
       let fileUrl = arquivo?.url;
       if (!fileUrl && arquivo?.file) {
         try {
-          const uploadResult = await UploadFile({ file: arquivo.file });
+          const uploadResult = await base44.integrations.Core.UploadFile({ file: arquivo.file });
           fileUrl = uploadResult.file_url;
         } catch (uploadError) {
           resultado.etapas[resultado.etapas.length - 1].status = "erro";

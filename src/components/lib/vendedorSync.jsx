@@ -11,6 +11,15 @@ export function normalizarNome(nome) {
 }
 
 /**
+ * Retorna o nome de exibição preferencial do usuário
+ * Prioridade: data.display_name > full_name > email
+ */
+export function getNomeExibicao(user) {
+  if (!user) return '';
+  return user.data?.display_name || user.full_name || user.email || '';
+}
+
+/**
  * Busca User (vendedor) pelo full_name
  */
 export async function buscarVendedorPorNome(nome) {
@@ -43,8 +52,11 @@ export async function sincronizarClientesComVendedores() {
     const vendedores = users.filter(u => u.codigo || u.attendant_sector === 'vendas');
     const vendedorMap = new Map();
     vendedores.forEach(u => {
-      const nome = normalizarNome(u.full_name || '').toLowerCase();
-      if (nome) vendedorMap.set(nome, u);
+      // indexar por display_name E por full_name legado
+      const nomeDisplay = normalizarNome(getNomeExibicao(u)).toLowerCase();
+      if (nomeDisplay) vendedorMap.set(nomeDisplay, u);
+      const nomeLegado = normalizarNome(u.full_name || '').toLowerCase();
+      if (nomeLegado && nomeLegado !== nomeDisplay) vendedorMap.set(nomeLegado, u);
     });
 
     let atualizados = 0, erros = 0, semVendedor = 0;
@@ -57,7 +69,7 @@ export async function sincronizarClientesComVendedores() {
         try {
           await base44.entities.Cliente.update(cliente.id, {
             vendedor_id: user.id,
-            vendedor_responsavel: user.full_name
+            vendedor_responsavel: getNomeExibicao(user)
           });
           atualizados++;
         } catch { erros++; }
@@ -107,8 +119,11 @@ export async function sincronizarOrcamentosComUsuarios() {
     const userById = new Map(users.map(u => [u.id, u]));
     const userByNome = new Map();
     users.forEach(u => {
-      const nome = normalizarNome(u.full_name || '').toLowerCase();
+      const nome = normalizarNome(getNomeExibicao(u)).toLowerCase();
       if (nome) userByNome.set(nome, u);
+      // também indexar pelo full_name legado (ex: 'vendas1')
+      const nomeLegado = normalizarNome(u.full_name || '').toLowerCase();
+      if (nomeLegado && nomeLegado !== nome) userByNome.set(nomeLegado, u);
     });
 
     let atualizados = 0, semMatch = 0;
@@ -132,7 +147,7 @@ export async function sincronizarOrcamentosComUsuarios() {
       }
 
       if (user) {
-        const nomeCorreto = user.full_name || user.email;
+        const nomeCorreto = getNomeExibicao(user);
         if (orc.vendedor !== nomeCorreto || orc.vendedor_id !== user.id) {
           try {
             await base44.entities.Orcamento.update(orc.id, {
@@ -184,14 +199,14 @@ export async function listarVendedoresParaSelect() {
     const nomesVistos = new Set();
     return vendedores
       .filter(u => {
-        const nome = (u.full_name || '').trim().toLowerCase();
+        const nome = getNomeExibicao(u).trim().toLowerCase();
         if (!nome || nomesVistos.has(nome)) return false;
         nomesVistos.add(nome);
         return true;
       })
       .map(u => ({
         value: u.id,
-        label: u.full_name || u.email,
+        label: getNomeExibicao(u),
         email: u.email,
         codigo: u.codigo
       }));

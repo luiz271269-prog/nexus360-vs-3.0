@@ -33,15 +33,14 @@ export function useFiltragemThreads({
     const temBuscaPorTexto = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
     const modoBusca = temBuscaPorTexto;
 
-    // Criar Set de categorias
-    const categoriasSet = React.useMemo(() => {
-      if (!selectedCategoria || selectedCategoria === 'all') return null;
-      const set = new Set();
+    // Criar Set de categorias (inline, sem useMemo aninhado)
+    let categoriasSet = null;
+    if (selectedCategoria && selectedCategoria !== 'all') {
+      categoriasSet = new Set();
       mensagensComCategoria.forEach((m) => {
-        if (m.thread_id) set.add(m.thread_id);
+        if (m.thread_id) categoriasSet.add(m.thread_id);
       });
-      return set;
-    }, [selectedCategoria, mensagensComCategoria]);
+    }
 
     // PARTE 1: Filtrar threads existentes
     const threadsFiltrados = threads.filter((thread) => {

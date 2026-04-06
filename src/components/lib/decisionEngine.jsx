@@ -76,7 +76,7 @@ export function buildUserPermissions(usuario, allIntegracoes = []) {
 
     // Bloqueios P9-P11
     setoresBloqueados,
-    integracoesBloqueados,
+    integracoesBloqueadas,
     canaisBloqueados,
 
     // Liberações P5, P8

@@ -17,6 +17,12 @@ export default [
       "src/**/*.md.jsx",
       "**/*.md.jsx",
       
+          // Bloqueio explícito de arquivos .md.jsx e .ts.jsx
+      "src/**/*.md.jsx",
+      "src/**/*.md.tsx",
+      "src/**/*.ts.jsx",
+      "src/**/*.ts.tsx",
+
       // Bloqueio total de análises: qualquer arquivo em components que comece com [A-Z]{2,}
       "src/components/**/*[A-Z][A-Z]*.jsx",
       "src/components/**/*[A-Z][A-Z]*.tsx", 
@@ -41,6 +47,14 @@ export default [
       "src/**/PROJETO_*",
       "src/**/RECONCILIACAO_*",
       "src/**/VALIDACAO_*",
+      "src/**/CONTRATO_*",
+      "src/**/CONTRATOS*",
+      "src/**/IMPLEMENTACAO_*",
+      "src/**/LINHA_LOGICA_*",
+      "src/**/MAPA_*",
+      "src/**/ONDE_*",
+      "src/**/VERIFICACAO_*",
+      "src/**/*calcularPrioridade.ts*",
     ],
   },
   {

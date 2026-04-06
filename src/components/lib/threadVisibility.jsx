@@ -574,6 +574,7 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
   // NOTA: A lógica de contexto (mostrar todas threads do contato) é feita em Comunicacao.jsx
   if (filtros.scope === 'unassigned') {
     // Thread órfã = sem assigned_user_id e sem assigned_user_email
+    const naoAtribuida = isNaoAtribuida(thread);
     const baseCheck = naoAtribuida && (isAdminOrAll || perms.pode_ver_nao_atribuidas !== false);
     
     if (!baseCheck) return false;
