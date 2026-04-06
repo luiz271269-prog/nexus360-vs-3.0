@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -213,10 +212,27 @@ RETORNE o JSON estruturado conforme o schema.`;
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!extractedData) {
       toast.warning('Nenhum dado para confirmar.');
       return;
+    }
+
+    // Verificar duplicata por numero_orcamento antes de prosseguir
+    if (extractedData.numero_orcamento) {
+      try {
+        const existentes = await base44.entities.Orcamento.filter({ numero_orcamento: extractedData.numero_orcamento });
+        if (existentes && existentes.length > 0) {
+          toast.error(
+            `⚠️ Orçamento #${extractedData.numero_orcamento} já existe no sistema para "${existentes[0].cliente_nome}". Importação cancelada para evitar duplicata.`,
+            { duration: 6000 }
+          );
+          return;
+        }
+      } catch (e) {
+        // Se falhar a verificação, deixa prosseguir
+        console.warn('Aviso: não foi possível verificar duplicata', e);
+      }
     }
 
     onSuccess({
