@@ -196,7 +196,7 @@ export default function PainelAnaliseContatoIA({ contactId, onClose }) {
                 <span className="text-xs font-bold text-blue-800">Última mensagem</span>
               </div>
               <p className="text-sm text-slate-700 mb-1">
-                {mensagensProcessadas?.[mensagensProcessadas.length - 1]?.content?.substring(0, 150) || 'N/D'}
+                {'N/D'}
               </p>
               <div className="text-[10px] text-slate-500">
                 🕐 {new Date(analise.last_inbound_at).toLocaleString('pt-BR')} ({analise.days_inactive_inbound || 0}d atrás)

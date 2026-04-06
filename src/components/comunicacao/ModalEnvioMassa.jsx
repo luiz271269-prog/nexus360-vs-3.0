@@ -194,7 +194,7 @@ export default function ModalEnvioMassa({ isOpen, onClose, contatosSelecionados,
              💡 Placeholders: <code className="bg-slate-100 px-1 rounded">{'{{nome}}'}</code> <code className="bg-slate-100 px-1 rounded">{'{{empresa}}'}</code> <code className="bg-slate-100 px-1 rounded">{'{{atendente}}'}</code> <code className="bg-slate-100 px-1 rounded">{'{{tipo_contato}}'}</code>
            </p>
            <p className="text-xs text-slate-400 italic">
-             ✨ Saudação com variações aleatórias + {{atendente}} personalizado reduz detecção spam
+             ✨ Saudação com variações aleatórias + {'{{atendente}}'} personalizado reduz detecção spam
            </p>
            <p className="text-xs text-slate-600">
              {mensagem.length} caracteres

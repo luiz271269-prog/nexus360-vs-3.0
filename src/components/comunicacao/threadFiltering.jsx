@@ -86,7 +86,9 @@ export function calcularThreadsFiltradas({ threads, contatos, clientes, atendent
   const threadsFiltrados = threadsUnicas.filter((thread) => {
     if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
       const parts = thread.participants || [];
-      return parts.includes(usuario.id);
+      const unreadBy = thread.unread_by || {};
+      // ✅ FIX: incluir thread se usuário está em participants[] OU tem mensagens não lidas (unread_by)
+      return parts.includes(usuario.id) || (usuario.id in unreadBy);
     }
     const contato = contatosMap.get(thread.contact_id);
     if (thread.contact_id) threadsComContatoIds.add(thread.contact_id);

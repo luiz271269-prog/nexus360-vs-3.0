@@ -56,21 +56,8 @@ export function useThreadSelection({
       console.log(`[Comunicacao] 🔀 Auto-redirecionar: ${thread.id} → ${thread.merged_into}`);
       const threadCanonica = threads.find((t) => t.id === thread.merged_into);
       if (threadCanonica) {
-        return useThreadSelection({
-          integracoes,
-          queryClient,
-          clientes,
-          contatos,
-          usuario,
-          threads,
-          setThreadAtiva,
-          setContatoPreCarregado,
-          setShowContactInfo,
-          setContactInitialData,
-          setNovoContatoTelefone,
-          setCriandoNovoContato,
-          setModalSemPermissao
-        })(threadCanonica);
+        setThreadAtiva(threadCanonica);
+        return;
       }
     }
 

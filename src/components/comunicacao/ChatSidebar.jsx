@@ -212,9 +212,13 @@ export default function ChatSidebar({
     return threads.filter(t => {
       if (!t) return false;
 
-      // ✅ CRÍTICO: sector_group NUNCA deve aparecer na lista principal de clientes/leads.
-      // Grupos de setor ficam apenas no painel de comunicação interna (ChatSidebarKanban).
-      if (t.thread_type === 'sector_group') return false;
+      // ✅ sector_group: mostrar na sidebar apenas se o usuário é participante OU tem mensagens não lidas
+      if (t.thread_type === 'sector_group') {
+        const parts = t.participants || [];
+        const unreadBy = t.unread_by || {};
+        const userId = usuarioAtual?.id;
+        return parts.includes(userId) || (userId && userId in unreadBy && unreadBy[userId] > 0);
+      }
 
       // Threads 1:1 internas: EXIGIR pelo menos uma mensagem
       if (t.thread_type === 'team_internal') {

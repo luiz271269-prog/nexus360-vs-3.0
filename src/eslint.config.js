@@ -13,6 +13,9 @@ export default [
       ".env*",
       "**/*.md",
       "**/*.md.*",
+      "src/**/*.md",
+      "src/**/*.md.jsx",
+      "**/*.md.jsx",
       
       // Bloqueio total de análises: qualquer arquivo em components que comece com [A-Z]{2,}
       "src/components/**/*[A-Z][A-Z]*.jsx",
