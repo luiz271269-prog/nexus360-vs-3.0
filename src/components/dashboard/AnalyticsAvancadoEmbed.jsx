@@ -553,7 +553,6 @@ function processarDados(dados, periodo) {
     taxaConversao,
     clientesAtivos,
     crescimentoFaturamento: faturamentoTotal > 0 ? 15 : 0,
-    faturamentoTotal,
     crescimentoVendas: totalVendas > 0 ? 8 : 0,
     variacaoConversao: taxaConversao > 0 ? -3 : 0,
     crescimentoClientes: clientesAtivos > 0 ? 5 : 0,

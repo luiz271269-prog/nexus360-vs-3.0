@@ -327,6 +327,7 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
                                 )}
                                 <div className="ml-auto flex gap-1">
                                   {onMostrarInsightsIA && (
+                                    <>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); onEdit && onEdit(orcamento); }}
                                       className="flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-[9px] font-semibold transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
@@ -341,6 +342,7 @@ export default function OrcamentoKanban({ orcamentos, onUpdateStatus, usuario, o
                                       <Brain className="w-2.5 h-2.5" />
                                       IA
                                     </button>
+                                    </>
                                   )}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); abrirChatComCliente(orcamento); }}

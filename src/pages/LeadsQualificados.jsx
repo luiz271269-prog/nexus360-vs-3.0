@@ -689,11 +689,7 @@ export default function LeadsQualificados() {
                 onEdit={handleEditOrcamento}
                 onDelete={handleDeleteOrcamento}
                 usuario={usuarioAtual}
-                onUpdateStatus={(id, status) => {
-                  base44.entities.Orcamento.update(id, { status });
-                  queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
-                  toast.success(`Orçamento movido para "${status}"`);
-                }}
+                atendentes={atendentes}
                 />
                 ) : (
                 <OrcamentoTable
