@@ -25,4 +25,10 @@ export default defineConfig({
       },
     },
   },
+  // Excluir arquivos de documentação ALL_CAPS do processamento
+  server: {
+    fs: {
+      strict: false,
+    },
+  },
 });
