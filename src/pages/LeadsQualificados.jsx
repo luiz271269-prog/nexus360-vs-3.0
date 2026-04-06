@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import ClienteKanban from "../components/clientes/ClienteKanban";
 import ClienteTable from "../components/clientes/ClienteTable";
 import ClienteForm from "../components/clientes/ClienteForm";
-import { listarVendedoresParaSelect, sincronizarClientesComVendedores, sincronizarOrcamentosComUsuarios } from '../components/lib/vendedorSync';
+import { listarVendedoresParaSelect, sincronizarClientesComVendedores, sincronizarOrcamentosComUsuarios, getNomeExibicao } from '../components/lib/vendedorSync';
 import { validarMudancaStatus, getMensagemMotivacional, getProximaAcaoSugerida } from '../components/clientes/ClienteFormValidation';
 import OrcamentoKanbanOptimized from "../components/orcamentos/OrcamentoKanbanOptimized";
 import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
@@ -381,8 +381,8 @@ export default function LeadsQualificados() {
       try {
         const user = await base44.auth.me();
         setUsuarioAtual(user);
-        // Vendedor = o próprio user (fonte unificada)
-        if (user) setVendedorDoUsuario(user.full_name);
+        // Vendedor = nome de exibição do user (prioriza display_name)
+        if (user) setVendedorDoUsuario(getNomeExibicao(user));
       } catch (error) {
         console.error('Erro ao carregar usuário:', error);
       }

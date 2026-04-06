@@ -22,6 +22,7 @@ import AlertasInteligentesIA from "../components/global/AlertasInteligentesIA";
 import BotaoNexusFlutuante from "../components/global/BotaoNexusFlutuante";
 import MetricasNotasFiscais from "../components/dashboard/MetricasNotasFiscais";
 import { dedupById, dedupClientes, dedupVendas, dedupOrcamentos, dedupContatos } from "../utils/dedup";
+import { getNomeExibicao } from "../components/lib/vendedorSync";
 import { buscarNotasFiscaisExternas } from "@/functions/buscarNotasFiscaisExternas";
 
 // Cache global para evitar chamadas desnecessárias
@@ -182,7 +183,7 @@ export default function Dashboard() {
 
   const filtrarDadosPorPerfil = (usuario, dados) => {
     if (usuario.role === 'user') {
-      const nomeVendedor = usuario.full_name;
+      const nomeVendedor = getNomeExibicao(usuario);
       const userId = usuario.id;
 
       // Se não tem nome definido, mostra todos os dados
