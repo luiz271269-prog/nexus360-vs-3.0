@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -61,7 +62,7 @@ const formatDate = (dateString) => {
 };
 
 // ─── Card memorizado ──────────────────────────────────────────────────────────
-const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, etiquetasMap }) => {
+const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, etiquetasMap, isSaving }) => {
   return (
     <Draggable draggableId={orcamento.id} index={index}>
       {(provided, snapshot) => (
@@ -73,10 +74,15 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
             ...provided.draggableProps.style,
             transition: snapshot.isDragging ? 'none' : provided.draggableProps.style?.transition
           }}
-          className={`bg-white rounded-lg border ${gradient.border} hover:shadow-md cursor-grab active:cursor-grabbing group ${
+          className={`bg-white rounded-lg border ${gradient.border} hover:shadow-md cursor-grab active:cursor-grabbing group relative ${
             snapshot.isDragging ? 'shadow-2xl ring-2 ' + gradient.ring + ' rotate-1 opacity-95 scale-105 z-50' : ''
           }`}
         >
+          {isSaving && (
+            <div className="absolute inset-0 bg-white/70 rounded-lg flex items-center justify-center z-10">
+              <div className="w-4 h-4 border-2 border-slate-400 border-t-orange-500 rounded-full animate-spin" />
+            </div>
+          )}
           <div className="p-2 space-y-0">
             <div className="flex items-start justify-between gap-1">
               <h4 className="font-semibold text-slate-800 text-[11px] leading-tight truncate flex-1 uppercase">
@@ -183,8 +189,16 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
 });
 OrcamentoCard.displayName = 'OrcamentoCard';
 
+// ─── Empty State ─────────────────────────────────────────────────────────────
+const ColunasEmptyState = () => (
+  <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+    <div className="text-3xl mb-2">📭</div>
+    <span className="text-xs">Nenhum orçamento aqui</span>
+  </div>
+);
+
 // ─── Coluna Droppable memorizada ──────────────────────────────────────────────
-const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamentos, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, etiquetasMap }) => {
+const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamentos, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, etiquetasMap, savingId }) => {
   const gradient = statusGradients[status];
   const totalValor = useMemo(() => colOrcamentos.reduce((s, o) => s + (o.valor_total || 0), 0), [colOrcamentos]);
 
@@ -215,6 +229,7 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
             }`}
             style={{ minHeight: 500 }}
           >
+            {colOrcamentos.length === 0 && !snapshot.isDraggingOver && <ColunasEmptyState />}
             {colOrcamentos.map((orc, index) => (
               <OrcamentoCard
                 key={orc.id}
@@ -226,6 +241,7 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
                 onAbrirChat={onAbrirChat}
                 onTag={onTag}
                 etiquetasMap={etiquetasMap}
+                isSaving={savingId === orc.id}
               />
             ))}
             {provided.placeholder}
@@ -242,6 +258,8 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   const [tagModalOrcamento, setTagModalOrcamento] = useState(null);
   const [etiquetas, setEtiquetas] = useState([]);
   const [localOrcamentos, setLocalOrcamentos] = useState(null);
+  const [savingId, setSavingId] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     base44.entities.EtiquetaOrcamento.list().then((data) => setEtiquetas(data || [])).catch(() => {});
@@ -290,6 +308,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     });
 
     if (typeof onUpdateStatus === 'function') {
+      setSavingId(draggableId);
       try {
         await onUpdateStatus(draggableId, novoStatus);
         toast.success(`Movido para "${statusLabels[novoStatus] || novoStatus}"`);
@@ -300,6 +319,8 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
           return base.map((o) => o.id === draggableId ? { ...o, status: statusAnterior } : o);
         });
         toast.error('Erro ao mover orçamento. Revertendo...');
+      } finally {
+        setSavingId(null);
       }
     }
   }, [onUpdateStatus, orcamentosProps]);
@@ -307,15 +328,18 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   const onAbrirChat = useCallback(async (orcamento) => {
     const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;
     if (!telefone) { toast.error('Telefone não cadastrado neste orçamento'); return; }
+    // Normalização robusta: remove DDI 55 se presente, garante só dígitos
+    const raw = telefone.replace(/\D/g, '');
+    const canonico = raw.startsWith('55') && raw.length > 11 ? raw : raw;
     try {
-      const contatos = await base44.entities.Contact.filter({ telefone_canonico: telefone.replace(/\D/g, '') });
+      const contatos = await base44.entities.Contact.filter({ telefone_canonico: canonico });
       if (contatos?.length > 0) {
-        window.location.href = `/Comunicacao?contact_id=${contatos[0].id}`;
+        navigate(`/Comunicacao?contact_id=${contatos[0].id}`);
       } else {
         toast.error('Contato não encontrado na Central de Comunicação');
       }
     } catch { toast.error('Erro ao buscar contato'); }
-  }, []);
+  }, [navigate]);
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -375,6 +399,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
                       onAbrirChat={onAbrirChat}
                       onTag={setTagModalOrcamento}
                       etiquetasMap={etiquetasMap}
+                      savingId={savingId}
                     />
                   ))}
                 </div>
