@@ -54,7 +54,7 @@ const etapasFluxo = {
 };
 
 const formatCurrency = (value) =>
-  (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' });
+(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' });
 
 const formatDate = (dateString) => {
   if (!dateString) return '';
@@ -65,24 +65,24 @@ const formatDate = (dateString) => {
 const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, etiquetasMap, isSaving }) => {
   return (
     <Draggable draggableId={orcamento.id} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          style={{
-            ...provided.draggableProps.style,
-            transition: snapshot.isDragging ? 'none' : provided.draggableProps.style?.transition
-          }}
-          className={`bg-white rounded-lg border ${gradient.border} hover:shadow-md cursor-grab active:cursor-grabbing group relative ${
-            snapshot.isDragging ? 'shadow-2xl ring-2 ' + gradient.ring + ' rotate-1 opacity-95 scale-105 z-50' : ''
-          }`}
-        >
-          {isSaving && (
-            <div className="absolute inset-0 bg-white/70 rounded-lg flex items-center justify-center z-10">
+      {(provided, snapshot) =>
+      <div
+        ref={provided.innerRef}
+        {...provided.draggableProps}
+        {...provided.dragHandleProps}
+        style={{
+          ...provided.draggableProps.style,
+          transition: snapshot.isDragging ? 'none' : provided.draggableProps.style?.transition
+        }}
+        className={`bg-white rounded-lg border ${gradient.border} hover:shadow-md cursor-grab active:cursor-grabbing group relative ${
+        snapshot.isDragging ? 'shadow-2xl ring-2 ' + gradient.ring + ' rotate-1 opacity-95 scale-105 z-50' : ''}`
+        }>
+        
+          {isSaving &&
+        <div className="absolute inset-0 bg-white/70 rounded-lg flex items-center justify-center z-10">
               <div className="w-4 h-4 border-2 border-slate-400 border-t-orange-500 rounded-full animate-spin" />
             </div>
-          )}
+        }
           <div className="p-2 space-y-0">
             <div className="flex items-start justify-between gap-1">
               <h4 className="font-semibold text-slate-800 text-[11px] leading-tight truncate flex-1 uppercase">
@@ -100,102 +100,102 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
             </div>
 
             <div className="flex items-center justify-between text-[10px] text-slate-500">
-              {orcamento.vendedor && (
-                <div className="flex items-center gap-0.5">
+              {orcamento.vendedor &&
+            <div className="flex items-center gap-0.5">
                   <User className="w-2.5 h-2.5" />
                   <span className="truncate max-w-[60px]">{(orcamento.vendedor || '').split(' ')[0]}</span>
                 </div>
-              )}
-              {orcamento.data_orcamento && (
-                <div className="flex items-center gap-0.5 ml-auto">
+            }
+              {orcamento.data_orcamento &&
+            <div className="flex items-center gap-0.5 ml-auto">
                   <Calendar className="w-2.5 h-2.5" />
                   <span>{formatDate(orcamento.data_orcamento)}</span>
                 </div>
-              )}
+            }
             </div>
 
-            {orcamento.etiquetas?.length > 0 && (
-              <div className="flex flex-wrap gap-1">
+            {orcamento.etiquetas?.length > 0 &&
+          <div className="flex flex-wrap gap-1">
                 {orcamento.etiquetas.map((id) => {
-                  const et = etiquetasMap?.[id];
-                  if (!et) return null;
-                  return (
-                    <span
-                      key={id}
-                      className="relative group inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold text-white cursor-default"
-                      style={{ backgroundColor: et.cor || '#f59e0b' }}
-                    >
+              const et = etiquetasMap?.[id];
+              if (!et) return null;
+              return (
+                <span
+                  key={id}
+                  className="relative group inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold text-white cursor-default"
+                  style={{ backgroundColor: et.cor || '#f59e0b' }}>
+                  
                       {et.nome}
-                      {et.observacao && (
-                        <span className="absolute bottom-full left-0 mb-1 hidden group-hover:block z-50 bg-slate-900 text-white text-[9px] rounded px-2 py-1 whitespace-nowrap shadow-xl max-w-[150px] break-words pointer-events-none">
+                      {et.observacao &&
+                  <span className="absolute bottom-full left-0 mb-1 hidden group-hover:block z-50 bg-slate-900 text-white text-[9px] rounded px-2 py-1 whitespace-nowrap shadow-xl max-w-[150px] break-words pointer-events-none">
                           {et.observacao}
                         </span>
-                      )}
-                    </span>
-                  );
-                })}
+                  }
+                    </span>);
+
+            })}
               </div>
-            )}
+          }
 
             <div className="pt-1 rounded-none flex items-center gap-1 border-t border-slate-100">
-              {orcamento.probabilidade && (
-                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${
-                  orcamento.probabilidade === 'Alta' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                  orcamento.probabilidade === 'Média' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                  'bg-red-50 text-red-700 border-red-200'
-                }`}>{orcamento.probabilidade}</span>
-              )}
+              {orcamento.probabilidade &&
+            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${
+            orcamento.probabilidade === 'Alta' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+            orcamento.probabilidade === 'Média' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+            'bg-red-50 text-red-700 border-red-200'}`
+            }>{orcamento.probabilidade}</span>
+            }
               <div className="ml-auto flex gap-1">
                 <button
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); onTag?.(orcamento); }}
-                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded text-[9px] font-semibold border border-amber-200 transition-all"
-                  title="Etiquetas"
-                >
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {e.stopPropagation();onTag?.(orcamento);}}
+                className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded text-[9px] font-semibold border border-amber-200 transition-all"
+                title="Etiquetas">
+                
                   <Tags className="w-2.5 h-2.5" />
                 </button>
-                {onMostrarInsightsIA && (
-                  <button
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => { e.stopPropagation(); onMostrarInsightsIA(orcamento); }}
-                    className="flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-[9px] font-semibold border border-indigo-200 transition-all"
-                  >
+                {onMostrarInsightsIA &&
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {e.stopPropagation();onMostrarInsightsIA(orcamento);}}
+                className="flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-[9px] font-semibold border border-indigo-200 transition-all">
+                
                     <Brain className="w-2.5 h-2.5" /> IA
                   </button>
-                )}
+              }
                 <button
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); onAbrirChat(orcamento); }}
-                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-[9px] font-semibold transition-all"
-                  title="Abrir chat"
-                >
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {e.stopPropagation();onAbrirChat(orcamento);}}
+                className="flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-[9px] font-semibold transition-all"
+                title="Abrir chat">
+                
                   <Send className="w-2.5 h-2.5" />
                 </button>
                 <button
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); onEdit?.(orcamento); }}
-                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-orange-50 hover:bg-orange-500 text-orange-500 hover:text-white rounded text-[9px] font-semibold border border-orange-200 transition-all"
-                  title="Editar orçamento"
-                >
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {e.stopPropagation();onEdit?.(orcamento);}}
+                className="flex items-center gap-0.5 px-1.5 py-0.5 bg-orange-50 hover:bg-orange-500 text-orange-500 hover:text-white rounded text-[9px] font-semibold border border-orange-200 transition-all"
+                title="Editar orçamento">
+                
                   <PenLine className="w-2.5 h-2.5" />
                 </button>
               </div>
             </div>
           </div>
         </div>
-      )}
-    </Draggable>
-  );
+      }
+    </Draggable>);
+
 });
 OrcamentoCard.displayName = 'OrcamentoCard';
 
 // ─── Empty State ─────────────────────────────────────────────────────────────
-const ColunasEmptyState = () => (
-  <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+const ColunasEmptyState = () =>
+<div className="flex flex-col items-center justify-center py-8 text-slate-400">
     <div className="text-3xl mb-2">📭</div>
     <span className="text-xs">Nenhum orçamento aqui</span>
-  </div>
-);
+  </div>;
+
 
 // ─── Coluna Droppable memorizada ──────────────────────────────────────────────
 const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamentos, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, etiquetasMap, savingId }) => {
@@ -220,36 +220,36 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
       </div>
 
       <Droppable droppableId={status}>
-        {(provided, snapshot) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-            className={`p-1.5 rounded-b-xl border-l-4 border-r-4 border-b-4 ${gradient.border} space-y-1.5 flex-1 transition-colors duration-150 ${
-              snapshot.isDraggingOver ? 'bg-orange-50' : 'bg-slate-50'
-            }`}
-            style={{ minHeight: 500 }}
-          >
+        {(provided, snapshot) =>
+        <div
+          ref={provided.innerRef}
+          {...provided.droppableProps} className="bg-slate-50 px-5 rounded-b-xl border-l-4 border-r-4 border-b-4 border-amber-500 space-y-1.5 flex-1 transition-colors duration-150"
+
+
+
+          style={{ minHeight: 500 }}>
+          
             {colOrcamentos.length === 0 && !snapshot.isDraggingOver && <ColunasEmptyState />}
-            {colOrcamentos.map((orc, index) => (
-              <OrcamentoCard
-                key={orc.id}
-                orcamento={orc}
-                index={index}
-                gradient={gradient}
-                onEdit={onEdit}
-                onMostrarInsightsIA={onMostrarInsightsIA}
-                onAbrirChat={onAbrirChat}
-                onTag={onTag}
-                etiquetasMap={etiquetasMap}
-                isSaving={savingId === orc.id}
-              />
-            ))}
+            {colOrcamentos.map((orc, index) =>
+          <OrcamentoCard
+            key={orc.id}
+            orcamento={orc}
+            index={index}
+            gradient={gradient}
+            onEdit={onEdit}
+            onMostrarInsightsIA={onMostrarInsightsIA}
+            onAbrirChat={onAbrirChat}
+            onTag={onTag}
+            etiquetasMap={etiquetasMap}
+            isSaving={savingId === orc.id} />
+
+          )}
             {provided.placeholder}
           </div>
-        )}
+        }
       </Droppable>
-    </div>
-  );
+    </div>);
+
 });
 KanbanColumn.displayName = 'KanbanColumn';
 
@@ -266,7 +266,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   }, []);
 
   const etiquetasMap = useMemo(() => {
-    return etiquetas.reduce((acc, et) => { acc[et.id] = et; return acc; }, {});
+    return etiquetas.reduce((acc, et) => {acc[et.id] = et;return acc;}, {});
   }, [etiquetas]);
 
   const handleTagSave = useCallback(async (orcamentoAtualizado) => {
@@ -327,7 +327,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
 
   const onAbrirChat = useCallback(async (orcamento) => {
     const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;
-    if (!telefone) { toast.error('Telefone não cadastrado neste orçamento'); return; }
+    if (!telefone) {toast.error('Telefone não cadastrado neste orçamento');return;}
     // Normalização robusta: remove DDI 55 se presente, garante só dígitos
     const raw = telefone.replace(/\D/g, '');
     const canonico = raw.startsWith('55') && raw.length > 11 ? raw : raw;
@@ -338,7 +338,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
       } else {
         toast.error('Contato não encontrado na Central de Comunicação');
       }
-    } catch { toast.error('Erro ao buscar contato'); }
+    } catch {toast.error('Erro ao buscar contato');}
   }, [navigate]);
 
   return (
@@ -352,12 +352,16 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
               const valor = etapa.statuses.reduce((s, st) => s + (orcamentosPorStatus[st]?.reduce((a, o) => a + (o.valor_total || 0), 0) || 0), 0);
               return (
                 <TabsTrigger key={key} value={key}
-                  className="relative px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200
+                className="relative px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200
                     data-[state=inactive]:text-slate-400 data-[state=inactive]:hover:text-slate-200 data-[state=inactive]:hover:bg-slate-800/50
                     data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-400 data-[state=active]:via-orange-500 data-[state=active]:to-red-500
                     data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-orange-500/30
-                    flex items-center justify-between gap-3"
-                >
+                    flex items-center justify-between gap-3">
+
+
+
+
+                  
                   <div className="flex items-center gap-2">
                     <Icon className="w-5 h-5 flex-shrink-0" />
                     <span className="font-bold text-sm whitespace-nowrap">{etapa.title}</span>
@@ -368,53 +372,53 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
                     <span className="opacity-40">•</span>
                     <span className="font-semibold">{formatCurrency(valor)}</span>
                   </div>
-                </TabsTrigger>
-              );
+                </TabsTrigger>);
+
             })}
           </TabsList>
 
-          {Object.entries(etapasFluxo).map(([key, etapa]) => (
-            <TabsContent key={key} value={key} className="mt-4">
+          {Object.entries(etapasFluxo).map(([key, etapa]) =>
+          <TabsContent key={key} value={key} className="mt-4">
               <div className={`${etapa.containerBg} rounded-2xl p-3 border-2 border-white/50 shadow-2xl`}>
                 {/* Container com overflow-x visível para o drag funcionar em todas as colunas */}
                 <div
-                  style={{
-                    display: 'flex',
-                    gap: 10,
-                    overflowX: 'auto',
-                    overflowY: 'visible',
-                    minHeight: 560,
-                    paddingBottom: 8,
-                    WebkitOverflowScrolling: 'touch'
-                  }}
-                >
-                  {etapa.statuses.map((status) => (
-                    <KanbanColumn
-                      key={status}
-                      status={status}
-                      etapaConfig={etapa}
-                      orcamentos={orcamentosPorStatus[status] || []}
-                      onEdit={onEdit}
-                      onMostrarInsightsIA={onMostrarInsightsIA}
-                      onAbrirChat={onAbrirChat}
-                      onTag={setTagModalOrcamento}
-                      etiquetasMap={etiquetasMap}
-                      savingId={savingId}
-                    />
-                  ))}
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  overflowX: 'auto',
+                  overflowY: 'visible',
+                  minHeight: 560,
+                  paddingBottom: 8,
+                  WebkitOverflowScrolling: 'touch'
+                }}>
+                
+                  {etapa.statuses.map((status) =>
+                <KanbanColumn
+                  key={status}
+                  status={status}
+                  etapaConfig={etapa}
+                  orcamentos={orcamentosPorStatus[status] || []}
+                  onEdit={onEdit}
+                  onMostrarInsightsIA={onMostrarInsightsIA}
+                  onAbrirChat={onAbrirChat}
+                  onTag={setTagModalOrcamento}
+                  etiquetasMap={etiquetasMap}
+                  savingId={savingId} />
+
+                )}
                 </div>
               </div>
             </TabsContent>
-          ))}
+          )}
         </Tabs>
       </div>
-      {tagModalOrcamento && (
-        <OrcamentoTagModal
-          orcamento={tagModalOrcamento}
-          onClose={() => setTagModalOrcamento(null)}
-          onSave={handleTagSave}
-        />
-      )}
-    </DragDropContext>
-  );
+      {tagModalOrcamento &&
+      <OrcamentoTagModal
+        orcamento={tagModalOrcamento}
+        onClose={() => setTagModalOrcamento(null)}
+        onSave={handleTagSave} />
+
+      }
+    </DragDropContext>);
+
 }
