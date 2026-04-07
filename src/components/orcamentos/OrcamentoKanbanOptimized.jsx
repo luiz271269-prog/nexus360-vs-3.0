@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, DollarSign, User, Brain, Send, Building2, Handshake, Tags, PenLine } from 'lucide-react';
 import { toast } from 'sonner';
+import { base44 } from '@/api/base44Client';
 import OrcamentoTagModal from './OrcamentoTagModal';
 
 const statusLabels = {
