@@ -223,7 +223,7 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
         {(provided, snapshot) =>
         <div
           ref={provided.innerRef}
-          {...provided.droppableProps} className="bg-slate-50 px-5 rounded-b-xl border-l-4 border-r-4 border-b-4 border-amber-500 space-y-1.5 flex-1 transition-colors duration-150"
+          {...provided.droppableProps} className="bg-slate-50 px-6 rounded-b-xl border-l-4 border-r-4 border-b-4 border-amber-500 space-y-1.5 flex-1 transition-colors duration-150"
 
 
 
@@ -357,6 +357,10 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
                     data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-400 data-[state=active]:via-orange-500 data-[state=active]:to-red-500
                     data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:shadow-orange-500/30
                     flex items-center justify-between gap-3">
+
+
+
+                  
 
 
 
