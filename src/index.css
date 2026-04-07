@@ -156,3 +156,20 @@ button:focus-visible {
     @apply bg-background text-foreground;
   }
 }
+
+/* Scrollbar do Kanban de orçamentos */
+.kanban-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+.kanban-scroll::-webkit-scrollbar-track {
+  background: #1e293b;
+  border-radius: 5px;
+}
+.kanban-scroll::-webkit-scrollbar-thumb {
+  background: #f97316;
+  border-radius: 5px;
+  border: 2px solid #1e293b;
+}
+.kanban-scroll::-webkit-scrollbar-thumb:hover {
+  background: #ea580c;
+}

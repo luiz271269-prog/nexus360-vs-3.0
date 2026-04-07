@@ -302,26 +302,31 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     const novoStatus = destination.droppableId;
     const statusAnterior = source.droppableId;
 
+    // Atualiza localmente de imediato (optimistic)
     setLocalOrcamentos((prev) => {
       const base = prev ?? orcamentosProps;
       return base.map((o) => o.id === draggableId ? { ...o, status: novoStatus } : o);
     });
 
-    if (typeof onUpdateStatus === 'function') {
-      setSavingId(draggableId);
-      try {
+    setSavingId(draggableId);
+    try {
+      // Salva direto no banco
+      await base44.entities.Orcamento.update(draggableId, { status: novoStatus });
+      // Chama callback do pai para invalidar cache (se fornecido)
+      if (typeof onUpdateStatus === 'function') {
         await onUpdateStatus(draggableId, novoStatus);
-        toast.success(`Movido para "${statusLabels[novoStatus] || novoStatus}"`);
-      } catch (error) {
-        console.error('Erro ao mover orçamento:', error);
-        setLocalOrcamentos((prev) => {
-          const base = prev ?? orcamentosProps;
-          return base.map((o) => o.id === draggableId ? { ...o, status: statusAnterior } : o);
-        });
-        toast.error('Erro ao mover orçamento. Revertendo...');
-      } finally {
-        setSavingId(null);
       }
+      toast.success(`Movido para "${statusLabels[novoStatus] || novoStatus}"`);
+    } catch (error) {
+      console.error('Erro ao mover orçamento:', error);
+      // Reverte estado local
+      setLocalOrcamentos((prev) => {
+        const base = prev ?? orcamentosProps;
+        return base.map((o) => o.id === draggableId ? { ...o, status: statusAnterior } : o);
+      });
+      toast.error('Erro ao mover orçamento. Revertendo...');
+    } finally {
+      setSavingId(null);
     }
   }, [onUpdateStatus, orcamentosProps]);
 
@@ -403,12 +408,13 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
                   gap: 10,
                   overflowX: 'auto',
                   overflowY: 'visible',
-                  minHeight: 'calc(100vh - 280px)',
-                  paddingBottom: 12,
+                  height: 'calc(100vh - 260px)',
+                  paddingBottom: 16,
                   WebkitOverflowScrolling: 'touch',
-                  scrollbarWidth: 'thin',
+                  scrollbarWidth: 'auto',
                   scrollbarColor: '#f97316 #1e293b'
-                }}>
+                }}
+                className="kanban-scroll">
 
                   {etapa.statuses.map((status) =>
                 <KanbanColumn

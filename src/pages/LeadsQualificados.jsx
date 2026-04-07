@@ -366,7 +366,7 @@ export default function LeadsQualificados() {
 
   const handleUpdateOrcamentoStatus = async (id, novoStatus) => {
     await base44.entities.Orcamento.update(id, { status: novoStatus });
-    queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+    await queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
   };
 
   const handleEditOrcamento = (orcamento) => {
