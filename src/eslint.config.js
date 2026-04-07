@@ -3,21 +3,16 @@ import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
-  // BLOQUEIO TOTAL: Ignorar QUALQUER arquivo que cause parsing errors
   {
     ignores: [
       "node_modules/**",
       "dist/**",
       "build/**",
       ".git/**",
-      ".env*",
-      // Ignorar todos os arquivos .md e variantes
-      "**/*.md",
-      "**/*.md.*",
+      // Ignorar arquivos de documentação markdown como jsx
       "**/*.md.jsx",
       "**/*.md.tsx",
-      // Ignorar TODOS os arquivos com nomes em MAIÚSCULAS (documentação)
-      // Padrão: qualquer arquivo cujo nome começa com letra maiúscula seguida de _ ou maiúsculas
+      // Ignorar todos os arquivos ANALISE_* independente da extensão
       "**/ANALISE_*",
       "**/ARQUITETURA_*",
       "**/APLICAVEL_*",
@@ -40,6 +35,35 @@ export default [
       "**/IMPLEMENTACAO_*",
       "**/ONDE_VER_*",
       "**/CONTRATO_*",
+      // Padrões explícitos para src/components
+      "src/components/ANALISE_*",
+      "src/components/ARQUITETURA_*",
+      "src/components/APLICAVEL_*",
+      "src/components/COMPARATIVO_*",
+      "src/components/COMPARACAO_*",
+      "src/components/CONFIRMACAO_*",
+      "src/components/DECISAO_*",
+      "src/components/DIAGNOSTICO_*",
+      "src/components/ESTRATEGIA_*",
+      "src/components/FLUXO_*",
+      "src/components/MAPEAMENTO_*",
+      "src/components/MELHORIAS_*",
+      "src/components/PLANO_*",
+      "src/components/PRINCIPIO_*",
+      "src/components/PROJETO_*",
+      "src/components/RECONCILIACAO_*",
+      "src/components/VALIDACAO_*",
+      "src/components/comunicacao/ANALISE_*",
+      "src/components/comunicacao/ARQUITETURA_*",
+      "src/components/comunicacao/COMPARACAO_*",
+      "src/components/comunicacao/CONTRATO_*",
+      "src/components/comunicacao/DIAGNOSTICO_*",
+      "src/components/comunicacao/FLUXO_*",
+      "src/components/comunicacao/IMPLEMENTACAO_*",
+      "src/components/comunicacao/LINHA_LOGICA_*",
+      "src/components/comunicacao/MAPEAMENTO_*",
+      "src/components/comunicacao/ONDE_VER_*",
+      "src/components/comunicacao/VERIFICACAO_*",
     ],
   },
   {

@@ -364,11 +364,13 @@ export default function LeadsQualificados() {
     }
   };
 
-  const handleEditOrcamento = (orcamento) => {
-    navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`));
+  const handleUpdateOrcamentoStatus = async (id, novoStatus) => {
+    await base44.entities.Orcamento.update(id, { status: novoStatus });
+    queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
   };
 
   const handleViewOrcamento = (orcamento) => {
+
     navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`));
   };
 
@@ -685,6 +687,7 @@ export default function LeadsQualificados() {
                 ) : viewMode === 'kanban' ? (
                 <OrcamentoKanbanOptimized
                 orcamentos={orcamentosFiltrados}
+                onUpdateStatus={handleUpdateOrcamentoStatus}
                 onView={handleViewOrcamento}
                 onEdit={handleEditOrcamento}
                 onDelete={handleDeleteOrcamento}

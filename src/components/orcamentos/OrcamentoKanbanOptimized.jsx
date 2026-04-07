@@ -203,7 +203,7 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
   const totalValor = useMemo(() => colOrcamentos.reduce((s, o) => s + (o.valor_total || 0), 0), [colOrcamentos]);
 
   return (
-    <div style={{ width: 160, minWidth: 160, flexShrink: 0 }} className="flex flex-col">
+    <div style={{ width: 185, minWidth: 185, flexShrink: 0 }} className="flex flex-col">
       <div className={`bg-gradient-to-r ${etapaConfig.headerGradient} p-2 rounded-t-xl shadow-xl`}>
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1">
@@ -403,11 +403,13 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
                   gap: 10,
                   overflowX: 'auto',
                   overflowY: 'visible',
-                  minHeight: 560,
-                  paddingBottom: 8,
-                  WebkitOverflowScrolling: 'touch'
+                  minHeight: 'calc(100vh - 280px)',
+                  paddingBottom: 12,
+                  WebkitOverflowScrolling: 'touch',
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#f97316 #1e293b'
                 }}>
-                
+
                   {etapa.statuses.map((status) =>
                 <KanbanColumn
                   key={status}
