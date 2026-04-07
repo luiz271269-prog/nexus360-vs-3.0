@@ -326,20 +326,13 @@ function construirMapaIntegracoes(usuario, allIntegracoes) {
     // - Sem permissões configuradas = libera tudo (default true)
     // - Com permissões configuradas = respeita valores EXATOS (false = bloqueado)
     if (temPermissoesConfiguradas && !perm) {
-      // Integração não está na lista de permissões = BLOQUEADO
+      // Integração não está na lista de permissões = LIBERA (fail-safe)
+      // Bloqueio só deve ocorrer se explicitamente configurado com can_view: false
       integracoesMap[integracao.id] = {
-        can_view: false,
-        can_send: false,
-        can_receive: false,
+        can_view: true,
+        can_send: true,
+        can_receive: true,
         integration_name: integracao.nome_instancia || 'Sem nome'
-      };
-    } else if (perm) {
-      // Integração tem permissão configurada = usa valores EXATOS
-      integracoesMap[integracao.id] = {
-        can_view: perm.can_view === true, // ✅ Explícito: deve ser true
-        can_send: perm.can_send === true,
-        can_receive: perm.can_receive === true,
-        integration_name: perm.integration_name || integracao.nome_instancia || 'Sem nome'
       };
     } else {
       // Sem permissões configuradas = LIBERA (compatibilidade)
@@ -555,21 +548,7 @@ export const VISIBILITY_MATRIX = [
     name: 'thread_atribuida',
     check: (userPerms, thread, contact) => {
       if (isAtribuidoAoUsuario(userPerms, thread)) {
-        // ✅ CIRÚRGICO: Thread atribuída mas usuário sem permissão para integração = ainda bloqueia
-        const integracaoId = thread.whatsapp_integration_id;
-        if (integracaoId) {
-          const permIntegracao = userPerms.integracoes?.[integracaoId];
-          if (permIntegracao && permIntegracao.can_view === false) {
-            return { 
-              visible: false, 
-              motivo: `Thread atribuída mas integração ${permIntegracao.integration_name} bloqueada`,
-              decision_path: ['DENY:thread_atribuida_sem_permissao_integracao'],
-              reason_code: 'ASSIGNED_BUT_INTEGRATION_BLOCKED',
-              bloqueio: true
-            };
-          }
-        }
-
+        // Thread atribuída ao usuário = sempre visível (sobrepõe bloqueios de integração)
         return { 
           visible: true, 
           motivo: 'Thread atribuída ao usuário (sobrepõe bloqueios)',
@@ -644,13 +623,16 @@ export const VISIBILITY_MATRIX = [
       const integracaoId = thread.whatsapp_integration_id;
       if (!integracaoId) return null;
 
+      // Admin sempre tem acesso total
+      if (userPerms.role === 'admin') return null;
+
       const permIntegracao = userPerms.integracoes?.[integracaoId];
 
-      // ✅ REGRA PRIMÁRIA: Se integração está explicitamente bloqueada (can_view === false)
-      // PREVALECE SOBRE TUDO, inclusive admin
+      // Bloqueio APENAS se explicitamente configurado com can_view === false
+      // (só bloqueio manual por usuário com permissão, nunca automático)
       if (permIntegracao && permIntegracao.can_view === false) {
-        return { 
-          visible: false, 
+        return {
+          visible: false,
           motivo: `Integração ${permIntegracao.integration_name} bloqueada para visualização`,
           decision_path: ['DENY:bloqueio_integracao'],
           reason_code: 'INTEGRATION_BLOCKED',
@@ -659,24 +641,13 @@ export const VISIBILITY_MATRIX = [
         };
       }
 
-      // ✅ BYPASS ADMIN: Só se não houver bloqueio explícito definido
-      // Admin sem regras definidas = libera tudo
-      if (userPerms.role === 'admin' && !permIntegracao) {
-        return null; // Libera (bypass admin)
-      }
-
-      // Integração não mapeada ou sem permissão definida = libera (fail-safe)
-      if (!permIntegracao) {
-        return null;
-      }
-
       return null;
-    }
-  },
-  
-  {
-    priority: 5,
-    name: 'bloqueio_setor',
+      }
+      },
+
+      {
+      priority: 5,
+      name: 'bloqueio_setor',
     check: (userPerms, thread, contact) => {
       const setorThread = getSectorFromThreadOrTags(thread);
       if (!setorThread) return null;
