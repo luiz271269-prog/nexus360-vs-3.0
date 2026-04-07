@@ -369,8 +369,11 @@ export default function LeadsQualificados() {
     queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
   };
 
-  const handleViewOrcamento = (orcamento) => {
+  const handleEditOrcamento = (orcamento) => {
+    navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`));
+  };
 
+  const handleViewOrcamento = (orcamento) => {
     navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`));
   };
 
