@@ -40,6 +40,8 @@ Thumbs.db
 # ─────────────────────────────────────────────────────────────
 src/**/*.md
 src/**/*.md.jsx
+src/**/*.ts.jsx
+src/**/*.ts.tsx
 src/**/[A-Z]*_*.jsx
 
 # Bloqueio preventivo: arquivos de análise do AI editor

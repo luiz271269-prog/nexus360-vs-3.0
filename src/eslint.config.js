@@ -15,6 +15,10 @@ export default [
       "**/*.md.jsx",
       "**/*.md.ts",
       "**/*.md.tsx",
+      // Arquivos .ts wrapper gerados pelo vite-plugin
+      "**/*.ts.jsx",
+      "**/*.ts.tsx",
+      "**/*.ts.js",
       // Arquivos ALL_CAPS de documentação em qualquer subdiretório
       "**/ANALISE_*.jsx",
       "**/ANALISE_*.js",
