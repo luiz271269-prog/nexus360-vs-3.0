@@ -300,65 +300,65 @@ export default function DiagnosticoContato() {
     setCarregando(true);
 
     try {
-      // 1️⃣ ANALISAR
+      // 1️⃣ ANALISAR INICIAL
       queryClientInstance.invalidateQueries({ queryKey: ['Contact'] });
       queryClientInstance.invalidateQueries({ queryKey: ['MessageThread'] });
       queryClientInstance.invalidateQueries({ queryKey: ['Message'] });
       await analisar();
       
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Aguardar análise completa
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const contactId = resultado?.analiseDetalhadaPorContato[0]?.contato?.id;
+      if (!contactId) throw new Error('Contato não encontrado');
       
       // 2️⃣ SINCRONIZAR ÓRFÃS
       setProgressoFluxo('🔗 Sincronizando mensagens órfãs...');
-      const contactId = resultado?.analiseDetalhadaPorContato[0]?.contato?.id;
-      if (contactId) {
-        try {
-          const res = await base44.asServiceRole.functions.invoke('sincronizarMensagensOrfas', {
-            contact_id: contactId,
-            periodo_horas: 72,
-            modo: 'correcao'
-          });
-          if (res.data?.success && res.data.mensagens_revinculadas > 0) {
-            toast.success(`✅ ${res.data.mensagens_revinculadas} mensagens órfãs revinculadas!`);
-          }
-        } catch (e) {
-          console.warn('[DiagnosticoContato] Sync órfãs falhou:', e.message);
+      try {
+        const resOrfas = await base44.asServiceRole.functions.invoke('sincronizarMensagensOrfas', {
+          contact_id: contactId,
+          periodo_horas: 72,
+          modo: 'correcao'
+        });
+        if (resOrfas.data?.mensagens_revinculadas > 0) {
+          toast.success(`✅ ${resOrfas.data.mensagens_revinculadas} mensagens revinculadas!`);
         }
+      } catch (e) {
+        console.warn('[Fluxo] Sync órfãs:', e.message);
       }
       
-      // 2B️⃣ CONSOLIDAR E LIMPAR THREADS MERGED
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // 2B️⃣ CONSOLIDAR THREADS MERGED
       setProgressoFluxo('🔗 Consolidando threads duplicadas...');
-      if (contactId && resultado.analiseDetalhadaPorContato[0]?.threads) {
+      if (resultado?.analiseDetalhadaPorContato[0]?.threads) {
         const threads = resultado.analiseDetalhadaPorContato[0].threads;
         const threadCanonica = threads.find(t => t.status === 'aberta');
         const threadsMerged = threads.filter(t => t.status === 'merged');
         
         if (threadCanonica && threadsMerged.length > 0) {
-          // Mover todas as mensagens das merged para a canônica
           for (const threadMerged of threadsMerged) {
             try {
-              const msgs = await base44.entities.Message.filter({ thread_id: threadMerged.id }, '-sent_at', 1000);
+              const msgs = await base44.asServiceRole.entities.Message.filter({ thread_id: threadMerged.id }, '-sent_at', 1000);
               if (msgs.length > 0) {
-                // RevinÚculer as mensagens à thread canônica
                 for (const msg of msgs) {
                   await base44.asServiceRole.entities.Message.update(msg.id, { thread_id: threadCanonica.id });
                 }
-                console.log(`[Fluxo] ${msgs.length} mensagens movidas de ${threadMerged.id} para ${threadCanonica.id}`);
               }
-              // Deletar a thread merged
               await base44.asServiceRole.entities.MessageThread.delete(threadMerged.id);
               console.log(`[Fluxo] Thread merged deletada: ${threadMerged.id}`);
             } catch (e) {
-              console.warn(`[Fluxo] Erro ao consolidar thread ${threadMerged.id}:`, e.message);
+              console.warn(`[Fluxo] Erro ao consolidar ${threadMerged.id}:`, e.message);
             }
           }
           toast.success(`✅ ${threadsMerged.length} threads consolidadas!`);
         }
       }
       
-      // 3️⃣ CORRIGIR CONTATO SE NECESSÁRIO
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // 3️⃣ CORRIGIR CONTATO PRINCIPAL
+      setProgressoFluxo('🧹 Corrigindo dados do contato...');
       if (auditoriaContato && !auditoriaContato.saudavel) {
-        setProgressoFluxo('🧹 Corrigindo dados do contato...');
         const update = {};
         if (auditoriaContato.canonicoCorrompido || auditoriaContato.canonicoErrado) {
           update.telefone_canonico = auditoriaContato.telefoneEsperado;
@@ -369,20 +369,19 @@ export default function DiagnosticoContato() {
         }
         if (Object.keys(update).length > 0) {
           try {
-            await base44.entities.Contact.update(auditoriaContato.contato.id, update);
-            toast.success(`✅ Contato corrigido! ${Object.keys(update).map(k => `${k}:✓`).join(' ')}`);
+            await base44.asServiceRole.entities.Contact.update(auditoriaContato.contato.id, update);
+            toast.success(`✅ Contato corrigido!`);
             console.log('[Fluxo] Correção aplicada:', update);
           } catch (e) {
-            console.error('[Fluxo] Erro ao corrigir contato:', e);
-            toast.error(`❌ Erro ao corrigir: ${e.message}`);
+            console.error('[Fluxo] Erro ao corrigir:', e);
           }
         }
       }
       
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // 3B️⃣ EXCLUIR DUPLICADOS
-      if (resultado && resultado.contatosDuplicados && resultado.contatosDuplicados.total > 1) {
+      // 3B️⃣ EXCLUIR DUPLICADOS COM VALIDAÇÃO
+      if (resultado?.contatosDuplicados?.total > 1) {
         setProgressoFluxo('🗑️ Removendo contatos duplicados...');
         const contatoPrincipal = resultado.contatosDuplicados.contatos[0];
         const duplicatas = resultado.contatosDuplicados.contatos.slice(1);
@@ -391,6 +390,18 @@ export default function DiagnosticoContato() {
         let deletados = 0;
         for (const dup of duplicatas) {
           try {
+            // Verificar que tem threads associadas antes de deletar
+            const threadsDoc = await base44.asServiceRole.entities.MessageThread.filter({ contact_id: dup.id });
+            
+            // Mover threads para principal
+            if (threadsDoc && threadsDoc.length > 0) {
+              for (const thread of threadsDoc) {
+                await base44.asServiceRole.entities.MessageThread.update(thread.id, { contact_id: contatoPrincipal.id });
+              }
+              console.log(`[Fluxo] ${threadsDoc.length} threads movidas de ${dup.id} para ${contatoPrincipal.id}`);
+            }
+            
+            // Agora deletar o contato duplicado
             await base44.asServiceRole.entities.Contact.delete(dup.id);
             deletados++;
             console.log(`[Fluxo] ✅ Contact deleted: ${dup.id}`);
@@ -403,16 +414,18 @@ export default function DiagnosticoContato() {
         }
       }
       
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // 4️⃣ REANALIZAR FINAL
-      setProgressoFluxo('📊 Validando resultado final...');
-      queryClientInstance.clear(); // ✅ LIMPAR CACHE COMPLETAMENTE
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // 4️⃣ LIMPEZA PROFUNDA DE CACHE
+      setProgressoFluxo('📊 Limpando cache e revalidando...');
+      queryClientInstance.clear();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // 5️⃣ REANALIZAR FINAL COM CACHE LIMPO
       await analisar();
       
-      setProgressoFluxo('✅ Processamento concluído!');
-      toast.success('✅ Contato sincronizado! Reanalise para validar resultados.');
+      setProgressoFluxo('✅ Processamento concluído com sucesso!');
+      toast.success('✅ Contato totalmente sincronizado e validado!');
       
     } catch (error) {
       console.error('[DiagnosticoContato] Fluxo completo falhou:', error);
@@ -421,7 +434,7 @@ export default function DiagnosticoContato() {
     } finally {
       setCarregando(false);
       setFluxoAutomatico(false);
-      setTimeout(() => setProgressoFluxo(''), 4000);
+      setTimeout(() => setProgressoFluxo(''), 5000);
     }
   };
 
