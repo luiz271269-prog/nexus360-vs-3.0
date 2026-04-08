@@ -8,7 +8,7 @@
 // Integra com: enviarWhatsApp (Z-API / W-API)
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // Mensagem de acompanhamento ao enviar o PDF
 function gerarMensagemAcompanhamento(nf, contato) {

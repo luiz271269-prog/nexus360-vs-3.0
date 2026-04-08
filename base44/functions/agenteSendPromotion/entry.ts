@@ -2,7 +2,7 @@
 // Endpoint HTTP para o agente promocoes_automaticas enviar promoções via WhatsApp
 // Não usa imports locais (regra Deno) — lógica de cooldown inline
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
 
