@@ -24,7 +24,7 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.2.0-DEDUP-GUARD';
+const VERSION = 'v11.3.0-CHIPS-CACHE';
 const BUILD_DATE = '2026-03-27';
 
 const corsHeaders = {
@@ -42,6 +42,35 @@ function jsonBadRequest(body) {
 }
 function jsonServerError(body) {
   return Response.json(body, { status: 500, headers: corsHeaders });
+}
+
+// ============================================================================
+// CACHE DE CHIPS INTERNOS — reduz queries paralelas em bursts Z-API
+// Válido por 60s dentro da mesma instância Deno (suficiente para bursts curtos)
+// ============================================================================
+let _cacheChips = null;
+let _cacheChipsTs = 0;
+const CACHE_CHIPS_TTL_MS = 60_000;
+
+async function getChipsInternos(base44) {
+  const agora = Date.now();
+  if (_cacheChips && (agora - _cacheChipsTs) < CACHE_CHIPS_TTL_MS) {
+    return _cacheChips;
+  }
+  try {
+    const integracoes = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
+      { status: 'conectado' }, '-created_date', 100
+    ));
+    _cacheChips = integracoes
+      .map(i => (i.numero_telefone || '').replace(/\D/g, '').replace(/^0+/, ''))
+      .filter(n => n && n.length > 8);
+    _cacheChipsTs = agora;
+    console.log(`[CHIPS-CACHE] ✅ Cache atualizado: ${_cacheChips.length} chips internos`);
+    return _cacheChips;
+  } catch (e) {
+    console.warn(`[CHIPS-CACHE] ⚠️ Erro ao carregar chips (usando cache antigo):`, e.message);
+    return _cacheChips || [];
+  }
 }
 
 // ============================================================================
@@ -549,17 +578,12 @@ async function handleMessage(dados, payloadBruto, base44) {
   console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
   // ✅ CAMADA 2B: Guard inter-chips — rejeitar mensagens ENTRE chips internos
+  // Usa cache em memória para evitar queries paralelas em bursts Z-API
   const fromCanon = String(dados.from).replace(/\D/g, '').replace(/^0+/, '');
   try {
-    const integracoes = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { status: 'conectado' }, '-created_date', 100
-    ));
-    const chipNumbers = integracoes
-      .map(i => (i.numero_telefone || '').replace(/\D/g, '').replace(/^0+/, ''))
-      .filter(n => n && n.length > 8);
+    const chipNumbers = await getChipsInternos(base44);
     if (chipNumbers.includes(fromCanon)) {
-      const chipInfo = integracoes.find(i => (i.numero_telefone || '').replace(/\D/g, '').replace(/^0+/, '') === fromCanon);
-      console.log(`[${VERSION}] 🛡️ GUARD inter-chips: from=${dados.from} é um chip interno (${chipInfo?.nome_instancia})`);
+      console.log(`[${VERSION}] 🛡️ GUARD inter-chips: from=${dados.from} é um chip interno (cache)`);
       return jsonOk({ success: true, ignored: true, reason: 'mensagem_interna_entre_chips' });
     }
   } catch (e) {

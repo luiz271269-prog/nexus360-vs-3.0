@@ -975,7 +975,7 @@ export default React.memo(function MessageBubble({
               })()}
               </p>
               
-              {/* Preview do conteúdo */}
+              {/* Preview do conteúdo — truncado em 80 chars igual WhatsApp */}
               <p className="text-[12px] text-slate-600 line-clamp-2 break-words">
                 {(() => {
                 // Mostrar mídia com ícone
@@ -986,9 +986,10 @@ export default React.memo(function MessageBubble({
                 if (mensagemOriginal.media_type === 'sticker') return '🎨 Sticker';
                 if (mensagemOriginal.media_type === 'location') return '📍 Localização';
 
-                // Sanitizar emojis do texto
+                // Sanitizar + truncar em 80 chars (evita metadados internos)
                 const texto = sanitizeEmojis(String(mensagemOriginal.content || ''));
-                return texto || '[Conteúdo não disponível]';
+                const truncado = texto.length > 80 ? texto.substring(0, 80) + '...' : texto;
+                return truncado || '[Conteúdo não disponível]';
               })()}
               </p>
             </div>

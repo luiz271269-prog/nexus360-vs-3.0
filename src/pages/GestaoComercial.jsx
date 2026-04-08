@@ -41,7 +41,7 @@ export default function GestaoComercial() {
         base44.asServiceRole.entities.TarefaInteligente.filter({}, '-created_date', 500)
       ]);
 
-      const metricasCalculadas = calcularMetricas(atendentes, contatos, threads, comportamentos, tarafas);
+      const metricasCalculadas = calcularMetricas(atendentes, contatos, threads, comportamentos, tarefas);
       setMetricas(metricasCalculadas);
     } catch (erro) {
       console.error('[GESTAO_COMERCIAL] Erro:', erro);

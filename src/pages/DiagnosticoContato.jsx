@@ -51,6 +51,7 @@ export default function DiagnosticoContato() {
 
     try {
       let contatosComTelefone = [];
+      let telefoneNormalizado = null;
 
       // ✅ DETECTAR SE É ID DE CONTATO OU TELEFONE
       const inputLimpo = telefone.trim();
@@ -79,7 +80,7 @@ export default function DiagnosticoContato() {
       } else {
         // 📱 BUSCAR POR TELEFONE (agnóstico de provedor)
         const { buscarContatosPorTelefone } = await import('../components/lib/deduplicationEngine');
-        const telefonNormalizado = normalizarTelefone(inputLimpo);
+        telefoneNormalizado = normalizarTelefone(inputLimpo);
         
         if (!telefonNormalizado) {
           setResultado({ erro: 'Telefone inválido' });
@@ -188,7 +189,7 @@ export default function DiagnosticoContato() {
       );
 
       setResultado({
-        telefone: telefonNormalizado || inputLimpo,
+        telefone: telefoneNormalizado || inputLimpo,
         contatosDuplicados: {
           total: contatosComTelefone.length,
           contatos: contatosComTelefone.map(c => ({
