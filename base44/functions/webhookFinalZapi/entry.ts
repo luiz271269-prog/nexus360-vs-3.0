@@ -653,8 +653,9 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ⚡ CAMADA 1: Busca rápida direta por telefone_canonico (evita race condition)
   const telefoneCanonico = dados.from.replace(/\D/g, '');
   // ⚡ Variante sem o 9 móvel (contatos antigos com 12 dígitos)
+  // Guard: só aplica se posição 4 for '9' — números fixos (2,3,4,5) não recebem o dígito removido
   let telefoneCanonico12 = null;
-  if (telefoneCanonico.startsWith('55') && telefoneCanonico.length === 13) {
+  if (telefoneCanonico.startsWith('55') && telefoneCanonico.length === 13 && telefoneCanonico[4] === '9') {
     telefoneCanonico12 = telefoneCanonico.substring(0, 4) + telefoneCanonico.substring(5); // remove posição 4 (o '9')
   }
   let contato;
