@@ -181,8 +181,10 @@ export default function DiagnosticoContato() {
         })
       );
 
-      if (contatosComTelefone.length > 0) {
-        setAuditoriaContato(auditarContato(contatosComTelefone[0]));
+      if (contatosComTelefone.length > 0 && contatosAnalise.length > 0) {
+        // ✅ Auditoria usa o contato fresco da análise (não cache)
+        const contatoFresco = contatosComTelefone[0];
+        setAuditoriaContato(auditarContato(contatoFresco));
       }
 
       setResultado({
@@ -306,6 +308,9 @@ export default function DiagnosticoContato() {
       
       await new Promise(resolve => setTimeout(resolve, 1500));
       
+      // Aguardar o estado ser atualizado com os resultados da análise
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // 2️⃣ SINCRONIZAR ÓRFÃS
       setProgressoFluxo('🔗 Sincronizando mensagens órfãs...');
       const contactId = resultado?.analiseDetalhadaPorContato[0]?.contato?.id;
@@ -336,11 +341,19 @@ export default function DiagnosticoContato() {
           update.tags = tagsLimpas;
         }
         if (Object.keys(update).length > 0) {
-          await base44.entities.Contact.update(auditoriaContato.contato.id, update);
-          toast.success('✅ Contato corrigido!');
+          try {
+            await base44.entities.Contact.update(auditoriaContato.contato.id, update);
+            toast.success(`✅ Contato corrigido! ${Object.keys(update).map(k => `${k}:✓`).join(' ')}`);
+            console.log('[Fluxo] Correção aplicada:', update);
+          } catch (e) {
+            console.error('[Fluxo] Erro ao corrigir contato:', e);
+            toast.error(`❌ Erro ao corrigir: ${e.message}`);
+          }
         }
       }
       
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       // 3B️⃣ EXCLUIR DUPLICADOS
       if (resultado.contatosDuplicados.total > 1) {
         setProgressoFluxo('🗑️ Removendo contatos duplicados...');
@@ -360,22 +373,21 @@ export default function DiagnosticoContato() {
       
       // 4️⃣ REANALIZAR FINAL
       setProgressoFluxo('📊 Validando resultado final...');
-      queryClientInstance.invalidateQueries({ queryKey: ['Contact'] });
-      queryClientInstance.invalidateQueries({ queryKey: ['MessageThread'] });
-      queryClientInstance.invalidateQueries({ queryKey: ['Message'] });
+      queryClientInstance.clear(); // ✅ LIMPAR CACHE COMPLETAMENTE
+      await new Promise(resolve => setTimeout(resolve, 500));
       await analisar();
       
-      setProgressoFluxo('✅ Sincronização completa!');
-      toast.success('✅ Contato verificado e sincronizado com sucesso!');
+      setProgressoFluxo('✅ Fluxo completo!');
+      toast.success('✅ Contato verificado e sincronizado! Reanalise para confirmar.');
       
     } catch (error) {
       console.error('[DiagnosticoContato] Fluxo completo falhou:', error);
-      toast.error(`Erro: ${error.message}`);
+      toast.error(`❌ Erro no fluxo: ${error.message}`);
       setProgressoFluxo(`❌ Erro: ${error.message}`);
     } finally {
       setCarregando(false);
       setFluxoAutomatico(false);
-      setTimeout(() => setProgressoFluxo(''), 4000);
+      setTimeout(() => setProgressoFluxo(''), 3000);
     }
   };
 
