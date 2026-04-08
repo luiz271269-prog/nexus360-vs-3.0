@@ -727,11 +727,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonServerError({ success: false, error: 'erro_contato' });
   }
 
-  // 🔧 CAMADA 2: Reconciliação automática fire-and-forget (limpa duplicatas criadas por race condition)
-  base44.asServiceRole.functions.invoke('limparContatosDuplicados', {
-    telefone_filter: telefoneCanonico,
-    max_grupos: 1
-  }).catch(() => {});
+  // 🔧 CAMADA 2: limparContatosDuplicados removido (carregava 2000 contatos por mensagem sem filtro — waste crítico)
 
   // BUSCAR/CRIAR THREAD — sem AUTO-MERGE (pertence ao UnificadorContatosCentralizado, não ao webhook)
   let thread = null;
