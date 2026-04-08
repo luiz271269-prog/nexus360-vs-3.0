@@ -652,6 +652,11 @@ async function handleMessage(dados, payloadBruto, base44) {
   // BUSCAR/CRIAR CONTATO
   // ⚡ CAMADA 1: Busca rápida direta por telefone_canonico (evita race condition)
   const telefoneCanonico = dados.from.replace(/\D/g, '');
+  // ⚡ Variante sem o 9 móvel (contatos antigos com 12 dígitos)
+  let telefoneCanonico12 = null;
+  if (telefoneCanonico.startsWith('55') && telefoneCanonico.length === 13) {
+    telefoneCanonico12 = telefoneCanonico.substring(0, 4) + telefoneCanonico.substring(5); // remove posição 4 (o '9')
+  }
   let contato;
   try {
     const buscaRapida = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
@@ -664,7 +669,24 @@ async function handleMessage(dados, payloadBruto, base44) {
       base44.asServiceRole.entities.Contact.update(contato.id, {
         ultima_interacao: new Date().toISOString()
       }).catch(() => {});
-    } else {
+    } else if (telefoneCanonico12) {
+      // ⚡ CAMADA 1B: Tentar sem o 9 (contatos antigos com 12 dígitos)
+      const buscaRapida12 = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
+        { telefone_canonico: telefoneCanonico12 }, 'created_date', 1
+      ));
+      if (buscaRapida12?.length > 0) {
+        contato = buscaRapida12[0];
+        console.log(`[${VERSION}] ⚡ Contato encontrado por canonico-12 (Camada 1B): ${contato.id} | ${contato.nome}`);
+        // Corrigir canonico para 13 dígitos fire-and-forget
+        base44.asServiceRole.entities.Contact.update(contato.id, {
+          telefone_canonico: telefoneCanonico,
+          telefone: dados.from,
+          ultima_interacao: new Date().toISOString()
+        }).catch(() => {});
+      }
+    }
+
+    if (!contato) {
       // Só chama centralizada se busca rápida não encontrou
       console.log(`[${VERSION}] 🎯 Busca rápida vazia — chamando getOrCreateContactCentralized para: ${dados.from}`);
       const resultado = await retryOn429(() => base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {

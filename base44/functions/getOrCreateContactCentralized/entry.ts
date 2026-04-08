@@ -271,7 +271,7 @@ Deno.serve(async (req) => {
     console.log(`[${VERSION}] 🆕 Novo contato criado: ${novoContato.id} | ${novoContato.nome}`);
 
     // ═══════════════════════════════════════════════════════════════
-    // ANTI-RACE PÓS-CREATE v2: limit=10, loop de delete para bursts
+    // ANTI-RACE PÓS-CREATE v3: limit=10 + merge completo de campos
     // ═══════════════════════════════════════════════════════════════
     try {
       const recheck = await base44.asServiceRole.entities.Contact.filter(
@@ -282,19 +282,52 @@ Deno.serve(async (req) => {
       
       if (recheck && recheck.length > 1) {
         const maisAntigo = recheck[0];
-        const duplicados = recheck.slice(1).filter(c => c.id !== maisAntigo.id);
-        
-        for (const dup of duplicados) {
-          try {
-            await base44.asServiceRole.entities.Contact.delete(dup.id);
-            console.log(`[${VERSION}] 🗑️ Race: deletando duplicado ${dup.id}`);
-          } catch (delErr) {
-            console.warn(`[${VERSION}] ⚠️ Erro ao deletar duplicado ${dup.id}:`, delErr.message);
-          }
-        }
         
         if (maisAntigo.id !== novoContato.id) {
-          console.log(`[${VERSION}] 🔀 Race condition: descartando ${novoContato.id}, usando canônico ${maisAntigo.id} | ${duplicados.length} duplicados removidos`);
+          // Merge: preservar dados de todos os duplicados no mais antigo
+          const camposPrioritarios = [
+            'nome', 'empresa', 'email', 'cargo', 'tipo_contato',
+            'vendedor_responsavel', 'cliente_id', 'ramo_atividade',
+            'instagram_id', 'facebook_id'
+          ];
+          const vazio = (v) => v === null || v === undefined || v === '';
+          const mergeData = {};
+
+          for (const dup of recheck.slice(1)) {
+            for (const campo of camposPrioritarios) {
+              if (vazio(maisAntigo[campo]) && !vazio(dup[campo])) {
+                mergeData[campo] = dup[campo];
+              }
+            }
+            // Tags: union
+            const tagsUnificadas = [...new Set([
+              ...(maisAntigo.tags || []),
+              ...(dup.tags || [])
+            ])];
+            if (tagsUnificadas.length > (maisAntigo.tags || []).length) {
+              mergeData.tags = tagsUnificadas;
+            }
+          }
+
+          // Garantir canonico correto no registro sobrevivente
+          mergeData.telefone_canonico = canonico;
+          mergeData.telefone = telefoneNormalizado;
+
+          if (Object.keys(mergeData).length > 0) {
+            await base44.asServiceRole.entities.Contact.update(maisAntigo.id, mergeData);
+          }
+
+          // Deletar todos os duplicados
+          for (const dup of recheck.slice(1)) {
+            try {
+              await base44.asServiceRole.entities.Contact.delete(dup.id);
+              console.log(`[${VERSION}] 🗑️ Race: deletando duplicado ${dup.id}`);
+            } catch (delErr) {
+              console.warn(`[${VERSION}] ⚠️ Erro ao deletar ${dup.id}:`, delErr.message);
+            }
+          }
+
+          console.log(`[${VERSION}] 🔀 Race: usando canônico ${maisAntigo.id}, ${recheck.length - 1} duplicados removidos`);
           return Response.json({ success: true, contact: maisAntigo, action: 'deduplicated' });
         }
       }
