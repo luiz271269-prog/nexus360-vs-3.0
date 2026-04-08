@@ -329,6 +329,36 @@ export default function DiagnosticoContato() {
         }
       }
       
+      // 2B️⃣ CONSOLIDAR E LIMPAR THREADS MERGED
+      setProgressoFluxo('🔗 Consolidando threads duplicadas...');
+      if (contactId && resultado.analiseDetalhadaPorContato[0]?.threads) {
+        const threads = resultado.analiseDetalhadaPorContato[0].threads;
+        const threadCanonica = threads.find(t => t.status === 'aberta');
+        const threadsMerged = threads.filter(t => t.status === 'merged');
+        
+        if (threadCanonica && threadsMerged.length > 0) {
+          // Mover todas as mensagens das merged para a canônica
+          for (const threadMerged of threadsMerged) {
+            try {
+              const msgs = await base44.entities.Message.filter({ thread_id: threadMerged.id }, '-sent_at', 1000);
+              if (msgs.length > 0) {
+                // RevinÚculer as mensagens à thread canônica
+                for (const msg of msgs) {
+                  await base44.asServiceRole.entities.Message.update(msg.id, { thread_id: threadCanonica.id });
+                }
+                console.log(`[Fluxo] ${msgs.length} mensagens movidas de ${threadMerged.id} para ${threadCanonica.id}`);
+              }
+              // Deletar a thread merged
+              await base44.asServiceRole.entities.MessageThread.delete(threadMerged.id);
+              console.log(`[Fluxo] Thread merged deletada: ${threadMerged.id}`);
+            } catch (e) {
+              console.warn(`[Fluxo] Erro ao consolidar thread ${threadMerged.id}:`, e.message);
+            }
+          }
+          toast.success(`✅ ${threadsMerged.length} threads consolidadas!`);
+        }
+      }
+      
       // 3️⃣ CORRIGIR CONTATO SE NECESSÁRIO
       if (auditoriaContato && !auditoriaContato.saudavel) {
         setProgressoFluxo('🧹 Corrigindo dados do contato...');
@@ -352,7 +382,7 @@ export default function DiagnosticoContato() {
         }
       }
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // 3B️⃣ EXCLUIR DUPLICADOS
       if (resultado.contatosDuplicados.total > 1) {
@@ -370,6 +400,8 @@ export default function DiagnosticoContato() {
         }
         toast.success(`✅ ${duplicatas.length} duplicados removidos!`);
       }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // 4️⃣ REANALIZAR FINAL
       setProgressoFluxo('📊 Validando resultado final...');
