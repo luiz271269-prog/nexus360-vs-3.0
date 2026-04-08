@@ -659,25 +659,51 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // 🛡️ GUARD duplicado removido (já verificado acima)
 
-  // CONTATO — usar nova função com dedup robusto
+  // CONTATO — busca rápida + função centralizada com dedup robusto
   const profilePicUrl = payloadBruto.sender?.profilePicture || payloadBruto.sender?.profilePicThumbObj?.eurl || null;
+
+  // ✅ FIX C: Busca rápida por telefone_canonico ANTES de invocar função centralizada
+  // Evita race condition quando múltiplas mensagens chegam simultaneamente do mesmo número
   let contato;
-  try {
-    const resultado = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
-      telefone: dados.from,
-      pushName: dados.pushName || null,
-      profilePicUrl,
-      integracaoId: integracaoId
-    });
-    if (!resultado?.data?.success || !resultado?.data?.contact) {
-      console.error(`[WAPI] ❌ getOrCreateContactCentralized falhou:`, resultado?.data);
-      return jsonErr('erro_contato_dedup', 500);
+  const _canonicoBusca = (dados.from || '').replace(/\D/g, '');
+  if (_canonicoBusca && _canonicoBusca.length >= 10) {
+    try {
+      const _buscaRapida = await base44.asServiceRole.entities.Contact.filter(
+        { telefone_canonico: _canonicoBusca },
+        'created_date',
+        1
+      );
+      if (_buscaRapida && _buscaRapida.length > 0) {
+        contato = _buscaRapida[0];
+        console.log(`[WAPI] ⚡ Contato encontrado via busca rápida: ${contato.id} | ${contato.nome}`);
+        // Atualizar ultima_interacao fire-and-forget
+        base44.asServiceRole.entities.Contact.update(contato.id, {
+          ultima_interacao: new Date().toISOString()
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn(`[WAPI] ⚠️ Busca rápida falhou (prosseguindo para centralizada):`, e.message);
     }
-    contato = resultado.data.contact;
-    console.log(`[WAPI] ✅ Contato: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
-  } catch (e) {
-    console.error(`[WAPI] ❌ Erro ao chamar getOrCreateContactCentralized:`, e?.message);
-    return jsonErr('erro_contato', 500);
+  }
+
+  if (!contato) {
+    try {
+      const resultado = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+        telefone: dados.from,
+        pushName: dados.pushName || null,
+        profilePicUrl,
+        conexaoId: integracaoId
+      });
+      if (!resultado?.data?.success || !resultado?.data?.contact) {
+        console.error(`[WAPI] ❌ Função centralizada falhou:`, resultado?.data);
+        return jsonErr('erro_contato_centralizado', 500);
+      }
+      contato = resultado.data.contact;
+      console.log(`[WAPI] ✅ Contato via função centralizada: ${contato.id} | ${contato.nome} | Ação: ${resultado.data.action}`);
+    } catch (e) {
+      console.error(`[WAPI] ❌ Erro ao chamar função centralizada:`, e?.message);
+      return jsonErr('erro_contato', 500);
+    }
   }
 
   // BUSCAR/CRIAR THREAD — sem AUTO-MERGE (pertence ao UnificadorContatosCentralizado)
@@ -897,6 +923,11 @@ async function handleMessage(dados, payloadBruto, base44) {
       return jsonOk({ message_id: mensagem.id, synced_from_whatsapp_web: true });
     }
 
+    // ✅ FIX D: processInbound com await dentro do tempo de vida do request.
+    // O base44 client é criado via createClientFromRequest(req) — o token é válido
+    // enquanto a request HTTP original está ativa. O await garante que o invoke
+    // completa antes do jsonOk final ser enviado. Erros 403 (token expirado ou
+    // request encerrada prematuramente) são capturados no catch abaixo.
     console.log('[WAPI] 🎯 Invocando processInbound (adaptador) para thread:', thread.id);
     await base44.asServiceRole.functions.invoke('processInbound', {
       message: mensagem,
@@ -909,6 +940,9 @@ async function handleMessage(dados, payloadBruto, base44) {
     });
     console.log('[WAPI] ✅ processInbound executado com sucesso');
   } catch (err) {
+    // Erros 403 aqui indicam token expirado (request muito longa > timeout do provider)
+    // ou processInbound invocado após encerramento do contexto HTTP — não crítico,
+    // a mensagem já foi salva no banco antes desta chamada.
     console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
   }
 

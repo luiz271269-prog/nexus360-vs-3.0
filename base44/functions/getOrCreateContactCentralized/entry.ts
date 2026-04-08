@@ -271,71 +271,32 @@ Deno.serve(async (req) => {
     console.log(`[${VERSION}] 🆕 Novo contato criado: ${novoContato.id} | ${novoContato.nome}`);
 
     // ═══════════════════════════════════════════════════════════════
-    // ANTI-RACE PÓS-CREATE: se alguém criou antes, fazer merge
+    // ANTI-RACE PÓS-CREATE v2: limit=10, loop de delete para bursts
     // ═══════════════════════════════════════════════════════════════
     try {
+      // ASC por created_date — mais antigo primeiro = canônico
       const recheck = await base44.asServiceRole.entities.Contact.filter(
-        { telefone_canonico: canonico }, 'created_date', 2
+        { telefone_canonico: canonico },
+        'created_date', // ASC — mais antigo primeiro
+        10              // ← era 2; cobre bursts de até 10 requisições paralelas
       );
       
       if (recheck && recheck.length > 1) {
-        const maisAntigo = recheck[0];
+        const maisAntigo = recheck[0]; // Mais antigo = canônico
+        const duplicados = recheck.slice(1).filter(c => c.id !== maisAntigo.id);
         
-        // Se o novo que acabamos de criar NÃO é o mais antigo
+        // Deletar TODOS os duplicados, não só o primeiro
+        for (const dup of duplicados) {
+          try {
+            await base44.asServiceRole.entities.Contact.delete(dup.id);
+            console.log(`[${VERSION}] 🗑️ Race: deletando duplicado ${dup.id}`);
+          } catch (delErr) {
+            console.warn(`[${VERSION}] ⚠️ Erro ao deletar duplicado ${dup.id}:`, delErr.message);
+          }
+        }
+        
         if (maisAntigo.id !== novoContato.id) {
-          console.warn(`[${VERSION}] 🔄 ANTI-RACE: Detectado outro contato mais antigo. Fazendo merge...`);
-          
-          // Merge: preencher campos vazios do antigo com dados do novo
-          const mergeData = {};
-          const camposPrioritarios = [
-            'nome', 'empresa', 'email', 'cargo', 'tipo_contato',
-            'vendedor_responsavel', 'cliente_id', 'ramo_atividade',
-            'instagram_id', 'facebook_id'
-          ];
-          
-          const vazio = (v) => v === null || v === undefined || v === '';
-          
-          for (const campo of camposPrioritarios) {
-            if (vazio(maisAntigo[campo]) && !vazio(novoContato[campo])) {
-              mergeData[campo] = novoContato[campo];
-            }
-          }
-          
-          // Booleanos: true prevalece
-          const camposBoolean = ['is_cliente_fidelizado', 'is_vip', 'is_prioridade'];
-          for (const campo of camposBoolean) {
-            if (!maisAntigo[campo] && novoContato[campo] === true) {
-              mergeData[campo] = true;
-            }
-          }
-          
-          // Tags: union
-          const tagsUnificadas = [...(maisAntigo.tags || [])];
-          if (Array.isArray(novoContato.tags)) {
-            for (const tag of novoContato.tags) {
-              if (!tagsUnificadas.includes(tag)) {
-                tagsUnificadas.push(tag);
-              }
-            }
-          }
-          if (tagsUnificadas.length > (maisAntigo.tags || []).length) {
-            mergeData.tags = tagsUnificadas;
-          }
-          
-          // Garantir que telefone_canonico está correto
-          mergeData.telefone_canonico = canonico;
-          mergeData.telefone = telefoneNormalizado;
-          
-          // Salvar merge no mais antigo
-          if (Object.keys(mergeData).length > 0) {
-            await base44.asServiceRole.entities.Contact.update(maisAntigo.id, mergeData);
-            console.log(`[${VERSION}] 💾 Merge salvo no contato antigo: ${maisAntigo.id}`);
-          }
-          
-          // Deletar o novo
-          await base44.asServiceRole.entities.Contact.delete(novoContato.id);
-          console.log(`[${VERSION}] 🗑️ Novo contato deletado (race condition): ${novoContato.id}`);
-          
+          console.log(`[${VERSION}] 🔀 Race condition: descartando ${novoContato.id}, usando canônico ${maisAntigo.id} | ${duplicados.length} duplicados removidos`);
           return Response.json({ success: true, contact: maisAntigo, action: 'deduplicated' });
         }
       }
