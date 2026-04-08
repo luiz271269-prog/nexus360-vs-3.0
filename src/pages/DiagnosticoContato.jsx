@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { queryClientInstance } from '@/lib/query-client';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,6 @@ import DiagnosticoVisibilidadeRealtime from "../components/comunicacao/Diagnosti
 import { toast } from "sonner";
 
 export default function DiagnosticoContato() {
-  // ✅ LER PARÂMETRO DA URL
   const urlParams = new URLSearchParams(window.location.search);
   const telefoneURL = urlParams.get('telefone') || '5547996744257';
   
@@ -21,9 +21,9 @@ export default function DiagnosticoContato() {
   const [sincronizandoOrfas, setSincronizandoOrfas] = useState(false);
   const [resultadoOrfas, setResultadoOrfas] = useState(null);
   const [auditoriaContato, setAuditoriaContato] = useState(null);
-  const [corrigindoContato, setCorrigindoContato] = useState(false);
+  const [fluxoAutomatico, setFluxoAutomatico] = useState(false);
+  const [progressoFluxo, setProgressoFluxo] = useState('');
 
-  // ✅ CARREGAR USUÁRIO
   useEffect(() => {
     const carregarUsuario = async () => {
       try {
@@ -36,10 +36,8 @@ export default function DiagnosticoContato() {
     carregarUsuario();
   }, []);
 
-  // ✅ EXECUTAR ANÁLISE AUTOMATICAMENTE SE VEIO DA URL
   useEffect(() => {
     if (telefoneURL && telefoneURL !== '5547996744257' && usuario) {
-      // Pequeno delay para garantir que o input foi atualizado
       const timer = setTimeout(() => {
         analisar();
       }, 100);
@@ -52,26 +50,27 @@ export default function DiagnosticoContato() {
     setResultado(null);
     setAuditoriaContato(null);
 
+    // ✅ INVALIDAR CACHE — forçar queries diretas do banco
+    queryClientInstance.invalidateQueries({ queryKey: ['Contact'] });
+    queryClientInstance.invalidateQueries({ queryKey: ['MessageThread'] });
+    queryClientInstance.invalidateQueries({ queryKey: ['Message'] });
+
     try {
       let contatosComTelefone = [];
       let telefoneNormalizado = null;
 
-      // ✅ DETECTAR SE É ID DE CONTATO OU TELEFONE
       const inputLimpo = telefone.trim();
       const ehUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inputLimpo);
 
       if (ehUUID) {
-        // 🆔 BUSCAR POR ID ÚNICO
         console.log(`[DiagnosticoContato] Buscando por ID: ${inputLimpo}`);
         try {
           const contato = await base44.entities.Contact.filter({ id: inputLimpo });
           contatosComTelefone = contato ? [contato].flat() : [];
           
-          // Buscar outros contatos com mesmo telefone para análise de duplicidade
           if (contatosComTelefone.length > 0 && contatosComTelefone[0].telefone) {
             const { buscarContatosPorTelefone } = await import('../components/lib/deduplicationEngine');
             const todosComMesmoTelefone = await buscarContatosPorTelefone(base44, contatosComTelefone[0].telefone);
-            // Mesclar, priorizando o contato buscado
             contatosComTelefone = todosComMesmoTelefone;
           }
         } catch (err) {
@@ -81,7 +80,6 @@ export default function DiagnosticoContato() {
           return;
         }
       } else {
-        // 📱 BUSCAR POR TELEFONE (agnóstico de provedor)
         const { buscarContatosPorTelefone } = await import('../components/lib/deduplicationEngine');
         telefoneNormalizado = normalizarTelefone(inputLimpo);
         
@@ -91,13 +89,11 @@ export default function DiagnosticoContato() {
           return;
         }
 
-        // ✅ Buscar por telefone e também telefone_canonico
         const contatosPorTelefone = await buscarContatosPorTelefone(base44, telefoneNormalizado);
         const contatosPorCanonico = await base44.entities.Contact.filter({ 
           telefone_canonico: telefoneNormalizado 
         });
         
-        // Mesclar resultados (remover duplicatas por ID)
         const contatosMap = new Map();
         [...contatosPorTelefone, ...contatosPorCanonico].forEach(c => {
           contatosMap.set(c.id, c);
@@ -111,7 +107,6 @@ export default function DiagnosticoContato() {
         return;
       }
 
-      // 2️⃣ Determinar range de hoje e últimos 7 dias
       const hoje = new Date();
       hoje.setHours(0, 0, 0, 0);
       
@@ -122,15 +117,12 @@ export default function DiagnosticoContato() {
       const seteDiasAtras = new Date(hoje);
       seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
 
-      // 3️⃣ Para cada contato: buscar threads e mensagens separadamente
       const contatosAnalise = await Promise.all(
         contatosComTelefone.map(async (contato) => {
-          // Threads do contato
           const threads = await base44.entities.MessageThread.filter({ 
             contact_id: contato.id 
           }, '-last_message_at');
 
-          // Mensagens RECEBIDAS (sender_type: 'contact')
           const msgsRecebidas = await base44.entities.Message.filter(
             { sender_id: contato.id, sender_type: 'contact' },
             '-sent_at',
@@ -145,7 +137,6 @@ export default function DiagnosticoContato() {
             return data >= seteDiasAtras;
           });
 
-          // Mensagens ENVIADAS (sender_type: 'user')
           const msgsEnviadas = await base44.entities.Message.filter(
             { recipient_id: contato.id, sender_type: 'user' },
             '-sent_at',
@@ -160,7 +151,6 @@ export default function DiagnosticoContato() {
             return data >= seteDiasAtras;
           });
 
-          // 🔍 ANÁLISE DE VISIBILIDADE: Verificar permissões do usuário
           let problemaVisibilidade = null;
           if (threads.length > 0 && usuario) {
             const thread = threads[0];
@@ -191,7 +181,6 @@ export default function DiagnosticoContato() {
         })
       );
 
-      // Auditar contato principal automaticamente
       if (contatosComTelefone.length > 0) {
         setAuditoriaContato(auditarContato(contatosComTelefone[0]));
       }
@@ -270,19 +259,15 @@ export default function DiagnosticoContato() {
     }
   };
 
-  // ✅ AUDITAR contato principal: telefone_canonico corrompido + tags acumuladas
   const auditarContato = (contato) => {
     if (!contato) return null;
     const canonico = contato.telefone_canonico || '';
     const tags = contato.tags || [];
-    const observacoes = contato.observacoes || '';
 
     const canonicoCorrompido = canonico.includes('MERGED_') || canonico.includes('merged_');
-    // Calcular telefone canonico esperado a partir do telefone
     const telefoneEsperado = (contato.telefone || '').replace(/\D/g, '');
     const canonicoErrado = !canonicoCorrompido && telefoneEsperado && canonico !== telefoneEsperado;
 
-    // Detectar tags duplicadas excessivas
     const tagsUnicas = [...new Set(tags)];
     const temTagsAcumuladas = tags.length > 10 || (tags.length !== tagsUnicas.length && tags.length > 5);
     const tagsMergedCount = tags.filter(t => t === 'merged' || t === 'duplicata').length;
@@ -306,52 +291,74 @@ export default function DiagnosticoContato() {
     };
   };
 
-  const corrigirContato = async (auditoria) => {
-    if (!auditoria || auditoria.saudavel) return;
-    setCorrigindoContato(true);
-    try {
-      const update = {};
-      if (auditoria.canonicoCorrompido || auditoria.canonicoErrado) {
-        update.telefone_canonico = auditoria.telefoneEsperado;
-      }
-      if (auditoria.temTagsAcumuladas) {
-        // Manter tags únicas mas remover 'merged' e 'duplicata' em excesso
-        const tagsLimpas = [...new Set((auditoria.contato.tags || []).filter(t => t !== 'merged' && t !== 'duplicata'))];
-        update.tags = tagsLimpas;
-      }
-      await base44.entities.Contact.update(auditoria.contato.id, update);
-      toast.success(`✅ Contato corrigido! telefone_canonico e tags atualizados.`);
-      setTimeout(() => analisar(), 800);
-    } catch (e) {
-      toast.error(`Erro ao corrigir: ${e.message}`);
-    } finally {
-      setCorrigindoContato(false);
-    }
-  };
-
-  const consolidarDuplicatas = async () => {
-    if (!resultado || resultado.contatosDuplicados.total <= 1) {
-      toast.error('Não há duplicatas para consolidar');
-      return;
-    }
-
-    if (!window.confirm(`Consolidar ${resultado.contatosDuplicados.total} contatos duplicados em um único contato?`)) {
-      return;
-    }
+  // ✅ FLUXO AUTOMÁTICO UNIFICADO
+  const executarFluxoCompleto = async () => {
+    setFluxoAutomatico(true);
+    setProgressoFluxo('🔍 Analisando contato...');
+    setCarregando(true);
 
     try {
-      toast.info('🔄 Consolidando contatos...');
-      const { consolidarAutomaticoDuplicatas } = await import('../components/lib/deduplicationEngine');
-      const telefonNormalizado = normalizarTelefone(telefone);
-      
-      await consolidarAutomaticoDuplicatas(base44, telefonNormalizado);
-      toast.success('✅ Consolidação concluída!');
-      
-      // Re-analisar após consolidação
+      // 1️⃣ ANALISAR
+      queryClientInstance.invalidateQueries({ queryKey: ['Contact'] });
+      queryClientInstance.invalidateQueries({ queryKey: ['MessageThread'] });
+      queryClientInstance.invalidateQueries({ queryKey: ['Message'] });
       await analisar();
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // 2️⃣ SINCRONIZAR ÓRFÃS
+      setProgressoFluxo('🔗 Sincronizando mensagens órfãs...');
+      const contactId = resultado?.analiseDetalhadaPorContato[0]?.contato?.id;
+      if (contactId) {
+        try {
+          const res = await base44.asServiceRole.functions.invoke('sincronizarMensagensOrfas', {
+            contact_id: contactId,
+            periodo_horas: 72,
+            modo: 'correcao'
+          });
+          if (res.data?.success && res.data.mensagens_revinculadas > 0) {
+            toast.success(`✅ ${res.data.mensagens_revinculadas} mensagens órfãs revinculadas!`);
+          }
+        } catch (e) {
+          console.warn('[DiagnosticoContato] Sync órfãs falhou:', e.message);
+        }
+      }
+      
+      // 3️⃣ CORRIGIR CONTATO SE NECESSÁRIO
+      if (auditoriaContato && !auditoriaContato.saudavel) {
+        setProgressoFluxo('🧹 Corrigindo dados do contato...');
+        const update = {};
+        if (auditoriaContato.canonicoCorrompido || auditoriaContato.canonicoErrado) {
+          update.telefone_canonico = auditoriaContato.telefoneEsperado;
+        }
+        if (auditoriaContato.temTagsAcumuladas) {
+          const tagsLimpas = [...new Set((auditoriaContato.contato.tags || []).filter(t => t !== 'merged' && t !== 'duplicata'))];
+          update.tags = tagsLimpas;
+        }
+        if (Object.keys(update).length > 0) {
+          await base44.entities.Contact.update(auditoriaContato.contato.id, update);
+          toast.success('✅ Contato corrigido!');
+        }
+      }
+      
+      // 4️⃣ REANALIZAR FINAL
+      setProgressoFluxo('📊 Validando resultado final...');
+      queryClientInstance.invalidateQueries({ queryKey: ['Contact'] });
+      queryClientInstance.invalidateQueries({ queryKey: ['MessageThread'] });
+      queryClientInstance.invalidateQueries({ queryKey: ['Message'] });
+      await analisar();
+      
+      setProgressoFluxo('✅ Sincronização completa!');
+      toast.success('✅ Contato verificado e sincronizado com sucesso!');
+      
     } catch (error) {
-      console.error('[DiagnosticoContato] Erro na consolidação:', error);
+      console.error('[DiagnosticoContato] Fluxo completo falhou:', error);
       toast.error(`Erro: ${error.message}`);
+      setProgressoFluxo(`❌ Erro: ${error.message}`);
+    } finally {
+      setCarregando(false);
+      setFluxoAutomatico(false);
+      setTimeout(() => setProgressoFluxo(''), 4000);
     }
   };
 
@@ -380,7 +387,6 @@ export default function DiagnosticoContato() {
           toast.success(`✅ Encontradas ${res.data.mensagens_orfas_encontradas} mensagens órfãs`);
         } else {
           toast.success(`✅ Revinculadas ${res.data.mensagens_revinculadas} mensagens!`);
-          // Re-analisar após correção
           setTimeout(() => analisar(), 1000);
         }
       } else {
@@ -424,6 +430,35 @@ export default function DiagnosticoContato() {
 
       {resultado && !resultado.erro && (
         <div className="space-y-4">
+          {/* BOTÃO UNIFICADO — FLUXO AUTOMÁTICO */}
+          <Card className="p-6 bg-gradient-to-r from-orange-500 to-red-500 border-0 shadow-xl">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-white mb-1">⚡ Verificar & Sincronizar Contato</h3>
+                {progressoFluxo && (
+                  <p className="text-orange-100 text-sm font-semibold animate-pulse">{progressoFluxo}</p>
+                )}
+              </div>
+              <Button
+                onClick={executarFluxoCompleto}
+                disabled={carregando || fluxoAutomatico}
+                className="bg-white text-orange-600 hover:bg-orange-50 font-bold text-lg px-8 py-6 flex-shrink-0 whitespace-nowrap"
+              >
+                {fluxoAutomatico ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Processando...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-5 h-5 mr-2" />
+                    Executar Tudo
+                  </>
+                )}
+              </Button>
+            </div>
+          </Card>
+
           {/* DUPLICATAS COM AÇÃO */}
           <Card className={`p-6 ${resultado.contatosDuplicados.total > 1 ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
             <div className="flex items-start justify-between gap-4">
@@ -469,42 +504,7 @@ export default function DiagnosticoContato() {
                   </div>
                 </div>
               </div>
-              
-              {resultado.contatosDuplicados.total > 1 && usuario?.role === 'admin' && (
-                 <div className="flex flex-col gap-2">
-                   <Button 
-                     onClick={consolidarDuplicatas}
-                     className="bg-red-600 hover:bg-red-700 text-white shadow-lg"
-                     size="lg"
-                   >
-                     <Users className="w-4 h-4 mr-2" />
-                     Consolidar
-                   </Button>
-                   <Button 
-                     onClick={() => {
-                       // Remover bloqueio de contatos duplicados
-                       resultado.contatosDuplicados.contatos.forEach(async (c) => {
-                         if (c.bloqueado) {
-                           try {
-                             await base44.entities.Contact.update(c.id, { bloqueado: false });
-                           } catch (err) {
-                             console.error(`Erro ao desbloquear ${c.id}:`, err);
-                           }
-                         }
-                       });
-                       toast.success('✅ Bloqueios removidos!');
-                       setTimeout(() => analisar(), 1000);
-                     }}
-                     className="bg-yellow-600 hover:bg-yellow-700 text-white shadow-lg"
-                     size="lg"
-                   >
-                     <AlertCircle className="w-4 h-4 mr-2" />
-                     Remover bloqueios
-                   </Button>
-                 </div>
-               )}
-            </div>
-          </Card>
+            </Card>
 
           {/* AUDITORIA DE SAÚDE DO CONTATO PRINCIPAL */}
           {auditoriaContato && usuario?.role === 'admin' && (
@@ -532,16 +532,6 @@ export default function DiagnosticoContato() {
                     )}
                   </div>
                 </div>
-                {!auditoriaContato.saudavel && (
-                  <Button
-                    onClick={() => corrigirContato(auditoriaContato)}
-                    disabled={corrigindoContato}
-                    className="bg-red-600 hover:bg-red-700 text-white flex-shrink-0"
-                  >
-                    {corrigindoContato ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wrench className="w-4 h-4 mr-2" />}
-                    Corrigir
-                  </Button>
-                )}
               </div>
             </Card>
           )}
@@ -712,96 +702,20 @@ export default function DiagnosticoContato() {
             </div>
           ))}
 
-          {/* SINCRONIZAÇÃO DE MENSAGENS ÓRFÃS - APENAS ADMIN */}
-          {usuario?.role === 'admin' && resultado.analiseDetalhadaPorContato.length > 0 && (
-            <Card className="p-6 bg-orange-50 border-orange-300 border-2">
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-orange-900 mb-2 flex items-center gap-2">
-                    <Database className="w-5 h-5" />
-                    🔗 Sincronizar Mensagens Órfãs
-                  </h3>
-                  <p className="text-sm text-orange-700">
-                    Se detectou "0 mensagens" na thread mas há mensagens no WhatsApp, clique abaixo para sincronizar.
-                  </p>
-                </div>
-              </div>
-
-              {!resultadoOrfas ? (
-                <div className="flex gap-3 mb-4">
-                  <Button 
-                    onClick={() => sincronizarMensagensOrfas('diagnostico')}
-                    disabled={sincronizandoOrfas}
-                    className="bg-orange-500 hover:bg-orange-600 text-white"
-                  >
-                    {sincronizandoOrfas ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
-                    Verificar Sincronização
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <Alert className={resultadoOrfas.mensagens_orfas_encontradas > 0 ? 'bg-orange-100 border-orange-300' : 'bg-green-100 border-green-300'}>
-                    <AlertCircle className={`w-4 h-4 ${resultadoOrfas.mensagens_orfas_encontradas > 0 ? 'text-orange-600' : 'text-green-600'}`} />
-                    <AlertDescription className={resultadoOrfas.mensagens_orfas_encontradas > 0 ? 'text-orange-800' : 'text-green-800'}>
-                      <strong>Threads analisadas:</strong> {resultadoOrfas.threads_analisadas} | 
-                      <strong className="ml-2">Órfãs encontradas:</strong> {resultadoOrfas.mensagens_orfas_encontradas}
-                    </AlertDescription>
-                  </Alert>
-
-                  {resultadoOrfas.detalhes.length > 0 && (
-                    <div className="bg-white p-4 rounded-lg border border-orange-200 space-y-2 max-h-40 overflow-y-auto">
-                      {resultadoOrfas.detalhes.map((d, i) => (
-                        <div key={i} className="text-sm text-slate-700 pb-2 border-b last:border-0">
-                          <div className="font-semibold">{d.contato_nome}</div>
-                          <div className="text-xs text-slate-500">Telefone: {d.telefone_contato}</div>
-                          <div className="text-xs text-orange-600">Encontradas: {d.mensagens_encontradas}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {resultadoOrfas.mensagens_orfas_encontradas > 0 && (
-                    <Button 
-                      onClick={() => {
-                        if (window.confirm(`Revincular ${resultadoOrfas.mensagens_orfas_encontradas} mensagens? Esta ação é permanente.`)) {
-                          sincronizarMensagensOrfas('correcao');
-                          setResultadoOrfas(null);
-                        }
-                      }}
-                      disabled={sincronizandoOrfas}
-                      className="bg-red-600 hover:bg-red-700 text-white w-full"
-                    >
-                      {sincronizandoOrfas ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                      ⚠️ Revincular Mensagens (Permanente)
-                    </Button>
-                  )}
-
-                  <Button 
-                    onClick={() => setResultadoOrfas(null)}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    Fechar Resultado
-                  </Button>
-                </div>
-              )}
+          {/* DIAGNÓSTICO REALTIME - APENAS ADMIN */}
+          {usuario?.role === 'admin' && resultado.analiseDetalhadaPorContato.length > 0 && resultado.analiseDetalhadaPorContato[0].threads.length > 0 && (
+            <Card className="p-4 bg-slate-50 border-slate-300">
+              <h3 className="font-bold text-slate-900 mb-3">🔍 Diagnóstico Real-time</h3>
+              <DiagnosticoVisibilidadeRealtime
+                threadAtiva={resultado.analiseDetalhadaPorContato[0].threads[0].id ? {
+                  id: resultado.analiseDetalhadaPorContato[0].threads[0].id
+                } : null}
+                filterScope="all"
+                selectedIntegrationId="all"
+                selectedAttendantId={null}
+              />
             </Card>
           )}
-
-           {/* DIAGNÓSTICO REALTIME - APENAS ADMIN */}
-           {usuario?.role === 'admin' && resultado.analiseDetalhadaPorContato.length > 0 && resultado.analiseDetalhadaPorContato[0].threads.length > 0 && (
-             <Card className="p-4 bg-slate-50 border-slate-300">
-               <h3 className="font-bold text-slate-900 mb-3">🔍 Diagnóstico Real-time</h3>
-               <DiagnosticoVisibilidadeRealtime
-                 threadAtiva={resultado.analiseDetalhadaPorContato[0].threads[0].id ? {
-                   id: resultado.analiseDetalhadaPorContato[0].threads[0].id
-                 } : null}
-                 filterScope="all"
-                 selectedIntegrationId="all"
-                 selectedAttendantId={null}
-               />
-             </Card>
-           )}
         </div>
       )}
     </div>
