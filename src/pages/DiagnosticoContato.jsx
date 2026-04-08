@@ -306,10 +306,7 @@ export default function DiagnosticoContato() {
       queryClientInstance.invalidateQueries({ queryKey: ['Message'] });
       await analisar();
       
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Aguardar o estado ser atualizado com os resultados da análise
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Aguardar análise completa
       
       // 2️⃣ SINCRONIZAR ÓRFÃS
       setProgressoFluxo('🔗 Sincronizando mensagens órfãs...');
@@ -385,20 +382,25 @@ export default function DiagnosticoContato() {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // 3B️⃣ EXCLUIR DUPLICADOS
-      if (resultado.contatosDuplicados.total > 1) {
+      if (resultado && resultado.contatosDuplicados && resultado.contatosDuplicados.total > 1) {
         setProgressoFluxo('🗑️ Removendo contatos duplicados...');
         const contatoPrincipal = resultado.contatosDuplicados.contatos[0];
         const duplicatas = resultado.contatosDuplicados.contatos.slice(1);
         
+        console.log(`[Fluxo] Deletando ${duplicatas.length} duplicados...`);
+        let deletados = 0;
         for (const dup of duplicatas) {
           try {
             await base44.asServiceRole.entities.Contact.delete(dup.id);
-            console.log(`[DiagnosticoContato] Deletado: ${dup.id}`);
+            deletados++;
+            console.log(`[Fluxo] ✅ Contact deleted: ${dup.id}`);
           } catch (e) {
-            console.warn(`[DiagnosticoContato] Erro ao deletar ${dup.id}:`, e.message);
+            console.error(`[Fluxo] ❌ Erro ao deletar ${dup.id}:`, e.message);
           }
         }
-        toast.success(`✅ ${duplicatas.length} duplicados removidos!`);
+        if (deletados > 0) {
+          toast.success(`✅ ${deletados}/${duplicatas.length} contatos duplicados removidos!`);
+        }
       }
       
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -409,8 +411,8 @@ export default function DiagnosticoContato() {
       await new Promise(resolve => setTimeout(resolve, 500));
       await analisar();
       
-      setProgressoFluxo('✅ Fluxo completo!');
-      toast.success('✅ Contato verificado e sincronizado! Reanalise para confirmar.');
+      setProgressoFluxo('✅ Processamento concluído!');
+      toast.success('✅ Contato sincronizado! Reanalise para validar resultados.');
       
     } catch (error) {
       console.error('[DiagnosticoContato] Fluxo completo falhou:', error);
@@ -419,7 +421,7 @@ export default function DiagnosticoContato() {
     } finally {
       setCarregando(false);
       setFluxoAutomatico(false);
-      setTimeout(() => setProgressoFluxo(''), 3000);
+      setTimeout(() => setProgressoFluxo(''), 4000);
     }
   };
 
