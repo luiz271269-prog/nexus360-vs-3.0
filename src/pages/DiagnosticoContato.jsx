@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Phone, MessageCircle, AlertCircle, CheckCircle, Users, Trash2, RefreshCw, Zap, Database } from "lucide-react";
+import { Loader2, Phone, MessageCircle, AlertCircle, CheckCircle, Users, Trash2, RefreshCw, Zap, Database, ShieldCheck, Wrench } from "lucide-react";
 import { normalizarTelefone } from "@/components/lib/phoneUtils";
 import DiagnosticoVisibilidadeRealtime from "../components/comunicacao/DiagnosticoVisibilidadeRealtime";
 import { toast } from "sonner";
@@ -20,6 +20,8 @@ export default function DiagnosticoContato() {
   const [usuario, setUsuario] = useState(null);
   const [sincronizandoOrfas, setSincronizandoOrfas] = useState(false);
   const [resultadoOrfas, setResultadoOrfas] = useState(null);
+  const [auditoriaContato, setAuditoriaContato] = useState(null);
+  const [corrigindoContato, setCorrigindoContato] = useState(false);
 
   // ✅ CARREGAR USUÁRIO
   useEffect(() => {
@@ -48,6 +50,7 @@ export default function DiagnosticoContato() {
   const analisar = async () => {
     setCarregando(true);
     setResultado(null);
+    setAuditoriaContato(null);
 
     try {
       let contatosComTelefone = [];
@@ -188,6 +191,11 @@ export default function DiagnosticoContato() {
         })
       );
 
+      // Auditar contato principal automaticamente
+      if (contatosComTelefone.length > 0) {
+        setAuditoriaContato(auditarContato(contatosComTelefone[0]));
+      }
+
       setResultado({
         telefone: telefoneNormalizado || inputLimpo,
         contatosDuplicados: {
@@ -259,6 +267,65 @@ export default function DiagnosticoContato() {
       setResultado({ erro: error.message });
     } finally {
       setCarregando(false);
+    }
+  };
+
+  // ✅ AUDITAR contato principal: telefone_canonico corrompido + tags acumuladas
+  const auditarContato = (contato) => {
+    if (!contato) return null;
+    const canonico = contato.telefone_canonico || '';
+    const tags = contato.tags || [];
+    const observacoes = contato.observacoes || '';
+
+    const canonicoCorrompido = canonico.includes('MERGED_') || canonico.includes('merged_');
+    // Calcular telefone canonico esperado a partir do telefone
+    const telefoneEsperado = (contato.telefone || '').replace(/\D/g, '');
+    const canonicoErrado = !canonicoCorrompido && telefoneEsperado && canonico !== telefoneEsperado;
+
+    // Detectar tags duplicadas excessivas
+    const tagsUnicas = [...new Set(tags)];
+    const temTagsAcumuladas = tags.length > 10 || (tags.length !== tagsUnicas.length && tags.length > 5);
+    const tagsMergedCount = tags.filter(t => t === 'merged' || t === 'duplicata').length;
+
+    const problemas = [];
+    if (canonicoCorrompido) problemas.push(`telefone_canonico corrompido: "${canonico.substring(0, 30)}..."`); 
+    if (canonicoErrado) problemas.push(`telefone_canonico incorreto: "${canonico}" (esperado: "${telefoneEsperado}")`);
+    if (temTagsAcumuladas) problemas.push(`${tags.length} tags acumuladas (${tagsMergedCount} merged/duplicata)`);
+
+    return {
+      contato,
+      canonicoCorrompido,
+      canonicoErrado,
+      telefoneEsperado,
+      temTagsAcumuladas,
+      tagsUnicas,
+      tagsMergedCount,
+      totalTags: tags.length,
+      problemas,
+      saudavel: problemas.length === 0
+    };
+  };
+
+  const corrigirContato = async (auditoria) => {
+    if (!auditoria || auditoria.saudavel) return;
+    setCorrigindoContato(true);
+    try {
+      const update = {};
+      if (auditoria.canonicoCorrompido || auditoria.canonicoErrado) {
+        update.telefone_canonico = auditoria.telefoneEsperado;
+      }
+      if (auditoria.temTagsAcumuladas) {
+        // Manter tags únicas mas remover 'merged' e 'duplicata' em excesso
+        const tagsLimpas = [...new Set((auditoria.contato.tags || []).filter(t => t !== 'merged' && t !== 'duplicata'))];
+        update.tags = tagsLimpas;
+      }
+      await base44.entities.Contact.update(auditoria.contato.id, update);
+      toast.success(`✅ Contato corrigido! telefone_canonico e tags atualizados.`);
+      setTimeout(() => analisar(), 800);
+    } catch (e) {
+      toast.error(`Erro ao corrigir: ${e.message}`);
+    } finally {
+      setCorrigindoContato(false);
     }
   };
 
@@ -438,6 +505,46 @@ export default function DiagnosticoContato() {
                )}
             </div>
           </Card>
+
+          {/* AUDITORIA DE SAÚDE DO CONTATO PRINCIPAL */}
+          {auditoriaContato && usuario?.role === 'admin' && (
+            <Card className={`p-5 border-2 ${auditoriaContato.saudavel ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-400'}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1">
+                  {auditoriaContato.saudavel
+                    ? <ShieldCheck className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+                    : <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />}
+                  <div className="flex-1">
+                    <h3 className={`text-lg font-bold mb-2 ${auditoriaContato.saudavel ? 'text-green-900' : 'text-red-900'}`}>
+                      🧹 Auditoria do Contato Principal: {auditoriaContato.saudavel ? '✅ Saudável' : `🚨 ${auditoriaContato.problemas.length} problema(s)`}
+                    </h3>
+                    {auditoriaContato.saudavel ? (
+                      <p className="text-sm text-green-700">telefone_canonico correto • tags normais ({auditoriaContato.totalTags})</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {auditoriaContato.problemas.map((p, i) => (
+                          <div key={i} className="text-sm text-red-800 bg-red-100 rounded px-3 py-1">🚨 {p}</div>
+                        ))}
+                        <div className="text-xs text-slate-600 mt-2">
+                          <span className="font-mono bg-slate-100 px-2 py-0.5 rounded">telefone_canonico atual: "{(auditoriaContato.contato.telefone_canonico || '(vazio)').substring(0, 40)}"</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {!auditoriaContato.saudavel && (
+                  <Button
+                    onClick={() => corrigirContato(auditoriaContato)}
+                    disabled={corrigindoContato}
+                    className="bg-red-600 hover:bg-red-700 text-white flex-shrink-0"
+                  >
+                    {corrigindoContato ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wrench className="w-4 h-4 mr-2" />}
+                    Corrigir
+                  </Button>
+                )}
+              </div>
+            </Card>
+          )}
 
           {/* ANÁLISE DETALHADA POR CONTATO */}
           {resultado.analiseDetalhadaPorContato.map((analise, idx) => (
