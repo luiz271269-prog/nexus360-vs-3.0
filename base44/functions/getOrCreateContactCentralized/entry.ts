@@ -32,17 +32,26 @@ async function retryOn429(fn, maxTentativas = 3, delayBase = 500) {
   throw lastError;
 }
 
+// phoneNormalizer v2.0 — canônica sincronizada em todos os arquivos
+// Cobre: celular BR (13 dígitos), celular sem 9 (12), fixo (12), números curtos (8+)
 function normalizarTelefone(telefone) {
   if (!telefone) return null;
   let n = String(telefone).split('@')[0].replace(/\D/g, '');
   if (!n || n.length < 8) return null;
   n = n.replace(/^0+/, '');
+  // Adiciona código Brasil se necessário
   if (!n.startsWith('55')) {
-    if (n.length === 10 || n.length === 11) n = '55' + n;
+    if (n.length >= 8 && n.length <= 11) n = '55' + n;
   }
+  // Insere nono dígito APENAS para celular (não para fixo)
+  // Celular: 55 + DDD(2) + 9XXXXXXXX = 13 dígitos totais
+  // Fixo:    55 + DDD(2) + XXXXXXXX  = 12 dígitos, 5º dígito é 2,3,4,5
   if (n.startsWith('55') && n.length === 12) {
-    const d = n[4];
-    if (['6','7','8','9'].includes(d)) n = n.substring(0, 4) + '9' + n.substring(4);
+    const quintoDigito = n[4]; // primeiro dígito após DDD
+    if (['6','7','8','9'].includes(quintoDigito)) {
+      n = n.substring(0, 4) + '9' + n.substring(4);
+    }
+    // Fixo (começa com 2,3,4,5): mantém 12 dígitos sem inserir 9
   }
   return '+' + n;
 }
