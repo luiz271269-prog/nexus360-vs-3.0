@@ -341,6 +341,23 @@ export default function DiagnosticoContato() {
         }
       }
       
+      // 3B️⃣ EXCLUIR DUPLICADOS
+      if (resultado.contatosDuplicados.total > 1) {
+        setProgressoFluxo('🗑️ Removendo contatos duplicados...');
+        const contatoPrincipal = resultado.contatosDuplicados.contatos[0];
+        const duplicatas = resultado.contatosDuplicados.contatos.slice(1);
+        
+        for (const dup of duplicatas) {
+          try {
+            await base44.asServiceRole.entities.Contact.delete(dup.id);
+            console.log(`[DiagnosticoContato] Deletado: ${dup.id}`);
+          } catch (e) {
+            console.warn(`[DiagnosticoContato] Erro ao deletar ${dup.id}:`, e.message);
+          }
+        }
+        toast.success(`✅ ${duplicatas.length} duplicados removidos!`);
+      }
+      
       // 4️⃣ REANALIZAR FINAL
       setProgressoFluxo('📊 Validando resultado final...');
       queryClientInstance.invalidateQueries({ queryKey: ['Contact'] });
@@ -504,7 +521,8 @@ export default function DiagnosticoContato() {
                   </div>
                 </div>
               </div>
-            </Card>
+            </div>
+          </Card>
 
           {/* AUDITORIA DE SAÚDE DO CONTATO PRINCIPAL */}
           {auditoriaContato && usuario?.role === 'admin' && (
