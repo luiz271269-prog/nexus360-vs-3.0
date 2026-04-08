@@ -1,4 +1,4 @@
-// redeploy: 2026-03-25T00:00-FIX-AUTOMERGE-GUARD
+// redeploy: 2026-04-08T00:00-FIX-RATE-LIMIT-THREAD-RETRY
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // Fonte: functions/lib/phoneNormalizer.js (inlined — Deno não suporta imports locais)
@@ -24,7 +24,7 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.3.0-CHIPS-CACHE';
+const VERSION = 'v11.4.0-THREAD-RETRY-FIX';
 const BUILD_DATE = '2026-03-27';
 
 const corsHeaders = {
@@ -704,11 +704,12 @@ async function handleMessage(dados, payloadBruto, base44) {
   let thread = null;
   try {
     console.log(`[${VERSION}] 🔍 Buscando thread canônica para contact_id: "${contato.id}"`);
+    // ✅ FIX: thread lookup usa mais retries (5) com delay maior para absorver bursts
     const threads = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
       { contact_id: contato.id, is_canonical: true, status: 'aberta' },
       '-last_message_at',
       1
-    ));
+    ), 5, 1500);
 
     if (threads && threads.length > 0) {
       thread = threads[0];
@@ -748,8 +749,9 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   } catch (e) {
     if (e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa')) {
-      console.warn(`[${VERSION}] ⚠️ Rate limit ao buscar/criar thread — descartando sem criar thread fantasma`);
-      return jsonOk({ success: true, received: true, queued: true, reason: 'rate_limit_thread' });
+      console.warn(`[${VERSION}] ⚠️ Rate limit persistente ao buscar/criar thread — retornando 429 para Z-API reenviar`);
+      // ✅ FIX CRÍTICO: retornar 429 (não 200) para que Z-API reenvie o webhook automaticamente
+      return Response.json({ success: false, error: 'rate_limit_thread' }, { status: 429, headers: corsHeaders });
     }
     console.error(`[${VERSION}] ❌ Erro thread:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_thread' });
