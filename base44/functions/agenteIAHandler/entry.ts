@@ -1,6 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
-import { RetryHandler } from './lib/retryHandler.js';
-import { ErrorHandler } from './lib/errorHandler.js';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 /**
  * ╔══════════════════════════════════════════════════════════════╗
@@ -107,18 +105,10 @@ RETORNE JSON:
     let llmResponse;
     
     try {
-      llmResponse = await RetryHandler.executeWithRetry(
-        async () => {
-          return await base44.integrations.Core.InvokeLLM({
+      llmResponse = await base44.integrations.Core.InvokeLLM({
             prompt: promptOtimizado,
             response_json_schema: schema
           });
-        },
-        {
-          maxRetries: 2,
-          initialDelayMs: 1000
-        }
-      );
     } catch (error) {
       console.error('[AGENTE IA] ❌ Erro ao invocar LLM:', error);
       // Fallback
@@ -134,30 +124,22 @@ RETORNE JSON:
     // 5. SALVAR MENSAGEM COM RETRY
     // ═══════════════════════════════════════════════════════════
     
-    await RetryHandler.executeWithRetry(
-      async () => {
-        await base44.asServiceRole.entities.Message.create({
-          thread_id: threadId,
-          sender_id: 'ia_nexus',
-          sender_type: 'user',
-          recipient_id: contactId,
-          recipient_type: 'contact',
-          content: llmResponse.resposta,
-          channel: 'interno',
-          status: 'enviada',
-          metadata: {
-            ia_generated: true,
-            intencao: llmResponse.intencao,
-            sentimento: llmResponse.sentimento,
-            confianca: llmResponse.confianca
-          }
-        });
-      },
-      {
-        maxRetries: 2,
-        initialDelayMs: 300
+    await base44.asServiceRole.entities.Message.create({
+      thread_id: threadId,
+      sender_id: 'ia_nexus',
+      sender_type: 'user',
+      recipient_id: contactId,
+      recipient_type: 'contact',
+      content: llmResponse.resposta,
+      channel: 'interno',
+      status: 'enviada',
+      metadata: {
+        ia_generated: true,
+        intencao: llmResponse.intencao,
+        sentimento: llmResponse.sentimento,
+        confianca: llmResponse.confianca
       }
-    );
+    });
 
     const processingTime = Date.now() - startTime;
     console.log(`[AGENTE IA] ✅ Processado em ${processingTime}ms`);
@@ -177,20 +159,16 @@ RETORNE JSON:
     );
 
   } catch (error) {
-    const errorInfo = ErrorHandler.handle(error, {
-      function: 'agenteIAHandler'
-    });
-
-    console.error('[AGENTE IA] ❌ Erro:', errorInfo);
+    console.error('[AGENTE IA] ❌ Erro:', error);
 
     return Response.json(
       {
         success: false,
-        error: errorInfo.userMessage,
+        error: error.message,
         resposta: "Desculpe, não consegui processar sua mensagem. Um atendente irá te ajudar."
       },
       { 
-        status: errorInfo.retryable ? 503 : 500,
+        status: 500,
         headers 
       }
     );

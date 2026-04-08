@@ -7,17 +7,14 @@
  * e os envia para o Google Sheets via webhook.
  */
 
-import { createClient } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   try {
     console.log('[EXPORT HEALTHCHECK] 📊 Iniciando exportação...');
     
     // Inicializar cliente Base44
-    const base44 = createClient(
-      Deno.env.get('BASE44_APP_ID'),
-      Deno.env.get('BASE44_API_KEY')
-    );
+    const base44 = createClientFromRequest(req);
     
     // Buscar logs de health recentes (últimas 24h)
     const healthLogs = await base44.entities.SystemHealthLog.list('-timestamp', 100);

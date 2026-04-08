@@ -15,7 +15,7 @@
  * 4. Registrar no AutomationLog
  */
 
-import { createClient } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // Configurar cron para executar a cada 6 horas
 Deno.cron("Opt-in Automation", "0 */6 * * *", async () => {
@@ -43,10 +43,7 @@ async function executarOptinAutomation() {
   
   try {
     // Inicializar cliente Base44
-    const base44 = createClient(
-      Deno.env.get('BASE44_APP_ID'),
-      Deno.env.get('BASE44_API_KEY')
-    );
+    const base44 = createClientFromRequest(req);
     
     // 1. Buscar contatos sem opt-in
     console.log('[OPT-IN AUTOMATION] 🔍 Buscando contatos sem opt-in...');

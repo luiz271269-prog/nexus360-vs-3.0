@@ -14,7 +14,7 @@
  * - Retorno JSON estruturado com próxima ação
  */
 
-import { createClient } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   try {
@@ -25,10 +25,7 @@ Deno.serve(async (req) => {
     const startTime = Date.now();
     
     // Inicializar Base44
-    const base44 = createClient(
-      Deno.env.get('BASE44_APP_ID'),
-      Deno.env.get('BASE44_API_KEY')
-    );
+    const base44 = createClientFromRequest(req);
     
     // 1. Buscar dados da thread
     const thread = await base44.entities.MessageThread.get(thread_id);

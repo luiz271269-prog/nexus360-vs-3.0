@@ -12,17 +12,14 @@
  * - Via API externa
  */
 
-import { createClient } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   try {
     console.log('[EXPORT COMPLIANCE] 📊 Iniciando exportação de dados...');
     
     // Inicializar cliente Base44
-    const base44 = createClient(
-      Deno.env.get('BASE44_APP_ID'),
-      Deno.env.get('BASE44_API_KEY')
-    );
+    const base44 = createClientFromRequest(req);
     
     // Coletar dados de compliance
     console.log('[EXPORT COMPLIANCE] 🔍 Coletando dados...');

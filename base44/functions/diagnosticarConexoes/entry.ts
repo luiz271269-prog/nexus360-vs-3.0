@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 /**
  * ╔══════════════════════════════════════════════════════════════╗
@@ -24,10 +24,7 @@ Deno.serve(async (req) => {
   console.log('═══════════════════════════════════════════════════════');
 
   try {
-    const base44 = createClient({
-      appId: Deno.env.get('BASE44_APP_ID'),
-      apiKey: Deno.env.get('BASE44_SERVICE_ROLE_KEY')
-    });
+    const base44 = createClientFromRequest(req);
 
     const problemas = [];
     const correcoes = [];
