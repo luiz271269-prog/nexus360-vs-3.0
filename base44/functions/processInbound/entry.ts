@@ -9,6 +9,13 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 const VERSION = 'v11.1.0-BUSINESS-HOURS';
 
+// ── CACHE MÓDULO: chips e usuários internos (TTL 90s) ──────────────────
+let _cacheChipsProc = null;
+let _cacheChipsProcTs = 0;
+let _cacheUsersProc = null;
+let _cacheUsersProcTs = 0;
+const CACHE_INTERNO_TTL = 90_000;
+
 // ── Verificar horário comercial (Brasília = UTC-3) ──────────────────────
 // Regra: Seg-Sex 08:00-18:00. Sábado e Domingo: FECHADO.
 function isWithinBusinessHours() {
@@ -160,10 +167,18 @@ Deno.serve(async (req) => {
   if (canonico) {
     try {
       // 1a. Verificar chips da empresa (número entre as integrações cadastradas)
-      const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({}, '-created_date', 30);
-      const numerosChips = integracoes
-        .map(i => (i.numero_telefone || '').replace(/\D/g, ''))
-        .filter(Boolean);
+      // Cache chips internos (TTL 90s)
+      const agora = Date.now();
+      if (!_cacheChipsProc || (agora - _cacheChipsProcTs) > CACHE_INTERNO_TTL) {
+        try {
+          const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({}, '-created_date', 30);
+          _cacheChipsProc = integracoes.map(i => (i.numero_telefone || '').replace(/\D/g, '')).filter(Boolean);
+          _cacheChipsProcTs = agora;
+        } catch(e) {
+          _cacheChipsProc = _cacheChipsProc || [];
+        }
+      }
+      const numerosChips = _cacheChipsProc;
 
       if (numerosChips.includes(canonico)) {
         console.log(`[INBOUND-GATE] 🛑 CAMADA 1: Chip interno detectado (${canonico}) — pipeline interrompido`);
@@ -171,10 +186,19 @@ Deno.serve(async (req) => {
       }
 
       // 1b. Verificar usuários do sistema (atendentes com telefone cadastrado)
-      const usuarios = await base44.asServiceRole.entities.User.list('-created_date', 100);
-      const telefonesInternos = usuarios
-        .map(u => (u.phone || u.attendant_phone || u.whatsapp_phone || '').replace(/\D/g, ''))
-        .filter(t => t && t.length >= 10);
+      // Cache usuários internos (TTL 90s)
+      if (!_cacheUsersProc || (Date.now() - _cacheUsersProcTs) > CACHE_INTERNO_TTL) {
+        try {
+          const usuarios = await base44.asServiceRole.entities.User.list('-created_date', 100);
+          _cacheUsersProc = usuarios
+            .map(u => (u.phone || u.attendant_phone || u.whatsapp_phone || '').replace(/\D/g, ''))
+            .filter(t => t && t.length >= 10);
+          _cacheUsersProcTs = Date.now();
+        } catch(e) {
+          _cacheUsersProc = _cacheUsersProc || [];
+        }
+      }
+      const telefonesInternos = _cacheUsersProc;
 
       if (telefonesInternos.includes(canonico)) {
         console.log(`[INBOUND-GATE] 🛑 CAMADA 1: Usuário interno detectado (${canonico}) — pipeline interrompido`);

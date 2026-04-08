@@ -82,16 +82,16 @@ export default function DiagnosticoContato() {
         const { buscarContatosPorTelefone } = await import('../components/lib/deduplicationEngine');
         telefoneNormalizado = normalizarTelefone(inputLimpo);
         
-        if (!telefonNormalizado) {
+        if (!telefoneNormalizado) {
           setResultado({ erro: 'Telefone inválido' });
           setCarregando(false);
           return;
         }
 
         // ✅ Buscar por telefone e também telefone_canonico
-        const contatosPorTelefone = await buscarContatosPorTelefone(base44, telefonNormalizado);
+        const contatosPorTelefone = await buscarContatosPorTelefone(base44, telefoneNormalizado);
         const contatosPorCanonico = await base44.entities.Contact.filter({ 
-          telefone_canonico: telefonNormalizado 
+          telefone_canonico: telefoneNormalizado 
         });
         
         // Mesclar resultados (remover duplicatas por ID)
