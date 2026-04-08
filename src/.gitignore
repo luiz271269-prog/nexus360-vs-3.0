@@ -1,69 +1,39 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-# Build outputs
-dist/
-dist-ssr/
-build/
-
-# Environment files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Generated wrapper files
+src/components/**/*.md.jsx
+src/components/**/*.ts.jsx
+src/components/**/*.ts.tsx
+src/components/**/*.md.tsx
+src/components/**/calcularPrioridade.jsx
+src/components/**/calcularPrioridade.ts.jsx
+src/components/**/LinhaLogicaSegmentacao.jsx
+src/components/**/LinhaLogicaSegmentacao.md.jsx
 
 # Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+node_modules
+dist
+dist-ssr
+*.local
+
 # Editor directories and files
-.vscode/
-.idea/
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-.DS_Store
-Thumbs.db
 
-# ─────────────────────────────────────────────────────────────
-# DOCUMENTAÇÃO (arquivos .md NÃO são componentes React)
-# Estão dentro de src/ apenas como referência — NÃO devem ser
-# processados pelo Vite/linter como código JSX.
-# ─────────────────────────────────────────────────────────────
-src/**/*.md
-src/**/*.md.jsx
-src/**/*.ts.jsx
-src/**/*.ts.tsx
-src/**/[A-Z]*_*.jsx
-
-# Bloqueio preventivo: arquivos de análise do AI editor
-src/components/ANALISE_*.jsx
-src/components/ANALISE_*.md.jsx
-src/components/**/ANALISE_*.jsx
-src/components/**/ANALISE_*.md.jsx
-src/components/ARQUITETURA_*.jsx
-src/components/ARQUITETURA_*.md.jsx
-src/components/COMPARACAO_*.jsx
-src/components/COMPARATIVO_*.jsx
-src/components/CONFIRMACAO_*.jsx
-src/components/DECISAO_*.jsx
-src/components/DIAGNOSTICO_*.jsx
-src/components/ESTRATEGIA_*.jsx
-src/components/FLUXO_*.jsx
-src/components/MAPEAMENTO_*.jsx
-src/components/MELHORIAS_*.jsx
-src/components/PLANO_*.jsx
-src/components/PRINCIPIO_*.jsx
-src/components/PROJETO_*.jsx
-src/components/RECONCILIACAO_*.jsx
-src/components/VALIDACAO_*.jsx
-src/components/comunicacao/ANALISE_*.jsx
-src/components/comunicacao/ANALISE_*.md.jsx
+# Environment
+.env
+.env.local
+.env.*.local

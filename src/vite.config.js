@@ -11,7 +11,8 @@ export default defineConfig({
   plugins: [
     react(),
     base44({
-      // Desabilitar geração de wrappers JSX para .md e .ts
+      legacySDKImports: process.env.BASE44_LEGACY_SDK_IMPORTS === 'true',
+      autoGenerateWrappers: false,
       excludePatterns: [
         '**/*.md',
         '**/*.md.jsx',
