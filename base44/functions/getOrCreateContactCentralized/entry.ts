@@ -274,18 +274,16 @@ Deno.serve(async (req) => {
     // ANTI-RACE PÓS-CREATE v2: limit=10, loop de delete para bursts
     // ═══════════════════════════════════════════════════════════════
     try {
-      // ASC por created_date — mais antigo primeiro = canônico
       const recheck = await base44.asServiceRole.entities.Contact.filter(
         { telefone_canonico: canonico },
-        'created_date', // ASC — mais antigo primeiro
-        10              // ← era 2; cobre bursts de até 10 requisições paralelas
+        'created_date',
+        10
       );
       
       if (recheck && recheck.length > 1) {
-        const maisAntigo = recheck[0]; // Mais antigo = canônico
+        const maisAntigo = recheck[0];
         const duplicados = recheck.slice(1).filter(c => c.id !== maisAntigo.id);
         
-        // Deletar TODOS os duplicados, não só o primeiro
         for (const dup of duplicados) {
           try {
             await base44.asServiceRole.entities.Contact.delete(dup.id);
@@ -302,7 +300,6 @@ Deno.serve(async (req) => {
       }
     } catch (e) {
       console.warn(`[${VERSION}] ⚠️ Erro no anti-race pós-create:`, e.message);
-      // Continua mesmo com erro no anti-race
     }
 
     return Response.json({ success: true, contact: novoContato, action: 'created' });
