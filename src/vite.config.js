@@ -10,7 +10,16 @@ import { base44 } from '@base44/vite-plugin'
 export default defineConfig({
   plugins: [
     react(),
-    base44(),
+    base44({
+      // Desabilitar geração de wrappers JSX para .md e .ts
+      excludePatterns: [
+        '**/*.md',
+        '**/*.md.jsx',
+        '**/*.md.tsx',
+        '**/*.ts.jsx',
+        '**/*.ts.tsx',
+      ]
+    }),
   ],
   resolve: {
     alias: {
