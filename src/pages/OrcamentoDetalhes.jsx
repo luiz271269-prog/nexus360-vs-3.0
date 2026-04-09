@@ -730,7 +730,7 @@ RETORNE o JSON estruturado conforme o schema.`;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 pb-16">
+    <div className="min-h-0 flex flex-col bg-gradient-to-br from-slate-900 to-slate-800 pb-16">
       {processing &&
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-slate-800 rounded-xl p-8 border border-amber-500 shadow-2xl">
@@ -742,7 +742,7 @@ RETORNE o JSON estruturado conforme o schema.`;
 
       {/* HEADER */}
       <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-slate-700 shadow-xl">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+        <div className="px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate(createPageUrl('LeadsQualificados'))} className="text-white">
               <ArrowLeft className="h-5 w-5" />
@@ -792,7 +792,7 @@ RETORNE o JSON estruturado conforme o schema.`;
 
 
 
-      <div className="max-w-7xl mx-auto px-4 py-4">
+      <div className="px-4 py-4">
         <div className="flex gap-4">
 
           {/* COLUNA ESQUERDA: IMAGENS ANEXADAS */}
