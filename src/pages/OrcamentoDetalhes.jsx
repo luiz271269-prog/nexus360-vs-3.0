@@ -932,7 +932,20 @@ RETORNE o JSON estruturado conforme o schema.`;
               </div>
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Cliente *</Label>
-                <ClienteCombobox value={orcamento.cliente_nome} onChange={(value) => handleSelectChange('cliente_nome', value)} />
+                <ClienteCombobox
+                  value={orcamento.cliente_nome}
+                  onChange={(value) => handleSelectChange('cliente_nome', value)}
+                  onSelectCliente={(c) => setOrcamento(prev => ({
+                    ...prev,
+                    cliente_id: c.id,
+                    cliente_nome: c.razao_social,
+                    cliente_empresa: c.nome_fantasia || c.razao_social,
+                    cliente_telefone: c.telefone || prev.cliente_telefone,
+                    cliente_email: c.email || prev.cliente_email,
+                    cliente_cnpj: c.cnpj || prev.cliente_cnpj,
+                    cliente_endereco: c.endereco || prev.cliente_endereco,
+                  }))}
+                />
               </div>
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Telefone</Label>
@@ -945,6 +958,30 @@ RETORNE o JSON estruturado conforme o schema.`;
               <div>
                 <Label className="text-slate-300 text-xs mb-1">Empresa</Label>
                 <Input name="cliente_empresa" value={orcamento.cliente_empresa || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+              <div className="md:col-span-2">
+                <Label className="text-slate-300 text-xs mb-1">Endereço</Label>
+                <Input name="cliente_endereco" value={orcamento.cliente_endereco || ''} onChange={handleOrcamentoChange} placeholder="Rua, número" className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Bairro</Label>
+                <Input name="cliente_bairro" value={orcamento.cliente_bairro || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">Cidade</Label>
+                <Input name="cliente_cidade" value={orcamento.cliente_cidade || ''} onChange={handleOrcamentoChange} className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">UF</Label>
+                <Input name="cliente_uf" value={orcamento.cliente_uf || ''} onChange={handleOrcamentoChange} maxLength={2} className="bg-slate-900 border-slate-600 text-white h-9 text-sm uppercase" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+              <div>
+                <Label className="text-slate-300 text-xs mb-1">CNPJ</Label>
+                <Input name="cliente_cnpj" value={orcamento.cliente_cnpj || ''} onChange={handleOrcamentoChange} placeholder="00.000.000/0000-00" className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">

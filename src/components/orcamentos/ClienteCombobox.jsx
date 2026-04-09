@@ -7,7 +7,7 @@ import { Search, Plus, Building2, User, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { buscarComSimilaridade } from '@/components/lib/searchUtils';
 
-export default function ClienteCombobox({ value, onChange, onNovoCliente }) {
+export default function ClienteCombobox({ value, onChange, onSelectCliente, onNovoCliente }) {
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [termoBusca, setTermoBusca] = useState('');
@@ -61,6 +61,7 @@ export default function ClienteCombobox({ value, onChange, onNovoCliente }) {
   const handleSelect = (cliente) => {
     setTermoBusca(cliente.razao_social);
     if (typeof onChange === 'function') onChange(cliente.razao_social);
+    if (typeof onSelectCliente === 'function') onSelectCliente(cliente);
     setShowSuggestions(false);
   };
 
