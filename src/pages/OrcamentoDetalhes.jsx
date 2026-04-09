@@ -92,6 +92,14 @@ export default function OrcamentoDetalhes() {
             }
           } catch (e) { /* silencioso */ }
         }
+        // Fase 3: aplicar dados de atualização vindos de duplicata detectada
+        const dadosParaAtualizar = location.state?.dadosParaAtualizar;
+        if (dadosParaAtualizar) {
+          Object.keys(dadosParaAtualizar).forEach(k => {
+            if (k !== 'novaImagem' && dadosParaAtualizar[k]) orcData[k] = dadosParaAtualizar[k];
+          });
+          toast.success('✅ Dados atualizados a partir da nova importação. Revise e salve.');
+        }
         setOrcamento(orcData);
         setItens(Array.isArray(itensData) ? itensData : []);
 
@@ -109,6 +117,10 @@ export default function OrcamentoDetalhes() {
               urlsExistentes.add(url);
             }
           }
+        }
+        // Adicionar nova imagem da reimportação se vier no state
+        if (dadosParaAtualizar?.novaImagem && !urlsExistentes.has(dadosParaAtualizar.novaImagem.url)) {
+          urlsExtraidas.push(dadosParaAtualizar.novaImagem);
         }
         setEstudosAnexos([...anexosExistentes, ...urlsExtraidas]);
       } else if (modoOperacao === 'carrinho') {
@@ -477,6 +489,47 @@ RETORNE o JSON estruturado conforme o schema.`;
             if (contatoEncontrado.empresa) empresaDoContato = contatoEncontrado.empresa;
             if (contatoEncontrado.cliente_id) clienteIdDoContato = contatoEncontrado.cliente_id;
             toast.info(`🔗 Contato vinculado: ${contatoEncontrado.nome}${empresaDoContato ? ' - ' + empresaDoContato : ''}`, { duration: 3000 });
+          }
+        } catch (e) { /* silencioso */ }
+      }
+
+      // ── VERIFICAR DUPLICATA ANTES DE APLICAR DADOS ──
+      if (iaResult.numero_orcamento) {
+        try {
+          const existentes = await base44.entities.Orcamento.filter({ numero_orcamento: iaResult.numero_orcamento });
+          const clienteNormIA = (iaResult.cliente_nome || '').trim().toUpperCase();
+          const duplicata = existentes?.find(o => {
+            const clienteNormO = (o.cliente_nome || '').trim().toUpperCase();
+            return clienteNormO === clienteNormIA || !clienteNormO || !clienteNormIA;
+          });
+          if (duplicata) {
+            const confirmar = window.confirm(
+              `⚠️ DUPLICATA DETECTADA!\n\nOrçamento #${duplicata.numero_orcamento} para "${duplicata.cliente_nome}" já foi importado anteriormente.\n\nDeseja ATUALIZAR os dados deste registro existente?\n\n• OK = Atualizar registro existente\n• Cancelar = Ignorar (não criar duplicata)`
+            );
+            if (confirmar) {
+              // Navegar para o registro existente com os dados novos já aplicados via state
+              toast.info('🔄 Redirecionando para o registro existente...');
+              navigate(createPageUrl(`OrcamentoDetalhes?id=${duplicata.id}`), {
+                replace: true,
+                state: { dadosParaAtualizar: {
+                  cliente_nome: iaResult.cliente_nome,
+                  cliente_telefone: iaResult.cliente_telefone,
+                  cliente_email: iaResult.cliente_email,
+                  cliente_empresa: iaResult.cliente_empresa,
+                  cliente_cnpj: iaResult.cliente_cnpj,
+                  cliente_endereco: iaResult.cliente_endereco,
+                  cliente_bairro: iaResult.cliente_bairro,
+                  cliente_cidade: iaResult.cliente_cidade,
+                  cliente_uf: iaResult.cliente_uf,
+                  condicao_pagamento: iaResult.condicao_pagamento,
+                  novaImagem: { url: fileUrl, descricao: 'Reimportado via IA', data_anexo: new Date().toISOString(), tipo_estudo: 'orcamento_completo_ia', is_opcional: false }
+                }}
+              });
+              return;
+            } else {
+              toast.warning('⚠️ Importação cancelada para evitar duplicata. Nenhum dado foi alterado.');
+              return;
+            }
           }
         } catch (e) { /* silencioso */ }
       }
