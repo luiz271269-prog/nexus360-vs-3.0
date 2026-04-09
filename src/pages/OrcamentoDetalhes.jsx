@@ -68,19 +68,8 @@ export default function OrcamentoDetalhes() {
         filter((u) => u.codigo || u.attendant_sector === 'vendas').
         map((u) => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
       } catch (userErr) {
-
-
-
-
-
-
-
-
-
-
-
         // Non-admin users can't list users — use only current user
-      } // Always ensure current user is in the list
+      }
       if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];}setVendedores(vendedoresData);if (modoOperacao === 'edicao') {const [orcData, itensData] = await Promise.all([base44.entities.Orcamento.get(orcamentoId), base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })]);
         // Fase 1: garantir que nome do vendedor reflete User.full_name atual
         if (orcData.vendedor_id) {
@@ -327,7 +316,7 @@ export default function OrcamentoDetalhes() {
       const clientesInfo = clientes.map((c) => ({ id: c.id, razao_social: c.razao_social, nome_fantasia: c.nome_fantasia, cnpj: c.cnpj, telefone: c.telefone }));
       const vendedoresInfo = vendedoresBase.map((v) => ({ id: v.id, nome: v.nome, codigo: v.codigo, email: v.email }));
 
-      const prompt = `Você é um extrator de dados de orçamentos comerciais. Analise a imagem e extraia os dados com PRECISÃO MÁXIMA.
+      const prompt = `Você é um extrator de dados de orçamentos/pedidos comerciais. Analise a imagem e extraia os dados com PRECISÃO MÁXIMA.
 
 LISTA DE CLIENTES CADASTRADOS (use o id e razao_social exatos se encontrar correspondência):
 ${JSON.stringify(clientesInfo, null, 2)}
@@ -340,7 +329,10 @@ REGRAS IMPORTANTES:
 2. Se o nome do cliente da imagem bater com algum da lista acima, preencha "cliente_id" com o id correspondente.
 3. "cliente_empresa" é o mesmo que "cliente_nome" — use o nome da empresa encontrado.
 4. Para "vendedor_nome": procure na LISTA DE VENDEDORES acima. Se não encontrar, use o nome que aparece no documento.
-5. Extraia: código do orçamento, cliente/empresa, telefone, email, vendedor, data emissão, condição pagamento, itens (código, nome, descrição, quantidade, valor unitário, total), observações.
+5. Extraia TODOS os campos visíveis: código do orçamento/pedido, cliente/empresa, telefone (campo "Fone" ou "Tel"), email, CNPJ, endereço completo (rua+número), bairro, cidade, UF (2 letras), vendedor, data emissão, data validade/entrega, condição de pagamento, itens (código, nome, descrição, quantidade, valor unitário, total), observações.
+6. Para endereço: coloque rua e número em "cliente_endereco", bairro em "cliente_bairro", cidade em "cliente_cidade", estado (apenas 2 letras maiúsculas, ex: SC, SP) em "cliente_uf".
+7. Para CNPJ: extraia no formato XX.XXX.XXX/XXXX-XX ou apenas os dígitos.
+8. Para condição de pagamento: extraia o texto completo (ex: "R$ 4.470,00 em 030").
 
 RETORNE o JSON estruturado conforme o schema.`;
 
@@ -354,6 +346,11 @@ RETORNE o JSON estruturado conforme o schema.`;
           cliente_telefone: { type: "string" },
           cliente_email: { type: "string" },
           cliente_empresa: { type: "string" },
+          cliente_cnpj: { type: "string" },
+          cliente_endereco: { type: "string" },
+          cliente_bairro: { type: "string" },
+          cliente_cidade: { type: "string" },
+          cliente_uf: { type: "string" },
           vendedor_encontrado: { type: "boolean" },
           vendedor_nome: { type: "string" },
           data_orcamento: { type: "string" },
@@ -404,9 +401,7 @@ RETORNE o JSON estruturado conforme o schema.`;
       // Normaliza datas para YYYY-MM-DD
       const parseIADate = (d) => {
         if (!d) return '';
-        // já está no formato correto
         if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
-        // DD/MM/YYYY
         const m = d.match(/(\d{2})\/(\d{2})\/(\d{4})/);
         if (m) return `${m[3]}-${m[2]}-${m[1]}`;
         try {return new Date(d).toISOString().slice(0, 10);} catch {return '';}
@@ -419,7 +414,7 @@ RETORNE o JSON estruturado conforme o schema.`;
       );
 
       // Buscar empresa do Contact pelo telefone extraído
-      let empresaDoContato = iaResult.cliente_empresa || iaResult.cliente_nome || '';
+      let empresaDoContato = '';
       if (iaResult.cliente_telefone) {
         try {
           const telDigitos = iaResult.cliente_telefone.replace(/\D/g, '');
@@ -438,7 +433,12 @@ RETORNE o JSON estruturado conforme o schema.`;
         cliente_nome: iaResult.cliente_nome || prev.cliente_nome,
         cliente_telefone: iaResult.cliente_telefone || prev.cliente_telefone,
         cliente_email: iaResult.cliente_email || prev.cliente_email,
-        cliente_empresa: empresaDoContato || prev.cliente_empresa,
+        cliente_empresa: empresaDoContato || iaResult.cliente_empresa || iaResult.cliente_nome || prev.cliente_empresa,
+        cliente_cnpj: iaResult.cliente_cnpj || prev.cliente_cnpj,
+        cliente_endereco: iaResult.cliente_endereco || prev.cliente_endereco,
+        cliente_bairro: iaResult.cliente_bairro || prev.cliente_bairro,
+        cliente_cidade: iaResult.cliente_cidade || prev.cliente_cidade,
+        cliente_uf: iaResult.cliente_uf || prev.cliente_uf,
         vendedor: vendedorResolvido?.nome || iaResult.vendedor_nome || prev.vendedor,
         vendedor_id: vendedorResolvido?.id || prev.vendedor_id,
         numero_orcamento: iaResult.numero_orcamento || prev.numero_orcamento,
@@ -691,7 +691,6 @@ RETORNE o JSON estruturado conforme o schema.`;
       <div className="flex justify-center items-center h-screen bg-gradient-to-br from-slate-900 to-slate-800">
         <Loader2 className="w-12 h-12 animate-spin text-amber-500" />
       </div>);
-
   }
 
   if (!orcamento) {
@@ -705,7 +704,6 @@ RETORNE o JSON estruturado conforme o schema.`;
           </Button>
         </Card>
       </div>);
-
   }
 
   // Display params (no conflict with loadData scope)
@@ -790,8 +788,6 @@ RETORNE o JSON estruturado conforme o schema.`;
         </div>
       </div>
 
-
-
       <div className="px-4 py-4">
         <div className="flex gap-4">
 
@@ -871,7 +867,6 @@ RETORNE o JSON estruturado conforme o schema.`;
                           alt={anexo.descricao || `Anexo ${index + 1}`}
                           className="w-full h-32 object-contain bg-slate-900 cursor-pointer"
                           onClick={() => window.open(anexo.url, '_blank')} />
-                        
                       </div>
                       <div className="p-1.5 flex items-center justify-between gap-1">
                         <div className="flex items-center gap-1 min-w-0">
@@ -881,7 +876,6 @@ RETORNE o JSON estruturado conforme o schema.`;
                             onChange={() => toggleOpcionalAnexo(index)}
                             className="w-3 h-3 flex-shrink-0"
                             title="Marcar como obrigatório" />
-                          
                           <span className="text-[9px] text-slate-400 truncate">{anexo.descricao || `Anexo ${index + 1}`}</span>
                         </div>
                         <div className="flex gap-0.5 flex-shrink-0">
@@ -894,7 +888,6 @@ RETORNE o JSON estruturado conforme o schema.`;
                               processarImagemCompleta(new File([blob], 'reimport.png', { type: blob.type }));
                             }}
                             title="Reprocessar com IA">
-                            
                             <Sparkles className="w-2.5 h-2.5" />
                           </Button>
                           <Button
@@ -902,13 +895,11 @@ RETORNE o JSON estruturado conforme o schema.`;
                             size="sm"
                             className="h-5 w-5 p-0 text-red-400 hover:text-red-300"
                             onClick={() => removerAnexo(index)}>
-                            
                             <Trash2 className="w-2.5 h-2.5" />
                           </Button>
                         </div>
                       </div>
                     </div>);
-
                 })}
                 </div>
               </div>
@@ -1014,7 +1005,6 @@ RETORNE o JSON estruturado conforme o schema.`;
                 <Input name="condicao_pagamento" value={orcamento.condicao_pagamento || ''} onChange={handleOrcamentoChange} placeholder="Ex: 30/60/90" className="bg-slate-900 border-slate-600 text-white h-9 text-sm" />
               </div>
             </div>
-
           </CardContent>
         </Card>
 
@@ -1080,5 +1070,4 @@ RETORNE o JSON estruturado conforme o schema.`;
         </div> {/* fim flex */}
       </div>
     </div>);
-
 }
