@@ -27,30 +27,6 @@
       "format": "email",
       "description": "Email do cliente"
     },
-    "cliente_empresa": {
-      "type": "string",
-      "description": "Nome fantasia / empresa do cliente"
-    },
-    "cliente_cnpj": {
-      "type": "string",
-      "description": "CNPJ do cliente"
-    },
-    "cliente_endereco": {
-      "type": "string",
-      "description": "Endere\u00e7o do cliente (rua e n\u00famero)"
-    },
-    "cliente_bairro": {
-      "type": "string",
-      "description": "Bairro do cliente"
-    },
-    "cliente_cidade": {
-      "type": "string",
-      "description": "Cidade do cliente"
-    },
-    "cliente_uf": {
-      "type": "string",
-      "description": "UF do cliente (2 letras)"
-    },
     "vendedor": {
       "type": "string",
       "description": "Nome do vendedor (compatibilidade legada)"

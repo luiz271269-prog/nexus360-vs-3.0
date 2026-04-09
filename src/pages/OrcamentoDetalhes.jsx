@@ -78,6 +78,20 @@ export default function OrcamentoDetalhes() {
             orcData.vendedor = nomeAtual;
           }
         }
+        // Fase 2: carregar dados do Cliente (endereço, CNPJ, empresa)
+        if (orcData.cliente_id) {
+          try {
+            const clienteData = await base44.entities.Cliente.get(orcData.cliente_id);
+            if (clienteData) {
+              orcData.cliente_empresa = clienteData.nome_fantasia || '';
+              orcData.cliente_cnpj = clienteData.cnpj || '';
+              orcData.cliente_endereco = clienteData.endereco || '';
+              orcData.cliente_bairro = clienteData.bairro || '';
+              orcData.cliente_cidade = clienteData.cidade || '';
+              orcData.cliente_uf = clienteData.uf || '';
+            }
+          } catch (e) { /* silencioso */ }
+        }
         setOrcamento(orcData);
         setItens(Array.isArray(itensData) ? itensData : []);
 
@@ -690,6 +704,11 @@ RETORNE o JSON estruturado conforme o schema.`;
               telefone: orcamento.cliente_telefone,
               email: orcamento.cliente_email,
               nome_fantasia: orcamento.cliente_empresa || orcamento.cliente_nome,
+              cnpj: orcamento.cliente_cnpj || '',
+              endereco: orcamento.cliente_endereco || '',
+              bairro: orcamento.cliente_bairro || '',
+              cidade: orcamento.cliente_cidade || '',
+              uf: orcamento.cliente_uf || '',
               origem: origemChatSave ? 'WhatsApp' : 'Orçamento'
             });
             clienteIdFinal = novoCliente.id;
@@ -700,6 +719,20 @@ RETORNE o JSON estruturado conforme o schema.`;
           console.error('Erro ao buscar/criar cliente:', clientError);
           toast.error('Erro ao processar cliente.');
         }
+      }
+
+      // Atualizar dados do cliente existente com endereço/cnpj/empresa
+      if (clienteIdFinal && (orcamento.cliente_endereco || orcamento.cliente_cnpj || orcamento.cliente_empresa)) {
+        try {
+          await base44.entities.Cliente.update(clienteIdFinal, {
+            nome_fantasia: orcamento.cliente_empresa || undefined,
+            cnpj: orcamento.cliente_cnpj || undefined,
+            endereco: orcamento.cliente_endereco || undefined,
+            bairro: orcamento.cliente_bairro || undefined,
+            cidade: orcamento.cliente_cidade || undefined,
+            uf: orcamento.cliente_uf || undefined,
+          });
+        } catch (e) { /* silencioso */ }
       }
 
       let savedOrcamento;
