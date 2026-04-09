@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import { useContatosInteligentes } from "../components/hooks/useContatosInteligentes";
+import { useContatosInteligentes } from "@/components/hooks/useContatosInteligentes";
 import {
   BarChart3,
   Users,
@@ -30,14 +30,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-import NexusChat from "../components/global/NexusChat";
-import NotificationSystem from "../components/comunicacao/NotificationSystem";
-import CopilotoIA from "../components/global/CopilotoIA";
-import InitializadorSistema from "../components/global/InitializadorSistema";
-import CacheBuster from "../components/global/CacheBuster";
-import DeploymentBanner from "../components/global/DeploymentBanner";
-import UserAuthWidget from "../components/global/UserAuthWidget";
-import { calcularLembretesGlobal } from "../components/global/MotorLembretesGlobal";
+import NexusChat from "@/components/global/NexusChat";
+import NotificationSystem from "@/components/comunicacao/NotificationSystem";
+import CopilotoIA from "@/components/global/CopilotoIA";
+import InitializadorSistema from "@/components/global/InitializadorSistema";
+import CacheBuster from "@/components/global/CacheBuster";
+import DeploymentBanner from "@/components/global/DeploymentBanner";
+import UserAuthWidget from "@/components/global/UserAuthWidget";
+import { calcularLembretesGlobal } from "@/components/global/MotorLembretesGlobal";
 
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
   const isActive = window.location.pathname === new URL(href, window.location.origin).pathname;
