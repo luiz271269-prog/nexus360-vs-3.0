@@ -14,7 +14,7 @@ import {
 import { toast } from "sonner";
 import { createPageUrl } from '@/utils';
 import StatusPipeline from '../components/orcamentos/StatusPipeline';
-import { resolverNomeVendedor } from '../components/lib/vendedorSync';
+import { resolverNomeVendedor, getNomeExibicao } from '../components/lib/vendedorSync';
 import PlanosPagamento from '../components/orcamentos/PlanosPagamento';
 import ClienteCombobox from '../components/orcamentos/ClienteCombobox';
 
@@ -66,11 +66,11 @@ export default function OrcamentoDetalhes() {
         const usersData = await base44.entities.User.list();
         vendedoresData = (usersData || []).
         filter((u) => u.codigo || u.attendant_sector === 'vendas').
-        map((u) => ({ id: u.id, nome: u.full_name || u.email, codigo: u.codigo, email: u.email }));
+        map((u) => ({ id: u.id, nome: getNomeExibicao(u), codigo: u.codigo, email: u.email }));
       } catch (userErr) {
         // Non-admin users can't list users — use only current user
       }
-      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {vendedoresData = [{ id: currentUser.id, nome: currentUser.full_name || currentUser.email, email: currentUser.email }, ...vendedoresData];}setVendedores(vendedoresData);if (modoOperacao === 'edicao') {const [orcData, itensData] = await Promise.all([base44.entities.Orcamento.get(orcamentoId), base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })]);
+      if (currentUser && !vendedoresData.find((v) => v.id === currentUser.id)) {vendedoresData = [{ id: currentUser.id, nome: getNomeExibicao(currentUser), email: currentUser.email }, ...vendedoresData];}setVendedores(vendedoresData);if (modoOperacao === 'edicao') {const [orcData, itensData] = await Promise.all([base44.entities.Orcamento.get(orcamentoId), base44.entities.ItemOrcamento.filter({ orcamento_id: orcamentoId })]);
         // Fase 1: garantir que nome do vendedor reflete User.full_name atual
         if (orcData.vendedor_id) {
           const nomeAtual = await resolverNomeVendedor(orcData.vendedor_id);
