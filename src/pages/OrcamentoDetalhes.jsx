@@ -393,9 +393,17 @@ RETORNE o JSON estruturado conforme o schema.`;
         const qtd = parseFloat(item.quantidade || 1) || 1;
         const vUnit = parseFloat(item.valor_unitario || 0);
         const vTotal = parseFloat(item.valor_total || 0);
-        // Se unitário está zerado mas total existe, deriva o unitário
-        const unitarioFinal = vUnit > 0 ? vUnit : (vTotal > 0 ? vTotal / qtd : 0);
-        const totalFinal = unitarioFinal * qtd;
+        // Prioridade: valor_total é a fonte de verdade
+        // Se total existe: unitario = total / qtd
+        // Se só unitario existe: total = unitario * qtd
+        let unitarioFinal, totalFinal;
+        if (vTotal > 0) {
+          totalFinal = vTotal;
+          unitarioFinal = vUnit > 0 && Math.abs(vUnit * qtd - vTotal) < 0.01 ? vUnit : vTotal / qtd;
+        } else {
+          unitarioFinal = vUnit;
+          totalFinal = vUnit * qtd;
+        }
         return {
           _tempId: `ia-${Date.now()}-${idx}`,
           produto_id: null,
