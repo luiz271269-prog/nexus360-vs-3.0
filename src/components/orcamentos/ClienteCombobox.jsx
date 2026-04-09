@@ -19,13 +19,10 @@ export default function ClienteCombobox({ value, onChange, onSelectCliente, onNo
   }, []);
 
   useEffect(() => {
-    if (value) {
-      const cliente = clientes.find(c => c.razao_social === value);
-      if (cliente) {
-        setTermoBusca(cliente.razao_social);
-      }
+    if (value !== undefined && value !== null) {
+      setTermoBusca(value);
     }
-  }, [value, clientes]);
+  }, [value]);
 
   const carregarClientes = async () => {
     setLoading(true);
