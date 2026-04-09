@@ -407,11 +407,22 @@ RETORNE o JSON estruturado conforme o schema.`;
         try {return new Date(d).toISOString().slice(0, 10);} catch {return '';}
       };
 
-      // Resolve vendedor pelo id retornado ou pelo nome exato na lista
-      const vendedorResolvido = vendedoresBase.find((v) =>
-      iaResult.vendedor_id && v.id === iaResult.vendedor_id ||
-      iaResult.vendedor_nome && v.nome?.toLowerCase() === iaResult.vendedor_nome?.toLowerCase()
-      );
+      // Resolve vendedor pelo id retornado ou pelo nome (exato, parcial ou primeiro nome)
+      const nomeIA = (iaResult.vendedor_nome || '').toLowerCase().trim();
+      const vendedorResolvido = vendedoresBase.find((v) => {
+        if (iaResult.vendedor_id && v.id === iaResult.vendedor_id) return true;
+        if (!nomeIA) return false;
+        const nomeV = (v.nome || '').toLowerCase().trim();
+        // Exato
+        if (nomeV === nomeIA) return true;
+        // O nome do documento contém o nome do usuário ou vice-versa
+        if (nomeV && (nomeIA.includes(nomeV) || nomeV.includes(nomeIA))) return true;
+        // Primeiro nome bate
+        const primeiroV = nomeV.split(' ')[0];
+        const primeiroIA = nomeIA.split(' ')[0];
+        if (primeiroV && primeiroIA && primeiroV === primeiroIA) return true;
+        return false;
+      });
 
       // Buscar empresa do Contact pelo telefone extraído
       let empresaDoContato = '';
