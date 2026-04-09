@@ -639,7 +639,23 @@ RETORNE o JSON estruturado conforme o schema.`;
             return clienteOrc === clienteAtual && (!telAtual || !telOrc || telOrc === telAtual);
           });
           if (duplicata) {
-            toast.warning(`⚠️ Orçamento duplicado detectado (${duplicata.numero_orcamento}). Abrindo o existente.`, { duration: 5000 });
+            toast.info(`🔄 Duplicata detectada (${duplicata.numero_orcamento}). Atualizando registro existente...`, { duration: 4000 });
+            // Mescla: preserva dados do existente, aplica novos dados por cima
+            const dadosMesclados = {
+              ...duplicata,
+              ...orcamentoDataToSave,
+              id: duplicata.id,
+              // Mantém estudos_anexos acumulando (não substituindo)
+              estudos_anexos: [
+                ...(duplicata.estudos_anexos || []),
+                ...(estudosAnexos.filter(a => !((duplicata.estudos_anexos || []).some(d => d.url === a.url))))
+              ],
+              // Usa o maior valor_total entre os dois (evita regressão de dados)
+              valor_total: Math.max(duplicata.valor_total || 0, totalCalculado)
+            };
+            delete dadosMesclados.id;
+            await base44.entities.Orcamento.update(duplicata.id, dadosMesclados);
+            toast.success(`✅ Registro ${duplicata.numero_orcamento} atualizado com os novos dados!`);
             setSaving(false);
             navigate(createPageUrl(`OrcamentoDetalhes?id=${duplicata.id}`), { replace: true });
             return;
