@@ -346,7 +346,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="space-y-4">
-        <Tabs defaultValue="negociacao" className="w-full">
+        <Tabs defaultValue="interna" className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-1 rounded-xl shadow-2xl border border-slate-700">
             {Object.entries(etapasFluxo).map(([key, etapa]) => {
               const Icon = etapa.icon;
