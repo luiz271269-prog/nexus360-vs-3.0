@@ -461,10 +461,10 @@ export default function LeadsQualificados() {
     // ── FILTRO DE PROPRIEDADE ──
     if (!podeVerTodos) {
       // Usuário comum: só vê os seus
-      // Verifica por vendedor_id (preferência) ou por nome (fallback legado)
+      // Verifica por vendedor_id (preferência), nome (fallback legado) ou criador (fallback importação)
       const ehSeu = orcamento.vendedor_id
         ? orcamento.vendedor_id === usuarioAtual.id
-        : orcamento.vendedor === vendedorDoUsuario;
+        : orcamento.vendedor === vendedorDoUsuario || orcamento.created_by === usuarioAtual.email;
       if (!ehSeu) return false;
     } else if (filtroVendedorGlobal !== 'todos') {
       // Admin/gestor/supervisor com filtro aplicado
