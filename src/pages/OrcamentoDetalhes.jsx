@@ -418,13 +418,27 @@ RETORNE o JSON estruturado conforme o schema.`;
       iaResult.vendedor_nome && v.nome?.toLowerCase() === iaResult.vendedor_nome?.toLowerCase()
       );
 
+      // Buscar empresa do Contact pelo telefone extraído
+      let empresaDoContato = iaResult.cliente_empresa || iaResult.cliente_nome || '';
+      if (iaResult.cliente_telefone) {
+        try {
+          const telDigitos = iaResult.cliente_telefone.replace(/\D/g, '');
+          const contatosBusca = await base44.entities.Contact.filter({ telefone_canonico: telDigitos });
+          const contatoEncontrado = contatosBusca?.[0];
+          if (contatoEncontrado?.empresa) {
+            empresaDoContato = contatoEncontrado.empresa;
+            toast.info(`🔗 Empresa vinculada ao contato: ${empresaDoContato}`, { duration: 3000 });
+          }
+        } catch (e) { /* silencioso */ }
+      }
+
       setOrcamento((prev) => ({
         ...prev,
         cliente_id: iaResult.cliente_id || prev.cliente_id,
         cliente_nome: iaResult.cliente_nome || prev.cliente_nome,
         cliente_telefone: iaResult.cliente_telefone || prev.cliente_telefone,
         cliente_email: iaResult.cliente_email || prev.cliente_email,
-        cliente_empresa: iaResult.cliente_empresa || iaResult.cliente_nome || prev.cliente_empresa,
+        cliente_empresa: empresaDoContato || prev.cliente_empresa,
         vendedor: vendedorResolvido?.nome || iaResult.vendedor_nome || prev.vendedor,
         vendedor_id: vendedorResolvido?.id || prev.vendedor_id,
         numero_orcamento: iaResult.numero_orcamento || prev.numero_orcamento,
@@ -572,6 +586,27 @@ RETORNE o JSON estruturado conforme o schema.`;
     if (!validarFormulario()) return;
     setSaving(true);
     try {
+      // ── DEDUPLICAÇÃO AUTOMÁTICA: verificar duplicata antes de criar ──
+      if (!orcamento.id && orcamento.numero_orcamento) {
+        try {
+          const normTel = (t) => (t || '').replace(/\D/g, '').trim();
+          const todos = await base44.entities.Orcamento.filter({ numero_orcamento: orcamento.numero_orcamento });
+          const telAtual = normTel(orcamento.cliente_telefone) || normTel(orcamento.cliente_celular);
+          const clienteAtual = (orcamento.cliente_nome || '').trim().toUpperCase();
+          const duplicata = todos?.find(o => {
+            const telOrc = normTel(o.cliente_telefone) || normTel(o.cliente_celular);
+            const clienteOrc = (o.cliente_nome || '').trim().toUpperCase();
+            return clienteOrc === clienteAtual && (!telAtual || !telOrc || telOrc === telAtual);
+          });
+          if (duplicata) {
+            toast.warning(`⚠️ Orçamento duplicado detectado (${duplicata.numero_orcamento}). Abrindo o existente.`, { duration: 5000 });
+            setSaving(false);
+            navigate(createPageUrl(`OrcamentoDetalhes?id=${duplicata.id}`), { replace: true });
+            return;
+          }
+        } catch (e) { /* continua normalmente */ }
+      }
+
       const totalCalculado = calcularTotal(itens);
       const orcamentoDataToSave = { ...orcamento, valor_total: totalCalculado, estudos_anexos: estudosAnexos };
 
