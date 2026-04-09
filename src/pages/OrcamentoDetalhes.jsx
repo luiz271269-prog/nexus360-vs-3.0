@@ -383,19 +383,27 @@ RETORNE o JSON estruturado conforme o schema.`;
         return;
       }
 
-      const novosItens = iaResult.itens.map((item, idx) => ({
-        _tempId: `ia-${Date.now()}-${idx}`,
-        produto_id: null,
-        nome_produto: item.nome || item.descricao || '',
-        descricao: item.descricao || '',
-        marca: item.marca || '',
-        modelo: item.modelo || '',
-        referencia: item.codigo || '',
-        quantidade: parseFloat(item.quantidade || 0),
-        valor_unitario: parseFloat(item.valor_unitario || 0),
-        valor_total: parseFloat(item.quantidade || 0) * parseFloat(item.valor_unitario || 0),
-        is_opcional: false
-      }));
+      const novosItens = iaResult.itens.map((item, idx) => {
+        const qtd = parseFloat(item.quantidade || 1) || 1;
+        const vUnit = parseFloat(item.valor_unitario || 0);
+        const vTotal = parseFloat(item.valor_total || 0);
+        // Se unitário está zerado mas total existe, deriva o unitário
+        const unitarioFinal = vUnit > 0 ? vUnit : (vTotal > 0 ? vTotal / qtd : 0);
+        const totalFinal = unitarioFinal * qtd;
+        return {
+          _tempId: `ia-${Date.now()}-${idx}`,
+          produto_id: null,
+          nome_produto: item.nome || item.descricao || '',
+          descricao: item.descricao || '',
+          marca: item.marca || '',
+          modelo: item.modelo || '',
+          referencia: item.codigo || '',
+          quantidade: qtd,
+          valor_unitario: unitarioFinal,
+          valor_total: totalFinal,
+          is_opcional: false
+        };
+      });
 
       const itensAtualizados = [...itens, ...novosItens];
       // Normaliza datas para YYYY-MM-DD
