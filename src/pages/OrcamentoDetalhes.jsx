@@ -318,6 +318,11 @@ export default function OrcamentoDetalhes() {
 
       const prompt = `Você é um extrator de dados de orçamentos/pedidos comerciais. Analise a imagem e extraia os dados com PRECISÃO MÁXIMA.
 
+IDENTIFICAÇÃO DO DOCUMENTO:
+- Se o documento tiver a palavra "Pedido" ou "Ordem de Compra" ou "P.C." em destaque → tipo_documento = "pedido"
+- Se tiver "Orçamento" ou "Proposta" ou "Cotação" → tipo_documento = "orcamento"
+- Se não for claro → tipo_documento = "nao_identificado"
+
 LISTA DE CLIENTES CADASTRADOS (use o id e razao_social exatos se encontrar correspondência):
 ${JSON.stringify(clientesInfo, null, 2)}
 
@@ -325,20 +330,21 @@ LISTA DE VENDEDORES CADASTRADOS (use o id e nome exatos se encontrar correspond�
 ${JSON.stringify(vendedoresInfo, null, 2)}
 
 REGRAS IMPORTANTES:
-1. "cliente_nome" deve ser o nome da EMPRESA/CLIENTE do orçamento (razão social ou nome fantasia). NÃO deixe vazio.
+1. "cliente_nome" deve ser o nome da EMPRESA/CLIENTE do documento. NÃO deixe vazio.
 2. Se o nome do cliente da imagem bater com algum da lista acima, preencha "cliente_id" com o id correspondente.
-3. "cliente_empresa" é o mesmo que "cliente_nome" — use o nome da empresa encontrado.
+3. "cliente_empresa" é o mesmo que "cliente_nome".
 4. Para "vendedor_nome": procure na LISTA DE VENDEDORES acima. Se não encontrar, use o nome que aparece no documento.
 5. Extraia TODOS os campos visíveis: código do orçamento/pedido, cliente/empresa, telefone (campo "Fone" ou "Tel"), email, CNPJ, endereço completo (rua+número), bairro, cidade, UF (2 letras), vendedor, data emissão, data validade/entrega, condição de pagamento, itens (código, nome, descrição, quantidade, valor unitário, total), observações.
-6. Para endereço: coloque rua e número em "cliente_endereco", bairro em "cliente_bairro", cidade em "cliente_cidade", estado (apenas 2 letras maiúsculas, ex: SC, SP) em "cliente_uf".
-7. Para CNPJ: extraia no formato XX.XXX.XXX/XXXX-XX ou apenas os dígitos.
-8. Para condição de pagamento: extraia o texto completo (ex: "R$ 4.470,00 em 030").
+6. Para endereço: coloque rua e número em "cliente_endereco", bairro em "cliente_bairro", cidade em "cliente_cidade", estado (apenas 2 letras maiúsculas) em "cliente_uf".
+7. Para CNPJ: extraia no formato XX.XXX.XXX/XXXX-XX.
+8. Para condição de pagamento: extraia o texto completo.
 
 RETORNE o JSON estruturado conforme o schema.`;
 
       const schema = {
         type: "object",
         properties: {
+          tipo_documento: { type: "string" },
           numero_orcamento: { type: "string" },
           cliente_encontrado: { type: "boolean" },
           cliente_id: { type: "string" },
@@ -464,7 +470,7 @@ RETORNE o JSON estruturado conforme o schema.`;
         data_orcamento: parseIADate(iaResult.data_orcamento) || prev.data_orcamento,
         data_vencimento: parseIADate(iaResult.data_validade) || prev.data_vencimento,
         condicao_pagamento: iaResult.condicao_pagamento || prev.condicao_pagamento,
-        observacoes: `${prev.observacoes ? prev.observacoes + '\n\n' : ''}[\uD83D\uDCC4 Importado via IA - ${new Date().toLocaleString('pt-BR')}]\n\n${iaResult.observacoes || ''}`.trim(),
+        observacoes: `${prev.observacoes ? prev.observacoes + '\n\n' : ''}[${iaResult.tipo_documento === 'pedido' ? '\uD83D\uDCE6 PEDIDO' : iaResult.tipo_documento === 'orcamento' ? '\uD83D\uDCC4 OR\u00c7AMENTO' : '\uD83D\uDCCB DOCUMENTO'} importado via IA - ${new Date().toLocaleString('pt-BR')}]\n\n${iaResult.observacoes || ''}`.trim(),
         valor_total: calcularTotal(itensAtualizados)
       }));
       setItens(itensAtualizados);
