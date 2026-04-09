@@ -333,7 +333,7 @@ REGRAS IMPORTANTES:
 1. "cliente_nome" deve ser o nome da EMPRESA/CLIENTE do documento. NÃO deixe vazio.
 2. Se o nome do cliente da imagem bater com algum da lista acima, preencha "cliente_id" com o id correspondente.
 3. "cliente_empresa" é o mesmo que "cliente_nome".
-4. Para "vendedor_nome": procure na LISTA DE VENDEDORES acima. Se não encontrar, use o nome que aparece no documento.
+4. Para "vendedor_nome": O vendedor pode aparecer como "NOME -V-XX", "NOME (codigo)", ou apenas "NOME". Extraia SOMENTE o nome da pessoa (ex: "THAIS -V-05" → vendedor_nome = "THAIS"). Depois procure esse nome na LISTA DE VENDEDORES acima pelo campo nome. Se encontrar, preencha vendedor_id com o id correspondente.
 5. Extraia TODOS os campos visíveis: código do orçamento/pedido, cliente/empresa, telefone (campo "Fone" ou "Tel"), email, CNPJ, endereço completo (rua+número), bairro, cidade, UF (2 letras), vendedor, data emissão, data validade/entrega, condição de pagamento, itens (código, nome, descrição, quantidade, valor unitário, total), observações.
 6. Para endereço: coloque rua e número em "cliente_endereco", bairro em "cliente_bairro", cidade em "cliente_cidade", estado (apenas 2 letras maiúsculas) em "cliente_uf".
 7. Para CNPJ: extraia no formato XX.XXX.XXX/XXXX-XX.
@@ -423,20 +423,23 @@ RETORNE o JSON estruturado conforme o schema.`;
 
       // Resolve vendedor pelo id retornado ou pelo nome (exato, parcial ou primeiro nome)
       const nomeIA = (iaResult.vendedor_nome || '').toLowerCase().trim();
+      console.log('[IA] vendedor_nome extraído:', iaResult.vendedor_nome, '| vendedor_id:', iaResult.vendedor_id);
+      console.log('[IA] vendedores disponíveis:', vendedoresBase.map(v => v.nome));
       const vendedorResolvido = vendedoresBase.find((v) => {
         if (iaResult.vendedor_id && v.id === iaResult.vendedor_id) return true;
         if (!nomeIA) return false;
         const nomeV = (v.nome || '').toLowerCase().trim();
         // Exato
         if (nomeV === nomeIA) return true;
-        // O nome do documento contém o nome do usuário ou vice-versa
+        // Contém
         if (nomeV && (nomeIA.includes(nomeV) || nomeV.includes(nomeIA))) return true;
-        // Primeiro nome bate
+        // Primeiro nome bate (ex: "thais" vs "thais oliveira")
         const primeiroV = nomeV.split(' ')[0];
         const primeiroIA = nomeIA.split(' ')[0];
         if (primeiroV && primeiroIA && primeiroV === primeiroIA) return true;
         return false;
       });
+      console.log('[IA] vendedor resolvido:', vendedorResolvido?.nome || 'NÃO ENCONTRADO');
 
       // Buscar empresa do Contact pelo telefone extraído
       let empresaDoContato = '';
