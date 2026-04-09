@@ -608,7 +608,15 @@ RETORNE o JSON estruturado conforme o schema.`;
       }
 
       const totalCalculado = calcularTotal(itens);
-      const orcamentoDataToSave = { ...orcamento, valor_total: totalCalculado, estudos_anexos: estudosAnexos };
+      const produtosParaSalvar = (Array.isArray(itens) ? itens : []).map((item) => ({
+        codigo: item.referencia || '',
+        nome: item.nome_produto || '',
+        descricao: item.descricao || '',
+        quantidade: parseFloat(item.quantidade) || 0,
+        valor_unitario: parseFloat(item.valor_unitario) || 0,
+        valor_total: parseFloat(item.valor_total) || 0
+      }));
+      const orcamentoDataToSave = { ...orcamento, valor_total: totalCalculado, estudos_anexos: estudosAnexos, produtos: produtosParaSalvar };
 
       const saveParams = new URLSearchParams(location.search);
       const origemChatSave = saveParams.get('origem') === 'chat';
@@ -750,7 +758,6 @@ RETORNE o JSON estruturado conforme o schema.`;
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {modoOperacao === 'edicao' &&
             <div className="flex flex-col items-start gap-0.5">
                 <span className="text-[10px] text-slate-400 font-medium">Etapa do Kanban</span>
                 <Select value={orcamento.status || 'rascunho'} onValueChange={(value) => handleSelectChange('status', value)}>
@@ -764,7 +771,6 @@ RETORNE o JSON estruturado conforme o schema.`;
                   </SelectContent>
                 </Select>
               </div>
-            }
             {modoOperacao === 'edicao' &&
             <Button variant="outline" size="sm" onClick={() => window.print()} className="text-white border-slate-600 hover:bg-slate-700">
                 Imprimir
