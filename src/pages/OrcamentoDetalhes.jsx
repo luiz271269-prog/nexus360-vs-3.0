@@ -334,10 +334,11 @@ REGRAS IMPORTANTES:
 2. Se o nome do cliente da imagem bater com algum da lista acima, preencha "cliente_id" com o id correspondente.
 3. "cliente_empresa" é o mesmo que "cliente_nome".
 4. Para "vendedor_nome": O vendedor pode aparecer como "NOME -V-XX", "NOME (codigo)", ou apenas "NOME". Extraia SOMENTE o nome da pessoa (ex: "THAIS -V-05" → vendedor_nome = "THAIS"). Depois procure esse nome na LISTA DE VENDEDORES acima pelo campo nome. Se encontrar, preencha vendedor_id com o id correspondente.
-5. Extraia TODOS os campos visíveis: código do orçamento/pedido, cliente/empresa, telefone (campo "Fone" ou "Tel"), email, CNPJ, endereço completo (rua+número), bairro, cidade, UF (2 letras), vendedor, data emissão, data validade/entrega, condição de pagamento, itens (código, nome, descrição, quantidade, valor unitário, total), observações.
+5. Extraia TODOS os campos visíveis: código do orçamento/pedido, cliente/empresa, TELEFONE (procure campos "Fone", "Tel", "Telefone", "Celular", "Fone/Fax" — extraia TODOS os números encontrados no cabeçalho do cliente), email, CNPJ, endereço completo (rua+número), bairro, cidade, UF (2 letras), vendedor, data emissão, data validade/entrega, condição de pagamento, itens (código, nome, descrição, quantidade, valor unitário, total), observações.
 6. Para endereço: coloque rua e número em "cliente_endereco", bairro em "cliente_bairro", cidade em "cliente_cidade", estado (apenas 2 letras maiúsculas) em "cliente_uf".
 7. Para CNPJ: extraia no formato XX.XXX.XXX/XXXX-XX.
 8. Para condição de pagamento: extraia o texto completo.
+9. TELEFONE é CRÍTICO: se houver qualquer número de telefone/fax/celular no cabeçalho do documento, extraia-o em "cliente_telefone". Nunca deixe vazio se houver número visível.
 
 RETORNE o JSON estruturado conforme o schema.`;
 
@@ -449,23 +450,26 @@ RETORNE o JSON estruturado conforme o schema.`;
       });
       console.log('[IA] vendedor resolvido:', vendedorResolvido?.nome || 'NÃO ENCONTRADO');
 
-      // Buscar empresa do Contact pelo telefone extraído
+      // Buscar contato pelo telefone canônico extraído
       let empresaDoContato = '';
-      if (iaResult.cliente_telefone) {
+      let clienteIdDoContato = null;
+      let telefoneNormalizado = iaResult.cliente_telefone || '';
+      if (telefoneNormalizado) {
         try {
-          const telDigitos = iaResult.cliente_telefone.replace(/\D/g, '');
+          const telDigitos = telefoneNormalizado.replace(/\D/g, '');
           const contatosBusca = await base44.entities.Contact.filter({ telefone_canonico: telDigitos });
           const contatoEncontrado = contatosBusca?.[0];
-          if (contatoEncontrado?.empresa) {
-            empresaDoContato = contatoEncontrado.empresa;
-            toast.info(`🔗 Empresa vinculada ao contato: ${empresaDoContato}`, { duration: 3000 });
+          if (contatoEncontrado) {
+            if (contatoEncontrado.empresa) empresaDoContato = contatoEncontrado.empresa;
+            if (contatoEncontrado.cliente_id) clienteIdDoContato = contatoEncontrado.cliente_id;
+            toast.info(`🔗 Contato vinculado: ${contatoEncontrado.nome}${empresaDoContato ? ' - ' + empresaDoContato : ''}`, { duration: 3000 });
           }
         } catch (e) { /* silencioso */ }
       }
 
       setOrcamento((prev) => ({
         ...prev,
-        cliente_id: iaResult.cliente_id || prev.cliente_id,
+        cliente_id: iaResult.cliente_id || clienteIdDoContato || prev.cliente_id,
         cliente_nome: iaResult.cliente_nome || prev.cliente_nome,
         cliente_telefone: iaResult.cliente_telefone || prev.cliente_telefone,
         cliente_email: iaResult.cliente_email || prev.cliente_email,
