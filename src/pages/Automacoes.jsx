@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Zap, Workflow, Gift, MessageSquare, BarChart3 } from 'lucide-react';
 import BibliotecaAutomacoes from '../components/automacao/BibliotecaAutomacoes';
+import GerenciadorRegrasRoteamento from '../components/comunicacao/GerenciadorRegrasRoteamento';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function AutomacoesPage() {
   return (
@@ -76,7 +78,24 @@ export default function AutomacoesPage() {
       
       {/* COMPONENTE PRINCIPAL */}
       <div className="max-w-7xl mx-auto">
-        <BibliotecaAutomacoes />
+        <Tabs defaultValue="automacoes">
+          <TabsList className="mb-4 bg-white border border-slate-200 shadow-sm">
+            <TabsTrigger value="automacoes" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+              <Zap className="w-3.5 h-3.5 mr-1.5" /> Automações
+            </TabsTrigger>
+            <TabsTrigger value="roteamento" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+              <Workflow className="w-3.5 h-3.5 mr-1.5" /> Roteamento por Palavras-chave
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="automacoes">
+            <BibliotecaAutomacoes />
+          </TabsContent>
+          <TabsContent value="roteamento">
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <GerenciadorRegrasRoteamento />
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
       
     </div>
