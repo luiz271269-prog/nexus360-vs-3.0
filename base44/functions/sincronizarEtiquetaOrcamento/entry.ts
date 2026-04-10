@@ -74,19 +74,25 @@ Deno.serve(async (req) => {
           } catch (_) { /* não bloquear */ }
         }
 
+        // Gerar número sequencial simples
+        const anoAtual = new Date().getFullYear();
+        const numOrcamento = `${anoAtual}-${Date.now().toString().slice(-6)}`;
+
         await base44.asServiceRole.entities.Orcamento.create({
-          numero_orcamento,
+          numero_orcamento: numOrcamento,
           contact_id: contactId,
           cliente_id: clienteId,
           cliente_nome: contato?.nome || 'Desconhecido',
           cliente_telefone: contato?.telefone || '',
           vendedor: vendedorNome,
+          vendedor_id: thread.assigned_user_id || null,
+          usuario_id: thread.assigned_user_id || null,
           data_orcamento: agora.slice(0, 10),
           valor_total: 0,
           status: 'enviado',
           origem_chat: { thread_id: thread.id }
         });
-        console.log(`[ETIQUETA→ORC v2] ✅ Novo orçamento ${numero_orcamento} criado → enviado`);
+        console.log(`[ETIQUETA→ORC v2] ✅ Novo orçamento ${numOrcamento} criado → enviado`);
       }
 
       // Log de movimentação
