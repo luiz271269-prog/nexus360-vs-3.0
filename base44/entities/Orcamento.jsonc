@@ -8,28 +8,52 @@
     },
     "cliente_id": {
       "type": "string",
-      "description": "ID do cliente na entidade Cliente"
+      "description": "ID do cliente na entidade Cliente (fonte de verdade)"
     },
     "cliente_nome": {
       "type": "string",
-      "description": "Nome do cliente"
+      "description": "Cache: Nome do cliente (preenchido automaticamente do Cliente)"
     },
     "cliente_telefone": {
       "type": "string",
-      "description": "Telefone do cliente"
+      "description": "Cache: Telefone do cliente"
     },
     "cliente_celular": {
       "type": "string",
-      "description": "Celular do cliente"
+      "description": "Cache: Celular do cliente"
     },
     "cliente_email": {
       "type": "string",
       "format": "email",
-      "description": "Email do cliente"
+      "description": "Cache: Email do cliente"
+    },
+    "cliente_empresa": {
+      "type": "string",
+      "description": "Cache: Nome fantasia do cliente"
+    },
+    "cliente_cnpj": {
+      "type": "string",
+      "description": "Cache: CNPJ do cliente"
+    },
+    "cliente_endereco": {
+      "type": "string",
+      "description": "Cache: Endere\u00e7o do cliente"
+    },
+    "cliente_bairro": {
+      "type": "string",
+      "description": "Cache: Bairro do cliente"
+    },
+    "cliente_cidade": {
+      "type": "string",
+      "description": "Cache: Cidade do cliente"
+    },
+    "cliente_uf": {
+      "type": "string",
+      "description": "Cache: UF do cliente"
     },
     "vendedor": {
       "type": "string",
-      "description": "Nome do vendedor (compatibilidade legada)"
+      "description": "Cache: Nome do vendedor (compatibilidade legada)"
     },
     "vendedor_id": {
       "type": "string",
@@ -180,8 +204,6 @@
     }
   },
   "required": [
-    "cliente_nome",
-    "vendedor",
     "data_orcamento",
     "valor_total"
   ]
