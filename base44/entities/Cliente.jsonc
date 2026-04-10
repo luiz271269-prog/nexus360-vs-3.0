@@ -228,7 +228,6 @@
     }
   },
   "required": [
-    "razao_social",
-    "usuario_id"
+    "razao_social"
   ]
 }

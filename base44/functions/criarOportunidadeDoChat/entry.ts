@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
       cliente_telefone: cliente_telefone || '',
       cliente_email: cliente_email || '',
       vendedor: vendedor || user.full_name,
+      vendedor_id: user.id,
+      usuario_id: user.id,
       data_orcamento: new Date().toISOString().slice(0, 10),
       valor_total: parseFloat(valor_total) || 0,
       status: status || 'rascunho',

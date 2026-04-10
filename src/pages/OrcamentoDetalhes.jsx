@@ -741,7 +741,15 @@ RETORNE o JSON estruturado conforme o schema.`;
         valor_unitario: parseFloat(item.valor_unitario) || 0,
         valor_total: parseFloat(item.valor_total) || 0
       }));
-      const orcamentoDataToSave = { ...orcamento, valor_total: totalCalculado, estudos_anexos: estudosAnexos, produtos: produtosParaSalvar };
+      const orcamentoDataToSave = {
+        ...orcamento,
+        valor_total: totalCalculado,
+        estudos_anexos: estudosAnexos,
+        produtos: produtosParaSalvar,
+        // Garantir usuario_id e vendedor_id sempre preenchidos
+        usuario_id: orcamento.usuario_id || orcamento.vendedor_id || null,
+        vendedor_id: orcamento.vendedor_id || null,
+      };
 
       const saveParams = new URLSearchParams(location.search);
       const origemChatSave = saveParams.get('origem') === 'chat';
