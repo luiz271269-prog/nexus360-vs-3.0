@@ -17,6 +17,7 @@ import StatusPipeline from '../components/orcamentos/StatusPipeline';
 import { resolverNomeVendedor, getNomeExibicao } from '../components/lib/vendedorSync';
 import PlanosPagamento from '../components/orcamentos/PlanosPagamento';
 import ClienteCombobox from '../components/orcamentos/ClienteCombobox';
+import { getOrCreateCliente } from '@/functions/getOrCreateCliente';
 
 export default function OrcamentoDetalhes() {
   const [orcamento, setOrcamento] = useState(null);
@@ -747,30 +748,26 @@ RETORNE o JSON estruturado conforme o schema.`;
       let clienteIdFinal = orcamento.cliente_id;
       if (!clienteIdFinal && orcamento.cliente_nome) {
         try {
-          const clientesExistentes = await base44.entities.Cliente.filter({ razao_social: orcamento.cliente_nome });
-          if (clientesExistentes?.length > 0) {
-            clienteIdFinal = clientesExistentes[0].id;
-            toast.info(`Cliente "${orcamento.cliente_nome}" já existe no sistema.`);
-          } else {
-            const novoCliente = await base44.entities.Cliente.create({
-              razao_social: orcamento.cliente_nome,
-              telefone: orcamento.cliente_telefone,
-              email: orcamento.cliente_email,
-              nome_fantasia: orcamento.cliente_empresa || orcamento.cliente_nome,
-              cnpj: orcamento.cliente_cnpj || '',
-              endereco: orcamento.cliente_endereco || '',
-              bairro: orcamento.cliente_bairro || '',
-              cidade: orcamento.cliente_cidade || '',
-              uf: orcamento.cliente_uf || '',
-              origem: origemChatSave ? 'WhatsApp' : 'Orçamento'
-            });
-            clienteIdFinal = novoCliente.id;
-            toast.success(`Novo cliente "${orcamento.cliente_nome}" criado!`);
+          const res = await getOrCreateCliente({
+            razao_social: orcamento.cliente_nome,
+            cnpj: orcamento.cliente_cnpj,
+            telefone: orcamento.cliente_telefone,
+            email: orcamento.cliente_email,
+            nome_fantasia: orcamento.cliente_empresa,
+            endereco: orcamento.cliente_endereco,
+            bairro: orcamento.cliente_bairro,
+            cidade: orcamento.cliente_cidade,
+            uf: orcamento.cliente_uf,
+            origem: origemChatSave ? 'WhatsApp' : 'Orçamento'
+          });
+          if (res?.data?.cliente_id) {
+            clienteIdFinal = res.data.cliente_id;
+            orcamentoDataToSave.cliente_id = clienteIdFinal;
+            if (res.data.action === 'created') toast.success(`Novo cliente "${orcamento.cliente_nome}" criado!`);
+            else toast.info(`Cliente "${orcamento.cliente_nome}" vinculado.`);
           }
-          orcamentoDataToSave.cliente_id = clienteIdFinal;
         } catch (clientError) {
           console.error('Erro ao buscar/criar cliente:', clientError);
-          toast.error('Erro ao processar cliente.');
         }
       }
 

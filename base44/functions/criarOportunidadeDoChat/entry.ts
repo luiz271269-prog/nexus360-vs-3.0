@@ -34,10 +34,25 @@ Deno.serve(async (req) => {
       : 1;
     const numero_orcamento = `ORC${ano}${String(proximo).padStart(4, '0')}`;
 
+    // Buscar ou criar cliente centralizado
+    let clienteId = null;
+    if (cliente_nome || cliente_telefone) {
+      try {
+        const resCliente = await base44.asServiceRole.functions.invoke('getOrCreateCliente', {
+          razao_social: cliente_nome || 'Cliente do Chat',
+          telefone: cliente_telefone || '',
+          email: cliente_email || '',
+          usuario_id: user.id,
+          origem: 'WhatsApp'
+        });
+        clienteId = resCliente?.data?.cliente_id || null;
+      } catch (_) { /* não bloquear criação do orçamento */ }
+    }
+
     // Criar Orcamento direto no banco
     const orcamento = await base44.asServiceRole.entities.Orcamento.create({
-      numero_orcamento,
       contact_id: contact_id || '',
+      cliente_id: clienteId,
       cliente_nome: cliente_nome || 'Cliente do Chat',
       cliente_telefone: cliente_telefone || '',
       cliente_email: cliente_email || '',

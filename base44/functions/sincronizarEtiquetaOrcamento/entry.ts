@@ -60,18 +60,24 @@ Deno.serve(async (req) => {
           ? (await base44.asServiceRole.entities.User.get(thread.assigned_user_id).catch(() => null))?.full_name || 'Equipe'
           : 'Equipe';
 
-        const ano = new Date().getFullYear();
-        const todos = await base44.asServiceRole.entities.Orcamento.filter(
-          { numero_orcamento: { $regex: `^ORC${ano}` } }, '-created_date', 1
-        ).catch(() => []);
-        const proximo = todos.length > 0
-          ? parseInt(todos[0].numero_orcamento.replace(`ORC${ano}`, '')) + 1
-          : 1;
-        const numero_orcamento = `ORC${ano}${String(proximo).padStart(4, '0')}`;
+        // Buscar ou criar cliente centralizado
+        let clienteId = null;
+        if (contato) {
+          try {
+            const resCliente = await base44.asServiceRole.functions.invoke('getOrCreateCliente', {
+              razao_social: contato.empresa || contato.nome,
+              telefone: contato.telefone || '',
+              email: contato.email || '',
+              origem: 'WhatsApp'
+            });
+            clienteId = resCliente?.data?.cliente_id || null;
+          } catch (_) { /* não bloquear */ }
+        }
 
         await base44.asServiceRole.entities.Orcamento.create({
           numero_orcamento,
           contact_id: contactId,
+          cliente_id: clienteId,
           cliente_nome: contato?.nome || 'Desconhecido',
           cliente_telefone: contato?.telefone || '',
           vendedor: vendedorNome,

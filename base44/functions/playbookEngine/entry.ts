@@ -730,7 +730,20 @@ async function acaoAgendarFollowUp(base44, execution, parametros) {
 async function acaoEnviarOrcamento(base44, execution, parametros) {
   const contact = await base44.asServiceRole.entities.Contact.get(execution.contact_id);
 
+  // Buscar ou criar cliente centralizado
+  let clienteId = null;
+  try {
+    const resCliente = await base44.asServiceRole.functions.invoke('getOrCreateCliente', {
+      razao_social: contact.empresa || contact.nome,
+      telefone: contact.telefone || '',
+      email: contact.email || '',
+      origem: 'WhatsApp'
+    });
+    clienteId = resCliente?.data?.cliente_id || null;
+  } catch (_) { /* não bloquear */ }
+
   const orcamento = await base44.asServiceRole.entities.Orcamento.create({
+    cliente_id: clienteId,
     cliente_nome: contact.empresa || contact.nome,
     cliente_telefone: contact.telefone,
     cliente_email: contact.email,
@@ -750,26 +763,29 @@ async function acaoEnviarOrcamento(base44, execution, parametros) {
 
 async function acaoAtribuirVendedor(base44, execution, parametros) {
   const [vendedorNome] = parametros;
-  
-  const vendedores = await base44.asServiceRole.entities.Vendedor.list();
-  const vendedor = vendedores.find(v => v.nome === vendedorNome) || vendedores[0];
+
+  // Sprint 5b: usar User como fonte primária (substituindo Vendedor entity legada)
+  const users = await base44.asServiceRole.entities.User.filter({ role: 'user' });
+  const vendedorUser = users.find(u => u.full_name === vendedorNome || u.email === vendedorNome) || users[0];
+  if (!vendedorUser) throw new Error('Nenhum usuário disponível para atribuição');
+
+  const nomeVendedor = vendedorUser.full_name || vendedorUser.email;
 
   if (execution.variables.cliente_id) {
     await base44.asServiceRole.entities.Cliente.update(execution.variables.cliente_id, {
-      vendedor_responsavel: vendedor.nome,
-      vendedor_id: vendedor.id
+      usuario_id: vendedorUser.id
     });
   }
 
   // Atualizar contact
   await base44.asServiceRole.entities.Contact.update(execution.contact_id, {
-    vendedor_responsavel: vendedor.nome
+    vendedor_responsavel: nomeVendedor
   });
 
   return {
     sucesso: true,
-    vendedor_nome: vendedor.nome,
-    mensagem: `Atribuído ao vendedor ${vendedor.nome}`
+    vendedor_nome: nomeVendedor,
+    mensagem: `Atribuído ao vendedor ${nomeVendedor}`
   };
 }
 
