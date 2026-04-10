@@ -261,6 +261,7 @@ export default function OrcamentoDetalhes() {
           cliente_email: "", cliente_empresa: "",
           vendedor: currentUser?.full_name || currentUser?.email || "",
           vendedor_id: currentUser?.id || null,
+          usuario_id: currentUser?.id || null,
           data_orcamento: new Date().toISOString().slice(0, 10), data_vencimento: "",
           status: "rascunho", valor_total: 0, observacoes: ""
         });
@@ -1119,7 +1120,7 @@ RETORNE o JSON estruturado conforme o schema.`;
                 <Label className="text-slate-300 text-xs mb-1">Vendedor</Label>
                 <Select value={orcamento.vendedor_id || ''} onValueChange={(value) => {
                       const v = vendedores.find((u) => u.id === value);
-                      setOrcamento((prev) => ({ ...prev, vendedor_id: value, vendedor: v?.nome || v?.email || '' }));
+                      setOrcamento((prev) => ({ ...prev, vendedor_id: value, usuario_id: value, vendedor: v?.nome || v?.email || '' }));
                     }}>
                   <SelectTrigger className="bg-slate-900 border-slate-600 text-white h-9 text-sm">
                     <SelectValue placeholder={orcamento.vendedor || 'Selecionar vendedor'} />
