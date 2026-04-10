@@ -196,11 +196,7 @@ Deno.serve(async (req) => {
                 contact_id: principal.id
               });
               stats.threads_updated++;
-              
-              // Delay pequeno para evitar rate limit
-              if (stats.threads_updated % 10 === 0) {
-                await new Promise(r => setTimeout(r, 100));
-              }
+              await new Promise(r => setTimeout(r, 300));
             } catch (e) {
               console.error(`[DEDUPE] Erro thread ${thread.id}:`, e.message);
               stats.errors++;
@@ -227,11 +223,7 @@ Deno.serve(async (req) => {
                 sender_id: principal.id
               });
               stats.messages_updated++;
-              
-              // Delay pequeno para evitar rate limit
-              if (stats.messages_updated % 10 === 0) {
-                await new Promise(r => setTimeout(r, 100));
-              }
+              await new Promise(r => setTimeout(r, 300));
             } catch (e) {
               console.error(`[DEDUPE] Erro msg ${message.id}:`, e.message);
               stats.errors++;
@@ -241,6 +233,8 @@ Deno.serve(async (req) => {
             }
           }
           
+          // Delay antes de marcar como merged
+          await new Promise(r => setTimeout(r, 500));
           // Marcar duplicata como merged
           try {
             await base44.asServiceRole.entities.Contact.update(duplicate.id, {
@@ -248,7 +242,6 @@ Deno.serve(async (req) => {
               tags: [...(duplicate.tags || []), 'merged', 'duplicata'],
               observacoes: `[MERGED] Consolidado em ${principal.id} em ${new Date().toISOString()}\n\n${duplicate.observacoes || ''}`
             });
-            
             stats.contacts_merged++;
             console.log(`[DEDUPE]   ♻️ Merged: ${duplicate.id}`);
           } catch (e) {
