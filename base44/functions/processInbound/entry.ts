@@ -404,7 +404,8 @@ Deno.serve(async (req) => {
   result.pipeline.push('context_check');
   // ✅ FIX CRÍTICO: Se é novo ciclo (>12h), NUNCA bloquear na Camada 3
   // O cliente voltou depois de horas/dias → precisa do pré-atendimento
-  if (thread?.assigned_user_id && thread?.sector_id && !humanoAtivo(thread) && !novoCicloPreCheck) {
+  const _janelaCtx = (thread?.assigned_user_id && thread?.sector_id) ? 48 : 2;
+  if (thread?.assigned_user_id && thread?.sector_id && !humanoAtivo(thread, _janelaCtx) && !novoCicloPreCheck) {
     console.log(`[INBOUND-GATE] 🔔 CAMADA 3: Thread contextualizada (atendente=${thread.assigned_user_id}, setor=${thread.sector_id}) — apenas notificando, sem URA`);
     result.actions.push('context_notify_only');
     try {
@@ -540,7 +541,8 @@ Deno.serve(async (req) => {
   result.pipeline.push('cycle_detection');
   const novoCiclo = novoCicloPreCheck; // já calculado acima
   const isUraActive = thread.pre_atendimento_ativo === true;
-  const isHumanDormant = thread.assigned_user_id && !humanoAtivo(thread, 2);
+  const _janelaHumanoDormant = (thread.assigned_user_id && thread.sector_id) ? 48 : 2;
+  const isHumanDormant = thread.assigned_user_id && !humanoAtivo(thread, _janelaHumanoDormant);
 
   // Se é novo ciclo com thread contextualizada: resetar estado para forçar menu
   if (novoCiclo && thread?.assigned_user_id && thread?.sector_id) {
