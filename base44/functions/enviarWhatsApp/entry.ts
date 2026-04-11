@@ -160,21 +160,19 @@ function detectarTipoMidia(url, tipoInformado) {
 // Trata diferença entre celular (11 dígitos com DDD) e fixo (10 dígitos com DDD)
 function formatarNumero(numero) {
   if (!numero) return '';
-  // Remover tudo que não é dígito e o prefixo +
   let digits = String(numero).replace(/\D/g, '');
   
-  // Remover prefixo 55 (Brasil) se presente no início
+  // ✅ GUARD INTERNACIONAL: se não começa com 55, já tem código de país próprio
+  // Ex: +595982777437 (Paraguai) → 595982777437 → retorna como está
+  if (!digits.startsWith('55')) {
+    return digits;
+  }
+  
+  // Brasil: remover 55 e recolocar para normalizar
   if (digits.startsWith('55') && digits.length > 11) {
     digits = digits.slice(2);
   }
   
-  // Brasil: DDD (2 dígitos) + número
-  // Celular: DDD + 9 + 8 dígitos = 11 dígitos total
-  // Fixo:    DDD + 8 dígitos = 10 dígitos total
-  // Se tiver 11 dígitos e o 3º dígito for '9', é celular → manter
-  // Se tiver 10 dígitos, é fixo → manter como está (NÃO adicionar 9)
-  
-  // Recolocar o 55 para envio internacional
   return '55' + digits;
 }
 
