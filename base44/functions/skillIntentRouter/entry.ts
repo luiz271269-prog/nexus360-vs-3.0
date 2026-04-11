@@ -9,7 +9,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 const PATTERNS = [
   {
-    regex: /pc\s*gam|gam(er|ing)|notebook|computador|placa\s*de\s*v|rtx|rx\s*\d|processador|ram|ssd|hd\s*externo|monitor|teclado|mouse|headset|fonte|gabinete|cooler|hardware|orcamento|cotacao|preco|quanto\s*custa|comprar|produto|estoque|disponib/i,
+    regex: /pc\s*gam|gam(er|ing)|notebook|computador|placa\s*de\s*v|rtx|rx\s*\d|processador|ram|ssd|hd|cpu|impressora|canva|acesso.*internet|uso.*basico|monitor|teclado|mouse|headset|fonte|gabinete|cooler|hardware|orcamento|cotacao|preco|quanto\s*custa|comprar|produto|estoque|disponib/i,
     setor: 'vendas', intencao: 'compra_produto', confidence: 0.95
   },
   {

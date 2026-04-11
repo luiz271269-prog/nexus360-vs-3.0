@@ -405,7 +405,9 @@ export async function processInboundEvent(params) {
   result.pipeline.push('pre_atendimento_dispatch');
   
   // ✅ isUraActive já foi declarado acima (linha ~275)
-  const isHumanActive = humanoAtivo(thread, 2); // Janela estrita de 2h
+  // B2B fix: thread com atendente+setor vinculados usa janela de 48h (negociacoes duram dias)
+  const janelaHumano = (thread.assigned_user_id && thread.sector_id) ? 48 : 2;
+  const isHumanActive = humanoAtivo(thread, janelaHumano);
   const isHumanDormant = thread.assigned_user_id && !isHumanActive; // Humano existe, mas dormiu
   
   let shouldDispatch = false;
