@@ -68,6 +68,7 @@ Deno.serve(async (req) => {
               razao_social: contato.empresa || contato.nome,
               telefone: contato.telefone || '',
               email: contato.email || '',
+              usuario_id: thread.assigned_user_id || null,
               origem: 'WhatsApp'
             });
             clienteId = resCliente?.data?.cliente_id || null;

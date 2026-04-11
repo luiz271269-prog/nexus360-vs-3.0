@@ -695,6 +695,10 @@ RETORNE o JSON estruturado conforme o schema.`;
     if (!validarFormulario()) return;
     setSaving(true);
     try {
+      // Resolver usuário atual como fallback para usuario_id
+      let currentUserId = null;
+      try { const u = await base44.auth.me(); currentUserId = u?.id || null; } catch (e) {}
+
       // ── DEDUPLICAÇÃO AUTOMÁTICA: verificar duplicata antes de criar ──
       if (!orcamento.id && orcamento.numero_orcamento) {
         try {
@@ -747,8 +751,8 @@ RETORNE o JSON estruturado conforme o schema.`;
         estudos_anexos: estudosAnexos,
         produtos: produtosParaSalvar,
         // Garantir usuario_id e vendedor_id sempre preenchidos
-        usuario_id: orcamento.usuario_id || orcamento.vendedor_id || null,
-        vendedor_id: orcamento.vendedor_id || null,
+        usuario_id: orcamento.usuario_id || orcamento.vendedor_id || currentUserId || null,
+        vendedor_id: orcamento.vendedor_id || currentUserId || null,
       };
 
       const saveParams = new URLSearchParams(location.search);
@@ -767,6 +771,7 @@ RETORNE o JSON estruturado conforme o schema.`;
             bairro: orcamento.cliente_bairro,
             cidade: orcamento.cliente_cidade,
             uf: orcamento.cliente_uf,
+            usuario_id: orcamento.vendedor_id || currentUserId || null,
             origem: origemChatSave ? 'WhatsApp' : 'Orçamento'
           });
           if (res?.data?.cliente_id) {
