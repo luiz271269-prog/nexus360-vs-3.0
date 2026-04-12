@@ -29,11 +29,13 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'thread not found' }, { status: 404 });
   }
 
-  const isParticipant = thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group'
-    ? (thread.participants || []).includes(user.id)
-    : false;
+  // Para sector_group: qualquer usuário autenticado pode ler (grupo aberto ao setor)
+  // Para team_internal: apenas participantes ou admin
+  const isSectorGroup = thread.thread_type === 'sector_group';
+  const isParticipant = (thread.participants || []).includes(user.id);
+  const isAdmin = user.role === 'admin';
 
-  if (!isParticipant && user.role !== 'admin') {
+  if (!isSectorGroup && !isParticipant && !isAdmin) {
     return Response.json({ success: false, error: 'forbidden' }, { status: 403 });
   }
 
