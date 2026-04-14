@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 
 /**
  * Carrega um HTML remoto via fetch e injeta no iframe via srcdoc,
@@ -64,7 +64,7 @@ export default function IframeHtmlLoader({ url, title, height = 'calc(100vh - 20
         srcDoc={htmlContent}
         className="w-full h-full border-0"
         title={title}
-        sandbox="allow-scripts allow-same-origin allow-forms"
+        sandbox="allow-scripts allow-forms"
       />
     </div>
   );
