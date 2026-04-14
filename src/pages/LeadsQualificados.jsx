@@ -728,7 +728,7 @@ export default function LeadsQualificados() {
                 <TabsContent value="listas" className="mt-2">
                   <div className="bg-white rounded-lg border border-slate-200 overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
                     <iframe
-                      src="https://media.base44.com/files/public/68a7d067890527304dbe8477/listas_trabalho_vendedores.html"
+                      src="https://media.base44.com/files/public/68a7d067890527304dbe8477/4bdf78439_listas_trabalho_vendedores2.html"
                       className="w-full h-full border-0"
                       title="Listas de Trabalho Vendedores"
                     />
