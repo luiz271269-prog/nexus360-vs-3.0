@@ -728,7 +728,7 @@ export default function LeadsQualificados() {
                 {/* TAB: LISTAS DE TRABALHO */}
                 <TabsContent value="listas" className="mt-2">
                   <IframeHtmlLoader
-                    url="https://media.base44.com/files/public/68a7d067890527304dbe8477/b9bcadda3_listas_trabalho_upload.html"
+                    url="https://media.base44.com/files/public/68a7d067890527304dbe8477/25e42c650_listas_trabalho_upload.html"
                     title="Listas de Trabalho"
                   />
                 </TabsContent>
