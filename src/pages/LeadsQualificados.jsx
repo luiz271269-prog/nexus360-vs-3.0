@@ -25,6 +25,7 @@ import ClienteForm from "../components/clientes/ClienteForm";
 import { listarVendedoresParaSelect, sincronizarClientesComVendedores, sincronizarOrcamentosComUsuarios, getNomeExibicao } from '../components/lib/vendedorSync';
 import { validarMudancaStatus, getMensagemMotivacional, getProximaAcaoSugerida } from '../components/clientes/ClienteFormValidation';
 import OrcamentoKanbanOptimized from "../components/orcamentos/OrcamentoKanbanOptimized";
+import IframeHtmlLoader from "../components/iframes/IframeHtmlLoader";
 import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
 import ControlCenter from "../components/dashboard/ControlCenter";
 import { createPageUrl } from "@/utils";
@@ -726,24 +727,18 @@ export default function LeadsQualificados() {
 
                 {/* TAB: LISTAS DE TRABALHO */}
                 <TabsContent value="listas" className="mt-2">
-                  <div className="bg-white rounded-lg border border-slate-200 overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
-                    <iframe
-                      src="https://media.base44.com/files/public/68a7d067890527304dbe8477/b9bcadda3_listas_trabalho_upload.html"
-                      className="w-full h-full border-0"
-                      title="Listas de Trabalho Vendedores"
-                    />
-                  </div>
+                  <IframeHtmlLoader
+                    url="https://media.base44.com/files/public/68a7d067890527304dbe8477/b9bcadda3_listas_trabalho_upload.html"
+                    title="Listas de Trabalho"
+                  />
                 </TabsContent>
 
                 {/* TAB: NEXUS DASHBOARD UNIFICADO */}
                 <TabsContent value="nexus_dash" className="mt-2">
-                  <div className="bg-white rounded-lg border border-slate-200 overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
-                    <iframe
-                      src="https://media.base44.com/files/public/68a7d067890527304dbe8477/837e3dede_nexus_dashboard_upload.html"
-                      className="w-full h-full border-0"
-                      title="Nexus Dashboard Unificado"
-                    />
-                  </div>
+                  <IframeHtmlLoader
+                    url="https://media.base44.com/files/public/68a7d067890527304dbe8477/837e3dede_nexus_dashboard_upload.html"
+                    title="Dashboard Unificado"
+                  />
                 </TabsContent>
                 </Tabs>
 
