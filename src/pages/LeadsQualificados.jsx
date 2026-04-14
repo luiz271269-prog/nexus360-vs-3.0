@@ -728,7 +728,7 @@ export default function LeadsQualificados() {
                 <TabsContent value="listas" className="mt-2">
                   <div className="bg-white rounded-lg border border-slate-200 overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
                     <iframe
-                      src="https://media.base44.com/files/public/68a7d067890527304dbe8477/4bdf78439_listas_trabalho_vendedores2.html"
+                      src="https://media.base44.com/files/public/68a7d067890527304dbe8477/b9bcadda3_listas_trabalho_upload.html"
                       className="w-full h-full border-0"
                       title="Listas de Trabalho Vendedores"
                     />
@@ -739,7 +739,7 @@ export default function LeadsQualificados() {
                 <TabsContent value="nexus_dash" className="mt-2">
                   <div className="bg-white rounded-lg border border-slate-200 overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
                     <iframe
-                      src="https://media.base44.com/files/public/68a7d067890527304dbe8477/nexus_dashboard_unificado.html"
+                      src="https://media.base44.com/files/public/68a7d067890527304dbe8477/837e3dede_nexus_dashboard_upload.html"
                       className="w-full h-full border-0"
                       title="Nexus Dashboard Unificado"
                     />
