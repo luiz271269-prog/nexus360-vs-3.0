@@ -601,6 +601,18 @@ export default function LeadsQualificados() {
                   <Zap className="w-3 h-3 mr-1" />
                   Nexus
                 </TabsTrigger>
+                <TabsTrigger
+                  value="listas"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
+                  <List className="w-3 h-3 mr-1" />
+                  Listas Trabalho
+                </TabsTrigger>
+                <TabsTrigger
+                  value="nexus_dash"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
+                  <Activity className="w-3 h-3 mr-1" />
+                  Dashboard
+                </TabsTrigger>
                 </TabsList>
 
                 {/* FILTROS COMPACTOS — busca + status por tab */}
@@ -710,6 +722,28 @@ export default function LeadsQualificados() {
                 {/* TAB: NEXUS COMMAND CENTER */}
                 <TabsContent value="nexus" className="mt-2">
                 <ControlCenter />
+                </TabsContent>
+
+                {/* TAB: LISTAS DE TRABALHO */}
+                <TabsContent value="listas" className="mt-2">
+                  <div className="bg-white rounded-lg border border-slate-200 overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
+                    <iframe
+                      src="https://media.base44.com/files/public/68a7d067890527304dbe8477/listas_trabalho_vendedores.html"
+                      className="w-full h-full border-0"
+                      title="Listas de Trabalho Vendedores"
+                    />
+                  </div>
+                </TabsContent>
+
+                {/* TAB: NEXUS DASHBOARD UNIFICADO */}
+                <TabsContent value="nexus_dash" className="mt-2">
+                  <div className="bg-white rounded-lg border border-slate-200 overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
+                    <iframe
+                      src="https://media.base44.com/files/public/68a7d067890527304dbe8477/nexus_dashboard_unificado.html"
+                      className="w-full h-full border-0"
+                      title="Nexus Dashboard Unificado"
+                    />
+                  </div>
                 </TabsContent>
                 </Tabs>
 
