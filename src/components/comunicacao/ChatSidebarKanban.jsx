@@ -627,6 +627,64 @@ export default function ChatSidebarKanban({
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
 
+      {/* ════ BARRA DE ÍCONES VERTICAL — mobile only, posição mais à esquerda ════ */}
+      <div className="sm:hidden flex-shrink-0 flex flex-col items-center gap-1.5 bg-slate-900 py-3 px-1 w-12 border-r border-slate-800 z-10">
+        {modosMobile.map(({ key, icon: Icon, label, cor }) => (
+          <button
+            key={key}
+            onClick={() => setKanbanMode(key)}
+            title={label}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0 ${kanbanMode === key ? `${cor} shadow-lg ring-2 ring-white/30` : 'bg-slate-700 hover:bg-slate-600'}`}
+          >
+            <Icon className="w-4 h-4 text-white" />
+          </button>
+        ))}
+
+        <div className="w-6 h-px bg-slate-700 my-0.5" />
+
+        {/* Não Atribuídos */}
+        {onOpenKanbanNaoAtribuidos && (() => {
+          const cnt = threads?.filter(t =>
+            !t.assigned_user_id && t.contact_id && !t.is_contact_only &&
+            t.thread_type !== 'team_internal' && t.thread_type !== 'sector_group'
+          ).length || 0;
+          return (
+            <button
+              onClick={onOpenKanbanNaoAtribuidos}
+              title="Não Atribuídos"
+              className="relative w-9 h-9 rounded-xl flex items-center justify-center bg-red-600 hover:bg-red-700 transition-all flex-shrink-0"
+            >
+              <AlertTriangle className="w-4 h-4 text-white" />
+              {cnt > 0 && (
+                <span className="absolute -top-1 -right-1 bg-white text-red-600 text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                  {cnt > 9 ? '9+' : cnt}
+                </span>
+              )}
+            </button>
+          );
+        })()}
+
+        {/* Manual Jarvis */}
+        <button
+          onClick={() => setManualJarvisOpen(true)}
+          title="Manual Jarvis"
+          className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all flex-shrink-0"
+        >
+          <BookOpen className="w-4 h-4 text-white" />
+        </button>
+
+        {/* Selecionar múltiplos */}
+        {onModoSelecaoMultiplaChange && (
+          <button
+            onClick={() => onModoSelecaoMultiplaChange(!modoSelecaoMultipla)}
+            title="Selecionar múltiplos"
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0 ${modoSelecaoMultipla ? 'bg-orange-500' : 'bg-slate-700 hover:bg-slate-600'}`}
+          >
+            <CheckSquare className="w-4 h-4 text-white" />
+          </button>
+        )}
+      </div>
+
       {/* ════ PAINEL ESQUERDO: Barra de Contatos (sempre visível) ════ */}
       <div className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white border-r border-slate-200 overflow-hidden">
 
@@ -785,71 +843,9 @@ export default function ChatSidebarKanban({
           </button>
         </div>
 
-        {/* Colunas Kanban — dispatcher único */}
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-
-          {/* ── BARRA DE ÍCONES VERTICAL (mobile only) ── */}
-          <div className="sm:hidden flex-shrink-0 flex flex-col items-center gap-1 bg-slate-900 py-2 px-1 w-12">
-            {modosMobile.map(({ key, icon: Icon, label, cor }) => (
-              <button
-                key={key}
-                onClick={() => setKanbanMode(key)}
-                title={label}
-                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${kanbanMode === key ? `${cor} shadow-lg ring-2 ring-white/30` : 'bg-slate-700 hover:bg-slate-600'}`}
-              >
-                <Icon className="w-4 h-4 text-white" />
-              </button>
-            ))}
-
-            <div className="w-6 h-px bg-slate-700 my-1" />
-
-            {/* Não Atribuídos */}
-            {onOpenKanbanNaoAtribuidos && (() => {
-              const cnt = threads?.filter(t =>
-                !t.assigned_user_id && t.contact_id && !t.is_contact_only &&
-                t.thread_type !== 'team_internal' && t.thread_type !== 'sector_group'
-              ).length || 0;
-              return (
-                <button
-                  onClick={onOpenKanbanNaoAtribuidos}
-                  title="Não Atribuídos"
-                  className="relative w-9 h-9 rounded-xl flex items-center justify-center bg-red-600 hover:bg-red-700 transition-all"
-                >
-                  <AlertTriangle className="w-4 h-4 text-white" />
-                  {cnt > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-white text-red-600 text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center">
-                      {cnt > 9 ? '9+' : cnt}
-                    </span>
-                  )}
-                </button>
-              );
-            })()}
-
-            {/* Manual Jarvis */}
-            <button
-              onClick={() => setManualJarvisOpen(true)}
-              title="Manual Jarvis"
-              className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition-all"
-            >
-              <BookOpen className="w-4 h-4 text-white" />
-            </button>
-
-            {/* Selecionar múltiplos */}
-            {onModoSelecaoMultiplaChange && (
-              <button
-                onClick={() => onModoSelecaoMultiplaChange(!modoSelecaoMultipla)}
-                title="Selecionar múltiplos"
-                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${modoSelecaoMultipla ? 'bg-orange-500' : 'bg-slate-700 hover:bg-slate-600'}`}
-              >
-                <CheckSquare className="w-4 h-4 text-white" />
-              </button>
-            )}
-          </div>
-
-          {/* Colunas Kanban em scroll horizontal */}
-          <div className="flex gap-2 flex-1 overflow-x-auto p-2 min-h-0">
-            {renderKanbanBody()}
-          </div>
+        {/* Colunas Kanban — dispatcher único, scroll horizontal */}
+        <div className="flex gap-2 flex-1 overflow-x-auto p-2 min-h-0">
+          {renderKanbanBody()}
         </div>
       </div>
 
