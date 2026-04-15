@@ -529,29 +529,55 @@ export default function ChatSidebarKanban({
     const headerCor = coluna.isSemAtendente
       ? 'bg-gradient-to-r from-slate-500 to-slate-600'
       : 'bg-gradient-to-r from-indigo-500 to-indigo-600';
-    return renderColuna(coluna, headerCor, (
-      <div className="flex items-center gap-1.5 min-w-0">
-        <Users className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
-        <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
+    return (
+      <div key={coluna.id} className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 border-indigo-200 overflow-hidden shadow-md">
+        <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Users className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
+            <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
+          </div>
+          <span className="text-white/80 text-[10px]">{coluna.threads.length}</span>
+        </div>
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          {coluna.threads.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-xs">Sem conversas</div>
+          ) : coluna.threads.map(thread => (
+            <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
+              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread} />
+          ))}
+        </div>
       </div>
-    ));
+    );
   });
 
   const renderModoIntegracao = () => colunasPorInstancia.map(coluna => {
     const totalNaoLidas = coluna.threads.reduce((sum, t) => sum + getUnreadCount(t, usuarioAtual?.id), 0);
     const headerCor = corConfig[coluna.cor] || 'bg-slate-600';
     const dotCor = statusDot[coluna.status] || 'bg-slate-400';
-    return renderColuna(coluna, headerCor, (
-      <div className="flex items-center gap-1.5 min-w-0 flex-1">
-        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCor}`} />
-        <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
-        {totalNaoLidas > 0 && (
-          <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-white/30 text-white text-[9px] font-bold border-0">
-            {totalNaoLidas}
-          </Badge>
-        )}
+    return (
+      <div key={coluna.id} className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 border-orange-200 overflow-hidden shadow-md">
+        <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCor}`} />
+            <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
+            {totalNaoLidas > 0 && (
+              <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-white/30 text-white text-[9px] font-bold border-0">
+                {totalNaoLidas}
+              </Badge>
+            )}
+          </div>
+          <span className="text-white/80 text-[10px]">{coluna.threads.length}</span>
+        </div>
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          {coluna.threads.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-xs">Sem conversas</div>
+          ) : coluna.threads.map(thread => (
+            <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
+              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread} />
+          ))}
+        </div>
       </div>
-    ));
+    );
   });
 
   const renderModoNaoAtribuidos = () => {
@@ -592,13 +618,26 @@ export default function ChatSidebarKanban({
     );
     return colunasPorJarvis.map(coluna => {
       const headerCor = coluna.isSemAtendente ? 'bg-slate-600' : 'bg-gradient-to-r from-violet-600 to-purple-700';
-      return renderColuna(coluna, headerCor, (
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Bot className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
-          <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
-          <span className="text-white/60 text-[9px] flex-shrink-0">Jarvis</span>
+      return (
+        <div key={coluna.id} className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 border-violet-200 overflow-hidden shadow-md">
+          <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Bot className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
+              <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
+              <span className="text-white/60 text-[9px] flex-shrink-0">Jarvis</span>
+            </div>
+            <span className="text-white/80 text-[10px]">{coluna.threads.length}</span>
+          </div>
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+            {coluna.threads.length === 0 ? (
+              <div className="text-center py-12 text-slate-400 text-xs">Sem conversas</div>
+            ) : coluna.threads.map(thread => (
+              <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
+                usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread} />
+            ))}
+          </div>
         </div>
-      ));
+      );
     });
   };
 
