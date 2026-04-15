@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, DollarSign, User, Brain, Send, Building2, Handshake, Tags, PenLine } from 'lucide-react';
+import { Calendar, DollarSign, User, Brain, Send, Building2, Handshake, Tags, PenLine, UserCheck } from 'lucide-react';
+import { atualizarAttentionGiven } from '@/functions/atualizarAttentionGiven';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import OrcamentoTagModal from './OrcamentoTagModal';
@@ -62,7 +63,7 @@ const formatDate = (dateString) => {
 };
 
 // ─── Card memorizado ──────────────────────────────────────────────────────────
-const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, etiquetasMap, isSaving }) => {
+const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, isSaving }) => {
   return (
     <Draggable draggableId={orcamento.id} index={index}>
       {(provided, snapshot) =>
@@ -154,6 +155,14 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                 >
                   <Tags className="w-2.5 h-2.5" />
                 </button>
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); onAtendido?.(orcamento); }}
+                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-teal-50 hover:bg-teal-500 text-teal-600 hover:text-white rounded text-[9px] font-semibold border border-teal-200 transition-all"
+                  title="Marcar como Atendido"
+                >
+                  <UserCheck className="w-2.5 h-2.5" />
+                </button>
                 {onMostrarInsightsIA &&
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
@@ -197,7 +206,7 @@ const ColunasEmptyState = () =>
   </div>;
 
 // ─── Coluna Droppable memorizada ──────────────────────────────────────────────
-const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamentos, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, etiquetasMap, savingId }) => {
+const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamentos, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, savingId }) => {
   const gradient = statusGradients[status];
   const totalValor = useMemo(() => colOrcamentos.reduce((s, o) => s + (o.valor_total || 0), 0), [colOrcamentos]);
 
@@ -238,11 +247,12 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
                 index={index}
                 gradient={gradient}
                 onEdit={onEdit}
-                onMostrarInsightsIA={onMostrarInsightsIA}
-                onAbrirChat={onAbrirChat}
-                onTag={onTag}
-                etiquetasMap={etiquetasMap}
-                isSaving={savingId === orc.id}
+                  onMostrarInsightsIA={onMostrarInsightsIA}
+                  onAbrirChat={onAbrirChat}
+                  onTag={onTag}
+                  onAtendido={onAtendido}
+                  etiquetasMap={etiquetasMap}
+                  isSaving={savingId === orc.id}
               />
             )}
             {provided.placeholder}
@@ -327,6 +337,22 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     }
   }, [onUpdateStatus, orcamentosProps]);
 
+  const onAtendido = useCallback(async (orcamento) => {
+    const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;
+    if (!telefone) { toast.error('Telefone não cadastrado — não foi possível registrar atendimento'); return; }
+    const raw = telefone.replace(/\D/g, '');
+    const canonico = raw.startsWith('55') && raw.length > 11 ? raw.slice(2) : raw;
+    try {
+      const contatos = await base44.entities.Contact.filter({ telefone_canonico: canonico });
+      if (contatos?.length > 0) {
+        await atualizarAttentionGiven({ contactId: contatos[0].id, tipoAcao: 'kanban_orcamento' });
+        toast.success(`✓ Atendimento registrado para ${orcamento.cliente_nome || 'cliente'}`);
+      } else {
+        toast.error('Contato não encontrado para registrar atendimento');
+      }
+    } catch { toast.error('Erro ao registrar atendimento'); }
+  }, []);
+
   const onAbrirChat = useCallback(async (orcamento) => {
     const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;
     if (!telefone) { toast.error('Telefone não cadastrado neste orçamento'); return; }
@@ -408,6 +434,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
                       onMostrarInsightsIA={onMostrarInsightsIA}
                       onAbrirChat={onAbrirChat}
                       onTag={setTagModalOrcamento}
+                      onAtendido={onAtendido}
                       etiquetasMap={etiquetasMap}
                       savingId={savingId}
                     />
