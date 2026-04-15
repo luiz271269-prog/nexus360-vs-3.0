@@ -293,7 +293,7 @@ export default function ChatSidebarKanban({
   onModoSelecaoMultiplaChange,
 }) {
   // Modos válidos — qualquer modo não listado aqui cai no fallback do renderKanbanBody
-  const MODOS_VALIDOS = ['parados', 'usuario', 'integracao', 'urgentes', 'jarvis'];
+  const MODOS_VALIDOS = ['parados', 'usuario', 'integracao', 'urgentes', 'jarvis', 'nao_atribuidos'];
   const [kanbanMode, setKanbanMode] = React.useState('usuario');
   const [internalComposerOpen, setInternalComposerOpen] = React.useState(false);
   const [delegateMode, setDelegateMode] = React.useState(false);
@@ -554,6 +554,32 @@ export default function ChatSidebarKanban({
     ));
   });
 
+  const renderModoNaoAtribuidos = () => {
+    const naoAtribuidas = externasKanban.filter(t =>
+      !t.assigned_user_id && t.contact_id && !t.is_contact_only
+    ).sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
+
+    return (
+      <div className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 border-red-400 overflow-hidden shadow-md">
+        <div className="bg-gradient-to-r from-red-500 to-rose-600 px-3 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-white" />
+            <span className="text-white font-semibold text-xs">Não Atribuídas</span>
+          </div>
+          <span className="text-white/80 text-[10px]">{naoAtribuidas.length}</span>
+        </div>
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          {naoAtribuidas.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-xs">Nenhuma conversa sem atendente</div>
+          ) : naoAtribuidas.map(thread => (
+            <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
+              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread} />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderModoJarvis = () => {
     if (colunasPorJarvis.length === 0) return (
       <div className="flex-1 flex items-center justify-center">
@@ -581,11 +607,12 @@ export default function ChatSidebarKanban({
   const renderKanbanBody = () => {
     const modoAtivo = MODOS_VALIDOS.includes(kanbanMode) ? kanbanMode : 'usuario';
     const modos = {
-      urgentes:   renderModoUrgentes,
-      parados:    renderModoParados,
-      usuario:    renderModoUsuario,
-      integracao: renderModoIntegracao,
-      jarvis:     renderModoJarvis,
+      urgentes:        renderModoUrgentes,
+      parados:         renderModoParados,
+      usuario:         renderModoUsuario,
+      integracao:      renderModoIntegracao,
+      jarvis:          renderModoJarvis,
+      nao_atribuidos:  renderModoNaoAtribuidos,
     };
     return modos[modoAtivo]();
   };
@@ -617,11 +644,12 @@ export default function ChatSidebarKanban({
 
   // Configuração dos modos para a barra de ícones mobile
   const modosMobile = [
-    { key: 'usuario',    label: 'Atendente', icon: Users,         cor: 'bg-indigo-500' },
-    { key: 'parados',    label: 'Parados',   icon: Pause,         cor: 'bg-yellow-500' },
-    { key: 'integracao', label: 'Canal',     icon: Columns,       cor: 'bg-orange-500' },
-    { key: 'urgentes',   label: 'Urgentes',  icon: Zap,           cor: 'bg-purple-600' },
-    { key: 'jarvis',     label: 'Jarvis',    icon: Bot,           cor: 'bg-violet-600' },
+    { key: 'usuario',        label: 'Atendente',      icon: Users,          cor: 'bg-indigo-500' },
+    { key: 'parados',        label: 'Parados',        icon: Pause,          cor: 'bg-yellow-500' },
+    { key: 'integracao',     label: 'Canal',          icon: Columns,        cor: 'bg-orange-500' },
+    { key: 'urgentes',       label: 'Urgentes',       icon: Zap,            cor: 'bg-purple-600' },
+    { key: 'jarvis',         label: 'Jarvis',         icon: Bot,            cor: 'bg-violet-600' },
+    { key: 'nao_atribuidos', label: 'Não Atribuídos', icon: AlertTriangle,  cor: 'bg-red-600' },
   ];
 
   return (
@@ -641,28 +669,6 @@ export default function ChatSidebarKanban({
         ))}
 
         <div className="h-6 w-px bg-slate-700 mx-0.5" />
-
-        {/* Não Atribuídos */}
-        {onOpenKanbanNaoAtribuidos && (() => {
-          const cnt = threads?.filter(t =>
-            !t.assigned_user_id && t.contact_id && !t.is_contact_only &&
-            t.thread_type !== 'team_internal' && t.thread_type !== 'sector_group'
-          ).length || 0;
-          return (
-            <button
-              onClick={onOpenKanbanNaoAtribuidos}
-              title="Não Atribuídos"
-              className="relative w-9 h-9 rounded-xl flex items-center justify-center bg-red-600 hover:bg-red-700 transition-all flex-shrink-0"
-            >
-              <AlertTriangle className="w-4 h-4 text-white" />
-              {cnt > 0 && (
-                <span className="absolute -top-1 -right-1 bg-white text-red-600 text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center">
-                  {cnt > 9 ? '9+' : cnt}
-                </span>
-              )}
-            </button>
-          );
-        })()}
 
         {/* Manual Jarvis */}
         <button
@@ -791,27 +797,7 @@ export default function ChatSidebarKanban({
 
           <div className="h-5 w-px bg-slate-200" />
 
-          {/* Não Atribuídos */}
-          {onOpenKanbanNaoAtribuidos && (() => {
-            const cnt = threads?.filter(t =>
-              !t.assigned_user_id &&
-              t.contact_id &&
-              !t.is_contact_only &&
-              t.thread_type !== 'team_internal' &&
-              t.thread_type !== 'sector_group'
-            ).length || 0;
-            return (
-              <Button onClick={onOpenKanbanNaoAtribuidos} size="sm"
-                className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-8 text-xs px-2.5 flex items-center gap-1 font-semibold shadow-sm">
-                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />Não Atribuídos
-                {cnt > 0 && <Badge className="bg-white text-red-600 text-[9px] font-bold px-1 h-4 min-w-4 flex items-center justify-center rounded-full ml-0.5">{cnt}</Badge>}
-              </Button>
-            );
-          })()}
-
-          <div className="h-5 w-px bg-slate-200" />
-
-          {/* Toggle 3 visualizações */}
+          {/* Toggle visualizações */}
           <div className="flex items-center gap-0.5 bg-slate-100 border border-slate-200 rounded-lg p-0.5">
             <button onClick={() => setKanbanMode('parados')}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'parados' ? 'bg-yellow-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}>
@@ -824,6 +810,10 @@ export default function ChatSidebarKanban({
             <button onClick={() => setKanbanMode('integracao')}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'integracao' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}>
               <Columns className="w-3 h-3" />Canal
+            </button>
+            <button onClick={() => setKanbanMode('nao_atribuidos')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'nao_atribuidos' ? 'bg-red-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}>
+              <AlertTriangle className="w-3 h-3" />Não Atrib.
             </button>
           </div>
 
