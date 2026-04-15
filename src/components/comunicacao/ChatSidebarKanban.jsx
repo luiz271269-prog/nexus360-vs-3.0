@@ -625,10 +625,10 @@ export default function ChatSidebarKanban({
   ];
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
+    <div className="flex flex-col sm:flex-row h-full min-h-0 overflow-hidden">
 
-      {/* ════ BARRA DE ÍCONES VERTICAL — mobile only, posição mais à esquerda ════ */}
-      <div className="sm:hidden flex-shrink-0 flex flex-col items-center gap-1.5 bg-slate-900 py-3 px-1 w-12 border-r border-slate-800 z-10">
+      {/* ════ BARRA DE ÍCONES — mobile: horizontal no topo | desktop: oculta (usa toolbar) ════ */}
+      <div className="sm:hidden flex-shrink-0 flex flex-row items-center gap-1.5 bg-slate-900 py-2 px-2 border-b border-slate-800 z-10 overflow-x-auto">
         {modosMobile.map(({ key, icon: Icon, label, cor }) => (
           <button
             key={key}
@@ -640,7 +640,7 @@ export default function ChatSidebarKanban({
           </button>
         ))}
 
-        <div className="w-6 h-px bg-slate-700 my-0.5" />
+        <div className="h-6 w-px bg-slate-700 mx-0.5" />
 
         {/* Não Atribuídos */}
         {onOpenKanbanNaoAtribuidos && (() => {
@@ -685,8 +685,13 @@ export default function ChatSidebarKanban({
         )}
       </div>
 
-      {/* ════ PAINEL ESQUERDO: Barra de Contatos (sempre visível) ════ */}
-      <div className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white border-r border-slate-200 overflow-hidden">
+      {/* ════ ÁREA DE SCROLL HORIZONTAL (mobile) / layout fixo (desktop) ════ */}
+      {/* No mobile: tudo em linha dentro de scroll horizontal — Minhas Conversas + Colunas Kanban */}
+      {/* No desktop: painel fixo esquerdo + painel kanban direito separados */}
+      <div className="flex flex-1 min-h-0 sm:overflow-hidden overflow-x-auto">
+
+      {/* ════ PAINEL ESQUERDO: Barra de Contatos ════ */}
+      <div className="flex flex-col flex-shrink-0 w-64 sm:w-72 min-w-[240px] sm:min-w-[260px] bg-white border-r border-slate-200 overflow-hidden">
 
         {/* Header ações internas */}
         <div className="flex-shrink-0 bg-purple-50/80 border-b border-purple-200 px-2 py-1.5 space-y-1.5">
@@ -747,7 +752,8 @@ export default function ChatSidebarKanban({
       </div>
 
       {/* ════ PAINEL DIREITO: Visualizações Kanban ════ */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-slate-100">
+      {/* No mobile: largura mínima para forçar scroll horizontal */}
+      <div className="flex flex-col flex-1 sm:min-w-0 min-w-[85vw] overflow-hidden bg-slate-100">
 
         {/* Toolbar DESKTOP only */}
         <div className="hidden sm:flex flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 items-center gap-2 flex-wrap">
@@ -848,6 +854,8 @@ export default function ChatSidebarKanban({
           {renderKanbanBody()}
         </div>
       </div>
+
+      </div>{/* fim container scroll horizontal mobile */}
 
       {/* Modals */}
       <InternalMessageComposer
