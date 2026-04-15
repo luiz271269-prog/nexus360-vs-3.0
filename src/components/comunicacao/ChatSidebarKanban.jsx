@@ -43,116 +43,7 @@ const formatarHorario = (timestamp) => {
   } catch { return ""; }
 };
 
-// ─── Card compacto para colunas Kanban (Parados / Atendente / Instância) ────
-
-function ThreadCardKanban({ thread, isAtiva, usuarioAtual, atendentes, onSelecionarThread, podeInteragir }) {
-  const contato = thread.contato;
-  const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
-  const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
-
-  let nomeExibicao = "";
-  if (contato?.empresa) nomeExibicao += contato.empresa;
-  if (contato?.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + contato.cargo;
-  if (contato?.nome && contato.nome !== contato?.telefone) nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
-  if (!nomeExibicao) nomeExibicao = contato?.telefone || "Sem Nome";
-
-  const tiposConfig = {
-    'novo': { emoji: '?', label: 'Novo', bg: 'bg-slate-400' },
-    'lead': { emoji: 'L', label: 'Lead', bg: 'bg-amber-500' },
-    'cliente': { emoji: 'C', label: 'Cliente', bg: 'bg-emerald-500' },
-    'fornecedor': { emoji: 'F', label: 'Fornec.', bg: 'bg-blue-500' },
-    'parceiro': { emoji: 'P', label: 'Parceiro', bg: 'bg-purple-500' }
-  };
-  const tipoCfg = tiposConfig[contato?.tipo_contato || 'novo'] || tiposConfig['novo'];
-  const getAtendenteFidelizado = (c) => getAtendenteFidelizadoAtualizado(c, atendentes);
-
-  return (
-    <div
-      onClick={() => podeInteragir && onSelecionarThread(thread)}
-      className={`rounded-lg border shadow-sm transition-all ${podeInteragir ? 'cursor-pointer hover:shadow-md hover:border-orange-300' : 'cursor-not-allowed opacity-50'} ${isAtiva ? 'border-orange-500 bg-orange-50 shadow-md shadow-orange-200 scale-[1.02] z-10 relative ring-2 ring-orange-400 ring-offset-1' : 'bg-white border-slate-200'}`}
-    >
-      <div className="px-2 py-2 flex items-center gap-2">
-        <div className="relative flex-shrink-0">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md overflow-hidden ${hasUnread ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'}`}>
-            {contato?.foto_perfil_url && contato.foto_perfil_url !== 'null' ? (
-              <img src={contato.foto_perfil_url} alt={nomeExibicao} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
-            ) : nomeExibicao.charAt(0).toUpperCase()}
-          </div>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-0.5">
-            <div className="flex items-center gap-1 min-w-0 flex-1">
-              <p className={`text-xs font-semibold truncate ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>{nomeExibicao}</p>
-              {hasUnread && (
-                <Badge className="rounded-full min-w-[16px] h-3.5 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-[9px] font-bold border-0 shadow-lg flex-shrink-0">
-                  {getUnreadCount(thread, usuarioAtual?.id)}
-                </Badge>
-              )}
-            </div>
-            <span className={`text-[9px] flex-shrink-0 ml-1 ${hasUnread ? 'text-orange-600 font-medium' : 'text-slate-400'}`}>{formatarHorario(thread.last_message_at)}</span>
-          </div>
-          <p className={`text-[10px] truncate flex items-center gap-0.5 ${hasUnread ? 'text-slate-800' : 'text-slate-500'}`}>
-            {thread.last_message_sender === 'user' && (() => {
-              const s = thread.last_message_status;
-              if (s === 'lida') return <CheckCheck className="w-2.5 h-2.5 text-blue-500 flex-shrink-0" />;
-              if (s === 'entregue') return <CheckCheck className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />;
-              if (s === 'enviada') return <Check className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />;
-              if (s === 'falhou') return <AlertCircle className="w-2.5 h-2.5 text-red-500 flex-shrink-0" />;
-              return <CheckCheck className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />;
-            })()}
-            {thread.last_media_type === 'image' && <Image className="w-2.5 h-2.5 text-blue-500 flex-shrink-0" />}
-            {thread.last_media_type === 'video' && <Video className="w-2.5 h-2.5 text-purple-500 flex-shrink-0" />}
-            {thread.last_media_type === 'audio' && <Mic className="w-2.5 h-2.5 text-green-500 flex-shrink-0" />}
-            {thread.last_media_type === 'document' && <FileText className="w-2.5 h-2.5 text-orange-500 flex-shrink-0" />}
-            <span className="truncate">{thread.last_message_content || 'Sem mensagens'}</span>
-          </p>
-          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-white ${tipoCfg.bg} shadow-sm`}>
-              {tipoCfg.emoji} {tipoCfg.label}
-            </span>
-            {contato?.tags?.length > 0 && (() => {
-              const destaques = etiquetasDB.filter(e => e.destaque === true);
-              const nomes = destaques.map(e => e.nome);
-              const tags = contato.tags.filter(t => nomes.includes(t)).slice(0, 1);
-              return tags.map(etq => {
-                const cfg = getEtiquetaConfigDinamico(etq);
-                return (
-                  <span key={etq} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-white ${cfg.cor || 'bg-slate-500'} shadow-sm`}>
-                    {cfg.emoji || '🏷️'} {cfg.label?.substring(0, 6) || etq}
-                  </span>
-                );
-              });
-            })()}
-            {thread.assigned_user_id ? (() => {
-              const nome = getUserDisplayName(thread.assigned_user_id, atendentes);
-              const vazio = nome === 'Carregando...' || nome === 'Usuário não encontrado';
-              return vazio ? (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-slate-500 bg-slate-100 shadow-sm"><UserCheck className="w-2.5 h-2.5" />Restrito</span>
-              ) : (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-white bg-indigo-500 shadow-sm"><UserCheck className="w-2.5 h-2.5" />{nome.split(' ')[0]}</span>
-              );
-            })() : getAtendenteFidelizado(contato)?.id ? (() => {
-              const af = getAtendenteFidelizado(contato);
-              const nome = getUserDisplayName(af.id, atendentes);
-              const vazio = nome === 'Carregando...' || nome === 'Usuário não encontrado';
-              return vazio ? (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-slate-500 bg-slate-100 shadow-sm">VIP Restrito</span>
-              ) : (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-amber-700 bg-amber-100 shadow-sm">VIP {nome.split(' ')[0]}</span>
-              );
-            })() : thread.is_contact_only ? (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold text-slate-500 bg-slate-100 shadow-sm">S/atend.</span>
-            ) : (
-              <AtribuidorAtendenteRapido contato={contato} thread={thread} tipoContato={contato?.tipo_contato || 'novo'} setorAtual={thread?.sector_id || 'geral'} variant="mini" />
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Linha de lista completa (estilo ChatSidebar) — para a barra de contatos ─
+// ─── Linha de lista completa (estilo ChatSidebar) — para todos os modos ─
 
 function ThreadRowSidebar({ thread, isAtiva, usuarioAtual, atendentes, integracoes, onSelecionarThread }) {
   const contato = thread.contato;
@@ -655,31 +546,6 @@ export default function ChatSidebarKanban({
     };
     return modos[modoAtivo]();
   };
-
-  // ─── Render coluna kanban genérica ─────────────────────────────────────
-  const renderColuna = (coluna, headerCor, headerContent) => (
-    <div key={coluna.id} className={`flex flex-col flex-shrink-0 w-52 min-w-[200px] bg-slate-50 rounded-xl overflow-hidden shadow-sm border border-slate-200`}>
-      <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
-        {headerContent}
-        <span className="text-white/80 text-[9px] flex-shrink-0 ml-2">{coluna.threads.length}</span>
-      </div>
-      <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
-        {coluna.threads.length === 0 ? (
-          <div className="text-center py-8 text-slate-400 text-xs">Sem conversas</div>
-        ) : coluna.threads.map(thread => {
-          const norm = (v) => String(v || '').toLowerCase().trim();
-          const isAtribuidoOuTransferido = norm(thread.assigned_user_id) === norm(usuarioAtual?.id) || norm(thread.transfer_requested_user_id) === norm(usuarioAtual?.id);
-          const isNaoAtribuida = !thread.assigned_user_id && !thread.assigned_user_name;
-          const isCompartilhada = thread.shared_with_users?.includes(usuarioAtual?.id);
-          const podeInteragir = isAdmin || isAtribuidoOuTransferido || isGerente || isNaoAtribuida || isCompartilhada;
-          return (
-            <ThreadCardKanban key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
-              usuarioAtual={usuarioAtual} atendentes={atendentes} onSelecionarThread={onSelecionarThread} podeInteragir={podeInteragir} />
-          );
-        })}
-      </div>
-    </div>
-  );
 
   // Configuração dos modos para a barra de ícones mobile
   const modosMobile = [
