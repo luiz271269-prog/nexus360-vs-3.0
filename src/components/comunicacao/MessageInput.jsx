@@ -14,7 +14,6 @@ import {
   File,
   FileText,
   Video,
-  Trash2,
   Camera
 } from 'lucide-react';
 
@@ -89,8 +88,7 @@ export default function MessageInput({
   const [pastedImagePreview, setPastedImagePreview] = useState(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showPromocoesMenu, setShowPromocoesMenu] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [filePreview, setFilePreview] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]); // array de {file, type, preview}
   const [recordingTime, setRecordingTime] = useState(0);
   
   const inputRef = useRef(null);
@@ -140,29 +138,33 @@ export default function MessageInput({
     }, 0);
   }, [mensagemTexto]);
 
-  const handleFileSelect = useCallback((file, type) => {
-    if (!file) return;
-    
-    setSelectedFile({ file, type });
-    
-    if (type === 'image' || type === 'video') {
-      const preview = URL.createObjectURL(file);
-      setFilePreview(preview);
-    } else {
-      setFilePreview(null);
-    }
-    
+  const handleFileSelect = useCallback((fileOrFiles, type) => {
+    if (!fileOrFiles) return;
+    const lista = fileOrFiles instanceof FileList ? Array.from(fileOrFiles) : [fileOrFiles];
+    const novos = lista.map(file => {
+      const t = type || (file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : 'document');
+      const preview = (t === 'image' || t === 'video') ? URL.createObjectURL(file) : null;
+      return { file, type: t, preview };
+    });
+    setSelectedFiles(prev => [...prev, ...novos]);
     setShowAttachMenu(false);
-    toast.success(`${type === 'image' ? '📷 Imagem' : type === 'video' ? '🎥 Vídeo' : '📄 Documento'} selecionado!`);
+    toast.success(`${novos.length} arquivo(s) selecionado(s)!`);
   }, []);
 
-  const cancelarArquivo = useCallback(() => {
-    if (filePreview) {
-      URL.revokeObjectURL(filePreview);
-    }
-    setSelectedFile(null);
-    setFilePreview(null);
-  }, [filePreview]);
+  const cancelarArquivo = useCallback((index) => {
+    setSelectedFiles(prev => {
+      const item = prev[index];
+      if (item?.preview) URL.revokeObjectURL(item.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  }, []);
+
+  const cancelarTodosArquivos = useCallback(() => {
+    setSelectedFiles(prev => {
+      prev.forEach(f => { if (f.preview) URL.revokeObjectURL(f.preview); });
+      return [];
+    });
+  }, []);
 
   const handleSelecionarPromocao = useCallback((dadosPromocao) => {
     const { file, previewUrl, caption } = dadosPromocao;
@@ -176,9 +178,9 @@ export default function MessageInput({
 
   const handleEnviarComArquivo = useCallback(async (e) => {
     e?.preventDefault();
-    
-    if (!selectedFile && !mensagemTexto.trim() && !pastedImage) return;
-    
+
+    if (selectedFiles.length === 0 && !mensagemTexto.trim() && !pastedImage) return;
+
     // ✅ Cancelar micro-URA se atendente responder
     if (thread?.id && usuario?.id) {
       base44.functions.invoke('cancelarMicroURASeAtendenteResponder', {
@@ -186,18 +188,21 @@ export default function MessageInput({
         sender_id: usuario.id
       }).catch(() => {});
     }
-    
-    if (selectedFile) {
-      // Enviar arquivo anexado (imagem, vídeo, documento)
-      onSendMessage({
-        texto: mensagemTexto.trim(),
-        attachedFile: selectedFile.file,
-        attachedFileType: selectedFile.type
-      });
-      cancelarArquivo();
+
+    if (selectedFiles.length > 0) {
+      // Envio sequencial com delay para evitar race condition / 429
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const sf = selectedFiles[i];
+        await onSendMessage({
+          texto: i === selectedFiles.length - 1 ? mensagemTexto.trim() : '',
+          attachedFile: sf.file,
+          attachedFileType: sf.type
+        });
+        if (i < selectedFiles.length - 1) await new Promise(r => setTimeout(r, 300));
+      }
+      cancelarTodosArquivos();
       setMensagemTexto("");
     } else if (pastedImage) {
-      // Enviar imagem colada (print screen)
       onSendMessage({
         texto: mensagemTexto.trim(),
         pastedImage: pastedImage,
@@ -207,13 +212,10 @@ export default function MessageInput({
       setPastedImage(null);
       setPastedImagePreview(null);
     } else {
-      // Enviar apenas texto
-      onSendMessage({
-        texto: mensagemTexto.trim()
-      });
+      onSendMessage({ texto: mensagemTexto.trim() });
       setMensagemTexto("");
     }
-  }, [mensagemTexto, pastedImage, pastedImagePreview, selectedFile, onSendMessage, thread, usuario, cancelarArquivo]);
+  }, [mensagemTexto, pastedImage, pastedImagePreview, selectedFiles, onSendMessage, thread, usuario, cancelarTodosArquivos]);
 
   const handleEnviar = useCallback((e) => {
     e?.preventDefault();
@@ -298,7 +300,8 @@ export default function MessageInput({
         ref={imageInputRef}
         type="file"
         accept="image/*"
-        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0], 'image')}
+        multiple
+        onChange={(e) => e.target.files?.length && handleFileSelect(e.target.files, 'image')}
         style={{ display: 'none' }}
       />
       {/* Input de câmera - aceita foto E vídeo, sem capture para permitir escolha entre câmera e galeria */}
@@ -319,14 +322,16 @@ export default function MessageInput({
         ref={videoInputRef}
         type="file"
         accept="video/*"
-        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0], 'video')}
+        multiple
+        onChange={(e) => e.target.files?.length && handleFileSelect(e.target.files, 'video')}
         style={{ display: 'none' }}
       />
       <input
         ref={documentInputRef}
         type="file"
         accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
-        onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0], 'document')}
+        multiple
+        onChange={(e) => e.target.files?.length && handleFileSelect(e.target.files, 'document')}
         style={{ display: 'none' }}
       />
 
@@ -554,43 +559,35 @@ export default function MessageInput({
         )}
 
         <div className="flex-1">
-          {/* Preview de Arquivo Anexado */}
-          {selectedFile && (
-            <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-start gap-3">
-                {filePreview ? (
-                  <img
-                    src={filePreview}
-                    alt="Preview"
-                    className="w-20 h-20 object-cover rounded-lg border border-green-300"
-                  />
-                ) : (
-                  <div className="w-20 h-20 bg-green-100 rounded-lg border border-green-300 flex items-center justify-center">
-                    <File className="w-8 h-8 text-green-600" />
+          {/* Preview de Arquivos Anexados */}
+          {selectedFiles.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {selectedFiles.map((sf, i) => (
+                <div key={i} className="relative flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                  {sf.preview ? (
+                    <img src={sf.preview} alt="preview" className="w-14 h-14 object-cover rounded" />
+                  ) : (
+                    <div className="w-14 h-14 bg-green-100 rounded flex items-center justify-center">
+                      <File className="w-6 h-6 text-green-600" />
+                    </div>
+                  )}
+                  <div className="max-w-[100px]">
+                    <p className="text-xs font-medium text-green-800 truncate">{sf.file.name}</p>
+                    <p className="text-[10px] text-green-600">{(sf.file.size / 1024).toFixed(1)} KB</p>
                   </div>
-                )}
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-green-800 mb-1">
-                    {selectedFile.type === 'image' ? '📷' : selectedFile.type === 'video' ? '🎥' : '📄'} {selectedFile.file.name}
-                  </p>
-                  <p className="text-xs text-green-600">
-                    {(selectedFile.file.size / 1024).toFixed(2)} KB
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => cancelarArquivo(i)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={cancelarArquivo}
-                  className="h-6 w-6 text-green-600 hover:text-green-800 hover:bg-green-100"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
+              ))}
             </div>
           )}
 
-          {pastedImagePreview && !selectedFile && (
+          {pastedImagePreview && selectedFiles.length === 0 && (
             <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-start gap-3">
                 <img
@@ -622,7 +619,7 @@ export default function MessageInput({
             onKeyDown={handleKeyDown}
             onClick={() => mostrarSugestor && onToggleSugestor()}
             placeholder={
-              selectedFile
+              selectedFiles.length > 0
                 ? "Legenda..."
                 : pastedImagePreview 
                 ? "Legenda..." 
@@ -636,13 +633,13 @@ export default function MessageInput({
           />
         </div>
 
-        {(pastedImagePreview || selectedFile) ? (
+        {(pastedImagePreview || selectedFiles.length > 0) ? (
           <Button
             type="button"
             onClick={handleEnviar}
             disabled={enviando || carregandoContato || uploadingPastedFile || !podeEnviarMidias}
             className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white flex-shrink-0 h-8 w-8 md:h-9 md:w-auto md:px-3 p-0"
-            title={selectedFile ? "Enviar arquivo" : "Enviar imagem colada"}
+            title={selectedFiles.length > 0 ? "Enviar arquivo(s)" : "Enviar imagem colada"}
           >
             {uploadingPastedFile ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -661,7 +658,7 @@ export default function MessageInput({
               uploadingPastedFile || 
               !podeEnviarMensagens || 
               (!modoSelecaoMultipla && carregandoContato && thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group') ||
-              (!mensagemTexto.trim() && !pastedImage && !selectedFile)
+              (!mensagemTexto.trim() && !pastedImage && selectedFiles.length === 0)
             }
             className={cn(
               "flex-shrink-0 h-8 w-8 md:h-9 md:w-9 p-0",
