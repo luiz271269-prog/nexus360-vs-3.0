@@ -38,6 +38,7 @@ import CacheBuster from "@/components/global/CacheBuster";
 import DeploymentBanner from "@/components/global/DeploymentBanner";
 import UserAuthWidget from "@/components/global/UserAuthWidget";
 import { calcularLembretesGlobal } from "@/components/global/MotorLembretesGlobal";
+import NovasMensagensAlert from "@/components/global/NovasMensagensAlert";
 
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
   const isActive = window.location.pathname === new URL(href, window.location.origin).pathname;
@@ -636,6 +637,9 @@ export default function Layout({ children, currentPageName }) {
           Copiloto IA
         </span>
       </button>
+
+      {/* Alerta flutuante de novas mensagens (só aparece fora da Central de Comunicação) */}
+      {globalUsuario && <NovasMensagensAlert usuario={globalUsuario} currentPageName={currentPageName} />}
 
       {/* Copiloto IA — painel lateral com Superagent */}
       <CopilotoIA
