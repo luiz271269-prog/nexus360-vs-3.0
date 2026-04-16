@@ -726,6 +726,8 @@ export const VISIBILITY_MATRIX = [
     priority: 8,
     name: 'bloqueio_fidelizado_outro',
     check: (userPerms, thread, contact) => {
+      // Admin nunca é bloqueado por fidelização de outro usuário
+      if (userPerms.role === 'admin') return null;
       if (contact?.is_cliente_fidelizado && !isFidelizadoAoUsuario(userPerms, contact)) {
         return { 
           visible: false, 
@@ -743,6 +745,8 @@ export const VISIBILITY_MATRIX = [
     priority: 9,
     name: 'bloqueio_atribuido_outro',
     check: (userPerms, thread, contact) => {
+      // Admin nunca é bloqueado por atribuição a outro usuário
+      if (userPerms.role === 'admin') return null;
       // Gerente pode ver threads atribuídas a outros (supervisão)
       if (userPerms.podeVerTodasConversas) return null;
       
