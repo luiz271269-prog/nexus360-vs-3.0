@@ -5,11 +5,49 @@ import { base44 } from '@/api/base44Client';
 import { Mic } from 'lucide-react';
 import { format } from 'date-fns';
 
+// Solicita permissão de notificação nativa ao montar
+function solicitarPermissaoNotificacao() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function dispararNotificacaoNativa({ contactName, preview, isAudio, fotoUrl, contactId, threadId }) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  const body = isAudio ? '🎤 Mensagem de voz' : (preview || 'Nova mensagem');
+  const notif = new Notification(contactName, {
+    body,
+    icon: fotoUrl && fotoUrl !== 'null' ? fotoUrl : '/favicon.ico',
+    badge: '/favicon.ico',
+    tag: contactId || threadId, // agrupa notificações do mesmo contato
+    renotify: true,
+  });
+
+  notif.onclick = () => {
+    window.focus();
+    let url = window.location.origin + createPageUrl('Comunicacao');
+    if (contactId) url += `?contact_id=${contactId}`;
+    else if (threadId) url += `?thread_id=${threadId}`;
+    window.location.href = url;
+    notif.close();
+  };
+
+  // Auto-fecha após 8s
+  setTimeout(() => notif.close(), 8000);
+}
+
 export default function NovasMensagensAlert({ usuario, currentPageName }) {
   const [alertas, setAlertas] = useState([]);
   const navigate = useNavigate();
   const processadosRef = useRef(new Set());
   const estaNaComunicacao = currentPageName === 'Comunicacao';
+
+  // Solicita permissão de notificação nativa na primeira vez
+  useEffect(() => {
+    if (usuario) solicitarPermissaoNotificacao();
+  }, [usuario]);
 
   useEffect(() => {
     if (!usuario || estaNaComunicacao) {
@@ -66,6 +104,16 @@ export default function NovasMensagensAlert({ usuario, currentPageName }) {
         isAudio: mediaType === 'audio',
         hora: format(new Date(), 'HH:mm'),
       };
+
+      // 🔔 Notificação nativa do sistema operacional (funciona mesmo minimizado)
+      dispararNotificacaoNativa({
+        contactName,
+        preview,
+        isAudio: mediaType === 'audio',
+        fotoUrl,
+        contactId: thread.contact_id,
+        threadId: thread.id,
+      });
 
       setAlertas((prev) => {
         const semEste = prev.filter((a) => a.threadId !== thread.id);
