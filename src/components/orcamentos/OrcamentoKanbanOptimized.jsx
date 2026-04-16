@@ -4,7 +4,6 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, DollarSign, User, Brain, Send, Building2, Handshake, Tags, PenLine, UserCheck } from 'lucide-react';
-import { atualizarAttentionGiven } from '@/functions/atualizarAttentionGiven';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import OrcamentoTagModal from './OrcamentoTagModal';
@@ -343,7 +342,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     try {
       const contatos = await base44.entities.Contact.filter({ telefone_canonico: canonico });
       if (contatos?.length > 0) {
-        await atualizarAttentionGiven({ contactId: contatos[0].id, tipoAcao: 'kanban_orcamento' });
+        await base44.functions.invoke('atualizarAttentionGiven', { contactId: contatos[0].id, tipoAcao: 'kanban_orcamento' });
         toast.success(`✓ Atendimento registrado para ${orcamento.cliente_nome || 'cliente'}`);
       } else {
         toast.error('Contato não encontrado para registrar atendimento');
