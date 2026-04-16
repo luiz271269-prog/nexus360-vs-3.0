@@ -52,12 +52,15 @@ export default function NovasMensagensAlert({ usuario, currentPageName }) {
     const unsubscribe = base44.entities.MessageThread.subscribe(async (event) => {
       if (event.type !== 'update' && event.type !== 'create') return;
 
+      console.log('[NovasMensagensAlert] 📨 Evento recebido:', event.type, event.data?.last_message_sender, event.data?.thread_type, 'página:', pageNameRef.current);
+
       // Ignorar se estiver na página de Comunicacao (via ref — sem fechar o subscribe)
       if (pageNameRef.current === 'Comunicacao') return;
 
       const thread = event.data;
       if (!thread) return;
-      if (thread.thread_type !== 'contact_external') return;
+      // Aceita contact_external OU thread sem tipo (webhook pode não setar thread_type imediatamente)
+      if (thread.thread_type && thread.thread_type !== 'contact_external') return;
       if (thread.last_message_sender !== 'contact') return;
       if (!thread.last_message_at) return;
 
