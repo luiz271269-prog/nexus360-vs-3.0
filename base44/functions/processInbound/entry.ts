@@ -544,7 +544,7 @@ Deno.serve(async (req) => {
   const _janelaHumanoDormant = (thread.assigned_user_id && thread.sector_id) ? 48 : 2;
   const isHumanDormant = thread.assigned_user_id && !humanoAtivo(thread, _janelaHumanoDormant);
 
-  // Se é novo ciclo com thread contextualizada: resetar estado para forçar menu
+  // Se é novo ciclo com thread contextualizada: decidir se preserva ou reseta atendente
   if (novoCiclo && thread?.assigned_user_id && thread?.sector_id) {
     // ✅ FIX C2: NÃO zerar se contact tem atendente fidelizado — preAtendimentoHandler vai direto
     const temFidelizado =
@@ -552,6 +552,18 @@ Deno.serve(async (req) => {
       contact?.atendente_fidelizado_assistencia ||
       contact?.atendente_fidelizado_financeiro ||
       contact?.atendente_fidelizado_fornecedor;
+
+    // ✅ FIX NOVO CICLO v2: Se atendente atual está em atendentes_historico E a thread
+    // foi atualizada nos últimos 7d, preserva o vínculo mas RESETA routing_stage
+    // para a skill unificada reanalisar o intent (pode reatribuir se setor mudou).
+    // Regra de negócio: cliente retornando dentro de 7d → mantém continuidade,
+    // mas permite reroteamento se a intenção mudou de setor.
+    const JANELA_PRESERVA_VINCULO_MS = 7 * 24 * 60 * 60 * 1000;
+    const historico = Array.isArray(thread.atendentes_historico) ? thread.atendentes_historico : [];
+    const atendenteNoHistorico = historico.includes(thread.assigned_user_id);
+    const threadAtualizadaRecente = thread.updated_date
+      && (Date.now() - new Date(thread.updated_date).getTime()) < JANELA_PRESERVA_VINCULO_MS;
+    const preservarVinculo = atendenteNoHistorico && threadAtualizadaRecente;
 
     if (temFidelizado) {
       console.log(`[${VERSION}] ⚡ NOVO CICLO + FIDELIZADO → preservando atendente, apenas resetando estado`);
@@ -565,6 +577,19 @@ Deno.serve(async (req) => {
         console.warn(`[${VERSION}] ⚠️ Erro ao resetar estado (fidelizado):`, e.message);
       }
       result.actions.push('thread_reset_new_cycle_fidelizado_preserved');
+    } else if (preservarVinculo) {
+      console.log(`[${VERSION}] 🔗 NOVO CICLO + atendente no histórico <7d → preservando vínculo, resetando routing_stage para reanálise`);
+      try {
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          pre_atendimento_ativo: false,
+          pre_atendimento_state: 'INIT',
+          routing_stage: 'NEW'
+        });
+        thread = { ...thread, pre_atendimento_ativo: false, pre_atendimento_state: 'INIT', routing_stage: 'NEW' };
+      } catch (e) {
+        console.warn(`[${VERSION}] ⚠️ Erro ao preservar vínculo:`, e.message);
+      }
+      result.actions.push('thread_reset_new_cycle_vinculo_preservado');
     } else {
       console.log(`[${VERSION}] 🔄 NOVO CICLO com thread contextualizada → resetando estado para pré-atendimento`);
       try {
@@ -572,9 +597,10 @@ Deno.serve(async (req) => {
           pre_atendimento_ativo: false,
           pre_atendimento_state: 'INIT',
           assigned_user_id: null,
-          sector_id: null
+          sector_id: null,
+          routing_stage: 'NEW'
         });
-        thread = { ...thread, pre_atendimento_ativo: false, pre_atendimento_state: 'INIT', assigned_user_id: null, sector_id: null };
+        thread = { ...thread, pre_atendimento_ativo: false, pre_atendimento_state: 'INIT', assigned_user_id: null, sector_id: null, routing_stage: 'NEW' };
       } catch (e) {
         console.warn(`[${VERSION}] ⚠️ Erro ao resetar thread para novo ciclo:`, e.message);
       }
