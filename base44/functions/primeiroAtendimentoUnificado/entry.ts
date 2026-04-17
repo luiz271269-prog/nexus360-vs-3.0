@@ -42,6 +42,86 @@ const HORA_INICIO = 8;
 const HORA_FIM = 18;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CAMADA 0 — MICRO-INTENTS (saudação pura / agradecimento / mídia / spam)
+// Detecta padrões simples que NÃO precisam de ACK genérico + Intent + Routing
+// Responde contextualmente no estilo do atendente dono da thread (se houver)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MICRO_INTENT_PATTERNS = {
+  saudacao_pura: /^(oi+|ol[aá]+|e?a[ei]+|hello|hi|tudo\s*bem\??|bom\s*di[aã]+|boa\s*tard[eé]+|boa\s*noit[eé]+|al[ôo]+)[\s!?.😊🙂👋]*$/i,
+  agradecimento: /^(obrigad[oa]+|obg|vlw|valeu+|ok+|blz|beleza|certo|perfeito|entendi|show|top|\u00f3timo|otimo|combinado|fechado|t[aá]\s*bom|tudo\s*bem)[\s!?.😊🙏👍👌]*$/i,
+  confirmacao_curta: /^(sim|isso|exato|pode\s*ser|correto|confirmo|afirmativo|positivo)[\s!?.]*$/i,
+  spam_prospec: /(vi\s+seu\s+cadastro|proposta\s+para\s+ti|reduzir\s+custos|oportunidade\s+\u00fanica|sua\s+empresa\s+foi\s+selecionad|1\s*min(uto)?\s+para\s+apresentar|teria\s+1\s*min|captamos\s+seu\s+contato)/i,
+};
+
+function detectarMicroIntent(texto, temMidia) {
+  const t = (texto || '').trim();
+  
+  // Mídia sem texto relevante
+  if (temMidia && t.length < 3) return { tipo: 'midia_pura', texto: t };
+  
+  if (!t) return null;
+  if (t.length > 80) return null; // micro-intents são sempre curtos
+  
+  if (MICRO_INTENT_PATTERNS.agradecimento.test(t)) return { tipo: 'agradecimento', texto: t };
+  if (MICRO_INTENT_PATTERNS.saudacao_pura.test(t)) return { tipo: 'saudacao_pura', texto: t };
+  if (MICRO_INTENT_PATTERNS.confirmacao_curta.test(t)) return { tipo: 'confirmacao_curta', texto: t };
+  if (MICRO_INTENT_PATTERNS.spam_prospec.test(t)) return { tipo: 'spam_prospec', texto: t };
+  
+  return null;
+}
+
+function getPeriodoDia(hora) {
+  if (hora < 12) return 'manha';
+  if (hora < 18) return 'tarde';
+  return 'noite';
+}
+
+async function buscarStyleProfile(base44, user_id) {
+  if (!user_id) return null;
+  try {
+    const profiles = await base44.asServiceRole.entities.AtendenteStyleProfile.filter(
+      { user_id, ativo: true }, '-updated_date', 1
+    );
+    return profiles[0] || null;
+  } catch (e) {
+    console.warn('[CAMADA-0] erro ao buscar style profile:', e.message);
+    return null;
+  }
+}
+
+function gerarRespostaMicroIntent(tipo, profile, contactNome, hora, foraHorario) {
+  const primeiroNome = (contactNome || '').split(' ')[0] || '';
+  const assinatura = profile?.assinatura ? `\n\n${profile.assinatura}` : '';
+  const chamaPeloNome = profile?.style_features?.chama_pelo_nome && primeiroNome;
+  
+  if (tipo === 'saudacao_pura') {
+    const periodo = getPeriodoDia(hora);
+    let saudacaoEstilo = profile?.frases_saudacao_por_hora?.[periodo] || '';
+    // Limpar saudação do profile: remover nomes próprios embutidos (qualquer token capitalizado),
+    // perguntas tipo "tudo bem?" e pontuação terminal — mantém só o verbete puro ("Oie bom diaa")
+    saudacaoEstilo = saudacaoEstilo
+      .replace(/,?\s*[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+/g, '') // remove nomes próprios
+      .replace(/,?\s*tudo\s*bem\??/i, '')
+      .replace(/[!?.,\s]+$/, '')
+      .trim();
+    const base = saudacaoEstilo || (periodo === 'manha' ? 'Bom dia' : periodo === 'tarde' ? 'Boa tarde' : 'Boa noite');
+    if (foraHorario) {
+      return `${base}${chamaPeloNome ? ', ' + primeiroNome : ''}! Recebi sua mensagem 😊\nNosso atendimento é seg-sex ${HORA_INICIO}h-${HORA_FIM}h. Te retorno em breve!${assinatura}`;
+    }
+    return `${base}${chamaPeloNome ? ', ' + primeiroNome : ''}! Tudo bem?${assinatura}`;
+  }
+  
+  if (tipo === 'agradecimento') {
+    const encerramento = profile?.frases_agradecimento?.[0] || profile?.frases_encerramento?.[0];
+    if (encerramento) return `${encerramento}${assinatura}`;
+    return `Por nada${chamaPeloNome ? ', ' + primeiroNome : ''}! Qualquer coisa é só chamar 👋${assinatura}`;
+  }
+  
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // HELPER: montar mensagem ACK por contexto
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -305,6 +385,138 @@ Deno.serve(async (req) => {
     } catch (e) {
       console.error('[UNIFICADO] Camada 0 erro:', e.message);
       resultado.camadas.dedup = { error: e.message };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CAMADA 0-MICRO — MICRO-INTENTS (saudação/agradecimento/spam/mídia)
+    // Early-return se detecta intent simples com atendente já atribuído
+    // ═══════════════════════════════════════════════════════════════════
+
+    try {
+      const textoMicro = (message_content || thread?.last_message_content || '').trim();
+      const mediaType = payload.media_type || null;
+      const temMidia = mediaType && mediaType !== 'none' && mediaType !== 'text';
+      const microIntent = detectarMicroIntent(textoMicro, temMidia);
+
+      if (microIntent) {
+        console.log(`[CAMADA-0-MICRO] 🎯 Detectado: ${microIntent.tipo} ("${microIntent.texto.substring(0, 40)}")`);
+
+        // Mídia pura sem texto → silêncio (não responde, só loga)
+        if (microIntent.tipo === 'midia_pura') {
+          await base44.asServiceRole.entities.AutomationLog.create({
+            thread_id, contato_id: contact_id,
+            acao: 'micro_intent_midia_pura',
+            resultado: 'ignorado',
+            origem: 'sistema',
+            timestamp: new Date().toISOString(),
+            detalhes: { media_type: mediaType, camada: '0-micro' }
+          }).catch(() => {});
+          resultado.camadas.dedup.micro_intent = { tipo: 'midia_pura', action: 'silent' };
+          console.log('[CAMADA-0-MICRO] 🔇 Mídia pura — silêncio');
+          return Response.json({ ...resultado, success: true, skipped: true, reason: 'midia_pura_silent', micro_intent: microIntent }, { headers });
+        }
+
+        // Spam/prospecção → silêncio + log low-severity
+        if (microIntent.tipo === 'spam_prospec') {
+          await base44.asServiceRole.entities.AutomationLog.create({
+            thread_id, contato_id: contact_id,
+            acao: 'micro_intent_spam_detectado',
+            resultado: 'ignorado',
+            origem: 'sistema',
+            timestamp: new Date().toISOString(),
+            detalhes: { texto: microIntent.texto, camada: '0-micro' }
+          }).catch(() => {});
+          resultado.camadas.dedup.micro_intent = { tipo: 'spam_prospec', action: 'silent' };
+          console.log('[CAMADA-0-MICRO] 🚫 Spam detectado — silêncio');
+          return Response.json({ ...resultado, success: true, skipped: true, reason: 'spam_detectado', micro_intent: microIntent }, { headers });
+        }
+
+        // Confirmação curta sem atendente → NÃO responde, deixa fluxo seguir (escala)
+        if (microIntent.tipo === 'confirmacao_curta' && !thread?.assigned_user_id) {
+          console.log('[CAMADA-0-MICRO] ⏭️ Confirmação sem atendente — segue fluxo normal');
+          // Não faz early-return; cai no pipeline antigo
+        }
+
+        // Saudação/agradecimento COM atendente atribuído → responde no estilo
+        if ((microIntent.tipo === 'saudacao_pura' || microIntent.tipo === 'agradecimento') && thread?.assigned_user_id) {
+          const [contactData, integData, styleProfile] = await Promise.all([
+            base44.asServiceRole.entities.Contact.get(contact_id).catch(() => null),
+            integration_id
+              ? base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id).catch(() => null)
+              : (thread?.whatsapp_integration_id
+                ? base44.asServiceRole.entities.WhatsAppIntegration.get(thread.whatsapp_integration_id).catch(() => null)
+                : Promise.resolve(null)),
+            buscarStyleProfile(base44, thread.assigned_user_id)
+          ]);
+
+          if (integData && contactData?.telefone) {
+            const hora = new Date().getHours();
+            const foraHorario = hora < HORA_INICIO || hora > HORA_FIM;
+            const msg = gerarRespostaMicroIntent(microIntent.tipo, styleProfile, contactData.nome, hora, foraHorario);
+
+            if (msg) {
+              // Cooldown 2min: se já respondeu micro-intent recentemente, pula
+              const doisMinAtras = new Date(Date.now() - 120_000).toISOString();
+              const respRecente = await base44.asServiceRole.entities.Message.filter({
+                thread_id, sender_type: 'user',
+                'metadata.micro_intent': true,
+                created_date: { $gte: doisMinAtras }
+              }, '-created_date', 1).catch(() => []);
+
+              if (respRecente.length > 0) {
+                console.log('[CAMADA-0-MICRO] ⏭️ Cooldown 2min ativo — skip');
+                resultado.camadas.dedup.micro_intent = { tipo: microIntent.tipo, action: 'cooldown_skip' };
+                return Response.json({ ...resultado, success: true, skipped: true, reason: 'micro_intent_cooldown' }, { headers });
+              }
+
+              const { ok, msgId } = await enviarWhatsApp(integData, contactData.telefone, msg);
+              if (ok) {
+                await base44.asServiceRole.entities.Message.create({
+                  thread_id, sender_id: thread.assigned_user_id, sender_type: 'user',
+                  recipient_id: contact_id, recipient_type: 'contact',
+                  content: msg, channel: 'whatsapp', status: 'enviada',
+                  sent_at: new Date().toISOString(), visibility: 'public_to_customer',
+                  metadata: {
+                    is_ai_response: true, micro_intent: true,
+                    micro_intent_tipo: microIntent.tipo,
+                    ai_agent: 'camada_0_micro',
+                    style_profile_id: styleProfile?.id || null,
+                    whatsapp_msg_id: msgId
+                  }
+                }).catch(() => {});
+
+                await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+                  last_outbound_at: new Date().toISOString(),
+                  last_message_at: new Date().toISOString(),
+                  last_message_sender: 'user',
+                  last_message_content: msg.substring(0, 100)
+                }).catch(() => {});
+
+                await base44.asServiceRole.entities.AutomationLog.create({
+                  thread_id, contato_id: contact_id,
+                  acao: `micro_intent_${microIntent.tipo}`,
+                  resultado: 'sucesso',
+                  origem: 'sistema',
+                  timestamp: new Date().toISOString(),
+                  detalhes: {
+                    tipo: microIntent.tipo,
+                    style_profile_usado: !!styleProfile,
+                    atendente_id: thread.assigned_user_id,
+                    camada: '0-micro',
+                    fora_horario: foraHorario
+                  }
+                }).catch(() => {});
+
+                resultado.camadas.dedup.micro_intent = { tipo: microIntent.tipo, action: 'responded', style_profile_used: !!styleProfile };
+                console.log(`[CAMADA-0-MICRO] ✅ Respondido ${microIntent.tipo} ${styleProfile ? 'no estilo ' + styleProfile.display_name : '(genérico)'}`);
+                return Response.json({ ...resultado, success: true, action: 'micro_intent_responded', micro_intent: microIntent, tempo_ms: Date.now() - tsInicio }, { headers });
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[CAMADA-0-MICRO] ⚠️ Erro (não crítico, segue fluxo):', e.message);
     }
 
     // ═══════════════════════════════════════════════════════════════════
