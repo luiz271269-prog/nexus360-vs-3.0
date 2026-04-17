@@ -296,12 +296,20 @@ async function gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio
       timestamp: new Date().toISOString(),
       detalhes: {
         tempo_execucao_ms: Date.now() - tsInicio,
+        mensagem: `Pipeline finalizado: ${status}`,
+        dados_contexto: {
+          camadas: resultado.camadas,
+          status_final: status
+        }
+      },
+      metadata: {
         camadas: resultado.camadas,
-        status_final: status
+        status_final: status,
+        tempo_execucao_ms: Date.now() - tsInicio
       }
     });
   } catch (e) {
-    console.warn('[UNIFICADO] Falha ao gravar log final:', e.message);
+    console.error('[UNIFICADO] 🔴 Falha ao gravar log final:', e.message);
   }
 }
 
@@ -376,8 +384,12 @@ Deno.serve(async (req) => {
         resultado: 'em_progresso',
         origem: 'sistema',
         timestamp: new Date().toISOString(),
-        detalhes: { message_id, camada: 'dedup_lock' }
-      }).catch(() => {});
+        detalhes: {
+          mensagem: 'Lock dedup 30s ativado',
+          dados_contexto: { message_id, camada: 'dedup_lock' }
+        },
+        metadata: { message_id, camada: 'dedup_lock' }
+      }).catch(e => console.error('[UNIFICADO] 🔴 Falha ao gravar dedup lock:', e.message));
 
       resultado.camadas.dedup = { ok: true };
       console.log('[UNIFICADO] ✅ Camada 0 OK — dedup passou');
@@ -409,6 +421,10 @@ Deno.serve(async (req) => {
             resultado: 'ignorado',
             origem: 'sistema',
             timestamp: new Date().toISOString(),
+            detalhes: {
+              mensagem: `Mídia ${mediaType} sem texto — silêncio`,
+              dados_contexto: { media_type: mediaType, camada: '0-micro', action: 'silent' }
+            },
             metadata: { media_type: mediaType, camada: '0-micro', action: 'silent' }
           }).catch(e => console.error('[CAMADA-0-MICRO] log midia_pura falhou:', e.message));
           resultado.camadas.dedup.micro_intent = { tipo: 'midia_pura', action: 'silent' };
@@ -424,6 +440,10 @@ Deno.serve(async (req) => {
             resultado: 'ignorado',
             origem: 'sistema',
             timestamp: new Date().toISOString(),
+            detalhes: {
+              mensagem: `Spam detectado: "${microIntent.texto.substring(0, 80)}"`,
+              dados_contexto: { texto: microIntent.texto, camada: '0-micro', action: 'silent' }
+            },
             metadata: { texto: microIntent.texto, camada: '0-micro', action: 'silent' }
           }).catch(e => console.error('[CAMADA-0-MICRO] log spam falhou:', e.message));
           resultado.camadas.dedup.micro_intent = { tipo: 'spam_prospec', action: 'silent' };
@@ -439,6 +459,10 @@ Deno.serve(async (req) => {
             resultado: 'ignorado',
             origem: 'sistema',
             timestamp: new Date().toISOString(),
+            detalhes: {
+              mensagem: `Confirmação curta sem atendente: "${microIntent.texto}" — segue fluxo antigo`,
+              dados_contexto: { texto: microIntent.texto, camada: '0-micro', action: 'fallthrough_fluxo_antigo' }
+            },
             metadata: { texto: microIntent.texto, camada: '0-micro', action: 'fallthrough_fluxo_antigo' }
           }).catch(e => console.error('[CAMADA-0-MICRO] log confirmacao falhou:', e.message));
           console.log('[CAMADA-0-MICRO] ⏭️ Confirmação sem atendente — segue fluxo normal');
@@ -477,6 +501,10 @@ Deno.serve(async (req) => {
                   resultado: 'ignorado',
                   origem: 'sistema',
                   timestamp: new Date().toISOString(),
+                  detalhes: {
+                    mensagem: `Cooldown 2min ativo — ${microIntent.tipo} ignorado`,
+                    dados_contexto: { tipo: microIntent.tipo, camada: '0-micro', action: 'cooldown_skip_2min', ultima_resp_id: respRecente[0].id }
+                  },
                   metadata: { tipo: microIntent.tipo, camada: '0-micro', action: 'cooldown_skip_2min', ultima_resp_id: respRecente[0].id }
                 }).catch(e => console.error('[CAMADA-0-MICRO] log cooldown falhou:', e.message));
                 console.log('[CAMADA-0-MICRO] ⏭️ Cooldown 2min ativo — skip');
@@ -513,6 +541,22 @@ Deno.serve(async (req) => {
                   resultado: 'sucesso',
                   origem: 'sistema',
                   timestamp: new Date().toISOString(),
+                  detalhes: {
+                    tempo_execucao_ms: Date.now() - tsInicio,
+                    mensagem: `${microIntent.tipo} respondido ${styleProfile ? 'no estilo ' + styleProfile.display_name : '(genérico)'} | recebido: "${microIntent.texto.substring(0, 60)}" | enviado: "${msg.substring(0, 80)}"`,
+                    dados_contexto: {
+                      tipo: microIntent.tipo,
+                      style_profile_usado: !!styleProfile,
+                      style_profile_id: styleProfile?.id || null,
+                      style_profile_display_name: styleProfile?.display_name || null,
+                      atendente_id: thread.assigned_user_id,
+                      camada: '0-micro',
+                      fora_horario: foraHorario,
+                      texto_recebido: microIntent.texto.substring(0, 100),
+                      texto_enviado: msg.substring(0, 200),
+                      whatsapp_msg_id: msgId
+                    }
+                  },
                   metadata: {
                     tipo: microIntent.tipo,
                     style_profile_usado: !!styleProfile,
@@ -546,6 +590,11 @@ Deno.serve(async (req) => {
           resultado: 'erro',
           origem: 'sistema',
           timestamp: new Date().toISOString(),
+          detalhes: {
+            mensagem: `Erro CAMADA 0-MICRO: ${e.message}`,
+            erro_mensagem: e.message,
+            dados_contexto: { erro: e.message, stack: (e.stack || '').substring(0, 500), camada: '0-micro' }
+          },
           metadata: { erro: e.message, stack: (e.stack || '').substring(0, 500), camada: '0-micro' }
         });
       } catch (logErr) {
