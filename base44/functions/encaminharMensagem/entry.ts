@@ -70,8 +70,8 @@ Deno.serve(async (req) => {
       throw new Error('Mensagem sem conteúdo para encaminhar');
     }
 
-    // Chamar função de envio
-    const envioResponse = await base44.functions.invoke('enviarWhatsApp', dadosEnvio);
+    // Chamar função de envio (usa service role — chamadas backend→backend)
+    const envioResponse = await base44.asServiceRole.functions.invoke('enviarWhatsApp', dadosEnvio);
 
     if (!envioResponse.data.success) {
       throw new Error(envioResponse.data.error || 'Erro ao encaminhar');
