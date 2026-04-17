@@ -53,11 +53,15 @@ Deno.serve(async (req) => {
 
     // Verificar tipo de conteúdo
     if (mensagem.media_url && mensagem.media_type !== 'none') {
-      // Encaminhar mídia
-      dadosEnvio.media_url = mensagem.media_url;
-      dadosEnvio.media_type = mensagem.media_type;
-      dadosEnvio.media_caption = mensagem.media_caption || mensagem.content || '';
-      conteudoEncaminhado = `[${mensagem.media_type}] ${dadosEnvio.media_caption || ''}`.trim();
+      // Encaminhar mídia — áudio usa campo 'audio_url'; demais usam 'media_url' + 'media_type'
+      if (mensagem.media_type === 'audio') {
+        dadosEnvio.audio_url = mensagem.media_url;
+      } else {
+        dadosEnvio.media_url = mensagem.media_url;
+        dadosEnvio.media_type = mensagem.media_type;
+        dadosEnvio.media_caption = mensagem.media_caption || mensagem.content || '';
+      }
+      conteudoEncaminhado = `[${mensagem.media_type}] ${mensagem.media_caption || mensagem.content || ''}`.trim();
     } else if (mensagem.content) {
       // Encaminhar texto
       dadosEnvio.mensagem = `📨 *[Mensagem Encaminhada]*\n\n${mensagem.content}`;
