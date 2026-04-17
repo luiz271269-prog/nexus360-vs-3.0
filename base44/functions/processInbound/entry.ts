@@ -406,6 +406,31 @@ Deno.serve(async (req) => {
   // O cliente voltou depois de horas/dias → precisa do pré-atendimento
   const _janelaCtx = (thread?.assigned_user_id && thread?.sector_id) ? 48 : 2;
   if (thread?.assigned_user_id && thread?.sector_id && !humanoAtivo(thread, _janelaCtx) && !novoCicloPreCheck) {
+    // ── CAMADA 0-MICRO em thread ativa: saudações/agradecimentos/testes respondidos no estilo do atendente ──
+    const textoMicroCheck = (messageContent || '').trim();
+    const ehMicroIntent = textoMicroCheck.length > 0 && textoMicroCheck.length <= 80 && (
+      /^(oi+|ol[aá]+|e?a[ei]+|hello|hi|tudo\s*bem\??|bom\s*di[aã]+|boa\s*tard[eé]+|boa\s*noit[eé]+|al[ôo]+|teste)[\s!?.😊🙂👋]*$/i.test(textoMicroCheck) ||
+      /^(obrigad[oa]+|obg|vlw|valeu+|ok+|blz|beleza|certo|perfeito|entendi|show|top)[\s!?.😊🙏👍👌]*$/i.test(textoMicroCheck)
+    );
+    if (ehMicroIntent) {
+      result.pipeline.push('micro_intent_thread_ativa');
+      try {
+        console.log(`[INBOUND-GATE] 🎯 CAMADA 3 + micro-intent → invocando primeiroAtendimentoUnificado`);
+        await base44.asServiceRole.functions.invoke('primeiroAtendimentoUnificado', {
+          thread_id: thread.id,
+          contact_id: contact.id,
+          integration_id: integration?.id,
+          message_id: message?.id,
+          message_content: messageContent
+        });
+        result.actions.push('micro_intent_responded_in_active_thread');
+        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, stop: true, reason: 'micro_intent_in_active_thread' });
+      } catch (e) {
+        console.warn(`[INBOUND-GATE] ⚠️ Erro ao invocar micro-intent em thread ativa: ${e.message}`);
+        // fallthrough para context_notify_only abaixo
+      }
+    }
+
     console.log(`[INBOUND-GATE] 🔔 CAMADA 3: Thread contextualizada (atendente=${thread.assigned_user_id}, setor=${thread.sector_id}) — apenas notificando, sem URA`);
     result.actions.push('context_notify_only');
     try {

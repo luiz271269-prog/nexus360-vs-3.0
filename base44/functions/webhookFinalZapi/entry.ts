@@ -6,7 +6,13 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 // Cobre: celular BR (13 dígitos), celular sem 9 (12), fixo (12), números curtos (8+)
 function normalizarTelefone(telefone) {
   if (!telefone) return null;
-  let n = String(telefone).split('@')[0].replace(/\D/g, '');
+  const raw = String(telefone).trim();
+  // Se for @lid, preserva como identificador estável (Z-API/WhatsApp privacy)
+  if (raw.toLowerCase().endsWith('@lid')) {
+    const idPart = raw.split('@')[0].replace(/\D/g, '');
+    return idPart.length >= 8 ? `${idPart}@lid` : null;
+  }
+  let n = raw.split('@')[0].replace(/\D/g, '');
   if (!n || n.length < 8) return null;
   n = n.replace(/^0+/, '');
   // Adiciona código Brasil se necessário
@@ -121,7 +127,6 @@ function deveIgnorar(payload) {
   if (
     phone.includes('status@') ||
     phone.includes('@broadcast') ||
-    phone.includes('@lid') ||
     phone.includes('@g.us') ||
     isGroup
   ) {
@@ -660,12 +665,12 @@ async function handleMessage(dados, payloadBruto, base44) {
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
 
   // BUSCAR/CRIAR CONTATO
-  // ⚡ CAMADA 1: Busca rápida direta por telefone_canonico (evita race condition)
-  const telefoneCanonico = dados.from.replace(/\D/g, '');
-  // ⚡ Variante sem o 9 móvel (contatos antigos com 12 dígitos)
-  // Guard: só aplica se posição 4 for '9' — números fixos (2,3,4,5) não recebem o dígito removido
+  // ⚡ CAMADA 1: Busca rápida — se @lid, usa identificador estável; senão por telefone_canonico
+  const isLid = String(dados.from || '').toLowerCase().endsWith('@lid');
+  const telefoneCanonico = isLid ? dados.from : dados.from.replace(/\D/g, '');
+  // ⚡ Variante sem o 9 móvel (contatos antigos com 12 dígitos) — não aplica a @lid
   let telefoneCanonico12 = null;
-  if (telefoneCanonico.startsWith('55') && telefoneCanonico.length === 13 && telefoneCanonico[4] === '9') {
+  if (!isLid && telefoneCanonico.startsWith('55') && telefoneCanonico.length === 13 && telefoneCanonico[4] === '9') {
     telefoneCanonico12 = telefoneCanonico.substring(0, 4) + telefoneCanonico.substring(5); // remove posição 4 (o '9')
   }
   let contato;
