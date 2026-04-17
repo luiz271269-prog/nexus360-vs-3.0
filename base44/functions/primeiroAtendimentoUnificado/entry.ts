@@ -409,8 +409,8 @@ Deno.serve(async (req) => {
             resultado: 'ignorado',
             origem: 'sistema',
             timestamp: new Date().toISOString(),
-            detalhes: { media_type: mediaType, camada: '0-micro' }
-          }).catch(() => {});
+            metadata: { media_type: mediaType, camada: '0-micro', action: 'silent' }
+          }).catch(e => console.error('[CAMADA-0-MICRO] log midia_pura falhou:', e.message));
           resultado.camadas.dedup.micro_intent = { tipo: 'midia_pura', action: 'silent' };
           console.log('[CAMADA-0-MICRO] 🔇 Mídia pura — silêncio');
           return Response.json({ ...resultado, success: true, skipped: true, reason: 'midia_pura_silent', micro_intent: microIntent }, { headers });
@@ -424,17 +424,24 @@ Deno.serve(async (req) => {
             resultado: 'ignorado',
             origem: 'sistema',
             timestamp: new Date().toISOString(),
-            detalhes: { texto: microIntent.texto, camada: '0-micro' }
-          }).catch(() => {});
+            metadata: { texto: microIntent.texto, camada: '0-micro', action: 'silent' }
+          }).catch(e => console.error('[CAMADA-0-MICRO] log spam falhou:', e.message));
           resultado.camadas.dedup.micro_intent = { tipo: 'spam_prospec', action: 'silent' };
           console.log('[CAMADA-0-MICRO] 🚫 Spam detectado — silêncio');
           return Response.json({ ...resultado, success: true, skipped: true, reason: 'spam_detectado', micro_intent: microIntent }, { headers });
         }
 
-        // Confirmação curta sem atendente → NÃO responde, deixa fluxo seguir (escala)
+        // Confirmação curta sem atendente → log informativo (cai no fluxo antigo)
         if (microIntent.tipo === 'confirmacao_curta' && !thread?.assigned_user_id) {
+          await base44.asServiceRole.entities.AutomationLog.create({
+            thread_id, contato_id: contact_id,
+            acao: 'micro_intent_confirmacao_sem_atendente',
+            resultado: 'ignorado',
+            origem: 'sistema',
+            timestamp: new Date().toISOString(),
+            metadata: { texto: microIntent.texto, camada: '0-micro', action: 'fallthrough_fluxo_antigo' }
+          }).catch(e => console.error('[CAMADA-0-MICRO] log confirmacao falhou:', e.message));
           console.log('[CAMADA-0-MICRO] ⏭️ Confirmação sem atendente — segue fluxo normal');
-          // Não faz early-return; cai no pipeline antigo
         }
 
         // Saudação/agradecimento COM atendente atribuído → responde no estilo
@@ -464,6 +471,14 @@ Deno.serve(async (req) => {
               }, '-created_date', 1).catch(() => []);
 
               if (respRecente.length > 0) {
+                await base44.asServiceRole.entities.AutomationLog.create({
+                  thread_id, contato_id: contact_id,
+                  acao: `micro_intent_cooldown_skip`,
+                  resultado: 'ignorado',
+                  origem: 'sistema',
+                  timestamp: new Date().toISOString(),
+                  metadata: { tipo: microIntent.tipo, camada: '0-micro', action: 'cooldown_skip_2min', ultima_resp_id: respRecente[0].id }
+                }).catch(e => console.error('[CAMADA-0-MICRO] log cooldown falhou:', e.message));
                 console.log('[CAMADA-0-MICRO] ⏭️ Cooldown 2min ativo — skip');
                 resultado.camadas.dedup.micro_intent = { tipo: microIntent.tipo, action: 'cooldown_skip' };
                 return Response.json({ ...resultado, success: true, skipped: true, reason: 'micro_intent_cooldown' }, { headers });
@@ -498,14 +513,20 @@ Deno.serve(async (req) => {
                   resultado: 'sucesso',
                   origem: 'sistema',
                   timestamp: new Date().toISOString(),
-                  detalhes: {
+                  metadata: {
                     tipo: microIntent.tipo,
                     style_profile_usado: !!styleProfile,
+                    style_profile_id: styleProfile?.id || null,
+                    style_profile_display_name: styleProfile?.display_name || null,
                     atendente_id: thread.assigned_user_id,
                     camada: '0-micro',
-                    fora_horario: foraHorario
+                    fora_horario: foraHorario,
+                    texto_recebido: microIntent.texto.substring(0, 100),
+                    texto_enviado: msg.substring(0, 200),
+                    whatsapp_msg_id: msgId,
+                    tempo_execucao_ms: Date.now() - tsInicio
                   }
-                }).catch(() => {});
+                }).catch(e => console.error(`[CAMADA-0-MICRO] log ${microIntent.tipo} falhou:`, e.message));
 
                 resultado.camadas.dedup.micro_intent = { tipo: microIntent.tipo, action: 'responded', style_profile_used: !!styleProfile };
                 console.log(`[CAMADA-0-MICRO] ✅ Respondido ${microIntent.tipo} ${styleProfile ? 'no estilo ' + styleProfile.display_name : '(genérico)'}`);
@@ -517,6 +538,19 @@ Deno.serve(async (req) => {
       }
     } catch (e) {
       console.warn('[CAMADA-0-MICRO] ⚠️ Erro (não crítico, segue fluxo):', e.message);
+      // Log do erro para observabilidade — se ele próprio falhar, só pega no console
+      try {
+        await base44.asServiceRole.entities.AutomationLog.create({
+          thread_id, contato_id: contact_id,
+          acao: 'micro_intent_erro',
+          resultado: 'erro',
+          origem: 'sistema',
+          timestamp: new Date().toISOString(),
+          metadata: { erro: e.message, stack: (e.stack || '').substring(0, 500), camada: '0-micro' }
+        });
+      } catch (logErr) {
+        console.error('[CAMADA-0-MICRO] 🔴 LOG DE ERRO TAMBÉM FALHOU:', logErr.message);
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════
