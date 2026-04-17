@@ -1,0 +1,180 @@
+{
+  "name": "AtendenteStyleProfile",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "ID do User atendente (chave \u00fanica de neg\u00f3cio)"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Nome de exibi\u00e7\u00e3o do atendente (cache para logs)"
+    },
+    "sector": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "geral"
+      ],
+      "description": "Setor do atendente no momento da an\u00e1lise"
+    },
+    "assinatura": {
+      "type": "string",
+      "description": "Assinatura exata usada no final das mensagens (ex: '_~ Thais (vendas)_')"
+    },
+    "style_features": {
+      "type": "object",
+      "description": "Caracter\u00edsticas extra\u00eddas do corpus de mensagens reais",
+      "properties": {
+        "formalidade": {
+          "type": "string",
+          "enum": [
+            "baixa",
+            "media",
+            "alta"
+          ],
+          "description": "N\u00edvel de formalidade predominante"
+        },
+        "uso_emoji": {
+          "type": "string",
+          "enum": [
+            "nunca",
+            "raro",
+            "moderado",
+            "frequente"
+          ],
+          "description": "Frequ\u00eancia de uso de emojis"
+        },
+        "uso_risadas": {
+          "type": "string",
+          "enum": [
+            "nunca",
+            "raro",
+            "moderado",
+            "frequente"
+          ],
+          "description": "Frequ\u00eancia de risos (kkk, haha)"
+        },
+        "comprimento_medio_chars": {
+          "type": "number",
+          "description": "Tamanho m\u00e9dio das mensagens em caracteres"
+        },
+        "pontuacao_formal": {
+          "type": "boolean",
+          "description": "Se usa pontua\u00e7\u00e3o correta na maioria (true) ou relaxada (false)"
+        },
+        "chama_pelo_nome": {
+          "type": "boolean",
+          "description": "Se tende a chamar o cliente pelo primeiro nome"
+        },
+        "girias_regionais": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "G\u00edrias ou marcadores regionais frequentes (ex: 'bah', 'tch\u00ea')"
+        },
+        "tom_geral": {
+          "type": "string",
+          "enum": [
+            "consultivo",
+            "rapport",
+            "tecnico",
+            "direto",
+            "misto"
+          ],
+          "description": "Tom predominante do atendimento"
+        }
+      }
+    },
+    "frases_abertura": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "3-5 exemplos reais de como o atendente abre conversas novas"
+    },
+    "frases_encerramento": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "3-5 exemplos reais de como o atendente encerra conversas"
+    },
+    "frases_agradecimento": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Como responde quando cliente agradece"
+    },
+    "frases_saudacao_por_hora": {
+      "type": "object",
+      "description": "Sauda\u00e7\u00f5es preferidas por per\u00edodo",
+      "properties": {
+        "manha": {
+          "type": "string"
+        },
+        "tarde": {
+          "type": "string"
+        },
+        "noite": {
+          "type": "string"
+        }
+      }
+    },
+    "call_to_action_fechamento": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Frases t\u00edpicas para fechar venda/decis\u00e3o (ex: 'Vamos fechar?')"
+    },
+    "corpus_sample_size": {
+      "type": "number",
+      "description": "Quantas mensagens foram analisadas para gerar este profile"
+    },
+    "periodo_analise_inicio": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data da mensagem mais antiga do corpus"
+    },
+    "periodo_analise_fim": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data da mensagem mais recente do corpus"
+    },
+    "inferred_by": {
+      "type": "string",
+      "enum": [
+        "llm_analysis",
+        "manual",
+        "hybrid"
+      ],
+      "default": "llm_analysis",
+      "description": "Como o profile foi gerado"
+    },
+    "modelo_llm_usado": {
+      "type": "string",
+      "description": "Modelo LLM que gerou a infer\u00eancia (ex: 'gemini_3_flash')"
+    },
+    "confidence_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Confian\u00e7a do LLM no perfil gerado (0-1)"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se este profile deve ser usado pelo AIResponseAssistant"
+    }
+  },
+  "required": [
+    "user_id",
+    "display_name"
+  ]
+}
