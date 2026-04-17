@@ -33,6 +33,8 @@ const PATTERNS = [
   { regex: /boleto|fatura|nota\s*fiscal|2[aa]\s*via|pagamento|vencimento|cobranca|debito|credito|parcelar|financ/i, setor: 'financeiro', intencao: 'consulta_financeira', confidence: 0.95 },
   { regex: /defeito|quebrou|nao\s*liga|nao\s*funciona|conserto|reparo|assistencia|garantia|suporte\s*tec|problema|travando|lento|reiniciando|cabo\s*de\s*internet|wifi|conexao|internet\s*caiu|nao\s*conecta|rede|modem|roteador/i, setor: 'assistencia', intencao: 'suporte_tecnico', confidence: 0.95 },
   { regex: /fornec|distribu|atacado|revend|parceria|comercial|representante|catalogo|lista\s*de\s*preco/i, setor: 'fornecedor', intencao: 'parceria_comercial', confidence: 0.90 },
+  // Saudações genéricas — evita LLM para "oi", "olá", "bom dia" etc (reduz latência ~10s → ~500ms)
+  { regex: /^(oi|ola|olá|bom\s*dia|boa\s*tarde|boa\s*noite|hello|tudo\s*bem|alo|alô)[\s!?.]*$/i, setor: 'vendas', intencao: 'saudacao_generica', confidence: 0.80 },
 ];
 
 const SETOR_DEFAULT = 'vendas';
