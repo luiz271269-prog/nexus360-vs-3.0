@@ -1,6 +1,7 @@
 import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import { ensureJpegIfHeic, isHeic } from '@/components/lib/heicConverter';
 
 /**
  * Hooks para handlers de mensagens
@@ -51,11 +52,13 @@ export function useMessageHandlers({
         mediaTypeFinal = 'audio';
       } else if (pastedImage) {
         const timestamp = Date.now();
-        let mimeType = pastedImage.type || 'image/png';
+        // Converter HEIC/HEIF para JPEG se necessário (fotos de iPhone/Samsung)
+        const pastedReal = await ensureJpegIfHeic(pastedImage);
+        let mimeType = pastedReal.type || 'image/png';
         if (!mimeType.startsWith('image/')) mimeType = 'image/png';
         const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
 
-        const imageFile = new File([pastedImage], `internal-${timestamp}.${ext}`, {
+        const imageFile = new File([pastedReal], `internal-${timestamp}.${ext}`, {
           type: mimeType,
           lastModified: timestamp
         });
@@ -66,9 +69,13 @@ export function useMessageHandlers({
         mediaCaptionFinal = texto?.trim() || null;
       } else if (attachedFile) {
         const timestamp = Date.now();
-        const ext = attachedFile.name.split('.').pop() || 'file';
-        const uploadFile = new File([attachedFile], `internal-${timestamp}.${ext}`, {
-          type: attachedFile.type,
+        // Se for imagem HEIC (galeria/câmera Apple/Samsung), converter para JPEG
+        const fileReal = attachedFileType === 'image' && isHeic(attachedFile)
+          ? await ensureJpegIfHeic(attachedFile)
+          : attachedFile;
+        const ext = fileReal.name.split('.').pop() || 'file';
+        const uploadFile = new File([fileReal], `internal-${timestamp}.${ext}`, {
+          type: fileReal.type,
           lastModified: timestamp
         });
 

@@ -58,6 +58,7 @@ const GoToLogo = () =>
 import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
+import { ensureJpegIfHeic, isHeic } from "@/components/lib/heicConverter";
 
 import AIResponseAssistant from './AIResponseAssistant';
 import BroadcastRecipientsList from './BroadcastRecipientsList';
@@ -579,11 +580,13 @@ export default function ChatWindow({
       setUploadingPastedFile(true);
       try {
         const timestamp = Date.now();
-        let mimeType = imagemFile.type || 'image/png';
+        // Converter HEIC→JPEG se necessário (fotos iPhone/Samsung)
+        const imagemReal = await ensureJpegIfHeic(imagemFile);
+        let mimeType = imagemReal.type || 'image/png';
         if (!mimeType.startsWith('image/')) mimeType = 'image/png';
         const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
 
-        const imageFile = new File([imagemFile], `broadcast-${timestamp}.${ext}`, {
+        const imageFile = new File([imagemReal], `broadcast-${timestamp}.${ext}`, {
           type: mimeType,
           lastModified: timestamp
         });
@@ -673,11 +676,13 @@ export default function ChatWindow({
     (async () => {
       try {
         const timestamp = Date.now();
-        let mimeType = imagemParaEnviar.type || 'image/png';
+        // Converter HEIC→JPEG se necessário (fotos iPhone/Samsung)
+        const imagemReal = await ensureJpegIfHeic(imagemParaEnviar);
+        let mimeType = imagemReal.type || 'image/png';
         if (!mimeType.startsWith('image/')) mimeType = 'image/png';
         const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
 
-        const imageFile = new File([imagemParaEnviar], `print-${timestamp}.${ext}`, {
+        const imageFile = new File([imagemReal], `print-${timestamp}.${ext}`, {
           type: mimeType,
           lastModified: timestamp
         });
@@ -747,9 +752,11 @@ export default function ChatWindow({
       setUploadingPastedFile(true);
       try {
         const timestamp = Date.now();
-        const ext = file.name.split('.').pop() || 'file';
-        const uploadFile = new File([file], `broadcast-${timestamp}.${ext}`, {
-          type: file.type,
+        // Se for imagem HEIC (galeria/câmera Apple/Samsung), converter para JPEG
+        const fileReal = fileType === 'image' && isHeic(file) ? await ensureJpegIfHeic(file) : file;
+        const ext = fileReal.name.split('.').pop() || 'file';
+        const uploadFile = new File([fileReal], `broadcast-${timestamp}.${ext}`, {
+          type: fileReal.type,
           lastModified: timestamp
         });
 
@@ -837,9 +844,11 @@ export default function ChatWindow({
     (async () => {
       try {
         const timestamp = Date.now();
-        const ext = file.name.split('.').pop() || 'file';
-        const uploadFile = new File([file], `${fileType}-${timestamp}.${ext}`, {
-          type: file.type,
+        // Se for imagem HEIC (galeria/câmera Apple/Samsung), converter para JPEG
+        const fileReal = fileType === 'image' && isHeic(file) ? await ensureJpegIfHeic(file) : file;
+        const ext = fileReal.name.split('.').pop() || 'file';
+        const uploadFile = new File([fileReal], `${fileType}-${timestamp}.${ext}`, {
+          type: fileReal.type,
           lastModified: timestamp
         });
 
