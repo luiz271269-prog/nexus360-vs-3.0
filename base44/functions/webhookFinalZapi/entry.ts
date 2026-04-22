@@ -619,13 +619,19 @@ async function handleMessage(dados, payloadBruto, base44) {
     try {
       const dup = await retryOn429(() => base44.asServiceRole.entities.Message.filter(
         { whatsapp_message_id: dados.messageId }, '-created_date', 1
-      ));
+      ), 5, 1500);
       if (dup.length > 0) {
         console.log(`[${VERSION}] ⏭️ DUPLICATA por messageId: ${dados.messageId}`);
         return jsonOk({ success: true, ignored: true, reason: 'duplicata_message_id' });
       }
     } catch (err) {
-      console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata por messageId:`, err.message);
+      // ✅ FAIL-SAFE: se o dedup falhou por 429, não arriscar duplicar.
+      // Retorna 429 para Z-API reenviar o webhook (idempotente via messageId).
+      console.error(`[${VERSION}] 🔴 Dedup messageId falhou — retornando 429 para Z-API reenviar:`, err.message);
+      return Response.json(
+        { success: false, error: 'dedup_check_failed', retry: true },
+        { status: 429, headers: corsHeaders }
+      );
     }
   }
 
@@ -796,25 +802,30 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonServerError({ success: false, error: 'thread_not_found' });
   }
 
-  // DEDUPLICAÇÃO POR CONTEÚDO
+  // DEDUPLICAÇÃO POR CONTEÚDO (janela 10s para cobrir retries lentos da Z-API)
   try {
-    const doisSegundosAtras = new Date(Date.now() - 2000).toISOString();
+    const dezSegundosAtras = new Date(Date.now() - 10000).toISOString();
     const msgRecentes = await retryOn429(() => base44.asServiceRole.entities.Message.filter({
       thread_id: thread.id,
       sender_type: 'contact',
-      created_date: { $gte: doisSegundosAtras }
-    }, '-created_date', 10));
+      created_date: { $gte: dezSegundosAtras }
+    }, '-created_date', 10), 5, 1500);
     const duplicadaPorConteudo = msgRecentes.find(m =>
       m.media_type === dados.mediaType &&
       m.content === dados.content &&
-      Math.abs(new Date(m.created_date) - Date.now()) < 2000
+      Math.abs(new Date(m.created_date) - Date.now()) < 10000
     );
     if (duplicadaPorConteudo) {
-      console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO: ${duplicadaPorConteudo.id}`);
+      console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO (10s): ${duplicadaPorConteudo.id}`);
       return jsonOk({ success: true, ignored: true, reason: 'duplicata_conteudo' });
     }
   } catch (err) {
-    console.warn(`[${VERSION}] ⚠️ Erro ao verificar duplicata por conteúdo:`, err.message);
+    // ✅ FAIL-SAFE: sem dedup confiável → Z-API reenvia (preferível a duplicar)
+    console.error(`[${VERSION}] 🔴 Dedup conteúdo falhou — retornando 429 para Z-API reenviar:`, err.message);
+    return Response.json(
+      { success: false, error: 'dedup_content_check_failed', retry: true },
+      { status: 429, headers: corsHeaders }
+    );
   }
 
   // MÍDIA
