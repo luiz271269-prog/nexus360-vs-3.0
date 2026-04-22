@@ -1,5 +1,3 @@
-import heic2any from 'heic2any';
-
 /**
  * Detecta se o arquivo é HEIC/HEIF (formato Apple/Samsung).
  * Checa MIME type e extensão do nome.
@@ -27,6 +25,10 @@ export async function ensureJpegIfHeic(file) {
   if (!file || !isHeic(file)) return file;
 
   try {
+    // Lazy import: carrega heic2any só quando realmente precisa (arquivo HEIC)
+    // Evita entrar no bundle principal e conflitar com outras libs.
+    const mod = await import('heic2any');
+    const heic2any = mod.default || mod;
     const blob = await heic2any({
       blob: file,
       toType: 'image/jpeg',
