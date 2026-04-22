@@ -40,8 +40,8 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.4.0-THREAD-RETRY-FIX';
-const BUILD_DATE = '2026-03-27';
+const VERSION = 'v11.5.0-CACHE-MSGID-MEMORIA';
+const BUILD_DATE = '2026-04-22';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -67,6 +67,36 @@ function jsonServerError(body) {
 let _cacheChips = null;
 let _cacheChipsTs = 0;
 const CACHE_CHIPS_TTL_MS = 60_000;
+
+// ============================================================================
+// CACHE DE MESSAGE IDs PROCESSADOS — proteção anti-duplicata imune a 429
+// Evita que retries da Z-API (>5s timeout) criem mensagens duplicadas
+// ============================================================================
+const _messageIdsProcessados = new Map(); // messageId → timestamp
+const MESSAGE_ID_CACHE_TTL_MS = 60_000; // 1 minuto cobre retries típicos da Z-API
+
+function jaProcessado(messageId) {
+  if (!messageId) return false;
+  const ts = _messageIdsProcessados.get(messageId);
+  if (!ts) return false;
+  if (Date.now() - ts > MESSAGE_ID_CACHE_TTL_MS) {
+    _messageIdsProcessados.delete(messageId);
+    return false;
+  }
+  return true;
+}
+
+function marcarComoProcessado(messageId) {
+  if (!messageId) return;
+  _messageIdsProcessados.set(messageId, Date.now());
+  // Housekeeping: limpar entradas expiradas se cache crescer demais
+  if (_messageIdsProcessados.size > 500) {
+    const cutoff = Date.now() - MESSAGE_ID_CACHE_TTL_MS;
+    for (const [k, v] of _messageIdsProcessados) {
+      if (v < cutoff) _messageIdsProcessados.delete(k);
+    }
+  }
+}
 
 async function getChipsInternos(base44) {
   const agora = Date.now();
@@ -592,6 +622,13 @@ async function handleMessage(dados, payloadBruto, base44) {
   const connectedPhone = payloadBruto.connectedPhone || payloadBruto.connected_phone || null;
   console.log(`[${VERSION}] 💬 Nova mensagem de: ${dados.from} | Via: ${connectedPhone || 'não informado'}`);
 
+  // ⚡ CAMADA 0: CACHE EM MEMÓRIA — dedup instantâneo, 0 queries, imune a 429
+  // Cobre retries da Z-API (>5s timeout) que chegam na MESMA instância Deno
+  if (dados.messageId && jaProcessado(dados.messageId)) {
+    console.log(`[${VERSION}] ⚡ CACHE HIT: messageId ${dados.messageId} já processado recentemente — IGNORADO`);
+    return jsonOk({ success: true, ignored: true, reason: 'duplicata_cache_memoria' });
+  }
+
   // ✅ CAMADA 2B: Guard inter-chips — rejeitar mensagens ENTRE chips internos
   // Usa cache em memória para evitar queries paralelas em bursts Z-API
   const fromCanon = String(dados.from).replace(/\D/g, '').replace(/^0+/, '');
@@ -879,6 +916,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       },
     });
     console.log(`[${VERSION}] ✅ Mensagem salva: ${mensagem.id} | Mídia persistida: ${midiaPersistida}`);
+    // ⚡ CAMADA 0: marcar messageId como processado IMEDIATAMENTE após salvar
+    // (antes dos steps não-críticos de mídia/thread/processInbound)
+    marcarComoProcessado(dados.messageId);
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro salvar mensagem:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_salvar_mensagem' });
