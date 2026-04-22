@@ -7,7 +7,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 // Detecta automaticamente o provedor e adapta o envio
 // ============================================================================
 
-const VERSION = 'v2.4.1-FIX-NUMERO-FORMATADO';
+const VERSION = 'v2.5.0-AUDIO-SEM-PTT';
 const ZAPI_BASE_URL = 'https://api.z-api.io';
 const WAPI_BASE_URL = 'https://api.w-api.app/v1';
 
@@ -407,13 +407,14 @@ Deno.serve(async (req) => {
         }
       } else {
         // Z-API: usar endpoint correto para áudio
-        // Z-API pode usar send-audio ou send-message dependendo da versão
+        // ⚠️ OPÇÃO A (teste): removido ptt:true e waveform:true
+        // MOTIVO: OGG/Opus do MediaRecorder (48kHz stereo) é incompatível com PTT do WhatsApp,
+        // áudio não tocava no celular do cliente. Sem ptt, vai como arquivo de áudio comum
+        // e o WhatsApp usa player universal que aceita o formato.
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-audio`;
         body = {
           phone: numeroFormatado,
-          audio: audio_url,       // ✅ Z-API usa 'audio' para URL
-          ptt: true,              // ✅ CRÍTICO: Para áudio aparecer como "Gravado na hora" (Z-API)
-          waveform: true          // Exibir forma de onda (PTT style)
+          audio: audio_url
         };
         
         if (reply_to_message_id) {
