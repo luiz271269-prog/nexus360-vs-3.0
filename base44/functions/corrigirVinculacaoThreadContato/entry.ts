@@ -198,22 +198,25 @@ Deno.serve(async (req) => {
       corrigidos.push(`${mensagensCorrigidas} mensagem(ns) com sender_id corrigido`);
     }
 
-    // 7c.2 Neutralizar duplicados: limpar telefone_canonico para não aparecer mais como duplicata
+    // 7c.2 Neutralizar duplicados: DELETAR em vez de prefixar canonical com MERGED_
+    // (prefixar causava loop de duplicação no inbound Z-API - threads/msgs já foram revinculadas acima)
     for (const dup of contatosDuplicados) {
       try {
-        // Verificar se o duplicado ainda tem threads/mensagens (se não, pode neutralizar)
-        const threadsRestantes = await base44.asServiceRole.entities.MessageThread.filter({ contact_id: dup.id });
-        const temThreads = threadsRestantes && threadsRestantes.length > 0;
-        
-        // Limpar telefone_canonico do duplicado para não ser encontrado novamente
-        await base44.asServiceRole.entities.Contact.update(dup.id, {
-          telefone_canonico: `MERGED_${dup.telefone_canonico || dup.id}`,
-          observacoes: `[DUPLICATA UNIFICADA em ${new Date().toISOString().split('T')[0]}] Contato principal: ${contact_id}. ${dup.observacoes || ''}`
-        });
-        corrigidos.push(`Duplicata ${dup.nome || dup.id} neutralizada (telefone_canonico limpo)`);
-        console.log(`[corrigirVinculacao] ✅ Duplicata ${dup.id} neutralizada`);
+        // GUARD: nunca auto-merge (dup é o próprio principal)
+        if (dup.id === contact_id) {
+          console.warn(`[corrigirVinculacao] ⚠️ BLOQUEADO auto-merge: dup.id === contact_id (${dup.id})`);
+          continue;
+        }
+        // GUARD: canonical já corrompido (não tocar para evitar double-prefix)
+        if (String(dup.telefone_canonico || '').startsWith('MERGED_')) {
+          console.warn(`[corrigirVinculacao] ⚠️ BLOQUEADO: canonical já corrompido ${dup.telefone_canonico}`);
+          continue;
+        }
+        await base44.asServiceRole.entities.Contact.delete(dup.id);
+        corrigidos.push(`Duplicata ${dup.nome || dup.id} deletada`);
+        console.log(`[corrigirVinculacao] 🗑️ Duplicata ${dup.id} deletada`);
       } catch (err) {
-        console.warn(`[corrigirVinculacao] Aviso ao neutralizar duplicata ${dup.id}:`, err.message);
+        console.warn(`[corrigirVinculacao] Aviso ao deletar duplicata ${dup.id}:`, err.message);
       }
     }
 

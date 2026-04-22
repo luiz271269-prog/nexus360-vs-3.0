@@ -79,6 +79,16 @@ Deno.serve(async (req) => {
       }, { status: 400, headers });
     }
 
+    // GUARD anti-auto-merge: masterContactId não pode estar na lista de duplicatas
+    if (duplicateContactIds.includes(masterContactId)) {
+      console.warn('[MERGE] ⚠️ BLOQUEADO auto-merge:', masterContactId);
+      return Response.json({
+        success: false,
+        error: 'auto_merge_blocked',
+        message: 'masterContactId não pode estar em duplicateContactIds'
+      }, { status: 400, headers });
+    }
+
     // Se lista vazia, apenas consolidada a mestre (agrupa threads se duplicadas)
     if (duplicateContactIds.length === 0) {
       console.log('[MERGE] ℹ️ Consolidando threads do mestre (sem duplicatas)...');
