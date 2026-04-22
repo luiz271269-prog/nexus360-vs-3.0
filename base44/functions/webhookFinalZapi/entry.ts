@@ -40,7 +40,7 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.5.0-CACHE-MSGID-MEMORIA';
+const VERSION = 'v11.6.0-DEDUP-CONTEUDO-60S';
 const BUILD_DATE = '2026-04-22';
 
 const corsHeaders = {
@@ -839,21 +839,21 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonServerError({ success: false, error: 'thread_not_found' });
   }
 
-  // DEDUPLICAÇÃO POR CONTEÚDO (janela 10s para cobrir retries lentos da Z-API)
+  // DEDUPLICAÇÃO POR CONTEÚDO (janela 60s para cobrir retries lentos da Z-API)
   try {
-    const dezSegundosAtras = new Date(Date.now() - 10000).toISOString();
+    const sessentaSegundosAtras = new Date(Date.now() - 60000).toISOString();
     const msgRecentes = await retryOn429(() => base44.asServiceRole.entities.Message.filter({
       thread_id: thread.id,
       sender_type: 'contact',
-      created_date: { $gte: dezSegundosAtras }
-    }, '-created_date', 10), 5, 1500);
+      created_date: { $gte: sessentaSegundosAtras }
+    }, '-created_date', 20), 5, 1500);
     const duplicadaPorConteudo = msgRecentes.find(m =>
       m.media_type === dados.mediaType &&
       m.content === dados.content &&
-      Math.abs(new Date(m.created_date) - Date.now()) < 10000
+      Math.abs(new Date(m.created_date) - Date.now()) < 60000
     );
     if (duplicadaPorConteudo) {
-      console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO (10s): ${duplicadaPorConteudo.id}`);
+      console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO (60s): ${duplicadaPorConteudo.id}`);
       return jsonOk({ success: true, ignored: true, reason: 'duplicata_conteudo' });
     }
   } catch (err) {
