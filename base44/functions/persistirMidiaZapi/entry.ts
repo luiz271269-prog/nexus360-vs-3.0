@@ -190,17 +190,25 @@ Deno.serve(async (req) => {
     console.log(`[${VERSION}] ✅ Sucesso em ${processingTime}ms: ${permanentUrl}`);
 
     // 6. ATUALIZAR MENSAGEM COM URL PERMANENTE (se message_id informado)
+    // ✅ CRÍTICO: preservar metadata existente (whatsapp_integration_id, instance_id, etc.)
     if (body.message_id) {
       try {
+        let existingMetadata = {};
+        try {
+          const existingMsg = await base44.asServiceRole.entities.Message.get(body.message_id);
+          existingMetadata = existingMsg?.metadata || {};
+        } catch (_) {}
+        
         await base44.asServiceRole.entities.Message.update(body.message_id, {
           media_url: permanentUrl,
           metadata: {
+            ...existingMetadata,
             midia_persistida: true,
             persisted_at: new Date().toISOString(),
             original_temp_url: body.media_url || null
           }
         });
-        console.log(`[${VERSION}] ✅ Mensagem ${body.message_id} atualizada com URL permanente`);
+        console.log(`[${VERSION}] ✅ Mensagem ${body.message_id} atualizada com URL permanente (metadata preservado)`);
       } catch (updErr) {
         console.warn(`[${VERSION}] ⚠️ Erro ao atualizar mensagem:`, updErr.message);
       }
