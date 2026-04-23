@@ -391,8 +391,6 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (contactIdsParaCarregar.length === 0) return [];
 
-
-
       try {
         // ✅ Busca livre via backend (sem RLS - retorna TODOS os contatos COM _meta)
         const response = await base44.functions.invoke('buscarContatosLivre', {
@@ -404,10 +402,6 @@ export default function Comunicacao() {
           const todosContatos = response.data.contatos || [];
           const idsSet = new Set(contactIdsParaCarregar);
           const contatosNecessarios = todosContatos.filter((c) => idsSet.has(c.id));
-          
-
-
-          
           return contatosNecessarios; // ✅ PRESERVA _meta do backend
         }
 
@@ -441,8 +435,6 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (!debouncedSearchTerm || debouncedSearchTerm.trim().length < 2) return [];
 
-
-
       try {
         // ✅ Busca livre via backend (SEM bloqueio de RLS/integração)
         const response = await base44.functions.invoke('buscarContatosLivre', {
@@ -453,8 +445,6 @@ export default function Comunicacao() {
         let todosBD = [];
         if (response?.data?.success) {
           todosBD = response.data.contatos || [];
-          
-  
         } else {
           // Fallback: busca com RLS
           console.warn('[COMUNICACAO] ⚠️ Fallback para busca com RLS (busca de contatos)');
@@ -526,8 +516,6 @@ export default function Comunicacao() {
         .map((item) => item.contato).
         slice(0, 200); // ✅ AUMENTADO: 100 → 200 contatos
 
-
-
         return resultados;
       } catch (error) {
         console.error('[COMUNICACAO] ❌ Erro na busca:', error);
@@ -547,8 +535,6 @@ export default function Comunicacao() {
     // ✅ NÃO depende de usuário - começa IMEDIATAMENTE
     refetchOnWindowFocus: false
   });
-
-
 
   const loadingTopics = loadingThreads || isLoadingUsuario;
 
@@ -1473,13 +1459,8 @@ export default function Comunicacao() {
   !hasBaseData && filterScope === 'unassigned' ? 'all' : filterScope;
 
   // ═══════════════════════════════════════════════════════════════════════
-  // OTIMIZAÇÃO: Pré-calcular o Set de "Não Atribuídas" separadamente
-  // Extraído para top-level para evitar nested hooks
-  // ═══════════════════════════════════════════════════════════════════════
-  // ═══════════════════════════════════════════════════════════════════════
   // ✅ PRÉ-CÁLCULO: Threads não-atribuídas visíveis em escopo 'unassigned'
-  // IMPORTANTE: Usuários internos já têm sua própria regra (participação)
-  // e retornam ANTES desta verificação na VISIBILITY_MATRIX
+  // (Usuários internos têm sua própria regra de participação)
   // ═══════════════════════════════════════════════════════════════════════
   const threadsNaoAtribuidasVisiveis = React.useMemo(() => {
     if (effectiveScope !== 'unassigned' || !usuario || !userPermissions) return new Set();
