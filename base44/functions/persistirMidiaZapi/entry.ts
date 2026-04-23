@@ -152,17 +152,35 @@ Deno.serve(async (req) => {
       throw new Error(`HTTP ${downloadResponse.status}: ${downloadResponse.statusText}`);
     }
 
-    const blob = await downloadResponse.blob();
+    // ✅ FIX 415: usar Content-Type do header HTTP (blob.type pode vir vazio da Z-API)
+    const contentTypeHeader = downloadResponse.headers.get('content-type') || '';
+    const rawBlob = await downloadResponse.blob();
+
+    // Mapear mimetype final: header HTTP > blob.type > fallback por media_type
+    const mimeByMediaType = {
+      image: 'image/jpeg',
+      video: 'video/mp4',
+      audio: 'audio/ogg',
+      document: 'application/pdf',
+      sticker: 'image/webp'
+    };
+    const finalMimeType = contentTypeHeader.split(';')[0].trim() ||
+                          rawBlob.type ||
+                          mimeByMediaType[media_type] ||
+                          'application/octet-stream';
+
+    // Recria o blob com o mimetype correto (crítico para UploadFile aceitar)
+    const blob = new Blob([await rawBlob.arrayBuffer()], { type: finalMimeType });
 
     if (blob.size > MAX_FILE_SIZE) {
       throw new Error(`Arquivo muito grande: ${(blob.size / 1024 / 1024).toFixed(2)}MB (máx: 50MB)`);
     }
 
-    console.log(`[${VERSION}] ✅ Baixado: ${(blob.size / 1024).toFixed(2)}KB`);
+    console.log(`[${VERSION}] ✅ Baixado: ${(blob.size / 1024).toFixed(2)}KB | MIME: ${finalMimeType}`);
 
     // 4. MONTAR NOME ÚNICO DO ARQUIVO
     const timestamp = Date.now();
-    const extension = getFileExtension(blob.type, filename, media_type);
+    const extension = getFileExtension(finalMimeType, filename, media_type);
     const baseFilename = filename?.replace(extension, '') || `${media_type}_${timestamp}`;
     let sanitizedBase = sanitizeFilename(baseFilename);
     // Garantia: remove ponto residual no final antes de concatenar extensão
@@ -170,10 +188,10 @@ Deno.serve(async (req) => {
     const uniqueFilename = `${timestamp}_${sanitizedBase}${extension}`;
 
     // 5. UPLOAD VIA BASE44 (storage nativo da plataforma)
-    console.log(`[${VERSION}] 📤 Upload Base44: ${uniqueFilename}`);
+    console.log(`[${VERSION}] 📤 Upload Base44: ${uniqueFilename} | type: ${finalMimeType}`);
 
     const fileToUpload = new File([blob], uniqueFilename, {
-      type: blob.type || 'application/octet-stream'
+      type: finalMimeType
     });
 
     const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({
