@@ -42,8 +42,8 @@ import EtiquetaFaseDialog from './EtiquetaFaseDialog';
 import ComentariosInternos from './ComentariosInternos';
 import { useMessageStatus } from './useMessageStatus';
 
-// Player de áudio: nativo + botão de velocidade (v2)
-const AudioPlayer = ({ src }) => {
+// Player de áudio: nativo + botão de velocidade (v2) — memoizado para não remontar <audio> em re-render
+const AudioPlayer = React.memo(({ src }) => {
   const audioRef = React.useRef(null);
   const [speed, setSpeed] = React.useState(1);
   const speeds = [1, 1.5, 2];
@@ -72,12 +72,19 @@ const AudioPlayer = ({ src }) => {
       </button>
     </div>);
 
-};
+}, (prev, next) => prev.src === next.src);
 
 // Componente de imagem com fallback seguro
-const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
+const ImageWithFallback = React.memo(({ src, alt, className, onClick, isPersisted }) => {
   const [hasError, setHasError] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
+
+  // ✅ FIX Z-API "aparece e some": resetar estado quando src muda
+  // (Z-API atualiza media_url de URL temporária B2 → URL permanente Supabase)
+  React.useEffect(() => {
+    setHasError(false);
+    setIsLoading(true);
+  }, [src]);
 
   const isUrlPermanente = src && (
   src.includes('base44.app') ||
@@ -121,7 +128,7 @@ const ImageWithFallback = ({ src, alt, className, onClick, isPersisted }) => {
 
     </div>);
 
-};
+}, (prev, next) => prev.src === next.src);
 
 const FunctionDisplay = ({ toolCall }) => {
   const [expanded, setExpanded] = React.useState(false);
