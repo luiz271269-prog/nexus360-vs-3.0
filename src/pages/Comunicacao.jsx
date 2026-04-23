@@ -3,19 +3,9 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  MessageSquare,
-  Settings,
-  RefreshCw,
-  Zap,
-  MessageCircle,
-  Activity,
-  BarChart3,
-  Users,
-  Bug } from
-"lucide-react";
+import { MessageSquare, Settings, RefreshCw, Zap, MessageCircle, Activity, BarChart3, Users, Bug } from "lucide-react";
 import { toast } from "sonner";
-
+import { useAbrirConversaPorTelefone } from "../components/comunicacao/useAbrirConversaPorTelefone";
 import ChatSidebar from "../components/comunicacao/ChatSidebar";
 import ChatSidebarKanban from "../components/comunicacao/ChatSidebarKanban";
 import { LayoutList, Columns } from "lucide-react";
@@ -1085,6 +1075,9 @@ export default function Comunicacao() {
       toast.error(`Erro ao criar contato: ${error.message}`);
     }
   }, [integracoes, queryClient, usuario]);
+
+  // 🎯 Abrir conversa direta a partir de telefone (vCard) — lógica isolada em hook
+  useAbrirConversaPorTelefone({ integracoes, usuario, queryClient, setThreadAtiva, setMobileView });
 
   // Handler para atualizar informações do contato (silencioso para auto-save)
   const handleAtualizarContato = React.useCallback(async (dadosAtualizados) => {

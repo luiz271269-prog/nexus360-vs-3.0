@@ -1430,7 +1430,14 @@ export default React.memo(function MessageBubble({
               const telefoneExibicao = telefoneDigitos
                 ? `+${telefoneDigitos.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, '$1 ($2) $3-$4')}`
                 : null;
-              const waUrl = telefoneDigitos ? `https://wa.me/${telefoneDigitos}` : null;
+              const abrirConversaInterna = () => {
+                if (!telefoneDigitos) return;
+                if (typeof window.handleAbrirConversaPorTelefone === 'function') {
+                  window.handleAbrirConversaPorTelefone('+' + telefoneDigitos, displayName);
+                } else {
+                  toast.error('Abra a Central de Comunicação para iniciar a conversa');
+                }
+              };
               return (
                 <div className="overflow-hidden min-w-[260px] max-w-[320px]">
                   <div className="p-3 flex items-center gap-3 border-b border-black/10">
@@ -1442,14 +1449,12 @@ export default React.memo(function MessageBubble({
                       {telefoneExibicao && <p className="text-xs text-slate-600 truncate">{telefoneExibicao}</p>}
                     </div>
                   </div>
-                  {waUrl && (
-                    <a
-                      href={waUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block p-2.5 text-center text-sm font-medium text-blue-600 hover:bg-black/5 transition-colors">
-                      💬 Conversar no WhatsApp
-                    </a>
+                  {telefoneDigitos && (
+                    <button
+                      onClick={abrirConversaInterna}
+                      className="w-full block p-2.5 text-center text-sm font-medium text-blue-600 hover:bg-black/5 transition-colors">
+                      💬 Abrir conversa no Nexus360
+                    </button>
                   )}
                   <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-1">
                     <span className="text-[10px] text-slate-500">
