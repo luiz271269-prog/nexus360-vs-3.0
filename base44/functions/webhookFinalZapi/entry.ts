@@ -40,8 +40,8 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.6.0-DEDUP-CONTEUDO-60S';
-const BUILD_DATE = '2026-04-22';
+const VERSION = 'v11.7.0-AUDIO-ACENTO-EARLY-RETURN';
+const BUILD_DATE = '2026-04-23';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -326,12 +326,15 @@ function normalizarPayload(payload) {
     mediaType = 'video';
     mediaUrl = payload.videoUrl;
     conteudo = payload.caption || '🎥 [Vídeo recebido]';
-  } else if (payload.audio) {
+  } else if (payload.audio || payload['áudio']) {
+    // ✅ FIX v11.7.0: Z-API às vezes envia a chave "áudio" com acento (encoding UTF-8 direto)
+    // Aceitar ambas as formas para não perder áudios
     mediaType = 'audio';
-    if (typeof payload.audio === 'object') {
-      mediaUrl = payload.audio.audioUrl ?? payload.audio.url ?? payload.audio.link ?? payload.audio.mediaUrl ?? null;
-    } else if (typeof payload.audio === 'string' && payload.audio.startsWith('http')) {
-      mediaUrl = payload.audio;
+    const audioData = payload.audio || payload['áudio'];
+    if (typeof audioData === 'object') {
+      mediaUrl = audioData.audioUrl ?? audioData.url ?? audioData.link ?? audioData.mediaUrl ?? null;
+    } else if (typeof audioData === 'string' && audioData.startsWith('http')) {
+      mediaUrl = audioData;
     }
     conteudo = '🎤 [Áudio recebido]';
   } else if (payload.audioUrl) {
@@ -456,6 +459,18 @@ Deno.serve(async (req) => {
 
     console.log(`[${VERSION}] 📥 Payload recebido (1/2):`, JSON.stringify(payload).substring(0, 1000));
     console.log(`[${VERSION}] 📥 Carga recebida (2/2):`, JSON.stringify(payload).substring(1000, 2000));
+
+    // ✅ FIX v11.7.0: Retorno antecipado para eventos de sistema Z-API
+    // Evita criar client Base44 (que gera erro 403 no log do SDK) para eventos que não precisam de DB
+    const tipoEvento = String(payload.type ?? payload.event ?? '').toLowerCase();
+    if (
+      tipoEvento === 'deliverycallback' ||
+      tipoEvento === 'presencechatcallback' ||
+      (tipoEvento === 'messagestatuscallback' && !payload.text && !payload.body)
+    ) {
+      console.log(`[${VERSION}] ⏭️ Evento de sistema: ${tipoEvento} — retorno antecipado (sem DB)`);
+      return jsonOk({ success: true, ignored: true, reason: `system_event_early_return:${tipoEvento}` });
+    }
 
     const motivoIgnorar = deveIgnorar(payload);
     if (motivoIgnorar) {
