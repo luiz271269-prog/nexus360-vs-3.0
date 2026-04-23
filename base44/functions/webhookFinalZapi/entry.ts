@@ -40,7 +40,7 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.7.0-AUDIO-ACENTO-EARLY-RETURN';
+const VERSION = 'v11.8.0-ATOMIC-LOCK-ANTIRACE';
 const BUILD_DATE = '2026-04-23';
 
 const corsHeaders = {
@@ -73,7 +73,7 @@ const CACHE_CHIPS_TTL_MS = 60_000;
 // Evita que retries da Z-API (>5s timeout) criem mensagens duplicadas
 // ============================================================================
 const _messageIdsProcessados = new Map(); // messageId → timestamp
-const MESSAGE_ID_CACHE_TTL_MS = 60_000; // 1 minuto cobre retries típicos da Z-API
+const MESSAGE_ID_CACHE_TTL_MS = 5 * 60_000; // 5 minutos — cobre retries lentos e bursts
 
 function jaProcessado(messageId) {
   if (!messageId) return false;
@@ -644,6 +644,50 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonOk({ success: true, ignored: true, reason: 'duplicata_cache_memoria' });
   }
 
+  // ⚡ CAMADA 0.5: LOCK ATÔMICO VIA ZapiPayloadNormalized
+  // Solução definitiva para race condition entre instâncias Deno paralelas.
+  // Cria o registro de audit AGORA (antes de qualquer processing). Se já existir
+  // por outro webhook concorrente com mesmo message_id, abortamos imediatamente.
+  let lockRecord = null;
+  if (dados.messageId) {
+    try {
+      // Tenta criar o lock (será o registro de audit final, evita 2 queries)
+      lockRecord = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+        payload_bruto: payloadBruto,
+        instance_identificado: dados.instanceId ?? null,
+        integration_id: null, // será atualizado depois
+        message_id: dados.messageId,
+        evento: 'ReceivedCallback',
+        timestamp_recebido: new Date().toISOString(),
+        sucesso_processamento: false, // será true no final
+        provider: 'z_api'
+      });
+
+      // Verifica se já existe OUTRO lock com mesmo messageId (race condition)
+      // Se houver 2+ registros, significa que outra instância criou primeiro → aborta
+      const locksExistentes = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter(
+        { message_id: dados.messageId }, 'created_date', 5
+      );
+      if (locksExistentes && locksExistentes.length > 1) {
+        // Outro webhook chegou antes — abortar
+        const primeiroLock = locksExistentes[0];
+        if (primeiroLock.id !== lockRecord.id) {
+          console.log(`[${VERSION}] 🔒 LOCK COLLISION: messageId ${dados.messageId} já processado por ${primeiroLock.id} — ABORTANDO`);
+          // Remover nosso lock redundante
+          try {
+            await base44.asServiceRole.entities.ZapiPayloadNormalized.delete(lockRecord.id);
+          } catch {}
+          // Marcar cache para futuras
+          marcarComoProcessado(dados.messageId);
+          return jsonOk({ success: true, ignored: true, reason: 'duplicata_lock_atomico' });
+        }
+      }
+    } catch (lockErr) {
+      console.warn(`[${VERSION}] ⚠️ Falha ao criar lock (prosseguindo):`, lockErr.message);
+      lockRecord = null; // Sem lock → confia no dedup por messageId abaixo
+    }
+  }
+
   // ✅ CAMADA 2B: Guard inter-chips — rejeitar mensagens ENTRE chips internos
   // Usa cache em memória para evitar queries paralelas em bursts Z-API
   const fromCanon = String(dados.from).replace(/\D/g, '').replace(/^0+/, '');
@@ -1017,18 +1061,26 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.error(`[${VERSION}] ⚠️ Erro ao preparar processInbound:`, error?.message || error);
   }
 
-  // AUDIT LOG
+  // AUDIT LOG — atualiza o lock existente (se criado na Camada 0.5) ou cria um novo
   try {
-    await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
-      payload_bruto: payloadBruto,
-      instance_identificado: dados.instanceId ?? null,
-      integration_id: integracaoId,
-      message_id: dados.messageId ?? null,
-      evento: 'ReceivedCallback',
-      timestamp_recebido: new Date().toISOString(),
-      sucesso_processamento: true,
-      provider: 'z_api'
-    });
+    if (lockRecord && lockRecord.id) {
+      await base44.asServiceRole.entities.ZapiPayloadNormalized.update(lockRecord.id, {
+        integration_id: integracaoId,
+        sucesso_processamento: true
+      });
+    } else {
+      // Fallback: sem lock prévio (falhou na criação), cria audit log normal
+      await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+        payload_bruto: payloadBruto,
+        instance_identificado: dados.instanceId ?? null,
+        integration_id: integracaoId,
+        message_id: dados.messageId ?? null,
+        evento: 'ReceivedCallback',
+        timestamp_recebido: new Date().toISOString(),
+        sucesso_processamento: true,
+        provider: 'z_api'
+      });
+    }
   } catch (auditErr) {
     console.warn(`[${VERSION}] ⚠️ Erro ao salvar audit log:`, auditErr?.message);
   }
