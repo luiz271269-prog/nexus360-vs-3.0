@@ -406,18 +406,15 @@ Deno.serve(async (req) => {
           body.messageId = reply_to_message_id;
         }
       } else {
-        // Z-API: usar endpoint /send-audio com ptt:true
-        // MOTIVO: com ptt:true a Z-API re-encoda o OGG do navegador (48kHz stereo)
-        // para o formato PTT do WhatsApp (opus 16kHz mono). Sem ptt, o arquivo bruto
-        // do MediaRecorder é rejeitado pelo player do WhatsApp → áudio não toca.
-        // Reversão da Opção A (2026-04-23) — testes no banco mostraram delivered_at=null
-        // em 100% dos envios sem ptt.
+        // Z-API: usar endpoint correto para áudio
+        // ⚠️ OPÇÃO A (teste): removido ptt:true e waveform:true
+        // MOTIVO: OGG/Opus do MediaRecorder (48kHz stereo) é incompatível com PTT do WhatsApp,
+        // áudio não tocava no celular do cliente. Sem ptt, vai como arquivo de áudio comum
+        // e o WhatsApp usa player universal que aceita o formato.
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-audio`;
         body = {
           phone: numeroFormatado,
-          audio: audio_url,
-          ptt: true,
-          waveform: true
+          audio: audio_url
         };
         
         if (reply_to_message_id) {

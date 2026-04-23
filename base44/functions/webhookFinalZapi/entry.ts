@@ -40,8 +40,8 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.8.0-ATOMIC-LOCK-ANTIRACE';
-const BUILD_DATE = '2026-04-23';
+const VERSION = 'v11.6.0-DEDUP-CONTEUDO-60S';
+const BUILD_DATE = '2026-04-22';
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -73,7 +73,7 @@ const CACHE_CHIPS_TTL_MS = 60_000;
 // Evita que retries da Z-API (>5s timeout) criem mensagens duplicadas
 // ============================================================================
 const _messageIdsProcessados = new Map(); // messageId → timestamp
-const MESSAGE_ID_CACHE_TTL_MS = 5 * 60_000; // 5 minutos — cobre retries lentos e bursts
+const MESSAGE_ID_CACHE_TTL_MS = 60_000; // 1 minuto cobre retries típicos da Z-API
 
 function jaProcessado(messageId) {
   if (!messageId) return false;
@@ -326,15 +326,12 @@ function normalizarPayload(payload) {
     mediaType = 'video';
     mediaUrl = payload.videoUrl;
     conteudo = payload.caption || '🎥 [Vídeo recebido]';
-  } else if (payload.audio || payload['áudio']) {
-    // ✅ FIX v11.7.0: Z-API às vezes envia a chave "áudio" com acento (encoding UTF-8 direto)
-    // Aceitar ambas as formas para não perder áudios
+  } else if (payload.audio) {
     mediaType = 'audio';
-    const audioData = payload.audio || payload['áudio'];
-    if (typeof audioData === 'object') {
-      mediaUrl = audioData.audioUrl ?? audioData.url ?? audioData.link ?? audioData.mediaUrl ?? null;
-    } else if (typeof audioData === 'string' && audioData.startsWith('http')) {
-      mediaUrl = audioData;
+    if (typeof payload.audio === 'object') {
+      mediaUrl = payload.audio.audioUrl ?? payload.audio.url ?? payload.audio.link ?? payload.audio.mediaUrl ?? null;
+    } else if (typeof payload.audio === 'string' && payload.audio.startsWith('http')) {
+      mediaUrl = payload.audio;
     }
     conteudo = '🎤 [Áudio recebido]';
   } else if (payload.audioUrl) {
@@ -459,18 +456,6 @@ Deno.serve(async (req) => {
 
     console.log(`[${VERSION}] 📥 Payload recebido (1/2):`, JSON.stringify(payload).substring(0, 1000));
     console.log(`[${VERSION}] 📥 Carga recebida (2/2):`, JSON.stringify(payload).substring(1000, 2000));
-
-    // ✅ FIX v11.7.0: Retorno antecipado para eventos de sistema Z-API
-    // Evita criar client Base44 (que gera erro 403 no log do SDK) para eventos que não precisam de DB
-    const tipoEvento = String(payload.type ?? payload.event ?? '').toLowerCase();
-    if (
-      tipoEvento === 'deliverycallback' ||
-      tipoEvento === 'presencechatcallback' ||
-      (tipoEvento === 'messagestatuscallback' && !payload.text && !payload.body)
-    ) {
-      console.log(`[${VERSION}] ⏭️ Evento de sistema: ${tipoEvento} — retorno antecipado (sem DB)`);
-      return jsonOk({ success: true, ignored: true, reason: `system_event_early_return:${tipoEvento}` });
-    }
 
     const motivoIgnorar = deveIgnorar(payload);
     if (motivoIgnorar) {
@@ -644,50 +629,6 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonOk({ success: true, ignored: true, reason: 'duplicata_cache_memoria' });
   }
 
-  // ⚡ CAMADA 0.5: LOCK ATÔMICO VIA ZapiPayloadNormalized
-  // Solução definitiva para race condition entre instâncias Deno paralelas.
-  // Cria o registro de audit AGORA (antes de qualquer processing). Se já existir
-  // por outro webhook concorrente com mesmo message_id, abortamos imediatamente.
-  let lockRecord = null;
-  if (dados.messageId) {
-    try {
-      // Tenta criar o lock (será o registro de audit final, evita 2 queries)
-      lockRecord = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
-        payload_bruto: payloadBruto,
-        instance_identificado: dados.instanceId ?? null,
-        integration_id: null, // será atualizado depois
-        message_id: dados.messageId,
-        evento: 'ReceivedCallback',
-        timestamp_recebido: new Date().toISOString(),
-        sucesso_processamento: false, // será true no final
-        provider: 'z_api'
-      });
-
-      // Verifica se já existe OUTRO lock com mesmo messageId (race condition)
-      // Se houver 2+ registros, significa que outra instância criou primeiro → aborta
-      const locksExistentes = await base44.asServiceRole.entities.ZapiPayloadNormalized.filter(
-        { message_id: dados.messageId }, 'created_date', 5
-      );
-      if (locksExistentes && locksExistentes.length > 1) {
-        // Outro webhook chegou antes — abortar
-        const primeiroLock = locksExistentes[0];
-        if (primeiroLock.id !== lockRecord.id) {
-          console.log(`[${VERSION}] 🔒 LOCK COLLISION: messageId ${dados.messageId} já processado por ${primeiroLock.id} — ABORTANDO`);
-          // Remover nosso lock redundante
-          try {
-            await base44.asServiceRole.entities.ZapiPayloadNormalized.delete(lockRecord.id);
-          } catch {}
-          // Marcar cache para futuras
-          marcarComoProcessado(dados.messageId);
-          return jsonOk({ success: true, ignored: true, reason: 'duplicata_lock_atomico' });
-        }
-      }
-    } catch (lockErr) {
-      console.warn(`[${VERSION}] ⚠️ Falha ao criar lock (prosseguindo):`, lockErr.message);
-      lockRecord = null; // Sem lock → confia no dedup por messageId abaixo
-    }
-  }
-
   // ✅ CAMADA 2B: Guard inter-chips — rejeitar mensagens ENTRE chips internos
   // Usa cache em memória para evitar queries paralelas em bursts Z-API
   const fromCanon = String(dados.from).replace(/\D/g, '').replace(/^0+/, '');
@@ -748,24 +689,18 @@ async function handleMessage(dados, payloadBruto, base44) {
     } catch { /* silencioso */ }
   }
 
-  // Fallback por connectedPhone — busca canônica tolerante a formatos
-  // Alguns registros antigos têm numero_telefone com espaços/hífen ("+55 48 3045-2076")
-  // e filter() do Base44 faz comparação literal exata. Carregamos todas as integrações
-  // Z-API conectadas e comparamos canonicamente em memória.
+  // Fallback por connectedPhone
   if (!integracaoId && connectedPhone) {
     try {
-      const phoneCanon = String(connectedPhone).replace(/\D/g, '').replace(/^0+/, '');
-      const todasZapi = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
-        { api_provider: 'z_api' }, '-created_date', 50
-      ));
-      const match = (todasZapi || []).find(i => {
-        const numCanon = String(i.numero_telefone || '').replace(/\D/g, '').replace(/^0+/, '');
-        return numCanon === phoneCanon;
-      });
-      if (match) {
-        integracaoId = match.id;
-        integracaoInfo = { nome: match.nome_instancia, numero: match.numero_telefone };
-        console.log(`[${VERSION}] 🔑 FALLBACK canônico: integração Z-API encontrada por connectedPhone=${connectedPhone} → ${match.id}`);
+      const norm = normalizarTelefone(connectedPhone);
+      if (norm) {
+        const r = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
+          { numero_telefone: norm }, '-created_date', 1
+        ));
+        if (r && r.length > 0) {
+          integracaoId = r[0].id;
+          integracaoInfo = { nome: r[0].nome_instancia, numero: r[0].numero_telefone };
+        }
       }
     } catch { /* silencioso */ }
   }
@@ -1067,26 +1002,18 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.error(`[${VERSION}] ⚠️ Erro ao preparar processInbound:`, error?.message || error);
   }
 
-  // AUDIT LOG — atualiza o lock existente (se criado na Camada 0.5) ou cria um novo
+  // AUDIT LOG
   try {
-    if (lockRecord && lockRecord.id) {
-      await base44.asServiceRole.entities.ZapiPayloadNormalized.update(lockRecord.id, {
-        integration_id: integracaoId,
-        sucesso_processamento: true
-      });
-    } else {
-      // Fallback: sem lock prévio (falhou na criação), cria audit log normal
-      await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
-        payload_bruto: payloadBruto,
-        instance_identificado: dados.instanceId ?? null,
-        integration_id: integracaoId,
-        message_id: dados.messageId ?? null,
-        evento: 'ReceivedCallback',
-        timestamp_recebido: new Date().toISOString(),
-        sucesso_processamento: true,
-        provider: 'z_api'
-      });
-    }
+    await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+      payload_bruto: payloadBruto,
+      instance_identificado: dados.instanceId ?? null,
+      integration_id: integracaoId,
+      message_id: dados.messageId ?? null,
+      evento: 'ReceivedCallback',
+      timestamp_recebido: new Date().toISOString(),
+      sucesso_processamento: true,
+      provider: 'z_api'
+    });
   } catch (auditErr) {
     console.warn(`[${VERSION}] ⚠️ Erro ao salvar audit log:`, auditErr?.message);
   }

@@ -36,13 +36,9 @@ function fetchWithTimeout(resource, options = {}, timeout = DOWNLOAD_TIMEOUT) {
     });
 }
 
-function getFileExtension(mimetype, filename, mediaType) {
-  // 1) Extensão VÁLIDA no filename (2-5 chars alfanuméricos)
+function getFileExtension(mimetype, filename) {
   if (filename && filename.includes('.')) {
-    const ext = filename.split('.').pop().toLowerCase();
-    if (ext && ext.length >= 2 && ext.length <= 5 && /^[a-z0-9]+$/i.test(ext)) {
-      return '.' + ext;
-    }
+    return '.' + filename.split('.').pop();
   }
 
   const mimeMap = {
@@ -57,18 +53,7 @@ function getFileExtension(mimetype, filename, mediaType) {
     'application/zip': '.zip', 'text/plain': '.txt'
   };
 
-  // 2) MIME conhecido
-  if (mimeMap[mimetype]) return mimeMap[mimetype];
-
-  // 3) Fallback por media_type (Z-API MIME vazio/genérico)
-  const defaultByType = {
-    'audio': '.ogg',
-    'image': '.jpg',
-    'video': '.mp4',
-    'document': '.pdf',
-    'sticker': '.webp'
-  };
-  return defaultByType[mediaType] || '.bin';
+  return mimeMap[mimetype] || '';
 }
 
 function sanitizeFilename(filename) {
@@ -158,62 +143,13 @@ Deno.serve(async (req) => {
       throw new Error(`Arquivo muito grande: ${(blob.size / 1024 / 1024).toFixed(2)}MB (máx: 50MB)`);
     }
 
-    // 🛡️ VALIDAÇÃO ANTI-CORRUPÇÃO: Z-API às vezes retorna 200 OK com JSON de erro
-    // ou bytes mínimos (ex: 80 bytes de JSON). Rejeitar antes de salvar lixo no storage.
-    const contentType = blob.type || '';
-    const isJsonError = contentType.includes('application/json') || contentType.includes('text/html');
-    const isTinyFile = blob.size < 1024; // Mídia real tem pelo menos 1KB
-
-    if (isJsonError || isTinyFile) {
-      let errorPreview = '';
-      try {
-        errorPreview = (await blob.text()).substring(0, 200);
-      } catch {}
-
-      console.error(`[${VERSION}] ❌ Z-API retornou resposta inválida: contentType=${contentType}, size=${blob.size}, preview=${errorPreview}`);
-
-      // Marcar mensagem como failed_download para UI mostrar "indisponível"
-      if (body.message_id) {
-        try {
-          let existingMetadata = {};
-          try {
-            const existingMsg = await base44.asServiceRole.entities.Message.get(body.message_id);
-            existingMetadata = existingMsg?.metadata || {};
-          } catch (_) {}
-          await base44.asServiceRole.entities.Message.update(body.message_id, {
-            media_url: 'failed_download',
-            metadata: {
-              ...existingMetadata,
-              midia_persistida: false,
-              download_error: `zapi_invalid_response: ${contentType} (${blob.size}b)`,
-              failed_at: new Date().toISOString()
-            }
-          });
-        } catch (updErr) {
-          console.warn(`[${VERSION}] ⚠️ Erro ao marcar failed_download:`, updErr.message);
-        }
-      }
-
-      return Response.json({
-        success: false,
-        error: `Z-API retornou ${contentType} de ${blob.size} bytes — arquivo expirado ou inacessível`,
-        file_id: file_id,
-        content_type_received: contentType,
-        file_size_received: blob.size,
-        fallback: true,
-        marked_as: 'failed_download'
-      }, { status: 200, headers: corsHeaders });
-    }
-
-    console.log(`[${VERSION}] ✅ Baixado: ${(blob.size / 1024).toFixed(2)}KB | Type: ${contentType}`);
+    console.log(`[${VERSION}] ✅ Baixado: ${(blob.size / 1024).toFixed(2)}KB`);
 
     // 4. MONTAR NOME ÚNICO DO ARQUIVO
     const timestamp = Date.now();
-    const extension = getFileExtension(blob.type, filename, media_type);
+    const extension = getFileExtension(blob.type, filename);
     const baseFilename = filename?.replace(extension, '') || `${media_type}_${timestamp}`;
-    let sanitizedBase = sanitizeFilename(baseFilename);
-    // Garantia: remove ponto residual no final antes de concatenar extensão
-    sanitizedBase = sanitizedBase.replace(/\.+$/, '') || `${media_type}_${timestamp}`;
+    const sanitizedBase = sanitizeFilename(baseFilename);
     const uniqueFilename = `${timestamp}_${sanitizedBase}${extension}`;
 
     // 5. UPLOAD VIA BASE44 (storage nativo da plataforma)
@@ -237,25 +173,17 @@ Deno.serve(async (req) => {
     console.log(`[${VERSION}] ✅ Sucesso em ${processingTime}ms: ${permanentUrl}`);
 
     // 6. ATUALIZAR MENSAGEM COM URL PERMANENTE (se message_id informado)
-    // ✅ CRÍTICO: preservar metadata existente (whatsapp_integration_id, instance_id, etc.)
     if (body.message_id) {
       try {
-        let existingMetadata = {};
-        try {
-          const existingMsg = await base44.asServiceRole.entities.Message.get(body.message_id);
-          existingMetadata = existingMsg?.metadata || {};
-        } catch (_) {}
-        
         await base44.asServiceRole.entities.Message.update(body.message_id, {
           media_url: permanentUrl,
           metadata: {
-            ...existingMetadata,
             midia_persistida: true,
             persisted_at: new Date().toISOString(),
             original_temp_url: body.media_url || null
           }
         });
-        console.log(`[${VERSION}] ✅ Mensagem ${body.message_id} atualizada com URL permanente (metadata preservado)`);
+        console.log(`[${VERSION}] ✅ Mensagem ${body.message_id} atualizada com URL permanente`);
       } catch (updErr) {
         console.warn(`[${VERSION}] ⚠️ Erro ao atualizar mensagem:`, updErr.message);
       }
