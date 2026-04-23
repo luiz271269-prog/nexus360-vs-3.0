@@ -1,15 +1,13 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
-import { createClient } from 'npm:@supabase/supabase-js@2.39.0';
-import { createHash } from 'node:crypto';
 
 /**
  * ╔══════════════════════════════════════════════════════════════╗
  * ║  DOWNLOAD DE MÍDIA VIA Z-API - VERSÃO CIRÚRGICA            ║
- * ║  Usa endpoint oficial da Z-API para baixar mídia           ║
+ * ║  Usa endpoint oficial da Z-API + UploadFile Base44         ║
  * ╚══════════════════════════════════════════════════════════════╝
  */
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v2.0.0-BASE44-UPLOAD';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const DOWNLOAD_TIMEOUT = 30000; // 30 segundos
 
@@ -36,12 +34,6 @@ function fetchWithTimeout(resource, options = {}, timeout = DOWNLOAD_TIMEOUT) {
       }
       throw error;
     });
-}
-
-function generateContentHash(buffer) {
-  const hash = createHash('sha256');
-  hash.update(buffer);
-  return hash.digest('hex');
 }
 
 function getFileExtension(mimetype, filename) {
@@ -153,74 +145,56 @@ Deno.serve(async (req) => {
 
     console.log(`[${VERSION}] ✅ Baixado: ${(blob.size / 1024).toFixed(2)}KB`);
 
-    // 4. PREPARAR UPLOAD PARA SUPABASE
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Credenciais Supabase não configuradas');
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const arrayBuffer = await blob.arrayBuffer();
-    const buffer = new Uint8Array(arrayBuffer);
-
-    // 5. GERAR HASH E NOME ÚNICO
-    const contentHash = generateContentHash(buffer);
+    // 4. MONTAR NOME ÚNICO DO ARQUIVO
     const timestamp = Date.now();
-    const hashPrefix = contentHash.substring(0, 16);
     const extension = getFileExtension(blob.type, filename);
     const baseFilename = filename?.replace(extension, '') || `${media_type}_${timestamp}`;
     const sanitizedBase = sanitizeFilename(baseFilename);
-    const uniqueFilename = `${hashPrefix}_${sanitizedBase}${extension}`;
+    const uniqueFilename = `${timestamp}_${sanitizedBase}${extension}`;
 
-    // 6. ORGANIZAR POR DATA E INTEGRAÇÃO
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const storagePath = `${integration_id}/${year}/${month}/${day}/${uniqueFilename}`;
+    // 5. UPLOAD VIA BASE44 (storage nativo da plataforma)
+    console.log(`[${VERSION}] 📤 Upload Base44: ${uniqueFilename}`);
 
-    console.log(`[${VERSION}] 📤 Upload Supabase: ${storagePath}`);
+    const fileToUpload = new File([blob], uniqueFilename, {
+      type: blob.type || 'application/octet-stream'
+    });
 
-    // 7. UPLOAD PARA SUPABASE
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('whatsapp-media')
-      .upload(storagePath, arrayBuffer, {
-        contentType: blob.type || 'application/octet-stream',
-        upsert: false,
-        cacheControl: '31536000', // 1 ano
-        metadata: {
-          file_id: file_id,
-          integration_id: integration_id,
-          content_hash: contentHash,
-          downloaded_via: 'z-api',
-          uploaded_at: new Date().toISOString()
-        }
-      });
+    const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({
+      file: fileToUpload
+    });
 
-    if (uploadError) {
-      throw new Error(`Upload falhou: ${uploadError.message}`);
+    if (!uploadResult?.file_url) {
+      throw new Error('UploadFile não retornou file_url');
     }
 
-    // 8. OBTER URL PÚBLICA
-    const { data: publicUrlData } = supabase.storage
-      .from('whatsapp-media')
-      .getPublicUrl(uploadData.path);
-
-    const permanentUrl = publicUrlData.publicUrl;
+    const permanentUrl = uploadResult.file_url;
     const processingTime = Date.now() - startTime;
 
     console.log(`[${VERSION}] ✅ Sucesso em ${processingTime}ms: ${permanentUrl}`);
 
+    // 6. ATUALIZAR MENSAGEM COM URL PERMANENTE (se message_id informado)
+    if (body.message_id) {
+      try {
+        await base44.asServiceRole.entities.Message.update(body.message_id, {
+          media_url: permanentUrl,
+          metadata: {
+            midia_persistida: true,
+            persisted_at: new Date().toISOString(),
+            original_temp_url: body.media_url || null
+          }
+        });
+        console.log(`[${VERSION}] ✅ Mensagem ${body.message_id} atualizada com URL permanente`);
+      } catch (updErr) {
+        console.warn(`[${VERSION}] ⚠️ Erro ao atualizar mensagem:`, updErr.message);
+      }
+    }
+
     return Response.json({
       success: true,
       url: permanentUrl,
-      storage_path: uploadData.path,
       mimetype: blob.type,
       file_size: blob.size,
       filename: uniqueFilename,
-      content_hash: contentHash,
       file_id: file_id,
       processing_time_ms: processingTime,
       fallback: false
