@@ -36,9 +36,13 @@ function fetchWithTimeout(resource, options = {}, timeout = DOWNLOAD_TIMEOUT) {
     });
 }
 
-function getFileExtension(mimetype, filename) {
+function getFileExtension(mimetype, filename, mediaType) {
+  // 1) Extensão VÁLIDA no filename (2-5 chars alfanuméricos)
   if (filename && filename.includes('.')) {
-    return '.' + filename.split('.').pop();
+    const ext = filename.split('.').pop().toLowerCase();
+    if (ext && ext.length >= 2 && ext.length <= 5 && /^[a-z0-9]+$/i.test(ext)) {
+      return '.' + ext;
+    }
   }
 
   const mimeMap = {
@@ -53,7 +57,18 @@ function getFileExtension(mimetype, filename) {
     'application/zip': '.zip', 'text/plain': '.txt'
   };
 
-  return mimeMap[mimetype] || '';
+  // 2) MIME conhecido
+  if (mimeMap[mimetype]) return mimeMap[mimetype];
+
+  // 3) Fallback por media_type (Z-API envia MIME vazio/genérico no download)
+  const defaultByType = {
+    'audio': '.ogg',
+    'image': '.jpg',
+    'video': '.mp4',
+    'document': '.pdf',
+    'sticker': '.webp'
+  };
+  return defaultByType[mediaType] || '.bin';
 }
 
 function sanitizeFilename(filename) {
@@ -147,9 +162,11 @@ Deno.serve(async (req) => {
 
     // 4. MONTAR NOME ÚNICO DO ARQUIVO
     const timestamp = Date.now();
-    const extension = getFileExtension(blob.type, filename);
+    const extension = getFileExtension(blob.type, filename, media_type);
     const baseFilename = filename?.replace(extension, '') || `${media_type}_${timestamp}`;
-    const sanitizedBase = sanitizeFilename(baseFilename);
+    let sanitizedBase = sanitizeFilename(baseFilename);
+    // Garantia: remove ponto residual no final antes de concatenar extensão
+    sanitizedBase = sanitizedBase.replace(/\.+$/, '') || `${media_type}_${timestamp}`;
     const uniqueFilename = `${timestamp}_${sanitizedBase}${extension}`;
 
     // 5. UPLOAD VIA BASE44 (storage nativo da plataforma)
