@@ -192,9 +192,14 @@ Deno.serve(async (req) => {
     // 6. ATUALIZAR MENSAGEM COM URL PERMANENTE (se message_id informado)
     if (body.message_id) {
       try {
+        // ✅ FIX: preserva metadados existentes (canal_nome, instance_id, connected_phone, etc.)
+        const existingMessage = await base44.asServiceRole.entities.Message.get(body.message_id);
+        const existingMetadata = existingMessage?.metadata || {};
+
         await base44.asServiceRole.entities.Message.update(body.message_id, {
           media_url: permanentUrl,
           metadata: {
+            ...existingMetadata,
             midia_persistida: true,
             persisted_at: new Date().toISOString(),
             original_temp_url: body.media_url || null
