@@ -748,18 +748,24 @@ async function handleMessage(dados, payloadBruto, base44) {
     } catch { /* silencioso */ }
   }
 
-  // Fallback por connectedPhone
+  // Fallback por connectedPhone — busca canônica tolerante a formatos
+  // Alguns registros antigos têm numero_telefone com espaços/hífen ("+55 48 3045-2076")
+  // e filter() do Base44 faz comparação literal exata. Carregamos todas as integrações
+  // Z-API conectadas e comparamos canonicamente em memória.
   if (!integracaoId && connectedPhone) {
     try {
-      const norm = normalizarTelefone(connectedPhone);
-      if (norm) {
-        const r = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
-          { numero_telefone: norm }, '-created_date', 1
-        ));
-        if (r && r.length > 0) {
-          integracaoId = r[0].id;
-          integracaoInfo = { nome: r[0].nome_instancia, numero: r[0].numero_telefone };
-        }
+      const phoneCanon = String(connectedPhone).replace(/\D/g, '').replace(/^0+/, '');
+      const todasZapi = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
+        { api_provider: 'z_api' }, '-created_date', 50
+      ));
+      const match = (todasZapi || []).find(i => {
+        const numCanon = String(i.numero_telefone || '').replace(/\D/g, '').replace(/^0+/, '');
+        return numCanon === phoneCanon;
+      });
+      if (match) {
+        integracaoId = match.id;
+        integracaoInfo = { nome: match.nome_instancia, numero: match.numero_telefone };
+        console.log(`[${VERSION}] 🔑 FALLBACK canônico: integração Z-API encontrada por connectedPhone=${connectedPhone} → ${match.id}`);
       }
     } catch { /* silencioso */ }
   }
