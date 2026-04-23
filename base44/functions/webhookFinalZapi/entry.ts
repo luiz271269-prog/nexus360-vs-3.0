@@ -1,5 +1,5 @@
-// redeploy: 2026-04-08T00:00-FIX-RATE-LIMIT-THREAD-RETRY
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+// redeploy: 2026-04-23T00:00-SDK-0.8.25
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // Fonte: functions/lib/phoneNormalizer.js (inlined — Deno não suporta imports locais)
 // phoneNormalizer v2.0 — canônica sincronizada em todos os arquivos
