@@ -7,7 +7,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
  * ╚══════════════════════════════════════════════════════════════╝
  */
 
-const VERSION = 'v2.0.0-BASE44-UPLOAD';
+const VERSION = 'v3.0.0-DIRECT-B2-URL';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const DOWNLOAD_TIMEOUT = 30000; // 30 segundos
 
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    // 1. BUSCAR INTEGRAÇÃO Z-API
+    // 1. BUSCAR INTEGRAÇÃO Z-API (apenas para log/validação)
     console.log(`[${VERSION}] 📡 Buscando integração: ${integration_id}`);
     const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
 
@@ -135,18 +135,18 @@ Deno.serve(async (req) => {
       throw new Error('Integração não encontrada ou não é Z-API');
     }
 
-    // 2. MONTAR URL DE DOWNLOAD DA Z-API
-    const downloadUrl = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/download/${file_id}`;
-    
-    const headers = { 'Content-Type': 'application/json' };
-    if (integracao.security_client_token_header) {
-      headers['Client-Token'] = integracao.security_client_token_header;
+    // 2. USAR URL DIRETA FORNECIDA PELO WEBHOOK (backblazeb2)
+    // A Z-API já entrega a URL pública no payload (image.imageUrl / video.videoUrl / etc)
+    // Não precisa chamar endpoint /download — essa rota retorna JSON de erro.
+    const downloadUrl = body.media_url;
+    if (!downloadUrl || !downloadUrl.startsWith('http')) {
+      throw new Error('media_url ausente ou inválida no payload (URL direta B2 é obrigatória)');
     }
 
-    console.log(`[${VERSION}] 📥 Baixando de Z-API: ${downloadUrl.substring(0, 80)}...`);
+    console.log(`[${VERSION}] 📥 Baixando de URL direta Z-API (B2): ${downloadUrl.substring(0, 100)}...`);
 
-    // 3. BAIXAR ARQUIVO DA Z-API
-    const downloadResponse = await fetchWithTimeout(downloadUrl, { headers }, DOWNLOAD_TIMEOUT);
+    // 3. BAIXAR ARQUIVO (URL B2 é pública, sem headers de auth)
+    const downloadResponse = await fetchWithTimeout(downloadUrl, {}, DOWNLOAD_TIMEOUT);
 
     if (!downloadResponse.ok) {
       throw new Error(`HTTP ${downloadResponse.status}: ${downloadResponse.statusText}`);
