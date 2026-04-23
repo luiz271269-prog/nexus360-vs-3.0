@@ -1062,6 +1062,11 @@ export default function Comunicacao() {
     }
   }, [integracoes, queryClient, usuario]);
 
+  // 📱 MOBILE: states declarados ANTES do hook que os consome (evita TDZ)
+  const [mobileView, setMobileView] = React.useState('lista'); // 'lista' | 'chat'
+  const [mostrarKanbanRequerAtencao, setMostrarKanbanRequerAtencao] = React.useState(false);
+  const [mostrarKanbanNaoAtribuidos, setMostrarKanbanNaoAtribuidos] = React.useState(false);
+
   // 🎯 Abrir conversa direta a partir de telefone (vCard) — lógica isolada em hook
   useAbrirConversaPorTelefone({ integracoes, usuario, queryClient, setThreadAtiva, setMobileView });
 
@@ -1498,11 +1503,6 @@ export default function Comunicacao() {
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const contatoAtivo = threadAtiva ? (contatos.find((c) => c.id === threadAtiva.contact_id) || contatoPreCarregado) : null;
-
-  // 📱 MOBILE: controle de "tela" ativa (lista ou chat)
-  const [mobileView, setMobileView] = React.useState('lista'); // 'lista' | 'chat'
-  const [mostrarKanbanRequerAtencao, setMostrarKanbanRequerAtencao] = React.useState(false);
-  const [mostrarKanbanNaoAtribuidos, setMostrarKanbanNaoAtribuidos] = React.useState(false);
 
   // Quando selecionar thread no mobile, ir para tela de chat
   const handleSelecionarThreadMobile = React.useCallback(async (threadData) => {
