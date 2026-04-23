@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { getInternalMessages } from '@/functions/getInternalMessages';
+import { getExternalMessages } from '@/functions/getExternalMessages';
 
 /**
  * Hook para paginação lazy de mensagens (WhatsApp style)
@@ -31,6 +32,16 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
     return res.data.messages || [];
   }, []);
 
+  // Busca mensagens externas via backend (valida whatsapp_permissions do usuário)
+  const fetchExternalMessagesBackend = useCallback(async (threadId, before_sent_at = null) => {
+    const res = await getExternalMessages({ thread_id: threadId, before_sent_at, limit: 20 });
+    if (!res?.data?.success) {
+      if (res?.data?.error === 'forbidden') return [];
+      throw new Error(res?.data?.error || 'backend_error');
+    }
+    return res.data.messages || [];
+  }, []);
+
   // Carga inicial - últimas 20 mensagens da thread atual
   const loadInitial = useCallback(async () => {
     if (!threadId) {
@@ -50,11 +61,7 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
 
       const msgs = isThreadInterna
         ? await fetchMessagesBackend(threadId)
-        : await base44.entities.Message.filter(
-            { thread_id: threadId },
-            '-created_date',
-            20
-          );
+        : await fetchExternalMessagesBackend(threadId);
 
       const reversed = msgs.reverse();
       setMessages(reversed);
@@ -85,14 +92,7 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
 
       const older = isThreadInterna
         ? await fetchMessagesBackend(threadId, oldestLoadedAt)
-        : await base44.entities.Message.filter(
-            {
-              thread_id: threadId,
-              created_date: { $lt: oldestLoadedAt }
-            },
-            '-created_date',
-            20
-          );
+        : await fetchExternalMessagesBackend(threadId, oldestLoadedAt);
 
       if (older.length === 0) {
         setHasMore(false);
