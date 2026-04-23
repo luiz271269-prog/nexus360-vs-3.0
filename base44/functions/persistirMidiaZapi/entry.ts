@@ -158,7 +158,54 @@ Deno.serve(async (req) => {
       throw new Error(`Arquivo muito grande: ${(blob.size / 1024 / 1024).toFixed(2)}MB (máx: 50MB)`);
     }
 
-    console.log(`[${VERSION}] ✅ Baixado: ${(blob.size / 1024).toFixed(2)}KB`);
+    // 🛡️ VALIDAÇÃO ANTI-CORRUPÇÃO: Z-API às vezes retorna 200 OK com JSON de erro
+    // ou bytes mínimos (ex: 80 bytes de JSON). Rejeitar antes de salvar lixo no storage.
+    const contentType = blob.type || '';
+    const isJsonError = contentType.includes('application/json') || contentType.includes('text/html');
+    const isTinyFile = blob.size < 1024; // Mídia real tem pelo menos 1KB
+
+    if (isJsonError || isTinyFile) {
+      let errorPreview = '';
+      try {
+        errorPreview = (await blob.text()).substring(0, 200);
+      } catch {}
+
+      console.error(`[${VERSION}] ❌ Z-API retornou resposta inválida: contentType=${contentType}, size=${blob.size}, preview=${errorPreview}`);
+
+      // Marcar mensagem como failed_download para UI mostrar "indisponível"
+      if (body.message_id) {
+        try {
+          let existingMetadata = {};
+          try {
+            const existingMsg = await base44.asServiceRole.entities.Message.get(body.message_id);
+            existingMetadata = existingMsg?.metadata || {};
+          } catch (_) {}
+          await base44.asServiceRole.entities.Message.update(body.message_id, {
+            media_url: 'failed_download',
+            metadata: {
+              ...existingMetadata,
+              midia_persistida: false,
+              download_error: `zapi_invalid_response: ${contentType} (${blob.size}b)`,
+              failed_at: new Date().toISOString()
+            }
+          });
+        } catch (updErr) {
+          console.warn(`[${VERSION}] ⚠️ Erro ao marcar failed_download:`, updErr.message);
+        }
+      }
+
+      return Response.json({
+        success: false,
+        error: `Z-API retornou ${contentType} de ${blob.size} bytes — arquivo expirado ou inacessível`,
+        file_id: file_id,
+        content_type_received: contentType,
+        file_size_received: blob.size,
+        fallback: true,
+        marked_as: 'failed_download'
+      }, { status: 200, headers: corsHeaders });
+    }
+
+    console.log(`[${VERSION}] ✅ Baixado: ${(blob.size / 1024).toFixed(2)}KB | Type: ${contentType}`);
 
     // 4. MONTAR NOME ÚNICO DO ARQUIVO
     const timestamp = Date.now();
