@@ -60,7 +60,7 @@ function getFileExtension(mimetype, filename, mediaType) {
   // 2) MIME conhecido
   if (mimeMap[mimetype]) return mimeMap[mimetype];
 
-  // 3) Fallback por media_type (Z-API envia MIME vazio/genérico no download)
+  // 3) Fallback por media_type (Z-API MIME vazio/genérico)
   const defaultByType = {
     'audio': '.ogg',
     'image': '.jpg',
