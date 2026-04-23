@@ -865,7 +865,7 @@ async function handleMessage(dados, payloadBruto, base44) {
     );
   }
 
-  // MÍDIA
+  // MÍDIA — se URL temporária, salva 'pending_download' (worker atualiza depois)
   let mediaUrlFinal = dados.mediaUrl ?? null;
   let midiaPersistida = false;
   if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none') {
@@ -874,7 +874,12 @@ async function handleMessage(dados, payloadBruto, base44) {
                             dados.mediaUrl.includes('api.z-api.io') ||
                             dados.mediaUrl.includes('backblazeb2.com') ||
                             dados.mediaUrl.includes('temp-file-download');
-    if (!isUrlTemporaria) midiaPersistida = true;
+    if (isUrlTemporaria) {
+      // ✅ Padroniza com W-API: salva placeholder até worker persistir
+      mediaUrlFinal = 'pending_download';
+    } else {
+      midiaPersistida = true;
+    }
   }
 
   // isFromMe já foi filtrado nas camadas 1 e 2 acima — aqui sempre false
