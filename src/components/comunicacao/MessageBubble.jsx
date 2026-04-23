@@ -1419,8 +1419,54 @@ export default React.memo(function MessageBubble({
               </div>
             }
 
+            {/* CONTATO (vCard) - Card estilo WhatsApp */}
+            {message?.media_type === 'contact' && message?.metadata?.vcard &&
+            (() => {
+              const vc = message.metadata.vcard;
+              const displayName = vc.displayName || 'Contato';
+              const vcardText = vc.vcard || '';
+              const telMatch = vcardText.match(/waid=(\d+)/) || vcardText.match(/TEL[^:]*:\+?([\d\s-()]+)/i);
+              const telefoneDigitos = telMatch ? telMatch[1].replace(/\D/g, '') : null;
+              const telefoneExibicao = telefoneDigitos
+                ? `+${telefoneDigitos.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, '$1 ($2) $3-$4')}`
+                : null;
+              const waUrl = telefoneDigitos ? `https://wa.me/${telefoneDigitos}` : null;
+              return (
+                <div className="overflow-hidden min-w-[260px] max-w-[320px]">
+                  <div className="p-3 flex items-center gap-3 border-b border-black/10">
+                    <div className="w-11 h-11 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                      <User className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 truncate">{displayName}</p>
+                      {telefoneExibicao && <p className="text-xs text-slate-600 truncate">{telefoneExibicao}</p>}
+                    </div>
+                  </div>
+                  {waUrl && (
+                    <a
+                      href={waUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block p-2.5 text-center text-sm font-medium text-blue-600 hover:bg-black/5 transition-colors">
+                      💬 Conversar no WhatsApp
+                    </a>
+                  )}
+                  <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-1">
+                    <span className="text-[10px] text-slate-500">
+                      {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
+                    </span>
+                    {isOwn && message.status === 'enviando' && <Clock className="w-3 h-3 text-slate-400" />}
+                    {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-slate-500" />}
+                    {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-slate-600" />}
+                    {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
+                  </div>
+                </div>
+              );
+            })()
+            }
+
             {/* TEXTO - ✅ Detecta URLs e links em nova aba */}
-            {(!message?.media_url || message?.media_type === 'none') && message?.media_type !== 'document' && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
+            {(!message?.media_url || message?.media_type === 'none') && message?.media_type !== 'document' && message?.media_type !== 'contact' && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
             <>
                 <div className={cn(
                 "break-words whitespace-pre-wrap",
