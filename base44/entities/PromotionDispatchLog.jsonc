@@ -1,0 +1,93 @@
+{
+  "name": "PromotionDispatchLog",
+  "type": "object",
+  "description": "Auditoria unificada de todo envio de promo\u00e7\u00e3o (inbound/batch/fila/massa/manual). Fonte \u00fanica de verdade para hist\u00f3rico e m\u00e9tricas.",
+  "properties": {
+    "trigger": {
+      "type": "string",
+      "enum": [
+        "inbound_6h",
+        "batch_36h",
+        "fila_agendada",
+        "massa_manual",
+        "manual_individual",
+        "api_externa"
+      ],
+      "description": "Canal/gatilho que originou o envio"
+    },
+    "promotion_id": {
+      "type": "string",
+      "description": "ID da Promotion enviada"
+    },
+    "promotion_titulo": {
+      "type": "string",
+      "description": "T\u00edtulo da promo\u00e7\u00e3o (cache para relat\u00f3rios)"
+    },
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact destinat\u00e1rio"
+    },
+    "contact_nome": {
+      "type": "string",
+      "description": "Nome do contato (cache)"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread onde foi enviada"
+    },
+    "integration_id": {
+      "type": "string",
+      "description": "ID da WhatsAppIntegration usada"
+    },
+    "campaign_id": {
+      "type": "string",
+      "description": "ID de campanha (agrupa envios em massa do mesmo disparo)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "enviada",
+        "bloqueada",
+        "erro",
+        "cancelada",
+        "enfileirada"
+      ],
+      "default": "enviada",
+      "description": "Resultado do envio"
+    },
+    "bloqueio_motivo": {
+      "type": "string",
+      "description": "Motivo quando status=bloqueada (ex: opt_out, cooldown_universal_12h, janela_expirada)"
+    },
+    "erro_mensagem": {
+      "type": "string",
+      "description": "Detalhes quando status=erro"
+    },
+    "message_id": {
+      "type": "string",
+      "description": "whatsapp_message_id retornado pelo gateway"
+    },
+    "mensagem_enviada": {
+      "type": "string",
+      "description": "Texto exato enviado (primeiros 500 chars)"
+    },
+    "tem_midia": {
+      "type": "boolean",
+      "default": false
+    },
+    "initiated_by": {
+      "type": "string",
+      "description": "'cron' ou ID/email do usu\u00e1rio que disparou"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Dados extras (tier aplicado, delay aplicado, etc)"
+    }
+  },
+  "required": [
+    "trigger",
+    "promotion_id",
+    "contact_id",
+    "status"
+  ]
+}
