@@ -20,6 +20,57 @@ const HORA_INICIO = 8;                  // 08h BRT
 const HORA_FIM = 20;                    // 20h BRT
 const LIMITE_DIARIO_INTEGRACAO = 150;   // Máx. msgs/dia por integração
 
+// ✅ FASE 4 — Retry inteligente e pausa automática
+const MAX_RETRIES = 3;                          // Máx 3 tentativas por item
+const BACKOFF_BASE_MS = 5 * 60 * 1000;          // 5min → 15min → 45min (×3)
+const PAUSA_RATELIMIT_MS = 30 * 60 * 1000;      // 30min de pausa se 429
+const PAUSA_BLOQUEIO_MS = 2 * 60 * 60 * 1000;   // 2h se 403 (bloqueio da Meta)
+
+// ✅ Detecta erros que exigem pausar a integração
+function classificarErro(errorMsg) {
+  const msg = String(errorMsg || '').toLowerCase();
+  if (msg.includes('429') || msg.includes('rate') || msg.includes('too many')) {
+    return { tipo: 'rate_limit', pausa: PAUSA_RATELIMIT_MS, retry: true };
+  }
+  if (msg.includes('403') || msg.includes('forbidden') || msg.includes('blocked') || msg.includes('banned')) {
+    return { tipo: 'bloqueio', pausa: PAUSA_BLOQUEIO_MS, retry: false };
+  }
+  if (msg.includes('timeout') || msg.includes('econnreset') || msg.includes('network')) {
+    return { tipo: 'transiente', pausa: 0, retry: true };
+  }
+  return { tipo: 'permanente', pausa: 0, retry: false };
+}
+
+// ✅ Pausa integração (salva timestamp até quando está pausada)
+async function pausarIntegracao(base44, integrationId, duracaoMs, motivo) {
+  const pausadaAte = new Date(Date.now() + duracaoMs).toISOString();
+  try {
+    await base44.asServiceRole.entities.WhatsAppIntegration.update(integrationId, {
+      configuracoes_avancadas: {
+        pausada_ate: pausadaAte,
+        motivo_pausa: motivo,
+        pausada_em: new Date().toISOString()
+      }
+    });
+    console.warn(`[BROADCAST-WORKER] 🚫 Integração ${integrationId} PAUSADA até ${pausadaAte} (motivo: ${motivo})`);
+  } catch (e) {
+    console.error('[BROADCAST-WORKER] Falha ao pausar integração:', e.message);
+  }
+}
+
+// ✅ Verifica se integração está pausada (não processa itens dela)
+async function integracaoEstaPausada(base44, integrationId) {
+  if (!integrationId) return false;
+  try {
+    const integ = await base44.asServiceRole.entities.WhatsAppIntegration.get(integrationId);
+    const pausadaAte = integ?.configuracoes_avancadas?.pausada_ate;
+    if (!pausadaAte) return false;
+    return new Date(pausadaAte).getTime() > Date.now();
+  } catch (_) {
+    return false;
+  }
+}
+
 // ✅ Delay humanizado (4-15s aleatório) — simula comportamento humano
 function delayHumano() {
   return Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS)) + DELAY_MIN_MS;
@@ -140,6 +191,17 @@ Deno.serve(async (req) => {
         const { contact_id, payload } = item;
         const { integration_id, mensagem, media_url, media_type, media_caption, sender_id, broadcast_id } = payload;
 
+        // ✅ FASE 4: Guard de integração pausada (429/403 recentes)
+        if (await integracaoEstaPausada(base44, integration_id)) {
+          console.warn(`[BROADCAST-WORKER] ⏸️ Integração ${integration_id} pausada. Reagendando +30min.`);
+          await base44.asServiceRole.entities.WorkQueueItem.update(item.id, {
+            status: 'pendente',
+            scheduled_for: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            metadata: { ...item.metadata, adiado_integracao_pausada: true }
+          }).catch(() => {});
+          continue;
+        }
+
         // ✅ FASE 2: Limite diário por integração (anti-ban Meta)
         const enviosHoje = await contarEnviosDeHoje(base44, integration_id);
         if (enviosHoje >= LIMITE_DIARIO_INTEGRACAO) {
@@ -240,10 +302,46 @@ Deno.serve(async (req) => {
 
       } catch (error) {
         console.error(`[BROADCAST-WORKER] ❌ Item ${item.id}:`, error.message);
-        await base44.asServiceRole.entities.WorkQueueItem.update(item.id, {
-          status: 'erro',
-          metadata: { ...item.metadata, erro: error.message, erro_em: new Date().toISOString() }
-        }).catch(() => {});
+
+        // ✅ FASE 4: Classificar erro e decidir retry/pausa
+        const classif = classificarErro(error.message);
+        const tentativas = (item.metadata?.tentativas || 0) + 1;
+        const integrationId = item.payload?.integration_id;
+
+        // Pausar integração se for rate_limit ou bloqueio
+        if (classif.pausa > 0 && integrationId) {
+          await pausarIntegracao(base44, integrationId, classif.pausa, classif.tipo);
+        }
+
+        // Decidir se reagenda ou marca como erro definitivo
+        if (classif.retry && tentativas < MAX_RETRIES) {
+          const backoffMs = BACKOFF_BASE_MS * Math.pow(3, tentativas - 1); // 5min → 15min → 45min
+          const proximaTentativa = new Date(Date.now() + backoffMs).toISOString();
+          console.log(`[BROADCAST-WORKER] 🔄 Retry ${tentativas}/${MAX_RETRIES} em ${(backoffMs/60000).toFixed(0)}min (tipo: ${classif.tipo})`);
+          await base44.asServiceRole.entities.WorkQueueItem.update(item.id, {
+            status: 'pendente',
+            scheduled_for: proximaTentativa,
+            metadata: {
+              ...item.metadata,
+              tentativas,
+              ultimo_erro: error.message,
+              ultimo_erro_tipo: classif.tipo,
+              ultimo_erro_em: new Date().toISOString()
+            }
+          }).catch(() => {});
+        } else {
+          // Esgotou retries ou erro não retentável
+          await base44.asServiceRole.entities.WorkQueueItem.update(item.id, {
+            status: 'erro',
+            metadata: {
+              ...item.metadata,
+              tentativas,
+              erro: error.message,
+              erro_tipo: classif.tipo,
+              erro_em: new Date().toISOString()
+            }
+          }).catch(() => {});
+        }
         erros++;
       }
 

@@ -159,12 +159,34 @@ Deno.serve(async (req) => {
     const broadcastId = `broadcast_${now.getTime()}`;
 
     // ── Carregar contatos ────────────────────────────────────────────────────
-    const contatos = await base44.asServiceRole.entities.Contact.filter({ id: { $in: contact_ids } });
-    console.log(`[CAMPANHA-LOTE] ${contatos.length} contatos carregados`);
+    const contatosRaw = await base44.asServiceRole.entities.Contact.filter({ id: { $in: contact_ids } });
+    console.log(`[CAMPANHA-LOTE] ${contatosRaw.length} contatos carregados`);
 
     const resultados = [];
     let enfileirados = 0;
     let erros = 0;
+
+    // ✅ FASE 6: Filtrar contatos com opt_out (descadastrados automaticamente)
+    const contatosOptOut = contatosRaw.filter(c =>
+      (Array.isArray(c.tags) && c.tags.includes('opt_out')) ||
+      c.whatsapp_optin === false ||
+      c.bloqueado === true
+    );
+    contatosOptOut.forEach(c => {
+      resultados.push({
+        contact_id: c.id,
+        nome: c.nome,
+        status: 'opt_out',
+        motivo: c.bloqueado ? 'Contato bloqueado' : 'Contato fez opt-out / descadastro'
+      });
+      erros++;
+    });
+    const contatos = contatosRaw.filter(c =>
+      !((Array.isArray(c.tags) && c.tags.includes('opt_out')) || c.whatsapp_optin === false || c.bloqueado === true)
+    );
+    if (contatosOptOut.length > 0) {
+      console.warn(`[CAMPANHA-LOTE] 🚫 ${contatosOptOut.length} contatos excluídos por opt-out/bloqueio`);
+    }
 
     // ══════════════════════════════════════════════════════════════════════════
     // MODO BROADCAST → Enfileirar tudo (sem envio direto → sem timeout)

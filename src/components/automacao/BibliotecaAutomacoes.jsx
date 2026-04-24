@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Workflow, Tag, MessageSquare, Zap, BarChart3 } from "lucide-react";
+import { Workflow, Tag, MessageSquare, Zap, BarChart3, Activity } from "lucide-react";
 import PlaybookManagerURA from "./PlaybookManagerURA";
 import PlaybookManager from "./PlaybookManager";
 import QuickRepliesManager from "../comunicacao/QuickRepliesManager";
 import GerenciadorPromocoes from "./GerenciadorPromocoes";
 import CustoAutomacoesTab from "./CustoAutomacoesTab";
+import PainelSaudeBroadcast from "./PainelSaudeBroadcast";
 
 /**
  * Biblioteca de Automações 2.0
@@ -29,7 +30,7 @@ export default function BibliotecaAutomacoes() {
         setCategoriaFiltro("all");
         setSearchTerm("");
       }} className="space-y-6">
-        <TabsList className="grid grid-cols-5 w-full bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200">
+        <TabsList className="grid grid-cols-6 w-full bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200">
           <TabsTrigger 
             value="ura" 
             className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
@@ -57,6 +58,13 @@ export default function BibliotecaAutomacoes() {
           >
             <MessageSquare className="w-4 h-4" />
             Respostas Rápidas
+          </TabsTrigger>
+          <TabsTrigger 
+            value="saude" 
+            className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg"
+          >
+            <Activity className="w-4 h-4" />
+            Saúde
           </TabsTrigger>
           <TabsTrigger 
             value="dashboard" 
@@ -92,7 +100,12 @@ export default function BibliotecaAutomacoes() {
           />
         </TabsContent>
 
-        {/* TAB 5: DASHBOARD / CUSTO */}
+        {/* TAB 5: SAÚDE DE BROADCAST */}
+        <TabsContent value="saude" className="m-0">
+          <PainelSaudeBroadcast />
+        </TabsContent>
+
+        {/* TAB 6: DASHBOARD / CUSTO */}
         <TabsContent value="dashboard" className="m-0">
           <CustoAutomacoesTab />
         </TabsContent>

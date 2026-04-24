@@ -138,6 +138,49 @@ Deno.serve(async (req) => {
   }
 
   // ════════════════════════════════════════════════════════════════
+  // [FASE 6] OPT-OUT AUTOMÁTICO — Detectar PARE/REMOVER/CANCELAR
+  // Se cliente responde com palavras de descadastro, marca opt-out
+  // e BLOQUEIA todos os envios automáticos futuros (promoções, broadcasts)
+  // ════════════════════════════════════════════════════════════════
+  if (contact?.id && message?.sender_type === 'contact' && messageContent) {
+    const textoLower = messageContent.toLowerCase().trim();
+    // Regex: palavras-chave isoladas ou em frases curtas
+    const ehOptOut = /^(pare|parar|remover|remove|sair|cancelar|cancela|descadastrar|descadastra|nao quero|não quero|stop|unsubscribe|nao envie|não envie|chega|sem promocao|sem promoção)[\s!.?]*$/i.test(textoLower)
+      || /(n[ãa]o\s*me\s*envie|n[ãa]o\s*quero\s*receber|parar\s*de\s*receber|remover\s*meu\s*n[úu]mero|n[ãa]o\s*quero\s*promo|descadastra?r?)/i.test(textoLower);
+
+    if (ehOptOut) {
+      console.warn(`[${VERSION}] 🚫 OPT-OUT DETECTADO: ${contact.nome} (${contact.telefone}) → "${messageContent.substring(0, 50)}"`);
+      try {
+        const tagsAtuais = Array.isArray(contact.tags) ? contact.tags : [];
+        if (!tagsAtuais.includes('opt_out')) tagsAtuais.push('opt_out');
+
+        await base44.asServiceRole.entities.Contact.update(contact.id, {
+          tags: tagsAtuais,
+          whatsapp_optin: false,
+          observacoes: `${contact.observacoes || ''}\n[${new Date().toLocaleDateString('pt-BR')}] Opt-out automático: "${messageContent.substring(0, 100)}"`.trim()
+        });
+
+        await base44.asServiceRole.entities.AutomationLog.create({
+          acao: 'outro',
+          contato_id: contact.id,
+          thread_id: thread?.id,
+          resultado: 'sucesso',
+          timestamp: now.toISOString(),
+          origem: 'webhook',
+          detalhes: {
+            mensagem: `Opt-out automático: "${messageContent.substring(0, 100)}"`,
+            dados_contexto: { palavra_detectada: textoLower.substring(0, 50) }
+          }
+        }).catch(() => {});
+
+        result.actions.push('opt_out_automatico_aplicado');
+      } catch (e) {
+        console.error(`[${VERSION}] ❌ Erro ao aplicar opt-out:`, e.message);
+      }
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // [INBOUND-GATE] CAMADA 5 — BATCH WINDOW (10 segundos)
   if (contact?.id) {
     try {
