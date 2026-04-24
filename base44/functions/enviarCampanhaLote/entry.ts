@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
 
           // ✅ Resolver placeholders com contexto do contato
           const atendenteFidelizado = contato.atendente_fidelizado_vendas || nomeAtendente;
-          const mensagemFinal = personalizar
+          let mensagemFinal = personalizar
             ? mensagem
                 .replace(/\{\{nome\}\}/gi, contato.nome || 'Cliente')
                 .replace(/\{\{empresa\}\}/gi, contato.empresa || '')
@@ -159,6 +159,16 @@ Deno.serve(async (req) => {
                 .replace(/\{\{usuario\}\}/gi, atendenteFidelizado)
                 .replace(/\{\{tipo_contato\}\}/gi, contato.tipo_contato || 'cliente')
             : mensagem;
+
+          // ✅ HUMANIZAÇÃO: Se mensagem NÃO começa com saudação, adicionar variação aleatória
+          // (evita todas mensagens idênticas = detecção de spam pela Meta)
+          if (personalizar && mensagemFinal && !/^(ol[áa]|oi|bom dia|boa tarde|boa noite|e a[íi]|opa)/i.test(mensagemFinal.trim())) {
+            const saudacaoTemplate = saudacaoAleatoria();
+            const saudacao = saudacaoTemplate
+              .replace(/\{nome\}/gi, contato.nome || 'Cliente')
+              .replace(/\{empresa\}/gi, contato.empresa || '');
+            mensagemFinal = `${saudacao}\n\n${mensagemFinal}`;
+          }
 
           // ✅ BATCH: Enfileirar WorkQueueItem
           workQueuePromises.push(

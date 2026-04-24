@@ -8,9 +8,17 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 // Delay de 1.2s entre envios = ~16 msgs/min (seguro para WhatsApp)
 // ============================================================================
 
-const LOTE_MAXIMO = 20;
-const TIMEOUT_LIMITE_MS = 25_000; // 25s - margem para Edge Function de 40s
-const DELAY_ENTRE_ENVIOS_MS = 1_200; // 1.2s anti-rate-limit
+const LOTE_MAXIMO = 15;                 // ↓ 20→15 (mais conservador p/ anti-ban)
+const TIMEOUT_LIMITE_MS = 25_000;       // 25s - margem para Edge Function de 40s
+const DELAY_MIN_MS = 4_000;             // 4s mínimo entre envios
+const DELAY_MAX_MS = 15_000;            // 15s máximo entre envios
+const PAUSA_A_CADA = 10;                // Pausa extra a cada 10 envios (anti-burst)
+const PAUSA_DURACAO_MS = 30_000;        // 30s de pausa extra
+
+// ✅ Delay humanizado (4-15s aleatório) — simula comportamento humano
+function delayHumano() {
+  return Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS)) + DELAY_MIN_MS;
+}
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
@@ -44,7 +52,7 @@ Deno.serve(async (req) => {
 
     for (const item of items) {
       // ── Cronômetro interno (safe timeout) ───────────────────────────────
-      if (Date.now() - inicio > TIMEOUT_LIMITE_MS) {
+      if (Date.now() - _tsInicio > TIMEOUT_LIMITE_MS) {
         console.warn(`[BROADCAST-WORKER] ⚠️ Tempo limite atingido após ${processados} envios. Restante será processado na próxima execução.`);
         interrompido = true;
         break;
@@ -154,8 +162,15 @@ Deno.serve(async (req) => {
         erros++;
       }
 
-      // Delay anti-rate-limit entre envios
-      await new Promise(r => setTimeout(r, DELAY_ENTRE_ENVIOS_MS));
+      // ✅ Pausa extra a cada N envios (anti-burst detection Meta)
+      if (processados > 0 && processados % PAUSA_A_CADA === 0) {
+        console.log(`[BROADCAST-WORKER] ⏸️ Pausa anti-spam de ${PAUSA_DURACAO_MS/1000}s após ${processados} envios`);
+        await new Promise(r => setTimeout(r, PAUSA_DURACAO_MS));
+      }
+      // ✅ Delay humanizado entre envios (4-15s aleatório, simula humano)
+      const delay = delayHumano();
+      console.log(`[BROADCAST-WORKER] ⏱️ Próximo envio em ${(delay/1000).toFixed(1)}s`);
+      await new Promise(r => setTimeout(r, delay));
     }
 
     // Contar pendentes restantes
