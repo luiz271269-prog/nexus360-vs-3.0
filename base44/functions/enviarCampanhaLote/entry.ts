@@ -31,6 +31,19 @@ function saudacaoAleatoria() {
   return SAUDACOES_VARIACOES[Math.floor(Math.random() * SAUDACOES_VARIACOES.length)];
 }
 
+// ✅ FASE 2: Variação estrutural sutil (evita fingerprint de mensagem idêntica)
+// Aplica 1 de 3 micro-transformações aleatórias
+function variarEstrutura(texto) {
+  if (!texto || typeof texto !== 'string') return texto;
+  const variantes = [
+    (t) => t,                                                      // original
+    (t) => t.replace(/\. /g, '.\n').replace(/\n{3,}/g, '\n\n'),    // quebra de linha após ponto
+    (t) => t.replace(/ +/g, ' ').trim(),                           // normaliza espaços
+  ];
+  const fn = variantes[Math.floor(Math.random() * variantes.length)];
+  return fn(texto);
+}
+
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
 
@@ -168,6 +181,11 @@ Deno.serve(async (req) => {
               .replace(/\{nome\}/gi, contato.nome || 'Cliente')
               .replace(/\{empresa\}/gi, contato.empresa || '');
             mensagemFinal = `${saudacao}\n\n${mensagemFinal}`;
+          }
+
+          // ✅ FASE 2: Variação estrutural sutil (anti-fingerprint)
+          if (personalizar && mensagemFinal) {
+            mensagemFinal = variarEstrutura(mensagemFinal);
           }
 
           // ✅ BATCH: Enfileirar WorkQueueItem
@@ -325,10 +343,13 @@ Deno.serve(async (req) => {
             .replace(/\{\{atendente\}\}/gi, atendenteFidelizado)
             .replace(/\{\{usuario\}\}/gi, atendenteFidelizado);
 
+          // ✅ FASE 2: Variação estrutural sutil também na saudação de promoção
+          const saudacaoVariada = variarEstrutura(saudacao);
+
           const respSaudacao = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
             integration_id: integration.id,
             numero_destino: contato.telefone,
-            mensagem: saudacao
+            mensagem: saudacaoVariada
           });
 
           if (!respSaudacao.data?.success) throw new Error(respSaudacao.data?.error || 'Erro ao enviar saudação');

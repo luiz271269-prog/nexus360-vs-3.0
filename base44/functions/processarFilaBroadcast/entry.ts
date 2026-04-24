@@ -15,9 +15,53 @@ const DELAY_MAX_MS = 15_000;            // 15s máximo entre envios
 const PAUSA_A_CADA = 10;                // Pausa extra a cada 10 envios (anti-burst)
 const PAUSA_DURACAO_MS = 30_000;        // 30s de pausa extra
 
+// ✅ FASE 2 — Guards anti-ban
+const HORA_INICIO = 8;                  // 08h BRT
+const HORA_FIM = 20;                    // 20h BRT
+const LIMITE_DIARIO_INTEGRACAO = 150;   // Máx. msgs/dia por integração
+
 // ✅ Delay humanizado (4-15s aleatório) — simula comportamento humano
 function delayHumano() {
   return Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS)) + DELAY_MIN_MS;
+}
+
+// ✅ Verifica se está dentro do horário comercial BRT (UTC-3)
+function estaNoHorarioComercial() {
+  const agoraBRT = new Date(Date.now() - 3 * 60 * 60 * 1000); // Converter UTC→BRT
+  const hora = agoraBRT.getUTCHours();
+  const dow = agoraBRT.getUTCDay(); // 0=dom, 6=sab
+  if (dow === 0 || dow === 6) return false; // fim de semana
+  return hora >= HORA_INICIO && hora < HORA_FIM;
+}
+
+// ✅ Calcula próximo slot válido (8h do próximo dia útil)
+function proximoSlotValido() {
+  const d = new Date(Date.now() - 3 * 60 * 60 * 1000); // BRT
+  d.setUTCDate(d.getUTCDate() + 1); // amanhã
+  // Pular fim de semana
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  d.setUTCHours(HORA_INICIO, 0, 0, 0);
+  return new Date(d.getTime() + 3 * 60 * 60 * 1000); // BRT→UTC
+}
+
+// ✅ Conta mensagens enviadas hoje por integração (anti-ban Meta)
+async function contarEnviosDeHoje(base44, integrationId) {
+  if (!integrationId) return 0;
+  const inicioHoje = new Date();
+  inicioHoje.setHours(0, 0, 0, 0);
+  try {
+    const msgs = await base44.asServiceRole.entities.Message.filter({
+      channel: 'whatsapp',
+      status: 'enviada',
+      sent_at: { $gte: inicioHoje.toISOString() }
+    });
+    return msgs.filter(m => m.metadata?.whatsapp_integration_id === integrationId).length;
+  } catch (e) {
+    console.warn('[BROADCAST-WORKER] Erro contando envios do dia:', e.message);
+    return 0;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -27,6 +71,34 @@ Deno.serve(async (req) => {
 
   try {
     console.log('[BROADCAST-WORKER] ▶️ Iniciando processamento...');
+
+    // ✅ FASE 2: Guard de horário comercial (adia para próximo dia útil)
+    if (!estaNoHorarioComercial()) {
+      const proximo = proximoSlotValido();
+      console.log(`[BROADCAST-WORKER] ⏰ Fora do horário comercial (8h-20h seg-sex). Adiando para ${proximo.toISOString()}`);
+
+      // Adiar todos os pendentes que já venceram para próximo slot
+      const atrasados = await base44.asServiceRole.entities.WorkQueueItem.filter({
+        tipo: 'enviar_broadcast_avulso',
+        status: 'pendente',
+        scheduled_for: { $lte: now.toISOString() }
+      }, 'scheduled_for', 50);
+
+      await Promise.all(atrasados.map(it =>
+        base44.asServiceRole.entities.WorkQueueItem.update(it.id, {
+          scheduled_for: proximo.toISOString(),
+          metadata: { ...it.metadata, adiado_horario_comercial: true }
+        }).catch(() => {})
+      ));
+
+      return Response.json({
+        success: true,
+        processados: 0,
+        adiados: atrasados.length,
+        motivo: 'fora_horario_comercial',
+        proximo_slot: proximo.toISOString()
+      });
+    }
 
     // Buscar itens pendentes (ordenados por scheduled_for)
     const items = await base44.asServiceRole.entities.WorkQueueItem.filter(
@@ -67,6 +139,19 @@ Deno.serve(async (req) => {
       try {
         const { contact_id, payload } = item;
         const { integration_id, mensagem, media_url, media_type, media_caption, sender_id, broadcast_id } = payload;
+
+        // ✅ FASE 2: Limite diário por integração (anti-ban Meta)
+        const enviosHoje = await contarEnviosDeHoje(base44, integration_id);
+        if (enviosHoje >= LIMITE_DIARIO_INTEGRACAO) {
+          console.warn(`[BROADCAST-WORKER] 🚫 Limite diário atingido para integração ${integration_id} (${enviosHoje}/${LIMITE_DIARIO_INTEGRACAO}). Adiando para amanhã.`);
+          const proximo = proximoSlotValido();
+          await base44.asServiceRole.entities.WorkQueueItem.update(item.id, {
+            status: 'pendente',
+            scheduled_for: proximo.toISOString(),
+            metadata: { ...item.metadata, adiado_limite_diario: true, limite: LIMITE_DIARIO_INTEGRACAO }
+          }).catch(() => {});
+          continue; // pula para próximo item
+        }
 
         // Buscar contato
         const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
