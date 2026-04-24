@@ -10,30 +10,45 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 const LOTE_MAXIMO = 15;                 // ↓ 20→15 (mais conservador p/ anti-ban)
 const TIMEOUT_LIMITE_MS = 25_000;       // 25s - margem para Edge Function de 40s
-const DELAY_MIN_MS = 4_000;             // 4s mínimo entre envios
-const DELAY_MAX_MS = 15_000;            // 15s máximo entre envios
-const PAUSA_A_CADA = 10;                // Pausa extra a cada 10 envios (anti-burst)
-const PAUSA_DURACAO_MS = 30_000;        // 30s de pausa extra
 
-// ✅ FASE 2 — Guards anti-ban
-const HORA_INICIO = 8;                  // 08h BRT
-const HORA_FIM = 20;                    // 20h BRT
-const LIMITE_DIARIO_INTEGRACAO = 150;   // Máx. msgs/dia por integração
+// ✅ FASE 7 — Valores padrão (fallback se BroadcastConfig não existir)
+const DEFAULTS = {
+  delay_min_segundos: 4,
+  delay_max_segundos: 15,
+  pausa_a_cada_n_envios: 10,
+  pausa_duracao_segundos: 30,
+  horario_inicio: 8,
+  horario_fim: 20,
+  enviar_fim_semana: false,
+  tier_maduro_max_dia: 150,
+  pausa_429_minutos: 30,
+  pausa_403_minutos: 120,
+  auto_pausar_em_429: true
+};
+
+// ✅ Carrega BroadcastConfig do banco (com fallback em defaults)
+async function carregarConfig(base44) {
+  try {
+    const lista = await base44.asServiceRole.entities.BroadcastConfig.filter({ nome_config: 'default', ativo: true });
+    if (lista.length > 0) return { ...DEFAULTS, ...lista[0] };
+  } catch (_) {}
+  return DEFAULTS;
+}
 
 // ✅ FASE 4 — Retry inteligente e pausa automática
-const MAX_RETRIES = 3;                          // Máx 3 tentativas por item
-const BACKOFF_BASE_MS = 5 * 60 * 1000;          // 5min → 15min → 45min (×3)
-const PAUSA_RATELIMIT_MS = 30 * 60 * 1000;      // 30min de pausa se 429
-const PAUSA_BLOQUEIO_MS = 2 * 60 * 60 * 1000;   // 2h se 403 (bloqueio da Meta)
+const MAX_RETRIES = 3;
+const BACKOFF_BASE_MS = 5 * 60 * 1000;
 
-// ✅ Detecta erros que exigem pausar a integração
-function classificarErro(errorMsg) {
+// ✅ Detecta erros que exigem pausar a integração (usa config se disponível)
+function classificarErro(errorMsg, cfg) {
   const msg = String(errorMsg || '').toLowerCase();
+  const pausaRate = (cfg?.pausa_429_minutos || 30) * 60 * 1000;
+  const pausaBloq = (cfg?.pausa_403_minutos || 120) * 60 * 1000;
   if (msg.includes('429') || msg.includes('rate') || msg.includes('too many')) {
-    return { tipo: 'rate_limit', pausa: PAUSA_RATELIMIT_MS, retry: true };
+    return { tipo: 'rate_limit', pausa: cfg?.auto_pausar_em_429 === false ? 0 : pausaRate, retry: true };
   }
   if (msg.includes('403') || msg.includes('forbidden') || msg.includes('blocked') || msg.includes('banned')) {
-    return { tipo: 'bloqueio', pausa: PAUSA_BLOQUEIO_MS, retry: false };
+    return { tipo: 'bloqueio', pausa: pausaBloq, retry: false };
   }
   if (msg.includes('timeout') || msg.includes('econnreset') || msg.includes('network')) {
     return { tipo: 'transiente', pausa: 0, retry: true };
@@ -71,30 +86,42 @@ async function integracaoEstaPausada(base44, integrationId) {
   }
 }
 
-// ✅ Delay humanizado (4-15s aleatório) — simula comportamento humano
-function delayHumano() {
-  return Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS)) + DELAY_MIN_MS;
+// ✅ Delay humanizado (aleatório entre min/max da config) — simula comportamento humano
+function delayHumano(cfg) {
+  const min = cfg.delay_min_segundos * 1000;
+  const max = cfg.delay_max_segundos * 1000;
+  return Math.floor(Math.random() * (max - min)) + min;
 }
 
 // ✅ Verifica se está dentro do horário comercial BRT (UTC-3)
-function estaNoHorarioComercial() {
-  const agoraBRT = new Date(Date.now() - 3 * 60 * 60 * 1000); // Converter UTC→BRT
+function estaNoHorarioComercial(cfg) {
+  const agoraBRT = new Date(Date.now() - 3 * 60 * 60 * 1000);
   const hora = agoraBRT.getUTCHours();
-  const dow = agoraBRT.getUTCDay(); // 0=dom, 6=sab
-  if (dow === 0 || dow === 6) return false; // fim de semana
-  return hora >= HORA_INICIO && hora < HORA_FIM;
+  const dow = agoraBRT.getUTCDay();
+  if (!cfg.enviar_fim_semana && (dow === 0 || dow === 6)) return false;
+  return hora >= cfg.horario_inicio && hora < cfg.horario_fim;
 }
 
-// ✅ Calcula próximo slot válido (8h do próximo dia útil)
-function proximoSlotValido() {
-  const d = new Date(Date.now() - 3 * 60 * 60 * 1000); // BRT
-  d.setUTCDate(d.getUTCDate() + 1); // amanhã
-  // Pular fim de semana
-  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
-    d.setUTCDate(d.getUTCDate() + 1);
+// ✅ Calcula próximo slot válido (hora_inicio do próximo dia útil)
+function proximoSlotValido(cfg) {
+  const d = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  d.setUTCDate(d.getUTCDate() + 1);
+  if (!cfg.enviar_fim_semana) {
+    while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
   }
-  d.setUTCHours(HORA_INICIO, 0, 0, 0);
-  return new Date(d.getTime() + 3 * 60 * 60 * 1000); // BRT→UTC
+  d.setUTCHours(cfg.horario_inicio, 0, 0, 0);
+  return new Date(d.getTime() + 3 * 60 * 60 * 1000);
+}
+
+// ✅ Retorna o limite diário aplicável para esta integração (tier-aware)
+function limiteDiarioParaIntegracao(integration, cfg) {
+  const idadeDias = (Date.now() - new Date(integration.created_date).getTime()) / 86400000;
+  const totalEnviado = integration.estatisticas?.total_mensagens_enviadas || 0;
+  if (idadeDias < 7 || totalEnviado < 100) return cfg.tier_novo_max_dia || 30;
+  if (idadeDias < 30 || totalEnviado < 1000) return cfg.tier_aquecendo_max_dia || 80;
+  return cfg.tier_maduro_max_dia || 150;
 }
 
 // ✅ Conta mensagens enviadas hoje por integração (anti-ban Meta)
@@ -123,9 +150,12 @@ Deno.serve(async (req) => {
   try {
     console.log('[BROADCAST-WORKER] ▶️ Iniciando processamento...');
 
+    // ✅ FASE 7: Carregar config (com fallback em defaults)
+    const cfg = await carregarConfig(base44);
+
     // ✅ FASE 2: Guard de horário comercial (adia para próximo dia útil)
-    if (!estaNoHorarioComercial()) {
-      const proximo = proximoSlotValido();
+    if (!estaNoHorarioComercial(cfg)) {
+      const proximo = proximoSlotValido(cfg);
       console.log(`[BROADCAST-WORKER] ⏰ Fora do horário comercial (8h-20h seg-sex). Adiando para ${proximo.toISOString()}`);
 
       // Adiar todos os pendentes que já venceram para próximo slot
@@ -202,17 +232,19 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // ✅ FASE 2: Limite diário por integração (anti-ban Meta)
+        // ✅ FASE 2+7: Limite diário por integração (tier-aware via config)
+        const integracaoObj = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id).catch(() => null);
+        const limiteDiario = integracaoObj ? limiteDiarioParaIntegracao(integracaoObj, cfg) : (cfg.tier_maduro_max_dia || 150);
         const enviosHoje = await contarEnviosDeHoje(base44, integration_id);
-        if (enviosHoje >= LIMITE_DIARIO_INTEGRACAO) {
-          console.warn(`[BROADCAST-WORKER] 🚫 Limite diário atingido para integração ${integration_id} (${enviosHoje}/${LIMITE_DIARIO_INTEGRACAO}). Adiando para amanhã.`);
-          const proximo = proximoSlotValido();
+        if (enviosHoje >= limiteDiario) {
+          console.warn(`[BROADCAST-WORKER] 🚫 Limite diário atingido para ${integration_id} (${enviosHoje}/${limiteDiario}). Adiando.`);
+          const proximo = proximoSlotValido(cfg);
           await base44.asServiceRole.entities.WorkQueueItem.update(item.id, {
             status: 'pendente',
             scheduled_for: proximo.toISOString(),
-            metadata: { ...item.metadata, adiado_limite_diario: true, limite: LIMITE_DIARIO_INTEGRACAO }
+            metadata: { ...item.metadata, adiado_limite_diario: true, limite: limiteDiario }
           }).catch(() => {});
-          continue; // pula para próximo item
+          continue;
         }
 
         // Buscar contato
@@ -304,7 +336,7 @@ Deno.serve(async (req) => {
         console.error(`[BROADCAST-WORKER] ❌ Item ${item.id}:`, error.message);
 
         // ✅ FASE 4: Classificar erro e decidir retry/pausa
-        const classif = classificarErro(error.message);
+        const classif = classificarErro(error.message, cfg);
         const tentativas = (item.metadata?.tentativas || 0) + 1;
         const integrationId = item.payload?.integration_id;
 
@@ -346,12 +378,13 @@ Deno.serve(async (req) => {
       }
 
       // ✅ Pausa extra a cada N envios (anti-burst detection Meta)
-      if (processados > 0 && processados % PAUSA_A_CADA === 0) {
-        console.log(`[BROADCAST-WORKER] ⏸️ Pausa anti-spam de ${PAUSA_DURACAO_MS/1000}s após ${processados} envios`);
-        await new Promise(r => setTimeout(r, PAUSA_DURACAO_MS));
+      if (processados > 0 && processados % cfg.pausa_a_cada_n_envios === 0) {
+        const pausaMs = cfg.pausa_duracao_segundos * 1000;
+        console.log(`[BROADCAST-WORKER] ⏸️ Pausa anti-spam de ${pausaMs/1000}s após ${processados} envios`);
+        await new Promise(r => setTimeout(r, pausaMs));
       }
-      // ✅ Delay humanizado entre envios (4-15s aleatório, simula humano)
-      const delay = delayHumano();
+      // ✅ Delay humanizado entre envios (min-max configurável)
+      const delay = delayHumano(cfg);
       console.log(`[BROADCAST-WORKER] ⏱️ Próximo envio em ${(delay/1000).toFixed(1)}s`);
       await new Promise(r => setTimeout(r, delay));
     }

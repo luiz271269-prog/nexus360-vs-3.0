@@ -1,0 +1,126 @@
+{
+  "name": "BroadcastConfig",
+  "type": "object",
+  "properties": {
+    "nome_config": {
+      "type": "string",
+      "description": "Nome identificador (ex: 'default')"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se esta config est\u00e1 ativa"
+    },
+    "horario_inicio": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 23,
+      "default": 8,
+      "description": "Hora de in\u00edcio do envio (BRT, 0-23)"
+    },
+    "horario_fim": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 24,
+      "default": 20,
+      "description": "Hora de fim do envio (BRT, 1-24)"
+    },
+    "enviar_fim_semana": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se permite envio em s\u00e1bado e domingo"
+    },
+    "tier_novo_max_dia": {
+      "type": "number",
+      "default": 30,
+      "description": "Limite di\u00e1rio - integra\u00e7\u00e3o nova (<7 dias)"
+    },
+    "tier_aquecendo_max_dia": {
+      "type": "number",
+      "default": 80,
+      "description": "Limite di\u00e1rio - integra\u00e7\u00e3o aquecendo (<30 dias)"
+    },
+    "tier_maduro_max_dia": {
+      "type": "number",
+      "default": 150,
+      "description": "Limite di\u00e1rio - integra\u00e7\u00e3o madura"
+    },
+    "tier_novo_janela_min": {
+      "type": "number",
+      "default": 240,
+      "description": "Janela de spread em minutos - tier novo"
+    },
+    "tier_aquecendo_janela_min": {
+      "type": "number",
+      "default": 180,
+      "description": "Janela de spread em minutos - tier aquecendo"
+    },
+    "tier_maduro_janela_min": {
+      "type": "number",
+      "default": 120,
+      "description": "Janela de spread em minutos - tier maduro"
+    },
+    "delay_min_segundos": {
+      "type": "number",
+      "default": 4,
+      "description": "Delay m\u00ednimo entre envios (seg)"
+    },
+    "delay_max_segundos": {
+      "type": "number",
+      "default": 15,
+      "description": "Delay m\u00e1ximo entre envios (seg)"
+    },
+    "pausa_a_cada_n_envios": {
+      "type": "number",
+      "default": 10,
+      "description": "Pausar ap\u00f3s N envios consecutivos"
+    },
+    "pausa_duracao_segundos": {
+      "type": "number",
+      "default": 30,
+      "description": "Dura\u00e7\u00e3o da pausa extra"
+    },
+    "saturacao_max_bloqueios_24h": {
+      "type": "number",
+      "default": 3,
+      "description": "N\u00ba m\u00e1ximo de contatos que podem bloquear em 24h antes de abortar"
+    },
+    "palavras_opt_out": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "pare",
+        "parar",
+        "remover",
+        "cancelar",
+        "descadastrar",
+        "sair",
+        "nao quero",
+        "n\u00e3o quero",
+        "stop",
+        "chega"
+      ],
+      "description": "Palavras que disparam opt-out autom\u00e1tico"
+    },
+    "auto_pausar_em_429": {
+      "type": "boolean",
+      "default": true,
+      "description": "Pausar integra\u00e7\u00e3o automaticamente ao receber 429"
+    },
+    "pausa_429_minutos": {
+      "type": "number",
+      "default": 30,
+      "description": "Dura\u00e7\u00e3o da pausa por rate-limit (min)"
+    },
+    "pausa_403_minutos": {
+      "type": "number",
+      "default": 120,
+      "description": "Dura\u00e7\u00e3o da pausa por bloqueio 403 (min)"
+    }
+  },
+  "required": [
+    "nome_config"
+  ]
+}

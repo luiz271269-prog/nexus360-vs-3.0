@@ -6,7 +6,7 @@ import PlaybookManager from "./PlaybookManager";
 import QuickRepliesManager from "../comunicacao/QuickRepliesManager";
 import GerenciadorPromocoes from "./GerenciadorPromocoes";
 import CustoAutomacoesTab from "./CustoAutomacoesTab";
-import PainelSaudeBroadcast from "./PainelSaudeBroadcast";
+import HubBroadcast from "./HubBroadcast";
 
 /**
  * Biblioteca de Automações 2.0
@@ -100,9 +100,9 @@ export default function BibliotecaAutomacoes() {
           />
         </TabsContent>
 
-        {/* TAB 5: SAÚDE DE BROADCAST */}
+        {/* TAB 5: SAÚDE DE BROADCAST (Hub: Saúde + Config + Analytics) */}
         <TabsContent value="saude" className="m-0">
-          <PainelSaudeBroadcast />
+          <HubBroadcast />
         </TabsContent>
 
         {/* TAB 6: DASHBOARD / CUSTO */}

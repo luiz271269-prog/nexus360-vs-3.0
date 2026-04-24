@@ -44,21 +44,33 @@ function variarEstrutura(texto) {
   return fn(texto);
 }
 
-// ✅ FASE 3: Auto-tier baseado em idade da integração
-// Número novo (< 7 dias) → volume baixo + janela longa (aquecimento)
-// Número maduro (≥ 30 dias) → volume padrão
-function calcularTierIntegracao(integration) {
-  const idadeMs = Date.now() - new Date(integration.created_date).getTime();
-  const idadeDias = idadeMs / (1000 * 60 * 60 * 24);
+// ✅ FASE 7: Carrega BroadcastConfig (com fallback em defaults)
+async function carregarBroadcastConfig(base44) {
+  const defaults = {
+    tier_novo_max_dia: 30, tier_novo_janela_min: 240,
+    tier_aquecendo_max_dia: 80, tier_aquecendo_janela_min: 180,
+    tier_maduro_max_dia: 150, tier_maduro_janela_min: 120,
+    saturacao_max_bloqueios_24h: 3
+  };
+  try {
+    const lista = await base44.asServiceRole.entities.BroadcastConfig.filter({ nome_config: 'default', ativo: true });
+    if (lista.length > 0) return { ...defaults, ...lista[0] };
+  } catch (_) {}
+  return defaults;
+}
+
+// ✅ FASE 3: Auto-tier baseado em idade da integração (agora lê da config)
+function calcularTierIntegracao(integration, cfg) {
+  const idadeDias = (Date.now() - new Date(integration.created_date).getTime()) / 86400000;
   const totalEnviado = integration.estatisticas?.total_mensagens_enviadas || 0;
 
   if (idadeDias < 7 || totalEnviado < 100) {
-    return { tier: 'novo', maxPorLote: 30, janelaMinutos: 240 }; // 30 msgs em 4h
+    return { tier: 'novo', maxPorLote: cfg.tier_novo_max_dia, janelaMinutos: cfg.tier_novo_janela_min };
   }
   if (idadeDias < 30 || totalEnviado < 1000) {
-    return { tier: 'aquecendo', maxPorLote: 80, janelaMinutos: 180 }; // 80 msgs em 3h
+    return { tier: 'aquecendo', maxPorLote: cfg.tier_aquecendo_max_dia, janelaMinutos: cfg.tier_aquecendo_janela_min };
   }
-  return { tier: 'maduro', maxPorLote: 150, janelaMinutos: 120 }; // 150 msgs em 2h
+  return { tier: 'maduro', maxPorLote: cfg.tier_maduro_max_dia, janelaMinutos: cfg.tier_maduro_janela_min };
 }
 
 // ✅ FASE 3: Distribuir envios ao longo de uma janela de tempo
@@ -75,16 +87,16 @@ function calcularSpreadTemporal(quantidade, janelaMinutos, agora) {
   return slots;
 }
 
-// ✅ FASE 3: Detectar saturação (muitos bloqueios/reclamações em 24h)
-async function detectarSaturacao(base44, integrationId) {
+// ✅ FASE 3: Detectar saturação (usa threshold da config)
+async function detectarSaturacao(base44, integrationId, cfg) {
   const ontemMs = Date.now() - 24 * 60 * 60 * 1000;
+  const limite = cfg?.saturacao_max_bloqueios_24h || 3;
   try {
-    // Contatos bloqueados nas últimas 24h após receber desta integração
     const bloqueios = await base44.asServiceRole.entities.Contact.filter({
       bloqueado: true,
       bloqueado_em: { $gte: new Date(ontemMs).toISOString() }
     });
-    return bloqueios.length >= 3;
+    return bloqueios.length >= limite;
   } catch (_) {
     return false;
   }
@@ -192,10 +204,11 @@ Deno.serve(async (req) => {
     // MODO BROADCAST → Enfileirar tudo (sem envio direto → sem timeout)
     // ══════════════════════════════════════════════════════════════════════════
     if (modo === 'broadcast') {
-      // ✅ FASE 3: Guard de saturação (bloqueia se muitas reclamações em 24h)
-      const saturado = await detectarSaturacao(base44, integration.id);
+      // ✅ FASE 7: Carregar config e FASE 3: Guard de saturação
+      const cfg = await carregarBroadcastConfig(base44);
+      const saturado = await detectarSaturacao(base44, integration.id, cfg);
       if (saturado) {
-        console.warn(`[CAMPANHA-LOTE] 🚫 Integração ${integration.id} saturada (3+ bloqueios em 24h). Envio abortado.`);
+        console.warn(`[CAMPANHA-LOTE] 🚫 Integração ${integration.id} saturada. Envio abortado.`);
         return Response.json({
           success: false,
           error: 'Integração saturada: muitos contatos bloquearam nas últimas 24h. Pausa preventiva ativada.',
@@ -203,8 +216,8 @@ Deno.serve(async (req) => {
         }, { status: 429 });
       }
 
-      // ✅ FASE 3: Calcular tier + spread temporal
-      const tier = calcularTierIntegracao(integration);
+      // ✅ FASE 3+7: Calcular tier (usando config)
+      const tier = calcularTierIntegracao(integration, cfg);
       const qtdRealEnvio = Math.min(contatos.length, tier.maxPorLote);
       const slotsTemporais = calcularSpreadTemporal(qtdRealEnvio, tier.janelaMinutos, now);
       console.log(`[CAMPANHA-LOTE] 📊 Tier '${tier.tier}': ${qtdRealEnvio}/${contatos.length} msgs em ${tier.janelaMinutos}min`);
