@@ -7,9 +7,33 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 // Busca threads onde last_inbound_at foi há 6+ horas (e dentro da janela 24h Meta)
 // ============================================================================
 
-const VERSION = 'v4.0.0-INLINE';
+const VERSION = 'v4.1.0-GUARDRAILS';
 const BATCH_LIMIT = 30;
 const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+
+// ✅ FASE 7: Config de broadcast (horário + tiers + opt-out)
+async function carregarBroadcastConfig(base44) {
+  const defaults = { horario_inicio: 8, horario_fim: 20, enviar_fim_semana: false };
+  try {
+    const lista = await base44.asServiceRole.entities.BroadcastConfig.filter({ nome_config: 'default', ativo: true });
+    if (lista.length > 0) return { ...defaults, ...lista[0] };
+  } catch (_) {}
+  return defaults;
+}
+
+function estaNoHorarioComercial(cfg) {
+  const brt = new Date(Date.now() - 3 * 3600000);
+  const hora = brt.getUTCHours();
+  const dow = brt.getUTCDay();
+  if (!cfg.enviar_fim_semana && (dow === 0 || dow === 6)) return false;
+  return hora >= cfg.horario_inicio && hora < cfg.horario_fim;
+}
+
+function integracaoEstaPausada(integration) {
+  const ate = integration?.configuracoes_avancadas?.pausada_ate;
+  if (!ate) return false;
+  return new Date(ate).getTime() > Date.now();
+}
 
 // ── Helpers inline (sem imports locais) ─────────────────────────────────────
 
@@ -19,6 +43,8 @@ function isBlocked({ contact, thread, integration }) {
   const tags = (contact?.tags || []).map(t => String(t).toLowerCase());
   if (tags.some(t => ['fornecedor', 'compras', 'colaborador', 'interno'].includes(t)))
     return { blocked: true, reason: 'blocked_tag' };
+  // ✅ FASE 6: opt-out explícito (unificado com broadcast)
+  if (tags.includes('opt_out')) return { blocked: true, reason: 'opt_out_tag' };
   const canal = String(integration?.setor_principal || '').toLowerCase();
   if (['financeiro', 'cobranca'].includes(canal))
     return { blocked: true, reason: 'blocked_integration_financial' };
@@ -133,6 +159,13 @@ Deno.serve(async (req) => {
   try {
     console.log(`[PROMO-INBOUND ${VERSION}] Iniciando...`);
 
+    // ✅ FASE 7 - Guard de horário comercial (unificado com broadcast)
+    const cfg = await carregarBroadcastConfig(base44);
+    if (!estaNoHorarioComercial(cfg)) {
+      console.log(`[PROMO-INBOUND] ⏰ Fora do horário (${cfg.horario_inicio}h-${cfg.horario_fim}h BRT). Pulando tick.`);
+      return Response.json({ success: true, sent: 0, reason: 'fora_horario_comercial' });
+    }
+
     const promos = await base44.asServiceRole.entities.Promotion.filter({ ativo: true, stage: '6h' });
     const validPromos = (promos || []).filter(p => {
       if (p.validade && new Date(p.validade) < now) return false;
@@ -189,6 +222,11 @@ Deno.serve(async (req) => {
 
         const integration = integracoesMap.get(thread.whatsapp_integration_id) || integracoes[0];
         if (!integration) { skipped++; reasons['no_integration'] = (reasons['no_integration'] || 0) + 1; continue; }
+
+        // ✅ FASE 4: Integração pausada por 429/403 do broadcast worker
+        if (integracaoEstaPausada(integration)) {
+          skipped++; reasons['integracao_pausada'] = (reasons['integracao_pausada'] || 0) + 1; continue;
+        }
 
         const block = isBlocked({ contact, thread, integration });
         if (block.blocked) { skipped++; reasons[block.reason] = (reasons[block.reason] || 0) + 1; continue; }

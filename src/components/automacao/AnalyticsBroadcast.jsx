@@ -19,6 +19,7 @@ export default function AnalyticsBroadcast() {
   });
   const [porDia, setPorDia] = useState([]);
   const [porHora, setPorHora] = useState([]);
+  const [rankingPromos, setRankingPromos] = useState([]);
 
   const carregar = async () => {
     setLoading(true);
@@ -105,6 +106,24 @@ export default function AnalyticsBroadcast() {
       });
       setPorDia(dadosPorDia);
       setPorHora(dadosPorHora);
+
+      // 6. Ranking de promoções (Nível 3)
+      try {
+        const promos = await base44.entities.Promotion.list('-contador_envios', 10);
+        const ranking = promos
+          .filter(p => (p.contador_envios || 0) > 0)
+          .map(p => ({
+            id: p.id,
+            titulo: p.titulo || 'Sem título',
+            categoria: p.categoria || 'geral',
+            enviados: p.contador_envios || 0,
+            respostas: p.contador_respostas || 0,
+            taxa: p.contador_envios > 0 ? ((p.contador_respostas || 0) / p.contador_envios * 100) : 0,
+            ativo: p.ativo !== false
+          }))
+          .sort((a, b) => b.taxa - a.taxa);
+        setRankingPromos(ranking);
+      } catch (_) {}
     } catch (e) {
       console.error('[AnalyticsBroadcast]', e);
       toast.error('Erro ao carregar analytics');
@@ -188,6 +207,51 @@ export default function AnalyticsBroadcast() {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
+      {/* RANKING DE PROMOÇÕES (Nível 3) */}
+      {rankingPromos.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">🏆 Ranking de Promoções (por taxa de resposta)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {rankingPromos.slice(0, 8).map((p, idx) => (
+                <div key={p.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                    idx === 0 ? 'bg-yellow-100 text-yellow-800' :
+                    idx === 1 ? 'bg-slate-200 text-slate-700' :
+                    idx === 2 ? 'bg-amber-100 text-amber-800' :
+                    'bg-slate-100 text-slate-500'
+                  }`}>
+                    {idx + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{p.titulo}</p>
+                    <p className="text-[10px] text-slate-500">
+                      {p.enviados} envios • {p.respostas} respostas • {p.categoria}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className={`text-sm font-bold ${
+                      p.taxa >= 20 ? 'text-emerald-600' :
+                      p.taxa >= 10 ? 'text-blue-600' :
+                      p.taxa >= 5 ? 'text-amber-600' :
+                      'text-slate-500'
+                    }`}>
+                      {p.taxa.toFixed(1)}%
+                    </p>
+                    <p className="text-[9px] text-slate-500">taxa</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-500 mt-3">
+              💡 Dica: promoções com taxa &lt; 5% têm baixa conversão — considere desativar ou reescrever.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ENVIOS POR HORA DO DIA */}
       <Card>

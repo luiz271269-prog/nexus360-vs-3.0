@@ -13,9 +13,10 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Plus, Pencil, Trash2, Tag, Calendar, DollarSign, AlertCircle,
-  Upload, X, TrendingUp, Send, Clock, CheckCircle2, Target, Zap
+  Upload, X, TrendingUp, Send, Clock, CheckCircle2, Target, Zap, Megaphone
 } from 'lucide-react';
 import { toast } from 'sonner';
+import ModalEnvioMassaPromocao from './ModalEnvioMassaPromocao';
 
 const CATEGORIAS = {
   informatica: '💻 Informática',
@@ -36,6 +37,7 @@ export default function GerenciadorPromocoes() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPromo, setEditingPromo] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [envioMassaPromo, setEnvioMassaPromo] = useState(null); // Nível 2
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -732,6 +734,17 @@ export default function GerenciadorPromocoes() {
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Nível 2: Enviar em massa agora */}
+                      <Button
+                        size="sm"
+                        onClick={() => setEnvioMassaPromo(promo)}
+                        className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+                        title="Enviar em massa agora (respeita limites de anti-ban)"
+                      >
+                        <Megaphone className="w-4 h-4 mr-1" />
+                        Enviar em massa
+                      </Button>
+
                       <Button
                         size="icon"
                         variant="outline"
@@ -830,6 +843,13 @@ export default function GerenciadorPromocoes() {
           </div>
         </div>
       )}
+
+      {/* Modal de envio em massa (Nível 2) */}
+      <ModalEnvioMassaPromocao
+        open={!!envioMassaPromo}
+        onClose={() => setEnvioMassaPromo(null)}
+        promocao={envioMassaPromo}
+      />
 
       {/* Estado Vazio */}
       {promocoes.length === 0 && !isLoading && (
