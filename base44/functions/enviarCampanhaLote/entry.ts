@@ -44,6 +44,52 @@ function variarEstrutura(texto) {
   return fn(texto);
 }
 
+// ✅ FASE 3: Auto-tier baseado em idade da integração
+// Número novo (< 7 dias) → volume baixo + janela longa (aquecimento)
+// Número maduro (≥ 30 dias) → volume padrão
+function calcularTierIntegracao(integration) {
+  const idadeMs = Date.now() - new Date(integration.created_date).getTime();
+  const idadeDias = idadeMs / (1000 * 60 * 60 * 24);
+  const totalEnviado = integration.estatisticas?.total_mensagens_enviadas || 0;
+
+  if (idadeDias < 7 || totalEnviado < 100) {
+    return { tier: 'novo', maxPorLote: 30, janelaMinutos: 240 }; // 30 msgs em 4h
+  }
+  if (idadeDias < 30 || totalEnviado < 1000) {
+    return { tier: 'aquecendo', maxPorLote: 80, janelaMinutos: 180 }; // 80 msgs em 3h
+  }
+  return { tier: 'maduro', maxPorLote: 150, janelaMinutos: 120 }; // 150 msgs em 2h
+}
+
+// ✅ FASE 3: Distribuir envios ao longo de uma janela de tempo
+// Retorna array de Date com offsets aleatórios dentro da janela
+function calcularSpreadTemporal(quantidade, janelaMinutos, agora) {
+  const janelaMs = janelaMinutos * 60 * 1000;
+  const slots = [];
+  for (let i = 0; i < quantidade; i++) {
+    // Distribuição uniforme + jitter de ±15% para parecer natural
+    const base = (janelaMs / quantidade) * i;
+    const jitter = (Math.random() - 0.5) * (janelaMs / quantidade) * 0.3;
+    slots.push(new Date(agora.getTime() + base + jitter));
+  }
+  return slots;
+}
+
+// ✅ FASE 3: Detectar saturação (muitos bloqueios/reclamações em 24h)
+async function detectarSaturacao(base44, integrationId) {
+  const ontemMs = Date.now() - 24 * 60 * 60 * 1000;
+  try {
+    // Contatos bloqueados nas últimas 24h após receber desta integração
+    const bloqueios = await base44.asServiceRole.entities.Contact.filter({
+      bloqueado: true,
+      bloqueado_em: { $gte: new Date(ontemMs).toISOString() }
+    });
+    return bloqueios.length >= 3;
+  } catch (_) {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
 
@@ -124,15 +170,42 @@ Deno.serve(async (req) => {
     // MODO BROADCAST → Enfileirar tudo (sem envio direto → sem timeout)
     // ══════════════════════════════════════════════════════════════════════════
     if (modo === 'broadcast') {
+      // ✅ FASE 3: Guard de saturação (bloqueia se muitas reclamações em 24h)
+      const saturado = await detectarSaturacao(base44, integration.id);
+      if (saturado) {
+        console.warn(`[CAMPANHA-LOTE] 🚫 Integração ${integration.id} saturada (3+ bloqueios em 24h). Envio abortado.`);
+        return Response.json({
+          success: false,
+          error: 'Integração saturada: muitos contatos bloquearam nas últimas 24h. Pausa preventiva ativada.',
+          motivo: 'saturacao_detectada'
+        }, { status: 429 });
+      }
+
+      // ✅ FASE 3: Calcular tier + spread temporal
+      const tier = calcularTierIntegracao(integration);
+      const qtdRealEnvio = Math.min(contatos.length, tier.maxPorLote);
+      const slotsTemporais = calcularSpreadTemporal(qtdRealEnvio, tier.janelaMinutos, now);
+      console.log(`[CAMPANHA-LOTE] 📊 Tier '${tier.tier}': ${qtdRealEnvio}/${contatos.length} msgs em ${tier.janelaMinutos}min`);
+
+      // Se total > maxPorLote, avisar que excedente será descartado
+      const contatosExcedentes = contatos.length > tier.maxPorLote
+        ? contatos.slice(tier.maxPorLote)
+        : [];
+      contatosExcedentes.forEach(c => {
+        resultados.push({ contact_id: c.id, nome: c.nome, status: 'excedente', motivo: `Tier '${tier.tier}' limita ${tier.maxPorLote}/dia` });
+        erros++;
+      });
+      const contatosParaEnviar = contatos.slice(0, tier.maxPorLote);
+
       // ✅ OTIMIZAÇÃO: Buscar TODAS as threads de uma vez (não 1 por 1)
       const threadsExistentes = await base44.asServiceRole.entities.MessageThread.filter({
-        contact_id: { $in: contatos.map(c => c.id) },
+        contact_id: { $in: contatosParaEnviar.map(c => c.id) },
         is_canonical: true
       });
       const threadMap = new Map(threadsExistentes.map(t => [t.contact_id, t]));
 
       // ✅ OTIMIZAÇÃO: Criar threads faltantes em BATCH
-      const contatosSemThread = contatos.filter(c => !threadMap.has(c.id) && c.telefone);
+      const contatosSemThread = contatosParaEnviar.filter(c => !threadMap.has(c.id) && c.telefone);
       const novasThreads = await Promise.all(
         contatosSemThread.map(c =>
           base44.asServiceRole.entities.MessageThread.create({
@@ -150,8 +223,9 @@ Deno.serve(async (req) => {
       const workQueuePromises = [];
       const messagePromises = [];
       const threadUpdatePromises = [];
+      let slotIdx = 0; // ✅ FASE 3: Índice do slot temporal
 
-      for (const contato of contatos) {
+      for (const contato of contatosParaEnviar) {
         if (!contato.telefone) {
           resultados.push({ contact_id: contato.id, nome: contato.nome, status: 'erro', motivo: 'Sem telefone' });
           erros++;
@@ -188,13 +262,17 @@ Deno.serve(async (req) => {
             mensagemFinal = variarEstrutura(mensagemFinal);
           }
 
+          // ✅ FASE 3: Usar slot temporal distribuído (não todos no mesmo instante)
+          const slotEnvio = slotsTemporais[slotIdx] || now;
+          slotIdx++;
+
           // ✅ BATCH: Enfileirar WorkQueueItem
           workQueuePromises.push(
             base44.asServiceRole.entities.WorkQueueItem.create({
               tipo: 'enviar_broadcast_avulso',
               contact_id: contato.id,
               status: 'pendente',
-              scheduled_for: now.toISOString(),
+              scheduled_for: slotEnvio.toISOString(),
               payload: {
                 integration_id: integration.id,
                 mensagem: mensagemFinal,
@@ -202,7 +280,8 @@ Deno.serve(async (req) => {
                 media_type: media_type || 'none',
                 media_caption: media_caption || null,
                 sender_id: senderId,
-                broadcast_id: broadcastId
+                broadcast_id: broadcastId,
+                tier_aplicado: tier.tier
               }
             })
           );
@@ -280,8 +359,12 @@ Deno.serve(async (req) => {
         modo: 'broadcast',
         enfileirados,
         erros,
+        excedentes: contatosExcedentes.length,
         resultados,
-        mensagem_status: `${enfileirados} mensagens enfileiradas. Envio iniciará em segundos pelo worker.`,
+        tier_aplicado: tier.tier,
+        janela_minutos: tier.janelaMinutos,
+        max_por_lote: tier.maxPorLote,
+        mensagem_status: `${enfileirados} msgs distribuídas ao longo de ${tier.janelaMinutos}min (tier: ${tier.tier}).`,
         broadcast_id: broadcastId,
         timestamp: now.toISOString()
       });
