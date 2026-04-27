@@ -932,13 +932,14 @@ async function handleMessage(dados, payloadBruto, base44) {
       return jsonOk({ message_id: mensagem.id, synced_from_whatsapp_web: true });
     }
 
-    // ✅ FIX D: processInbound com await dentro do tempo de vida do request.
-    // O base44 client é criado via createClientFromRequest(req) — o token é válido
-    // enquanto a request HTTP original está ativa. O await garante que o invoke
-    // completa antes do jsonOk final ser enviado. Erros 403 (token expirado ou
-    // request encerrada prematuramente) são capturados no catch abaixo.
-    console.log('[WAPI] 🎯 Invocando processInbound (adaptador) para thread:', thread.id);
-    await base44.asServiceRole.functions.invoke('processInbound', {
+    // ✅ FIX E: processInbound em FIRE-AND-FORGET (sem await)
+    // Mensagem + thread já foram persistidas. processInbound é processamento
+    // pesado (IA, scoring, lembretes) e não precisa bloquear a resposta do
+    // webhook. Sem await, o webhook responde 200 imediatamente e o
+    // processInbound roda em background com ciclo de vida próprio,
+    // eliminando os 403 por token expirado.
+    console.log('[WAPI] 🎯 Disparando processInbound (fire-and-forget) para thread:', thread.id);
+    base44.asServiceRole.functions.invoke('processInbound', {
       message: mensagem,
       contact: contato,
       thread,
@@ -946,13 +947,10 @@ async function handleMessage(dados, payloadBruto, base44) {
       provider: 'w_api',
       messageContent: dados.content,
       rawPayload: payloadBruto
-    });
-    console.log('[WAPI] ✅ processInbound executado com sucesso');
+    }).catch(err => console.error('[WAPI] ⚠️ processInbound async error:', err.message));
+    console.log('[WAPI] ✅ processInbound disparado em background');
   } catch (err) {
-    // Erros 403 aqui indicam token expirado (request muito longa > timeout do provider)
-    // ou processInbound invocado após encerramento do contexto HTTP — não crítico,
-    // a mensagem já foi salva no banco antes desta chamada.
-    console.error('[WAPI] 🔴 GERENTE: Erro no processamento:', err.message);
+    console.error('[WAPI] 🔴 GERENTE: Erro no setup do processamento:', err.message);
   }
 
   // AUDIT LOG
