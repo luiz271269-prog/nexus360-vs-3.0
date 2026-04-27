@@ -370,19 +370,19 @@ Deno.serve(async (req) => {
       const contactIdFromContext = context?.contact_id;
       const contextData = await fetchContextData(base44, contactIdFromContext);
 
-      // ── Carregar memória da última sessão ──────────────────────────
-      let memoriaAtual = null;
+      // ── Carregar últimas 5 sessões para contexto contínuo ──────────
+      let memoriasAnteriores = [];
       try {
-        const memoriasSessao = await base44.asServiceRole.entities.NexusMemory.filter(
-          { owner_user_id: userId, tipo: 'sessao' }, '-created_date', 1
+        memoriasAnteriores = await base44.asServiceRole.entities.NexusMemory.filter(
+          { owner_user_id: userId, tipo: 'sessao' }, '-created_date', 5
         );
-        memoriaAtual = memoriasSessao[0] || null;
       } catch (e) {
         console.warn('[AGENT-COMMAND] NexusMemory não disponível:', e.message);
       }
 
-      const contextoMemoria = memoriaAtual
-        ? `\nMEMÓRIA DA ÚLTIMA SESSÃO:\n${memoriaAtual.conteudo}\nÚltima ação: ${memoriaAtual.ultima_acao || 'nenhuma'}`
+      const contextoMemoria = memoriasAnteriores.length > 0
+        ? `\nHISTÓRICO DAS ÚLTIMAS ${memoriasAnteriores.length} SESSÕES (mais recente primeiro):\n` +
+          memoriasAnteriores.map((m, i) => `[${i + 1}] ${m.conteudo}`).join('\n---\n')
         : '\nPrimeira sessão — sem histórico anterior.';
 
       // ── PRÉ-ANÁLISE: Comandos Diretos de Skills ────────────────────

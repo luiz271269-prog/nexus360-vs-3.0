@@ -78,11 +78,29 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
         }).catch(() => {});
       }
 
-      setMensagens([]);
+      // ✅ NÃO limpar mensagens — manter histórico visual entre aberturas
       setInput('');
       setAnexos([]);
     }
   }, [isOpen]);
+
+  // Carregar últimas memórias do usuário ao abrir (apenas se chat estiver vazio)
+  useEffect(() => {
+    if (!isOpen || !usuario?.id || mensagens.length > 0) return;
+
+    base44.entities.NexusMemory
+      .filter({ owner_user_id: usuario.id, tipo: 'sessao' }, '-created_date', 3)
+      .then((memorias) => {
+        if (!memorias || memorias.length === 0) return;
+        const historicoMsgs = memorias.reverse().map((m, idx) => ({
+          role: 'assistant',
+          content: `📚 **Sessão anterior #${idx + 1}** (${new Date(m.created_date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })})\n\n${m.conteudo.slice(0, 400)}${m.conteudo.length > 400 ? '...' : ''}`,
+          historico: true
+        }));
+        setMensagens(historicoMsgs);
+      })
+      .catch((e) => console.warn('[CopilotoIA] Erro ao carregar memórias:', e.message));
+  }, [isOpen, usuario?.id]);
 
   // Upload de arquivos (chamado por clip, paste e drag-drop)
   const uploadArquivos = async (files) => {
