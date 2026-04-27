@@ -322,18 +322,39 @@ Deno.serve(async (req) => {
           });
           const criar = criarResp?.data || criarResp;
 
+          // Sprint 3: gerar folder visual via GenerateImage
+          let folderInfo = '';
+          let folderUrl = null;
+          try {
+            const folderResp = await base44.asServiceRole.functions.invoke('gerarFolderPromocional', {
+              promotion_ids: criar?.promotion_ids || [],
+              salvar_em_promotions: true
+            });
+            const folder = folderResp?.data || folderResp;
+            if (folder?.success && folder.folder_url) {
+              folderUrl = folder.folder_url;
+              folderInfo = `\n\n🎨 **Folder gerado:** [Ver imagem](${folder.folder_url})`;
+            } else {
+              folderInfo = `\n\n⚠️ Promoções criadas mas folder visual falhou (gere manualmente em /Promocoes).`;
+            }
+          } catch (errFolder) {
+            console.warn('[AGENT-COMMAND] Folder falhou:', errFolder.message);
+            folderInfo = `\n\n⚠️ Folder visual falhou: ${errFolder.message}`;
+          }
+
           const listaProdutos = extr.produtos.map((p, i) =>
             `${i + 1}. **${p.nome}**${p.codigo ? ` (${p.codigo})` : ''}\n   Custo: R$ ${p.custo.toFixed(2).replace('.', ',')} → Venda: **R$ ${p.preco_venda.toFixed(2).replace('.', ',')}** _(margem 40%)_`
           ).join('\n\n');
 
-          const resposta = `🎯 **Cotação processada — ${extr.fornecedor_nome || 'Fornecedor'}**\n\n📦 **${extr.total_extraidos} produtos identificados:**\n\n${listaProdutos}\n\n✅ **${criar?.total_criadas || 0} promoções criadas** (rascunho — \`ativo: false\`)\n📅 Validade: ${criar?.validade}\n🏷️ Campanha: \`${criar?.campaign_id}\`\n\n👉 **Próximo passo:** Acesse **/Promocoes**, revise, ative e use "Enviar em Massa".${criar?.errors?.length ? `\n\n⚠️ ${criar.errors.length} erro(s) ao criar.` : ''}`;
+          const resposta = `🎯 **Cotação processada — ${extr.fornecedor_nome || 'Fornecedor'}**\n\n📦 **${extr.total_extraidos} produtos identificados:**\n\n${listaProdutos}\n\n✅ **${criar?.total_criadas || 0} promoções criadas** (rascunho — \`ativo: false\`)\n📅 Validade: ${criar?.validade}\n🏷️ Campanha: \`${criar?.campaign_id}\`${folderInfo}\n\n👉 **Próximo passo:** Acesse **/Promocoes**, revise, ative e use "Enviar em Massa".${criar?.errors?.length ? `\n\n⚠️ ${criar.errors.length} erro(s) ao criar.` : ''}`;
 
           return Response.json({
             success: true,
             response: resposta,
             agent_mode: 'neuraltec_promo_created',
             promotion_ids: criar?.promotion_ids || [],
-            campaign_id: criar?.campaign_id
+            campaign_id: criar?.campaign_id,
+            folder_url: folderUrl
           });
         } catch (errNT) {
           console.error('[AGENT-COMMAND] Erro fluxo NeuralTec:', errNT);
