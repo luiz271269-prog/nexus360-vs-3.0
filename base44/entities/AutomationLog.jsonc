@@ -1,0 +1,141 @@
+{
+  "name": "AutomationLog",
+  "type": "object",
+  "properties": {
+    "acao": {
+      "type": "string",
+      "enum": [
+        "envio_optin",
+        "resposta_ia",
+        "envio_template",
+        "follow_up_automatico",
+        "notificacao_expiracao_janela",
+        "roteamento_lead",
+        "qualificacao_automatica",
+        "escalacao_gerente",
+        "erro_envio",
+        "tentativa_reconexao",
+        "sincronizacao_dados",
+        "limpeza_cache",
+        "backup_automatico",
+        "outro"
+      ],
+      "description": "Tipo de a\u00e7\u00e3o automatizada executada"
+    },
+    "contato_id": {
+      "type": "string",
+      "description": "ID do Contact relacionado (se aplic\u00e1vel)"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "ID do MessageThread relacionado (se aplic\u00e1vel)"
+    },
+    "usuario_id": {
+      "type": "string",
+      "description": "ID do User que disparou a a\u00e7\u00e3o (se aplic\u00e1vel)"
+    },
+    "integracao_id": {
+      "type": "string",
+      "description": "ID da WhatsAppIntegration usada (se aplic\u00e1vel)"
+    },
+    "resultado": {
+      "type": "string",
+      "enum": [
+        "sucesso",
+        "erro",
+        "parcial",
+        "aguardando",
+        "cancelado",
+        "ignorado"
+      ],
+      "default": "sucesso",
+      "description": "Resultado da execu\u00e7\u00e3o da a\u00e7\u00e3o"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data e hora em que a a\u00e7\u00e3o foi executada"
+    },
+    "detalhes": {
+      "type": "object",
+      "properties": {
+        "mensagem": {
+          "type": "string",
+          "description": "Descri\u00e7\u00e3o detalhada do resultado"
+        },
+        "template_id": {
+          "type": "string",
+          "description": "ID do template usado (se aplic\u00e1vel)"
+        },
+        "erro_codigo": {
+          "type": "string",
+          "description": "C\u00f3digo de erro (se resultado = erro)"
+        },
+        "erro_mensagem": {
+          "type": "string",
+          "description": "Mensagem de erro detalhada"
+        },
+        "tentativas": {
+          "type": "number",
+          "description": "N\u00famero de tentativas realizadas"
+        },
+        "tempo_execucao_ms": {
+          "type": "number",
+          "description": "Tempo de execu\u00e7\u00e3o em milissegundos"
+        },
+        "dados_contexto": {
+          "type": "object",
+          "description": "Dados contextuais da execu\u00e7\u00e3o (JSON livre)"
+        }
+      },
+      "description": "Detalhes adicionais sobre a execu\u00e7\u00e3o da a\u00e7\u00e3o"
+    },
+    "origem": {
+      "type": "string",
+      "enum": [
+        "cron",
+        "webhook",
+        "manual",
+        "ia",
+        "sistema",
+        "api"
+      ],
+      "default": "sistema",
+      "description": "Origem que disparou a a\u00e7\u00e3o"
+    },
+    "prioridade": {
+      "type": "string",
+      "enum": [
+        "baixa",
+        "normal",
+        "alta",
+        "critica"
+      ],
+      "default": "normal",
+      "description": "Prioridade da a\u00e7\u00e3o executada"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Metadados adicionais para auditoria e analytics"
+    },
+    "reprocessavel": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se esta a\u00e7\u00e3o pode ser reprocessada em caso de erro"
+    },
+    "reprocessado_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data de reprocessamento (se aplic\u00e1vel)"
+    },
+    "parent_log_id": {
+      "type": "string",
+      "description": "ID do log pai (para a\u00e7\u00f5es encadeadas)"
+    }
+  },
+  "required": [
+    "acao",
+    "resultado",
+    "timestamp"
+  ]
+}

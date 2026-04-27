@@ -1,0 +1,149 @@
+{
+  "name": "PlaybookMarketplace",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome do playbook no marketplace"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "suporte",
+        "pos_venda",
+        "cobranca",
+        "qualificacao",
+        "onboarding",
+        "reativacao"
+      ],
+      "description": "Categoria do playbook"
+    },
+    "setor": {
+      "type": "string",
+      "enum": [
+        "todos",
+        "ecommerce",
+        "saas",
+        "servicos",
+        "varejo",
+        "b2b",
+        "b2c"
+      ],
+      "default": "todos",
+      "description": "Setor/ind\u00fastria mais adequado"
+    },
+    "template_json": {
+      "type": "object",
+      "description": "JSON completo do FlowTemplate (steps, gatilhos, etc.)"
+    },
+    "preview_steps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Preview textual dos principais passos"
+    },
+    "tags_recomendadas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags que devem ser aplicadas aos contatos"
+    },
+    "metricas_benchmark": {
+      "type": "object",
+      "properties": {
+        "taxa_conversao_media": {
+          "type": "number"
+        },
+        "tempo_medio_conclusao": {
+          "type": "number"
+        },
+        "taxa_abandono_media": {
+          "type": "number"
+        }
+      },
+      "description": "M\u00e9tricas de benchmark de outros usu\u00e1rios"
+    },
+    "nivel_dificuldade": {
+      "type": "string",
+      "enum": [
+        "iniciante",
+        "intermediario",
+        "avancado"
+      ],
+      "default": "intermediario"
+    },
+    "requisitos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Requisitos para usar este playbook (ex: integra\u00e7\u00e3o WhatsApp, Base de Conhecimento)"
+    },
+    "total_instalacoes": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantas vezes foi instalado"
+    },
+    "avaliacao_media": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 5,
+      "default": 0,
+      "description": "Avalia\u00e7\u00e3o m\u00e9dia dos usu\u00e1rios"
+    },
+    "total_avaliacoes": {
+      "type": "number",
+      "default": 0
+    },
+    "criado_por": {
+      "type": "string",
+      "description": "Autor do playbook (sistema ou usu\u00e1rio)"
+    },
+    "versao": {
+      "type": "string",
+      "default": "1.0",
+      "description": "Vers\u00e3o do playbook"
+    },
+    "changelog": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "versao": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string",
+            "format": "date"
+          },
+          "mudancas": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se est\u00e1 dispon\u00edvel no marketplace"
+    },
+    "destaque": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se deve aparecer em destaque"
+    }
+  },
+  "required": [
+    "nome",
+    "descricao",
+    "categoria",
+    "template_json"
+  ]
+}

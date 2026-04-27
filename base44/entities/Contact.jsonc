@@ -1,0 +1,309 @@
+{
+  "name": "Contact",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome completo do contato"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "N\u00famero com c\u00f3digo do pa\u00eds (ex: +5548999322400)"
+    },
+    "telefone_canonico": {
+      "type": "string",
+      "description": "Telefone normalizado E.164 (apenas d\u00edgitos) para busca/deduplica\u00e7\u00e3o r\u00e1pida. Ex: 5548999322400"
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "empresa": {
+      "type": "string"
+    },
+    "cargo": {
+      "type": "string"
+    },
+    "ramo_atividade": {
+      "type": "string",
+      "description": "Ramo de atividade (ex: Varejo, Ind\u00fastria, Sa\u00fade, Tecnologia)"
+    },
+    "ramo_atividade_origem": {
+      "type": "string",
+      "enum": [
+        "cliente",
+        "manual",
+        "ia"
+      ],
+      "description": "Origem do ramo de atividade: herdado do cliente, preenchido manualmente ou classificado pela IA"
+    },
+    "tipo_contato": {
+      "type": "string",
+      "enum": [
+        "novo",
+        "lead",
+        "cliente",
+        "eventual",
+        "ex_cliente",
+        "fornecedor",
+        "parceiro"
+      ],
+      "default": "novo",
+      "description": "Classifica\u00e7\u00e3o do contato: novo=sem defini\u00e7\u00e3o, lead=prospec\u00e7\u00e3o ativa, cliente=recorrente, eventual=compra espor\u00e1dica, ex_cliente=inativo/reativa\u00e7\u00e3o, fornecedor, parceiro"
+    },
+    "cliente_id": {
+      "type": "string",
+      "description": "ID do Cliente associado (se existir)"
+    },
+    "vendedor_responsavel": {
+      "type": "string"
+    },
+    "atendente_fidelizado_vendas": {
+      "type": "string",
+      "description": "Atendente fixo para setor de Vendas"
+    },
+    "atendente_fidelizado_assistencia": {
+      "type": "string",
+      "description": "Atendente fixo para setor de Assist\u00eancia"
+    },
+    "atendente_fidelizado_financeiro": {
+      "type": "string",
+      "description": "Atendente fixo para setor Financeiro"
+    },
+    "atendente_fidelizado_fornecedor": {
+      "type": "string",
+      "description": "Atendente fixo para setor de Fornecedor/Compras"
+    },
+    "is_cliente_fidelizado": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o contato tem atendimento priorit\u00e1rio"
+    },
+    "is_vip": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o contato \u00e9 VIP (alta prioridade, tratamento especial)"
+    },
+    "is_prioridade": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o contato requer prioriza\u00e7\u00e3o no atendimento"
+    },
+    "conexao_origem": {
+      "type": "string",
+      "description": "ID da conex\u00e3o de origem (WhatsApp/Instagram/Facebook/GoTo)"
+    },
+    "instagram_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio no Instagram (IGSID)"
+    },
+    "facebook_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio no Facebook (PSID - Page Scoped ID)"
+    },
+    "bloqueado": {
+      "type": "boolean",
+      "default": false
+    },
+    "motivo_bloqueio": {
+      "type": "string"
+    },
+    "bloqueado_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "bloqueado_por": {
+      "type": "string"
+    },
+    "whatsapp_status": {
+      "type": "string",
+      "enum": [
+        "verificado",
+        "nao_verificado",
+        "invalido",
+        "bloqueado"
+      ],
+      "default": "nao_verificado"
+    },
+    "whatsapp_optin": {
+      "type": "boolean",
+      "default": false
+    },
+    "whatsapp_optin_data": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "whatsapp_optin_origem": {
+      "type": "string"
+    },
+    "preferencias_comunicacao": {
+      "type": "object",
+      "properties": {
+        "canal_preferido": {
+          "type": "string",
+          "enum": [
+            "whatsapp",
+            "instagram",
+            "facebook",
+            "phone",
+            "email",
+            "telefone",
+            "nenhum"
+          ]
+        },
+        "melhor_horario": {
+          "type": "string"
+        },
+        "frequencia_contato": {
+          "type": "string",
+          "enum": [
+            "diaria",
+            "semanal",
+            "mensal",
+            "sob_demanda"
+          ]
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Etiquetas do contato (slugs que referenciam EtiquetaContato.nome)"
+    },
+    "score_abc": {
+      "type": "number",
+      "default": 0,
+      "description": "Score de qualifica\u00e7\u00e3o ABC calculado com base nas etiquetas aplicadas (soma dos peso_qualificacao)"
+    },
+    "classe_abc": {
+      "type": "string",
+      "enum": [
+        "A",
+        "B",
+        "C",
+        "none"
+      ],
+      "default": "none",
+      "description": "Classe ABC do contato: A (score>=70), B (30<=score<70), C (score<30), none (sem etiquetas ABC)"
+    },
+    "score_abc_calculado_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que o score ABC foi recalculado"
+    },
+    "last_attention_given_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que o operador deu aten\u00e7\u00e3o ao contato. NULL = nunca recebeu aten\u00e7\u00e3o."
+    },
+    "campos_personalizados": {
+      "type": "object",
+      "description": "Campos customizados definidos pelo usu\u00e1rio"
+    },
+    "segmento_atual": {
+      "type": "string",
+      "enum": [
+        "lead_frio",
+        "lead_morno",
+        "lead_quente",
+        "cliente_ativo",
+        "cliente_inativo",
+        "suporte",
+        "vip",
+        "risco_churn"
+      ],
+      "description": "Segmento calculado automaticamente pela IA"
+    },
+    "estagio_ciclo_vida": {
+      "type": "string",
+      "enum": [
+        "descoberta",
+        "consideracao",
+        "decisao",
+        "pos_venda",
+        "fidelizacao",
+        "reativacao"
+      ],
+      "description": "Est\u00e1gio no ciclo de vida do cliente"
+    },
+    "score_engajamento": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Score de engajamento baseado em comportamento (0-100)"
+    },
+    "ultima_interacao": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "ultima_analise_comportamento": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que o comportamento foi analisado pela IA"
+    },
+    "cliente_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Score de qualifica\u00e7\u00e3o/engajamento (0-100) - usado para prioriza\u00e7\u00e3o"
+    },
+    "foto_perfil_url": {
+      "type": "string",
+      "description": "URL da foto de perfil (WhatsApp/Instagram/Facebook)"
+    },
+    "foto_perfil_atualizada_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a foto foi atualizada pela \u00faltima vez"
+    },
+    "observacoes": {
+      "type": "string"
+    },
+    "last_promo_sent_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "DEPRECATED: use last_promo_inbound_at ou last_promo_batch_at"
+    },
+    "last_promo_inbound_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que recebeu promo\u00e7\u00e3o INBOUND (gatilho 6h ap\u00f3s mensagem)"
+    },
+    "last_promo_batch_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que recebeu promo\u00e7\u00e3o BATCH (gatilho 36h base ativa)"
+    },
+    "last_any_promo_sent_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que recebeu QUALQUER promo\u00e7\u00e3o (controle universal de cooldown 12h)"
+    },
+    "last_promo_id": {
+      "type": "string",
+      "description": "DEPRECATED: use last_promo_ids (array com \u00faltimas 3)"
+    },
+    "last_promo_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "IDs das \u00faltimas 3 promo\u00e7\u00f5es enviadas (para rota\u00e7\u00e3o inteligente)",
+      "default": []
+    },
+    "last_campaign_sent_at": {
+      "type": "object",
+      "description": "Mapa de campaign_id \u2192 datetime para cooldown por campanha"
+    },
+    "promocoes_recebidas": {
+      "type": "object",
+      "description": "Mapa { promo_id: count } - quantas vezes cada promo\u00e7\u00e3o foi enviada para este contato",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

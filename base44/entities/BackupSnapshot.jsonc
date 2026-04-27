@@ -1,0 +1,81 @@
+{
+  "name": "BackupSnapshot",
+  "type": "object",
+  "properties": {
+    "tipo_backup": {
+      "type": "string",
+      "enum": [
+        "automatico",
+        "manual",
+        "pre_deploy"
+      ],
+      "default": "automatico",
+      "description": "Tipo de backup"
+    },
+    "entidades_incluidas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lista de entidades inclu\u00eddas no backup"
+    },
+    "data_backup": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data e hora do backup"
+    },
+    "snapshot_data": {
+      "type": "object",
+      "description": "Dados do snapshot (JSON compactado)"
+    },
+    "total_registros": {
+      "type": "number",
+      "description": "Total de registros salvos"
+    },
+    "tamanho_bytes": {
+      "type": "number",
+      "description": "Tamanho do backup em bytes"
+    },
+    "hash_integridade": {
+      "type": "string",
+      "description": "Hash SHA-256 para verifica\u00e7\u00e3o de integridade"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "sucesso",
+        "erro",
+        "parcial"
+      ],
+      "default": "sucesso"
+    },
+    "erro_detalhes": {
+      "type": "string",
+      "description": "Detalhes do erro se houver"
+    },
+    "pode_restaurar": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se este backup pode ser usado para restaura\u00e7\u00e3o"
+    },
+    "expira_em": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de expira\u00e7\u00e3o do backup (para limpeza autom\u00e1tica)"
+    },
+    "criado_por": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio que criou (se manual)"
+    },
+    "notas": {
+      "type": "string",
+      "description": "Notas sobre o backup"
+    }
+  },
+  "required": [
+    "tipo_backup",
+    "entidades_incluidas",
+    "data_backup",
+    "total_registros"
+  ]
+}

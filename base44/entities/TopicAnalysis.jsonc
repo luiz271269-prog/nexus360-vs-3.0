@@ -1,0 +1,294 @@
+{
+  "name": "TopicAnalysis",
+  "type": "object",
+  "properties": {
+    "contact_id": {
+      "type": "string",
+      "description": "ID do contato analisado"
+    },
+    "analyzed_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a an\u00e1lise foi gerada"
+    },
+    "window_size": {
+      "type": "number",
+      "description": "Quantidade de mensagens analisadas"
+    },
+    "period": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "to": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "topics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "description": "Nome do assunto (ex: SSD, Mac carregador, ICMS/NF)"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "aberto",
+              "andamento",
+              "fechado",
+              "perdido",
+              "ganho"
+            ],
+            "description": "Status atual do assunto"
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timestamp": {
+                  "type": "string",
+                  "format": "datetime"
+                },
+                "event": {
+                  "type": "string",
+                  "description": "Evento/marco (ex: pedido inicial, negocia\u00e7\u00e3o, press\u00e3o)"
+                },
+                "snippet": {
+                  "type": "string",
+                  "description": "Trecho da mensagem"
+                }
+              }
+            }
+          },
+          "sentiment_summary": {
+            "type": "object",
+            "properties": {
+              "current": {
+                "type": "string",
+                "enum": [
+                  "muito_positivo",
+                  "positivo",
+                  "neutro",
+                  "negativo",
+                  "muito_negativo"
+                ],
+                "description": "Sentimento atual"
+              },
+              "trend": {
+                "type": "string",
+                "enum": [
+                  "melhorando",
+                  "estavel",
+                  "piorando"
+                ],
+                "description": "Tend\u00eancia do sentimento"
+              },
+              "intensity": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "description": "Intensidade 0-100"
+              }
+            }
+          },
+          "sentiment_events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timestamp": {
+                  "type": "string",
+                  "format": "datetime"
+                },
+                "sentiment": {
+                  "type": "string",
+                  "enum": [
+                    "humor",
+                    "ansiedade",
+                    "pressao",
+                    "ameaca",
+                    "alivio",
+                    "confirmacao"
+                  ]
+                },
+                "target": {
+                  "type": "string",
+                  "enum": [
+                    "empresa_cliente",
+                    "voce_vendedor",
+                    "fornecedor",
+                    "situacao"
+                  ]
+                },
+                "snippet": {
+                  "type": "string",
+                  "description": "Trecho evid\u00eancia"
+                }
+              }
+            }
+          },
+          "key_facts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "valor",
+                    "quantidade",
+                    "prazo",
+                    "condicao_fiscal",
+                    "modelo",
+                    "marca"
+                  ]
+                },
+                "value": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string",
+                  "description": "Quem mencionou (cliente/vendedor)"
+                }
+              }
+            }
+          },
+          "open_loops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pending": {
+                  "type": "string",
+                  "description": "O que est\u00e1 pendente"
+                },
+                "owner": {
+                  "type": "string",
+                  "enum": [
+                    "cliente",
+                    "vendedor",
+                    "interno",
+                    "fornecedor"
+                  ]
+                },
+                "since": {
+                  "type": "string",
+                  "format": "datetime"
+                }
+              }
+            }
+          },
+          "risk": {
+            "type": "object",
+            "properties": {
+              "level": {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high",
+                  "critical"
+                ]
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "recommended_next_steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "A\u00e7\u00f5es recomendadas (sem texto de mensagem)"
+          },
+          "context_summary": {
+            "type": "string",
+            "description": "Resumo executivo do assunto (2-3 linhas)"
+          }
+        }
+      },
+      "description": "Lista de assuntos identificados na conversa"
+    },
+    "global_sentiment": {
+      "type": "object",
+      "properties": {
+        "overall": {
+          "type": "string",
+          "enum": [
+            "muito_positivo",
+            "positivo",
+            "neutro",
+            "negativo",
+            "muito_negativo"
+          ]
+        },
+        "trend": {
+          "type": "string",
+          "enum": [
+            "melhorando",
+            "estavel",
+            "piorando"
+          ]
+        },
+        "critical_moments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "timestamp": {
+                "type": "string",
+                "format": "datetime"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "pico_positivo",
+                  "pico_negativo",
+                  "virada",
+                  "tensao"
+                ]
+              },
+              "snippet": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "total_topics": {
+          "type": "number"
+        },
+        "open_topics": {
+          "type": "number"
+        },
+        "critical_topics": {
+          "type": "number"
+        },
+        "total_open_loops": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "required": [
+    "contact_id",
+    "analyzed_at",
+    "window_size"
+  ]
+}

@@ -1,0 +1,169 @@
+{
+  "name": "PlaybookInsight",
+  "type": "object",
+  "properties": {
+    "playbook_id": {
+      "type": "string",
+      "description": "ID do FlowTemplate analisado"
+    },
+    "playbook_nome": {
+      "type": "string",
+      "description": "Nome do playbook para facilitar visualiza\u00e7\u00e3o"
+    },
+    "insight_tipo": {
+      "type": "string",
+      "enum": [
+        "melhoria_mensagem",
+        "simplificar_input",
+        "ajustar_delay",
+        "adicionar_fallback",
+        "melhorar_validacao",
+        "otimizar_fluxo",
+        "adicionar_step",
+        "remover_step",
+        "ajustar_gatilhos"
+      ],
+      "description": "Tipo de insight gerado pela IA"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada do insight"
+    },
+    "recomendacao_json": {
+      "type": "object",
+      "description": "Recomenda\u00e7\u00e3o estruturada para aplica\u00e7\u00e3o autom\u00e1tica",
+      "properties": {
+        "step_index": {
+          "type": "number",
+          "description": "\u00cdndice do step a ser modificado"
+        },
+        "campo_modificar": {
+          "type": "string",
+          "description": "Campo do step a modificar (ex: texto, opcoes, timeout)"
+        },
+        "valor_novo": {
+          "type": "string",
+          "description": "Novo valor a ser aplicado"
+        },
+        "valor_anterior": {
+          "type": "string",
+          "description": "Valor anterior (para rollback)"
+        }
+      }
+    },
+    "confianca": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "N\u00edvel de confian\u00e7a da IA (0-1)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "aceito",
+        "rejeitado",
+        "aplicado",
+        "revertido"
+      ],
+      "default": "pendente",
+      "description": "Status da recomenda\u00e7\u00e3o"
+    },
+    "impacto_estimado": {
+      "type": "object",
+      "properties": {
+        "aumento_conversao_percentual": {
+          "type": "number",
+          "description": "Estimativa de aumento na taxa de convers\u00e3o (%)"
+        },
+        "reducao_abandono_percentual": {
+          "type": "number",
+          "description": "Estimativa de redu\u00e7\u00e3o no abandono (%)"
+        },
+        "melhoria_tempo_medio": {
+          "type": "number",
+          "description": "Redu\u00e7\u00e3o estimada no tempo m\u00e9dio (minutos)"
+        }
+      }
+    },
+    "dados_analise": {
+      "type": "object",
+      "description": "Dados usados pela IA para gerar o insight",
+      "properties": {
+        "execucoes_analisadas": {
+          "type": "number"
+        },
+        "taxa_abandono_atual": {
+          "type": "number"
+        },
+        "taxa_sucesso_atual": {
+          "type": "number"
+        },
+        "step_problematico": {
+          "type": "number"
+        },
+        "exemplos_problemas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "prioridade": {
+      "type": "string",
+      "enum": [
+        "baixa",
+        "media",
+        "alta",
+        "critica"
+      ],
+      "default": "media",
+      "description": "Prioridade da implementa\u00e7\u00e3o"
+    },
+    "aceito_por": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio que aceitou"
+    },
+    "data_aceite": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "rejeitado_por": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio que rejeitou"
+    },
+    "motivo_rejeicao": {
+      "type": "string",
+      "description": "Motivo da rejei\u00e7\u00e3o (para aprendizado da IA)"
+    },
+    "data_aplicacao": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "resultado_aplicacao": {
+      "type": "object",
+      "description": "M\u00e9tricas ap\u00f3s aplica\u00e7\u00e3o",
+      "properties": {
+        "taxa_sucesso_anterior": {
+          "type": "number"
+        },
+        "taxa_sucesso_posterior": {
+          "type": "number"
+        },
+        "melhoria_real_percentual": {
+          "type": "number"
+        },
+        "validado": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "required": [
+    "playbook_id",
+    "insight_tipo",
+    "descricao",
+    "confianca"
+  ]
+}

@@ -1,0 +1,141 @@
+{
+  "name": "NotificationEvent",
+  "type": "object",
+  "properties": {
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "escalonamento",
+        "erro_playbook",
+        "contato_vip",
+        "falha_integracao",
+        "playbook_baixa_performance",
+        "timeout_execucao",
+        "input_invalido_recorrente",
+        "janela_24h_expirando",
+        "mensagem_nao_lida",
+        "tarefa_urgente",
+        "insight_critico",
+        "conversao_perdida"
+      ],
+      "description": "Tipo de notifica\u00e7\u00e3o"
+    },
+    "titulo": {
+      "type": "string",
+      "description": "T\u00edtulo da notifica\u00e7\u00e3o"
+    },
+    "mensagem": {
+      "type": "string",
+      "description": "Mensagem detalhada"
+    },
+    "prioridade": {
+      "type": "string",
+      "enum": [
+        "baixa",
+        "normal",
+        "alta",
+        "critica",
+        "urgente"
+      ],
+      "default": "normal"
+    },
+    "usuario_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio destinat\u00e1rio"
+    },
+    "usuario_nome": {
+      "type": "string",
+      "description": "Nome do usu\u00e1rio para facilitar queries"
+    },
+    "entidade_relacionada": {
+      "type": "string",
+      "enum": [
+        "MessageThread",
+        "FlowExecution",
+        "Contact",
+        "FlowTemplate",
+        "WhatsAppIntegration",
+        "TarefaInteligente",
+        "PlaybookInsight"
+      ],
+      "description": "Tipo de entidade relacionada"
+    },
+    "entidade_id": {
+      "type": "string",
+      "description": "ID da entidade relacionada"
+    },
+    "acao_sugerida": {
+      "type": "object",
+      "properties": {
+        "tipo": {
+          "type": "string",
+          "enum": [
+            "navegar",
+            "aprovar",
+            "rejeitar",
+            "executar_funcao",
+            "nenhuma"
+          ]
+        },
+        "destino": {
+          "type": "string",
+          "description": "URL ou p\u00e1gina de destino"
+        },
+        "funcao": {
+          "type": "string",
+          "description": "Nome da fun\u00e7\u00e3o a executar"
+        },
+        "parametros": {
+          "type": "object",
+          "description": "Par\u00e2metros para a a\u00e7\u00e3o"
+        }
+      }
+    },
+    "lida": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a notifica\u00e7\u00e3o foi lida"
+    },
+    "lida_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "acao_executada": {
+      "type": "boolean",
+      "default": false
+    },
+    "acao_executada_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "silenciada": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o usu\u00e1rio silenciou este tipo de notifica\u00e7\u00e3o"
+    },
+    "origem": {
+      "type": "string",
+      "description": "Origem da notifica\u00e7\u00e3o (fun\u00e7\u00e3o, componente, webhook)"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Dados adicionais contextuais"
+    },
+    "expira_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a notifica\u00e7\u00e3o perde relev\u00e2ncia"
+    },
+    "agrupamento_key": {
+      "type": "string",
+      "description": "Chave para agrupar notifica\u00e7\u00f5es similares"
+    }
+  },
+  "required": [
+    "tipo",
+    "titulo",
+    "mensagem",
+    "prioridade",
+    "usuario_id"
+  ]
+}

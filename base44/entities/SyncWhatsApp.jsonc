@@ -1,0 +1,62 @@
+{
+  "name": "SyncWhatsApp",
+  "type": "object",
+  "properties": {
+    "instancia_id": {
+      "type": "string",
+      "description": "ID da WhatsAppIntegration"
+    },
+    "message_id_whatsapp": {
+      "type": "string",
+      "description": "ID \u00fanico da mensagem no WhatsApp"
+    },
+    "message_id_interno": {
+      "type": "string",
+      "description": "ID da Message no VendaPro"
+    },
+    "interacao_id": {
+      "type": "string",
+      "description": "ID da Interacao gerada (se aplic\u00e1vel)"
+    },
+    "direcao": {
+      "type": "string",
+      "enum": [
+        "recebida",
+        "enviada"
+      ],
+      "description": "Dire\u00e7\u00e3o da mensagem"
+    },
+    "status_entrega": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "sent",
+        "delivered",
+        "read",
+        "failed"
+      ],
+      "default": "pending",
+      "description": "Status de entrega no WhatsApp"
+    },
+    "timestamp_whatsapp": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp original do WhatsApp"
+    },
+    "timestamp_sincronizado": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi sincronizado no VendaPro"
+    },
+    "metadata_whatsapp": {
+      "type": "object",
+      "description": "Metadata adicional do WhatsApp (tipo de m\u00eddia, localiza\u00e7\u00e3o, etc.)"
+    }
+  },
+  "required": [
+    "instancia_id",
+    "message_id_whatsapp",
+    "message_id_interno",
+    "direcao"
+  ]
+}

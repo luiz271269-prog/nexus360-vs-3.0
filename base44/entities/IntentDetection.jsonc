@@ -1,0 +1,87 @@
+{
+  "name": "IntentDetection",
+  "type": "object",
+  "properties": {
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread analisada"
+    },
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact"
+    },
+    "mensagem_analisada": {
+      "type": "string",
+      "description": "Texto completo analisado pela IA"
+    },
+    "intencao_detectada": {
+      "type": "string",
+      "description": "Inten\u00e7\u00e3o identificada (ex: compra_pc, suporte_tecnico, consulta_boleto)"
+    },
+    "setor_detectado": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor"
+      ],
+      "description": "Setor identificado pela IA"
+    },
+    "tipo_contato_detectado": {
+      "type": "string",
+      "enum": [
+        "novo",
+        "lead",
+        "cliente",
+        "fornecedor",
+        "parceiro"
+      ],
+      "description": "Tipo de contato classificado"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Score de confian\u00e7a da IA (0.0 a 1.0)"
+    },
+    "modelo_usado": {
+      "type": "string",
+      "default": "gemini_3_flash",
+      "description": "Modelo de IA utilizado na an\u00e1lise"
+    },
+    "metodo_deteccao": {
+      "type": "string",
+      "enum": [
+        "llm",
+        "keywords",
+        "hybrid"
+      ],
+      "default": "hybrid",
+      "description": "M\u00e9todo usado: LLM puro, keywords ou h\u00edbrido"
+    },
+    "threshold_aplicado": {
+      "type": "number",
+      "description": "Threshold configurado no momento da an\u00e1lise"
+    },
+    "resultado_roteamento": {
+      "type": "string",
+      "enum": [
+        "auto_roteado",
+        "menu_fallback",
+        "enfileirado"
+      ],
+      "description": "Resultado da decis\u00e3o de roteamento"
+    },
+    "tempo_processamento_ms": {
+      "type": "number",
+      "description": "Tempo de processamento da IA"
+    }
+  },
+  "required": [
+    "thread_id",
+    "contact_id",
+    "mensagem_analisada",
+    "confidence"
+  ]
+}

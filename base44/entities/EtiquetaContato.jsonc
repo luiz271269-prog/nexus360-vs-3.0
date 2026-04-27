@@ -1,0 +1,195 @@
+{
+  "name": "EtiquetaContato",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome normalizado da etiqueta (slug)"
+    },
+    "label": {
+      "type": "string",
+      "description": "Nome de exibi\u00e7\u00e3o da etiqueta"
+    },
+    "emoji": {
+      "type": "string",
+      "default": "\ud83c\udff7\ufe0f",
+      "description": "Emoji da etiqueta"
+    },
+    "cor": {
+      "type": "string",
+      "default": "bg-slate-400",
+      "description": "Classe de cor Tailwind ou hex (#3b82f6)"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "fixa",
+        "personalizada"
+      ],
+      "default": "personalizada",
+      "description": "Tipo da etiqueta"
+    },
+    "setor": {
+      "type": "string",
+      "enum": [
+        "global",
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor"
+      ],
+      "default": "global",
+      "description": "Setor dono da etiqueta"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "destaque",
+        "status",
+        "comportamento",
+        "prioridade",
+        "segmentacao",
+        "produto",
+        "outro"
+      ],
+      "default": "outro",
+      "description": "Categoria da etiqueta"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da etiqueta"
+    },
+    "destaque": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se aparece em destaque na sidebar"
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a etiqueta est\u00e1 ativa"
+    },
+    "ordem": {
+      "type": "number",
+      "default": 100,
+      "description": "Ordem de exibi\u00e7\u00e3o"
+    },
+    "uso_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Contador de uso"
+    },
+    "tipos_contato_aplicaveis": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "lead",
+          "cliente",
+          "fornecedor",
+          "parceiro",
+          "novo"
+        ]
+      },
+      "default": [],
+      "description": "Tipos de contato aplic\u00e1veis (vazio = todos)"
+    },
+    "filas_aplicaveis": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "vendas",
+          "assistencia",
+          "financeiro",
+          "fornecedor",
+          "geral"
+        ]
+      },
+      "default": [],
+      "description": "Filas aplic\u00e1veis"
+    },
+    "peso_qualificacao": {
+      "type": "number",
+      "minimum": -100,
+      "maximum": 100,
+      "default": 0,
+      "description": "Peso no score ABC (-100 a 100)"
+    },
+    "categoria_abc": {
+      "type": "string",
+      "enum": [
+        "A",
+        "B",
+        "C",
+        "neutro"
+      ],
+      "default": "neutro",
+      "description": "Classe ABC"
+    },
+    "participa_abc": {
+      "type": "boolean",
+      "default": false,
+      "description": "Entra no c\u00e1lculo ABC"
+    },
+    "automacao_ativa": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se atribu\u00edda automaticamente"
+    },
+    "regras_automacao": {
+      "type": "object",
+      "properties": {
+        "condicoes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "campo": {
+                "type": "string"
+              },
+              "operador": {
+                "type": "string"
+              },
+              "valor": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "description": "Regras de automa\u00e7\u00e3o"
+    },
+    "metricas": {
+      "type": "object",
+      "properties": {
+        "total_contatos": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_conversao": {
+          "type": "number",
+          "default": 0
+        },
+        "valor_medio_venda": {
+          "type": "number",
+          "default": 0
+        }
+      },
+      "description": "M\u00e9tricas de performance"
+    },
+    "hierarquia_pai": {
+      "type": "string",
+      "description": "ID da etiqueta pai (para hierarquia)"
+    },
+    "migrado_de_tag": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se foi migrado da entidade Tag"
+    }
+  },
+  "required": [
+    "nome",
+    "label"
+  ]
+}

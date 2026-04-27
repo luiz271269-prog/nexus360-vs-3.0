@@ -1,0 +1,41 @@
+{
+  "name": "LoyaltyProgram",
+  "type": "object",
+  "properties": {
+    "cliente_id": {
+      "type": "string"
+    },
+    "pontos_acumulados": {
+      "type": "number",
+      "default": 0
+    },
+    "nivel_fidelidade": {
+      "type": "string",
+      "enum": [
+        "bronze",
+        "prata",
+        "ouro",
+        "platina",
+        "diamond"
+      ],
+      "default": "bronze"
+    },
+    "beneficios_ativos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "historico_recompensas": {
+      "type": "array",
+      "description": "Resgates realizados"
+    },
+    "desconto_personalizado": {
+      "type": "number",
+      "description": "% desconto baseado na fidelidade"
+    }
+  },
+  "required": [
+    "cliente_id"
+  ]
+}

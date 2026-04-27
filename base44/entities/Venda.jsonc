@@ -1,0 +1,114 @@
+{
+  "name": "Venda",
+  "type": "object",
+  "properties": {
+    "numero_pedido": {
+      "type": "string",
+      "description": "N\u00famero do pedido de venda"
+    },
+    "cliente_nome": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "vendedor": {
+      "type": "string",
+      "description": "Nome do vendedor"
+    },
+    "data_venda": {
+      "type": "string",
+      "format": "date",
+      "description": "Data da venda"
+    },
+    "valor_total": {
+      "type": "number",
+      "description": "Valor total da venda"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Pendente",
+        "Faturado",
+        "Entregue",
+        "Cancelado"
+      ],
+      "default": "Pendente",
+      "description": "Status da venda"
+    },
+    "tipo_venda": {
+      "type": "string",
+      "enum": [
+        "Nova Venda",
+        "Renova\u00e7\u00e3o",
+        "Upsell",
+        "Cross-sell"
+      ],
+      "default": "Nova Venda",
+      "description": "Tipo de venda"
+    },
+    "condicao_pagamento": {
+      "type": "string",
+      "description": "Condi\u00e7\u00e3o de pagamento (ex: \u00c0 vista, 30/60 dias, etc.)"
+    },
+    "produtos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "description": "C\u00f3digo do produto"
+          },
+          "nome": {
+            "type": "string",
+            "description": "Nome do produto"
+          },
+          "descricao": {
+            "type": "string",
+            "description": "Descri\u00e7\u00e3o detalhada do produto"
+          },
+          "quantidade": {
+            "type": "number",
+            "description": "Quantidade do produto"
+          },
+          "valor_unitario": {
+            "type": "number",
+            "description": "Valor unit\u00e1rio do produto"
+          },
+          "valor_total": {
+            "type": "number",
+            "description": "Valor total do item (quantidade \u00d7 valor unit\u00e1rio)"
+          },
+          "observacoes": {
+            "type": "string",
+            "description": "Observa\u00e7\u00f5es espec\u00edficas do item"
+          }
+        },
+        "required": [
+          "nome",
+          "quantidade",
+          "valor_unitario",
+          "valor_total"
+        ]
+      },
+      "description": "Lista de produtos/servi\u00e7os da venda"
+    },
+    "descricao_produtos": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o simplificada dos produtos (mantido para compatibilidade)"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre a venda"
+    },
+    "mes_referencia": {
+      "type": "string",
+      "description": "M\u00eas de refer\u00eancia (formato: YYYY-MM)"
+    }
+  },
+  "required": [
+    "cliente_nome",
+    "vendedor",
+    "data_venda",
+    "valor_total"
+  ]
+}

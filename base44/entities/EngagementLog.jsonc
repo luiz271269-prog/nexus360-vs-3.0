@@ -1,0 +1,73 @@
+{
+  "name": "EngagementLog",
+  "type": "object",
+  "properties": {
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread associada"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "watchdog",
+        "cadence",
+        "offer",
+        "system"
+      ],
+      "description": "Tipo de engajamento"
+    },
+    "stage": {
+      "type": "string",
+      "description": "Etapa do ciclo (ex: '3/7')"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi enviado"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "sent",
+        "skipped",
+        "blocked",
+        "failed",
+        "responded"
+      ],
+      "description": "Status do envio"
+    },
+    "dedupe_key": {
+      "type": "string",
+      "description": "Chave \u00fanica para deduplica\u00e7\u00e3o"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Motivo (ex: 'cooldown', 'human_active', 'outside_window')"
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "z_api",
+        "w_api"
+      ],
+      "description": "Provedor WhatsApp usado"
+    },
+    "message_id": {
+      "type": "string",
+      "description": "ID da mensagem enviada"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Metadados adicionais do envio"
+    }
+  },
+  "required": [
+    "contact_id",
+    "type",
+    "status"
+  ]
+}

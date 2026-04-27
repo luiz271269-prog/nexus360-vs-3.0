@@ -1,0 +1,65 @@
+{
+  "name": "SyncHistorico",
+  "type": "object",
+  "properties": {
+    "config_id": {
+      "type": "string",
+      "description": "ID da configura\u00e7\u00e3o Google Sheets"
+    },
+    "nome_planilha": {
+      "type": "string",
+      "description": "Nome da planilha para refer\u00eancia"
+    },
+    "tipo_sync": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "automatica"
+      ],
+      "description": "Tipo de sincroniza\u00e7\u00e3o"
+    },
+    "status_sync": {
+      "type": "string",
+      "enum": [
+        "sucesso",
+        "erro",
+        "parcial"
+      ],
+      "description": "Status da sincroniza\u00e7\u00e3o"
+    },
+    "registros_processados": {
+      "type": "number",
+      "description": "Total de registros processados"
+    },
+    "registros_novos": {
+      "type": "number",
+      "description": "Registros novos adicionados"
+    },
+    "registros_atualizados": {
+      "type": "number",
+      "description": "Registros atualizados"
+    },
+    "registros_ignorados": {
+      "type": "number",
+      "description": "Registros ignorados (duplicatas)"
+    },
+    "detalhes_erro": {
+      "type": "string",
+      "description": "Detalhes do erro se houver"
+    },
+    "tempo_processamento": {
+      "type": "number",
+      "description": "Tempo de processamento em segundos"
+    },
+    "dados_resumo": {
+      "type": "object",
+      "description": "Resumo dos dados sincronizados"
+    }
+  },
+  "required": [
+    "config_id",
+    "nome_planilha",
+    "tipo_sync",
+    "status_sync"
+  ]
+}

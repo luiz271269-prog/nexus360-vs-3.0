@@ -1,0 +1,57 @@
+{
+  "name": "CustomerJourney",
+  "type": "object",
+  "properties": {
+    "cliente_id": {
+      "type": "string",
+      "description": "ID do cliente"
+    },
+    "vendedor_responsavel": {
+      "type": "string",
+      "description": "ID do vendedor atribu\u00eddo"
+    },
+    "data_inicio": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "estagio_atual": {
+      "type": "string",
+      "enum": [
+        "onboarding",
+        "engajamento",
+        "qualificacao",
+        "fechamento",
+        "pos_venda",
+        "fidelizacao"
+      ]
+    },
+    "score_engajamento": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "touchpoints_realizados": {
+      "type": "number",
+      "description": "N\u00famero total de intera\u00e7\u00f5es"
+    },
+    "ultima_interacao": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "proxima_acao_agendada": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "tags_comportamento": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "cliente_id",
+    "vendedor_responsavel",
+    "estagio_atual"
+  ]
+}

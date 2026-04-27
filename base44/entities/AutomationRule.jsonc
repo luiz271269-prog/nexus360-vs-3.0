@@ -1,0 +1,100 @@
+{
+  "name": "AutomationRule",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome descritivo da regra de automa\u00e7\u00e3o"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada do que a regra faz"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "follow_up",
+        "alertas",
+        "scoring",
+        "tarefas",
+        "comunicacao"
+      ],
+      "description": "Categoria da automa\u00e7\u00e3o"
+    },
+    "gatilho": {
+      "type": "object",
+      "properties": {
+        "tipo": {
+          "type": "string",
+          "enum": [
+            "tempo",
+            "evento",
+            "condicao",
+            "score"
+          ]
+        },
+        "configuracao": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "condicoes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "campo": {
+            "type": "string"
+          },
+          "operador": {
+            "type": "string"
+          },
+          "valor": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "acoes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string"
+          },
+          "configuracao": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true
+    },
+    "contador_execucoes": {
+      "type": "number",
+      "default": 0
+    },
+    "taxa_sucesso": {
+      "type": "number",
+      "description": "Taxa de sucesso das execu\u00e7\u00f5es (%)"
+    },
+    "ultima_execucao": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "proxima_execucao": {
+      "type": "string",
+      "format": "datetime"
+    }
+  },
+  "required": [
+    "nome",
+    "gatilho",
+    "acoes"
+  ]
+}

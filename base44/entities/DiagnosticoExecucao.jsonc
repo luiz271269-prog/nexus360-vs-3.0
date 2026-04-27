@@ -1,0 +1,148 @@
+{
+  "name": "DiagnosticoExecucao",
+  "type": "object",
+  "properties": {
+    "whatsapp_integration_id": {
+      "type": "string",
+      "description": "ID da WhatsAppIntegration testada"
+    },
+    "integration_nome": {
+      "type": "string",
+      "description": "Nome da inst\u00e2ncia (para facilitar queries)"
+    },
+    "data_execucao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o diagn\u00f3stico foi executado"
+    },
+    "score_total": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Score geral do diagn\u00f3stico (m\u00e9dia das etapas)"
+    },
+    "tempo_total_ms": {
+      "type": "number",
+      "description": "Tempo total de execu\u00e7\u00e3o em milissegundos"
+    },
+    "status_geral": {
+      "type": "string",
+      "enum": [
+        "sucesso",
+        "parcial",
+        "falha",
+        "bloqueado"
+      ],
+      "description": "Status geral da execu\u00e7\u00e3o"
+    },
+    "etapa_bloqueada": {
+      "type": "number",
+      "description": "N\u00famero da etapa onde o diagn\u00f3stico foi bloqueado (null se completou)"
+    },
+    "etapas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": "number",
+            "description": "N\u00famero da etapa (1-4)"
+          },
+          "nome": {
+            "type": "string",
+            "description": "Nome da etapa"
+          },
+          "score": {
+            "type": "number",
+            "description": "Score percentual desta etapa"
+          },
+          "tempo_ms": {
+            "type": "number",
+            "description": "Tempo de execu\u00e7\u00e3o desta etapa"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "sucesso",
+              "aviso",
+              "erro",
+              "pendente"
+            ]
+          },
+          "testes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "nome": {
+                  "type": "string"
+                },
+                "critico": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "sucesso",
+                    "aviso",
+                    "erro",
+                    "pendente"
+                  ]
+                },
+                "tempo_ms": {
+                  "type": "number"
+                },
+                "detalhes": {
+                  "type": "object",
+                  "description": "Informa\u00e7\u00f5es espec\u00edficas do teste (valor obtido, erro, etc)"
+                },
+                "sugestao_correcao": {
+                  "type": "string",
+                  "description": "Sugest\u00e3o de como corrigir o problema"
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Array com detalhes de cada etapa executada"
+    },
+    "ambiente": {
+      "type": "object",
+      "properties": {
+        "url_origem": {
+          "type": "string"
+        },
+        "navegador": {
+          "type": "string"
+        },
+        "usuario_executor": {
+          "type": "string"
+        }
+      },
+      "description": "Contexto da execu\u00e7\u00e3o para an\u00e1lise"
+    },
+    "comparacao_execucao_anterior": {
+      "type": "object",
+      "properties": {
+        "score_anterior": {
+          "type": "number"
+        },
+        "diferenca": {
+          "type": "number"
+        },
+        "melhorou": {
+          "type": "boolean"
+        }
+      },
+      "description": "Compara\u00e7\u00e3o autom\u00e1tica com \u00faltima execu\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "whatsapp_integration_id",
+    "data_execucao",
+    "score_total",
+    "etapas"
+  ]
+}

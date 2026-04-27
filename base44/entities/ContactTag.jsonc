@@ -1,0 +1,37 @@
+{
+  "name": "ContactTag",
+  "type": "object",
+  "properties": {
+    "contact_id": {
+      "type": "string",
+      "description": "ID do contato"
+    },
+    "tag_id": {
+      "type": "string",
+      "description": "ID da tag"
+    },
+    "atribuida_por": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio que atribuiu (ou 'sistema')"
+    },
+    "origem": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "automatica",
+        "ia"
+      ],
+      "default": "manual"
+    },
+    "confianca_ia": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Confian\u00e7a da IA na atribui\u00e7\u00e3o (0-100%)"
+    }
+  },
+  "required": [
+    "contact_id",
+    "tag_id"
+  ]
+}

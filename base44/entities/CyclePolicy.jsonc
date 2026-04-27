@@ -1,0 +1,111 @@
+{
+  "name": "CyclePolicy",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome da pol\u00edtica de ciclo"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da pol\u00edtica"
+    },
+    "target_contact_types": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "novo",
+          "lead",
+          "cliente",
+          "fornecedor",
+          "parceiro"
+        ]
+      },
+      "description": "Tipos de contato para aplicar esta pol\u00edtica"
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage_label": {
+            "type": "string",
+            "description": "Label da etapa (ex: '1/7', '2/7')"
+          },
+          "delay_hours": {
+            "type": "number",
+            "description": "Delay em horas desde \u00faltima inbound"
+          },
+          "message_template": {
+            "type": "string",
+            "description": "Template da mensagem a enviar"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "send_message",
+              "escalate",
+              "complete",
+              "wait_response"
+            ],
+            "description": "A\u00e7\u00e3o a executar"
+          }
+        },
+        "required": [
+          "stage_label",
+          "delay_hours",
+          "message_template",
+          "action"
+        ]
+      },
+      "description": "Lista de etapas do ciclo"
+    },
+    "time_window_start": {
+      "type": "string",
+      "description": "Hora de in\u00edcio (HH:mm)"
+    },
+    "time_window_end": {
+      "type": "string",
+      "description": "Hora de fim (HH:mm)"
+    },
+    "days_of_week": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 6
+      },
+      "description": "Dias da semana permitidos (0=dom, 1=seg...)"
+    },
+    "per_contact_daily_cap": {
+      "type": "number",
+      "default": 1,
+      "description": "M\u00e1ximo de mensagens por dia por contato"
+    },
+    "global_daily_cap": {
+      "type": "number",
+      "default": 200,
+      "description": "M\u00e1ximo global de mensagens por dia"
+    },
+    "cooldown_hours": {
+      "type": "number",
+      "default": 24,
+      "description": "Horas de cooldown entre ciclos"
+    },
+    "handoff_rules": {
+      "type": "object",
+      "description": "Regras de handoff para humano"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a pol\u00edtica est\u00e1 ativa"
+    }
+  },
+  "required": [
+    "name",
+    "target_contact_types",
+    "stages"
+  ]
+}

@@ -1,0 +1,97 @@
+{
+  "name": "MensagemPendente",
+  "type": "object",
+  "properties": {
+    "numero_destino": {
+      "type": "string",
+      "description": "N\u00famero de telefone destinat\u00e1rio (E.164)"
+    },
+    "mensagem": {
+      "type": "string",
+      "description": "Conte\u00fado da mensagem a reenviar"
+    },
+    "integration_id": {
+      "type": "string",
+      "description": "ID da WhatsAppIntegration original"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread"
+    },
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact"
+    },
+    "motivo": {
+      "type": "string",
+      "enum": [
+        "429_rate_limit",
+        "timeout",
+        "conexao_perdida",
+        "outro"
+      ],
+      "description": "Motivo da falha original"
+    },
+    "tentativas": {
+      "type": "number",
+      "default": 0,
+      "description": "N\u00famero de tentativas de envio falhadas"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "aguardando_reenvio",
+        "enviada",
+        "falhou_permanente"
+      ],
+      "default": "aguardando_reenvio",
+      "description": "Status do reenvio"
+    },
+    "criada_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a mensagem ficou pendente"
+    },
+    "ultima_tentativa_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima tentativa de reenvio"
+    },
+    "proxima_tentativa_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Pr\u00f3xima tentativa agendada"
+    },
+    "atendente_notificado": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o atendente foi notificado manualmente"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Notas sobre tentativas de reenvio"
+    },
+    "media_url": {
+      "type": "string",
+      "description": "URL de m\u00eddia anexada (se houver)"
+    },
+    "media_type": {
+      "type": "string",
+      "enum": [
+        "none",
+        "image",
+        "video",
+        "audio",
+        "document"
+      ],
+      "default": "none",
+      "description": "Tipo de m\u00eddia"
+    }
+  },
+  "required": [
+    "numero_destino",
+    "mensagem",
+    "integration_id",
+    "motivo"
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "name": "ScheduleReminder",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "ID do ScheduleEvent relacionado"
+    },
+    "target_user_id": {
+      "type": "string",
+      "description": "ID do User que receber\u00e1 o lembrete"
+    },
+    "offset_minutes": {
+      "type": "number",
+      "description": "Quantos minutos ANTES do evento disparar (ex: 15 = 15min antes)"
+    },
+    "send_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data/hora calculada para envio (start_at - offset)"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "whatsapp_internal",
+        "internal",
+        "email"
+      ],
+      "default": "internal",
+      "description": "Canal de envio do lembrete"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "sent",
+        "failed"
+      ],
+      "default": "pending",
+      "description": "Status do envio"
+    },
+    "send_dedupe_key": {
+      "type": "string",
+      "description": "Chave \u00fanica (event_id + target_user_id + offset_minutes) para evitar duplica\u00e7\u00e3o"
+    },
+    "retry_count": {
+      "type": "number",
+      "default": 0,
+      "description": "N\u00famero de tentativas de envio"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi enviado com sucesso"
+    },
+    "failed_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando falhou definitivamente"
+    },
+    "dead_lettered_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi enviado para dead-letter (ap\u00f3s 3+ falhas)"
+    },
+    "error_details": {
+      "type": "string",
+      "description": "Detalhes do erro (se status = failed)"
+    }
+  },
+  "required": [
+    "event_id",
+    "target_user_id",
+    "offset_minutes",
+    "send_at",
+    "send_dedupe_key"
+  ]
+}

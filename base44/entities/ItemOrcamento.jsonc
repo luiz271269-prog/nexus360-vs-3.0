@@ -1,0 +1,54 @@
+{
+  "name": "ItemOrcamento",
+  "type": "object",
+  "properties": {
+    "orcamento_id": {
+      "type": "string",
+      "description": "ID do Or\u00e7amento ao qual este item pertence"
+    },
+    "produto_id": {
+      "type": "string",
+      "description": "ID do Produto do cat\u00e1logo (opcional)"
+    },
+    "nome_produto": {
+      "type": "string",
+      "description": "Nome do produto/servi\u00e7o"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada do item"
+    },
+    "marca": {
+      "type": "string"
+    },
+    "modelo": {
+      "type": "string"
+    },
+    "referencia": {
+      "type": "string"
+    },
+    "quantidade": {
+      "type": "number",
+      "default": 1
+    },
+    "valor_unitario": {
+      "type": "number",
+      "default": 0
+    },
+    "valor_total": {
+      "type": "number",
+      "default": 0
+    },
+    "is_opcional": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se este item \u00e9 uma sugest\u00e3o/opcional"
+    }
+  },
+  "required": [
+    "orcamento_id",
+    "nome_produto",
+    "quantidade",
+    "valor_unitario"
+  ]
+}

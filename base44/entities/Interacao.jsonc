@@ -1,0 +1,174 @@
+{
+  "name": "Interacao",
+  "type": "object",
+  "properties": {
+    "cliente_id": {
+      "type": "string",
+      "description": "ID do cliente (opcional - nem toda intera\u00e7\u00e3o est\u00e1 vinculada a um cliente)"
+    },
+    "cliente_nome": {
+      "type": "string",
+      "description": "Nome do cliente para facilitar consultas (opcional)"
+    },
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact (se intera\u00e7\u00e3o via WhatsApp)"
+    },
+    "message_id": {
+      "type": "string",
+      "description": "ID da Message relacionada"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread"
+    },
+    "vendedor": {
+      "type": "string",
+      "description": "Nome do vendedor respons\u00e1vel ou 'IA - NexusEngine'"
+    },
+    "tipo_interacao": {
+      "type": "string",
+      "enum": [
+        "ligacao",
+        "whatsapp",
+        "email",
+        "reuniao",
+        "visita",
+        "chat_interno",
+        "outro"
+      ],
+      "description": "Tipo de contato realizado"
+    },
+    "data_interacao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data e hora da intera\u00e7\u00e3o"
+    },
+    "duracao_minutos": {
+      "type": "number",
+      "description": "Dura\u00e7\u00e3o em minutos"
+    },
+    "resultado": {
+      "type": "string",
+      "enum": [
+        "sucesso",
+        "sem_contato",
+        "reagendado",
+        "interessado",
+        "nao_interessado",
+        "orcamento_solicitado",
+        "venda_fechada",
+        "reclamacao",
+        "resolvido_ia",
+        "transferido_humano",
+        "informacao_fornecida"
+      ],
+      "description": "Resultado da intera\u00e7\u00e3o"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es detalhadas"
+    },
+    "proximo_passo": {
+      "type": "string",
+      "description": "Pr\u00f3xima a\u00e7\u00e3o sugerida"
+    },
+    "data_proximo_contato": {
+      "type": "string",
+      "format": "date",
+      "description": "Data agendada para pr\u00f3ximo contato"
+    },
+    "temperatura_cliente": {
+      "type": "string",
+      "enum": [
+        "frio",
+        "morno",
+        "quente",
+        "muito_quente"
+      ],
+      "default": "morno",
+      "description": "Avalia\u00e7\u00e3o do interesse"
+    },
+    "analise_ia": {
+      "type": "object",
+      "properties": {
+        "sentimento": {
+          "type": "string",
+          "enum": [
+            "muito_positivo",
+            "positivo",
+            "neutro",
+            "negativo",
+            "muito_negativo"
+          ]
+        },
+        "intencao": {
+          "type": "string",
+          "enum": [
+            "duvida",
+            "compra",
+            "reclamacao",
+            "agradecimento",
+            "negociacao",
+            "cancelamento",
+            "duvida_geral",
+            "outro"
+          ]
+        },
+        "urgencia": {
+          "type": "string",
+          "enum": [
+            "baixa",
+            "media",
+            "alta",
+            "critica"
+          ]
+        },
+        "resumo": {
+          "type": "string",
+          "description": "Resumo autom\u00e1tico da intera\u00e7\u00e3o"
+        },
+        "confianca_resposta": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confian\u00e7a da IA na resposta dada"
+        }
+      }
+    },
+    "categoria_interacao": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "suporte",
+        "informacao_geral",
+        "feedback",
+        "onboarding",
+        "qualificacao"
+      ],
+      "default": "informacao_geral",
+      "description": "Categoria da intera\u00e7\u00e3o"
+    },
+    "origem_campanha": {
+      "type": "object",
+      "properties": {
+        "utm_source": {
+          "type": "string"
+        },
+        "utm_campaign": {
+          "type": "string"
+        },
+        "canal_entrada": {
+          "type": "string"
+        }
+      },
+      "description": "Origem da campanha se esta foi a primeira intera\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "vendedor",
+    "tipo_interacao",
+    "data_interacao",
+    "resultado"
+  ]
+}

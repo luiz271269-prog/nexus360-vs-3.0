@@ -1,0 +1,78 @@
+{
+  "name": "AgentRun",
+  "type": "object",
+  "properties": {
+    "trigger_type": {
+      "type": "string",
+      "enum": [
+        "message.inbound",
+        "message.outbound",
+        "thread.updated",
+        "contact.created",
+        "cliente.updated",
+        "orcamento.parado",
+        "scheduled.check",
+        "manual.invoke",
+        "error.detected"
+      ],
+      "description": "Tipo de evento que disparou o agente"
+    },
+    "trigger_event_id": {
+      "type": "string",
+      "description": "ID do evento espec\u00edfico (message_id, thread_id, etc.)"
+    },
+    "playbook_selected": {
+      "type": "string",
+      "description": "Nome do playbook selecionado para execu\u00e7\u00e3o"
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": [
+        "dry_run",
+        "assistente",
+        "auto_execute"
+      ],
+      "default": "assistente",
+      "description": "Modo de execu\u00e7\u00e3o: simula\u00e7\u00e3o, sugest\u00e3o ou execu\u00e7\u00e3o autom\u00e1tica"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "iniciado",
+        "processando",
+        "aguardando_aprovacao",
+        "concluido",
+        "falhou",
+        "cancelado"
+      ],
+      "default": "iniciado"
+    },
+    "context_snapshot": {
+      "type": "object",
+      "description": "Contexto completo no momento da execu\u00e7\u00e3o"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a execu\u00e7\u00e3o come\u00e7ou"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a execu\u00e7\u00e3o terminou"
+    },
+    "duration_ms": {
+      "type": "number",
+      "description": "Dura\u00e7\u00e3o total em milissegundos"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Mensagem de erro se falhou"
+    }
+  },
+  "required": [
+    "trigger_type",
+    "playbook_selected",
+    "execution_mode"
+  ]
+}

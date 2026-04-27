@@ -1,0 +1,113 @@
+{
+  "name": "RegrasIntencao",
+  "type": "object",
+  "properties": {
+    "nome_regra": {
+      "type": "string",
+      "description": "Nome descritivo da regra"
+    },
+    "termos_chave": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Palavras-chave que ativam esta regra (ex: ['boleto', 'fatura', 'nota'])"
+    },
+    "setor_alvo": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "geral"
+      ],
+      "description": "Setor de destino quando regra \u00e9 ativada"
+    },
+    "playbook_especifico_id": {
+      "type": "string",
+      "description": "ID do FlowTemplate espec\u00edfico para esta regra"
+    },
+    "atendente_especifico_id": {
+      "type": "string",
+      "description": "ID do User espec\u00edfico para atribui\u00e7\u00e3o direta (opcional)"
+    },
+    "fila_destino_id": {
+      "type": "string",
+      "description": "ID da FilaAtendimento destino (opcional)"
+    },
+    "conexoes_permitidas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "IDs das WhatsAppIntegrations onde esta regra se aplica (vazio = todas)"
+    },
+    "setores_permitidos": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "vendas",
+          "assistencia",
+          "financeiro",
+          "fornecedor",
+          "geral"
+        ]
+      },
+      "description": "Setores onde esta regra se aplica (vazio = todos)"
+    },
+    "prioridade": {
+      "type": "number",
+      "default": 10,
+      "description": "Ordem de execu\u00e7\u00e3o (menor n\u00famero = maior prioridade)"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a regra est\u00e1 ativa"
+    },
+    "match_type": {
+      "type": "string",
+      "enum": [
+        "any",
+        "all",
+        "exact"
+      ],
+      "default": "any",
+      "description": "any = qualquer palavra | all = todas palavras | exact = frase exata"
+    },
+    "case_sensitive": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a compara\u00e7\u00e3o diferencia mai\u00fasculas/min\u00fasculas"
+    },
+    "metricas": {
+      "type": "object",
+      "properties": {
+        "total_matches": {
+          "type": "number",
+          "default": 0
+        },
+        "total_ativacoes": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_sucesso": {
+          "type": "number",
+          "default": 0
+        },
+        "ultima_ativacao": {
+          "type": "string",
+          "format": "datetime"
+        }
+      },
+      "description": "M\u00e9tricas de uso da regra"
+    }
+  },
+  "required": [
+    "nome_regra",
+    "termos_chave",
+    "setor_alvo"
+  ]
+}

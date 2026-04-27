@@ -1,0 +1,38 @@
+{
+  "name": "WhatsAppEngagement",
+  "type": "object",
+  "properties": {
+    "cliente_id": {
+      "type": "string"
+    },
+    "numero_whatsapp": {
+      "type": "string"
+    },
+    "status_verificacao": {
+      "type": "string",
+      "enum": [
+        "valido",
+        "invalido",
+        "pendente",
+        "bloqueado"
+      ],
+      "default": "pendente"
+    },
+    "preferencia_horario": {
+      "type": "string",
+      "description": "Melhor hor\u00e1rio para contato (ex: 14:00-16:00)"
+    },
+    "taxa_resposta": {
+      "type": "number",
+      "description": "% de respostas das \u00faltimas 10 mensagens"
+    },
+    "opt_in_promocoes": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "cliente_id",
+    "numero_whatsapp"
+  ]
+}

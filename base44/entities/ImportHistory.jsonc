@@ -1,0 +1,50 @@
+{
+  "name": "ImportHistory",
+  "type": "object",
+  "properties": {
+    "tipo_importacao": {
+      "type": "string",
+      "enum": [
+        "produtos",
+        "orcamentos",
+        "clientes",
+        "fornecedores"
+      ],
+      "description": "Tipo de dados importados"
+    },
+    "total_registros": {
+      "type": "number",
+      "description": "Total de registros processados"
+    },
+    "sucessos": {
+      "type": "number",
+      "description": "N\u00famero de registros importados com sucesso"
+    },
+    "erros": {
+      "type": "number",
+      "description": "N\u00famero de registros com erro"
+    },
+    "detalhes": {
+      "type": "object",
+      "description": "Detalhes espec\u00edficos da importa\u00e7\u00e3o"
+    },
+    "arquivo_origem": {
+      "type": "string",
+      "description": "Nome do arquivo de origem (se aplic\u00e1vel)"
+    },
+    "usuario_importacao": {
+      "type": "string",
+      "description": "Usu\u00e1rio que executou a importa\u00e7\u00e3o"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre a importa\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "tipo_importacao",
+    "total_registros",
+    "sucessos",
+    "erros"
+  ]
+}

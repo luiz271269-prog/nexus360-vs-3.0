@@ -1,0 +1,85 @@
+{
+  "name": "InternalThread",
+  "type": "object",
+  "properties": {
+    "thread_type": {
+      "type": "string",
+      "enum": [
+        "team_1on1",
+        "sector_group",
+        "custom_group"
+      ],
+      "default": "team_1on1",
+      "description": "Tipo: 1:1 entre usu\u00e1rios, grupo de setor, ou grupo customizado"
+    },
+    "pair_key": {
+      "type": "string",
+      "description": "Chave \u00fanica para threads 1:1. Formato: 'minId:maxId'. Garante unicidade O(1)"
+    },
+    "sector_key": {
+      "type": "string",
+      "description": "Chave \u00fanica de setor (ex: 'sector:vendas'). Garante 1 grupo por setor"
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "IDs dos Users participantes"
+    },
+    "group_name": {
+      "type": "string",
+      "description": "Nome do grupo (para custom_group ou sector_group)"
+    },
+    "unread_by": {
+      "type": "object",
+      "default": {},
+      "description": "Contador de n\u00e3o lidas por usu\u00e1rio. Ex: {'user_A': 0, 'user_B': 3}"
+    },
+    "total_mensagens": {
+      "type": "number",
+      "default": 0
+    },
+    "last_message_content": {
+      "type": "string",
+      "description": "Preview da \u00faltima mensagem"
+    },
+    "last_message_at": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "last_message_sender_id": {
+      "type": "string",
+      "description": "ID do User que enviou a \u00faltima mensagem"
+    },
+    "last_message_sender_name": {
+      "type": "string",
+      "description": "Nome do remetente (cache)"
+    },
+    "last_media_type": {
+      "type": "string",
+      "enum": [
+        "none",
+        "image",
+        "video",
+        "audio",
+        "document"
+      ],
+      "default": "none"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativa",
+        "arquivada"
+      ],
+      "default": "ativa"
+    },
+    "observacoes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "participants"
+  ]
+}

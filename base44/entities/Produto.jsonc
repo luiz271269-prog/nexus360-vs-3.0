@@ -1,0 +1,151 @@
+{
+  "name": "Produto",
+  "type": "object",
+  "properties": {
+    "codigo": {
+      "type": "string",
+      "description": "C\u00f3digo \u00fanico do produto"
+    },
+    "nome": {
+      "type": "string",
+      "description": "Nome do produto"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada do produto"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "Hardware",
+        "Software",
+        "Servi\u00e7o",
+        "Consultoria",
+        "Manuten\u00e7\u00e3o",
+        "Outros",
+        "Celular",
+        "Fonte de Alimenta\u00e7\u00e3o",
+        "HD SSD",
+        "Lente",
+        "Lente Macro",
+        "Monitor"
+      ],
+      "default": "Outros",
+      "description": "Categoria do produto"
+    },
+    "marca": {
+      "type": "string",
+      "description": "Marca do produto"
+    },
+    "modelo": {
+      "type": "string",
+      "description": "Modelo do produto"
+    },
+    "unidade_medida": {
+      "type": "string",
+      "enum": [
+        "unidade",
+        "metro",
+        "kg",
+        "litro",
+        "hora",
+        "m\u00eas",
+        "ano"
+      ],
+      "default": "unidade",
+      "description": "Unidade de medida"
+    },
+    "preco_custo": {
+      "type": "number",
+      "description": "Pre\u00e7o de custo do produto"
+    },
+    "preco_venda": {
+      "type": "number",
+      "description": "Pre\u00e7o de venda sugerido"
+    },
+    "preco_original": {
+      "type": "number",
+      "description": "Pre\u00e7o original do fornecedor (para recota\u00e7\u00e3o)"
+    },
+    "moeda_original": {
+      "type": "string",
+      "enum": [
+        "BRL",
+        "USD",
+        "EUR"
+      ],
+      "default": "BRL",
+      "description": "Moeda do pre\u00e7o original"
+    },
+    "margem_lucro": {
+      "type": "number",
+      "description": "Margem de lucro em percentual"
+    },
+    "estoque_atual": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantidade em estoque"
+    },
+    "estoque_minimo": {
+      "type": "number",
+      "default": 1,
+      "description": "Estoque m\u00ednimo para alerta"
+    },
+    "fornecedor": {
+      "type": "string",
+      "description": "Nome do fornecedor principal"
+    },
+    "link_origem": {
+      "type": "string",
+      "description": "Link original de onde o produto foi importado (para recota\u00e7\u00e3o)"
+    },
+    "codigo_fornecedor": {
+      "type": "string",
+      "description": "C\u00f3digo do produto no sistema do fornecedor"
+    },
+    "data_ultima_cotacao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data da \u00faltima cota\u00e7\u00e3o/importa\u00e7\u00e3o"
+    },
+    "configuracao_precificacao": {
+      "type": "object",
+      "description": "Configura\u00e7\u00e3o usada no c\u00e1lculo (para reproduzir c\u00e1lculo)",
+      "properties": {
+        "taxa_cambio": {
+          "type": "number"
+        },
+        "percentual_frete": {
+          "type": "number"
+        },
+        "percentual_impostos": {
+          "type": "number"
+        },
+        "margem_lucro": {
+          "type": "number"
+        },
+        "custo_operacional": {
+          "type": "number"
+        }
+      }
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre o produto"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o produto est\u00e1 ativo para venda"
+    },
+    "imagem_url": {
+      "type": "string",
+      "description": "URL da imagem do produto"
+    }
+  },
+  "required": [
+    "codigo",
+    "nome",
+    "preco_venda"
+  ]
+}

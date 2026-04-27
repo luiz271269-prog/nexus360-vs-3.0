@@ -1,0 +1,65 @@
+{
+  "name": "RegraProcessamento",
+  "type": "object",
+  "properties": {
+    "nome_regra": {
+      "type": "string",
+      "description": "Nome descritivo da regra"
+    },
+    "tipo_documento": {
+      "type": "string",
+      "description": "C\u00f3digo do tipo de documento ao qual se aplica"
+    },
+    "campo_alvo": {
+      "type": "string",
+      "description": "Campo espec\u00edfico ou '*' para todos"
+    },
+    "tipo_regra": {
+      "type": "string",
+      "enum": [
+        "validacao",
+        "normalizacao",
+        "enriquecimento",
+        "classificacao"
+      ],
+      "description": "Tipo da regra de processamento"
+    },
+    "condicoes": {
+      "type": "object",
+      "description": "Condi\u00e7\u00f5es para aplica\u00e7\u00e3o da regra (JSON)"
+    },
+    "acoes": {
+      "type": "object",
+      "description": "A\u00e7\u00f5es a serem executadas quando a regra for ativada"
+    },
+    "prioridade": {
+      "type": "number",
+      "default": 100,
+      "description": "Prioridade de execu\u00e7\u00e3o (menor n\u00famero = maior prioridade)"
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a regra est\u00e1 ativa"
+    },
+    "contador_aplicacoes": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantas vezes a regra foi aplicada"
+    },
+    "taxa_sucesso": {
+      "type": "number",
+      "description": "Taxa de sucesso das aplica\u00e7\u00f5es desta regra"
+    },
+    "exemplos": {
+      "type": "array",
+      "description": "Exemplos de entrada e sa\u00edda esperada"
+    }
+  },
+  "required": [
+    "nome_regra",
+    "tipo_regra",
+    "condicoes",
+    "acoes"
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "name": "SystemHealthCheck",
+  "type": "object",
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Momento do health check"
+    },
+    "status_geral": {
+      "type": "string",
+      "enum": [
+        "saudavel",
+        "degradado",
+        "critico",
+        "offline"
+      ],
+      "description": "Status geral do sistema"
+    },
+    "componentes": {
+      "type": "object",
+      "properties": {
+        "whatsapp_integrations": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string"
+            },
+            "total": {
+              "type": "number"
+            },
+            "conectadas": {
+              "type": "number"
+            },
+            "desconectadas": {
+              "type": "number"
+            },
+            "erro": {
+              "type": "number"
+            },
+            "detalhes": {
+              "type": "array"
+            }
+          }
+        },
+        "playbook_engine": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string"
+            },
+            "execucoes_ativas": {
+              "type": "number"
+            },
+            "taxa_sucesso_24h": {
+              "type": "number"
+            },
+            "tempo_medio_execucao": {
+              "type": "number"
+            },
+            "erros_ultimas_24h": {
+              "type": "number"
+            }
+          }
+        },
+        "ia_handler": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string"
+            },
+            "chamadas_ultimas_24h": {
+              "type": "number"
+            },
+            "tokens_consumidos_24h": {
+              "type": "number"
+            },
+            "custo_estimado_24h": {
+              "type": "number"
+            },
+            "tempo_medio_resposta_ms": {
+              "type": "number"
+            },
+            "taxa_erro": {
+              "type": "number"
+            }
+          }
+        },
+        "database": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string"
+            },
+            "tempo_resposta_ms": {
+              "type": "number"
+            },
+            "queries_lentas": {
+              "type": "number"
+            }
+          }
+        },
+        "webhook_receiver": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string"
+            },
+            "mensagens_recebidas_24h": {
+              "type": "number"
+            },
+            "taxa_processamento_sucesso": {
+              "type": "number"
+            },
+            "tempo_medio_processamento_ms": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "alertas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severidade": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "error",
+              "critical"
+            ]
+          },
+          "componente": {
+            "type": "string"
+          },
+          "mensagem": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metricas_performance": {
+      "type": "object",
+      "properties": {
+        "cpu_usage": {
+          "type": "number"
+        },
+        "memory_usage": {
+          "type": "number"
+        },
+        "disk_usage": {
+          "type": "number"
+        },
+        "network_latency_ms": {
+          "type": "number"
+        }
+      }
+    },
+    "proxima_verificacao": {
+      "type": "string",
+      "format": "datetime"
+    }
+  },
+  "required": [
+    "timestamp",
+    "status_geral",
+    "componentes"
+  ]
+}

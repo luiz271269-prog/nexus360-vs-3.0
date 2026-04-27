@@ -1,0 +1,95 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "usuario_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio que executou a a\u00e7\u00e3o"
+    },
+    "usuario_email": {
+      "type": "string",
+      "description": "Email do usu\u00e1rio para facilitar consultas"
+    },
+    "usuario_nome": {
+      "type": "string",
+      "description": "Nome do usu\u00e1rio"
+    },
+    "acao": {
+      "type": "string",
+      "enum": [
+        "criar",
+        "editar",
+        "deletar",
+        "visualizar",
+        "exportar",
+        "importar",
+        "login",
+        "logout",
+        "config_alterar",
+        "permissao_alterar",
+        "automacao_executar"
+      ],
+      "description": "Tipo de a\u00e7\u00e3o executada"
+    },
+    "entidade_tipo": {
+      "type": "string",
+      "description": "Tipo da entidade afetada (Cliente, Venda, etc.)"
+    },
+    "entidade_id": {
+      "type": "string",
+      "description": "ID da entidade afetada"
+    },
+    "entidade_nome": {
+      "type": "string",
+      "description": "Nome/identificador leg\u00edvel da entidade"
+    },
+    "dados_anteriores": {
+      "type": "object",
+      "description": "Snapshot dos dados antes da altera\u00e7\u00e3o"
+    },
+    "dados_novos": {
+      "type": "object",
+      "description": "Snapshot dos dados ap\u00f3s a altera\u00e7\u00e3o"
+    },
+    "ip_address": {
+      "type": "string",
+      "description": "Endere\u00e7o IP de origem"
+    },
+    "user_agent": {
+      "type": "string",
+      "description": "User agent do navegador"
+    },
+    "resultado": {
+      "type": "string",
+      "enum": [
+        "sucesso",
+        "erro",
+        "bloqueado"
+      ],
+      "default": "sucesso",
+      "description": "Resultado da a\u00e7\u00e3o"
+    },
+    "motivo_bloqueio": {
+      "type": "string",
+      "description": "Motivo se a a\u00e7\u00e3o foi bloqueada por permiss\u00e3o"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Metadados adicionais contextuais"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a a\u00e7\u00e3o ocorreu"
+    },
+    "duracao_ms": {
+      "type": "number",
+      "description": "Dura\u00e7\u00e3o da opera\u00e7\u00e3o em milissegundos"
+    }
+  },
+  "required": [
+    "usuario_id",
+    "acao",
+    "entidade_tipo"
+  ]
+}

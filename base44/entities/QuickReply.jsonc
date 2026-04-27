@@ -1,0 +1,185 @@
+{
+  "name": "QuickReply",
+  "type": "object",
+  "properties": {
+    "titulo": {
+      "type": "string",
+      "description": "T\u00edtulo da resposta r\u00e1pida"
+    },
+    "comando": {
+      "type": "string",
+      "description": "Comando para ativar (ex: /preco, /horario)"
+    },
+    "conteudo": {
+      "type": "string",
+      "description": "Conte\u00fado da mensagem"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "suporte",
+        "informacoes",
+        "saudacao",
+        "despedida",
+        "agendamento"
+      ],
+      "description": "Categoria da resposta"
+    },
+    "variaveis_disponiveis": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Vari\u00e1veis que podem ser usadas (ex: {{nome_cliente}}, {{vendedor}})"
+    },
+    "anexo_midia": {
+      "type": "object",
+      "properties": {
+        "tipo": {
+          "type": "string",
+          "enum": [
+            "image",
+            "document",
+            "video"
+          ]
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "uso_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantas vezes foi usada"
+    },
+    "criado_por": {
+      "type": "string",
+      "description": "Usu\u00e1rio que criou"
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativa",
+        "sugerida",
+        "rascunho",
+        "em_teste",
+        "arquivada"
+      ],
+      "default": "ativa",
+      "description": "Status da RR no ciclo de vida"
+    },
+    "origem": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "ia_gerada",
+        "ia_otimizada"
+      ],
+      "default": "manual",
+      "description": "Origem da cria\u00e7\u00e3o"
+    },
+    "versao": {
+      "type": "string",
+      "default": "1.0",
+      "description": "Vers\u00e3o do conte\u00fado (para A/B testing)"
+    },
+    "versao_pai_id": {
+      "type": "string",
+      "description": "ID da RR original (se for uma varia\u00e7\u00e3o de teste)"
+    },
+    "metricas_performance": {
+      "type": "object",
+      "properties": {
+        "total_usos": {
+          "type": "number",
+          "default": 0
+        },
+        "score_medio_apos_uso": {
+          "type": "number",
+          "description": "Score m\u00e9dio do lead ap\u00f3s uso da RR"
+        },
+        "taxa_conversao": {
+          "type": "number",
+          "description": "% de leads que avan\u00e7aram ap\u00f3s usar esta RR"
+        },
+        "tempo_medio_resposta_cliente": {
+          "type": "number",
+          "description": "Tempo m\u00e9dio (minutos) at\u00e9 cliente responder"
+        },
+        "aprovacao_vendedores": {
+          "type": "number",
+          "description": "% de vezes que vendedores editaram a RR antes de usar"
+        }
+      },
+      "description": "M\u00e9tricas de performance para otimiza\u00e7\u00e3o"
+    },
+    "contexto_ia": {
+      "type": "object",
+      "properties": {
+        "prompt_gerador": {
+          "type": "string",
+          "description": "Prompt usado para gerar (se ia_gerada)"
+        },
+        "threads_analisadas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "IDs das threads que inspiraram esta RR"
+        },
+        "frequencia_pergunta": {
+          "type": "number",
+          "description": "Quantas vezes a pergunta apareceu antes de gerar RR"
+        },
+        "confianca_ia": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confian\u00e7a da IA na qualidade desta RR"
+        }
+      },
+      "description": "Contexto de gera\u00e7\u00e3o pela IA"
+    },
+    "feedback_humano": {
+      "type": "object",
+      "properties": {
+        "aprovado": {
+          "type": "boolean"
+        },
+        "aprovado_por": {
+          "type": "string"
+        },
+        "data_aprovacao": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "edicoes_sugeridas": {
+          "type": "string"
+        },
+        "motivo_rejeicao": {
+          "type": "string"
+        }
+      },
+      "description": "Feedback humano para aprendizado"
+    },
+    "data_criacao": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "data_ultima_atualizacao": {
+      "type": "string",
+      "format": "datetime"
+    }
+  },
+  "required": [
+    "titulo",
+    "comando",
+    "conteudo"
+  ]
+}

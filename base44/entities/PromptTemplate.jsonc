@@ -1,0 +1,88 @@
+{
+  "name": "PromptTemplate",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome do template (ex: 'analise_cliente_completa', 'geracao_tarefa_follow_up')"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "analise_cliente",
+        "geracao_tarefa",
+        "analise_sentimento",
+        "predicao",
+        "sugestao_resposta",
+        "resumo_conversa"
+      ],
+      "description": "Categoria do prompt"
+    },
+    "template_texto": {
+      "type": "string",
+      "description": "Template do prompt com vari\u00e1veis {{variavel}}"
+    },
+    "variaveis_esperadas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lista de vari\u00e1veis que o template usa (ex: ['cliente_nome', 'historico_vendas'])"
+    },
+    "schema_resposta": {
+      "type": "object",
+      "description": "JSON Schema esperado na resposta do LLM"
+    },
+    "parametros_llm": {
+      "type": "object",
+      "properties": {
+        "add_context_from_internet": {
+          "type": "boolean",
+          "default": false
+        },
+        "max_tokens": {
+          "type": "number"
+        },
+        "temperature": {
+          "type": "number"
+        }
+      },
+      "description": "Par\u00e2metros para o InvokeLLM"
+    },
+    "versao": {
+      "type": "string",
+      "default": "1.0",
+      "description": "Vers\u00e3o do prompt para A/B testing"
+    },
+    "metricas_performance": {
+      "type": "object",
+      "properties": {
+        "taxa_sucesso": {
+          "type": "number"
+        },
+        "tempo_medio_execucao": {
+          "type": "number"
+        },
+        "custo_medio": {
+          "type": "number"
+        },
+        "n_execucoes": {
+          "type": "number"
+        }
+      }
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true
+    },
+    "observacoes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "nome",
+    "categoria",
+    "template_texto",
+    "schema_resposta"
+  ]
+}

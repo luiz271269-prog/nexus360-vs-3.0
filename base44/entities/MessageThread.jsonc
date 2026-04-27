@@ -1,0 +1,494 @@
+{
+  "name": "MessageThread",
+  "type": "object",
+  "properties": {
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact principal (para threads externas com clientes). NULL para threads internas."
+    },
+    "thread_type": {
+      "type": "string",
+      "enum": [
+        "contact_external",
+        "team_internal",
+        "sector_group"
+      ],
+      "default": "contact_external",
+      "description": "Tipo da conversa: contact_external (cliente), team_internal (chat interno 1:1) ou sector_group (grupo interno de setor)"
+    },
+    "assistant_mode": {
+      "type": "string",
+      "enum": [
+        "default",
+        "agenda",
+        "suporte",
+        "vendas"
+      ],
+      "default": "default",
+      "description": "Modo do assistente IA para esta thread (agenda = Agenda IA Nexus, default = fluxo normal)"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "whatsapp",
+        "instagram",
+        "facebook",
+        "phone",
+        "email",
+        "interno"
+      ],
+      "description": "Canal de comunica\u00e7\u00e3o desta thread"
+    },
+    "is_canonical": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se esta \u00e9 a thread can\u00f4nica/principal do contato (apenas 1 thread com true por contact_id)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "aberta",
+        "fechada",
+        "merged",
+        "arquivada"
+      ],
+      "default": "aberta",
+      "description": "Status da thread: aberta (ativa), fechada (resolvida), merged (unificada em outra), arquivada"
+    },
+    "merged_into": {
+      "type": "string",
+      "description": "ID da thread can\u00f4nica para onde esta foi unificada (se status=merged)"
+    },
+    "primeira_mensagem_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp da primeira mensagem da thread (hist\u00f3rico)"
+    },
+    "pair_key": {
+      "type": "string",
+      "description": "Chave \u00fanica para threads 1:1 internas. Formato: 'minId:maxId'. CR\u00cdTICO para performance O(1)"
+    },
+    "sector_key": {
+      "type": "string",
+      "description": "Identificador \u00fanico do setor (ex: 'sector:comercial'). Garante que s\u00f3 exista 1 grupo por setor."
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "IDs dos User participantes (para threads internas). Vazio para threads externas."
+    },
+    "is_group_chat": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se \u00e9 um chat em grupo (para threads team_internal ou sector_group)"
+    },
+    "group_name": {
+      "type": "string",
+      "description": "Nome do grupo (para is_group_chat=true ou threads sector_group)"
+    },
+    "unread_by": {
+      "type": "object",
+      "default": {},
+      "description": "Mapa de contadores por usu\u00e1rio. Ex: {'user_A': 0, 'user_B': 3}. CR\u00cdTICO para escalabilidade."
+    },
+    "unread_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Total de mensagens n\u00e3o lidas (threads externas WhatsApp). Threads internas usam unread_by."
+    },
+    "total_mensagens": {
+      "type": "number",
+      "default": 0,
+      "description": "Total de mensagens na conversa"
+    },
+    "assigned_user_id": {
+      "type": "string",
+      "description": "ID do User atribu\u00eddo para esta conversa (buscar full_name dinamicamente)"
+    },
+    "shared_with_users": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "IDs dos Users que t\u00eam acesso compartilhado / hist\u00f3rico de atendimento."
+    },
+    "atendentes_historico": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "IDs de todos os atendentes que j\u00e1 atenderam esta thread (hist\u00f3rico completo de atribui\u00e7\u00f5es). Nunca \u00e9 esvaziado."
+    },
+    "shared_permissions": {
+      "type": "object",
+      "default": {},
+      "description": "Permiss\u00f5es por usu\u00e1rio compartilhado."
+    },
+    "suggested_assigned_user_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio sugerido para assumir a conversa"
+    },
+    "suggested_assignment_reason": {
+      "type": "string",
+      "description": "Motivo da sugest\u00e3o"
+    },
+    "assignment_review_pending": {
+      "type": "boolean",
+      "default": false,
+      "description": "Indica se a sugest\u00e3o de atribui\u00e7\u00e3o est\u00e1 pendente de revis\u00e3o"
+    },
+    "sector_id": {
+      "type": "string",
+      "description": "Setor escolhido pelo cliente"
+    },
+    "pre_atendimento_setor_explicitamente_escolhido": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o setor foi escolhido explicitamente pelo cliente via URA (impede mudan\u00e7as autom\u00e1ticas)"
+    },
+    "routing_stage": {
+      "type": "string",
+      "enum": [
+        "NEW",
+        "INTENT_DETECTED",
+        "ROUTED",
+        "ASSIGNED",
+        "COMPLETED"
+      ],
+      "default": "NEW",
+      "description": "Est\u00e1gio do pipeline de roteamento inteligente (evita re-processamento e loops)"
+    },
+    "conexao_id": {
+      "type": "string",
+      "description": "ID da conex\u00e3o de origem (compatibilidade legada)"
+    },
+    "whatsapp_integration_id": {
+      "type": "string",
+      "description": "ID da WhatsAppIntegration usada (\u00faltima integra\u00e7\u00e3o que recebeu mensagem)"
+    },
+    "origin_integration_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "IDs de todas as integra\u00e7\u00f5es que j\u00e1 enviaram/receberam mensagens nesta thread"
+    },
+    "instagram_integration_id": {
+      "type": "string",
+      "description": "ID da InstagramIntegration usada"
+    },
+    "facebook_integration_id": {
+      "type": "string",
+      "description": "ID da FacebookIntegration usada"
+    },
+    "goto_integration_id": {
+      "type": "string",
+      "description": "ID da GoToIntegration usada"
+    },
+    "categorias": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "venda",
+          "suporte",
+          "urgente",
+          "aguardando_pagamento",
+          "cotacao",
+          "pos_venda",
+          "duvida",
+          "reclamacao"
+        ]
+      },
+      "default": [],
+      "description": "Categorias de atendimento (persistido para filtro r\u00e1pido)"
+    },
+    "pre_atendimento_state": {
+      "type": "string",
+      "enum": [
+        "INIT",
+        "WAITING_SECTOR_CHOICE",
+        "WAITING_ATTENDANT_CHOICE",
+        "WAITING_INFERRED_SECTOR_CONFIRMATION",
+        "WAITING_HUMAN_CONFIRMATION",
+        "TRANSFERRING",
+        "COMPLETED",
+        "TIMEOUT",
+        "CANCELLED",
+        "WAITING_CONTINUITY_CHOICE"
+      ],
+      "default": "INIT",
+      "description": "Estado atual do pr\u00e9-atendimento"
+    },
+    "pre_atendimento_ativo": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o pr\u00e9-atendimento est\u00e1 em andamento"
+    },
+    "pre_atendimento_timeout_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o pr\u00e9-atendimento expira"
+    },
+    "pre_atendimento_started_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o pr\u00e9-atendimento foi iniciado"
+    },
+    "pre_atendimento_completed_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o pr\u00e9-atendimento foi conclu\u00eddo"
+    },
+    "continuity_metadata": {
+      "type": "object",
+      "description": "Metadados para pergunta de continuidade"
+    },
+    "fila_atendimento_id": {
+      "type": "string",
+      "description": "ID da FilaAtendimento se enfileirada"
+    },
+    "entrou_na_fila_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando entrou na fila"
+    },
+    "last_message_content": {
+      "type": "string",
+      "description": "Preview da \u00faltima mensagem (cache desnormalizado)"
+    },
+    "last_message_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp da \u00faltima mensagem GERAL (qualquer dire\u00e7\u00e3o)"
+    },
+    "last_inbound_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp da \u00faltima mensagem RECEBIDA do contato (cr\u00edtico para promo\u00e7\u00f5es inbound)"
+    },
+    "last_outbound_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp da \u00faltima mensagem ENVIADA (sistema/atendente)"
+    },
+    "last_message_sender": {
+      "type": "string",
+      "enum": [
+        "user",
+        "contact"
+      ],
+      "description": "Quem enviou a \u00faltima mensagem"
+    },
+    "last_message_sender_name": {
+      "type": "string",
+      "description": "Nome do remetente da \u00faltima mensagem (cache)"
+    },
+    "last_human_message_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp da \u00faltima mensagem enviada por um atendente humano real (n\u00e3o URA/automa\u00e7\u00e3o)"
+    },
+    "last_media_type": {
+      "type": "string",
+      "enum": [
+        "none",
+        "image",
+        "video",
+        "audio",
+        "document",
+        "sticker",
+        "location",
+        "contact"
+      ],
+      "default": "none",
+      "description": "Tipo de m\u00eddia da \u00faltima mensagem"
+    },
+    "bloqueado": {
+      "type": "boolean",
+      "default": false
+    },
+    "motivo_bloqueio": {
+      "type": "string"
+    },
+    "bloqueado_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "bloqueado_por": {
+      "type": "string"
+    },
+    "whatsapp_status": {
+      "type": "string",
+      "enum": [
+        "verificado",
+        "nao_verificado",
+        "invalido",
+        "bloqueado"
+      ],
+      "default": "nao_verificado"
+    },
+    "whatsapp_optin": {
+      "type": "boolean",
+      "default": false
+    },
+    "whatsapp_optin_data": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "whatsapp_optin_origem": {
+      "type": "string"
+    },
+    "preferencias_comunicacao": {
+      "type": "object",
+      "properties": {
+        "canal_preferido": {
+          "type": "string",
+          "enum": [
+            "whatsapp",
+            "instagram",
+            "facebook",
+            "phone",
+            "email",
+            "telefone",
+            "nenhum"
+          ]
+        },
+        "melhor_horario": {
+          "type": "string"
+        },
+        "frequencia_contato": {
+          "type": "string",
+          "enum": [
+            "diaria",
+            "semanal",
+            "mensal",
+            "sob_demanda"
+          ]
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Etiquetas do contato"
+    },
+    "campos_personalizados": {
+      "type": "object",
+      "description": "Campos customizados definidos pelo usu\u00e1rio"
+    },
+    "segmento_atual": {
+      "type": "string",
+      "enum": [
+        "lead_frio",
+        "lead_morno",
+        "lead_quente",
+        "cliente_ativo",
+        "cliente_inativo",
+        "suporte",
+        "vip",
+        "risco_churn"
+      ],
+      "description": "Segmento calculado automaticamente pela IA"
+    },
+    "estagio_ciclo_vida": {
+      "type": "string",
+      "enum": [
+        "descoberta",
+        "consideracao",
+        "decisao",
+        "pos_venda",
+        "fidelizacao",
+        "reativacao"
+      ],
+      "description": "Est\u00e1gio no ciclo de vida do cliente"
+    },
+    "score_engajamento": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Score de engajamento baseado em comportamento (0-100)"
+    },
+    "ultima_interacao": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "ultima_analise_comportamento": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "cliente_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Score de qualifica\u00e7\u00e3o/engajamento (0-100) - usado para prioriza\u00e7\u00e3o"
+    },
+    "foto_perfil_url": {
+      "type": "string"
+    },
+    "foto_perfil_atualizada_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "observacoes": {
+      "type": "string"
+    },
+    "last_promo_sent_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "DEPRECATED: use last_promo_inbound_at ou last_promo_batch_at"
+    },
+    "last_promo_inbound_at": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "last_promo_batch_at": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "last_any_promo_sent_at": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "last_promo_id": {
+      "type": "string",
+      "description": "DEPRECATED: use last_promo_ids"
+    },
+    "last_promo_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "last_campaign_sent_at": {
+      "type": "object"
+    },
+    "promocoes_recebidas": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "jarvis_alerted_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que o Jarvis gerou um alerta/a\u00e7\u00e3o para esta thread (controle anti-spam)"
+    },
+    "jarvis_next_check_after": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Pr\u00f3xima vez que o Jarvis pode processar esta thread (cooldown de 4h ap\u00f3s cada alerta)"
+    },
+    "jarvis_last_playbook": {
+      "type": "string",
+      "description": "\u00daltimo playbook executado pelo Jarvis nesta thread (ex: notificacao_atendente, claude_resposta_automatica)"
+    }
+  },
+  "required": []
+}

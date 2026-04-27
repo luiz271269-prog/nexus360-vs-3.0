@@ -1,0 +1,113 @@
+{
+  "name": "ThreadContext",
+  "type": "object",
+  "properties": {
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread"
+    },
+    "external_sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source_url": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "fetched_at": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "cache_id": {
+            "type": "string"
+          }
+        }
+      },
+      "default": [],
+      "description": "URLs processadas com Firecrawl nesta thread"
+    },
+    "entities_extracted": {
+      "type": "object",
+      "description": "Entidades extra\u00eddas (produtos, pre\u00e7os, specs, urg\u00eancia)"
+    },
+    "agent_suggestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "resposta_link",
+              "follow_up",
+              "qualificacao",
+              "orcamento",
+              "escalonamento"
+            ]
+          },
+          "texto": {
+            "type": "string"
+          },
+          "confianca": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "usado": {
+            "type": "boolean",
+            "default": false
+          },
+          "usado_em": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "feedback": {
+            "type": "string",
+            "enum": [
+              "aceito",
+              "editado",
+              "descartado"
+            ]
+          }
+        }
+      },
+      "default": []
+    },
+    "sentiment_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "sentiment": {
+            "type": "string",
+            "enum": [
+              "muito_positivo",
+              "positivo",
+              "neutro",
+              "negativo",
+              "muito_negativo"
+            ]
+          },
+          "score": {
+            "type": "number"
+          }
+        }
+      },
+      "default": []
+    },
+    "updated_by_agent_at": {
+      "type": "string",
+      "format": "datetime"
+    }
+  },
+  "required": [
+    "thread_id"
+  ]
+}

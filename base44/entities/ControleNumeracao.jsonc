@@ -1,0 +1,73 @@
+{
+  "name": "ControleNumeracao",
+  "type": "object",
+  "properties": {
+    "tipo_entidade": {
+      "type": "string",
+      "enum": [
+        "cliente",
+        "vendedor",
+        "venda",
+        "orcamento",
+        "nota_fiscal",
+        "contrato"
+      ],
+      "description": "Tipo de entidade para controle de numera\u00e7\u00e3o"
+    },
+    "prefixo": {
+      "type": "string",
+      "description": "Prefixo do c\u00f3digo (ex: CLI, VEN, ORC, NF)"
+    },
+    "proximo_numero": {
+      "type": "number",
+      "default": 1,
+      "description": "Pr\u00f3ximo n\u00famero a ser usado"
+    },
+    "formato_mascara": {
+      "type": "string",
+      "description": "Formato da m\u00e1scara (ex: CLI-{AAAA}-{NNN}, ORC-{MM}{AA}-{NNNN})"
+    },
+    "ano_atual": {
+      "type": "number",
+      "description": "Ano atual para controle anual"
+    },
+    "mes_atual": {
+      "type": "number",
+      "description": "M\u00eas atual para controle mensal"
+    },
+    "reiniciar_anualmente": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se deve reiniciar a numera\u00e7\u00e3o a cada ano"
+    },
+    "reiniciar_mensalmente": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se deve reiniciar a numera\u00e7\u00e3o a cada m\u00eas"
+    },
+    "historico_numeros": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numero_gerado": {
+            "type": "string"
+          },
+          "data_geracao": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "entidade_id": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Hist\u00f3rico de n\u00fameros gerados"
+    }
+  },
+  "required": [
+    "tipo_entidade",
+    "prefixo",
+    "formato_mascara"
+  ]
+}

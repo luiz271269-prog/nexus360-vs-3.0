@@ -1,0 +1,65 @@
+{
+  "name": "PlanosPagamento",
+  "type": "object",
+  "properties": {
+    "orcamento_id": {
+      "type": "string",
+      "description": "ID do or\u00e7amento"
+    },
+    "nome_plano": {
+      "type": "string",
+      "description": "Nome do plano de pagamento"
+    },
+    "forma_pagamento": {
+      "type": "string",
+      "enum": [
+        "avista",
+        "credito",
+        "bloqueto",
+        "carne",
+        "pix",
+        "debito"
+      ],
+      "description": "Forma de pagamento"
+    },
+    "valor_entrada": {
+      "type": "number",
+      "default": 0,
+      "description": "Valor da entrada"
+    },
+    "numero_parcelas": {
+      "type": "number",
+      "default": 1,
+      "description": "N\u00famero de parcelas"
+    },
+    "valor_parcela": {
+      "type": "number",
+      "description": "Valor de cada parcela"
+    },
+    "valor_total_com_juros": {
+      "type": "number",
+      "description": "Valor total com juros"
+    },
+    "taxa_juros": {
+      "type": "number",
+      "default": 0,
+      "description": "Taxa de juros mensal (%)"
+    },
+    "desconto_avista": {
+      "type": "number",
+      "default": 0,
+      "description": "Desconto \u00e0 vista (%)"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o plano est\u00e1 ativo"
+    }
+  },
+  "required": [
+    "orcamento_id",
+    "nome_plano",
+    "forma_pagamento",
+    "valor_total_com_juros"
+  ]
+}

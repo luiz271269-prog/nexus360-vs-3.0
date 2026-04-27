@@ -1,0 +1,173 @@
+{
+  "name": "CotacaoCompra",
+  "type": "object",
+  "properties": {
+    "numero_cotacao": {
+      "type": "string",
+      "description": "N\u00famero da cota\u00e7\u00e3o de compra (ex: CC-2026-001)"
+    },
+    "orcamento_id": {
+      "type": "string",
+      "description": "ID do Or\u00e7amento de Venda que originou esta cota\u00e7\u00e3o (v\u00ednculo com Orcamento)"
+    },
+    "orcamento_numero": {
+      "type": "string",
+      "description": "N\u00famero do or\u00e7amento de venda de refer\u00eancia"
+    },
+    "comprador_id": {
+      "type": "string",
+      "description": "ID do User respons\u00e1vel pela compra"
+    },
+    "comprador_nome": {
+      "type": "string",
+      "description": "Nome do comprador (cache do User)"
+    },
+    "fornecedor_nome": {
+      "type": "string",
+      "description": "Nome do fornecedor"
+    },
+    "fornecedor_contato": {
+      "type": "string",
+      "description": "Telefone/email de contato do fornecedor"
+    },
+    "fornecedor_cnpj": {
+      "type": "string",
+      "description": "CNPJ do fornecedor"
+    },
+    "data_cotacao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de emiss\u00e3o da cota\u00e7\u00e3o"
+    },
+    "data_validade": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de validade da cota\u00e7\u00e3o do fornecedor"
+    },
+    "prazo_entrega_dias": {
+      "type": "number",
+      "description": "Prazo de entrega em dias \u00fateis"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "rascunho",
+        "solicitada",
+        "aguardando_resposta",
+        "recebida",
+        "em_analise",
+        "aprovada",
+        "rejeitada",
+        "vencida",
+        "pedido_gerado"
+      ],
+      "default": "rascunho",
+      "description": "Status da cota\u00e7\u00e3o de compra"
+    },
+    "prioridade": {
+      "type": "string",
+      "enum": [
+        "baixa",
+        "normal",
+        "alta",
+        "urgente"
+      ],
+      "default": "normal",
+      "description": "Prioridade da cota\u00e7\u00e3o"
+    },
+    "itens": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "produto_id": {
+            "type": "string",
+            "description": "ID do Produto no cat\u00e1logo"
+          },
+          "nome_produto": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "quantidade": {
+            "type": "number"
+          },
+          "valor_unitario": {
+            "type": "number",
+            "default": 0
+          },
+          "valor_total": {
+            "type": "number",
+            "default": 0
+          },
+          "marca_solicitada": {
+            "type": "string"
+          },
+          "marca_ofertada": {
+            "type": "string"
+          },
+          "observacao_item": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nome_produto",
+          "quantidade"
+        ]
+      },
+      "description": "Itens da cota\u00e7\u00e3o de compra"
+    },
+    "valor_total": {
+      "type": "number",
+      "default": 0,
+      "description": "Valor total da cota\u00e7\u00e3o"
+    },
+    "valor_frete": {
+      "type": "number",
+      "default": 0,
+      "description": "Valor do frete"
+    },
+    "condicao_pagamento": {
+      "type": "string",
+      "description": "Condi\u00e7\u00e3o de pagamento oferecida pelo fornecedor"
+    },
+    "moeda": {
+      "type": "string",
+      "enum": [
+        "BRL",
+        "USD",
+        "EUR"
+      ],
+      "default": "BRL",
+      "description": "Moeda da cota\u00e7\u00e3o"
+    },
+    "taxa_cambio": {
+      "type": "number",
+      "description": "Taxa de c\u00e2mbio utilizada (se moeda estrangeira)"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es gerais"
+    },
+    "motivo_rejeicao": {
+      "type": "string",
+      "description": "Motivo caso a cota\u00e7\u00e3o seja rejeitada"
+    },
+    "aprovado_por_id": {
+      "type": "string",
+      "description": "ID do User que aprovou a cota\u00e7\u00e3o"
+    },
+    "data_aprovacao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data/hora da aprova\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "comprador_id",
+    "fornecedor_nome",
+    "data_cotacao",
+    "status"
+  ]
+}

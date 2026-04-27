@@ -1,0 +1,463 @@
+{
+  "name": "ContactBehaviorAnalysis",
+  "type": "object",
+  "properties": {
+    "contact_id": {
+      "type": "string",
+      "description": "ID do contato"
+    },
+    "analyzed_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp da \u00faltima an\u00e1lise executada"
+    },
+    "window_size": {
+      "type": "number",
+      "default": 50,
+      "description": "N\u00famero de mensagens analisadas (50/100/200)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "insufficient_data",
+        "error"
+      ],
+      "default": "ok",
+      "description": "Status da an\u00e1lise"
+    },
+    "error_reason": {
+      "type": "string",
+      "description": "Motivo do erro (se status = error)"
+    },
+    "last_message_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp da \u00faltima mensagem (qualquer dire\u00e7\u00e3o)"
+    },
+    "last_inbound_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp da \u00faltima mensagem RECEBIDA do contato"
+    },
+    "last_outbound_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp da \u00faltima mensagem ENVIADA ao contato"
+    },
+    "days_inactive_total": {
+      "type": "number",
+      "description": "Dias desde \u00faltima mensagem (qualquer dire\u00e7\u00e3o)"
+    },
+    "days_inactive_inbound": {
+      "type": "number",
+      "description": "Dias desde \u00faltima mensagem RECEBIDA (cr\u00edtico: cliente sumiu)"
+    },
+    "days_inactive_outbound": {
+      "type": "number",
+      "description": "Dias desde \u00faltima mensagem ENVIADA (empresa abandonou)"
+    },
+    "bucket_inactive": {
+      "type": "string",
+      "enum": [
+        "active",
+        "30",
+        "60",
+        "90+"
+      ],
+      "default": "active",
+      "description": "Classifica\u00e7\u00e3o de inatividade: active (0-29 dias), 30 (30-59), 60 (60-89), 90+ (90+)"
+    },
+    "metricas_relacionamento": {
+      "type": "object",
+      "description": "M\u00e9tricas estat\u00edsticas (sem IA) calculadas das \u00faltimas N mensagens",
+      "properties": {
+        "total_mensagens": {
+          "type": "number"
+        },
+        "inbound_count": {
+          "type": "number"
+        },
+        "outbound_count": {
+          "type": "number"
+        },
+        "ratio_in_out": {
+          "type": "number"
+        },
+        "avg_response_time_agent_minutes": {
+          "type": "number"
+        },
+        "avg_response_time_contact_minutes": {
+          "type": "number"
+        },
+        "max_silence_gap_days": {
+          "type": "number"
+        },
+        "conversation_velocity": {
+          "type": "number"
+        },
+        "last_10_balance": {
+          "type": "object",
+          "properties": {
+            "inbound": {
+              "type": "number"
+            },
+            "outbound": {
+              "type": "number"
+            }
+          }
+        },
+        "unanswered_followups": {
+          "type": "number"
+        }
+      }
+    },
+    "relationship_profile": {
+      "type": "object",
+      "description": "Classifica\u00e7\u00e3o detalhada do perfil de relacionamento",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "comprador_corporativo_multi_cotacao",
+            "cliente_fidelizado",
+            "lead_quente",
+            "suporte_tecnico",
+            "financeiro",
+            "outro"
+          ],
+          "description": "Tipo de relacionamento"
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "price_sensitive",
+              "deadline_sensitive",
+              "process_formal",
+              "decision_by_third_party",
+              "uses_benchmark",
+              "relationship_frictions"
+            ]
+          },
+          "default": [],
+          "description": "Caracter\u00edsticas do perfil"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Resumo do perfil em 1 frase"
+        }
+      }
+    },
+    "scores": {
+      "type": "object",
+      "description": "Scores de an\u00e1lise (0-100)",
+      "properties": {
+        "health": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Sa\u00fade do relacionamento"
+        },
+        "deal_risk": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Risco de perder o neg\u00f3cio"
+        },
+        "buy_intent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Inten\u00e7\u00e3o de compra"
+        },
+        "engagement": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Engajamento do contato"
+        }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "description": "Est\u00e1gio atual do relacionamento",
+      "properties": {
+        "current": {
+          "type": "string",
+          "enum": [
+            "primeiro_contato",
+            "cotacao_enviada",
+            "negociacao",
+            "negociacao_stalled",
+            "perdido",
+            "ganho"
+          ],
+          "description": "Est\u00e1gio atual"
+        },
+        "days_stalled": {
+          "type": "number",
+          "description": "Dias em que permanece neste est\u00e1gio"
+        },
+        "last_milestone": {
+          "type": "string",
+          "description": "\u00daltimo marco importante"
+        },
+        "last_milestone_at": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Data do \u00faltimo marco"
+        }
+      }
+    },
+    "root_causes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "cause": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "description": "Motivos principais de alerta ou risco"
+    },
+    "evidence_snippets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "description": "DD/MM HH:MM"
+          },
+          "sender": {
+            "type": "string",
+            "enum": [
+              "contact",
+              "agent",
+              "system"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "related_cause": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Evid\u00eancias do hist\u00f3rico que suportam as an\u00e1lises"
+    },
+    "objections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "preco",
+              "prazo",
+              "marca",
+              "condicoes_comerciais",
+              "processo"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "resolved",
+              "recurring"
+            ]
+          },
+          "snippet": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Obje\u00e7\u00f5es identificadas"
+    },
+    "alerts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "critical"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Alertas para a\u00e7\u00e3o"
+    },
+    "playbook": {
+      "type": "object",
+      "description": "Estrat\u00e9gia e regras de atua\u00e7\u00e3o com este contato",
+      "properties": {
+        "goal": {
+          "type": "string"
+        },
+        "rules_of_game": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "when_to_compete": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "when_to_decline": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next_best_action": {
+      "type": "object",
+      "description": "Pr\u00f3xima a\u00e7\u00e3o recomendada",
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "urgent"
+          ]
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "suggested_message": {
+          "type": "string"
+        }
+      }
+    },
+    "relationship_risk": {
+      "type": "object",
+      "description": "N\u00edvel de risco relacional",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "timestamp": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "friction",
+                  "cutoff_message",
+                  "confusion",
+                  "delay"
+                ]
+              },
+              "snippet": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "prontuario_ptbr": {
+      "type": "object",
+      "description": "Prontu\u00e1rio estruturado em portugu\u00eas natural (7 se\u00e7\u00f5es)",
+      "properties": {
+        "visao_geral": {
+          "type": "string"
+        },
+        "necessidades_contexto": {
+          "type": "string"
+        },
+        "estado_atual_scores": {
+          "type": "string"
+        },
+        "causas_principais": {
+          "type": "string"
+        },
+        "oportunidades_sinais_positivos": {
+          "type": "string"
+        },
+        "recomendacoes_objetivas": {
+          "type": "string"
+        },
+        "mensagem_pronta": {
+          "type": "string"
+        }
+      }
+    },
+    "priority_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Score de prioridade calculado (0-100)"
+    },
+    "priority_label": {
+      "type": "string",
+      "enum": [
+        "CRITICO",
+        "ALTO",
+        "MEDIO",
+        "BAIXO"
+      ],
+      "description": "Label de prioridade para UI"
+    },
+    "periodo_analise": {
+      "type": "string",
+      "description": "Per\u00edodo analisado"
+    },
+    "ai_insights": {
+      "type": "object",
+      "description": "Insights gerados por IA (compatibilidade legada)",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "contact_id",
+    "analyzed_at"
+  ]
+}

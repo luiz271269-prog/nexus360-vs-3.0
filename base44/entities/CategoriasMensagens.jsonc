@@ -1,0 +1,83 @@
+{
+  "name": "CategoriasMensagens",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome da categoria (normalizado)"
+    },
+    "label": {
+      "type": "string",
+      "description": "Label visual da categoria"
+    },
+    "emoji": {
+      "type": "string",
+      "description": "Emoji da categoria"
+    },
+    "cor": {
+      "type": "string",
+      "description": "Classe Tailwind da cor (ex: bg-blue-500)"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "fixa",
+        "personalizada"
+      ],
+      "default": "personalizada"
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true
+    },
+    "uso_count": {
+      "type": "number",
+      "default": 0
+    },
+    "kanban_fase_padrao": {
+      "type": "string",
+      "enum": [
+        "rascunho",
+        "aguardando_cotacao",
+        "analisando",
+        "liberado",
+        "enviado",
+        "negociando",
+        "aprovado"
+      ],
+      "description": "Fase padr\u00e3o no Kanban quando esta etiqueta \u00e9 aplicada"
+    },
+    "tipos_contato_aplicaveis": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "lead",
+          "cliente",
+          "fornecedor",
+          "parceiro",
+          "novo"
+        ]
+      },
+      "default": []
+    },
+    "filas_aplicaveis": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "vendas",
+          "assistencia",
+          "financeiro",
+          "fornecedor",
+          "geral"
+        ]
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "nome",
+    "label"
+  ]
+}

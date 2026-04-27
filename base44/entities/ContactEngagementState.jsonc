@@ -1,0 +1,71 @@
+{
+  "name": "ContactEngagementState",
+  "type": "object",
+  "properties": {
+    "contact_id": {
+      "type": "string",
+      "description": "ID \u00fanico do Contact associado"
+    },
+    "cycle_policy_id": {
+      "type": "string",
+      "description": "ID da CyclePolicy aplicada a este contato"
+    },
+    "stage_current": {
+      "type": "string",
+      "description": "Etapa atual do ciclo (ex: '2/7')"
+    },
+    "stage_total": {
+      "type": "number",
+      "description": "Total de etapas no ciclo (ex: 7)"
+    },
+    "next_touch_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Pr\u00f3ximo momento de contato agendado"
+    },
+    "last_touch_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltimo contato enviado pela automa\u00e7\u00e3o"
+    },
+    "last_inbound_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima mensagem recebida do contato"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "paused",
+        "completed",
+        "opted_out",
+        "escalated"
+      ],
+      "default": "active",
+      "description": "Status do ciclo de engajamento"
+    },
+    "cooldown_until": {
+      "type": "string",
+      "format": "datetime",
+      "description": "At\u00e9 quando o contato est\u00e1 em cooldown"
+    },
+    "lock_reason": {
+      "type": "string",
+      "description": "Motivo do bloqueio (ex: 'humano_ativo', 'opt_out', 'financeiro')"
+    },
+    "last_thread_id": {
+      "type": "string",
+      "description": "ID da \u00faltima thread associada"
+    },
+    "version": {
+      "type": "number",
+      "default": 1,
+      "description": "Vers\u00e3o para controle de concorr\u00eancia"
+    }
+  },
+  "required": [
+    "contact_id",
+    "status"
+  ]
+}

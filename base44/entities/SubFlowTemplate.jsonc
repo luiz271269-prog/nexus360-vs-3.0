@@ -1,0 +1,115 @@
+{
+  "name": "SubFlowTemplate",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome do sub-fluxo (ex: Qualifica\u00e7\u00e3o de Lead)"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o do que este sub-fluxo faz"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "qualificacao",
+        "coleta_dados",
+        "validacao",
+        "notificacao",
+        "integracao"
+      ],
+      "description": "Categoria do sub-fluxo"
+    },
+    "parametros_entrada": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "string",
+              "number",
+              "boolean",
+              "object"
+            ]
+          },
+          "obrigatorio": {
+            "type": "boolean"
+          },
+          "descricao": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Par\u00e2metros que o sub-fluxo espera receber"
+    },
+    "parametros_saida": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Par\u00e2metros que o sub-fluxo retorna"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "config": {
+            "type": "object"
+          },
+          "descricao": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Passos do sub-fluxo"
+    },
+    "versao": {
+      "type": "string",
+      "default": "1.0",
+      "description": "Vers\u00e3o do sub-fluxo"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o sub-fluxo est\u00e1 dispon\u00edvel para uso"
+    },
+    "vezes_utilizado": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantas vezes este sub-fluxo foi usado"
+    },
+    "taxa_sucesso": {
+      "type": "number",
+      "description": "Taxa de sucesso do sub-fluxo (%)"
+    }
+  },
+  "required": [
+    "nome",
+    "categoria",
+    "steps"
+  ]
+}

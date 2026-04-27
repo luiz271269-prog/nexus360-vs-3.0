@@ -1,0 +1,130 @@
+{
+  "name": "FilaAtendimento",
+  "type": "object",
+  "properties": {
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread nesta fila"
+    },
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact (para queries r\u00e1pidas)"
+    },
+    "whatsapp_integration_id": {
+      "type": "string",
+      "description": "De qual conex\u00e3o WhatsApp veio (bass44, compras Nexus360, etc)"
+    },
+    "nome_conexao": {
+      "type": "string",
+      "description": "Nome da conex\u00e3o para visualiza\u00e7\u00e3o (ex: bass44, compras Nexus360)"
+    },
+    "setor": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "geral"
+      ],
+      "default": "geral",
+      "description": "Setor escolhido pelo cliente ou automaticamente detectado"
+    },
+    "entrou_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp exato de quando entrou na fila"
+    },
+    "prioridade": {
+      "type": "string",
+      "enum": [
+        "baixa",
+        "normal",
+        "alta",
+        "urgente"
+      ],
+      "default": "normal",
+      "description": "Prioridade da conversa (calculada por IA ou manual)"
+    },
+    "score_urgencia": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Score de urg\u00eancia calculado por IA (0-100)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "aguardando",
+        "atendido",
+        "removido"
+      ],
+      "default": "aguardando",
+      "description": "Status na fila: aguardando = ativo, atendido = atribu\u00eddo, removido = cancelado/timeout"
+    },
+    "motivo_remocao": {
+      "type": "string",
+      "enum": [
+        "atribuido",
+        "timeout",
+        "cancelado",
+        "transferido",
+        "cliente_desistiu"
+      ],
+      "description": "Motivo da remo\u00e7\u00e3o/atendimento da fila"
+    },
+    "atendido_por": {
+      "type": "string",
+      "description": "ID do User quando thread for atribu\u00edda"
+    },
+    "atendido_por_nome": {
+      "type": "string",
+      "description": "Nome do atendente (para facilitar queries)"
+    },
+    "atendido_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi atribu\u00edda a um atendente"
+    },
+    "tentativas_atribuicao": {
+      "type": "number",
+      "default": 0,
+      "description": "N\u00famero de tentativas de atribui\u00e7\u00e3o autom\u00e1tica"
+    },
+    "ultima_tentativa_atribuicao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp da \u00faltima tentativa de atribui\u00e7\u00e3o"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "cliente_nome": {
+          "type": "string"
+        },
+        "cliente_telefone": {
+          "type": "string"
+        },
+        "ultima_mensagem_preview": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "origem_campanha": {
+          "type": "string"
+        }
+      },
+      "description": "Metadados para enriquecer visualiza\u00e7\u00e3o da fila sem queries extras"
+    }
+  },
+  "required": [
+    "thread_id",
+    "whatsapp_integration_id",
+    "setor",
+    "entrou_em"
+  ]
+}

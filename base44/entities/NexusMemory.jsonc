@@ -1,0 +1,43 @@
+{
+  "name": "NexusMemory",
+  "type": "object",
+  "properties": {
+    "owner_user_id": {
+      "type": "string",
+      "description": "ID do atendente ou 'system' para mem\u00f3rias globais"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "sessao",
+        "aprendizado_semanal",
+        "preferencia_usuario"
+      ],
+      "description": "Tipo da mem\u00f3ria"
+    },
+    "conteudo": {
+      "type": "string",
+      "description": "Resumo em texto livre da mem\u00f3ria"
+    },
+    "ultima_acao": {
+      "type": "string",
+      "description": "\u00daltima tool executada pelo brain (ex: suggest_reply, create_task)"
+    },
+    "contexto": {
+      "type": "object",
+      "description": "Dados de refer\u00eancia: { thread_id, contact_id, setor }"
+    },
+    "score_utilidade": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "default": 0,
+      "description": "0 a 100 \u2014 indica quanto essa mem\u00f3ria foi \u00fatil/acertada"
+    }
+  },
+  "required": [
+    "owner_user_id",
+    "tipo",
+    "conteudo"
+  ]
+}

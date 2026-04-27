@@ -1,0 +1,82 @@
+{
+  "name": "ExecucaoSequencia",
+  "type": "object",
+  "properties": {
+    "sequencia_id": {
+      "type": "string",
+      "description": "ID da sequ\u00eancia executada"
+    },
+    "contact_id": {
+      "type": "string",
+      "description": "ID do contato"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "ID da thread onde foi enviado"
+    },
+    "numero_execucao": {
+      "type": "number",
+      "description": "Qual execu\u00e7\u00e3o \u00e9 essa (1\u00aa, 2\u00aa, etc)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "aguardando",
+        "enviando",
+        "enviado",
+        "engajado",
+        "convertido",
+        "falhou",
+        "pausado"
+      ],
+      "default": "aguardando"
+    },
+    "proxima_acao_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando ser\u00e1 o pr\u00f3ximo passo"
+    },
+    "passos_completados": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "enviado_em": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "message_id": {
+            "type": "string"
+          },
+          "engajamento": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "resultado_final": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "sucesso",
+        "falha",
+        "cancelado"
+      ],
+      "default": "pendente"
+    },
+    "notas": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "sequencia_id",
+    "contact_id",
+    "numero_execucao"
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "name": "AgentDecisionLog",
+  "type": "object",
+  "properties": {
+    "agent_run_id": {
+      "type": "string",
+      "description": "ID do AgentRun relacionado"
+    },
+    "step_name": {
+      "type": "string",
+      "description": "Nome do step do playbook"
+    },
+    "decisao_tipo": {
+      "type": "string",
+      "enum": [
+        "classificacao_intencao",
+        "sugestao_resposta",
+        "criar_tarefa",
+        "enriquecer_contexto",
+        "qualificar_lead",
+        "atribuir_vendedor",
+        "enviar_mensagem",
+        "buscar_conhecimento",
+        "aguardar_aprovacao"
+      ],
+      "description": "Tipo de decis\u00e3o tomada"
+    },
+    "ferramentas_usadas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lista de ferramentas/functions chamadas"
+    },
+    "decisao_tomada": {
+      "type": "object",
+      "description": "Detalhes da decis\u00e3o: what, why, confidence"
+    },
+    "confianca_ia": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Confian\u00e7a da IA na decis\u00e3o (0-100)"
+    },
+    "resultado_execucao": {
+      "type": "string",
+      "enum": [
+        "sucesso",
+        "parcial",
+        "falhou",
+        "bloqueado",
+        "aguardando"
+      ],
+      "default": "sucesso"
+    },
+    "motivo_bloqueio": {
+      "type": "string",
+      "description": "Se bloqueado, por que (guardrails, permiss\u00f5es, etc.)"
+    },
+    "impacto_estimado": {
+      "type": "object",
+      "properties": {
+        "tipo": {
+          "type": "string",
+          "enum": [
+            "financeiro",
+            "relacionamento",
+            "eficiencia",
+            "risco"
+          ]
+        },
+        "valor": {
+          "type": "number"
+        },
+        "descricao": {
+          "type": "string"
+        }
+      }
+    },
+    "timestamp_decisao": {
+      "type": "string",
+      "format": "datetime"
+    }
+  },
+  "required": [
+    "agent_run_id",
+    "step_name",
+    "decisao_tipo"
+  ]
+}

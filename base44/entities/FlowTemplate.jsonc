@@ -1,0 +1,404 @@
+{
+  "name": "FlowTemplate",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome do playbook"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada do que o playbook faz"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "suporte",
+        "logistica",
+        "financeiro",
+        "pos_venda",
+        "geral"
+      ],
+      "default": "geral"
+    },
+    "tipo_fluxo": {
+      "type": "string",
+      "enum": [
+        "geral",
+        "follow_up_vendas",
+        "nurturing_leads",
+        "ativacao_cliente",
+        "reativacao",
+        "qualificacao",
+        "pre_atendimento",
+        "bot_qualificacao",
+        "bot_suporte",
+        "bot_cobranca"
+      ],
+      "default": "geral",
+      "description": "Tipo espec\u00edfico do fluxo para automa\u00e7\u00e3o"
+    },
+    "tipo_contato_alvo": {
+      "type": "string",
+      "enum": [
+        "novo",
+        "lead",
+        "cliente",
+        "fornecedor",
+        "parceiro",
+        "todos"
+      ],
+      "default": "todos",
+      "description": "Tipo de contato que este fluxo atende"
+    },
+    "fila_alvo": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "geral",
+        "todas"
+      ],
+      "default": "todas",
+      "description": "Fila de atendimento espec\u00edfica para este fluxo"
+    },
+    "integracao_whatsapp_id": {
+      "type": "string",
+      "description": "ID da WhatsAppIntegration espec\u00edfica (vazio = todas)"
+    },
+    "is_pre_atendimento_padrao": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se este \u00e9 o fluxo de pr\u00e9-atendimento padr\u00e3o"
+    },
+    "activation_mode": {
+      "type": "string",
+      "enum": [
+        "global",
+        "per_sector",
+        "disabled"
+      ],
+      "default": "disabled",
+      "description": "Modo de ativa\u00e7\u00e3o: global (todos), per_sector (setores espec\u00edficos), disabled (desativado)"
+    },
+    "activated_sectors": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "vendas",
+          "assistencia",
+          "financeiro",
+          "fornecedor",
+          "geral"
+        ]
+      },
+      "default": [],
+      "description": "Setores com pr\u00e9-atendimento ativo (se activation_mode = per_sector)"
+    },
+    "mensagem_saudacao": {
+      "type": "string",
+      "default": "Ol\u00e1! {saudacao}, eu sou o assistente virtual. Para qual setor voc\u00ea gostaria de falar?",
+      "description": "Mensagem de sauda\u00e7\u00e3o com placeholder {saudacao}"
+    },
+    "opcoes_setor": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Texto do bot\u00e3o"
+          },
+          "setor": {
+            "type": "string",
+            "enum": [
+              "vendas",
+              "assistencia",
+              "financeiro",
+              "fornecedor",
+              "geral"
+            ]
+          }
+        }
+      },
+      "default": [
+        {
+          "label": "\ud83d\udcbc Vendas",
+          "setor": "vendas"
+        },
+        {
+          "label": "\ud83d\udd27 Suporte",
+          "setor": "assistencia"
+        },
+        {
+          "label": "\ud83d\udcb0 Financeiro",
+          "setor": "financeiro"
+        }
+      ],
+      "description": "Op\u00e7\u00f5es de setor para bot\u00f5es"
+    },
+    "nivel_controle": {
+      "type": "string",
+      "enum": [
+        "criacao",
+        "parametrizacao",
+        "execucao"
+      ],
+      "default": "execucao"
+    },
+    "nivel_acesso_minimo": {
+      "type": "string",
+      "enum": [
+        "junior",
+        "pleno",
+        "senior",
+        "coordenador",
+        "gerente",
+        "admin"
+      ],
+      "default": "junior"
+    },
+    "criado_por": {
+      "type": "string"
+    },
+    "gatilhos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Palavras-chave que ativam este playbook"
+    },
+    "gatilho_contextual": {
+      "type": "object",
+      "properties": {
+        "entrada_canal": {
+          "type": "string"
+        },
+        "tipo_contato_trigger": {
+          "type": "string",
+          "enum": [
+            "novo",
+            "lead",
+            "cliente",
+            "fornecedor",
+            "parceiro"
+          ]
+        },
+        "setor_trigger": {
+          "type": "string",
+          "enum": [
+            "vendas",
+            "assistencia",
+            "financeiro",
+            "fornecedor",
+            "geral"
+          ]
+        }
+      }
+    },
+    "prioridade": {
+      "type": "number",
+      "default": 10
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "message",
+              "input",
+              "action",
+              "route",
+              "end",
+              "ia_classify",
+              "delay",
+              "wait_response",
+              "collect_data",
+              "qualify_contact",
+              "verificar_setor",
+              "bot_decisao",
+              "buttons"
+            ]
+          },
+          "texto": {
+            "type": "string"
+          },
+          "campo": {
+            "type": "string"
+          },
+          "opcoes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tipo_input": {
+            "type": "string",
+            "enum": [
+              "text",
+              "number",
+              "file",
+              "phone",
+              "email",
+              "date",
+              "cnpj",
+              "cpf",
+              "button"
+            ],
+            "default": "text"
+          },
+          "validacao": {
+            "type": "object"
+          },
+          "acao": {
+            "type": "string"
+          },
+          "parametros": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mapa": {
+            "type": "object"
+          },
+          "next_playbook": {
+            "type": "string"
+          },
+          "delay_seconds": {
+            "type": "number"
+          },
+          "delay_days": {
+            "type": "number"
+          },
+          "message_template_name": {
+            "type": "string"
+          },
+          "mensagem_erro": {
+            "type": "string"
+          },
+          "require_human_on_fail": {
+            "type": "boolean",
+            "default": false
+          },
+          "dados_a_coletar": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "nome",
+                "empresa",
+                "cargo",
+                "email",
+                "cnpj",
+                "cpf",
+                "interesse",
+                "urgencia"
+              ]
+            }
+          },
+          "fila_destino": {
+            "type": "string",
+            "enum": [
+              "vendas",
+              "assistencia",
+              "financeiro",
+              "fornecedor",
+              "geral"
+            ]
+          },
+          "tipo_contato_destino": {
+            "type": "string",
+            "enum": [
+              "lead",
+              "cliente",
+              "fornecedor",
+              "parceiro"
+            ]
+          }
+        }
+      }
+    },
+    "campos_editaveis_gerente": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "default_variables": {
+      "type": "object"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true
+    },
+    "requires_ia": {
+      "type": "boolean",
+      "default": false
+    },
+    "fallback_playbook_id": {
+      "type": "string"
+    },
+    "max_tentativas": {
+      "type": "number",
+      "default": 3
+    },
+    "timeout_minutos": {
+      "type": "number",
+      "default": 30
+    },
+    "auto_escalate_to_human": {
+      "type": "boolean",
+      "default": false
+    },
+    "metricas": {
+      "type": "object",
+      "properties": {
+        "total_execucoes": {
+          "type": "number",
+          "default": 0
+        },
+        "total_concluidos": {
+          "type": "number",
+          "default": 0
+        },
+        "total_abandonados": {
+          "type": "number",
+          "default": 0
+        },
+        "tempo_medio_conclusao": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_sucesso": {
+          "type": "number",
+          "default": 0
+        }
+      }
+    },
+    "versao": {
+      "type": "string",
+      "default": "1.0"
+    },
+    "versao_anterior_id": {
+      "type": "string"
+    },
+    "changelog": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "nome",
+    "categoria",
+    "gatilhos",
+    "steps"
+  ]
+}

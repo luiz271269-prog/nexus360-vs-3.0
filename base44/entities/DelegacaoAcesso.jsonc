@@ -1,0 +1,74 @@
+{
+  "name": "DelegacaoAcesso",
+  "type": "object",
+  "properties": {
+    "origem_user_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio que est\u00e1 delegando suas responsabilidades"
+    },
+    "origem_tipo": {
+      "type": "string",
+      "enum": [
+        "user",
+        "sector",
+        "group"
+      ],
+      "default": "user",
+      "description": "Tipo de origem da delega\u00e7\u00e3o"
+    },
+    "destino_user_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio de destino (se destino_tipo = user)"
+    },
+    "destino_sector": {
+      "type": "string",
+      "description": "Nome do setor de destino (se destino_tipo = sector)"
+    },
+    "destino_group_id": {
+      "type": "string",
+      "description": "ID do grupo de destino (se destino_tipo = group)"
+    },
+    "destino_tipo": {
+      "type": "string",
+      "enum": [
+        "user",
+        "sector",
+        "group"
+      ],
+      "default": "user",
+      "description": "Tipo de destino da delega\u00e7\u00e3o"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativa",
+        "revogada"
+      ],
+      "default": "ativa",
+      "description": "Status da delega\u00e7\u00e3o"
+    },
+    "data_inicio": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a delega\u00e7\u00e3o foi criada"
+    },
+    "data_revogacao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a delega\u00e7\u00e3o foi revogada"
+    },
+    "revogada_por": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio que revogou a delega\u00e7\u00e3o"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre a delega\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "origem_user_id",
+    "destino_tipo",
+    "status"
+  ]
+}

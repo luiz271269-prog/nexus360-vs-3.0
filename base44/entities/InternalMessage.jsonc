@@ -1,0 +1,85 @@
+{
+  "name": "InternalMessage",
+  "type": "object",
+  "properties": {
+    "thread_id": {
+      "type": "string",
+      "description": "ID da InternalThread"
+    },
+    "sender_id": {
+      "type": "string",
+      "description": "ID do User remetente"
+    },
+    "recipient_id": {
+      "type": "string",
+      "description": "ID do destinat\u00e1rio em threads 1:1. NULL em grupos"
+    },
+    "content": {
+      "type": "string",
+      "description": "Conte\u00fado da mensagem"
+    },
+    "reply_to_message_id": {
+      "type": "string",
+      "description": "ID da mensagem sendo respondida"
+    },
+    "media_url": {
+      "type": "string",
+      "description": "URL do arquivo anexado"
+    },
+    "media_type": {
+      "type": "string",
+      "enum": [
+        "none",
+        "image",
+        "video",
+        "audio",
+        "document"
+      ],
+      "default": "none"
+    },
+    "media_caption": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "enviada",
+        "lida"
+      ],
+      "default": "enviada"
+    },
+    "read_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "IDs dos usu\u00e1rios que leram (para grupos)"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "read_at": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "mentions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "IDs dos usu\u00e1rios mencionados (@usuario)"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Metadados adicionais (ex: sender_name cache)"
+    }
+  },
+  "required": [
+    "thread_id",
+    "sender_id",
+    "content"
+  ]
+}

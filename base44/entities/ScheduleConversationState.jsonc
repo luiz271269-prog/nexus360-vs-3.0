@@ -1,0 +1,50 @@
+{
+  "name": "ScheduleConversationState",
+  "type": "object",
+  "properties": {
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread desta conversa de agendamento"
+    },
+    "pending_intent_json": {
+      "type": "object",
+      "description": "JSON com a \u00faltima inten\u00e7\u00e3o parcial interpretada pela IA"
+    },
+    "missing_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Lista de campos que faltam coletar (ex: 'date', 'time', 'assigned_user')"
+    },
+    "last_question": {
+      "type": "string",
+      "description": "\u00daltima pergunta feita pela IA ao usu\u00e1rio"
+    },
+    "awaiting_confirmation": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se est\u00e1 aguardando confirma\u00e7\u00e3o do resumo antes de criar evento"
+    },
+    "state_version": {
+      "type": "number",
+      "default": 1,
+      "description": "Vers\u00e3o do estado (incrementa a cada confirma\u00e7\u00e3o para evitar reativa\u00e7\u00e3o)"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando este estado expira (TTL de 30-60 min)"
+    },
+    "created_at_timestamp": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o estado foi criado"
+    }
+  },
+  "required": [
+    "thread_id",
+    "expires_at"
+  ]
+}

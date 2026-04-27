@@ -1,0 +1,237 @@
+{
+  "name": "WhatsAppIntegration",
+  "type": "object",
+  "properties": {
+    "nome_instancia": {
+      "type": "string",
+      "description": "Nome \u00fanico da inst\u00e2ncia (ex: vendas-principal)"
+    },
+    "numero_telefone": {
+      "type": "string",
+      "description": "N\u00famero de telefone com c\u00f3digo do pa\u00eds (ex: +5548999322400)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "conectado",
+        "desconectado",
+        "pendente_qrcode",
+        "erro_conexao",
+        "reconectando",
+        "token_invalido"
+      ],
+      "default": "desconectado",
+      "description": "Status atual da conex\u00e3o"
+    },
+    "tipo_conexao": {
+      "type": "string",
+      "enum": [
+        "qrcode",
+        "pairing_code",
+        "cloud_api",
+        "webhook"
+      ],
+      "default": "webhook",
+      "description": "M\u00e9todo de autentica\u00e7\u00e3o usado"
+    },
+    "api_provider": {
+      "type": "string",
+      "enum": [
+        "evolution_api",
+        "z_api",
+        "w_api",
+        "meta_cloud_api"
+      ],
+      "default": "z_api",
+      "description": "Provedor de API sendo usado (z_api, w_api, evolution_api, meta_cloud_api)"
+    },
+    "modo": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "integrator"
+      ],
+      "default": "manual",
+      "description": "Modo de gerenciamento: manual (configura\u00e7\u00e3o painel) ou integrator (API customizada)"
+    },
+    "instance_id_provider": {
+      "type": "string",
+      "description": "ID da inst\u00e2ncia no provedor (ex: 3E5D2BD1BF421127B24ECEF0269361A3 para Z-API, T34398-VYR3QD... para W-API)"
+    },
+    "api_key_provider": {
+      "type": "string",
+      "description": "Token da Inst\u00e2ncia/API (Z-API: vai na URL | W-API: vai no header Bearer)"
+    },
+    "security_client_token_header": {
+      "type": "string",
+      "description": "Client-Token de Seguran\u00e7a da Conta para o Header HTTP (usado pela Z-API)"
+    },
+    "base_url_provider": {
+      "type": "string",
+      "description": "URL base do provedor (Z-API: https://api.z-api.io | W-API: https://api.w-api.app/v1)"
+    },
+    "cor_chat": {
+      "type": "string",
+      "enum": [
+        "blue",
+        "green",
+        "purple",
+        "orange",
+        "pink",
+        "teal",
+        "indigo",
+        "rose"
+      ],
+      "default": "blue",
+      "description": "Cor das mensagens enviadas por esta conex\u00e3o no chat"
+    },
+    "qr_code_url": {
+      "type": "string",
+      "description": "URL base64 do QR Code (se tipo_conexao = qrcode) - PERSISTIDO"
+    },
+    "qr_code_gerado_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data/hora da \u00faltima gera\u00e7\u00e3o do QR Code"
+    },
+    "pairing_code": {
+      "type": "string",
+      "description": "C\u00f3digo de pareamento alfanum\u00e9rico (se tipo_conexao = pairing_code) - PERSISTIDO"
+    },
+    "pairing_code_gerado_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data/hora da \u00faltima gera\u00e7\u00e3o do c\u00f3digo de pareamento"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "ID da sess\u00e3o na API"
+    },
+    "ultima_atividade": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que houve atividade"
+    },
+    "webhook_url": {
+      "type": "string",
+      "description": "URL do webhook configurado"
+    },
+    "meta_waba_id": {
+      "type": "string",
+      "description": "WhatsApp Business Account ID (para Cloud API)"
+    },
+    "meta_phone_number_id": {
+      "type": "string",
+      "description": "Phone Number ID da Meta (para Cloud API)"
+    },
+    "token_validade": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data de expira\u00e7\u00e3o do token da inst\u00e2ncia (se dispon\u00edvel)"
+    },
+    "token_ultima_verificacao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data da \u00faltima verifica\u00e7\u00e3o da validade do token"
+    },
+    "token_status": {
+      "type": "string",
+      "enum": [
+        "valido",
+        "invalido",
+        "expirando",
+        "nao_verificado"
+      ],
+      "default": "nao_verificado",
+      "description": "Status da validade do token"
+    },
+    "setores_atendidos": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "vendas",
+          "assistencia",
+          "financeiro",
+          "fornecedor",
+          "geral"
+        ]
+      },
+      "default": [
+        "geral"
+      ],
+      "description": "Setores que esta conex\u00e3o atende (ex: Chip1=Vendas, Chip2=Suporte+Financeiro)"
+    },
+    "setor_principal": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "geral"
+      ],
+      "default": "geral",
+      "description": "Setor principal/dono desta conex\u00e3o"
+    },
+    "nivel_acesso_config": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "gerente",
+        "nenhum"
+      ],
+      "default": "admin",
+      "description": "Quem pode configurar esta conex\u00e3o (admin=tudo, gerente=reiniciar, nenhum=s\u00f3 recebe msg)"
+    },
+    "configuracoes_avancadas": {
+      "type": "object",
+      "properties": {
+        "auto_resposta_fora_horario": {
+          "type": "boolean",
+          "default": false
+        },
+        "horario_atendimento_inicio": {
+          "type": "string"
+        },
+        "horario_atendimento_fim": {
+          "type": "string"
+        },
+        "mensagem_fora_horario": {
+          "type": "string"
+        },
+        "rate_limit_mensagens_hora": {
+          "type": "number",
+          "default": 100
+        }
+      }
+    },
+    "estatisticas": {
+      "type": "object",
+      "properties": {
+        "total_mensagens_enviadas": {
+          "type": "number",
+          "default": 0
+        },
+        "total_mensagens_recebidas": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_resposta_24h": {
+          "type": "number",
+          "default": 0
+        },
+        "tempo_medio_resposta_minutos": {
+          "type": "number",
+          "default": 0
+        }
+      }
+    }
+  },
+  "required": [
+    "nome_instancia",
+    "api_provider",
+    "instance_id_provider",
+    "api_key_provider"
+  ]
+}

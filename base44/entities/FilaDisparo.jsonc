@@ -1,0 +1,138 @@
+{
+  "name": "FilaDisparo",
+  "type": "object",
+  "properties": {
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact a reativar"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread de origem"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "aguardando_aprovacao",
+        "aprovado",
+        "rejeitado",
+        "msg1_enviada",
+        "msg2_enviada",
+        "msg3_enviada",
+        "concluido",
+        "bloqueado"
+      ],
+      "default": "pendente",
+      "description": "Status na sequ\u00eancia de disparo"
+    },
+    "mensagem_1": {
+      "type": "string",
+      "description": "Primeira mensagem para enviar (MSG1 - texto)"
+    },
+    "mensagem_2": {
+      "type": "string",
+      "description": "Segunda mensagem para enviar (MSG2 - texto)"
+    },
+    "mensagem_3_audio_url": {
+      "type": "string",
+      "description": "URL do \u00e1udio para enviar como MSG3 (via Z-API)"
+    },
+    "motivo_reativacao": {
+      "type": "string",
+      "enum": [
+        "idle_48h",
+        "idle_72h",
+        "idle_7d",
+        "idle_14d",
+        "manual",
+        "urgente",
+        "promocao_lote"
+      ],
+      "description": "Motivo da entrada na fila"
+    },
+    "vendedor_responsavel_id": {
+      "type": "string",
+      "description": "ID do User (vendedor) que deve aprovar"
+    },
+    "setor": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "geral"
+      ],
+      "default": "vendas",
+      "description": "Setor respons\u00e1vel"
+    },
+    "integracacao_whatsapp_id": {
+      "type": "string",
+      "description": "ID da WhatsAppIntegration para envio"
+    },
+    "aprovado_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi aprovado"
+    },
+    "aprovado_por": {
+      "type": "string",
+      "description": "ID do User que aprovou"
+    },
+    "rejeitado_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi rejeitado"
+    },
+    "rejeitado_por": {
+      "type": "string",
+      "description": "ID do User que rejeitou"
+    },
+    "msg1_enviada_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp envio MSG1"
+    },
+    "msg2_enviada_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp envio MSG2"
+    },
+    "msg3_enviada_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp envio MSG3 (\u00e1udio)"
+    },
+    "msg1_z_api_id": {
+      "type": "string",
+      "description": "ID da mensagem retornado pela Z-API (MSG1)"
+    },
+    "msg2_z_api_id": {
+      "type": "string",
+      "description": "ID da mensagem retornado pela Z-API (MSG2)"
+    },
+    "msg3_z_api_id": {
+      "type": "string",
+      "description": "ID da mensagem retornado pela Z-API (MSG3 \u00e1udio)"
+    },
+    "motivo_bloqueio": {
+      "type": "string",
+      "description": "Motivo se status = bloqueado (opt-out, erro permanente, etc)"
+    },
+    "concluido_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a sequ\u00eancia foi conclu\u00edda"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Metadados adicionais (analytics, tentativas, etc)",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "contact_id",
+    "thread_id"
+  ]
+}

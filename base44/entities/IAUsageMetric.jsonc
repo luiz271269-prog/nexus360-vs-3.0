@@ -1,0 +1,90 @@
+{
+  "name": "IAUsageMetric",
+  "type": "object",
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Momento da chamada"
+    },
+    "funcao": {
+      "type": "string",
+      "enum": [
+        "agenteIAHandler",
+        "playbookEngine",
+        "gerarInsights",
+        "businessIA",
+        "qualificadorLead",
+        "outro"
+      ],
+      "description": "Fun\u00e7\u00e3o que invocou a IA"
+    },
+    "modelo_usado": {
+      "type": "string",
+      "default": "gpt-4o-mini",
+      "description": "Modelo LLM utilizado"
+    },
+    "tokens_prompt": {
+      "type": "number",
+      "description": "Tokens do prompt (input)"
+    },
+    "tokens_completion": {
+      "type": "number",
+      "description": "Tokens da resposta (output)"
+    },
+    "tokens_total": {
+      "type": "number",
+      "description": "Total de tokens"
+    },
+    "custo_estimado_usd": {
+      "type": "number",
+      "description": "Custo estimado em USD"
+    },
+    "tempo_resposta_ms": {
+      "type": "number",
+      "description": "Tempo de resposta em milissegundos"
+    },
+    "sucesso": {
+      "type": "boolean",
+      "description": "Se a chamada foi bem-sucedida"
+    },
+    "erro": {
+      "type": "string",
+      "description": "Mensagem de erro se houver"
+    },
+    "contexto": {
+      "type": "object",
+      "properties": {
+        "thread_id": {
+          "type": "string"
+        },
+        "contact_id": {
+          "type": "string"
+        },
+        "playbook_id": {
+          "type": "string"
+        },
+        "execution_id": {
+          "type": "string"
+        },
+        "acao": {
+          "type": "string"
+        }
+      }
+    },
+    "prompt_resumo": {
+      "type": "string",
+      "description": "Resumo do prompt (primeiros 200 chars)"
+    },
+    "resposta_resumo": {
+      "type": "string",
+      "description": "Resumo da resposta (primeiros 200 chars)"
+    }
+  },
+  "required": [
+    "timestamp",
+    "funcao",
+    "tokens_total",
+    "custo_estimado_usd"
+  ]
+}

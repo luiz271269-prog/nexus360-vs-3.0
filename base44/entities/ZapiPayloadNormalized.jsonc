@@ -1,0 +1,59 @@
+{
+  "name": "ZapiPayloadNormalized",
+  "type": "object",
+  "properties": {
+    "payload_bruto": {
+      "type": "object",
+      "description": "Payload JSON completo recebido do provedor"
+    },
+    "integration_id": {
+      "type": "string",
+      "description": "ID da WhatsAppIntegration identificada"
+    },
+    "instance_identificado": {
+      "type": "string",
+      "description": "instance ou instanceId que veio no payload"
+    },
+    "message_id": {
+      "type": "string",
+      "description": "ID \u00fanico da mensagem do provedor (para idempot\u00eancia)"
+    },
+    "telefone_normalizado": {
+      "type": "string",
+      "description": "Telefone do contato normalizado (+55...)"
+    },
+    "evento": {
+      "type": "string",
+      "description": "Tipo de evento (ReceivedCallback, MessageStatusCallback, etc)"
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "z_api",
+        "w_api",
+        "evolution_api"
+      ],
+      "default": "w_api",
+      "description": "Provedor de origem do evento"
+    },
+    "sucesso_processamento": {
+      "type": "boolean",
+      "description": "Se o payload foi processado com sucesso"
+    },
+    "erro_detalhes": {
+      "type": "string",
+      "description": "Detalhes do erro se falhou"
+    },
+    "timestamp_recebido": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o webhook recebeu este payload"
+    }
+  },
+  "required": [
+    "payload_bruto",
+    "instance_identificado",
+    "evento",
+    "timestamp_recebido"
+  ]
+}

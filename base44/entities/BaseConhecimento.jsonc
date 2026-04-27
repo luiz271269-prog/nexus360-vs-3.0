@@ -1,0 +1,260 @@
+{
+  "name": "BaseConhecimento",
+  "type": "object",
+  "properties": {
+    "titulo": {
+      "type": "string",
+      "description": "T\u00edtulo do conhecimento registrado"
+    },
+    "tipo_registro": {
+      "type": "string",
+      "enum": [
+        "insight_cliente",
+        "padrao_comunicacao",
+        "estrategia_fechamento",
+        "objecao_comum",
+        "melhor_pratica",
+        "script_sucesso",
+        "analise_sentimento",
+        "predicao_comportamento",
+        "resultado_acao",
+        "aprendizado_ia",
+        "contexto_negociacao",
+        "feedback_vendedor",
+        "automacao_fluxo",
+        "template_mensagem"
+      ],
+      "description": "Tipo de conhecimento armazenado"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "faq",
+        "produto",
+        "politica",
+        "procedimento",
+        "script_vendas",
+        "objecoes",
+        "manual",
+        "estrategia",
+        "inteligencia"
+      ],
+      "description": "Categoria do conte\u00fado"
+    },
+    "conteudo": {
+      "type": "string",
+      "description": "Conte\u00fado completo do conhecimento"
+    },
+    "conteudo_estruturado": {
+      "type": "object",
+      "description": "Dados estruturados do conhecimento (JSON flex\u00edvel)",
+      "additionalProperties": true
+    },
+    "entidade_origem": {
+      "type": "string",
+      "enum": [
+        "Cliente",
+        "Orcamento",
+        "Venda",
+        "MessageThread",
+        "TarefaInteligente",
+        "Interacao",
+        "FlowExecution",
+        "ClienteScore",
+        "Sistema"
+      ],
+      "description": "Entidade do CRM que originou este conhecimento"
+    },
+    "id_entidade_origem": {
+      "type": "string",
+      "description": "ID da entidade origem"
+    },
+    "json_metadados": {
+      "type": "object",
+      "description": "Metadados adicionais em formato JSON",
+      "additionalProperties": true
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags para facilitar busca"
+    },
+    "tags_topicos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "T\u00f3picos espec\u00edficos extra\u00eddos automaticamente pela IA"
+    },
+    "entidade_relacionada": {
+      "type": "string",
+      "enum": [
+        "Cliente",
+        "Produto",
+        "Vendedor",
+        "Orcamento",
+        "Geral"
+      ],
+      "description": "Entidade do CRM relacionada"
+    },
+    "relevancia_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "default": 50,
+      "description": "Score de relev\u00e2ncia (maior = mais importante)"
+    },
+    "confianca_ia": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "N\u00edvel de confian\u00e7a da IA neste conhecimento"
+    },
+    "vezes_utilizado": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantas vezes a IA usou este conte\u00fado"
+    },
+    "ultima_utilizacao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que foi usado pela IA"
+    },
+    "data_ultima_consulta": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que foi consultado"
+    },
+    "taxa_sucesso": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Taxa de sucesso quando este conte\u00fado \u00e9 usado"
+    },
+    "impacto_vendas": {
+      "type": "object",
+      "properties": {
+        "vendas_influenciadas": {
+          "type": "number",
+          "default": 0
+        },
+        "valor_total_influenciado": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_conversao": {
+          "type": "number",
+          "default": 0
+        }
+      },
+      "description": "Impacto direto em vendas"
+    },
+    "versao": {
+      "type": "string",
+      "default": "1.0",
+      "description": "Vers\u00e3o do conte\u00fado para controle de mudan\u00e7as"
+    },
+    "origem_ia": {
+      "type": "object",
+      "properties": {
+        "motor_gerador": {
+          "type": "string",
+          "enum": [
+            "MotorInteligenciaV3",
+            "MotorRaciocinio",
+            "MotorHiperPersonalizacao",
+            "NexusEngine",
+            "SistemaToolUse",
+            "Usuario"
+          ]
+        },
+        "timestamp_geracao": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "prompt_usado": {
+          "type": "string"
+        },
+        "modelo_llm": {
+          "type": "string"
+        }
+      },
+      "description": "Rastreabilidade da origem do conhecimento"
+    },
+    "criado_por": {
+      "type": "string",
+      "description": "Usu\u00e1rio que criou este conte\u00fado"
+    },
+    "autor_id": {
+      "type": "string",
+      "description": "ID do autor (usu\u00e1rio ou sistema)"
+    },
+    "aprovado": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o conte\u00fado foi aprovado para uso pela IA"
+    },
+    "aprovado_por": {
+      "type": "string",
+      "description": "Usu\u00e1rio que aprovou"
+    },
+    "data_aprovacao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data de aprova\u00e7\u00e3o"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se est\u00e1 ativo para consulta pela IA"
+    },
+    "palavras_chave": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Palavras-chave extra\u00eddas automaticamente para busca"
+    },
+    "embedding_gerado": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o embedding vetorial foi gerado para RAG"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre este documento"
+    },
+    "contexto_aplicacao": {
+      "type": "object",
+      "properties": {
+        "quando_usar": {
+          "type": "string"
+        },
+        "quando_nao_usar": {
+          "type": "string"
+        },
+        "exemplos_sucesso": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exemplos_falha": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Contexto de quando e como aplicar este conhecimento"
+    }
+  },
+  "required": [
+    "titulo",
+    "tipo_registro",
+    "categoria",
+    "conteudo"
+  ]
+}

@@ -1,0 +1,123 @@
+{
+  "name": "Campaign",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome da campanha"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "whatsapp",
+        "email",
+        "sms",
+        "multicanal"
+      ],
+      "description": "Tipo/canal principal da campanha"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planejamento",
+        "ativa",
+        "pausada",
+        "concluida",
+        "cancelada"
+      ],
+      "default": "planejamento"
+    },
+    "playbook_associado_id": {
+      "type": "string",
+      "description": "ID do FlowTemplate usado nesta campanha"
+    },
+    "periodo": {
+      "type": "object",
+      "properties": {
+        "inicio": {
+          "type": "string",
+          "format": "date"
+        },
+        "fim": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "investimento": {
+      "type": "number",
+      "description": "Custo total da campanha em R$"
+    },
+    "meta_leads": {
+      "type": "number",
+      "description": "Meta de leads a serem gerados"
+    },
+    "meta_conversao": {
+      "type": "number",
+      "description": "Meta de taxa de convers\u00e3o (%)"
+    },
+    "meta_roi": {
+      "type": "number",
+      "description": "Meta de ROI esperado"
+    },
+    "resultados": {
+      "type": "object",
+      "properties": {
+        "leads_gerados": {
+          "type": "number",
+          "default": 0
+        },
+        "leads_qualificados": {
+          "type": "number",
+          "default": 0
+        },
+        "conversoes": {
+          "type": "number",
+          "default": 0
+        },
+        "receita_gerada": {
+          "type": "number",
+          "default": 0
+        },
+        "roi_atual": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_conversao_atual": {
+          "type": "number",
+          "default": 0
+        }
+      }
+    },
+    "segmentacao": {
+      "type": "object",
+      "properties": {
+        "segmentos_alvo": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "criado_por": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio criador"
+    }
+  },
+  "required": [
+    "nome",
+    "tipo",
+    "investimento"
+  ]
+}

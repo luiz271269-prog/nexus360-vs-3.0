@@ -1,0 +1,104 @@
+{
+  "name": "WorkQueueItem",
+  "type": "object",
+  "properties": {
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "idle_reativacao",
+        "enviar_promocao",
+        "follow_up",
+        "manual"
+      ],
+      "default": "manual",
+      "description": "Tipo de tarefa na fila"
+    },
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread"
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "idle_48h",
+        "idle_72h",
+        "idle_7d",
+        "idle_14d",
+        "manual",
+        "urgente",
+        "promocao_lote"
+      ],
+      "description": "Motivo da entrada na fila"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium",
+      "description": "Severidade/prioridade"
+    },
+    "owner_sector_id": {
+      "type": "string",
+      "description": "Setor respons\u00e1vel"
+    },
+    "owner_user_id": {
+      "type": "string",
+      "description": "Usu\u00e1rio respons\u00e1vel"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "agendado",
+        "open",
+        "in_progress",
+        "processado",
+        "done",
+        "dismissed",
+        "cancelado",
+        "erro"
+      ],
+      "default": "open",
+      "description": "Status do item"
+    },
+    "scheduled_for": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando processar este item (para tarefas agendadas)"
+    },
+    "processed_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi processado"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Dados espec\u00edficos da tarefa (promotion_id, integration_id, etc)",
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Metadados adicionais",
+      "additionalProperties": true
+    },
+    "notes": {
+      "type": "string",
+      "description": "Notas sobre o item"
+    },
+    "dismissed_reason": {
+      "type": "string",
+      "description": "Motivo de dismiss\u00e3o"
+    }
+  },
+  "required": [
+    "contact_id",
+    "tipo"
+  ]
+}

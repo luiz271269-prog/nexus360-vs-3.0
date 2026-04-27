@@ -1,0 +1,65 @@
+{
+  "name": "BufferMensagem",
+  "type": "object",
+  "properties": {
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread"
+    },
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact"
+    },
+    "mensagens_agrupadas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "conteudo": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "message_id": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Mensagens acumuladas no buffer"
+    },
+    "texto_consolidado": {
+      "type": "string",
+      "description": "Texto completo agrupado de todas as mensagens"
+    },
+    "primeiro_timestamp": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando come\u00e7ou o buffer"
+    },
+    "ultimo_timestamp": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima mensagem recebida no buffer"
+    },
+    "processado": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se este buffer j\u00e1 foi processado pelo motor"
+    },
+    "expira_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando este buffer expira e deve ser processado"
+    },
+    "integration_id": {
+      "type": "string",
+      "description": "ID da WhatsAppIntegration de origem"
+    }
+  },
+  "required": [
+    "thread_id",
+    "contact_id"
+  ]
+}

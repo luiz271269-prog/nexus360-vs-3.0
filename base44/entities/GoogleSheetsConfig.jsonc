@@ -1,0 +1,88 @@
+{
+  "name": "GoogleSheetsConfig",
+  "type": "object",
+  "properties": {
+    "nome_configuracao": {
+      "type": "string",
+      "description": "Nome da configura\u00e7\u00e3o (ex: Vendas Janeiro, Clientes Ativos)"
+    },
+    "url_planilha": {
+      "type": "string",
+      "description": "URL completa da planilha do Google Sheets"
+    },
+    "planilha_id": {
+      "type": "string",
+      "description": "ID extra\u00eddo da URL da planilha"
+    },
+    "nome_aba": {
+      "type": "string",
+      "default": "Sheet1",
+      "description": "Nome da aba a ser importada"
+    },
+    "intervalo_celulas": {
+      "type": "string",
+      "default": "A:Z",
+      "description": "Intervalo de c\u00e9lulas (ex: A1:F100, A:F)"
+    },
+    "tipo_dados_sugerido": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "orcamentos",
+        "clientes",
+        "vendedores",
+        "auto"
+      ],
+      "default": "auto",
+      "description": "Tipo de dados esperado"
+    },
+    "sincronizacao_automatica": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se deve sincronizar automaticamente"
+    },
+    "frequencia_sync": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "diaria",
+        "semanal",
+        "hora"
+      ],
+      "default": "manual",
+      "description": "Frequ\u00eancia de sincroniza\u00e7\u00e3o"
+    },
+    "ultima_sincronizacao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data/hora da \u00faltima sincroniza\u00e7\u00e3o"
+    },
+    "mapeamento_campos": {
+      "type": "object",
+      "description": "Mapeamento de campos salvo"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "inativo",
+        "erro"
+      ],
+      "default": "ativo",
+      "description": "Status da configura\u00e7\u00e3o"
+    },
+    "total_registros_ultima_sync": {
+      "type": "number",
+      "description": "Total de registros na \u00faltima sincroniza\u00e7\u00e3o"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre esta configura\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "nome_configuracao",
+    "url_planilha",
+    "planilha_id"
+  ]
+}

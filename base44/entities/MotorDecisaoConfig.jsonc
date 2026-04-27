@@ -1,0 +1,181 @@
+{
+  "name": "MotorDecisaoConfig",
+  "type": "object",
+  "properties": {
+    "integration_id": {
+      "type": "string",
+      "description": "ID da WhatsAppIntegration. NULL = Configura\u00e7\u00e3o Global"
+    },
+    "setor_especifico": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "geral"
+      ],
+      "description": "Setor espec\u00edfico desta configura\u00e7\u00e3o (opcional)"
+    },
+    "nome_configuracao": {
+      "type": "string",
+      "description": "Nome descritivo da configura\u00e7\u00e3o"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Disjuntor geral - liga/desliga o motor inteligente"
+    },
+    "janela_continuidade_horas": {
+      "type": "number",
+      "default": 48,
+      "description": "Horas para considerar continuidade de conversa"
+    },
+    "modo_continuidade": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "pre_atendimento",
+        "perguntar"
+      ],
+      "default": "auto",
+      "description": "auto=retorna direto ao \u00faltimo atendente | pre_atendimento=passa pelo bot | perguntar=pergunta ao cliente"
+    },
+    "texto_pergunta_continuidade": {
+      "type": "string",
+      "description": "Mensagem para perguntar se quer continuar com \u00faltimo atendente"
+    },
+    "playbook_pre_atendimento_id": {
+      "type": "string",
+      "description": "ID do FlowTemplate \u00daNICO de pr\u00e9-atendimento com bot\u00f5es"
+    },
+    "buffer_agrupamento_segundos": {
+      "type": "number",
+      "default": 3,
+      "description": "Segundos de espera para agrupar mensagens picadas"
+    },
+    "lock_timeout_minutos": {
+      "type": "number",
+      "default": 5,
+      "description": "Tempo m\u00e1ximo (em minutos) que um lock pode ficar ativo antes de expirar automaticamente"
+    },
+    "usar_intencao_palavras": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativar detec\u00e7\u00e3o de inten\u00e7\u00e3o por palavras-chave"
+    },
+    "usar_intencao_ia": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ativar classifica\u00e7\u00e3o via IA (LLM)"
+    },
+    "prompt_ia_intencao": {
+      "type": "string",
+      "description": "Prompt customizado para IA classificar inten\u00e7\u00e3o"
+    },
+    "threshold_confianca_ia": {
+      "type": "number",
+      "default": 0.75,
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Confian\u00e7a m\u00ednima para aceitar classifica\u00e7\u00e3o IA"
+    },
+    "usar_fidelizacao": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ativar roteamento por vendedor/atendente respons\u00e1vel"
+    },
+    "fallback_playbook_id": {
+      "type": "string",
+      "description": "ID do FlowTemplate padr\u00e3o se nada decidir"
+    },
+    "horario_atendimento_inicio": {
+      "type": "string",
+      "default": "08:00",
+      "description": "Hor\u00e1rio de in\u00edcio do atendimento (HH:MM)"
+    },
+    "horario_atendimento_fim": {
+      "type": "string",
+      "default": "18:00",
+      "description": "Hor\u00e1rio de fim do atendimento (HH:MM)"
+    },
+    "dias_atendimento_semana": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 6
+      },
+      "default": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "description": "Dias da semana que atende (0=Domingo, 1=Segunda, etc.)"
+    },
+    "playbook_fora_horario_id": {
+      "type": "string",
+      "description": "ID do FlowTemplate para fora do hor\u00e1rio de atendimento"
+    },
+    "modo_debug": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ativar logs detalhados para diagn\u00f3stico"
+    },
+    "prioridade": {
+      "type": "number",
+      "default": 10,
+      "description": "Prioridade de execu\u00e7\u00e3o (menor = maior prioridade)"
+    },
+    "metricas": {
+      "type": "object",
+      "properties": {
+        "total_decisoes": {
+          "type": "number",
+          "default": 0
+        },
+        "camada1_hits": {
+          "type": "number",
+          "default": 0
+        },
+        "camada2_hits": {
+          "type": "number",
+          "default": 0
+        },
+        "camada3_hits": {
+          "type": "number",
+          "default": 0
+        },
+        "fallback_hits": {
+          "type": "number",
+          "default": 0
+        },
+        "fora_horario_hits": {
+          "type": "number",
+          "default": 0
+        },
+        "tempo_medio_decisao_ms": {
+          "type": "number",
+          "default": 0,
+          "description": "Tempo m\u00e9dio de decis\u00e3o em milissegundos"
+        },
+        "tempo_medio_ia_ms": {
+          "type": "number",
+          "default": 0,
+          "description": "Tempo m\u00e9dio de execu\u00e7\u00e3o da IA"
+        },
+        "total_locks_expirados": {
+          "type": "number",
+          "default": 0,
+          "description": "Quantas vezes o lock foi for\u00e7ado por timeout"
+        }
+      },
+      "description": "M\u00e9tricas de uso do motor"
+    }
+  },
+  "required": [
+    "nome_configuracao"
+  ]
+}

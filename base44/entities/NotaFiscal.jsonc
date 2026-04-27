@@ -1,0 +1,125 @@
+{
+  "name": "NotaFiscal",
+  "type": "object",
+  "properties": {
+    "numero_nf": {
+      "type": "string",
+      "description": "N\u00famero da nota fiscal (ex: NF-001234)"
+    },
+    "serie": {
+      "type": "string",
+      "description": "S\u00e9rie da nota fiscal"
+    },
+    "chave_acesso": {
+      "type": "string",
+      "description": "Chave de acesso NFe (44 d\u00edgitos)"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "nfe",
+        "nfce",
+        "nfse",
+        "boleto",
+        "recibo"
+      ],
+      "default": "nfe",
+      "description": "Tipo do documento fiscal"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "emitida",
+        "cancelada",
+        "pendente",
+        "erro"
+      ],
+      "default": "pendente",
+      "description": "Status da nota fiscal"
+    },
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact (cliente) ao qual a NF pertence"
+    },
+    "orcamento_id": {
+      "type": "string",
+      "description": "ID do Orcamento que originou esta NF (se aplic\u00e1vel)"
+    },
+    "cliente_nome": {
+      "type": "string",
+      "description": "Nome do cliente/tomador"
+    },
+    "cliente_cnpj_cpf": {
+      "type": "string",
+      "description": "CNPJ ou CPF do tomador"
+    },
+    "valor_total": {
+      "type": "number",
+      "description": "Valor total da nota fiscal"
+    },
+    "data_emissao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de emiss\u00e3o da NF"
+    },
+    "data_vencimento": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de vencimento (se aplic\u00e1vel)"
+    },
+    "pdf_url": {
+      "type": "string",
+      "description": "URL do PDF da nota fiscal (storage p\u00fablico)"
+    },
+    "xml_url": {
+      "type": "string",
+      "description": "URL do XML da nota fiscal"
+    },
+    "descricao_servico": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o do servi\u00e7o/produto faturado"
+    },
+    "fonte": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "nfe_io",
+        "enotas",
+        "omie",
+        "bling",
+        "nfse_gov",
+        "upload_direto"
+      ],
+      "default": "manual",
+      "description": "Sistema de gest\u00e3o financeira de origem"
+    },
+    "external_id": {
+      "type": "string",
+      "description": "ID externo no sistema de origem (NFe.io, eNotas, Omie, etc.)"
+    },
+    "enviada_whatsapp": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a NF j\u00e1 foi enviada via WhatsApp para o cliente"
+    },
+    "enviada_whatsapp_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi enviada via WhatsApp"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread onde foi solicitada/enviada"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Dados adicionais do sistema externo (resposta da API, etc.)",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "numero_nf",
+    "tipo",
+    "contact_id"
+  ]
+}

@@ -1,0 +1,227 @@
+{
+  "name": "WhatsAppTemplate",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome \u00fanico do template (formato: lowercase_com_underscores)"
+    },
+    "nome_exibicao": {
+      "type": "string",
+      "description": "Nome amig\u00e1vel para exibi\u00e7\u00e3o"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "MARKETING",
+        "UTILITY",
+        "AUTHENTICATION"
+      ],
+      "description": "Categoria do template conforme Meta"
+    },
+    "idioma": {
+      "type": "string",
+      "default": "pt_BR",
+      "description": "C\u00f3digo do idioma (pt_BR, en_US, es_ES, etc.)"
+    },
+    "conteudo": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "TEXT",
+                "IMAGE",
+                "VIDEO",
+                "DOCUMENT"
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "media_url": {
+              "type": "string"
+            }
+          }
+        },
+        "body": {
+          "type": "string",
+          "description": "Texto principal do template com vari\u00e1veis {{1}}, {{2}}, etc."
+        },
+        "footer": {
+          "type": "string",
+          "description": "Rodap\u00e9 opcional (m\u00e1x 60 caracteres)"
+        },
+        "buttons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "QUICK_REPLY",
+                  "PHONE_NUMBER",
+                  "URL"
+                ]
+              },
+              "text": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "phone_number": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "variaveis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "posicao": {
+            "type": "number"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "exemplo": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Lista de vari\u00e1veis do template"
+    },
+    "status_meta": {
+      "type": "string",
+      "enum": [
+        "rascunho",
+        "enviado_aprovacao",
+        "aprovado",
+        "rejeitado",
+        "pausado"
+      ],
+      "default": "rascunho",
+      "description": "Status na Meta"
+    },
+    "template_id_meta": {
+      "type": "string",
+      "description": "ID do template na Meta (ap\u00f3s aprova\u00e7\u00e3o)"
+    },
+    "motivo_rejeicao": {
+      "type": "string",
+      "description": "Motivo da rejei\u00e7\u00e3o (se rejeitado)"
+    },
+    "data_aprovacao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi aprovado"
+    },
+    "whatsapp_integration_id": {
+      "type": "string",
+      "description": "ID da integra\u00e7\u00e3o WhatsApp associada (vazio = todas)"
+    },
+    "setor": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "geral"
+      ],
+      "default": "geral",
+      "description": "Setor que pode usar este template"
+    },
+    "tipos_contato_aplicaveis": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "novo",
+          "lead",
+          "cliente",
+          "fornecedor",
+          "parceiro"
+        ]
+      },
+      "default": [],
+      "description": "Tipos de contato para os quais este template \u00e9 relevante (vazio = todos)"
+    },
+    "tipo_formato": {
+      "type": "string",
+      "enum": [
+        "texto",
+        "imagem",
+        "video",
+        "documento",
+        "interativo"
+      ],
+      "default": "texto",
+      "description": "Tipo de formato do template para filtrar por entrada"
+    },
+    "nivel_acesso_minimo": {
+      "type": "string",
+      "enum": [
+        "junior",
+        "pleno",
+        "senior",
+        "coordenador",
+        "gerente",
+        "admin"
+      ],
+      "default": "junior",
+      "description": "N\u00edvel m\u00ednimo de hierarquia para usar este template"
+    },
+    "criado_por": {
+      "type": "string",
+      "description": "Email do usu\u00e1rio que criou (admin)"
+    },
+    "estatisticas": {
+      "type": "object",
+      "properties": {
+        "total_envios": {
+          "type": "number",
+          "default": 0
+        },
+        "total_entregas": {
+          "type": "number",
+          "default": 0
+        },
+        "total_leituras": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_entrega": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_leitura": {
+          "type": "number",
+          "default": 0
+        }
+      }
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o template est\u00e1 ativo para uso"
+    }
+  },
+  "required": [
+    "nome",
+    "categoria",
+    "conteudo"
+  ]
+}

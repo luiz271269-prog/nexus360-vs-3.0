@@ -1,0 +1,155 @@
+{
+  "name": "MetricSnapshot",
+  "type": "object",
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Momento da captura da m\u00e9trica"
+    },
+    "tipo_metrica": {
+      "type": "string",
+      "enum": [
+        "playbook_performance",
+        "roi_campanha",
+        "conversao_canal",
+        "tempo_resposta",
+        "engajamento",
+        "faturamento_previsto",
+        "taxa_abandono"
+      ],
+      "description": "Tipo de m\u00e9trica capturada"
+    },
+    "entidade_relacionada": {
+      "type": "string",
+      "enum": [
+        "FlowTemplate",
+        "Campaign",
+        "Channel",
+        "User",
+        "Sistema"
+      ],
+      "description": "Entidade \u00e0 qual a m\u00e9trica se refere"
+    },
+    "entidade_id": {
+      "type": "string",
+      "description": "ID da entidade relacionada"
+    },
+    "metricas": {
+      "type": "object",
+      "properties": {
+        "conversao": {
+          "type": "number",
+          "description": "Taxa de convers\u00e3o (%)"
+        },
+        "roi": {
+          "type": "number",
+          "description": "Return on Investment"
+        },
+        "receita_gerada": {
+          "type": "number",
+          "description": "Receita em R$"
+        },
+        "custo_campanha": {
+          "type": "number",
+          "description": "Custo em R$"
+        },
+        "tempo_medio_resposta": {
+          "type": "number",
+          "description": "Tempo m\u00e9dio em minutos"
+        },
+        "taxa_engajamento": {
+          "type": "number",
+          "description": "Taxa de engajamento (%)"
+        },
+        "taxa_abandono": {
+          "type": "number",
+          "description": "Taxa de abandono (%)"
+        },
+        "leads_iniciados": {
+          "type": "number",
+          "description": "Total de leads que iniciaram o fluxo"
+        },
+        "leads_concluidos": {
+          "type": "number",
+          "description": "Total de leads que conclu\u00edram"
+        },
+        "vendas_geradas": {
+          "type": "number",
+          "description": "N\u00famero de vendas geradas"
+        }
+      },
+      "description": "Objeto com as m\u00e9tricas calculadas"
+    },
+    "periodo": {
+      "type": "object",
+      "properties": {
+        "inicio": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "fim": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "tipo": {
+          "type": "string",
+          "enum": [
+            "diario",
+            "semanal",
+            "mensal",
+            "trimestral",
+            "anual"
+          ]
+        }
+      },
+      "description": "Per\u00edodo ao qual a m\u00e9trica se refere"
+    },
+    "comparacao_periodo_anterior": {
+      "type": "object",
+      "properties": {
+        "variacao_percentual": {
+          "type": "number",
+          "description": "Varia\u00e7\u00e3o em % comparado ao per\u00edodo anterior"
+        },
+        "tendencia": {
+          "type": "string",
+          "enum": [
+            "crescimento",
+            "estabilidade",
+            "declinio"
+          ]
+        }
+      }
+    },
+    "insights_ia": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "anomalia",
+              "oportunidade",
+              "alerta",
+              "recomendacao"
+            ]
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "confianca": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Insights gerados pela IA sobre esta m\u00e9trica"
+    }
+  },
+  "required": [
+    "timestamp",
+    "tipo_metrica",
+    "metricas"
+  ]
+}

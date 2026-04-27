@@ -1,0 +1,100 @@
+{
+  "name": "AprendizadoIA",
+  "type": "object",
+  "properties": {
+    "tipo_aprendizado": {
+      "type": "string",
+      "enum": [
+        "padrao_cliente",
+        "eficacia_tarefa",
+        "timing_contato",
+        "resposta_mensagem",
+        "conversao_orcamento"
+      ],
+      "description": "Tipo de padr\u00e3o aprendido"
+    },
+    "contexto": {
+      "type": "object",
+      "description": "Contexto onde o padr\u00e3o foi identificado (ex: segmento, vendedor, per\u00edodo)"
+    },
+    "padrao_identificado": {
+      "type": "object",
+      "properties": {
+        "descricao": {
+          "type": "string"
+        },
+        "confianca": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "exemplos": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "metricas": {
+          "type": "object"
+        }
+      },
+      "description": "Detalhes do padr\u00e3o descoberto"
+    },
+    "aplicabilidade": {
+      "type": "object",
+      "properties": {
+        "segmentos_aplicaveis": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vendedores_aplicaveis": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "condicoes": {
+          "type": "object"
+        }
+      }
+    },
+    "impacto_medido": {
+      "type": "object",
+      "properties": {
+        "taxa_sucesso_antes": {
+          "type": "number"
+        },
+        "taxa_sucesso_depois": {
+          "type": "number"
+        },
+        "melhoria_percentual": {
+          "type": "number"
+        },
+        "n_aplicacoes": {
+          "type": "number"
+        }
+      }
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se este aprendizado est\u00e1 sendo usado ativamente"
+    },
+    "data_descoberta": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o padr\u00e3o foi identificado"
+    },
+    "ultima_validacao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que o padr\u00e3o foi validado"
+    }
+  },
+  "required": [
+    "tipo_aprendizado",
+    "padrao_identificado"
+  ]
+}

@@ -1,0 +1,264 @@
+{
+  "name": "Message",
+  "type": "object",
+  "properties": {
+    "thread_id": {
+      "type": "string",
+      "description": "ID da conversa (MessageThread)"
+    },
+    "sender_id": {
+      "type": "string",
+      "description": "ID do remetente (User ou Contact)"
+    },
+    "sender_type": {
+      "type": "string",
+      "enum": [
+        "user",
+        "contact"
+      ],
+      "description": "Tipo do remetente"
+    },
+    "recipient_id": {
+      "type": "string",
+      "description": "ID do destinat\u00e1rio (User ou Contact). Null para grupos/broadcast"
+    },
+    "recipient_type": {
+      "type": "string",
+      "enum": [
+        "user",
+        "contact",
+        "group"
+      ],
+      "description": "Tipo do destinat\u00e1rio: 'user' (mensagem interna 1:1), 'contact' (WhatsApp externo), 'group' (broadcast interno)"
+    },
+    "content": {
+      "type": "string",
+      "description": "Conte\u00fado da mensagem (texto)"
+    },
+    "reply_to_message_id": {
+      "type": "string",
+      "description": "ID da mensagem sendo respondida (para quotes/replies)"
+    },
+    "media_url": {
+      "type": "string",
+      "description": "URL PERMANENTE do arquivo de m\u00eddia (Supabase Storage)"
+    },
+    "media_type": {
+      "type": "string",
+      "enum": [
+        "none",
+        "image",
+        "video",
+        "audio",
+        "document",
+        "sticker",
+        "location",
+        "contact"
+      ],
+      "default": "none",
+      "description": "Tipo de m\u00eddia anexada"
+    },
+    "media_caption": {
+      "type": "string",
+      "description": "Legenda da m\u00eddia"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "interno",
+        "whatsapp",
+        "instagram",
+        "facebook",
+        "phone",
+        "email",
+        "sms"
+      ],
+      "description": "Canal de comunica\u00e7\u00e3o"
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "whatsapp",
+        "internal_system",
+        "instagram_api",
+        "facebook_graph_api",
+        "goto_phone"
+      ],
+      "default": "whatsapp",
+      "description": "Provedor que originou a mensagem"
+    },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "public_to_customer",
+        "internal_only"
+      ],
+      "default": "public_to_customer",
+      "description": "Visibilidade da mensagem. internal_only = nota interna n\u00e3o vis\u00edvel ao cliente"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "enviando",
+        "enviada",
+        "entregue",
+        "lida",
+        "falhou",
+        "recebida"
+      ],
+      "default": "enviando",
+      "description": "Status de entrega"
+    },
+    "whatsapp_message_id": {
+      "type": "string",
+      "description": "ID \u00fanico da mensagem no WhatsApp (para sincroniza\u00e7\u00e3o)"
+    },
+    "instagram_message_id": {
+      "type": "string",
+      "description": "ID \u00fanico da mensagem no Instagram"
+    },
+    "facebook_message_id": {
+      "type": "string",
+      "description": "ID \u00fanico da mensagem no Facebook"
+    },
+    "goto_message_id": {
+      "type": "string",
+      "description": "ID \u00fanico da mensagem/SMS no GoTo"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi enviada"
+    },
+    "delivered_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi entregue"
+    },
+    "read_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi lida"
+    },
+    "erro_detalhes": {
+      "type": "string",
+      "description": "Detalhes do erro (se status = falhou)"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Metadados adicionais",
+      "properties": {
+        "analise_multimodal": {
+          "type": "object",
+          "description": "Resultado da an\u00e1lise de IA sobre a m\u00eddia"
+        },
+        "midia_persistida": {
+          "type": "boolean",
+          "description": "Se a m\u00eddia foi salva permanentemente"
+        },
+        "deleted": {
+          "type": "boolean",
+          "description": "Se a mensagem foi apagada"
+        },
+        "whatsapp_integration_id": {
+          "type": "string",
+          "description": "ID da integra\u00e7\u00e3o WhatsApp que recebeu/enviou"
+        },
+        "instagram_integration_id": {
+          "type": "string",
+          "description": "ID da integra\u00e7\u00e3o Instagram que recebeu/enviou"
+        },
+        "facebook_integration_id": {
+          "type": "string",
+          "description": "ID da integra\u00e7\u00e3o Facebook que recebeu/enviou"
+        },
+        "goto_integration_id": {
+          "type": "string",
+          "description": "ID da integra\u00e7\u00e3o GoTo que recebeu/enviou"
+        },
+        "instance_id": {
+          "type": "string",
+          "description": "ID da inst\u00e2ncia no provedor (Z-API, Evolution, Meta)"
+        },
+        "connected_phone": {
+          "type": "string",
+          "description": "N\u00famero da conex\u00e3o que recebeu a mensagem"
+        },
+        "canal_nome": {
+          "type": "string",
+          "description": "Nome da integra\u00e7\u00e3o/canal"
+        },
+        "canal_numero": {
+          "type": "string",
+          "description": "N\u00famero do canal WhatsApp"
+        },
+        "vcard": {
+          "type": "object",
+          "description": "Dados do vCard (se for contato compartilhado)"
+        },
+        "location": {
+          "type": "object",
+          "description": "Dados de localiza\u00e7\u00e3o"
+        },
+        "quoted_message": {
+          "type": "object",
+          "description": "Mensagem citada/respondida"
+        },
+        "read_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "IDs dos usu\u00e1rios que leram a mensagem (para grupos internos)"
+        },
+        "mentions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "IDs dos usu\u00e1rios mencionados (@usuario)"
+        },
+        "user_name": {
+          "type": "string",
+          "description": "Nome do usu\u00e1rio remetente (cache para mensagens internas)"
+        },
+        "is_internal_message": {
+          "type": "boolean",
+          "description": "Flag para diferenciar mensagens internas (usu\u00e1rio\u2194usu\u00e1rio) de externas (usu\u00e1rio\u2194contato)"
+        },
+        "is_1on1": {
+          "type": "boolean",
+          "description": "Se \u00e9 mensagem 1:1 interna entre dois usu\u00e1rios"
+        },
+        "sender_name": {
+          "type": "string",
+          "description": "Nome do remetente (cache para mensagens internas)"
+        }
+      }
+    },
+    "is_template": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se \u00e9 uma mensagem de template aprovado"
+    },
+    "template_name": {
+      "type": "string",
+      "description": "Nome do template (se is_template = true)"
+    },
+    "categorias": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Etiquetas/categorias aplicadas a esta mensagem espec\u00edfica"
+    }
+  },
+  "required": [
+    "thread_id",
+    "sender_id",
+    "sender_type",
+    "content",
+    "channel"
+  ]
+}

@@ -1,0 +1,241 @@
+{
+  "name": "Promotion",
+  "type": "object",
+  "properties": {
+    "titulo": {
+      "type": "string",
+      "description": "T\u00edtulo da promo\u00e7\u00e3o"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o completa (suporta placeholders: {{nome}}, {{empresa}})"
+    },
+    "descricao_curta": {
+      "type": "string",
+      "description": "Vers\u00e3o resumida para teaser (m\u00e1x 120 chars)"
+    },
+    "price_info": {
+      "type": "string",
+      "description": "Informa\u00e7\u00e3o de pre\u00e7o/condi\u00e7\u00e3o (ex: De R$ 4.000 por R$ 3.500)"
+    },
+    "link_produto": {
+      "type": "string",
+      "description": "Link para produto ou landing page"
+    },
+    "imagem_url": {
+      "type": "string",
+      "description": "URL da imagem do produto/promo\u00e7\u00e3o"
+    },
+    "tipo_midia": {
+      "type": "string",
+      "enum": [
+        "none",
+        "image",
+        "video",
+        "document"
+      ],
+      "default": "none",
+      "description": "Tipo de m\u00eddia anexada"
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "massblast",
+        "6h",
+        "12h",
+        "24h"
+      ],
+      "default": "6h",
+      "description": "Est\u00e1gio do funil de recupera\u00e7\u00e3o (6h/12h/24h = conversas paradas)"
+    },
+    "priority": {
+      "type": "number",
+      "default": 10,
+      "description": "Prioridade (menor n\u00famero = maior prioridade)"
+    },
+    "validade": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de validade da promo\u00e7\u00e3o"
+    },
+    "campaign_id": {
+      "type": "string",
+      "description": "ID/c\u00f3digo da campanha (ex: NATAL2025)"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a promo\u00e7\u00e3o est\u00e1 ativa"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "informatica",
+        "escritorio",
+        "servicos",
+        "perifericos",
+        "geral"
+      ],
+      "default": "geral",
+      "description": "Categoria da promo\u00e7\u00e3o"
+    },
+    "target_contact_types": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "novo",
+          "lead",
+          "cliente",
+          "fornecedor",
+          "parceiro"
+        ]
+      },
+      "default": [
+        "lead",
+        "cliente"
+      ],
+      "description": "Tipos de contato eleg\u00edveis"
+    },
+    "target_sectors": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "vendas",
+          "assistencia",
+          "financeiro",
+          "fornecedor",
+          "geral"
+        ]
+      },
+      "default": [
+        "vendas",
+        "geral"
+      ],
+      "description": "Setores eleg\u00edveis"
+    },
+    "target_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags de contato eleg\u00edveis (vazio = todos)"
+    },
+    "formato": {
+      "type": "string",
+      "enum": [
+        "teaser",
+        "direct"
+      ],
+      "default": "teaser",
+      "description": "teaser = curto com 1/2, direct = mensagem completa"
+    },
+    "cooldown_hours": {
+      "type": "number",
+      "default": 6,
+      "description": "Horas de cooldown antes de reenviar para o mesmo contato"
+    },
+    "whatsapp_template_name": {
+      "type": "string",
+      "description": "Nome do template aprovado (obrigat\u00f3rio para stage=24h)"
+    },
+    "whatsapp_template_vars": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Vari\u00e1veis do template (ex: ['nome', 'produto', 'preco'])"
+    },
+    "limite_envios_total": {
+      "type": "number",
+      "description": "M\u00e1ximo de envios totais desta promo\u00e7\u00e3o (null = ilimitado)"
+    },
+    "limite_envios_por_contato": {
+      "type": "number",
+      "default": 1,
+      "description": "M\u00e1ximo de vezes que um contato pode receber esta promo\u00e7\u00e3o"
+    },
+    "contador_envios": {
+      "type": "number",
+      "default": 0,
+      "description": "Total de envios realizados"
+    },
+    "contador_respostas": {
+      "type": "number",
+      "default": 0,
+      "description": "Total de respostas recebidas"
+    },
+    "taxa_conversao": {
+      "type": "number",
+      "default": 0,
+      "description": "Taxa de convers\u00e3o (%) calculada automaticamente"
+    },
+    "produtos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "preco_original": {
+            "type": "number"
+          },
+          "preco_promocional": {
+            "type": "number"
+          },
+          "desconto_percentual": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Lista de produtos em promo\u00e7\u00e3o"
+    },
+    "metricas": {
+      "type": "object",
+      "properties": {
+        "total_envios": {
+          "type": "number",
+          "default": 0
+        },
+        "total_visualizacoes": {
+          "type": "number",
+          "default": 0
+        },
+        "total_respostas": {
+          "type": "number",
+          "default": 0
+        },
+        "total_conversoes": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_abertura": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_resposta": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_conversao": {
+          "type": "number",
+          "default": 0
+        },
+        "ultima_atualizacao_metricas": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    }
+  },
+  "required": [
+    "titulo",
+    "descricao",
+    "stage"
+  ]
+}

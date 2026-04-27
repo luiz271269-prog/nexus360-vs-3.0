@@ -1,0 +1,101 @@
+{
+  "name": "ImportacaoDocumento",
+  "type": "object",
+  "properties": {
+    "nome_arquivo": {
+      "type": "string",
+      "description": "Nome do arquivo importado"
+    },
+    "tipo_documento": {
+      "type": "string",
+      "enum": [
+        "pdf",
+        "excel",
+        "word",
+        "imagem",
+        "csv",
+        "xml",
+        "json",
+        "outro"
+      ],
+      "description": "Tipo do documento"
+    },
+    "status_processamento": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "processando",
+        "sucesso",
+        "erro",
+        "revisao_manual"
+      ],
+      "default": "pendente",
+      "description": "Status do processamento"
+    },
+    "classificacao_automatica": {
+      "type": "string",
+      "enum": [
+        "fatura",
+        "orcamento",
+        "contrato",
+        "relatorio_vendas",
+        "lista_clientes",
+        "planilha_metas",
+        "comprovante",
+        "nao_identificado"
+      ],
+      "description": "Classifica\u00e7\u00e3o autom\u00e1tica do documento"
+    },
+    "dados_extraidos": {
+      "type": "object",
+      "description": "Dados estruturados extra\u00eddos do documento"
+    },
+    "confianca_extracao": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "N\u00edvel de confian\u00e7a da extra\u00e7\u00e3o (0-100%)"
+    },
+    "url_arquivo": {
+      "type": "string",
+      "description": "URL do arquivo armazenado"
+    },
+    "usuario_processamento": {
+      "type": "string",
+      "description": "Usu\u00e1rio que iniciou o processamento"
+    },
+    "observacoes_ia": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es da IA sobre o processamento"
+    },
+    "erro_detalhado": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada do erro se houver"
+    },
+    "data_processamento": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data e hora do processamento"
+    },
+    "tempo_processamento": {
+      "type": "number",
+      "description": "Tempo de processamento em segundos"
+    },
+    "destino_dados": {
+      "type": "string",
+      "enum": [
+        "vendedores",
+        "clientes",
+        "vendas",
+        "orcamentos",
+        "multiplos",
+        "nao_aplicavel"
+      ],
+      "description": "Para onde os dados foram direcionados"
+    }
+  },
+  "required": [
+    "nome_arquivo",
+    "tipo_documento"
+  ]
+}

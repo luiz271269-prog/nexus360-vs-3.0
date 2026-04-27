@@ -1,0 +1,154 @@
+{
+  "name": "SequenciaAutomatica",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome da sequ\u00eancia"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da sequ\u00eancia"
+    },
+    "tipo_gatilho": {
+      "type": "string",
+      "enum": [
+        "dias_sem_resposta",
+        "baixa_intencao_compra",
+        "alto_risco_churn",
+        "novo_contato",
+        "status_mudado"
+      ],
+      "description": "Tipo de evento que dispara a sequ\u00eancia"
+    },
+    "parametro_gatilho": {
+      "type": "object",
+      "description": "Par\u00e2metros espec\u00edficos do gatilho",
+      "properties": {
+        "dias": {
+          "type": "number"
+        },
+        "score_minimo": {
+          "type": "number"
+        },
+        "score_maximo": {
+          "type": "number"
+        },
+        "status_anterior": {
+          "type": "string"
+        },
+        "status_novo": {
+          "type": "string"
+        }
+      }
+    },
+    "passos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": "number"
+          },
+          "atraso_dias": {
+            "type": "number"
+          },
+          "tipo_mensagem": {
+            "type": "string",
+            "enum": [
+              "texto",
+              "template",
+              "sugestao_ia"
+            ]
+          },
+          "conteudo": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "usar_analise_ia": {
+            "type": "boolean"
+          }
+        }
+      },
+      "description": "Passos da sequ\u00eancia com timing"
+    },
+    "condicoes_aplicacao": {
+      "type": "object",
+      "description": "Filtros para quem recebe a sequ\u00eancia",
+      "properties": {
+        "tipos_contato": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "enum": [
+            "lead",
+            "cliente",
+            "prospect"
+          ]
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "vendedores_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "score_minimo": {
+          "type": "number"
+        },
+        "dias_inatividade_minimo": {
+          "type": "number"
+        }
+      }
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true
+    },
+    "limite_execucoes_por_contato": {
+      "type": "number",
+      "default": 1,
+      "description": "Quantas vezes executar para o mesmo contato"
+    },
+    "cooldown_dias_entre_execucoes": {
+      "type": "number",
+      "default": 7,
+      "description": "Dias entre execu\u00e7\u00f5es sucessivas para mesmo contato"
+    },
+    "metricas": {
+      "type": "object",
+      "properties": {
+        "total_disparos": {
+          "type": "number",
+          "default": 0
+        },
+        "total_engajamentos": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_engajamento": {
+          "type": "number",
+          "default": 0
+        },
+        "conversoes": {
+          "type": "number",
+          "default": 0
+        }
+      }
+    }
+  },
+  "required": [
+    "nome",
+    "tipo_gatilho",
+    "parametro_gatilho",
+    "passos"
+  ]
+}

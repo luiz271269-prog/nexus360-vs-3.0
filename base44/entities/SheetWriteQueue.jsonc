@@ -1,0 +1,86 @@
+{
+  "name": "SheetWriteQueue",
+  "type": "object",
+  "properties": {
+    "spreadsheet_id": {
+      "type": "string",
+      "description": "ID da planilha do Google Sheets"
+    },
+    "range": {
+      "type": "string",
+      "description": "Range onde os dados ser\u00e3o escritos (ex: Sheet1!A1:Z100)"
+    },
+    "operation_type": {
+      "type": "string",
+      "enum": [
+        "write",
+        "append",
+        "clear",
+        "update"
+      ],
+      "description": "Tipo de opera\u00e7\u00e3o"
+    },
+    "values": {
+      "type": "array",
+      "description": "Valores a serem escritos (array de arrays)"
+    },
+    "operation_hash": {
+      "type": "string",
+      "description": "Hash \u00fanico da opera\u00e7\u00e3o para idempot\u00eancia"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "processando",
+        "concluido",
+        "erro"
+      ],
+      "default": "pendente",
+      "description": "Status da opera\u00e7\u00e3o"
+    },
+    "prioridade": {
+      "type": "number",
+      "default": 5,
+      "description": "Prioridade da opera\u00e7\u00e3o (1-10, maior = mais urgente)"
+    },
+    "tentativas": {
+      "type": "number",
+      "default": 0,
+      "description": "N\u00famero de tentativas de processamento"
+    },
+    "max_tentativas": {
+      "type": "number",
+      "default": 3,
+      "description": "N\u00famero m\u00e1ximo de tentativas"
+    },
+    "erro_detalhes": {
+      "type": "string",
+      "description": "Detalhes do erro se houver"
+    },
+    "agendado_para": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a opera\u00e7\u00e3o deve ser executada"
+    },
+    "processado_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a opera\u00e7\u00e3o foi processada"
+    },
+    "usuario_criador": {
+      "type": "string",
+      "description": "Usu\u00e1rio que criou a opera\u00e7\u00e3o"
+    },
+    "contexto_adicional": {
+      "type": "object",
+      "description": "Contexto adicional da opera\u00e7\u00e3o (para rastreabilidade)"
+    }
+  },
+  "required": [
+    "spreadsheet_id",
+    "range",
+    "operation_type",
+    "operation_hash"
+  ]
+}

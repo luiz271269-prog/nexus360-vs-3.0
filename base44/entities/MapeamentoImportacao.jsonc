@@ -1,0 +1,59 @@
+{
+  "name": "MapeamentoImportacao",
+  "type": "object",
+  "properties": {
+    "tipo_documento": {
+      "type": "string",
+      "description": "Tipo de documento para o qual este mapeamento se aplica"
+    },
+    "nome_mapeamento": {
+      "type": "string",
+      "description": "Nome personalizado do mapeamento definido pelo usu\u00e1rio"
+    },
+    "mapeamento_campos": {
+      "type": "object",
+      "description": "Objeto que mapeia campo_original -> campo_destino"
+    },
+    "entidade_destino": {
+      "type": "string",
+      "enum": [
+        "clientes",
+        "vendedores",
+        "vendas",
+        "orcamentos",
+        "multiplo"
+      ],
+      "description": "Entidade de destino para os dados"
+    },
+    "campo_totalizador": {
+      "type": "string",
+      "description": "Nome do campo que representa o valor total/principal para totalizadores"
+    },
+    "confianca_media": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Confian\u00e7a m\u00e9dia das extra\u00e7\u00f5es usando este mapeamento"
+    },
+    "vezes_usado": {
+      "type": "number",
+      "default": 1,
+      "description": "Quantas vezes este mapeamento foi utilizado"
+    },
+    "usuario_criador": {
+      "type": "string",
+      "description": "Usu\u00e1rio que criou este mapeamento"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se este mapeamento est\u00e1 ativo para uso"
+    }
+  },
+  "required": [
+    "tipo_documento",
+    "nome_mapeamento",
+    "mapeamento_campos",
+    "entidade_destino"
+  ]
+}

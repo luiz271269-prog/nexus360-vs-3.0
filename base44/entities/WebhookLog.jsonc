@@ -1,0 +1,63 @@
+{
+  "name": "WebhookLog",
+  "type": "object",
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o webhook foi recebido"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider (z_api, evolution_api, development)"
+    },
+    "instance_id": {
+      "type": "string",
+      "description": "ID da inst\u00e2ncia"
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Tipo de evento"
+    },
+    "raw_data": {
+      "type": "object",
+      "description": "Payload COMPLETO recebido do provedor"
+    },
+    "raw_headers": {
+      "type": "object",
+      "description": "Headers HTTP COMPLETOs do webhook"
+    },
+    "processed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o webhook foi processado com sucesso pelo sistema"
+    },
+    "success": {
+      "type": "boolean",
+      "description": "Resultado final do processamento (true/false)"
+    },
+    "error": {
+      "type": "string",
+      "description": "Mensagem de erro se o processamento falhou"
+    },
+    "result": {
+      "type": "object",
+      "description": "Resultado detalhado do processamento (ex: ID da mensagem criada)"
+    },
+    "validacao_origem": {
+      "type": "boolean",
+      "description": "Se a origem do webhook foi validada com sucesso (assinatura, token)"
+    },
+    "processing_time_ms": {
+      "type": "number",
+      "description": "Tempo que levou para processar o webhook, em milissegundos"
+    }
+  },
+  "required": [
+    "timestamp",
+    "provider",
+    "instance_id",
+    "event_type",
+    "raw_data"
+  ]
+}

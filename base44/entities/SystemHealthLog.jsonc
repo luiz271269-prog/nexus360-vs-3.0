@@ -1,0 +1,76 @@
+{
+  "name": "SystemHealthLog",
+  "type": "object",
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Momento da verifica\u00e7\u00e3o"
+    },
+    "componente": {
+      "type": "string",
+      "enum": [
+        "whatsapp_z_api",
+        "whatsapp_evolution",
+        "webhook_inbound",
+        "database",
+        "llm_integration",
+        "base44_platform"
+      ],
+      "description": "Componente verificado"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "operacional",
+        "degradado",
+        "falha",
+        "manutencao"
+      ],
+      "description": "Status do componente"
+    },
+    "tempo_resposta_ms": {
+      "type": "number",
+      "description": "Tempo de resposta em milissegundos"
+    },
+    "detalhes_verificacao": {
+      "type": "object",
+      "description": "Detalhes espec\u00edficos da verifica\u00e7\u00e3o"
+    },
+    "erro_detalhado": {
+      "type": "string",
+      "description": "Mensagem de erro se houver"
+    },
+    "metricas_adicionais": {
+      "type": "object",
+      "properties": {
+        "taxa_sucesso_ultimas_24h": {
+          "type": "number",
+          "description": "Taxa de sucesso nas \u00faltimas 24 horas (%)"
+        },
+        "total_requisicoes_24h": {
+          "type": "number",
+          "description": "Total de requisi\u00e7\u00f5es nas \u00faltimas 24 horas"
+        },
+        "tempo_medio_resposta_24h": {
+          "type": "number",
+          "description": "Tempo m\u00e9dio de resposta nas \u00faltimas 24 horas (ms)"
+        }
+      }
+    },
+    "acao_tomada": {
+      "type": "string",
+      "description": "A\u00e7\u00e3o autom\u00e1tica tomada pelo sistema"
+    },
+    "notificacao_enviada": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se uma notifica\u00e7\u00e3o foi enviada ao administrador"
+    }
+  },
+  "required": [
+    "timestamp",
+    "componente",
+    "status"
+  ]
+}

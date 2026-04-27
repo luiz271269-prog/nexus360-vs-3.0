@@ -1,0 +1,71 @@
+{
+  "name": "EventoSistema",
+  "type": "object",
+  "properties": {
+    "tipo_evento": {
+      "type": "string",
+      "enum": [
+        "cliente_criado",
+        "cliente_atualizado",
+        "orcamento_criado",
+        "orcamento_status_mudou",
+        "venda_criada",
+        "interacao_criada",
+        "tarefa_criada",
+        "tarefa_concluida",
+        "mensagem_whatsapp_recebida",
+        "mensagem_whatsapp_enviada",
+        "score_atualizado",
+        "automacao_executada"
+      ],
+      "description": "Tipo de evento ocorrido no sistema"
+    },
+    "entidade_tipo": {
+      "type": "string",
+      "description": "Tipo da entidade afetada (Cliente, Orcamento, etc.)"
+    },
+    "entidade_id": {
+      "type": "string",
+      "description": "ID da entidade afetada"
+    },
+    "dados_evento": {
+      "type": "object",
+      "description": "Dados espec\u00edficos do evento (snapshot do estado, mudan\u00e7as, etc.)"
+    },
+    "usuario_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio que causou o evento (se aplic\u00e1vel)"
+    },
+    "origem": {
+      "type": "string",
+      "enum": [
+        "ui_usuario",
+        "webhook",
+        "automacao",
+        "sistema",
+        "api_externa"
+      ],
+      "description": "Origem do evento"
+    },
+    "processado": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o evento j\u00e1 foi processado pelo MotorInteligencia"
+    },
+    "resultados_processamento": {
+      "type": "object",
+      "description": "O que foi gerado a partir deste evento (scores atualizados, tarefas criadas, etc.)"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o evento ocorreu"
+    }
+  },
+  "required": [
+    "tipo_evento",
+    "entidade_tipo",
+    "entidade_id",
+    "dados_evento"
+  ]
+}

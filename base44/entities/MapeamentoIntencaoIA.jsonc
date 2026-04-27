@@ -1,0 +1,77 @@
+{
+  "name": "MapeamentoIntencaoIA",
+  "type": "object",
+  "properties": {
+    "nome_mapeamento": {
+      "type": "string",
+      "description": "Nome descritivo do mapeamento (ex: 'Suporte \u2192 PlaybookN1')"
+    },
+    "setor_detectado_ia": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "geral"
+      ],
+      "description": "Setor retornado pela IA que ativa este mapeamento"
+    },
+    "min_confianca": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.75,
+      "description": "Confian\u00e7a m\u00ednima da IA para ativar (ex: 0.75 = 75%)"
+    },
+    "playbook_id": {
+      "type": "string",
+      "description": "ID do FlowTemplate a executar (priorit\u00e1rio)"
+    },
+    "atendente_id": {
+      "type": "string",
+      "description": "ID do User para atribuir (opcional)"
+    },
+    "fila_id": {
+      "type": "string",
+      "description": "ID da FilaAtendimento (opcional)"
+    },
+    "conexoes_permitidas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "IDs das WhatsAppIntegrations (vazio = todas)"
+    },
+    "prioridade": {
+      "type": "number",
+      "default": 10,
+      "description": "Ordem de execu\u00e7\u00e3o se m\u00faltiplos mapeamentos se aplicam"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se este mapeamento est\u00e1 ativo"
+    },
+    "metricas": {
+      "type": "object",
+      "properties": {
+        "total_ativacoes": {
+          "type": "number",
+          "default": 0
+        },
+        "ultima_ativacao": {
+          "type": "string",
+          "format": "datetime"
+        }
+      },
+      "description": "M\u00e9tricas de uso deste mapeamento"
+    }
+  },
+  "required": [
+    "nome_mapeamento",
+    "setor_detectado_ia",
+    "playbook_id"
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "name": "GoToIntegration",
+  "type": "object",
+  "properties": {
+    "nome_instancia": {
+      "type": "string",
+      "description": "Nome \u00fanico da inst\u00e2ncia (ex: telefonia-vendas)"
+    },
+    "phone_number": {
+      "type": "string",
+      "description": "N\u00famero de telefone principal da linha GoTo"
+    },
+    "access_token": {
+      "type": "string",
+      "description": "Token de acesso OAuth da GoTo Connect API"
+    },
+    "refresh_token": {
+      "type": "string",
+      "description": "Refresh token para renova\u00e7\u00e3o autom\u00e1tica"
+    },
+    "token_expires_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o access_token expira"
+    },
+    "account_key": {
+      "type": "string",
+      "description": "Account Key da GoTo Connect"
+    },
+    "org_id": {
+      "type": "string",
+      "description": "Organization ID (se aplic\u00e1vel)"
+    },
+    "sms_from_number_id": {
+      "type": "string",
+      "description": "ID do n\u00famero habilitado para SMS"
+    },
+    "notification_channel_id": {
+      "type": "string",
+      "description": "ID do canal de notifica\u00e7\u00e3o (webhook)"
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Escopos OAuth autorizados (ex: messaging, call-events)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "conectado",
+        "desconectado",
+        "erro_conexao",
+        "reconectando"
+      ],
+      "default": "desconectado",
+      "description": "Status atual da conex\u00e3o"
+    },
+    "ultima_atividade": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que houve atividade"
+    },
+    "webhook_url": {
+      "type": "string",
+      "description": "URL do webhook configurado"
+    },
+    "cor_chat": {
+      "type": "string",
+      "enum": [
+        "blue",
+        "green",
+        "purple",
+        "orange",
+        "pink",
+        "teal",
+        "indigo",
+        "rose"
+      ],
+      "default": "teal",
+      "description": "Cor das mensagens no chat"
+    },
+    "setores_atendidos": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "vendas",
+          "assistencia",
+          "financeiro",
+          "fornecedor",
+          "geral"
+        ]
+      },
+      "default": [
+        "geral"
+      ],
+      "description": "Setores que esta conex\u00e3o atende"
+    },
+    "setor_principal": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "geral"
+      ],
+      "default": "geral",
+      "description": "Setor principal/dono desta conex\u00e3o"
+    },
+    "estatisticas": {
+      "type": "object",
+      "properties": {
+        "total_sms_enviados": {
+          "type": "number",
+          "default": 0
+        },
+        "total_sms_recebidos": {
+          "type": "number",
+          "default": 0
+        },
+        "total_chamadas_recebidas": {
+          "type": "number",
+          "default": 0
+        },
+        "total_chamadas_realizadas": {
+          "type": "number",
+          "default": 0
+        },
+        "tempo_medio_chamada_segundos": {
+          "type": "number",
+          "default": 0
+        }
+      }
+    }
+  },
+  "required": [
+    "nome_instancia",
+    "phone_number",
+    "access_token"
+  ]
+}

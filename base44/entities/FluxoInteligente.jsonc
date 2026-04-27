@@ -1,0 +1,152 @@
+{
+  "name": "FluxoInteligente",
+  "type": "object",
+  "properties": {
+    "nome_fluxo": {
+      "type": "string",
+      "description": "Nome do fluxo autom\u00e1tico"
+    },
+    "tipo_fluxo": {
+      "type": "string",
+      "enum": [
+        "follow_up_orcamento",
+        "nurturing_cliente",
+        "reativacao",
+        "urgencia",
+        "fechamento"
+      ],
+      "description": "Tipo do fluxo inteligente"
+    },
+    "cliente_id": {
+      "type": "string",
+      "description": "ID do cliente envolvido"
+    },
+    "orcamento_id": {
+      "type": "string",
+      "description": "ID do or\u00e7amento relacionado (se aplic\u00e1vel)"
+    },
+    "vendedor_responsavel": {
+      "type": "string",
+      "description": "Vendedor respons\u00e1vel pelo fluxo"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "pausado",
+        "concluido",
+        "cancelado"
+      ],
+      "default": "ativo",
+      "description": "Status atual do fluxo"
+    },
+    "prioridade": {
+      "type": "string",
+      "enum": [
+        "baixa",
+        "media",
+        "alta",
+        "critica"
+      ],
+      "description": "Prioridade do fluxo"
+    },
+    "etapa_atual": {
+      "type": "number",
+      "default": 1,
+      "description": "Etapa atual do fluxo (1, 2, 3...)"
+    },
+    "etapas_programadas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numero_etapa": {
+            "type": "number"
+          },
+          "tipo_acao": {
+            "type": "string",
+            "enum": [
+              "ligacao",
+              "whatsapp",
+              "email",
+              "reuniao",
+              "proposta"
+            ]
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "dias_apos_anterior": {
+            "type": "number"
+          },
+          "data_programada": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "executada": {
+            "type": "boolean",
+            "default": false
+          },
+          "resultado": {
+            "type": "string"
+          },
+          "observacoes": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Etapas programadas do fluxo"
+    },
+    "condicoes_gatilho": {
+      "type": "object",
+      "description": "Condi\u00e7\u00f5es que iniciaram este fluxo"
+    },
+    "metricas_fluxo": {
+      "type": "object",
+      "properties": {
+        "taxa_resposta": {
+          "type": "number"
+        },
+        "tempo_medio_resposta": {
+          "type": "number"
+        },
+        "etapas_concluidas": {
+          "type": "number"
+        },
+        "score_engagement": {
+          "type": "number"
+        }
+      }
+    },
+    "data_inicio": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o fluxo foi iniciado"
+    },
+    "data_conclusao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o fluxo foi conclu\u00eddo"
+    },
+    "resultado_final": {
+      "type": "string",
+      "enum": [
+        "venda_fechada",
+        "orcamento_perdido",
+        "adiado",
+        "sem_interesse",
+        "em_andamento"
+      ],
+      "description": "Resultado final do fluxo"
+    }
+  },
+  "required": [
+    "nome_fluxo",
+    "tipo_fluxo",
+    "cliente_id",
+    "vendedor_responsavel"
+  ]
+}

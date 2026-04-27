@@ -1,0 +1,70 @@
+{
+  "name": "FlowTemplateVersion",
+  "type": "object",
+  "properties": {
+    "flow_template_id": {
+      "type": "string",
+      "description": "ID do FlowTemplate original"
+    },
+    "versao": {
+      "type": "string",
+      "description": "N\u00famero da vers\u00e3o (ex: 1.0, 1.1, 2.0)"
+    },
+    "nome": {
+      "type": "string",
+      "description": "Nome do fluxo nesta vers\u00e3o"
+    },
+    "descricao_mudancas": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o do que mudou nesta vers\u00e3o"
+    },
+    "steps": {
+      "type": "array",
+      "description": "Snapshot completo dos steps desta vers\u00e3o"
+    },
+    "trigger_config": {
+      "type": "object",
+      "description": "Configura\u00e7\u00e3o do gatilho"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "rascunho",
+        "publicada",
+        "arquivada"
+      ],
+      "default": "rascunho",
+      "description": "Status desta vers\u00e3o"
+    },
+    "publicada_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi publicada"
+    },
+    "criado_por": {
+      "type": "string",
+      "description": "Usu\u00e1rio que criou esta vers\u00e3o"
+    },
+    "metricas_versao": {
+      "type": "object",
+      "properties": {
+        "total_execucoes": {
+          "type": "number",
+          "default": 0
+        },
+        "taxa_sucesso": {
+          "type": "number"
+        },
+        "tempo_medio_execucao": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "required": [
+    "flow_template_id",
+    "versao",
+    "nome",
+    "steps"
+  ]
+}

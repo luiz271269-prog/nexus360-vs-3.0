@@ -1,0 +1,104 @@
+{
+  "name": "SkillExecution",
+  "type": "object",
+  "properties": {
+    "skill_name": {
+      "type": "string",
+      "description": "Nome da skill executada"
+    },
+    "triggered_by": {
+      "type": "string",
+      "description": "O que disparou a execu\u00e7\u00e3o (inboundCore, agentCommand, automacao, etc)"
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": [
+        "copilot",
+        "autonomous_safe",
+        "critical",
+        "dry_run"
+      ],
+      "description": "Modo de execu\u00e7\u00e3o usado"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio que executou (se manual)"
+    },
+    "context": {
+      "type": "object",
+      "description": "Contexto completo da execu\u00e7\u00e3o",
+      "properties": {
+        "thread_id": {
+          "type": "string"
+        },
+        "contact_id": {
+          "type": "string"
+        },
+        "estado_inicial": {
+          "type": "string"
+        },
+        "estado_final": {
+          "type": "string"
+        },
+        "estrategia_usada": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "sector": {
+          "type": "string"
+        }
+      }
+    },
+    "parametros_entrada": {
+      "type": "object",
+      "description": "Par\u00e2metros usados na execu\u00e7\u00e3o"
+    },
+    "resultado": {
+      "type": "object",
+      "description": "Resultado da execu\u00e7\u00e3o"
+    },
+    "success": {
+      "type": "boolean",
+      "description": "Se a execu\u00e7\u00e3o foi bem-sucedida"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Mensagem de erro (se success = false)"
+    },
+    "duration_ms": {
+      "type": "number",
+      "description": "Dura\u00e7\u00e3o em milissegundos"
+    },
+    "metricas": {
+      "type": "object",
+      "properties": {
+        "fast_track_usado": {
+          "type": "boolean"
+        },
+        "menu_mostrado": {
+          "type": "boolean"
+        },
+        "sticky_ativado": {
+          "type": "boolean"
+        },
+        "atendente_alocado": {
+          "type": "boolean"
+        },
+        "enfileirado": {
+          "type": "boolean"
+        },
+        "timeout_ocorreu": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "required": [
+    "skill_name",
+    "triggered_by",
+    "execution_mode",
+    "success"
+  ]
+}

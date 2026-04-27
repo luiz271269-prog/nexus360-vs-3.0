@@ -1,0 +1,66 @@
+{
+  "name": "Tag",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome da tag"
+    },
+    "cor": {
+      "type": "string",
+      "default": "#3b82f6",
+      "description": "Cor da tag em hexadecimal"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "segmentacao",
+        "comportamento",
+        "produto",
+        "status",
+        "custom"
+      ],
+      "default": "custom",
+      "description": "Categoria da tag"
+    },
+    "hierarquia_pai": {
+      "type": "string",
+      "description": "ID da tag pai (para hierarquia)"
+    },
+    "automacao_ativa": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se esta tag \u00e9 atribu\u00edda automaticamente"
+    },
+    "regras_automacao": {
+      "type": "object",
+      "properties": {
+        "condicoes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "campo": {
+                "type": "string"
+              },
+              "operador": {
+                "type": "string"
+              },
+              "valor": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "description": "Regras para atribui\u00e7\u00e3o autom\u00e1tica"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da tag"
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

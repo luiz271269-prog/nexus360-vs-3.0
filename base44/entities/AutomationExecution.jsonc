@@ -1,0 +1,75 @@
+{
+  "name": "AutomationExecution",
+  "type": "object",
+  "properties": {
+    "rule_id": {
+      "type": "string",
+      "description": "ID da regra executada"
+    },
+    "rule_name": {
+      "type": "string",
+      "description": "Nome da regra para facilitar relat\u00f3rios"
+    },
+    "target_entity_id": {
+      "type": "string",
+      "description": "ID da entidade que disparou a automa\u00e7\u00e3o"
+    },
+    "target_entity_type": {
+      "type": "string",
+      "enum": [
+        "cliente",
+        "vendedor",
+        "venda",
+        "orcamento",
+        "interacao"
+      ],
+      "description": "Tipo da entidade"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "agendado",
+        "executando",
+        "concluido",
+        "falhou",
+        "cancelado"
+      ],
+      "default": "agendado"
+    },
+    "agendado_para": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "executado_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "resultado": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Detalhes do resultado da execu\u00e7\u00e3o"
+    },
+    "erro_detalhes": {
+      "type": "string"
+    },
+    "acoes_executadas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tempo_processamento": {
+      "type": "number",
+      "description": "Tempo em segundos"
+    },
+    "dados_contexto": {
+      "type": "object",
+      "description": "Dados que estavam dispon\u00edveis no momento da execu\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "rule_id",
+    "rule_name",
+    "target_entity_type"
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "name": "PreAtendimentoRule",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome da regra de pr\u00e9-atendimento"
+    },
+    "setor": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "geral",
+        "todos"
+      ],
+      "default": "todos",
+      "description": "Setor ao qual se aplica esta regra"
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a regra est\u00e1 ativa"
+    },
+    "tipo_regra": {
+      "type": "string",
+      "enum": [
+        "enfileiramento_automatico",
+        "prioridade_dinamica",
+        "timeout_escalacao",
+        "mensagem_customizada"
+      ],
+      "description": "Tipo de comportamento da regra"
+    },
+    "condicoes": {
+      "type": "object",
+      "properties": {
+        "horario_inicio": {
+          "type": "string",
+          "description": "Hor\u00e1rio de in\u00edcio (HH:MM)"
+        },
+        "horario_fim": {
+          "type": "string",
+          "description": "Hor\u00e1rio de fim (HH:MM)"
+        },
+        "dias_semana": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "description": "Dias da semana (0=Domingo...6=S\u00e1bado)"
+        },
+        "atendentes_disponiveis_minimo": {
+          "type": "number",
+          "description": "N\u00famero m\u00ednimo de atendentes online"
+        },
+        "tamanho_fila_maximo": {
+          "type": "number",
+          "description": "Tamanho m\u00e1ximo da fila antes de ativar"
+        }
+      },
+      "description": "Condi\u00e7\u00f5es para ativar a regra"
+    },
+    "acoes": {
+      "type": "object",
+      "properties": {
+        "enfileirar_automaticamente": {
+          "type": "boolean",
+          "default": false
+        },
+        "prioridade_padrao": {
+          "type": "string",
+          "enum": [
+            "baixa",
+            "normal",
+            "alta",
+            "urgente"
+          ]
+        },
+        "mensagem_customizada": {
+          "type": "string",
+          "description": "Mensagem enviada ao cliente ao enfileirar"
+        },
+        "notificar_supervisores": {
+          "type": "boolean",
+          "default": false
+        },
+        "timeout_minutos": {
+          "type": "number",
+          "description": "Timeout em minutos para escalar prioridade"
+        }
+      },
+      "description": "A\u00e7\u00f5es executadas quando regra \u00e9 ativada"
+    },
+    "prioridade_execucao": {
+      "type": "number",
+      "default": 100,
+      "description": "Ordem de execu\u00e7\u00e3o (menor = maior prioridade)"
+    },
+    "contador_aplicacoes": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantas vezes foi aplicada"
+    },
+    "ultima_aplicacao": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que foi aplicada"
+    }
+  },
+  "required": [
+    "nome",
+    "tipo_regra"
+  ]
+}

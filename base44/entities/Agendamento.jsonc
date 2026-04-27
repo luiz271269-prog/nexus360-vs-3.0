@@ -1,0 +1,109 @@
+{
+  "name": "Agendamento",
+  "type": "object",
+  "properties": {
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact (cliente que agendou)"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread de origem"
+    },
+    "servico": {
+      "type": "string",
+      "description": "Nome do servi\u00e7o agendado"
+    },
+    "data_hora": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data e hora do agendamento (ISO 8601)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "confirmado",
+        "cancelado",
+        "concluido",
+        "nao_compareceu"
+      ],
+      "default": "pendente",
+      "description": "Status atual do agendamento"
+    },
+    "origem": {
+      "type": "string",
+      "enum": [
+        "whatsapp_ia",
+        "whatsapp_humano",
+        "telefone",
+        "presencial",
+        "site"
+      ],
+      "default": "whatsapp_ia",
+      "description": "Canal de origem do agendamento"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es adicionais"
+    },
+    "cancelado_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data/hora do cancelamento"
+    },
+    "reagendado_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Data/hora do reagendamento"
+    }
+  },
+  "required": [
+    "contact_id",
+    "servico",
+    "data_hora"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "user"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

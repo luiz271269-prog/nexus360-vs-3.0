@@ -198,11 +198,13 @@ Deno.serve(async (req) => {
           }, { status: 400, headers: corsHeaders });
         }
       } else {
-        // Modo manual: múltiplas chamadas POST (fallback)
+        // Modo manual: endpoints OFICIAIS da W-API (PUT /v1/webhook/update-webhook-*)
+        // Doc: https://docs.w-api.app/webhook/update-webhook-received
         const webhookEndpoints = [
-          { tipo: 'Recebimento', url: `${baseUrl}/instance/webhook-received`, body: { instanceId, url: webhookUrl, enabled: true } },
-          { tipo: 'Entrega/Lida', url: `${baseUrl}/instance/webhook-delivery`, body: { instanceId, url: webhookUrl, enabled: true } },
-          { tipo: 'Status/Conexão', url: `${baseUrl}/instance/webhook-status`, body: { instanceId, url: webhookUrl, enabled: true } }
+          { tipo: 'Recebimento',     url: `${baseUrl}/webhook/update-webhook-received?instanceId=${instanceId}` },
+          { tipo: 'Entrega/Lida',    url: `${baseUrl}/webhook/update-webhook-delivery?instanceId=${instanceId}` },
+          { tipo: 'Status/Conexão',  url: `${baseUrl}/webhook/update-webhook-disconnected?instanceId=${instanceId}` },
+          { tipo: 'Conectado',       url: `${baseUrl}/webhook/update-webhook-connected?instanceId=${instanceId}` }
         ];
 
         const resultados = [];
@@ -210,16 +212,22 @@ Deno.serve(async (req) => {
 
         for (const ep of webhookEndpoints) {
           try {
-            console.log(`[WAPI-WEBHOOK] Configurando: ${ep.tipo}`);
-            const response = await fetch(ep.url, { method: 'POST', headers, body: JSON.stringify(ep.body) });
-            const data = await response.json();
+            console.log(`[WAPI-WEBHOOK] PUT ${ep.tipo}: ${ep.url}`);
+            const response = await fetch(ep.url, {
+              method: 'PUT',
+              headers,
+              body: JSON.stringify({ value: webhookUrl })
+            });
+            const responseText = await response.text();
+            let data;
+            try { data = JSON.parse(responseText); } catch { data = { raw: responseText }; }
 
-            if (data.error === false || response.ok) {
+            if (response.ok && data.error === false) {
               resultados.push({ tipo: ep.tipo, status: 'ok' });
               console.log(`[WAPI-WEBHOOK] ✅ ${ep.tipo} configurado`);
             } else {
-              erros.push({ tipo: ep.tipo, erro: data.message || 'Erro desconhecido' });
-              console.error(`[WAPI-WEBHOOK] ❌ ${ep.tipo}:`, data.message);
+              erros.push({ tipo: ep.tipo, erro: data.message || `HTTP ${response.status}` });
+              console.error(`[WAPI-WEBHOOK] ❌ ${ep.tipo}:`, data.message || responseText);
             }
           } catch (error) {
             erros.push({ tipo: ep.tipo, erro: error.message });
@@ -235,14 +243,16 @@ Deno.serve(async (req) => {
             message: erros.length === 0 ? 'Todos os webhooks configurados!' : 'Webhooks parcialmente configurados',
             resultados,
             erros: erros.length > 0 ? erros : undefined,
-            webhook_url: webhookUrl
+            webhook_url: webhookUrl,
+            modo: 'manual'
           }, { headers: corsHeaders });
         } else {
           return Response.json({
             success: false,
             error: 'Não foi possível configurar o webhook de recebimento (crítico)',
             resultados,
-            erros
+            erros,
+            modo: 'manual'
           }, { status: 400, headers: corsHeaders });
         }
       }

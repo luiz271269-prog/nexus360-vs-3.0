@@ -1,0 +1,63 @@
+{
+  "name": "KnowledgeBase",
+  "type": "object",
+  "properties": {
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "produto",
+        "politica",
+        "caso_resolvido",
+        "preco",
+        "fornecedor"
+      ],
+      "description": "Categoria do conhecimento"
+    },
+    "titulo": {
+      "type": "string",
+      "description": "T\u00edtulo descritivo do item de conhecimento"
+    },
+    "conteudo": {
+      "type": "string",
+      "description": "Conte\u00fado completo em texto"
+    },
+    "fonte": {
+      "type": "string",
+      "enum": [
+        "fornecedor_whatsapp",
+        "atendente",
+        "sistema",
+        "brain_extraido"
+      ],
+      "description": "Origem do dado"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Array de strings para busca por palavra-chave"
+    },
+    "validade": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de expira\u00e7\u00e3o (nulo = permanente)"
+    },
+    "vezes_consultado": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantas vezes foi buscado pelo brain"
+    },
+    "ultima_consulta": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp da \u00faltima consulta"
+    }
+  },
+  "required": [
+    "tipo",
+    "titulo",
+    "conteudo"
+  ]
+}
