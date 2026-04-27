@@ -249,15 +249,21 @@ async function fetchContextData(base44, contactId = null) {
   }
 }
 
-async function callBase44AI(base44, systemPrompt, userMessage, contextData) {
+async function callBase44AI(base44, systemPrompt, userMessage, contextData, fileUrls = null) {
   const prompt = `${systemPrompt}\n\nUSUÁRIO PERGUNTA: ${userMessage}`;
   
   try {
-    const response = await base44.asServiceRole.integrations.Core.InvokeLLM({
+    const llmPayload = {
       prompt: prompt,
-      model: 'gpt_5',
       add_context_from_internet: false
-    });
+    };
+    // Se tem anexos, usar modelo multimodal (sem forçar gpt_5 que pode não suportar visão)
+    if (Array.isArray(fileUrls) && fileUrls.length > 0) {
+      llmPayload.file_urls = fileUrls;
+    } else {
+      llmPayload.model = 'gpt_5';
+    }
+    const response = await base44.asServiceRole.integrations.Core.InvokeLLM(llmPayload);
     
     console.log('[AGENT-COMMAND] ✓ Base44 AI respondeu com sucesso');
     return typeof response === 'string' ? response : JSON.stringify(response);
@@ -276,11 +282,68 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { command, user_message, context } = await req.json();
+    const { command, user_message, context, file_urls } = await req.json();
 
     if (command === 'chat') {
-      console.log('[AGENT-COMMAND] Chat iniciado:', user_message.slice(0, 50));
+      console.log('[AGENT-COMMAND] Chat iniciado:', user_message.slice(0, 50), '| Anexos:', file_urls?.length || 0);
       const userId = user.id;
+
+      // ── FLUXO NEURALTEC: detectar comando de promoção com imagem ──
+      const msgLowerNT = (user_message || '').toLowerCase();
+      const temAnexos = Array.isArray(file_urls) && file_urls.length > 0;
+      const ehComandoPromocao = temAnexos && (
+        msgLowerNT.includes('promoç') || msgLowerNT.includes('promoc') ||
+        msgLowerNT.includes('folder') || msgLowerNT.includes('cotaç') ||
+        msgLowerNT.includes('cotac') || msgLowerNT.includes('precific') ||
+        msgLowerNT.includes('divulg') || msgLowerNT.includes('campanha')
+      );
+
+      if (ehComandoPromocao) {
+        try {
+          console.log('[AGENT-COMMAND] 🎯 Fluxo NeuralTec ativado');
+
+          const extrResp = await base44.asServiceRole.functions.invoke('extrairProdutosDaImagem', {
+            file_urls,
+            margem: 1.40
+          });
+          const extr = extrResp?.data || extrResp;
+
+          if (!extr?.success || !extr.produtos || extr.produtos.length === 0) {
+            return Response.json({
+              success: true,
+              response: '⚠️ Não consegui identificar produtos com preço na imagem. Verifique se a cotação está legível e tente novamente.',
+              agent_mode: 'neuraltec_no_products'
+            });
+          }
+
+          const criarResp = await base44.asServiceRole.functions.invoke('criarPromocoesNeuralTec', {
+            produtos: extr.produtos,
+            fornecedor_nome: extr.fornecedor_nome
+          });
+          const criar = criarResp?.data || criarResp;
+
+          const listaProdutos = extr.produtos.map((p, i) =>
+            `${i + 1}. **${p.nome}**${p.codigo ? ` (${p.codigo})` : ''}\n   Custo: R$ ${p.custo.toFixed(2).replace('.', ',')} → Venda: **R$ ${p.preco_venda.toFixed(2).replace('.', ',')}** _(margem 40%)_`
+          ).join('\n\n');
+
+          const resposta = `🎯 **Cotação processada — ${extr.fornecedor_nome || 'Fornecedor'}**\n\n📦 **${extr.total_extraidos} produtos identificados:**\n\n${listaProdutos}\n\n✅ **${criar?.total_criadas || 0} promoções criadas** (rascunho — \`ativo: false\`)\n📅 Validade: ${criar?.validade}\n🏷️ Campanha: \`${criar?.campaign_id}\`\n\n👉 **Próximo passo:** Acesse **/Promocoes**, revise, ative e use "Enviar em Massa".${criar?.errors?.length ? `\n\n⚠️ ${criar.errors.length} erro(s) ao criar.` : ''}`;
+
+          return Response.json({
+            success: true,
+            response: resposta,
+            agent_mode: 'neuraltec_promo_created',
+            promotion_ids: criar?.promotion_ids || [],
+            campaign_id: criar?.campaign_id
+          });
+        } catch (errNT) {
+          console.error('[AGENT-COMMAND] Erro fluxo NeuralTec:', errNT);
+          return Response.json({
+            success: false,
+            response: `❌ Erro ao processar cotação: ${errNT.message}`,
+            agent_mode: 'neuraltec_error'
+          });
+        }
+      }
 
       // ── Pré-buscar dados em paralelo (não depende de IA) ──────────────
       const contactIdFromContext = context?.contact_id;
@@ -424,7 +487,7 @@ INSTRUÇÕES:
 
         console.log('[AGENT-COMMAND] Chamando Base44 AI...');
         try {
-          text = await callBase44AI(base44, systemPrompt, user_message, contextData);
+          text = await callBase44AI(base44, systemPrompt, user_message, contextData, file_urls);
         } catch (aiError) {
           console.warn('[AGENT-COMMAND] Base44 AI falhou, ativando fallback Gemini:', aiError.message);
           usedFallback = true;

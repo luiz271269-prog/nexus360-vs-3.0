@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Brain, Send, Loader2, Trash2 } from 'lucide-react';
+import { X, Brain, Send, Loader2, Trash2, Paperclip, Image as ImageIcon, FileText } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import ReactMarkdown from 'react-markdown';
 
@@ -34,8 +34,11 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
   const [mensagens, setMensagens] = useState([]);
   const [input, setInput] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const [anexos, setAnexos] = useState([]); // [{ name, url, type, uploading }]
+  const [uploadando, setUploadando] = useState(false);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Scroll automático ao fim
   useEffect(() => {
@@ -77,8 +80,71 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
 
       setMensagens([]);
       setInput('');
+      setAnexos([]);
     }
   }, [isOpen]);
+
+  // Upload de arquivos (chamado por clip, paste e drag-drop)
+  const uploadArquivos = async (files) => {
+    if (!files || files.length === 0) return;
+    setUploadando(true);
+    try {
+      for (const file of files) {
+        // Aceitar apenas imagem/PDF
+        const tipoOk = file.type.startsWith('image/') || file.type === 'application/pdf';
+        if (!tipoOk) {
+          console.warn('[CopilotoIA] Tipo não suportado:', file.type);
+          continue;
+        }
+        // Limite 10MB
+        if (file.size > 10 * 1024 * 1024) {
+          alert(`Arquivo "${file.name}" excede 10MB.`);
+          continue;
+        }
+        try {
+          const resp = await base44.integrations.Core.UploadFile({ file });
+          const url = resp?.file_url || resp?.data?.file_url || resp;
+          if (url && typeof url === 'string') {
+            setAnexos(prev => [...prev, {
+              name: file.name,
+              url,
+              type: file.type.startsWith('image/') ? 'image' : 'pdf'
+            }]);
+          }
+        } catch (e) {
+          console.error('[CopilotoIA] Erro upload:', e);
+        }
+      }
+    } finally {
+      setUploadando(false);
+    }
+  };
+
+  const handleFilePick = (e) => {
+    const files = Array.from(e.target.files || []);
+    uploadArquivos(files);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const arquivos = [];
+    for (const item of items) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file) arquivos.push(file);
+      }
+    }
+    if (arquivos.length > 0) {
+      e.preventDefault();
+      uploadArquivos(arquivos);
+    }
+  };
+
+  const removerAnexo = (idx) => {
+    setAnexos(prev => prev.filter((_, i) => i !== idx));
+  };
 
   const buildSystemPrompt = () => {
    let prompt = PERSONA_SISTEMA;
@@ -126,13 +192,18 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
 
   const enviarMensagem = async () => {
     const texto = input.trim();
-    if (!texto || carregando) return;
+    if ((!texto && anexos.length === 0) || carregando || uploadando) return;
 
-    const novaMensagem = { role: 'user', content: texto };
+    const fileUrls = anexos.map(a => a.url);
+    const anexosSnapshot = [...anexos];
+    const textoFinal = texto || (anexos.length > 0 ? '[Anexos enviados para análise]' : '');
+
+    const novaMensagem = { role: 'user', content: textoFinal, anexos: anexosSnapshot };
     const historicoAtualizado = [...mensagens, novaMensagem];
 
     setMensagens(historicoAtualizado);
     setInput('');
+    setAnexos([]);
     setCarregando(true);
 
     try {
@@ -140,7 +211,8 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
       
       const resposta = await base44.functions.invoke('agentCommand', {
         command: 'chat',
-        user_message: texto,
+        user_message: textoFinal,
+        file_urls: fileUrls,
         context: {
           user: {
             id: usuario?.id,
@@ -287,6 +359,20 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
                     : 'bg-white text-slate-800 shadow-sm border border-slate-100 rounded-tl-sm'
                 }`}
               >
+                {msg.anexos && msg.anexos.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {msg.anexos.map((a, i) => (
+                      a.type === 'image' ? (
+                        <img key={i} src={a.url} alt={a.name} className="w-20 h-20 object-cover rounded-lg border border-white/30" />
+                      ) : (
+                        <div key={i} className="flex items-center gap-1 bg-white/20 rounded-lg px-2 py-1 text-xs">
+                          <FileText className="w-3 h-3" />
+                          <span className="truncate max-w-[100px]">{a.name}</span>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                )}
                 {msg.role === 'assistant' && !msg.erro ? (
                   <ReactMarkdown
                     className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5"
@@ -323,13 +409,59 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
 
         {/* Input */}
         <div className="flex-shrink-0 px-4 py-3 bg-white border-t border-slate-200">
+          {/* Preview de anexos */}
+          {anexos.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {anexos.map((a, idx) => (
+                <div key={idx} className="relative group">
+                  {a.type === 'image' ? (
+                    <img src={a.url} alt={a.name} className="w-14 h-14 object-cover rounded-lg border border-slate-200" />
+                  ) : (
+                    <div className="w-14 h-14 bg-slate-100 rounded-lg border border-slate-200 flex flex-col items-center justify-center">
+                      <FileText className="w-5 h-5 text-slate-500" />
+                      <span className="text-[9px] text-slate-500 mt-0.5">PDF</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => removerAnexo(idx)}
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs shadow-md"
+                    title="Remover"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+              {uploadando && (
+                <div className="w-14 h-14 bg-purple-50 rounded-lg border border-purple-200 flex items-center justify-center">
+                  <Loader2 className="w-5 h-5 text-purple-500 animate-spin" />
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex items-end gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              onChange={handleFilePick}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={carregando || uploadando}
+              title="Anexar imagem ou PDF"
+              className="w-10 h-10 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-600 rounded-xl flex items-center justify-center transition-all flex-shrink-0"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Digite sua pergunta... (Enter para enviar)"
+              onPaste={handlePaste}
+              placeholder="Digite ou cole imagem (Ctrl+V)..."
               rows={1}
               disabled={carregando}
               className="flex-1 resize-none rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent disabled:opacity-50 max-h-28 overflow-y-auto"
@@ -341,7 +473,7 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
             />
             <button
               onClick={enviarMensagem}
-              disabled={!input.trim() || carregando}
+              disabled={(!input.trim() && anexos.length === 0) || carregando || uploadando}
               className="w-10 h-10 bg-gradient-to-br from-purple-600 to-violet-700 hover:from-purple-500 hover:to-violet-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center transition-all flex-shrink-0"
             >
               {carregando ? (
@@ -351,7 +483,9 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
               )}
             </button>
           </div>
-          <p className="text-xs text-slate-400 mt-1.5 text-center">Enter para enviar · Shift+Enter para nova linha</p>
+          <p className="text-xs text-slate-400 mt-1.5 text-center">
+            📎 Clip ou Ctrl+V · "promoção" + imagem cria promoções automáticas
+          </p>
         </div>
       </div>
     </>
