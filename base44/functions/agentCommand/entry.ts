@@ -17,6 +17,29 @@ const ANALYST_TOOLS = [
     }
   },
   {
+    name: 'get_thread_messages',
+    description: 'Lê últimas N mensagens de uma conversa (MessageThread). Use quando o usuário perguntar sobre o que foi conversado com um cliente, contexto da última conversa, ou pedir resumo de thread. Identificar thread_id via query_database{entidade:Contact,filtros:{nome:"X"}} primeiro.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        thread_id: { type: 'string', description: 'ID da MessageThread' },
+        limite: { type: 'number', description: 'Quantas mensagens retornar (default 30, máx 100)' }
+      },
+      required: ['thread_id']
+    }
+  },
+  {
+    name: 'get_contact_full_profile',
+    description: 'Retorna perfil completo de um contato: dados básicos, classificação ABC, tags, última interação, vendedor responsável, threads ativas e análise comportamental. Use quando usuário pedir "ver tudo sobre cliente X" ou "perfil completo de Y".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        contact_id: { type: 'string' }
+      },
+      required: ['contact_id']
+    }
+  },
+  {
     name: 'query_database',
     description: 'Consulta dados reais do banco. Use para responder perguntas sobre clientes, orçamentos, vendas, conversas, tarefas.',
     input_schema: {
@@ -129,6 +152,77 @@ async function executeTool(base44, toolName, toolInput) {
         relationship: analise.relationship_profile_type,
         dias_inativo: analise.days_inactive_inbound,
         insights: analise.insights_v2
+      };
+    } catch (e) {
+      return { error: e.message };
+    }
+  }
+
+  if (toolName === 'get_thread_messages') {
+    try {
+      const limite = Math.min(toolInput.limite || 30, 100);
+      const mensagens = await base44.asServiceRole.entities.Message.filter(
+        { thread_id: toolInput.thread_id },
+        '-created_date',
+        limite
+      );
+      const thread = await base44.asServiceRole.entities.MessageThread.filter({ id: toolInput.thread_id }, '-created_date', 1).catch(() => []);
+      return {
+        thread_id: toolInput.thread_id,
+        thread_status: thread[0]?.status,
+        contact_id: thread[0]?.contact_id,
+        total: mensagens.length,
+        mensagens: mensagens.reverse().map(m => ({
+          quando: m.created_date,
+          de: m.sender_type === 'user' ? 'atendente' : 'cliente',
+          tipo: m.media_type !== 'none' ? m.media_type : 'texto',
+          conteudo: m.content?.slice(0, 300) || ''
+        }))
+      };
+    } catch (e) {
+      return { error: e.message };
+    }
+  }
+
+  if (toolName === 'get_contact_full_profile') {
+    try {
+      const [contatoArr, threads, analiseArr] = await Promise.all([
+        base44.asServiceRole.entities.Contact.filter({ id: toolInput.contact_id }, '-created_date', 1).catch(() => []),
+        base44.asServiceRole.entities.MessageThread.filter({ contact_id: toolInput.contact_id }, '-last_message_at', 5).catch(() => []),
+        base44.asServiceRole.entities.ContactBehaviorAnalysis.filter({ contact_id: toolInput.contact_id }, '-analyzed_at', 1).catch(() => [])
+      ]);
+      const contato = contatoArr[0];
+      if (!contato) return { error: 'Contato não encontrado' };
+      const analise = analiseArr[0];
+      return {
+        contato: {
+          id: contato.id,
+          nome: contato.nome,
+          telefone: contato.telefone,
+          empresa: contato.empresa,
+          tipo: contato.tipo_contato,
+          classe_abc: contato.classe_abc,
+          score_abc: contato.score_abc,
+          tags: contato.tags || [],
+          vendedor: contato.vendedor_responsavel,
+          ultima_interacao: contato.ultima_interacao,
+          observacoes: contato.observacoes
+        },
+        threads_recentes: threads.map(t => ({
+          id: t.id,
+          status: t.status,
+          last_message_at: t.last_message_at,
+          last_message: t.last_message_content?.slice(0, 100),
+          assigned_user_id: t.assigned_user_id,
+          unread: t.unread_count
+        })),
+        analise_comportamental: analise ? {
+          prioridade: analise.priority_label,
+          score: analise.priority_score,
+          deal_risk: analise.deal_risk,
+          buy_intent: analise.buy_intent,
+          dias_inativo: analise.days_inactive_inbound
+        } : null
       };
     } catch (e) {
       return { error: e.message };
@@ -496,11 +590,13 @@ SCHEMA DAS ENTIDADES (use ao montar filtros no query_database):
 
 INSTRUÇÕES:
 1. Use get_contact_analysis (MCP) para insights do contato — não pre-busca.
-2. Use query_database com filtros corretos baseados no schema acima.
-3. Use search_knowledge para produtos, preços, políticas.
-4. Use save_to_knowledge quando o usuário ENSINAR algo novo.
-5. Use execute_skill quando o usuário pedir AÇÃO executável.
-6. Sempre cite dados reais. Seja objetivo, máximo 3 parágrafos.`;
+2. Use get_thread_messages quando perguntarem "o que conversamos", "última mensagem", "resumir conversa".
+3. Use get_contact_full_profile para perfil completo (dados + threads + análise).
+4. Use query_database com filtros corretos baseados no schema acima.
+5. Use search_knowledge para produtos, preços, políticas.
+6. Use save_to_knowledge quando o usuário ENSINAR algo novo.
+7. Use execute_skill quando o usuário pedir AÇÃO executável.
+8. Sempre cite dados reais. Seja objetivo, máximo 3 parágrafos.`;
 
         // ── Chamar Base44 AI nativo ───────────────────────────────────
         let text = '';

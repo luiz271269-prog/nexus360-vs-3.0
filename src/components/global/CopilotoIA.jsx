@@ -200,11 +200,21 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
   };
 
   const extrairContexto = (contexto) => {
-    if (!contexto) return {};
-    // Esperado: "Comunicacao-contact_ABC123-thread_XYZ789" ou similar
-    const partes = contexto.split('-');
-    const contact_id = partes.find(p => p.startsWith('contact_'))?.replace('contact_', '') || null;
-    const thread_id = partes.find(p => p.startsWith('thread_'))?.replace('thread_', '') || null;
+    // Tentar extrair da URL primeiro (?thread=XXX&contact=YYY)
+    let thread_id = null;
+    let contact_id = null;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      thread_id = params.get('thread') || params.get('thread_id') || null;
+      contact_id = params.get('contact') || params.get('contact_id') || null;
+    }
+
+    // Fallback: parse da string contextoAtivo (formato legado)
+    if (contexto && (!thread_id || !contact_id)) {
+      const partes = contexto.split('-');
+      contact_id = contact_id || partes.find(p => p.startsWith('contact_'))?.replace('contact_', '') || null;
+      thread_id = thread_id || partes.find(p => p.startsWith('thread_'))?.replace('thread_', '') || null;
+    }
     return { contact_id, thread_id };
   };
 
