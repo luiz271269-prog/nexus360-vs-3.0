@@ -1961,4 +1961,17 @@ export default React.memo(function MessageBubble({
       </Dialog>
     </>);
 
+}, (prev, next) => {
+  // Re-renderiza apenas se ALGO RELEVANTE mudou nesta mensagem específica.
+  // Evita destruir portais Radix (Dialog/DropdownMenu) durante invalidações de query.
+  if (prev.modoSelecao !== next.modoSelecao) return false;
+  if (prev.selecionada !== next.selecionada) return false;
+  if (prev.indexInList !== next.indexInList) return false;
+  if (prev.message?.id !== next.message?.id) return false;
+  if (prev.message?.status !== next.message?.status) return false;
+  if (prev.message?.media_url !== next.message?.media_url) return false;
+  if (prev.message?.content !== next.message?.content) return false;
+  if (JSON.stringify(prev.message?.categorias) !== JSON.stringify(next.message?.categorias)) return false;
+  if (prev.message?.metadata?.deleted !== next.message?.metadata?.deleted) return false;
+  return true; // mesma mensagem, sem mudanças relevantes — não re-renderizar
 });
