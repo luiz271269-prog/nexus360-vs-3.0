@@ -741,8 +741,10 @@ export default function ChatWindow({
     })();
   }, [podeEnviarMidias, modoSelecaoMultipla, contatosSelecionados, broadcastInterno, handleEnviarBroadcast, thread, usuario, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario]);
 
-  // 📎 ENVIAR ARQUIVO ANEXADO (imagem, vídeo, documento)
+  // 📎 ENVIAR ARQUIVO ANEXADO (imagem, vídeo, documento, áudio)
   const enviarArquivoAnexado = React.useCallback(async (file, fileType, legendaTexto = '') => {
+    // Gera blob URL local para preview imediato (igual enviarImagemColada faz)
+    const localPreviewUrl = file ? URL.createObjectURL(file) : null;
     if (!file || !podeEnviarMidias) {
       toast.error('Não foi possível enviar o arquivo');
       return;
@@ -822,6 +824,7 @@ export default function ChatWindow({
         channel: 'whatsapp',
         status: 'enviando',
         sent_at: new Date().toISOString(),
+        media_url: localPreviewUrl,
         media_type: fileType,
         media_caption: legendaTexto,
         reply_to_message_id: respostaParaMensagem?.id || null,
