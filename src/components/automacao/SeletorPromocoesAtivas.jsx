@@ -53,6 +53,7 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
             _origem: 'mensagem',
             _message_id: m.id,
             _media_type: m.media_type,
+            _media_url: m.media_url,
             titulo: tituloLimpo,
             descricao: m.media_caption || (m.content && !m.content.startsWith('[') ? m.content : ''),
             imagem_url: imagemCard,
@@ -88,18 +89,21 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
     const promosSelecionadas = promocoes.filter(p => selecionadas.includes(p.id));
     
     for (const promo of promosSelecionadas) {
-      if (!promo.imagem_url) {
-        toast.error(`${promo.titulo} não tem imagem configurada`);
+      // URL da mídia: imagem da Promotion OU mídia da mensagem etiquetada (qualquer tipo)
+      const mediaUrl = promo.imagem_url || promo._media_url;
+      if (!mediaUrl) {
+        toast.error(`${promo.titulo} não tem mídia configurada`);
         continue;
       }
 
       try {
         toast.info(`📥 Preparando ${promo.titulo}...`);
         
-        const response = await fetch(promo.imagem_url);
+        const response = await fetch(mediaUrl);
         const blob = await response.blob();
         
-        const fileName = `promocao-${promo.id}.${blob.type.split('/')[1] || 'jpg'}`;
+        const ext = blob.type.split('/')[1] || 'bin';
+        const fileName = `promocao-${promo.id}.${ext}`;
         const file = new File([blob], fileName, { type: blob.type });
         const previewUrl = URL.createObjectURL(blob);
         
@@ -164,8 +168,62 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
                     : 'border-slate-200 hover:border-orange-400 hover:shadow-lg bg-white'
                 }`}
               >
-                {/* Imagem Grande com Checkbox */}
-                {promo.imagem_url ? (
+                {/* Mídia: Vídeo / Áudio / Documento / Imagem */}
+                {promo._origem === 'mensagem' && promo._media_type === 'video' && promo._media_url ? (
+                  <div className="relative w-full bg-black overflow-hidden">
+                    <video
+                      src={promo._media_url}
+                      controls
+                      preload="metadata"
+                      poster={promo.imagem_url || undefined}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full max-h-64 object-contain bg-black"
+                    />
+                    <div className="absolute top-3 right-3 z-10 pointer-events-none">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-lg ${isSelected ? 'bg-orange-500' : 'bg-white/90'}`}>
+                        {isSelected ? <CheckCircle2 className="w-5 h-5 text-white" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-400" />}
+                      </div>
+                    </div>
+                  </div>
+                ) : promo._origem === 'mensagem' && promo._media_type === 'audio' && promo._media_url ? (
+                  <div className="relative w-full bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-6 flex items-center gap-3">
+                    <span className="text-3xl">🎤</span>
+                    <audio
+                      src={promo._media_url}
+                      controls
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 h-10"
+                    />
+                    <div className="absolute top-3 right-3">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-lg ${isSelected ? 'bg-orange-500' : 'bg-white shadow-md'}`}>
+                        {isSelected ? <CheckCircle2 className="w-5 h-5 text-white" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-400" />}
+                      </div>
+                    </div>
+                  </div>
+                ) : promo._origem === 'mensagem' && promo._media_type === 'document' && promo._media_url ? (
+                  <div className="relative w-full bg-blue-50 p-4 flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center flex-shrink-0">
+                      <span className="text-2xl">📄</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{promo.titulo}</p>
+                      <a
+                        href={promo._media_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        Abrir documento ↗
+                      </a>
+                    </div>
+                    <div className="absolute top-3 right-3">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-lg ${isSelected ? 'bg-orange-500' : 'bg-white'}`}>
+                        {isSelected ? <CheckCircle2 className="w-5 h-5 text-white" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-400" />}
+                      </div>
+                    </div>
+                  </div>
+                ) : promo.imagem_url ? (
                   <div className="relative w-full h-48 bg-slate-100 overflow-hidden">
                     <img
                       src={promo.imagem_url}
