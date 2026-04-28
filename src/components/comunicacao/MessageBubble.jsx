@@ -39,6 +39,7 @@ import {
 import UsuarioDisplay from './UsuarioDisplay';
 import { sanitizeEmojis } from '../lib/emojiSanitizer';
 import EtiquetaFaseDialog from './EtiquetaFaseDialog';
+import VincularPromocaoDialog from './VincularPromocaoDialog';
 import ComentariosInternos from './ComentariosInternos';
 import { useMessageStatus } from './useMessageStatus';
 
@@ -359,6 +360,7 @@ export default React.memo(function MessageBubble({
   const [apagando, setApagando] = React.useState(false);
   const [categorizando, setCategorizando] = React.useState(false);
   const [etiquetaFaseDialog, setEtiquetaFaseDialog] = React.useState(null); // { nome, label, emoji, kanban_fase_padrao }
+  const [vincularPromocaoAberto, setVincularPromocaoAberto] = React.useState(false);
 
   const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
   const [buscaContato, setBuscaContato] = React.useState("");
@@ -849,6 +851,11 @@ export default React.memo(function MessageBubble({
     // Se está removendo, apenas remove — sem dialog
     if (categoriasAtuais.includes(valorCategoria)) {
       aplicarEtiqueta(valorCategoria);
+      return;
+    }
+    // 🎯 ETIQUETA "PROMOCAO": fluxo dedicado para vincular/criar Promotion
+    if (valorCategoria === 'promocao') {
+      setVincularPromocaoAberto(true);
       return;
     }
     // Está adicionando: abre dialog de fase
@@ -1721,6 +1728,13 @@ export default React.memo(function MessageBubble({
         onFechar={() => setEtiquetaFaseDialog(null)}
         etiqueta={etiquetaFaseDialog}
         onConfirmar={handleConfirmarEtiquetaFase}
+        mensagem={message}
+        contato={contato} />
+
+      {/* 🎯 Dialog de Vincular Promoção (B + atalho criar nova) */}
+      <VincularPromocaoDialog
+        aberto={vincularPromocaoAberto}
+        onFechar={() => setVincularPromocaoAberto(false)}
         mensagem={message}
         contato={contato} />
 

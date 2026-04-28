@@ -23,7 +23,8 @@ const CATEGORIAS_FIXAS = [
   { nome: 'cotacao', label: 'Cotação', emoji: '📋', cor: 'bg-purple-500', tipo: 'fixa', tipos_contato_aplicaveis: ['lead', 'cliente', 'fornecedor'], filas_aplicaveis: ['vendas', 'fornecedor'] },
   { nome: 'pos_venda', label: 'Pós-Venda', emoji: '✅', cor: 'bg-indigo-500', tipo: 'fixa', tipos_contato_aplicaveis: ['cliente'], filas_aplicaveis: ['vendas', 'assistencia'] },
   { nome: 'duvida', label: 'Dúvida', emoji: '❓', cor: 'bg-gray-500', tipo: 'fixa', tipos_contato_aplicaveis: [], filas_aplicaveis: [] },
-  { nome: 'reclamacao', label: 'Reclamação', emoji: '⚠️', cor: 'bg-orange-500', tipo: 'fixa', tipos_contato_aplicaveis: ['cliente'], filas_aplicaveis: [] }
+  { nome: 'reclamacao', label: 'Reclamação', emoji: '⚠️', cor: 'bg-orange-500', tipo: 'fixa', tipos_contato_aplicaveis: ['cliente'], filas_aplicaveis: [] },
+  { nome: 'promocao', label: 'Promoção', emoji: '🎯', cor: 'bg-orange-600', tipo: 'fixa', tipos_contato_aplicaveis: [], filas_aplicaveis: [] }
 ];
 
 export default function CategorizadorRapido({ thread = null, contato = null, onUpdate }) {
