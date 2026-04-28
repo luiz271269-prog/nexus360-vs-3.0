@@ -545,16 +545,101 @@ export default React.memo(function MessageBubble({
 
       // ✅ ENCAMINHAR PARA CONTATOS EXTERNOS (WhatsApp)
       if (tipoEncaminhamento === 'contatos') {
-        const integrationId = thread?.whatsapp_integration_id;
+        // ✅ FALLBACK em ordem: mensagem → thread direta → array de origens → primeira integração conectada
+        let integrationId =
+          message?.metadata?.whatsapp_integration_id ||
+          thread?.whatsapp_integration_id ||
+          (Array.isArray(thread?.origin_integration_ids) && thread.origin_integration_ids[0]) ||
+          null;
+
+        if (!integrationId && Array.isArray(integracoes) && integracoes.length > 0) {
+          const conectada = integracoes.find((i) => i.status === 'conectado');
+          integrationId = conectada?.id || integracoes[0]?.id || null;
+        }
+
         if (!integrationId) {
-          toast.error("❌ Não foi possível determinar a integração do WhatsApp");
+          toast.error("❌ Nenhuma integração WhatsApp disponível para encaminhar");
           setEncaminhando(false);
           return;
         }
 
+        console.log('[ENCAMINHAR] integrationId resolvido:', integrationId);
+
+        // 🎯 BIFURCAÇÃO: 1 contato = envio direto / 2+ = enfileira (regras de massa)
+        const totalDestinatarios = contatosSelecionados.length;
+        const usarFila = totalDestinatarios >= 2;
+
+        if (usarFila) {
+          // ━━━━ FLUXO MASSA: enfileira em WorkQueueItem ━━━━
+          // O worker `processarFilaBroadcast` aplicará: horário comercial, delay 4-15s,
+          // pausa a cada 10, limite diário tier-aware, retry, pausa 429/403.
+          const broadcastId = `forward_${message.id}_${Date.now()}`;
+          const agora = Date.now();
+          const conteudoTexto = message?.content || '';
+          const conteudoFinal = conteudoTexto
+            ? `📨 *[Mensagem Encaminhada]*\n\n${conteudoTexto}`
+            : '';
+          const isAudio = message?.media_type === 'audio';
+
+          for (let i = 0; i < contatosSelecionados.length; i++) {
+            const contato = contatos.find((c) => c.id === contatosSelecionados[i]);
+            if (!contato || !contato.telefone) { erros++; continue; }
+
+            // Espalha em janela de 30s a 4min para o worker pegar nos próximos ciclos
+            const offsetMs = 30000 + i * 30000;
+            const scheduledFor = new Date(agora + offsetMs).toISOString();
+
+            try {
+              await base44.entities.WorkQueueItem.create({
+                tipo: 'enviar_broadcast_avulso',
+                contact_id: contato.id,
+                status: 'pendente',
+                scheduled_for: scheduledFor,
+                payload: {
+                  integration_id: integrationId,
+                  mensagem: isAudio ? '' : conteudoFinal,
+                  media_url: message?.media_url || null,
+                  media_type: message?.media_type || 'none',
+                  media_caption: message?.media_caption || null,
+                  sender_id: usuarioAtual?.id || null,
+                  broadcast_id: broadcastId,
+                  origem: 'forward_multiple',
+                  original_message_id: message.id
+                },
+                metadata: {
+                  encaminhada_de_thread: thread?.id || null,
+                  total_destinatarios: totalDestinatarios
+                }
+              });
+              sucessos++;
+            } catch (error) {
+              console.error(`[ENCAMINHAR-FILA] Erro ao enfileirar ${contato.nome}:`, error);
+              erros++;
+            }
+          }
+
+          if (sucessos > 0) {
+            toast.success(
+              `📥 ${sucessos} encaminhamento(s) enfileirado(s) — serão enviados respeitando horário comercial e delay anti-spam.`,
+              { duration: 6000 }
+            );
+          }
+          if (erros > 0) {
+            toast.error(`❌ ${erros} item(ns) não puderam ser enfileirados`);
+          }
+
+          setMostrarDialogEncaminhar(false);
+          setContatosSelecionados([]);
+          setBuscaContato("");
+          setEncaminhando(false);
+          return; // Saída antecipada — não cair no fluxo "internos" nem nos toasts genéricos
+        }
+
+        // ━━━━ FLUXO ÚNICO: envio direto e imediato ━━━━
         for (const contatoId of contatosSelecionados) {
           const contato = contatos.find((c) => c.id === contatoId);
-          if (!contato) {
+          if (!contato || !contato.telefone) {
+            console.warn('[ENCAMINHAR] Contato sem telefone:', contato);
             erros++;
             continue;
           }
@@ -566,9 +651,10 @@ export default React.memo(function MessageBubble({
               integration_id: integrationId
             });
 
-            if (resultado.data.success) {
+            if (resultado?.data?.success) {
               sucessos++;
             } else {
+              console.error('[ENCAMINHAR] Falha:', resultado?.data?.error || resultado);
               erros++;
             }
           } catch (error) {
