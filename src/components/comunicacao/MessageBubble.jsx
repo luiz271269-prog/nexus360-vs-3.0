@@ -1725,7 +1725,12 @@ export default React.memo(function MessageBubble({
         contato={contato} />
 
 
-      <Dialog open={mostrarDialogEncaminhar} onOpenChange={setMostrarDialogEncaminhar}>
+      <Dialog open={mostrarDialogEncaminhar} onOpenChange={(open) => {
+        // Bloqueia fechamento enquanto encaminhamento está em andamento
+        // (evita dois fechamentos simultâneos: ESC/clique-fora + handleEncaminhar)
+        if (!open && encaminhando) return;
+        setMostrarDialogEncaminhar(open);
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
