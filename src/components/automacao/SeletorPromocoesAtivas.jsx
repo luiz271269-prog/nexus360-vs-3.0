@@ -31,18 +31,35 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
       ]);
 
       // Normaliza mensagens etiquetadas para o mesmo "shape" das promoções
+      const iconePorTipo = {
+        video: '🎥 Vídeo etiquetado',
+        audio: '🎤 Áudio etiquetado',
+        document: '📄 Documento etiquetado',
+        image: '🖼️ Imagem etiquetada',
+        sticker: '🎨 Sticker etiquetado'
+      };
       const msgsComoPromos = (msgsEtiquetadas || [])
-        .filter(m => m.media_url || m.content)
-        .map(m => ({
-          id: `msg_${m.id}`,
-          _origem: 'mensagem',
-          _message_id: m.id,
-          titulo: (m.content || m.media_caption || 'Mensagem etiquetada').substring(0, 60),
-          descricao: m.content || m.media_caption || '',
-          imagem_url: m.media_type === 'image' ? m.media_url : null,
-          categoria: 'etiquetada',
-          ativo: true
-        }));
+        .filter(m => m.media_url || (m.content && !m.content.startsWith('[')))
+        .map(m => {
+          const tituloLimpo = m.content && !m.content.startsWith('[')
+            ? m.content.substring(0, 60)
+            : (iconePorTipo[m.media_type] || 'Mensagem etiquetada');
+          // Imagem do card: usa imagem direto ou thumbnail de vídeo
+          const imagemCard = m.media_type === 'image'
+            ? m.media_url
+            : (m.metadata?.thumbnail_url || m.metadata?.jpegThumbnail || null);
+          return {
+            id: `msg_${m.id}`,
+            _origem: 'mensagem',
+            _message_id: m.id,
+            _media_type: m.media_type,
+            titulo: tituloLimpo,
+            descricao: m.media_caption || (m.content && !m.content.startsWith('[') ? m.content : ''),
+            imagem_url: imagemCard,
+            categoria: 'etiquetada',
+            ativo: true
+          };
+        });
 
       // Promoções primeiro, depois etiquetadas
       setPromocoes([...(promos || []), ...msgsComoPromos]);
@@ -184,8 +201,19 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
                     </div>
                   </div>
                 ) : (
-                  <div className="relative w-full h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                    <ImageIcon className="w-16 h-16 text-slate-400" />
+                  <div className="relative w-full h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex flex-col items-center justify-center gap-2">
+                    <span className="text-5xl">
+                      {promo._media_type === 'video' ? '🎥'
+                        : promo._media_type === 'audio' ? '🎤'
+                        : promo._media_type === 'document' ? '📄'
+                        : promo._media_type === 'sticker' ? '🎨'
+                        : '🖼️'}
+                    </span>
+                    {promo._origem === 'mensagem' && (
+                      <span className="text-xs text-slate-600 font-medium">
+                        {promo._media_type === 'video' ? 'Vídeo' : promo._media_type === 'audio' ? 'Áudio' : promo._media_type === 'document' ? 'Documento' : 'Mídia'}
+                      </span>
+                    )}
                     <div className="absolute top-3 right-3">
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-lg ${
                         isSelected ? 'bg-orange-500' : 'bg-white'
