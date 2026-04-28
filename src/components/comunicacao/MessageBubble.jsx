@@ -846,15 +846,18 @@ export default React.memo(function MessageBubble({
     // 1. Aplica a etiqueta na mensagem
     await aplicarEtiqueta(etiqueta.nome);
 
-    // 2. Cria no Kanban conforme destino escolhido
+    // 2. Cria no Kanban — aguarda portal Radix do dialog desmontar antes de abrir outro modal
+    //    (evita crash NotFoundError: removeChild quando dois portais brigam pelo mesmo nó)
     if (criarOportunidade) {
-      if (destino === 'orcamentos' && fase && window.handleCriarOportunidadeDeChat) {
-        window.handleCriarOportunidadeDeChat(message, thread || {}, fase, 'orcamentos');
-      } else if (destino === 'leads' && window.handleCriarOportunidadeDeChat) {
-        window.handleCriarOportunidadeDeChat(message, thread || {}, null, 'leads');
-      } else if (destino === 'clientes' && window.handleCriarOportunidadeDeChat) {
-        window.handleCriarOportunidadeDeChat(message, thread || {}, null, 'clientes');
-      }
+      setTimeout(() => {
+        if (destino === 'orcamentos' && fase && window.handleCriarOportunidadeDeChat) {
+          window.handleCriarOportunidadeDeChat(message, thread || {}, fase, 'orcamentos');
+        } else if (destino === 'leads' && window.handleCriarOportunidadeDeChat) {
+          window.handleCriarOportunidadeDeChat(message, thread || {}, null, 'leads');
+        } else if (destino === 'clientes' && window.handleCriarOportunidadeDeChat) {
+          window.handleCriarOportunidadeDeChat(message, thread || {}, null, 'clientes');
+        }
+      }, 100);
     }
   };
 
