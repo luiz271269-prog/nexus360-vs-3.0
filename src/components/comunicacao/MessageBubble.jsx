@@ -1385,7 +1385,9 @@ export default React.memo(function MessageBubble({
                 <video
                 src={message.media_url}
                 controls
-                className="max-w-[280px] max-h-[280px] rounded-lg" />
+                preload="metadata"
+                poster={message.metadata?.thumbnail_url || message.metadata?.jpegThumbnail || undefined}
+                className="max-w-[280px] max-h-[280px] rounded-lg bg-black" />
 
                 {message.media_caption &&
               <div className="px-2 py-1 mt-1 text-slate-800">
