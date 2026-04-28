@@ -24,12 +24,28 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
   const carregarPromocoesAtivas = async () => {
     try {
       setLoading(true);
-      const promos = await base44.entities.Promotion.filter(
-        { ativo: true },
-        '-priority',
-        50
-      );
-      setPromocoes(promos);
+      // Carrega em paralelo: Promotions ativas + mensagens etiquetadas como "promocao"
+      const [promos, msgsEtiquetadas] = await Promise.all([
+        base44.entities.Promotion.filter({ ativo: true }, '-priority', 50),
+        base44.entities.Message.filter({ categorias: 'promocao' }, '-created_date', 50)
+      ]);
+
+      // Normaliza mensagens etiquetadas para o mesmo "shape" das promoções
+      const msgsComoPromos = (msgsEtiquetadas || [])
+        .filter(m => m.media_url || m.content)
+        .map(m => ({
+          id: `msg_${m.id}`,
+          _origem: 'mensagem',
+          _message_id: m.id,
+          titulo: (m.content || m.media_caption || 'Mensagem etiquetada').substring(0, 60),
+          descricao: m.content || m.media_caption || '',
+          imagem_url: m.media_type === 'image' ? m.media_url : null,
+          categoria: 'etiquetada',
+          ativo: true
+        }));
+
+      // Promoções primeiro, depois etiquetadas
+      setPromocoes([...(promos || []), ...msgsComoPromos]);
     } catch (error) {
       console.error('[SeletorPromocoesAtivas] Erro ao carregar promoções:', error);
       toast.error('Erro ao carregar promoções');
@@ -195,12 +211,17 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
                     </p>
                   )}
                   <div className="flex flex-wrap items-center gap-2">
+                    {promo._origem === 'mensagem' && (
+                      <Badge className="text-xs bg-blue-500 text-white">
+                        📨 Etiquetada
+                      </Badge>
+                    )}
                     {promo.imagem_url && (
                       <Badge className="text-xs bg-green-500 text-white">
                         ✓ Com Imagem
                       </Badge>
                     )}
-                    {promo.categoria && (
+                    {promo.categoria && promo._origem !== 'mensagem' && (
                       <Badge variant="outline" className="text-xs">
                         {promo.categoria}
                       </Badge>
