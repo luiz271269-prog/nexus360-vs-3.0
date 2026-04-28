@@ -88,11 +88,15 @@ export default function EtiquetaFaseDialog({ aberto, onFechar, etiqueta, onConfi
     : !!destino;
 
   const handleConfirmar = () => {
-    onConfirmar(
-      destino === 'orcamentos' ? faseSelecionada : null,
-      true,
-      destino
-    );
+    // Defer para próximo tick — permite Radix Dialog completar unmount limpo
+    // antes do pai zerar o estado. Sem isso ocorre crash NotFoundError: removeChild.
+    setTimeout(() => {
+      onConfirmar(
+        destino === 'orcamentos' ? faseSelecionada : null,
+        true,
+        destino
+      );
+    }, 0);
   };
 
   return (
@@ -263,7 +267,7 @@ export default function EtiquetaFaseDialog({ aberto, onFechar, etiqueta, onConfi
         </div>
 
         <DialogFooter className="gap-2 flex-row justify-end">
-          <Button variant="outline" size="sm" onClick={() => onConfirmar(null, false, null)}>
+          <Button variant="outline" size="sm" onClick={() => setTimeout(() => onConfirmar(null, false, null), 0)}>
             Só etiquetar
           </Button>
           <Button
