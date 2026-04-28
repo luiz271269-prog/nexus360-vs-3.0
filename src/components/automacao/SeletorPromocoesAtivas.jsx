@@ -179,11 +179,19 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
                       onClick={(e) => e.stopPropagation()}
                       className="w-full max-h-64 object-contain bg-black"
                     />
-                    <div className="absolute top-3 right-3 z-10 pointer-events-none">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-lg ${isSelected ? 'bg-orange-500' : 'bg-white/90'}`}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelecao(promo.id);
+                      }}
+                      className="absolute top-3 right-3 z-20"
+                      title={isSelected ? 'Desselecionar' : 'Selecionar'}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-lg border-2 ${isSelected ? 'bg-orange-500 border-orange-500' : 'bg-white border-white hover:border-orange-400'}`}>
                         {isSelected ? <CheckCircle2 className="w-5 h-5 text-white" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-400" />}
                       </div>
-                    </div>
+                    </button>
                   </div>
                 ) : promo._origem === 'mensagem' && promo._media_type === 'audio' && promo._media_url ? (
                   <div className="relative w-full bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-6 flex items-center gap-3">
@@ -194,11 +202,19 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
                       onClick={(e) => e.stopPropagation()}
                       className="flex-1 h-10"
                     />
-                    <div className="absolute top-3 right-3">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-lg ${isSelected ? 'bg-orange-500' : 'bg-white shadow-md'}`}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelecao(promo.id);
+                      }}
+                      className="absolute top-3 right-3 z-20"
+                      title={isSelected ? 'Desselecionar' : 'Selecionar'}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-lg border-2 ${isSelected ? 'bg-orange-500 border-orange-500' : 'bg-white border-white hover:border-orange-400'}`}>
                         {isSelected ? <CheckCircle2 className="w-5 h-5 text-white" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-400" />}
                       </div>
-                    </div>
+                    </button>
                   </div>
                 ) : promo._origem === 'mensagem' && promo._media_type === 'document' && promo._media_url ? (
                   <div className="relative w-full bg-blue-50 p-4 flex items-center gap-3">
