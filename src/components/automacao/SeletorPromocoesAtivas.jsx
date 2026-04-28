@@ -8,7 +8,9 @@ import {
   Image as ImageIcon, 
   Copy, 
   Loader2,
-  CheckCircle2 
+  CheckCircle2,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -16,6 +18,7 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
   const [promocoes, setPromocoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selecionadas, setSelecionadas] = useState([]);
+  const [agrupado, setAgrupado] = useState(false);
 
   useEffect(() => {
     carregarPromocoesAtivas();
@@ -26,7 +29,7 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
       setLoading(true);
       // Carrega em paralelo: Promotions ativas + mensagens etiquetadas como "promocao"
       const [promos, msgsEtiquetadas] = await Promise.all([
-        base44.entities.Promotion.filter({ ativo: true }, '-priority', 50),
+        base44.entities.Promotion.filter({ ativo: true }, '-created_date', 50),
         base44.entities.Message.filter({ categorias: 'promocao' }, '-created_date', 50)
       ]);
 
@@ -54,6 +57,7 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
             _message_id: m.id,
             _media_type: m.media_type,
             _media_url: m.media_url,
+            _created_at: m.created_date || m.sent_at,
             titulo: tituloLimpo,
             descricao: m.media_caption || (m.content && !m.content.startsWith('[') ? m.content : ''),
             imagem_url: imagemCard,
@@ -62,8 +66,20 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
           };
         });
 
-      // Promoções primeiro, depois etiquetadas
-      setPromocoes([...(promos || []), ...msgsComoPromos]);
+      // Anexa _created_at em Promotions para ordenação unificada
+      const promosComData = (promos || []).map(p => ({
+        ...p,
+        _created_at: p.created_date
+      }));
+
+      // Ordena tudo por data desc (mais recentes primeiro)
+      const todas = [...promosComData, ...msgsComoPromos].sort((a, b) => {
+        const ta = new Date(a._created_at || 0).getTime();
+        const tb = new Date(b._created_at || 0).getTime();
+        return tb - ta;
+      });
+
+      setPromocoes(todas);
     } catch (error) {
       console.error('[SeletorPromocoesAtivas] Erro ao carregar promoções:', error);
       toast.error('Erro ao carregar promoções');
@@ -133,12 +149,28 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
           <Sparkles className="w-5 h-5" />
           <h3 className="font-semibold">Promoções Ativas</h3>
         </div>
-        <button
-          onClick={onClose}
-          className="text-white/80 hover:text-white transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setAgrupado(false)}
+            className={`p-1.5 rounded-md transition-colors ${!agrupado ? 'bg-white/30 text-white' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+            title="Lista por data"
+          >
+            <List className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setAgrupado(true)}
+            className={`p-1.5 rounded-md transition-colors ${agrupado ? 'bg-white/30 text-white' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+            title="Agrupar por categoria"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onClose}
+            className="ml-1 text-white/80 hover:text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Lista de Promoções */}
@@ -154,11 +186,10 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
             <p className="text-sm font-medium text-slate-600">Nenhuma promoção ativa</p>
             <p className="text-xs text-slate-400 mt-1">Crie promoções na aba Automação</p>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {promocoes.map((promo) => {
-              const isSelected = selecionadas.includes(promo.id);
-              return (
+        ) : (() => {
+          const renderCard = (promo) => {
+            const isSelected = selecionadas.includes(promo.id);
+            return (
               <button
                 key={promo.id}
                 onClick={() => toggleSelecao(promo.id)}
@@ -342,9 +373,58 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
                 </div>
               </button>
             );
-            })}
-          </div>
-        )}
+          };
+
+          if (!agrupado) {
+            // Lista plana ordenada por data
+            return <div className="space-y-3">{promocoes.map(renderCard)}</div>;
+          }
+
+          // Agrupado por categoria — promoções já vêm ordenadas por data desc
+          const grupos = {};
+          promocoes.forEach((p) => {
+            const cat = p._origem === 'mensagem' ? 'etiquetadas' : (p.categoria || 'geral');
+            if (!grupos[cat]) grupos[cat] = [];
+            grupos[cat].push(p);
+          });
+
+          const labelGrupo = {
+            etiquetadas: '📨 Etiquetadas',
+            informatica: '💻 Informática',
+            escritorio: '🖨️ Escritório',
+            servicos: '🛠️ Serviços',
+            perifericos: '⌨️ Periféricos',
+            geral: '✨ Geral'
+          };
+
+          // Ordem de exibição dos grupos: etiquetadas primeiro, resto alfabético
+          const ordemGrupos = Object.keys(grupos).sort((a, b) => {
+            if (a === 'etiquetadas') return -1;
+            if (b === 'etiquetadas') return 1;
+            return a.localeCompare(b);
+          });
+
+          return (
+            <div className="space-y-5">
+              {ordemGrupos.map((cat) => (
+                <div key={cat}>
+                  <div className="flex items-center gap-2 mb-2 px-1">
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                      {labelGrupo[cat] || cat}
+                    </h4>
+                    <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                      {grupos[cat].length}
+                    </span>
+                    <div className="flex-1 h-px bg-slate-200" />
+                  </div>
+                  <div className="space-y-3">
+                    {grupos[cat].map(renderCard)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Footer com contador e botão de envio */}
