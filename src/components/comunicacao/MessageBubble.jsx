@@ -74,6 +74,18 @@ const AudioPlayer = React.memo(({ src }) => {
 
 }, (prev, next) => prev.src === next.src);
 
+// Player de vídeo memoizado — evita remount durante re-renders (causa crash removeChild ao encaminhar)
+const VideoPlayer = React.memo(({ src, poster }) => {
+  return (
+    <video
+      src={src}
+      controls
+      preload="metadata"
+      poster={poster || undefined}
+      className="max-w-[280px] max-h-[280px] rounded-lg bg-black" />
+  );
+}, (prev, next) => prev.src === next.src && prev.poster === next.poster);
+
 // Componente de imagem com fallback seguro
 const ImageWithFallback = React.memo(({ src, alt, className, onClick, isPersisted }) => {
   const [hasError, setHasError] = React.useState(false);
@@ -1388,15 +1400,12 @@ export default React.memo(function MessageBubble({
               </div>
             }
 
-            {/* VÍDEO - ✅ AGNÓSTICO */}
+            {/* VÍDEO - ✅ AGNÓSTICO + memoizado para evitar crash removeChild em re-renders */}
             {message?.media_type === 'video' && message?.media_url &&
             <div className="px-3 py-2">
-                <video
-                src={message.media_url}
-                controls
-                preload="metadata"
-                poster={message.metadata?.thumbnail_url || message.metadata?.jpegThumbnail || undefined}
-                className="max-w-[280px] max-h-[280px] rounded-lg bg-black" />
+                <VideoPlayer
+                  src={message.media_url}
+                  poster={message.metadata?.thumbnail_url || message.metadata?.jpegThumbnail} />
 
                 {message.media_caption &&
               <div className="px-2 py-1 mt-1 text-slate-800">
