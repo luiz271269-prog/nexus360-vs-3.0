@@ -618,20 +618,23 @@ export default React.memo(function MessageBubble({
             }
           }
 
-          if (sucessos > 0) {
-            toast.success(
-              `📥 ${sucessos} encaminhamento(s) enfileirado(s) — serão enviados respeitando horário comercial e delay anti-spam.`,
-              { duration: 6000 }
-            );
-          }
-          if (erros > 0) {
-            toast.error(`❌ ${erros} item(ns) não puderam ser enfileirados`);
-          }
-
+          // Fecha dialog PRIMEIRO, toasts depois (evita conflito de portais Radix vs Sonner)
           setMostrarDialogEncaminhar(false);
           setContatosSelecionados([]);
           setBuscaContato("");
           setEncaminhando(false);
+
+          setTimeout(() => {
+            if (sucessos > 0) {
+              toast.success(
+                `📥 ${sucessos} encaminhamento(s) enfileirado(s) — serão enviados respeitando horário comercial e delay anti-spam.`,
+                { duration: 6000 }
+              );
+            }
+            if (erros > 0) {
+              toast.error(`❌ ${erros} item(ns) não puderam ser enfileirados`);
+            }
+          }, 0);
           return; // Saída antecipada — não cair no fluxo "internos" nem nos toasts genéricos
         }
 
@@ -710,17 +713,20 @@ export default React.memo(function MessageBubble({
         }
       }
 
-      if (sucessos > 0) {
-        toast.success(`✅ Mensagem encaminhada para ${sucessos} ${tipoEncaminhamento === 'internos' ? 'usuário(s)' : 'contato(s)'}!`);
-      }
-
-      if (erros > 0) {
-        toast.error(`❌ ${erros} encaminhamento(s) falharam`);
-      }
-
+      // Fecha dialog PRIMEIRO, toasts depois (evita crash removeChild ao encaminhar áudio/vídeo)
       setMostrarDialogEncaminhar(false);
       setContatosSelecionados([]);
       setBuscaContato("");
+
+      const tipo = tipoEncaminhamento;
+      setTimeout(() => {
+        if (sucessos > 0) {
+          toast.success(`✅ Mensagem encaminhada para ${sucessos} ${tipo === 'internos' ? 'usuário(s)' : 'contato(s)'}!`);
+        }
+        if (erros > 0) {
+          toast.error(`❌ ${erros} encaminhamento(s) falharam`);
+        }
+      }, 0);
     } catch (error) {
       console.error('[BUBBLE] Erro ao encaminhar:', error);
       toast.error(`Erro: ${error.message}`);
