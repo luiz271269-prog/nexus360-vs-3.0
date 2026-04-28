@@ -168,10 +168,22 @@ export default function MessageInput({
 
   const handleSelecionarPromocao = useCallback((dadosPromocao) => {
     const { file, previewUrl, caption } = dadosPromocao;
-    
-    setPastedImage(file);
-    setPastedImagePreview(previewUrl);
-    setMensagemTexto(caption || mensagemTexto);
+
+    // Detecta tipo da mídia (image/video/audio/document)
+    const mime = file?.type || '';
+    const tipo = mime.startsWith('video/') ? 'video'
+      : mime.startsWith('audio/') ? 'audio'
+      : mime.startsWith('image/') ? 'image'
+      : 'document';
+
+    // Empilha em selectedFiles (suporta múltiplas promoções selecionadas)
+    setSelectedFiles(prev => [...prev, { file, type: tipo, preview: previewUrl }]);
+
+    // Caption: usa o primeiro caption recebido (ou mantém o que já tem)
+    if (caption && !mensagemTexto.trim()) {
+      setMensagemTexto(caption);
+    }
+
     setShowPromocoesMenu(false);
     setShowAttachMenu(false);
   }, [mensagemTexto]);
