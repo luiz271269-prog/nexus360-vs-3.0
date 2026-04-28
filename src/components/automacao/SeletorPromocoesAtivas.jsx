@@ -55,7 +55,7 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
     const promosSelecionadas = promocoes.filter(p => selecionadas.includes(p.id));
     
     for (const promo of promosSelecionadas) {
-      if (!promo.image_url) {
+      if (!promo.imagem_url) {
         toast.error(`${promo.titulo} não tem imagem configurada`);
         continue;
       }
@@ -63,7 +63,7 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
       try {
         toast.info(`📥 Preparando ${promo.titulo}...`);
         
-        const response = await fetch(promo.image_url);
+        const response = await fetch(promo.imagem_url);
         const blob = await response.blob();
         
         const fileName = `promocao-${promo.id}.${blob.type.split('/')[1] || 'jpg'}`;
@@ -73,7 +73,7 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
         onSelecionarPromocao({
           file,
           previewUrl,
-          caption: promo.mensagem || promo.titulo || '',
+          caption: promo.descricao || promo.titulo || '',
           promocao: promo
         });
         
@@ -132,10 +132,10 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
                 }`}
               >
                 {/* Imagem Grande com Checkbox */}
-                {promo.image_url ? (
+                {promo.imagem_url ? (
                   <div className="relative w-full h-48 bg-slate-100 overflow-hidden">
                     <img
-                      src={promo.image_url}
+                      src={promo.imagem_url}
                       alt={promo.titulo}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
@@ -189,13 +189,13 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
                   <h4 className="text-sm font-bold text-slate-900 mb-1 group-hover:text-orange-600 transition-colors">
                     {promo.titulo}
                   </h4>
-                  {promo.mensagem && (
+                  {promo.descricao && (
                     <p className="text-xs text-slate-600 line-clamp-2 mb-2">
-                      {promo.mensagem}
+                      {promo.descricao}
                     </p>
                   )}
                   <div className="flex flex-wrap items-center gap-2">
-                    {promo.image_url && (
+                    {promo.imagem_url && (
                       <Badge className="text-xs bg-green-500 text-white">
                         ✓ Com Imagem
                       </Badge>
@@ -205,14 +205,14 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
                         {promo.categoria}
                       </Badge>
                     )}
-                    {promo.preco && (
+                    {promo.price_info && (
                       <Badge className="text-xs bg-blue-500 text-white">
-                        R$ {parseFloat(promo.preco).toFixed(2)}
+                        {promo.price_info}
                       </Badge>
                     )}
-                    {promo.expires_at && (
+                    {promo.validade && (
                       <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
-                        Até {new Date(promo.expires_at).toLocaleDateString('pt-BR')}
+                        Até {new Date(promo.validade).toLocaleDateString('pt-BR')}
                       </Badge>
                     )}
                   </div>
