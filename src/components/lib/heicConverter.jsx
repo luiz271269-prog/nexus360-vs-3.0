@@ -25,9 +25,11 @@ export async function ensureJpegIfHeic(file) {
   if (!file || !isHeic(file)) return file;
 
   try {
-    // Lazy import: carrega heic2any só quando realmente precisa (arquivo HEIC)
-    // Evita entrar no bundle principal e conflitar com outras libs.
-    const mod = await import('heic2any');
+    // Lazy import: carrega heic2any só quando realmente precisa (arquivo HEIC).
+    // Usa /* @vite-ignore */ + string variable para impedir o Vite de tentar
+    // resolver o pacote em build-time quando ele não está instalado.
+    const pkg = 'heic2any';
+    const mod = await import(/* @vite-ignore */ pkg);
     const heic2any = mod.default || mod;
     const blob = await heic2any({
       blob: file,
