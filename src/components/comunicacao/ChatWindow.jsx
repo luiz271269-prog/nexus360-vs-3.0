@@ -489,7 +489,7 @@ export default function ChatWindow({
       let mensagemFinal = texto.trim();
       const nomeAtendente = usuario?.display_name || usuario?.full_name;
       if (nomeAtendente && usuario?.attendant_sector) mensagemFinal = `${mensagemFinal}\n\n_~ ${nomeAtendente.split(' ')[0]} (${usuario.attendant_sector})_`;
-      const resultado = await base44.functions.invoke('enviarCampanhaLote', { contact_ids: contatosSelecionados.map(c => c.contact_id || c.id), modo: 'broadcast', mensagem: mensagemFinal, personalizar: false });
+      const resultado = await base44.functions.invoke('enviarCampanhaLote', { contact_ids: contatosSelecionados.map(c => c.contact_id || c.id), modo: 'broadcast', mensagem: mensagemFinal, personalizar: false, media_url: mediaUrl, media_type: mediaType, media_caption: mediaCaption });
       setEnviandoBroadcast(false);
       if (resultado.data?.success) {
         const { enviados, erros } = resultado.data;
