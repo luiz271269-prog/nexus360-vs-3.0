@@ -178,10 +178,10 @@ Deno.serve(async (req) => {
     let enfileirados = 0;
     let erros = 0;
 
-    // ✅ FASE 6: Filtrar contatos com opt_out (descadastrados automaticamente)
+    // ✅ FASE 6: Filtrar APENAS contatos com opt-out EXPLÍCITO ou bloqueio manual
+    // ⚠️ NÃO filtrar por whatsapp_optin === false: o default do schema é false e isso bloquearia 100% da base
     const contatosOptOut = contatosRaw.filter(c =>
       (Array.isArray(c.tags) && c.tags.includes('opt_out')) ||
-      c.whatsapp_optin === false ||
       c.bloqueado === true
     );
     contatosOptOut.forEach(c => {
@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
       erros++;
     });
     const contatos = contatosRaw.filter(c =>
-      !((Array.isArray(c.tags) && c.tags.includes('opt_out')) || c.whatsapp_optin === false || c.bloqueado === true)
+      !((Array.isArray(c.tags) && c.tags.includes('opt_out')) || c.bloqueado === true)
     );
     if (contatosOptOut.length > 0) {
       console.warn(`[CAMPANHA-LOTE] 🚫 ${contatosOptOut.length} contatos excluídos por opt-out/bloqueio`);
@@ -382,10 +382,13 @@ Deno.serve(async (req) => {
 
       // Auditoria
       await base44.asServiceRole.entities.AutomationLog.create({
-        automation_type: 'broadcast_massa',
-        status: 'success',
-        metadata: { contact_ids, enfileirados, erros, broadcast_id: broadcastId }
-      });
+        acao: 'outro',
+        resultado: erros === 0 ? 'sucesso' : (enfileirados > 0 ? 'parcial' : 'erro'),
+        timestamp: now.toISOString(),
+        origem: 'manual',
+        detalhes: { mensagem: `Broadcast em massa: ${enfileirados} enfileirados, ${erros} erros` },
+        metadata: { automation_type: 'broadcast_massa', contact_ids, enfileirados, erros, broadcast_id: broadcastId }
+      }).catch(e => console.warn('[CAMPANHA-LOTE] AutomationLog falhou (non-blocking):', e.message));
 
       console.log(`[CAMPANHA-LOTE] ✅ ${enfileirados} broadcasts enfileirados (worker processará em lotes)`);
 
@@ -546,10 +549,13 @@ Deno.serve(async (req) => {
       }
 
       await base44.asServiceRole.entities.AutomationLog.create({
-        automation_type: 'promocao_lote',
-        status: enfileirados > 0 ? 'success' : 'failed',
-        metadata: { contact_ids, enfileirados, erros }
-      });
+        acao: 'envio_template',
+        resultado: erros === 0 ? 'sucesso' : (enfileirados > 0 ? 'parcial' : 'erro'),
+        timestamp: now.toISOString(),
+        origem: 'manual',
+        detalhes: { mensagem: `Promoção em lote: ${enfileirados} agendados, ${erros} erros` },
+        metadata: { automation_type: 'promocao_lote', contact_ids, enfileirados, erros }
+      }).catch(e => console.warn('[CAMPANHA-LOTE] AutomationLog falhou (non-blocking):', e.message));
 
       return Response.json({
         success: true,
