@@ -76,33 +76,40 @@ Deno.serve(async (req) => {
             return { id: contato.id, updated: false, reason: 'já_completo' };
           }
 
-          // Buscar nome do WhatsApp
+          // Buscar nome do WhatsApp (parâmetro CORRETO: 'phone', não 'telefone')
           const nomeResult = await base44.functions.invoke('buscarNomeContatoWhatsApp', {
-            telefone: contato.telefone,
+            phone: contato.telefone,
             integration_id: integration_id
           });
 
           let dadosAtualizados = {};
-          
-          if (nomeResult?.data?.nome_whatsapp) {
-            dadosAtualizados.nome = nomeResult.data.nome_whatsapp;
+
+          // ✅ Campo CORRETO retornado pela função: contactName
+          if (nomeResult?.data?.contactName) {
+            dadosAtualizados.nome = nomeResult.data.contactName;
             console.log(`[LOTE] ✅ Nome encontrado: ${dadosAtualizados.nome}`);
           }
 
-          // Buscar foto do WhatsApp
+          // Buscar foto do WhatsApp (parâmetro CORRETO: 'phone', não 'telefone')
           const fotoResult = await base44.functions.invoke('buscarFotoPerfilWhatsApp', {
-            telefone: contato.telefone,
+            phone: contato.telefone,
             integration_id: integration_id
           });
 
-          if (fotoResult?.data?.foto_url) {
-            dadosAtualizados.foto_perfil_url = fotoResult.data.foto_url;
+          // ✅ Campo CORRETO retornado pela função: profilePictureUrl
+          if (fotoResult?.data?.profilePictureUrl) {
+            dadosAtualizados.foto_perfil_url = fotoResult.data.profilePictureUrl;
             dadosAtualizados.foto_perfil_atualizada_em = new Date().toISOString();
             console.log(`[LOTE] ✅ Foto encontrada`);
           }
 
+          // ✅ ANTI-LOOP: Marca tentativa mesmo quando Z-API não retorna nada
+          // Impede que o frontend dispare enriquecimento infinitamente para contatos sem perfil WhatsApp
           if (Object.keys(dadosAtualizados).length === 0) {
-            console.log(`[LOTE] ⚠️ Sem dados novos para ${contato.id.substring(0, 8)}`);
+            await base44.asServiceRole.entities.Contact.update(contato.id, {
+              foto_perfil_atualizada_em: new Date().toISOString()
+            }).catch(() => {});
+            console.log(`[LOTE] ⚠️ Sem dados novos para ${contato.id.substring(0, 8)} (marcado tentativa)`);
             return { id: contato.id, updated: false, reason: 'sem_dados_whatsapp' };
           }
 
