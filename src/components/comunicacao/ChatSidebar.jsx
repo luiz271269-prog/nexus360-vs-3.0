@@ -540,6 +540,7 @@ export default function ChatSidebar({
           setDelegateMode(false);
         }}
         currentUser={usuarioAtual}
+        atendentes={atendentes}
         mode={delegateMode ? 'delegate' : 'compose'}
         onSelectDestinations={(selection) => {
           setInternalComposerOpen(false);

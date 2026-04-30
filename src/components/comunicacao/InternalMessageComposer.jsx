@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import CriarGrupoModal from './CriarGrupoModal';
 import UsuarioDisplay from './UsuarioDisplay';
 
-export default function InternalMessageComposer({ open, onClose, currentUser, onSelectDestinations, mode = 'compose', originUserId = null }) {
+export default function InternalMessageComposer({ open, onClose, currentUser, onSelectDestinations, mode = 'compose', originUserId = null, atendentes = [] }) {
   const [selectedUsers, setSelectedUsers] = React.useState([]);
   const [selectedSectors, setSelectedSectors] = React.useState([]);
   const [selectedGroups, setSelectedGroups] = React.useState([]);
@@ -18,7 +18,9 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
   const [selectedOriginUser, setSelectedOriginUser] = React.useState(originUserId || '');
   const [activeTab, setActiveTab] = React.useState('usuarios');
 
-  const { data: usuarios = [], isLoading: loadingUsers } = useQuery({
+  // 🚀 PERF: Reusar atendentes do pai (já em memória) — sem query duplicada
+  // Fallback: query própria apenas se não vier por prop (compatibilidade legada)
+  const { data: usuariosFetched = [], isLoading: loadingFetched } = useQuery({
     queryKey: ['usuarios-internos'],
     queryFn: async () => {
       const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
@@ -27,9 +29,12 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
       }
       return [];
     },
-    enabled: open,
-    staleTime: 2 * 60 * 1000
+    enabled: open && (!atendentes || atendentes.length === 0),
+    staleTime: 5 * 60 * 1000
   });
+
+  const usuarios = atendentes && atendentes.length > 0 ? atendentes : usuariosFetched;
+  const loadingUsers = atendentes && atendentes.length > 0 ? false : loadingFetched;
 
   const { data: grupos = [], isLoading: loadingGroups, refetch: refetchGroups } = useQuery({
     queryKey: ['grupos-internos'],
@@ -41,7 +46,8 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
       return threads || [];
     },
     enabled: open,
-    staleTime: 2 * 60 * 1000
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false
   });
 
   const setores = React.useMemo(() => {
