@@ -27,6 +27,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const COOLDOWN_MS = 300_000;   // 5 min entre ACKs
 const DEDUP_WINDOW_MS = 30_000; // 30s janela de dedup de webhooks
+const PROMO_FORA_HORARIO_GAP_MS = 12 * 60 * 60 * 1000; // 12h — 1 promo por período fora-horário
 
 const PATTERNS = [
   { regex: /pc\s*gam|gam(er|ing)|notebook|computador|placa\s*de\s*v|rtx|processador|ram|ssd|cpu|impressora|monitor|teclado|mouse|headset|fonte|gabinete|cooler|hardware|orcamento|cotacao|preco|quanto\s*custa|comprar|produto|estoque|disponib/i, setor: 'vendas', intencao: 'compra_produto', confidence: 0.95 },
@@ -135,6 +136,42 @@ function buildAckMsg(tipo, nome, isVIP, hora) {
   if (tipo === 'ex_cliente') return { tipo: 'ex_cliente', msg: `Que bom ter você de volta${primeiroNome ? ', ' + primeiroNome : ''}! 😊 Vou verificar o que você precisa.` };
   if (tipo === 'fornecedor') return { tipo: 'fornecedor', msg: `🤝 Olá ${primeiroNome}! Recebi seu contato. Vou direcionar para nossa equipe de compras.` };
   return { tipo: 'novo', msg: `👋 Olá ${primeiroNome}! Recebi sua mensagem. Vou analisar e já te retorno!` };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER: buscar promoção rotacionada (evita últimas 3 enviadas) + formatar texto
+// Usado APENAS no fluxo fora-de-horário (ACK + promo em UMA mensagem)
+// ─────────────────────────────────────────────────────────────────────────────
+async function buscarPromocaoRotacionada(base44, lastPromoIds = []) {
+  try {
+    const hojeIso = new Date().toISOString().split('T')[0];
+    const promos = await base44.asServiceRole.entities.Promotion.filter(
+      { ativo: true }, '-priority', 50
+    ).catch(() => []);
+
+    const elegiveis = promos.filter(p => {
+      if (p.validade && p.validade < hojeIso) return false;
+      if (Array.isArray(lastPromoIds) && lastPromoIds.includes(p.id)) return false;
+      return true;
+    });
+
+    // Se todas já foram enviadas recentemente, reseta e usa a de maior prioridade
+    const candidatas = elegiveis.length > 0 ? elegiveis : promos;
+    if (candidatas.length === 0) return null;
+    return candidatas[0]; // já vem ordenado por -priority
+  } catch (e) {
+    console.warn('[ROTACAO-PROMO] erro:', e.message);
+    return null;
+  }
+}
+
+function formatarPromoTexto(promo) {
+  if (!promo) return '';
+  let txt = `\n\n━━━━━━━━━━━━━━\n🎁 *${promo.titulo}*`;
+  if (promo.descricao) txt += `\n${promo.descricao}`;
+  if (promo.price_info) txt += `\n💰 ${promo.price_info}`;
+  if (promo.link_produto) txt += `\n🔗 ${promo.link_produto}`;
+  return txt;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -659,7 +696,35 @@ Deno.serve(async (req) => {
       }
 
       const ack = buildAckMsg(contact?.tipo_contato, contact?.nome, isVIP, hora);
-      const { ok, msgId, raw } = await enviarWhatsApp(integ, contact.telefone, ack.msg);
+
+      // ─── FORA DE HORÁRIO: anexar promoção rotacionada (1 vez por período de 12h) ───
+      let msgFinal = ack.msg;
+      let promoAnexada = null;
+      let promoSkipped = false;
+
+      if (ack.tipo === 'fora_horario') {
+        const ultPromoInbound = thread?.last_promo_inbound_at;
+        const promoRecente = ultPromoInbound &&
+          (Date.now() - new Date(ultPromoInbound).getTime() < PROMO_FORA_HORARIO_GAP_MS);
+
+        if (promoRecente) {
+          // Já mandou promo+fora-horário nas últimas 12h → silêncio total (não envia ACK)
+          resultado.camadas.ack = { skipped: true, reason: 'fora_horario_promo_recente_12h' };
+          console.log('[UNIFICADO] ⏭️ Fora-horário: promo já enviada nas últimas 12h — silêncio');
+          throw new Error('__skip_ack');
+        }
+
+        promoAnexada = await buscarPromocaoRotacionada(base44, thread?.last_promo_ids || []);
+        if (promoAnexada) {
+          msgFinal = ack.msg + formatarPromoTexto(promoAnexada);
+          console.log(`[UNIFICADO] 🎁 Fora-horário: promo "${promoAnexada.titulo}" anexada`);
+        } else {
+          promoSkipped = true;
+          console.log('[UNIFICADO] ℹ️ Fora-horário: nenhuma promoção ativa disponível');
+        }
+      }
+
+      const { ok, msgId, raw } = await enviarWhatsApp(integ, contact.telefone, msgFinal);
 
       if (!ok) {
         console.warn('[UNIFICADO] ⚠️ ACK envio falhou (NÃO CRÍTICO):', JSON.stringify(raw));
@@ -669,20 +734,48 @@ Deno.serve(async (req) => {
         await base44.asServiceRole.entities.Message.create({
           thread_id, sender_id: 'skill_ack', sender_type: 'user',
           recipient_id: contact_id, recipient_type: 'contact',
-          content: ack.msg, channel: 'whatsapp', status: 'enviada',
+          content: msgFinal, channel: 'whatsapp', status: 'enviada',
           sent_at: new Date().toISOString(), visibility: 'public_to_customer',
-          metadata: { is_ack: true, ack_tipo: ack.tipo, whatsapp_msg_id: msgId }
+          metadata: {
+            is_ack: true, ack_tipo: ack.tipo, whatsapp_msg_id: msgId,
+            promo_anexada_id: promoAnexada?.id || null,
+            promo_anexada_titulo: promoAnexada?.titulo || null
+          }
         }).catch(() => {});
 
-        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+        // Atualiza thread + (se anexou promo) registra rotação
+        const threadUpdate = {
           last_outbound_at: new Date().toISOString(),
           last_message_at: new Date().toISOString(),
           last_message_sender: 'user',
-          last_message_content: ack.msg.substring(0, 100)
-        }).catch(() => {});
+          last_message_content: msgFinal.substring(0, 100)
+        };
 
-        resultado.camadas.ack = { ok: true, tipo: ack.tipo, msgId };
-        console.log(`[UNIFICADO] ✅ Camada 1 OK — ACK enviado (${ack.tipo})`);
+        if (promoAnexada) {
+          threadUpdate.last_promo_inbound_at = new Date().toISOString();
+          threadUpdate.last_any_promo_sent_at = new Date().toISOString();
+          const prevIds = Array.isArray(thread?.last_promo_ids) ? thread.last_promo_ids : [];
+          threadUpdate.last_promo_ids = [...prevIds, promoAnexada.id].slice(-3);
+        }
+
+        await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate).catch(() => {});
+
+        // Atualiza Contact para rotação cross-thread
+        if (promoAnexada && contact_id) {
+          const prevContactIds = Array.isArray(contact?.last_promo_ids) ? contact.last_promo_ids : [];
+          await base44.asServiceRole.entities.Contact.update(contact_id, {
+            last_promo_inbound_at: new Date().toISOString(),
+            last_any_promo_sent_at: new Date().toISOString(),
+            last_promo_ids: [...prevContactIds, promoAnexada.id].slice(-3)
+          }).catch(() => {});
+        }
+
+        resultado.camadas.ack = {
+          ok: true, tipo: ack.tipo, msgId,
+          promo_anexada: promoAnexada?.titulo || null,
+          promo_skipped: promoSkipped
+        };
+        console.log(`[UNIFICADO] ✅ Camada 1 OK — ACK enviado (${ack.tipo}${promoAnexada ? ' + promo' : ''})`);
       }
     } catch (e) {
       if (e.message !== '__skip_ack') {
@@ -893,6 +986,30 @@ Deno.serve(async (req) => {
       });
 
       console.log(`[UNIFICADO] ✅ Atribuído para ${atendente.full_name} em ${setor} (motivo: ${motivoAtribuicao})`);
+
+      // ─── FORA DE HORÁRIO: pular boas-vindas LLM (já foi enviado ACK+promo na Camada 1) ───
+      const horaCamada4 = new Date().getHours();
+      if (horaCamada4 < HORA_INICIO || horaCamada4 > HORA_FIM) {
+        console.log('[UNIFICADO] ⏭️ Camada 4: fora de horário — boas-vindas LLM SUPRIMIDA (ACK+promo já enviado)');
+        resultado.camadas.atribuicao = {
+          ok: true,
+          atendente: atendente.full_name,
+          atendente_id: atendente.id,
+          motivo: motivoAtribuicao,
+          mensagem_enviada: false,
+          fora_horario: true
+        };
+        resultado.success = true;
+        await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'concluido');
+        return Response.json({
+          ...resultado,
+          action: 'atribuicao_concluida_fora_horario',
+          setor,
+          atendente: atendente?.full_name,
+          motivo: motivoAtribuicao,
+          tempo_ms: Date.now() - tsInicio
+        }, { headers });
+      }
 
       // Gerar boas-vindas via LLM
       let mensagemBoasVindas = null;
