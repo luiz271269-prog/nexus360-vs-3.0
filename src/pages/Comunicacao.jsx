@@ -580,11 +580,12 @@ export default function Comunicacao() {
       }
     },
     enabled: !!threadAtiva && !isRateLimited,
-    refetchInterval: isThreadInterna ? 30000 : 20000,
-    staleTime: 10000,
+    // 🚀 PERF: Subscribe real-time já invalida; polling de segurança espaçado
+    refetchInterval: isThreadInterna ? 60000 : 45000,
+    staleTime: 15000,
     retry: 2,
     retryDelay: 1000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   const { data: gotoIntegracoes = [] } = useQuery({

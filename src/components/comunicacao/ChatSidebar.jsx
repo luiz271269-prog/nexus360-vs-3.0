@@ -239,6 +239,16 @@ export default function ChatSidebar({
       return dateB - dateA;
     });
   }, [threadsFiltradas]);
+
+  // 🚀 PERF: Indexar atendentes e integrações em Map (O(1) lookup)
+  const atendentesMap = React.useMemo(
+    () => new Map((atendentes || []).map(a => [a.id, a])),
+    [atendentes]
+  );
+  const integracoesMap = React.useMemo(
+    () => new Map((integracoes || []).map(i => [i.id, i])),
+    [integracoes]
+  );
   
   // Verificar se houve transferência recente (últimos 10 segundos)
   const foiTransferidaRecentemente = (thread) => {
@@ -286,10 +296,10 @@ export default function ChatSidebar({
 
   }
 
-  // Função para buscar nome e número da integração
+  // Função para buscar nome e número da integração (O(1) via Map)
   const getIntegracaoInfo = (thread) => {
-    if (!thread.whatsapp_integration_id || integracoes.length === 0) return null;
-    const integracao = integracoes.find((i) => i.id === thread.whatsapp_integration_id);
+    if (!thread.whatsapp_integration_id) return null;
+    const integracao = integracoesMap.get(thread.whatsapp_integration_id);
     if (!integracao) return null;
     return {
       nome: integracao.nome_instancia,
@@ -687,11 +697,6 @@ export default function ChatSidebar({
         // Se não é interna explícita, é EXTERNA
         if (!isThreadInterna) {
           const contato = thread.contato;
-
-          // ✅ DEBUG: Log de contadores para esta thread
-          if (thread.id && (thread.unread_count || 0) > 0) {
-            console.log(`[SIDEBAR] 📬 Thread ${thread.id.substring(0, 8)}... tem ${thread.unread_count} não lidas`);
-          }
 
           if (!contato) {
             // Se é um cliente sem contato cadastrado, mostrar com indicador especial

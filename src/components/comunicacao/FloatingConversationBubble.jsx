@@ -26,21 +26,12 @@ export default function FloatingConversationBubble({
 
   const queryClient = useQueryClient();
 
-  // Buscar usuários internos para consultar
+  // 🚀 PERF: Reusar atendentes do pai (já em memória) — sem query duplicada
   useEffect(() => {
-    const carregarUsuarios = async () => {
-      try {
-        const users = await base44.entities.User.list('-created_date', 50);
-        const filtrados = users.filter(u => u.id !== usuarioAtual?.id);
-        setUsuariosDisponiveis(filtrados);
-      } catch (err) {
-        console.error('[BUBBLE] Erro ao carregar usuários:', err);
-      }
-    };
-    if (aberto && hasPermission) {
-      carregarUsuarios();
+    if (aberto && hasPermission && atendentes?.length > 0) {
+      setUsuariosDisponiveis(atendentes.filter(u => u.id !== usuarioAtual?.id));
     }
-  }, [aberto, usuarioAtual?.id, hasPermission]);
+  }, [aberto, usuarioAtual?.id, hasPermission, atendentes]);
 
   // Mensagens da thread interna 1:1
   const { data: mensagensInternas = [] } = useQuery({
