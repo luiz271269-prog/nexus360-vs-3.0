@@ -309,8 +309,8 @@ export default function Comunicacao() {
         throw error;
       }
     },
-    refetchInterval: 90000,
-    staleTime: 30000,
+    refetchInterval: 120000,
+    staleTime: 90000,
     enabled: !!usuario && !isRateLimited,
     retry: 2,
     retryDelay: 1000,
@@ -392,17 +392,14 @@ export default function Comunicacao() {
       if (contactIdsParaCarregar.length === 0) return [];
 
       try {
-        // ✅ Busca livre via backend (sem RLS - retorna TODOS os contatos COM _meta)
+        // 🚀 PERF: Buscar APENAS os contatos das threads visíveis (não 1000 contatos)
         const response = await base44.functions.invoke('buscarContatosLivre', {
-          searchTerm: null,
-          limit: 1000
+          contact_ids: contactIdsParaCarregar,
+          limit: contactIdsParaCarregar.length
         });
 
         if (response?.data?.success) {
-          const todosContatos = response.data.contatos || [];
-          const idsSet = new Set(contactIdsParaCarregar);
-          const contatosNecessarios = todosContatos.filter((c) => idsSet.has(c.id));
-          return contatosNecessarios; // ✅ PRESERVA _meta do backend
+          return response.data.contatos || []; // ✅ PRESERVA _meta do backend
         }
 
         // Fallback: busca com RLS
@@ -631,45 +628,9 @@ export default function Comunicacao() {
     return todasIntegracoes.filter((i) => visiveisNorm.has(normalizar(i.id)));
   }, [todasIntegracoes, usuario?.id, usuario?.role, usuario?.whatsapp_permissions, usuario?.permissoes_visualizacao]);
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔄 FALLBACK: Enriquecimento de contatos vazios (reforço frontend)
-  // Backend já enriquece primeiro, este é apenas um reforço para casos edge
-  // ═══════════════════════════════════════════════════════════════════════════════
-  React.useEffect(() => {
-    if (!contatos || contatos.length === 0 || !integracoes || integracoes.length === 0) return;
-
-    const contatosVazios = contatos.filter(c => {
-      const nome = (c.nome || '').trim();
-      const telefone = (c.telefone || '').replace(/\D/g, '');
-      return (
-        (!nome || nome === c.telefone || nome === '+' + telefone) &&
-        !c.empresa &&
-        !c.cargo
-      );
-    }).slice(0, 5); // Reduzido: backend já enriquece 10
-
-    if (contatosVazios.length === 0) return;
-
-    const integracaoAtiva = integracoes.find(i => i.status === 'conectado');
-    if (!integracaoAtiva) return;
-
-    console.log(`[COMUNICACAO] 🔄 Fallback: Enriquecendo ${contatosVazios.length} contatos restantes...`);
-
-    setTimeout(async () => {
-      try {
-        await base44.functions.invoke('enriquecerContatosEmLote', {
-          contact_ids: contatosVazios.map(c => c.id),
-          integration_id: integracaoAtiva.id
-        });
-
-        queryClient.invalidateQueries({ queryKey: ['contacts'] });
-        queryClient.invalidateQueries({ queryKey: ['contacts-search'] });
-        queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
-      } catch (error) {
-        console.warn('[COMUNICACAO] ⚠️ Erro em fallback de enriquecimento:', error.message);
-      }
-    }, 3000); // 3s delay (backend enriquece primeiro)
-  }, [contatos, integracoes, queryClient]);
+  // 🚀 PERF: Enriquecimento desativado no frontend.
+  // Backend já enriquece via getOrCreateContactCentralized + processInbound.
+  // Re-disparar do frontend causa loop infinito quando Z-API retorna 404.
 
   // ✅ FONTE ÚNICA: Buscar atendentes via função (igual em TODAS as telas)
   const { data: atendentes = [] } = useQuery({

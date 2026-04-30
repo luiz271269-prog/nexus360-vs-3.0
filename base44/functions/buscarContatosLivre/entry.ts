@@ -34,8 +34,15 @@ Deno.serve(async (req) => {
     console.log('[buscarContatosLivre] Chamada:', { user_email: user.email, searchTerm: searchTerm || '(vazio)', limit });
 
     let contatos = [];
-    
-    if (!searchTerm || !searchTerm.trim()) {
+
+    // 🚀 PERF: Modo hidratação rápida — busca APENAS os contatos das threads visíveis
+    if (Array.isArray(body.contact_ids) && body.contact_ids.length > 0) {
+      contatos = await base44.asServiceRole.entities.Contact.filter(
+        { id: { $in: body.contact_ids } },
+        '-ultima_interacao',
+        body.contact_ids.length
+      );
+    } else if (!searchTerm || !searchTerm.trim()) {
       contatos = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', limit);
     } else {
       const termo = searchTerm.trim().toLowerCase();
