@@ -36,29 +36,38 @@ export default function FloatingConversationBubble({
   // Mensagens da thread interna 1:1
   const { data: mensagensInternas = [] } = useQuery({
     queryKey: ['mensagens-internas', threadInterna?.id],
-    queryFn: () => {
+    queryFn: async () => {
       if (!threadInterna?.id) return [];
-      return base44.entities.Message.filter(
+      const msgs = await base44.entities.Message.filter(
         { thread_id: threadInterna.id },
         '-created_date',
-        100
+        50
       );
+      return msgs.reverse(); // Ordem cronológica para exibição
     },
     enabled: !!threadInterna?.id,
-    staleTime: 10000
+    staleTime: 30000,
+    refetchOnWindowFocus: false
   });
 
-  // Subscribe a atualizações em tempo real
+  // Subscribe a atualizações em tempo real (com debounce de 1.5s)
   useEffect(() => {
     if (!threadInterna?.id) return;
 
+    let debounceTimer = null;
     const unsubscribe = base44.entities.Message.subscribe((event) => {
-      if (event.thread_id === threadInterna.id) {
+      const evtThreadId = event?.data?.thread_id || event?.thread_id;
+      if (evtThreadId !== threadInterna.id) return;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['mensagens-internas', threadInterna.id] });
-      }
+      }, 1500);
     });
 
-    return unsubscribe;
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unsubscribe();
+    };
   }, [threadInterna?.id, queryClient]);
 
   const selecionarUsuario = async (usuario) => {
@@ -104,17 +113,38 @@ export default function FloatingConversationBubble({
   const handleEnviarMensagem = async () => {
     if (!mensagemAtual.trim() || !threadInterna) return;
 
+    const conteudo = mensagemAtual;
+    const tempId = `temp-${Date.now()}`;
+    const msgTemp = {
+      id: tempId,
+      thread_id: threadInterna.id,
+      sender_id: usuarioAtual?.id,
+      sender_type: 'user',
+      content: conteudo,
+      channel: 'interno',
+      status: 'enviando',
+      created_date: new Date().toISOString()
+    };
+
+    // 🚀 Optimistic: mensagem aparece instantânea
+    queryClient.setQueryData(['mensagens-internas', threadInterna.id], (old = []) => [...old, msgTemp]);
+    setMensagemAtual("");
     setEnviando(true);
+
     try {
       await base44.functions.invoke('sendInternalMessage', {
         thread_id: threadInterna.id,
-        content: mensagemAtual,
+        content: conteudo,
         media_type: 'none'
       });
-      setMensagemAtual("");
       queryClient.invalidateQueries({ queryKey: ['mensagens-internas', threadInterna.id] });
     } catch (err) {
       console.error('[BUBBLE] Erro ao enviar:', err);
+      // Rollback
+      queryClient.setQueryData(['mensagens-internas', threadInterna.id], (old = []) =>
+        old.filter((m) => m.id !== tempId)
+      );
+      setMensagemAtual(conteudo);
       toast.error('Erro ao enviar mensagem');
     } finally {
       setEnviando(false);
