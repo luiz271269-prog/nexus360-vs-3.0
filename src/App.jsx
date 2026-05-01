@@ -12,6 +12,7 @@ import SuperAgente from '@/pages/SuperAgente';
 import NotasFiscais from '@/pages/NotasFiscais';
 import CustoAutomacoes from '@/pages/CustoAutomacoes';
 import Compras from '@/pages/Compras';
+import MonitorPromocoes from '@/pages/MonitorPromocoes';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -106,6 +107,14 @@ const AuthenticatedApp = () => {
           element={
             <LayoutWrapper currentPageName="Compras">
               <Compras />
+            </LayoutWrapper>
+          } 
+        />
+        <Route 
+          path="/MonitorPromocoes" 
+          element={
+            <LayoutWrapper currentPageName="MonitorPromocoes">
+              <MonitorPromocoes />
             </LayoutWrapper>
           } 
         />
