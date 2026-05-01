@@ -946,6 +946,85 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    // CAMADA 2.5 — QUALIFICAÇÃO via PreAtendimentoRule
+    // Avalia regras configuradas no banco e aplica efeitos (bloqueio, rota
+    // forçada, mensagem custom). Falha desta camada NÃO interrompe pipeline.
+    // ═══════════════════════════════════════════════════════════════════
+
+    let regraAplicada = null;
+    let forcarFidelizado = false;
+
+    try {
+      const respRegras = await base44.asServiceRole.functions.invoke('aplicarPreAtendimentoRules', {
+        thread_id, contact_id,
+        setor_detectado: setor,
+        intencao,
+        confidence,
+        message_content: textoAnalise
+      });
+
+      const dataRegras = respRegras?.data || respRegras;
+      if (dataRegras?.matched && dataRegras?.rule) {
+        regraAplicada = dataRegras.rule;
+        const acao = regraAplicada.tipo_acao;
+        const cfg = regraAplicada.acao_configuracao || {};
+
+        console.log(`[UNIFICADO] 🎯 Camada 2.5 — regra "${regraAplicada.nome}" (${acao})`);
+
+        // BLOQUEAR: encerra pipeline silenciosamente
+        if (acao === 'bloquear') {
+          if (cfg.mensagem_resposta && integ && contact?.telefone) {
+            await enviarWhatsApp(integ, contact.telefone, cfg.mensagem_resposta).catch(() => {});
+          }
+          await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+            routing_stage: 'COMPLETED',
+            pre_atendimento_state: 'CANCELLED',
+            pre_atendimento_ativo: false
+          }).catch(() => {});
+          resultado.camadas.qualificacao = { ok: true, regra: regraAplicada.nome, acao: 'bloqueado' };
+          resultado.success = true;
+          await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'bloqueado_por_regra');
+          return Response.json({ ...resultado, action: 'bloqueado_por_regra', regra: regraAplicada.nome }, { headers });
+        }
+
+        // ENVIAR_MENSAGEM: envia texto custom e segue para enfileiramento padrão
+        if (acao === 'enviar_mensagem' && cfg.mensagem_resposta && integ && contact?.telefone) {
+          const { ok, msgId } = await enviarWhatsApp(integ, contact.telefone, cfg.mensagem_resposta);
+          if (ok) {
+            await base44.asServiceRole.entities.Message.create({
+              thread_id, sender_id: 'pre_atendimento_rule', sender_type: 'user',
+              recipient_id: contact_id, recipient_type: 'contact',
+              content: cfg.mensagem_resposta, channel: 'whatsapp', status: 'enviada',
+              sent_at: new Date().toISOString(), visibility: 'public_to_customer',
+              metadata: { is_ai_response: true, regra_id: regraAplicada.id, regra_nome: regraAplicada.nome, whatsapp_msg_id: msgId }
+            }).catch(() => {});
+            await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+              last_outbound_at: new Date().toISOString(),
+              last_message_at: new Date().toISOString(),
+              last_message_sender: 'user',
+              last_message_content: cfg.mensagem_resposta.substring(0, 100)
+            }).catch(() => {});
+          }
+        }
+
+        // ROTEAR_DIRETO: força setor de destino e/ou atendente fidelizado
+        if (acao === 'rotear_direto') {
+          if (cfg.setor_destino) setor = cfg.setor_destino;
+          if (cfg.buscar_atendente_fidelizado) forcarFidelizado = true;
+        }
+      }
+
+      resultado.camadas.qualificacao = {
+        ok: true,
+        regra: regraAplicada?.nome || null,
+        acao: regraAplicada?.tipo_acao || 'seguir_fluxo_padrao'
+      };
+    } catch (e) {
+      console.warn('[UNIFICADO] Camada 2.5 erro (não crítico):', e.message);
+      resultado.camadas.qualificacao = { error: e.message };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     // CAMADA 3 — ROTEAMENTO (prioridades em cascata)
     //   P1: Atendente mencionado por NOME na mensagem
     //   P2: Atendente FIDELIZADO para o setor (se online)
@@ -960,9 +1039,21 @@ Deno.serve(async (req) => {
     const atendenteFidelizadoId = resultado.camadas.intent?.atendenteFidelizadoId || null;
 
     try {
+      // P0: Regra PreAtendimentoRule forçou buscar fidelizado → tem prioridade máxima
+      if (forcarFidelizado && atendenteFidelizadoId) {
+        const fidelizado = atendentes.find(u => u.id === atendenteFidelizadoId);
+        if (fidelizado) {
+          atendente = fidelizado;
+          motivoAtribuicao = 'regra_pre_atendimento_fidelizado';
+          console.log(`[UNIFICADO] 🎯 Regra forçou fidelizado: ${atendente.full_name}`);
+        }
+      }
+
       // P1: Nome mencionado na mensagem (tem prioridade máxima — intenção explícita do cliente)
-      atendente = await detectarAtendenteMencionado(base44, textoAnalise, atendentes);
-      if (atendente) motivoAtribuicao = 'mencionado_na_mensagem';
+      if (!atendente) {
+        atendente = await detectarAtendenteMencionado(base44, textoAnalise, atendentes);
+        if (atendente) motivoAtribuicao = 'mencionado_na_mensagem';
+      }
 
       // P2: Fidelizado
       if (!atendente && atendenteFidelizadoId) {
