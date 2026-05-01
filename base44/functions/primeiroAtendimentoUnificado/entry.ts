@@ -193,18 +193,28 @@ async function enviarWhatsApp(integ, telefone, mensagem) {
       },
       body: JSON.stringify({ phone, message: mensagem, delayMessage: 1 })
     });
-    const resp = await r.json();
-    return { ok: !!(resp.messageId || resp.insertedId), msgId: resp.messageId || resp.insertedId || null, raw: resp };
+    const resp = await r.json().catch(() => ({}));
+    const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
+    const ok = r.ok && !!msgId && !resp.error;
+    if (!ok) console.warn('[UNIFICADO] W-API falhou:', JSON.stringify(resp).substring(0, 300));
+    return { ok, msgId, raw: resp };
   } else {
     const url = (integ.base_url_provider || 'https://api.z-api.io')
       + `/instances/${integ.instance_id_provider}/token/${integ.api_key_provider}/send-text`;
+    const headers = { 'Content-Type': 'application/json' };
+    if (integ.security_client_token_header) {
+      headers['Client-Token'] = integ.security_client_token_header;
+    }
     const r = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ phone, message: mensagem })
     });
-    const resp = await r.json();
-    return { ok: resp.success === true, msgId: resp.messageId || resp.key?.id || null, raw: resp };
+    const resp = await r.json().catch(() => ({}));
+    const msgId = resp.messageId || resp.key?.id || resp.id || null;
+    const ok = r.ok && !!msgId && !resp.error;
+    if (!ok) console.warn('[UNIFICADO] Z-API falhou:', JSON.stringify(resp).substring(0, 300));
+    return { ok, msgId, raw: resp };
   }
 }
 
