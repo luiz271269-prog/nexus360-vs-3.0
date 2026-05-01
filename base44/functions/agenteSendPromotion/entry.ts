@@ -20,13 +20,21 @@ Deno.serve(async (req) => {
 
   // Delega 100% ao motor único — todas as regras (cooldown, bloqueios, janela 24h,
   // formatação, log de auditoria) vivem em enviarPromocao
-  const resp = await base44.asServiceRole.functions.invoke('enviarPromocao', {
-    contact_id,
-    promotion_id,
-    integration_id,
-    trigger: 'manual_individual',
-    initiated_by: `agente:${user.email || user.id}`
-  });
-
-  return Response.json(resp.data || resp);
+  try {
+    const resp = await base44.asServiceRole.functions.invoke('enviarPromocao', {
+      contact_id,
+      promotion_id,
+      integration_id,
+      trigger: 'manual_individual',
+      initiated_by: `agente:${user.email || user.id}`
+    });
+    return Response.json(resp.data || resp);
+  } catch (error) {
+    console.error('[agenteSendPromotion] ❌', error);
+    return Response.json({
+      success: false,
+      status: 'erro',
+      error: error.message || 'Falha ao invocar enviarPromocao'
+    }, { status: 500 });
+  }
 });
