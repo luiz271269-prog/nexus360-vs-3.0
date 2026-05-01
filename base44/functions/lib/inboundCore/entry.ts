@@ -132,10 +132,13 @@ export async function processInboundEvent(params) {
       result.actions.push('reset_promotion_funnel');
     }
     
-    // Contabilizar resposta na Promoção
-    if (contact.last_promo_id) {
+    // Contabilizar resposta na Promoção (usa last_promo_ids[0] = mais recente)
+    const ultimaPromoId = Array.isArray(contact.last_promo_ids) && contact.last_promo_ids.length > 0
+      ? contact.last_promo_ids[0]
+      : contact.last_promo_id; // fallback p/ campo legado
+    if (ultimaPromoId) {
       try {
-        const promo = await base44.asServiceRole.entities.Promotion.get(contact.last_promo_id);
+        const promo = await base44.asServiceRole.entities.Promotion.get(ultimaPromoId);
         if (promo) {
           await base44.asServiceRole.entities.Promotion.update(promo.id, {
             contador_respostas: (promo.contador_respostas || 0) + 1

@@ -501,22 +501,11 @@ Deno.serve(async (req) => {
             pre_atendimento_ativo: false
           });
 
-          // ✅ Atualizar histórico de promoções (últimas 3) + cooldown
-          const lastPromoIds = (contato.last_promo_ids || []).slice(-2); // Manter últimas 2
-          lastPromoIds.unshift(promo.id); // Adicionar nova no início
-
-          await base44.asServiceRole.entities.Contact.update(contato.id, {
-            last_any_promo_sent_at: now.toISOString(),
-            last_promo_ids: lastPromoIds,
-            last_campaign_sent_at: {
-              ...(contato.last_campaign_sent_at || {}),
-              [promo.id]: now.toISOString()
-            },
-            promocoes_recebidas: {
-              ...(contato.promocoes_recebidas || {}),
-              [promo.id]: ((contato.promocoes_recebidas?.[promo.id] || 0) + 1)
-            }
-          });
+          // ⚠️ NÃO atualizar last_any_promo_sent_at aqui!
+          // Esta é apenas a SAUDAÇÃO, não a promoção.
+          // O motor enviarPromocao (acionado por processarFilaPromocoes) é o ÚNICO
+          // lugar autorizado a marcar last_any_promo_sent_at e last_promo_ids.
+          // Fonte única de verdade = enviarPromocao + PromotionDispatchLog.
 
           // Enfileirar promoção com delay
           const scheduledFor = new Date(now.getTime() + delay_minutos * 60 * 1000);
