@@ -42,6 +42,37 @@ const SETOR_DEFAULT = 'vendas';
 const HORA_INICIO = 8;
 const HORA_FIM = 18;
 
+// Feriados nacionais brasileiros (timezone São Paulo)
+// Fixos: chave MM-DD | Móveis (Carnaval, Sexta Santa, Corpus Christi): chave YYYY-MM-DD
+const FERIADOS_NACIONAIS = new Set([
+  // Fixos (todo ano)
+  '01-01', // Confraternização Universal
+  '04-21', // Tiradentes
+  '05-01', // Dia do Trabalho
+  '09-07', // Independência
+  '10-12', // Nossa Senhora Aparecida
+  '11-02', // Finados
+  '11-15', // Proclamação da República
+  '11-20', // Consciência Negra
+  '12-25', // Natal
+  // Móveis 2026
+  '2026-02-16', '2026-02-17', // Carnaval
+  '2026-04-03',               // Sexta-feira Santa
+  '2026-06-04',               // Corpus Christi
+  // Móveis 2027
+  '2027-02-08', '2027-02-09', // Carnaval
+  '2027-03-26',               // Sexta-feira Santa
+  '2027-05-27',               // Corpus Christi
+]);
+
+function ehFeriadoNacional(date) {
+  const brt = new Date(date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const mm = String(brt.getMonth() + 1).padStart(2, '0');
+  const dd = String(brt.getDate()).padStart(2, '0');
+  const yyyy = brt.getFullYear();
+  return FERIADOS_NACIONAIS.has(`${mm}-${dd}`) || FERIADOS_NACIONAIS.has(`${yyyy}-${mm}-${dd}`);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CAMADA 0 — MICRO-INTENTS (saudação pura / agradecimento / mídia / spam)
 // Detecta padrões simples que NÃO precisam de ACK genérico + Intent + Routing
@@ -128,6 +159,9 @@ function gerarRespostaMicroIntent(tipo, profile, contactNome, hora, foraHorario)
 
 function buildAckMsg(tipo, nome, isVIP, hora) {
   const primeiroNome = (nome || '').split(' ')[0] || '';
+  if (ehFeriadoNacional(new Date())) {
+    return { tipo: 'fora_horario', msg: `Olá! 😊\nHoje é feriado nacional.\nRetornaremos no próximo dia útil, das ${HORA_INICIO}h às ${HORA_FIM}h.` };
+  }
   if (hora < HORA_INICIO || hora > HORA_FIM) {
     return { tipo: 'fora_horario', msg: `Olá! 😊\nNosso atendimento é Seg-Sex ${HORA_INICIO}h-${HORA_FIM}h.\nRetornaremos em breve!` };
   }
@@ -999,7 +1033,7 @@ Deno.serve(async (req) => {
 
       // ─── FORA DE HORÁRIO: pular boas-vindas LLM (já foi enviado ACK+promo na Camada 1) ───
       const horaCamada4 = new Date().getHours();
-      if (horaCamada4 < HORA_INICIO || horaCamada4 > HORA_FIM) {
+      if (ehFeriadoNacional(new Date()) || horaCamada4 < HORA_INICIO || horaCamada4 > HORA_FIM) {
         console.log('[UNIFICADO] ⏭️ Camada 4: fora de horário — boas-vindas LLM SUPRIMIDA (ACK+promo já enviado)');
         resultado.camadas.atribuicao = {
           ok: true,
