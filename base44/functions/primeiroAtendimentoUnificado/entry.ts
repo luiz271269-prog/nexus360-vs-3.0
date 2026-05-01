@@ -437,10 +437,19 @@ Deno.serve(async (req) => {
       thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
 
       // Guard 1: já atribuída?
-      if (thread.assigned_user_id && thread.routing_stage === 'ASSIGNED') {
+      // EXCEÇÃO: em fora-horário/feriado, NÃO pular — precisamos enviar ACK informativo
+      // (atendente atribuído não está disponível agora, cliente precisa saber)
+      const horaGuard = new Date().getHours();
+      const foraHorarioOuFeriado = ehFeriadoNacional(new Date()) || horaGuard < HORA_INICIO || horaGuard > HORA_FIM;
+
+      if (thread.assigned_user_id && thread.routing_stage === 'ASSIGNED' && !foraHorarioOuFeriado) {
         resultado.camadas.dedup = { skipped: true, reason: 'ja_atribuida' };
-        console.log('[UNIFICADO] ⏭️ Thread já atribuída — skip');
+        console.log('[UNIFICADO] ⏭️ Thread já atribuída — skip (em horário comercial)');
         return Response.json({ ...resultado, success: true, skipped: true, reason: 'ja_atribuida' }, { headers });
+      }
+
+      if (thread.assigned_user_id && thread.routing_stage === 'ASSIGNED' && foraHorarioOuFeriado) {
+        console.log('[UNIFICADO] 🌙 Thread atribuída + fora-horário/feriado → seguir só p/ ACK informativo');
       }
 
       // Guard 2: pipeline recente? (dedup de 30s)
@@ -827,6 +836,20 @@ Deno.serve(async (req) => {
         resultado.camadas.ack = resultado.camadas.ack || { error: e.message };
       }
       // NÃO THROW — pipeline sempre continua
+    }
+
+    // ─── Se thread já atribuída + fora-horário: parou aqui (só ACK informativo) ───
+    // Não executa Intent/Routing/Atribuição porque atendente já existe
+    if (thread.assigned_user_id && thread.routing_stage === 'ASSIGNED') {
+      console.log('[UNIFICADO] 🌙 Pipeline encerrado após ACK fora-horário (thread já atribuída)');
+      resultado.success = true;
+      await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'ack_fora_horario_thread_atribuida');
+      return Response.json({
+        ...resultado,
+        action: 'ack_fora_horario_atribuida',
+        atendente_existente: thread.assigned_user_id,
+        tempo_ms: Date.now() - tsInicio
+      }, { headers });
     }
 
     // ═══════════════════════════════════════════════════════════════════
