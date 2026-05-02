@@ -212,7 +212,8 @@ Deno.serve(async (req) => {
       audio_url,
       reply_to_message_id,
       message_type,
-      interactive_buttons
+      interactive_buttons,
+      gif_playback
     } = payload;
 
     // ✅ Validação de campos obrigatórios
@@ -494,13 +495,14 @@ Deno.serve(async (req) => {
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📷 W-API Image - URL original:`, media_url);
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📷 W-API Image - URL limpa:`, urlParaUsar);
         } else if (tipoMidiaReal === 'video') {
-          // W-API VÍDEO
+          // W-API VÍDEO (com suporte a GIF playback)
           body = {
             phone: numeroFormatado,
             video: media_url,
             delayMessage: 1
           };
           if (media_caption) body.caption = media_caption;
+          if (gif_playback) body.gifPlayback = true; // ✅ W-API: toca como GIF animado
         }
       } else {
         // ========== Z-API ==========
@@ -582,12 +584,13 @@ Deno.serve(async (req) => {
           
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📷 Z-API Image URL:`, urlParaUsar);
         } else if (tipoMidiaReal === 'video') {
-          // Z-API VÍDEO
+          // Z-API VÍDEO (com suporte a GIF playback)
           body = {
             phone: numeroFormatado,
             video: media_url
           };
           if (media_caption) body.caption = media_caption;
+          if (gif_playback) body.viewOnce = false; // Z-API trata GIF via flag específica do payload
         }
       }
       

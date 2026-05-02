@@ -1,0 +1,52 @@
+{
+  "name": "ConfiguracaoMidiaSistema",
+  "type": "object",
+  "description": "Armazena URLs de m\u00eddias reutiliz\u00e1veis pelo sistema (logos, GIFs, v\u00eddeos institucionais) para uso em automa\u00e7\u00f5es, pr\u00e9-atendimento e respostas autom\u00e1ticas.",
+  "properties": {
+    "id_chave": {
+      "type": "string",
+      "description": "Chave \u00fanica que identifica essa m\u00eddia (ex: pre_atendimento_logo_animado, saudacao_video, footer_promocional)"
+    },
+    "url": {
+      "type": "string",
+      "description": "URL p\u00fablica da m\u00eddia"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "image",
+        "video",
+        "audio",
+        "document",
+        "gif"
+      ],
+      "default": "image",
+      "description": "Tipo da m\u00eddia. Use 'gif' se o arquivo \u00e9 .gif e deve ser enviado como v\u00eddeo animado no WhatsApp (gifPlayback)"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o do uso/contexto da m\u00eddia"
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a m\u00eddia est\u00e1 ativa para uso"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "pre_atendimento",
+        "promocao",
+        "institucional",
+        "saudacao",
+        "geral"
+      ],
+      "default": "geral",
+      "description": "Categoria de uso"
+    }
+  },
+  "required": [
+    "id_chave",
+    "url"
+  ]
+}

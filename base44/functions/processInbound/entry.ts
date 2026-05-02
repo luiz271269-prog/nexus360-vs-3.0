@@ -282,18 +282,36 @@ Deno.serve(async (req) => {
 
       if (!jaAviso) {
         const msgFechado = `Olá! Recebemos sua mensagem 😊\n\nNosso atendimento funciona de *segunda a sexta, das 08h às 18h* (horário de Brasília).\n\nNossa equipe entrará em contato assim que abrirmos. Até logo! 👋`;
-        const GIF_LOGO_URL = 'https://media.base44.com/images/public/69b2fc6e5d83e60566460a2d/ce8674c2c_logo_animado_final.gif';
 
-        // Enviar GIF (logo animado) + texto como legenda em UMA única mensagem
+        // Buscar URL da mídia do logo no banco (ConfiguracaoMidiaSistema)
+        let logoUrl = null;
+        let logoTipo = 'gif';
+        try {
+          const cfgs = await base44.asServiceRole.entities.ConfiguracaoMidiaSistema.filter({
+            id_chave: 'pre_atendimento_logo_animado',
+            ativa: true
+          }, '-created_date', 1);
+          if (cfgs?.[0]) {
+            logoUrl = cfgs[0].url;
+            logoTipo = cfgs[0].tipo || 'gif';
+          }
+        } catch (e) {
+          console.warn(`[${VERSION}] ⚠️ Falha ao buscar logo no banco:`, e.message);
+        }
+
+        // Enviar logo animado + texto como legenda em UMA única mensagem
         try {
           const integrationId = integration?.id || thread?.whatsapp_integration_id;
-          if (integrationId) {
+          if (integrationId && logoUrl) {
+            // tipo 'gif' ou 'video' → envia como vídeo com gifPlayback (toca animado no WhatsApp)
+            const enviarComoVideo = logoTipo === 'gif' || logoTipo === 'video';
             await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
               integration_id: integrationId,
               numero_destino: contact?.telefone,
-              media_url: GIF_LOGO_URL,
-              media_type: 'image',
-              media_caption: msgFechado
+              media_url: logoUrl,
+              media_type: enviarComoVideo ? 'video' : 'image',
+              media_caption: msgFechado,
+              gif_playback: enviarComoVideo
             });
 
             // Salvar mensagem no histórico (com mídia)
@@ -302,17 +320,36 @@ Deno.serve(async (req) => {
               sender_id: 'nexus_agent',
               sender_type: 'user',
               content: msgFechado,
-              media_url: GIF_LOGO_URL,
-              media_type: 'image',
+              media_url: logoUrl,
+              media_type: enviarComoVideo ? 'video' : 'image',
               media_caption: msgFechado,
               channel: 'whatsapp',
               status: 'enviada',
               sent_at: now.toISOString(),
               visibility: 'public_to_customer',
-              metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed', has_logo_gif: true }
+              metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed', has_logo_gif: true, logo_source: 'ConfiguracaoMidiaSistema' }
             }).catch(() => {});
 
-            console.log(`[${VERSION}] ✅ Mensagem fora do horário (GIF+texto) enviada para ${contact?.nome}`);
+            console.log(`[${VERSION}] ✅ Mensagem fora do horário (logo+texto) enviada para ${contact?.nome}`);
+          } else if (integrationId) {
+            // Fallback: sem logo no banco → envia só texto
+            await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+              integration_id: integrationId,
+              numero_destino: contact?.telefone,
+              mensagem: msgFechado
+            });
+            await base44.asServiceRole.entities.Message.create({
+              thread_id: thread?.id,
+              sender_id: 'nexus_agent',
+              sender_type: 'user',
+              content: msgFechado,
+              channel: 'whatsapp',
+              status: 'enviada',
+              sent_at: now.toISOString(),
+              visibility: 'public_to_customer',
+              metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed' }
+            }).catch(() => {});
+            console.log(`[${VERSION}] ⚠️ Logo não configurado no banco — enviado só texto para ${contact?.nome}`);
           }
         } catch (e) {
           console.warn(`[${VERSION}] ⚠️ Falha ao enviar msg fora horário:`, e.message);
