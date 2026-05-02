@@ -1,4 +1,5 @@
 import './App.css'
+import { useState } from 'react'
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -8,6 +9,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import SplashScreen from '@/components/global/SplashScreen';
 import SuperAgente from '@/pages/SuperAgente';
 import NotasFiscais from '@/pages/NotasFiscais';
 import CustoAutomacoes from '@/pages/CustoAutomacoes';
@@ -134,6 +136,22 @@ const AuthenticatedApp = () => {
 
 
 function App() {
+  const [splashDone, setSplashDone] = useState(() => {
+    // Mostra splash apenas uma vez por sessão (evita rodar a cada hot-reload)
+    return sessionStorage.getItem('nexus_splash_done') === '1';
+  });
+
+  if (!splashDone) {
+    return (
+      <SplashScreen
+        durationMs={3500}
+        onFinish={() => {
+          sessionStorage.setItem('nexus_splash_done', '1');
+          setSplashDone(true);
+        }}
+      />
+    );
+  }
 
   return (
     <AuthProvider>
