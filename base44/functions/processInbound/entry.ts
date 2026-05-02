@@ -282,92 +282,37 @@ Deno.serve(async (req) => {
 
       if (!jaAviso) {
         const msgFechado = `Olá! Recebemos sua mensagem 😊\n\nNosso atendimento funciona de *segunda a sexta, das 08h às 18h* (horário de Brasília).\n\nNossa equipe entrará em contato assim que abrirmos. Até logo! 👋`;
+        const GIF_LOGO_URL = 'https://media.base44.com/images/public/69b2fc6e5d83e60566460a2d/ce8674c2c_logo_animado_final.gif';
 
-        // Enviar mensagem de fora do horário
+        // Enviar GIF (logo animado) + texto como legenda em UMA única mensagem
         try {
           const integrationId = integration?.id || thread?.whatsapp_integration_id;
           if (integrationId) {
             await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
               integration_id: integrationId,
               numero_destino: contact?.telefone,
-              mensagem: msgFechado
+              media_url: GIF_LOGO_URL,
+              media_type: 'image',
+              media_caption: msgFechado
             });
 
-            // Salvar mensagem no histórico
+            // Salvar mensagem no histórico (com mídia)
             await base44.asServiceRole.entities.Message.create({
               thread_id: thread?.id,
               sender_id: 'nexus_agent',
               sender_type: 'user',
               content: msgFechado,
+              media_url: GIF_LOGO_URL,
+              media_type: 'image',
+              media_caption: msgFechado,
               channel: 'whatsapp',
               status: 'enviada',
               sent_at: now.toISOString(),
               visibility: 'public_to_customer',
-              metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed' }
+              metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed', has_logo_gif: true }
             }).catch(() => {});
 
-            console.log(`[${VERSION}] ✅ Mensagem fora do horário enviada para ${contact?.nome}`);
-
-            // ── ANEXO PROMO: enviar última promoção ativa como bônus (best-effort) ──
-            // Cooldown 24h: não reenvia promo se cliente já recebeu uma há menos de 24h
-            const cooldown24h = 24 * 60 * 60 * 1000;
-            const ultPromoMs = contact?.last_any_promo_sent_at
-              ? Date.now() - new Date(contact.last_any_promo_sent_at).getTime()
-              : Infinity;
-
-            if (ultPromoMs >= cooldown24h) {
-              try {
-                const promosAtivas = await base44.asServiceRole.entities.Promotion.filter(
-                  { ativo: true }, '-created_date', 5
-                );
-                const promoComMidia = promosAtivas?.find(p => p.imagem_url);
-
-                if (promoComMidia) {
-                  const legenda = promoComMidia.descricao_curta
-                    || promoComMidia.titulo
-                    || '✨ Confira nossa promoção!';
-
-                  await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
-                    integration_id: integrationId,
-                    numero_destino: contact?.telefone,
-                    media_url: promoComMidia.imagem_url,
-                    media_type: 'image',
-                    media_caption: legenda
-                  });
-
-                  await base44.asServiceRole.entities.Message.create({
-                    thread_id: thread?.id,
-                    sender_id: 'nexus_agent',
-                    sender_type: 'user',
-                    content: legenda,
-                    media_url: promoComMidia.imagem_url,
-                    media_type: 'image',
-                    media_caption: legenda,
-                    channel: 'whatsapp',
-                    status: 'enviada',
-                    sent_at: new Date().toISOString(),
-                    visibility: 'public_to_customer',
-                    metadata: {
-                      is_ai_response: true,
-                      ai_agent: 'processInbound',
-                      trigger: 'business_hours_promo_attach',
-                      promotion_id: promoComMidia.id
-                    }
-                  }).catch(() => {});
-
-                  await base44.asServiceRole.entities.Contact.update(contact.id, {
-                    last_any_promo_sent_at: new Date().toISOString(),
-                    last_promo_id: promoComMidia.id
-                  }).catch(() => {});
-
-                  console.log(`[${VERSION}] 🎁 Promo "${promoComMidia.titulo}" anexada ao aviso de horário`);
-                }
-              } catch (promoErr) {
-                console.warn(`[${VERSION}] ⚠️ Falha ao anexar promo (não crítico):`, promoErr.message);
-              }
-            } else {
-              console.log(`[${VERSION}] ⏭️ Promo skip — cliente já recebeu há ${Math.floor(ultPromoMs/3600000)}h`);
-            }
+            console.log(`[${VERSION}] ✅ Mensagem fora do horário (GIF+texto) enviada para ${contact?.nome}`);
           }
         } catch (e) {
           console.warn(`[${VERSION}] ⚠️ Falha ao enviar msg fora horário:`, e.message);
