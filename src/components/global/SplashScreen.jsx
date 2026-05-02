@@ -27,7 +27,7 @@ export default function SplashScreen({ onFinish, durationMs = 3500 }) {
       }`}
     >
       <img
-        src="https://media.base44.com/images/public/69b2fc6e5d83e60566460a2d/ce8674c2c_logo_animado_final.gif"
+        src="https://base44.app/api/apps/69b2fc6e5d83e60566460a2d/files/mp/public/69b2fc6e5d83e60566460a2d/8ffaca6b4_logo_sticker_opt.webp"
         alt="Nexus360"
         className="w-full h-full max-w-screen max-h-screen object-contain"
       />
