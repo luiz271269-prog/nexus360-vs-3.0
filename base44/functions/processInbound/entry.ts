@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
         const primeiroNome = (contact?.nome || '').trim().split(/\s+/)[0] || '';
         const saudacaoPersonalizada = primeiroNome ? `${saudacao}, ${primeiroNome}!` : `${saudacao}!`;
 
-        const msgFechado = `${saudacaoPersonalizada} Nosso atendimento funciona de *segunda a sexta, das 08h às 18h* (horário de Brasília).\n\nNossa equipe entrará em contato assim que abrirmos. Até logo! 👋`;
+        const msgFechado = saudacaoPersonalizada;
 
         // Buscar URL da mídia do logo no banco (ConfiguracaoMidiaSistema)
         let logoUrl = null;
