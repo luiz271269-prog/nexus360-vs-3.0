@@ -25,11 +25,16 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated, navigateToLogin } = useAuth();
 
-  // Show loading spinner while checking app public settings or auth
+  // Show animated logo while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <img
+          src="https://media.base44.com/images/public/69b2fc6e5d83e60566460a2d/ce8674c2c_logo_animado_final.gif"
+          alt="Nexus360"
+          className="w-64 h-64 object-contain"
+        />
+        <div className="mt-6 w-8 h-8 border-4 border-slate-700 border-t-amber-400 rounded-full animate-spin"></div>
       </div>
     );
   }
