@@ -281,7 +281,18 @@ Deno.serve(async (req) => {
       }
 
       if (!jaAviso) {
-        const msgFechado = `Olá! Recebemos sua mensagem 😊\n\nNosso atendimento funciona de *segunda a sexta, das 08h às 18h* (horário de Brasília).\n\nNossa equipe entrará em contato assim que abrirmos. Até logo! 👋`;
+        // Saudação dinâmica baseada no horário de Brasília (UTC-3)
+        const brasiliaHora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours();
+        let saudacao = 'Olá';
+        if (brasiliaHora >= 5 && brasiliaHora < 12) saudacao = 'Bom dia';
+        else if (brasiliaHora >= 12 && brasiliaHora < 18) saudacao = 'Boa tarde';
+        else saudacao = 'Boa noite';
+
+        // Primeiro nome do contato (se houver)
+        const primeiroNome = (contact?.nome || '').trim().split(/\s+/)[0] || '';
+        const saudacaoPersonalizada = primeiroNome ? `${saudacao}, ${primeiroNome}!` : `${saudacao}!`;
+
+        const msgFechado = `${saudacaoPersonalizada} Nosso atendimento funciona de *segunda a sexta, das 08h às 18h* (horário de Brasília).\n\nNossa equipe entrará em contato assim que abrirmos. Até logo! 👋`;
 
         // Buscar URL da mídia do logo no banco (ConfiguracaoMidiaSistema)
         let logoUrl = null;
