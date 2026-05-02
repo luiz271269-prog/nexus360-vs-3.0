@@ -60,6 +60,14 @@ Deno.serve(async (req) => {
   const agora = new Date();
   const resultados = { processadas: 0, erros: 0, puladas: 0 };
 
+  // ✅ GUARD: só reativa em dias úteis (Seg=1 a Sex=5) — Brasília UTC-3
+  const brasilia = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const diaSemanaBrt = brasilia.getUTCDay(); // 0=dom, 6=sab
+  if (diaSemanaBrt < 1 || diaSemanaBrt > 5) {
+    console.log(`[REATIVAR] ⏭️ Dia não útil (${['dom','seg','ter','qua','qui','sex','sab'][diaSemanaBrt]}) — skip reativação matinal`);
+    return Response.json({ success: true, skipped: true, reason: 'fim_de_semana', dia: diaSemanaBrt });
+  }
+
   console.log('[REATIVAR] 🌅 Iniciando reativação matinal...');
 
   try {
