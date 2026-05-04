@@ -56,6 +56,7 @@ import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
 import { aplicarFiltroEscopo, calcularThreadsFiltradas, calcularListaRecentes, calcularListaBusca } from "../components/comunicacao/threadFiltering";
 import { useDelegacoesRecebidas } from "../components/comunicacao/useDelegacoesRecebidas";
+import { useAutoAbrirChatMobileNaSelecao } from "../components/comunicacao/skills/mobileSelecaoMassaSkill";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
@@ -1031,6 +1032,9 @@ export default function Comunicacao() {
 
   // 🎯 Abrir conversa direta a partir de telefone (vCard) — lógica isolada em hook
   useAbrirConversaPorTelefone({ integracoes, usuario, queryClient, setThreadAtiva, setMobileView });
+
+  // 📱 Mobile: ao selecionar contatos na lista, abrir painel de envio automaticamente
+  useAutoAbrirChatMobileNaSelecao({ modoSelecaoMultipla, contatosSelecionados, broadcastInterno, setMobileView });
 
   // Handler para atualizar informações do contato (silencioso para auto-save)
   const handleAtualizarContato = React.useCallback(async (dadosAtualizados) => {
