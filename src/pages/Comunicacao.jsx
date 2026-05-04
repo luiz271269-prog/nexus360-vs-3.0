@@ -57,6 +57,7 @@ import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/in
 import { aplicarFiltroEscopo, calcularThreadsFiltradas, calcularListaRecentes, calcularListaBusca } from "../components/comunicacao/threadFiltering";
 import { useDelegacoesRecebidas } from "../components/comunicacao/useDelegacoesRecebidas";
 import { useAutoAbrirChatMobileNaSelecao } from "../components/comunicacao/skills/mobileSelecaoMassaSkill";
+import MobileHeader from "../components/comunicacao/mobile/MobileHeader";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
@@ -1036,6 +1037,17 @@ export default function Comunicacao() {
   // 📱 Mobile: ao selecionar contatos na lista, abrir painel de envio automaticamente
   useAutoAbrirChatMobileNaSelecao({ modoSelecaoMultipla, contatosSelecionados, broadcastInterno, setMobileView });
 
+  // 🔄 Handler unificado de "Atualizar" — usado no header desktop e mobile
+  const handleAtualizarTudo = React.useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+    queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
+    queryClient.invalidateQueries({ queryKey: ['contacts'] });
+    queryClient.invalidateQueries({ queryKey: ['integracoes'] });
+    queryClient.invalidateQueries({ queryKey: ['atendentes'] });
+    if (threadAtiva) queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+    toast.info("🔄 Atualizando dados...");
+  }, [queryClient, threadAtiva]);
+
   // Handler para atualizar informações do contato (silencioso para auto-save)
   const handleAtualizarContato = React.useCallback(async (dadosAtualizados) => {
     try {
@@ -1514,15 +1526,7 @@ export default function Comunicacao() {
               {integracoes.length === 0 &&
                 <Button onClick={() => setMostrarInstrucoesWebhook(true)} variant="outline" size="sm"
                   className="border-white/30 text-white hover:bg-white/20 h-7 text-xs px-2">Configurar Webhook</Button>}
-              <Button variant="outline" size="sm" onClick={() => {
-                queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
-                queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
-                queryClient.invalidateQueries({ queryKey: ['contacts'] });
-                queryClient.invalidateQueries({ queryKey: ['integracoes'] });
-                queryClient.invalidateQueries({ queryKey: ['atendentes'] });
-                if (threadAtiva) queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
-                toast.info("🔄 Atualizando dados...");
-              }} className="bg-orange-500 text-white h-7 px-2 text-xs border border-white/30 hover:bg-white/20 rounded-md flex items-center gap-1.5">
+              <Button variant="outline" size="sm" onClick={handleAtualizarTudo} className="bg-orange-500 text-white h-7 px-2 text-xs border border-white/30 hover:bg-white/20 rounded-md flex items-center gap-1.5">
                 <RefreshCw className="w-3.5 h-3.5" /> Atualizar
               </Button>
             </div>
@@ -1530,35 +1534,7 @@ export default function Comunicacao() {
         </div>
 
         {/* ── HEADER MOBILE ── */}
-        <div className="md:hidden bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-xl flex-shrink-0">
-          <div className="flex items-center justify-between px-3 py-2">
-            {/* Título compacto */}
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-lg flex items-center justify-center shadow-md flex-shrink-0">
-                <MessageSquare className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-sm font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 bg-clip-text text-transparent truncate">
-                Comunicação
-              </span>
-            </div>
-
-            {/* Ações compactas */}
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => {
-                  queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
-                  queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
-                  queryClient.invalidateQueries({ queryKey: ['contacts'] });
-                  toast.info("🔄 Atualizando...");
-                }}
-                className="w-8 h-8 bg-orange-500 hover:bg-orange-600 rounded-lg flex items-center justify-center transition-colors flex-shrink-0"
-                title="Atualizar"
-              >
-                <RefreshCw className="w-4 h-4 text-white" />
-              </button>
-            </div>
-          </div>
-        </div>
+        <MobileHeader onAtualizar={handleAtualizarTudo} />
 
         <WebhookInstructions
           isOpen={mostrarInstrucoesWebhook}
