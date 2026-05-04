@@ -280,6 +280,50 @@ Deno.serve(async (req) => {
         console.warn(`[${VERSION}] ⚠️ Erro ao verificar aviso horário:`, e.message);
       }
 
+      // ✅ LOCK ATÔMICO ANTI-RACE: gravar marca de "fora_horario_aviso" ANTES de qualquer envio.
+      // Se múltiplos webhooks chegarem em paralelo (4 imagens em sequência), o primeiro grava
+      // o lock e os demais encontram via filtro abaixo, evitando duplicação.
+      if (!jaAviso) {
+        try {
+          const lockRecentes = await base44.asServiceRole.entities.Message.filter({
+            thread_id: thread?.id,
+            sender_id: 'fora_horario_aviso',
+            created_date: { $gte: oitoHorasAtras }
+          }, '-created_date', 1);
+          if (lockRecentes?.length > 0) {
+            jaAviso = true;
+            console.log(`[${VERSION}] 🔒 Lock atômico fora_horario_aviso encontrado — pulando envio`);
+          }
+        } catch (e) {
+          console.warn(`[${VERSION}] ⚠️ Erro lock atômico fora_horario:`, e.message);
+        }
+      }
+
+      // Gravar lock IMEDIATAMENTE antes do envio (evita race entre webhooks paralelos)
+      let lockForaHorarioId = null;
+      if (!jaAviso) {
+        try {
+          const lockRec = await base44.asServiceRole.entities.Message.create({
+            thread_id: thread?.id,
+            sender_id: 'fora_horario_aviso',
+            sender_type: 'user',
+            recipient_id: contact?.id,
+            recipient_type: 'contact',
+            content: '...',
+            channel: 'whatsapp',
+            status: 'enviando',
+            sent_at: now.toISOString(),
+            visibility: 'public_to_customer',
+            metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed_lock' }
+          });
+          lockForaHorarioId = lockRec?.id || null;
+          console.log(`[${VERSION}] 🔒 Lock fora_horario gravado: ${lockForaHorarioId}`);
+        } catch (e) {
+          console.warn(`[${VERSION}] ⚠️ Falha ao gravar lock fora_horario:`, e.message);
+          jaAviso = true; // se não conseguiu gravar lock, não envia para evitar duplicação
+        }
+      }
+
       if (!jaAviso) {
         // Saudação dinâmica baseada no horário de Brasília (UTC-3)
         const brasiliaHora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours();
@@ -325,21 +369,32 @@ Deno.serve(async (req) => {
               gif_playback: enviarComoVideo
             });
 
-            // Salvar mensagem no histórico (com mídia)
-            await base44.asServiceRole.entities.Message.create({
-              thread_id: thread?.id,
-              sender_id: 'nexus_agent',
-              sender_type: 'user',
-              content: msgFechado,
-              media_url: logoUrl,
-              media_type: enviarComoVideo ? 'video' : 'image',
-              media_caption: msgFechado,
-              channel: 'whatsapp',
-              status: 'enviada',
-              sent_at: now.toISOString(),
-              visibility: 'public_to_customer',
-              metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed', has_logo_gif: true, logo_source: 'ConfiguracaoMidiaSistema' }
-            }).catch(() => {});
+            // Atualizar o lock placeholder com conteúdo real (em vez de criar nova mensagem)
+            if (lockForaHorarioId) {
+              await base44.asServiceRole.entities.Message.update(lockForaHorarioId, {
+                content: msgFechado,
+                media_url: logoUrl,
+                media_type: enviarComoVideo ? 'video' : 'image',
+                media_caption: msgFechado,
+                status: 'enviada',
+                metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed', has_logo_gif: true, logo_source: 'ConfiguracaoMidiaSistema' }
+              }).catch(() => {});
+            } else {
+              await base44.asServiceRole.entities.Message.create({
+                thread_id: thread?.id,
+                sender_id: 'fora_horario_aviso',
+                sender_type: 'user',
+                content: msgFechado,
+                media_url: logoUrl,
+                media_type: enviarComoVideo ? 'video' : 'image',
+                media_caption: msgFechado,
+                channel: 'whatsapp',
+                status: 'enviada',
+                sent_at: now.toISOString(),
+                visibility: 'public_to_customer',
+                metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed', has_logo_gif: true, logo_source: 'ConfiguracaoMidiaSistema' }
+              }).catch(() => {});
+            }
 
             console.log(`[${VERSION}] ✅ Mensagem fora do horário (logo+texto) enviada para ${contact?.nome}`);
           } else if (integrationId) {
@@ -349,21 +404,35 @@ Deno.serve(async (req) => {
               numero_destino: contact?.telefone,
               mensagem: msgFechado
             });
-            await base44.asServiceRole.entities.Message.create({
-              thread_id: thread?.id,
-              sender_id: 'nexus_agent',
-              sender_type: 'user',
-              content: msgFechado,
-              channel: 'whatsapp',
-              status: 'enviada',
-              sent_at: now.toISOString(),
-              visibility: 'public_to_customer',
-              metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed' }
-            }).catch(() => {});
+            // Atualizar lock placeholder em vez de criar nova mensagem
+            if (lockForaHorarioId) {
+              await base44.asServiceRole.entities.Message.update(lockForaHorarioId, {
+                content: msgFechado,
+                status: 'enviada',
+                metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed' }
+              }).catch(() => {});
+            } else {
+              await base44.asServiceRole.entities.Message.create({
+                thread_id: thread?.id,
+                sender_id: 'fora_horario_aviso',
+                sender_type: 'user',
+                content: msgFechado,
+                channel: 'whatsapp',
+                status: 'enviada',
+                sent_at: now.toISOString(),
+                visibility: 'public_to_customer',
+                metadata: { is_ai_response: true, ai_agent: 'processInbound', trigger: 'business_hours_closed' }
+              }).catch(() => {});
+            }
             console.log(`[${VERSION}] ⚠️ Logo não configurado no banco — enviado só texto para ${contact?.nome}`);
           }
         } catch (e) {
           console.warn(`[${VERSION}] ⚠️ Falha ao enviar msg fora horário:`, e.message);
+          // Se falhou no envio, remover lock placeholder para permitir nova tentativa
+          if (lockForaHorarioId) {
+            await base44.asServiceRole.entities.Message.delete(lockForaHorarioId).catch(() => {});
+            console.log(`[${VERSION}] 🔓 Lock removido após falha de envio: ${lockForaHorarioId}`);
+          }
         }
       } else {
         console.log(`[${VERSION}] ⏭️ Aviso de fora do horário já enviado nas últimas 8h — não repetindo`);
