@@ -105,7 +105,14 @@ export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }
     const promosSelecionadas = promocoes.filter(p => selecionadas.includes(p.id));
     
     for (const promo of promosSelecionadas) {
-      // URL da mídia: imagem da Promotion OU mídia da mensagem etiquetada (qualquer tipo)
+      // 🎯 PROMOTION REAL: invocar motor especializado (cooldown, log, contador)
+      if (promo._origem !== 'mensagem' && promo.id && !String(promo.id).startsWith('msg_')) {
+        onSelecionarPromocao({ promotion_id: promo.id, promocao: promo });
+        await new Promise(resolve => setTimeout(resolve, 100));
+        continue;
+      }
+
+      // 📨 Mensagem etiquetada: trata como mídia comum (caminho atual)
       const mediaUrl = promo.imagem_url || promo._media_url;
       if (!mediaUrl) {
         toast.error(`${promo.titulo} não tem mídia configurada`);

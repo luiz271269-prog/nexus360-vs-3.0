@@ -166,27 +166,66 @@ export default function MessageInput({
     });
   }, []);
 
-  const handleSelecionarPromocao = useCallback((dadosPromocao) => {
-    const { file, previewUrl, caption } = dadosPromocao;
+  const handleSelecionarPromocao = useCallback(async (dadosPromocao) => {
+    const { promotion_id, file, previewUrl, caption } = dadosPromocao;
 
-    // Detecta tipo da mídia (image/video/audio/document)
+    // 🎯 PROMOTION REAL: roteia para motor especializado
+    // (cooldown 12h, log em PromotionDispatchLog, contador, target_sectors, janela Meta 24h)
+    if (promotion_id) {
+      try {
+        if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
+          toast.info(`📤 Disparando promoção em massa para ${contatosSelecionados.length} contatos...`);
+          const res = await base44.functions.invoke('enviarPromocaoEmMassa', {
+            promotion_id,
+            contact_ids: contatosSelecionados.map(c => c.contact_id || c.id),
+            integration_id: canalSelecionado || null
+          });
+          if (res?.data?.success) {
+            const enviados = res.data.enfileirados ?? res.data.enviados ?? 0;
+            toast.success(`✅ ${enviados} envio(s) processados pelo motor de promoções`);
+            if (typeof onCancelarSelecao === 'function') onCancelarSelecao();
+          } else {
+            throw new Error(res?.data?.error || 'Erro ao disparar em massa');
+          }
+        } else if (thread?.contact_id) {
+          toast.info('📤 Enviando promoção...');
+          const res = await base44.functions.invoke('enviarPromocao', {
+            promotion_id,
+            contact_id: thread.contact_id,
+            integration_id: canalSelecionado || thread.whatsapp_integration_id || null
+          });
+          if (res?.data?.success) {
+            toast.success('✅ Promoção enviada (com cooldown e log)');
+          } else {
+            throw new Error(res?.data?.error || res?.data?.bloqueio_motivo || 'Bloqueado');
+          }
+        } else {
+          toast.error('Sem destinatário válido para a promoção');
+        }
+      } catch (err) {
+        toast.error('Erro: ' + err.message);
+      }
+      setShowPromocoesMenu(false);
+      setShowAttachMenu(false);
+      return;
+    }
+
+    // 📨 Mensagem etiquetada: comportamento antigo (anexa como mídia)
     const mime = file?.type || '';
     const tipo = mime.startsWith('video/') ? 'video'
       : mime.startsWith('audio/') ? 'audio'
       : mime.startsWith('image/') ? 'image'
       : 'document';
 
-    // Empilha em selectedFiles (suporta múltiplas promoções selecionadas)
     setSelectedFiles(prev => [...prev, { file, type: tipo, preview: previewUrl }]);
 
-    // Caption: usa o primeiro caption recebido (ou mantém o que já tem)
     if (caption && !mensagemTexto.trim()) {
       setMensagemTexto(caption);
     }
 
     setShowPromocoesMenu(false);
     setShowAttachMenu(false);
-  }, [mensagemTexto]);
+  }, [mensagemTexto, modoSelecaoMultipla, contatosSelecionados, canalSelecionado, thread, onCancelarSelecao]);
 
   const handleEnviarComArquivo = useCallback(async (e) => {
     e?.preventDefault();
