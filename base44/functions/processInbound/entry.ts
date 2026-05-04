@@ -7,7 +7,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 // Pipeline: normalize → dedup → reset_promos → human_check → URA dispatch
 // ============================================================================
 
-const VERSION = 'v11.1.0-BUSINESS-HOURS';
+const VERSION = 'v11.1.1-BUSINESS-HOURS-RESTORED';
 
 // ── CACHE MÓDULO: chips e usuários internos (TTL 90s) ──────────────────
 let _cacheChipsProc = null;
