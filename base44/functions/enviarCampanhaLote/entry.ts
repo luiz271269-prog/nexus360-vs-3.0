@@ -380,6 +380,41 @@ Deno.serve(async (req) => {
       // ✅ Executar TODAS as operações em paralelo
       await Promise.all([...workQueuePromises, ...messagePromises, ...threadUpdatePromises]);
 
+      // 📢 LOG INTERNO: 1 bolha por contato com detalhes da campanha (visível só pro atendente)
+      const dispatchLogPromises = contatosParaEnviar
+        .filter(c => c.telefone && threadMap.has(c.id))
+        .map(contato => {
+          const thread = threadMap.get(contato.id);
+          const previewMsg = (mensagem || media_caption || `[${media_type}]`).substring(0, 200);
+          return base44.asServiceRole.entities.Message.create({
+            thread_id: thread.id,
+            sender_id: senderId,
+            sender_type: 'user',
+            recipient_id: contato.id,
+            recipient_type: 'contact',
+            content: `Campanha em massa enfileirada (broadcast)`,
+            channel: 'interno',
+            visibility: 'internal_only',
+            status: 'lida',
+            sent_at: now.toISOString(),
+            metadata: {
+              is_system_message: true,
+              message_type: 'broadcast_dispatch_log',
+              dispatch_data: {
+                titulo: `Campanha em massa`,
+                descricao: previewMsg,
+                trigger: 'massa_manual',
+                broadcast_id: broadcastId,
+                tier_aplicado: tier.tier,
+                total_destinatarios: qtdRealEnvio,
+                tem_midia: !!media_url,
+                imagem: media_type === 'image' ? media_url : null
+              }
+            }
+          });
+        });
+      await Promise.all(dispatchLogPromises).catch(e => console.warn('[CAMPANHA-LOTE] dispatch_log falhou (non-blocking):', e.message));
+
       // Auditoria
       await base44.asServiceRole.entities.AutomationLog.create({
         acao: 'outro',

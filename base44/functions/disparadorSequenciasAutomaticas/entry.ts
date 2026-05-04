@@ -212,6 +212,36 @@ Deno.serve(async (req) => {
           mensagem: conteudo
         });
 
+        // 🔄 LOG INTERNO: bolha visível só pro atendente (sequência automática)
+        if (resultado_envio?.data?.id) {
+          await base44.asServiceRole.entities.Message.create({
+            thread_id: exec.thread_id,
+            sender_id: 'system',
+            sender_type: 'user',
+            recipient_id: exec.contact_id,
+            recipient_type: 'contact',
+            content: `Sequência "${sequencia.nome}" — passo ${(numero_passo || 0) + 1}`,
+            channel: 'interno',
+            visibility: 'internal_only',
+            status: 'lida',
+            sent_at: new Date().toISOString(),
+            metadata: {
+              is_system_message: true,
+              message_type: 'sequence_dispatch_log',
+              dispatch_data: {
+                titulo: sequencia.nome,
+                descricao: conteudo,
+                trigger: sequencia.tipo_gatilho,
+                numero_passo: numero_passo || 0,
+                total_passos: sequencia.passos?.length || 1,
+                tipo_gatilho: sequencia.tipo_gatilho,
+                sequencia_id: sequencia.id,
+                execucao_id: exec.id
+              }
+            }
+          }).catch(e => console.warn('[DISPARADOR] dispatch_log falhou (non-blocking):', e.message));
+        }
+
         // Atualizar execução
         const passos_atualizados = [...(exec.passos_completados || [])];
         passos_atualizados.push({

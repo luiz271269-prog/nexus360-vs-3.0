@@ -944,8 +944,8 @@ export default React.memo(function MessageBubble({
 
   }
 
-  // 🎁 LOG INTERNO DE PROMOÇÃO ENVIADA
-  if (message?.metadata?.message_type === 'promotion_dispatch_log') {
+  // 🎁 LOG INTERNO: promoção / campanha massa / sequência automática
+  if (['promotion_dispatch_log','broadcast_dispatch_log','sequence_dispatch_log'].includes(message?.metadata?.message_type)) {
     return <PromotionDispatchLogBubble message={message} />;
   }
 
