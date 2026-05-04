@@ -355,6 +355,35 @@ Deno.serve(async (req) => {
           campaign_id
         }
       });
+
+      // 10.b LOG INTERNO (visível só pelo atendente, não enviado ao cliente)
+      await base44.asServiceRole.entities.Message.create({
+        thread_id: thread.id,
+        sender_id: 'system',
+        sender_type: 'user',
+        recipient_id: contact.id,
+        recipient_type: 'contact',
+        content: `Promoção "${promo.titulo}" enviada (${trigger})`,
+        channel: 'interno',
+        visibility: 'internal_only',
+        status: 'lida',
+        sent_at: now.toISOString(),
+        metadata: {
+          is_system_message: true,
+          message_type: 'promotion_dispatch_log',
+          promotion_id: promo.id,
+          promotion_data: {
+            titulo: promo.titulo,
+            descricao: promo.descricao_curta || promo.descricao,
+            valor: promo.price_info,
+            imagem: promo.imagem_url,
+            link: promo.link_produto,
+            validade: promo.validade,
+            trigger: trigger,
+            campaign_id: campaign_id
+          }
+        }
+      });
     }
 
     // 11. ATUALIZAR CONTATO + PROMOÇÃO + THREAD (em paralelo)

@@ -42,6 +42,7 @@ import EtiquetaFaseDialog from './EtiquetaFaseDialog';
 import VincularPromocaoDialog from './VincularPromocaoDialog';
 import ComentariosInternos from './ComentariosInternos';
 import { useMessageStatus } from './useMessageStatus';
+import PromotionDispatchLogBubble from './PromotionDispatchLogBubble';
 
 // Player de áudio: nativo + botão de velocidade (v2) — memoizado para não remontar <audio> em re-render
 const AudioPlayer = React.memo(({ src }) => {
@@ -943,9 +944,12 @@ export default React.memo(function MessageBubble({
 
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // 🎁 LOG INTERNO DE PROMOÇÃO ENVIADA
+  if (message?.metadata?.message_type === 'promotion_dispatch_log') {
+    return <PromotionDispatchLogBubble message={message} />;
+  }
+
   // 🔔 MENSAGEM DE TRANSFERÊNCIA
-  // ═══════════════════════════════════════════════════════════════════════════
   if (isTransferMessage) {
     const setorTransferido = message.metadata?.sector_destino || message.metadata?.setor || thread?.sector_id || 'geral';
     const usuarioTransferiu = message.metadata?.transferred_by_name || message.metadata?.transferido_por || 'Sistema';
