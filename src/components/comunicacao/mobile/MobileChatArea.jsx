@@ -45,6 +45,8 @@ export default function MobileChatArea({
   contatoAtivo,
   // ui flags
   isPendingFilter, setDuplicataEncontrada,
+  // contact info panel (existente)
+  showContactInfo, handleAtualizarContato,
   // handlers
   handleSelecionarThreadMobile,
   handleVoltarListaMobile,
@@ -175,6 +177,12 @@ export default function MobileChatArea({
                 defaultValues={contactInitialData}
                 onClose={() => { setCriandoNovoContato(false); setNovoContatoTelefone(""); setShowContactInfo(false); setContactInitialData(null); setMobileView('lista'); }}
                 onUpdate={handleCriarNovoContato} atendentes={atendentes} />
+            ) : showContactInfo && contatoAtivo ? (
+              <ContactInfoPanel
+                contact={contatoAtivo}
+                onClose={() => setShowContactInfo(false)}
+                onUpdate={handleAtualizarContato}
+                atendentes={atendentes} />
             ) : threadAtiva || (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno)) ? (
               <ChatWindow thread={threadAtiva} mensagens={mensagens} usuario={usuario}
                 contatoPreCarregado={contatoPreCarregado} onEnviarMensagem={async () => {}}

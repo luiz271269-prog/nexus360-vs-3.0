@@ -1709,6 +1709,8 @@ export default function Comunicacao() {
                 handleEnviarMensagemInternaOtimista={handleEnviarMensagemInternaOtimista}
                 handleAtualizarMensagens={handleAtualizarMensagens}
                 handleCriarNovoContato={handleCriarNovoContato}
+                handleAtualizarContato={handleAtualizarContato}
+                showContactInfo={showContactInfo}
               />
               </>
               )}
