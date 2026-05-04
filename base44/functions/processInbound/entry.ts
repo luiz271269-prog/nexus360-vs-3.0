@@ -202,15 +202,14 @@ Deno.serve(async (req) => {
   }
 
   // ════════════════════════════════════════════════════════════════
-  // [INBOUND-GATE] CAMADA 1 — FILTRO INTERNO
-  // Se o número pertence a um User do sistema OU a um chip da empresa
-  // (WhatsAppIntegration): salva mensagem e para — zero automação.
+  // [INBOUND-GATE] CAMADA 1 — FILTRO INTERNO (RESTAURADO TEMPORARIAMENTE)
+  // ⚠️ ROLLBACK ATIVO: Camada -2 do primeiroAtendimentoUnificado existe
+  // no código mas o deploy travou. Mantendo o filtro aqui até confirmar
+  // que a Camada -2 está rodando em produção.
   // ════════════════════════════════════════════════════════════════
   const canonico = (contact?.telefone || contact?.telefone_canonico || '').replace(/\D/g, '');
   if (canonico) {
     try {
-      // 1a. Verificar chips da empresa (número entre as integrações cadastradas)
-      // Cache chips internos (TTL 90s)
       const agora = Date.now();
       if (!_cacheChipsProc || (agora - _cacheChipsProcTs) > CACHE_INTERNO_TTL) {
         try {
@@ -228,8 +227,6 @@ Deno.serve(async (req) => {
         return Response.json({ success: true, skipped: true, reason: 'chip_interno', pipeline: ['internal_filter'] });
       }
 
-      // 1b. Verificar usuários do sistema (atendentes com telefone cadastrado)
-      // Cache usuários internos (TTL 90s)
       if (!_cacheUsersProc || (Date.now() - _cacheUsersProcTs) > CACHE_INTERNO_TTL) {
         try {
           const usuarios = await base44.asServiceRole.entities.User.list('-created_date', 100);
