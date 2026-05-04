@@ -25,7 +25,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 // CONSTANTES
 // ─────────────────────────────────────────────────────────────────────────────
 
-const COOLDOWN_MS = 300_000;   // 5 min entre ACKs
+const COOLDOWN_MS = 300_000;   // 5 min entre ACKs (deploy: camada-neg2 ativa)
 const DEDUP_WINDOW_MS = 30_000; // 30s janela de dedup de webhooks
 const PROMO_FORA_HORARIO_GAP_MS = 12 * 60 * 60 * 1000; // 12h — 1 promo por período fora-horário
 
