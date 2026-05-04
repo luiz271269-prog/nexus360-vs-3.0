@@ -42,7 +42,7 @@ import EtiquetaFaseDialog from './EtiquetaFaseDialog';
 import VincularPromocaoDialog from './VincularPromocaoDialog';
 import ComentariosInternos from './ComentariosInternos';
 import { useMessageStatus } from './useMessageStatus';
-import PromotionDispatchLogBubble from './PromotionDispatchLogBubble';
+import { renderInternalDispatchLog } from './skills/internalDispatchLogSkill';
 
 // Player de áudio: nativo + botão de velocidade (v2) — memoizado para não remontar <audio> em re-render
 const AudioPlayer = React.memo(({ src }) => {
@@ -944,10 +944,9 @@ export default React.memo(function MessageBubble({
 
   }
 
-  // 🎁 LOG INTERNO: promoção / campanha massa / sequência automática
-  if (['promotion_dispatch_log','broadcast_dispatch_log','sequence_dispatch_log'].includes(message?.metadata?.message_type)) {
-    return <PromotionDispatchLogBubble message={message} />;
-  }
+  // 🎁 LOG INTERNO via skill (promoção/campanha/sequência)
+  const _internalLog = renderInternalDispatchLog(message);
+  if (_internalLog) return _internalLog;
 
   // 🔔 MENSAGEM DE TRANSFERÊNCIA
   if (isTransferMessage) {
