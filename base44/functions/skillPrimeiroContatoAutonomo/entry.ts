@@ -1,104 +1,11 @@
 // ============================================================================
-// SKILL: Primeiro Contato Autônomo v1.0.0
+// SKILL PRIMEIRO CONTATO AUTÔNOMO — v2.0 (HÍBRIDA)
 // ============================================================================
-// Detecta quando menu de pré-atendimento falha e age automaticamente:
-// 1. Identifica intenção via IA ("montar pc gamer" → vendas)
-// 2. Roteia para setor correto
-// 3. Atribui atendente disponível
-// 4. Envia boas-vindas humanizadas
+// ⚠️ Chamadas individuais → delegam para primeiroAtendimentoUnificado.
+// ✅ batch_mode preservado: varre threads travadas e dispara o unificado para cada.
 // ============================================================================
 
 import { createClientFromRequest, createClient } from 'npm:@base44/sdk@0.8.23';
-
-const SETOR_MAP = {
-  'vendas': ['venda', 'comprar', 'orçamento', 'preço', 'cotação', 'produto', 'pc', 'notebook', 'gamer', 'quanto custa', 'valor'],
-  'assistencia': ['suporte', 'problema', 'defeito', 'conserto', 'não funciona', 'garantia', 'assistência', 'quebrou', 'ajuda'],
-  'financeiro': ['boleto', 'pagamento', 'fatura', 'parcela', 'financeiro', 'cobrança', 'vencimento', 'pagar'],
-  'fornecedor': ['fornecedor', 'compras', 'parceria', 'distribuidor', 'fornecer', 'nota fiscal']
-};
-
-const TIPO_CONTATO_MAP = {
-  'cliente': ['já comprei', 'sou cliente', 'comprei', 'pedido anterior', 'última compra', 'meu pedido'],
-  'fornecedor': ['fornecedor', 'fornecer', 'vender para vocês', 'representante', 'distribuidora', 'sou fornecedor'],
-  'parceiro': ['parceria', 'representar', 'revenda', 'distribuir', 'parceiro comercial'],
-  'lead': ['interesse', 'gostaria', 'quero saber', 'informação', 'como funciona', 'preciso']
-};
-
-function detectarSetorPorIntencao(mensagem, tipoContato = 'novo') {
-  const texto = mensagem.toLowerCase().trim();
-  
-  // Fornecedores → setor fixo
-  if (tipoContato === 'fornecedor') return 'fornecedor';
-  
-  // Parceiros → vendas (negociação)
-  if (tipoContato === 'parceiro') return 'vendas';
-  
-  // Clientes existentes → análise contextual
-  if (tipoContato === 'cliente') {
-    // Problema/defeito → assistência
-    if (SETOR_MAP.assistencia.some(kw => texto.includes(kw))) return 'assistencia';
-    // Pagamento → financeiro
-    if (SETOR_MAP.financeiro.some(kw => texto.includes(kw))) return 'financeiro';
-    // Default cliente → vendas (nova compra)
-    return 'vendas';
-  }
-  
-  // Novos/Leads → detecção por keywords
-  for (const [setor, palavras] of Object.entries(SETOR_MAP)) {
-    if (palavras.some(p => texto.includes(p))) return setor;
-  }
-  
-  return 'vendas'; // Default
-}
-
-function detectarTipoContato(mensagem, tipoAtual) {
-  // Se já classificado e não é 'novo', manter
-  if (tipoAtual && tipoAtual !== 'novo') return tipoAtual;
-  
-  const texto = mensagem.toLowerCase().trim();
-  
-  for (const [tipo, palavras] of Object.entries(TIPO_CONTATO_MAP)) {
-    if (palavras.some(kw => texto.includes(kw))) return tipo;
-  }
-  
-  return 'lead'; // Default: tratar como lead
-}
-
-async function buscarAtendenteDisponivel(base44, setor, _cache = null) {
-  try {
-    // Usar cache pré-carregado se disponível (modo batch)
-    const todos = _cache?.usuarios || await base44.asServiceRole.entities.User.list('-created_date', 100);
-    const threadsCounts = _cache?.threadsCounts || await base44.asServiceRole.entities.MessageThread.filter({
-      status: 'aberta',
-      assigned_user_id: { $in: todos.map(u => u.id) }
-    }, '-created_date', 500);
-
-    const candidatos = todos.filter(u => {
-      if (!u.full_name && !u.email) return false;
-      if (setor === 'geral') return true;
-      return u.attendant_sector === setor;
-    });
-
-    if (candidatos.length === 0) return null;
-
-    const contagemPor = {};
-    for (const t of threadsCounts) {
-      if (t.assigned_user_id) {
-        contagemPor[t.assigned_user_id] = (contagemPor[t.assigned_user_id] || 0) + 1;
-      }
-    }
-
-    const melhor = [...candidatos].sort((a, b) =>
-      (contagemPor[a.id] || 0) - (contagemPor[b.id] || 0)
-    )[0];
-
-    console.log(`[SKILL-PRIMEIRO-CONTATO] 👥 Atendente selecionado: ${melhor.full_name} (${contagemPor[melhor.id] || 0} threads abertas)`);
-    return melhor;
-  } catch (e) {
-    console.warn('[SKILL-PRIMEIRO-CONTATO] Erro ao buscar atendente:', e.message);
-    return null;
-  }
-}
 
 const headers = {
   'Content-Type': 'application/json',
@@ -106,466 +13,108 @@ const headers = {
 };
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
 
-   if (req.method === 'OPTIONS') {
-     return new Response(null, { status: 204, headers });
-   }
+  const tsInicio = Date.now();
 
-   const tsInicio = Date.now();
+  // SDK init (suporta cron sem request)
+  let base44;
+  try {
+    base44 = createClientFromRequest(req);
+  } catch (e) {
+    console.log('[SKILL-PRIMEIRO-CONTATO-FACHADA] Contexto cron — usando createClient()');
+    base44 = createClient();
+  }
 
-   try {
-     // ✅ FIX P0: Em contexto cron (req vazio), usar createClient() sem parâmetro
-     let base44;
-     try {
-       base44 = createClientFromRequest(req);
-     } catch (e) {
-       console.log('[SKILL-PRIMEIRO-CONTATO] Contexto cron detectado, usando createClient()');
-       base44 = createClient();
-     }
-    
-    // Permitir chamada sem autenticação para automação agendada
-    let user = null;
-    try {
-      user = await base44.auth.me();
-    } catch (e) {
-      console.log('[SKILL-PRIMEIRO-CONTATO] Executando em modo automação (sem user auth)');
-    }
+  // Auth opcional (cron não tem user)
+  let user = null;
+  try {
+    user = await base44.auth.me();
+  } catch (e) {
+    console.log('[SKILL-PRIMEIRO-CONTATO-FACHADA] Modo automação (sem user)');
+  }
+  if (user && user.role !== 'admin') {
+    return Response.json({ success: false, error: 'Forbidden: Admin access required' }, { status: 403, headers });
+  }
 
-    // Admin-only OU automação
-    if (user && user.role !== 'admin') {
-      return Response.json(
-        { success: false, error: 'Forbidden: Admin access required' },
-        { status: 403, headers }
-      );
-    }
+  const payload = await req.json().catch(() => ({}));
+  const { thread_id, contact_id, integration_id, message_id, message_content, batch_mode } = payload;
 
-    const payload = await req.json().catch(() => ({}));
-    const { thread_id, contact_id, force_retry, batch_mode } = payload;
+  // ════════════════════════════════════════════════════════════════════
+  // MODO BATCH: varre threads travadas e delega cada uma para o unificado
+  // ════════════════════════════════════════════════════════════════════
+  if (batch_mode) {
+    console.log('[SKILL-PRIMEIRO-CONTATO-FACHADA] 🔁 BATCH MODE — buscando threads travadas');
 
-    // ══════════════════════════════════════════════════════════════════
-    // MODO BATCH: Processar todas as threads travadas
-    // ══════════════════════════════════════════════════════════════════
-    if (batch_mode) {
-      const threadsTravadas = await base44.asServiceRole.entities.MessageThread.filter({
-        thread_type: 'contact_external',
-        assigned_user_id: { $exists: false },
-        pre_atendimento_state: { $in: ['WAITING_SECTOR_CHOICE', 'WAITING_QUEUE_DECISION', 'WAITING_NEED', 'TIMEOUT'] },
-        status: 'aberta'
-      }, '-last_message_at', 20);
+    const threadsTravadas = await base44.asServiceRole.entities.MessageThread.filter({
+      thread_type: 'contact_external',
+      assigned_user_id: { $exists: false },
+      pre_atendimento_state: { $in: ['WAITING_SECTOR_CHOICE', 'WAITING_QUEUE_DECISION', 'WAITING_NEED', 'TIMEOUT'] },
+      status: 'aberta'
+    }, '-last_message_at', 20);
 
-      // ✅ PRÉ-CARREGAR usuários e cargas UMA VEZ só para o batch inteiro
-      let batchCache = null;
-      if (threadsTravadas.length > 0) {
-        try {
-          const usuarios = await base44.asServiceRole.entities.User.list('-created_date', 100);
-          const threadsCounts = await base44.asServiceRole.entities.MessageThread.filter({
-            status: 'aberta',
-            assigned_user_id: { $in: usuarios.map(u => u.id) }
-          }, '-created_date', 500);
-          batchCache = { usuarios, threadsCounts };
-          console.log(`[SKILL-BATCH] ✅ Cache carregado: ${usuarios.length} usuários, ${threadsCounts.length} threads abertas`);
-        } catch (e) {
-          console.warn('[SKILL-BATCH] ⚠️ Erro ao pré-carregar cache:', e.message);
-        }
+    const resultados = { processadas: 0, resgatadas: 0, erros: 0 };
+
+    for (const thread of threadsTravadas) {
+      try {
+        if (!thread.contact_id) continue;
+
+        const ultimaMsg = thread.last_message_content || '';
+        const r = await base44.asServiceRole.functions.invoke('primeiroAtendimentoUnificado', {
+          thread_id: thread.id,
+          contact_id: thread.contact_id,
+          integration_id: thread.whatsapp_integration_id || null,
+          message_content: ultimaMsg,
+          _legacy_caller: 'skillPrimeiroContatoAutonomo.batch'
+        });
+
+        resultados.processadas++;
+        if (r?.data?.success) resultados.resgatadas++;
+        // throttle leve para não estressar API
+        await new Promise(r => setTimeout(r, 300));
+      } catch (err) {
+        console.error(`[SKILL-PRIMEIRO-CONTATO-FACHADA] Erro thread ${thread.id}:`, err.message);
+        resultados.erros++;
       }
-
-      const resultados = {
-        processadas: 0,
-        resgatadas: 0,
-        enfileiradas: 0,
-        erros: 0
-      };
-
-      for (const thread of threadsTravadas) {
-        try {
-          const resultado = await processarThread(base44, thread.id, tsInicio, false, batchCache);
-          resultados.processadas++;
-          if (resultado.action === 'primeiro_contato_completado') resultados.resgatadas++;
-          if (resultado.action === 'enfileirado') resultados.enfileiradas++;
-        } catch (err) {
-          console.error(`[SKILL-BATCH] Erro thread ${thread.id}:`, err.message);
-          resultados.erros++;
-        }
-      }
-
-      return Response.json({
-        success: true,
-        batch_mode: true,
-        threads_encontradas: threadsTravadas.length,
-        resultados
-      }, { headers });
     }
-
-    // ══════════════════════════════════════════════════════════════════
-    // MODO INDIVIDUAL: Processar thread específica
-    // ══════════════════════════════════════════════════════════════════
-    if (!thread_id) {
-      return Response.json(
-        { success: false, error: 'thread_id obrigatório (ou use batch_mode: true)' },
-        { status: 400, headers }
-      );
-    }
-
-    const resultado = await processarThread(base44, thread_id, tsInicio, force_retry, null);
-    return Response.json(resultado, { headers });
-
-  } catch (error) {
-    console.error('[SKILL-PRIMEIRO-CONTATO] ❌ Erro:', error.message);
-
-    let base44Err;
-    try {
-      base44Err = createClientFromRequest(req);
-    } catch (e) {
-      base44Err = createClient();
-    }
-    await base44Err.asServiceRole.entities.SkillExecution.create({
-      skill_name: 'primeiro_contato_autonomo',
-      triggered_by: 'menu_falhou',
-      execution_mode: 'autonomous_safe',
-      success: false,
-      error_message: error.message,
-      duration_ms: Date.now() - tsInicio
-    }).catch(() => {});
 
     return Response.json({
-      success: false,
-      error: error.message
-    }, { status: 500, headers });
+      success: true,
+      batch_mode: true,
+      threads_encontradas: threadsTravadas.length,
+      resultados,
+      duration_ms: Date.now() - tsInicio
+    }, { headers });
   }
-});
 
-// ══════════════════════════════════════════════════════════════════════
-// Função principal de processamento
-// ══════════════════════════════════════════════════════════════════════
-async function processarThread(base44, thread_id, tsInicio, force_retry = false, batchCache = null) {
-   const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id);
+  // ════════════════════════════════════════════════════════════════════
+  // MODO INDIVIDUAL: delega 100% para primeiroAtendimentoUnificado
+  // ════════════════════════════════════════════════════════════════════
+  if (!thread_id || !contact_id) {
+    return Response.json({ success: false, error: 'thread_id e contact_id obrigatórios (ou use batch_mode: true)' }, { status: 400, headers });
+  }
 
-     // Só atua em threads SEM atendente ou em estado de pré-atendimento travado
-     const precisaResgate = 
-       !thread.assigned_user_id && 
-       (thread.pre_atendimento_state === 'WAITING_SECTOR_CHOICE' || 
-        thread.pre_atendimento_state === 'WAITING_QUEUE_DECISION' ||
-        thread.pre_atendimento_state === 'WAITING_NEED' ||
-        thread.pre_atendimento_state === 'TIMEOUT' ||
-        force_retry);
+  console.log('[SKILL-PRIMEIRO-CONTATO-FACHADA] ⚠️ Chamada individual legada — delegando para primeiroAtendimentoUnificado');
 
-     if (!precisaResgate) {
-       return {
-         success: false,
-         skipped: true,
-         reason: 'Thread já tem atendente ou não precisa de resgate'
-       };
-     }
-
-    // STEP 2: Buscar contexto
-    const [contact, mensagens] = await Promise.all([
-      thread.contact_id 
-        ? base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null)
-        : null,
-      base44.asServiceRole.entities.Message.filter(
-        { thread_id, sender_type: 'contact' },
-        'created_date',
-        10
-      ).catch(() => [])
-    ]);
-
-    if (!contact) {
-      return {
-        success: false,
-        error: 'Thread sem contact_id válido'
-      };
-    }
-
-    // STEP 3: Análise de intenção com LLM + confidence score
-    let textoCompleto = mensagens
-      .map(m => m.content)
-      .filter(Boolean)
-      .join(' ');
-    
-    if (textoCompleto.length > 500) {
-      textoCompleto = textoCompleto.slice(-500);
-    }
-
-    const tsAnalise = Date.now();
-    let analiseIA = null;
-    let metodoDeteccao = 'keywords';
-    
-    const PATTERNS_RAPIDOS = {
-      vendas: /orcamento|orçamento|cotacao|cotação|preco|preço|quanto custa|tabela|produto|comprar|vender/i,
-      financeiro: /boleto|fatura|nota fiscal|nf|pagamento|cobranca|cobrança|vencimento|atrasado|dinheiro|pagou|pagar/i,
-      assistencia: /defeito|quebrou|nao funciona|não funciona|conserto|reparo|problema|bug|erro|nao liga|não liga|travado|lento/i,
-      fornecedor: /fornecedor|fornecimento|compras|pedido|cotacao|cotação|estoque|entrega/i
-    };
-    
-    let setorPattern = null;
-    for (const [setor, regex] of Object.entries(PATTERNS_RAPIDOS)) {
-      if (regex.test(textoCompleto)) {
-        setorPattern = { setor, confidence: 0.95 };
-        break;
-      }
-    }
-    if (setorPattern) {
-      analiseIA = {
-        setor: setorPattern.setor,
-        confidence: setorPattern.confidence,
-        intencao: 'pattern_detected',
-        tipo_contato: contact.tipo_contato || 'novo'
-      };
-      metodoDeteccao = 'pattern_match';
-      console.log(`[SKILL-PRIMEIRO-CONTATO] 🎯 Pattern Match: ${analiseIA.setor} (${(analiseIA.confidence * 100).toFixed(0)}%)`);
-    }
-    
-    if (!analiseIA || analiseIA.confidence < 0.75) {
-      try {
-        const respLLM = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          model: 'gemini_3_flash',
-          prompt: `Analise a mensagem do cliente e classifique:\n\nMENSAGEM: "${textoCompleto}"\nTIPO ATUAL: ${contact.tipo_contato || 'novo'}\n\nRetorne JSON estruturado com:\n- intencao: descrição curta da intenção (ex: "compra_pc_gamer", "suporte_defeito")\n- setor: "vendas" | "assistencia" | "financeiro" | "fornecedor"\n- tipo_contato: "lead" | "cliente" | "fornecedor" | "parceiro"\n- confidence: 0.0 a 1.0 (confiança da classificação)\n\nRegras:\n- Fornecedor → setor sempre "fornecedor"\n- Cliente com problema → "assistencia"\n- Cliente com boleto → "financeiro"\n- Lead novo → "vendas"`,
-          response_json_schema: {
-            type: 'object',
-            properties: {
-              intencao: { type: 'string' },
-              setor: { type: 'string' },
-              tipo_contato: { type: 'string' },
-              confidence: { type: 'number' }
-            }
-          }
-        });
-        
-        analiseIA = respLLM;
-        metodoDeteccao = 'llm';
-        console.log(`[SKILL-PRIMEIRO-CONTATO] 🧠 LLM: ${analiseIA.setor} (${(analiseIA.confidence * 100).toFixed(0)}%)`);
-      } catch (e) {
-        console.warn('[SKILL-PRIMEIRO-CONTATO] ⚠️ LLM falhou, usando padrão seguro:', e.message);
-        analiseIA = {
-          setor: 'vendas',
-          confidence: 0.5,
-          intencao: 'fallback_desconhecido',
-          tipo_contato: contact.tipo_contato || 'novo'
-        };
-        metodoDeteccao = 'fallback';
-      }
-    }
-
-    const tipoContatoAtualizado = analiseIA?.tipo_contato || detectarTipoContato(textoCompleto, contact.tipo_contato);
-    const setorDetectado = analiseIA?.setor || detectarSetorPorIntencao(textoCompleto, tipoContatoAtualizado);
-    const confidence = analiseIA?.confidence || 0.8;
-    const intencaoDetectada = analiseIA?.intencao || 'intent_keywords';
-    
-    console.log(`[SKILL-PRIMEIRO-CONTATO] 🎯 Tipo: ${tipoContatoAtualizado} | Setor: ${setorDetectado} | Conf: ${(confidence * 100).toFixed(0)}%`);
-
-    if (tipoContatoAtualizado !== contact.tipo_contato) {
-      await base44.asServiceRole.entities.Contact.update(contact.id, {
-        tipo_contato: tipoContatoAtualizado
-      });
-    }
-
-    // STEP 4: Buscar atendente disponível (usa cache do batch se disponível)
-    const atendente = await buscarAtendenteDisponivel(base44, setorDetectado, batchCache);
-
-    if (!atendente) {
-      console.warn(`[SKILL-PRIMEIRO-CONTATO] ⚠️ Nenhum atendente disponível em ${setorDetectado} — criando WorkQueueItem`);
-
-      await base44.asServiceRole.entities.WorkQueueItem.create({
-        contact_id: contact.id,
-        thread_id: thread.id,
-        tipo: 'manual',
-        reason: 'primeiro_contato_sem_atendente',
-        severity: 'high',
-        status: 'open',
-        notes: `🆕 Primeiro contato detectado: "${textoCompleto.substring(0, 100)}"\nSetor identificado: ${setorDetectado}\n⚠️ Sem atendente disponível no momento.`
-      });
-
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        sector_id: setorDetectado,
-        routing_stage: 'ROUTED',
-        pre_atendimento_state: 'WAITING_ATTENDANT_CHOICE',
-        pre_atendimento_ativo: false
-      });
-
-      return {
-        success: true,
-        action: 'enfileirado',
-        setor_detectado: setorDetectado,
-        message: 'Thread enfileirada para atendimento manual'
-      };
-    }
-
-    // ══════════════════════════════════════════════════════════════════
-    // STEP 5: Atribuir atendente + routing_stage
-    // ══════════════════════════════════════════════════════════════════
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-      assigned_user_id: atendente.id,
-      sector_id: setorDetectado,
-      routing_stage: 'COMPLETED',
-      pre_atendimento_state: 'COMPLETED',
-      pre_atendimento_ativo: false,
-      pre_atendimento_completed_at: new Date().toISOString(),
-      atendentes_historico: [atendente.id]
+  try {
+    const result = await base44.asServiceRole.functions.invoke('primeiroAtendimentoUnificado', {
+      thread_id,
+      contact_id,
+      integration_id: integration_id || null,
+      message_id: message_id || null,
+      message_content: message_content || '',
+      _legacy_caller: 'skillPrimeiroContatoAutonomo'
     });
 
-    console.log(`[SKILL-PRIMEIRO-CONTATO] ✅ Atribuído para ${atendente.full_name} (${setorDetectado})`);
+    return Response.json({
+      ...(result?.data || {}),
+      _delegated: true,
+      _via: 'skillPrimeiroContatoAutonomo',
+      duration_ms: Date.now() - tsInicio
+    }, { headers });
 
-    // ══════════════════════════════════════════════════════════════════
-    // STEP 6: Gerar mensagem de boas-vindas via IA
-    // ══════════════════════════════════════════════════════════════════
-    let mensagemBoasVindas = null;
-
-    try {
-      const primeiroNomeContato = contact.nome?.split(' ')[0] || contact.nome || '';
-      const prompt = `Você é um assistente da equipe de ${setorDetectado}.
-
-TIPO DE CONTATO: ${tipoContatoAtualizado}
-Cliente: ${primeiroNomeContato}
-Mensagem do cliente: "${textoCompleto}"
-
-Gere uma mensagem de boas-vindas CURTA e HUMANIZADA, falando SEMPRE em primeira pessoa do plural ("nossa equipe", "estamos aqui", "vamos te ajudar").
-NUNCA mencione nomes de atendentes específicos.
-NUNCA diga "Vou te conectar com [nome]".
-
-Exemplos por tipo:
-NOVO/LEAD → "Olá ${primeiroNomeContato}! Que bom receber você. Nossa equipe de ${setorDetectado} está aqui para te ajudar! 😊"
-CLIENTE → "Olá ${primeiroNomeContato}! Que bom ter você de volta. Já estamos verificando o que você precisa!"
-FORNECEDOR → "Olá! Obrigado pelo contato. Nossa equipe de compras vai te atender agora."
-
-Regras OBRIGATÓRIAS:
-- Máximo 2 linhas
-- Máximo 1 emoji
-- Tom profissional mas humano
-- JAMAIS mencionar nome de atendente
-- SEMPRE falar como equipe (primeira pessoa do plural)`;
-
-      const resposta = await base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt,
-        model: 'gemini_3_flash'
-      });
-
-      mensagemBoasVindas = typeof resposta === 'string' ? resposta : resposta?.text || null;
-    } catch (e) {
-      console.warn('[SKILL-PRIMEIRO-CONTATO] ⚠️ IA falhou, usando fallback:', e.message);
-      
-      // Fallback contextualizado
-      const primeiroNome = contact.nome?.split(' ')[0] || '';
-      switch(tipoContatoAtualizado) {
-        case 'cliente':
-          mensagemBoasVindas = `Olá${primeiroNome ? ' ' + primeiroNome : ''}! Que bom ter você de volta. Como posso ajudar? 😊`;
-          break;
-        case 'fornecedor':
-          mensagemBoasVindas = `Olá! Obrigado pelo contato. Vou direcionar para nossa equipe de compras.`;
-          break;
-        case 'parceiro':
-          mensagemBoasVindas = `Olá${primeiroNome ? ' ' + primeiroNome : ''}! Ótimo ter você aqui. Vamos conversar!`;
-          break;
-        default:
-          mensagemBoasVindas = `Olá${primeiroNome ? ' ' + primeiroNome : ''}! Seja bem-vindo(a). Estou aqui para te ajudar! 😊`;
-      }
-    }
-
-    // ══════════════════════════════════════════════════════════════════
-    // STEP 7: Enviar via WhatsApp
-    // ══════════════════════════════════════════════════════════════════
-    if (thread.whatsapp_integration_id && contact.telefone && mensagemBoasVindas) {
-      try {
-        const respEnvio = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
-          integration_id: thread.whatsapp_integration_id,
-          numero_destino: contact.telefone,
-          mensagem: mensagemBoasVindas
-        });
-
-        if (respEnvio.data?.success) {
-          // Salvar mensagem no histórico
-          await base44.asServiceRole.entities.Message.create({
-            thread_id: thread.id,
-            sender_id: 'nexus_agent',
-            sender_type: 'user',
-            content: mensagemBoasVindas,
-            channel: 'whatsapp',
-            status: 'enviada',
-            sent_at: new Date().toISOString(),
-            visibility: 'public_to_customer',
-            metadata: {
-              is_ai_response: true,
-              ai_agent: 'skill_primeiro_contato',
-              assigned_to: atendente.id,
-              assigned_to_name: atendente.full_name
-            }
-          });
-
-          await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-            last_message_at: new Date().toISOString(),
-            last_outbound_at: new Date().toISOString(),
-            last_message_sender: 'user',
-            last_message_content: mensagemBoasVindas.substring(0, 100),
-            unread_count: 0
-          });
-
-          console.log(`[SKILL-PRIMEIRO-CONTATO] ✅ Boas-vindas enviadas para ${contact.nome}`);
-        }
-      } catch (envioErr) {
-        console.error('[SKILL-PRIMEIRO-CONTATO] ❌ Erro ao enviar WhatsApp:', envioErr.message);
-      }
-    }
-
-    // ══════════════════════════════════════════════════════════════════
-    // STEP 8: Registrar IntentDetection + SkillExecution
-    // ══════════════════════════════════════════════════════════════════
-    
-    // Carregar threshold configurável
-    let thresholdConfig = 0.60;
-    try {
-      const configs = await base44.asServiceRole.entities.ConfiguracaoSistema.filter({ chave: 'ai_router_confidence_threshold' }, 'chave', 1);
-      if (configs.length > 0) {
-        thresholdConfig = configs[0].valor?.value || 0.60;
-      }
-    } catch (e) {}
-    
-    // Registrar análise de intenção
-    await base44.asServiceRole.entities.IntentDetection.create({
-      thread_id: thread.id,
-      contact_id: contact.id,
-      mensagem_analisada: textoCompleto,
-      intencao_detectada: intencaoDetectada,
-      setor_detectado: setorDetectado,
-      tipo_contato_detectado: tipoContatoAtualizado,
-      confidence: confidence,
-      modelo_usado: metodoDeteccao === 'llm' ? 'gemini_3_flash' : 'keywords',
-      metodo_deteccao: metodoDeteccao,
-      threshold_aplicado: thresholdConfig,
-      resultado_roteamento: confidence >= thresholdConfig ? 'auto_roteado' : 'menu_fallback',
-      tempo_processamento_ms: Date.now() - tsAnalise
-    }).catch(() => {});
-    
-    await base44.asServiceRole.entities.SkillExecution.create({
-      skill_name: 'primeiro_contato_autonomo',
-      triggered_by: 'inbound_automatico',
-      execution_mode: 'autonomous_safe',
-      context: {
-        thread_id: thread.id,
-        contact_id: contact.id,
-        tipo_contato: tipoContatoAtualizado,
-        setor_detectado: setorDetectado,
-        confidence: confidence,
-        metodo: metodoDeteccao,
-        atendente_atribuido: atendente.id,
-        mensagem_enviada: !!mensagemBoasVindas
-      },
-      success: true,
-      duration_ms: Date.now() - tsInicio,
-      metricas: {
-        tipo_detectado: tipoContatoAtualizado !== contact.tipo_contato,
-        setor_correto: setorDetectado,
-        confidence_score: confidence,
-        metodo_deteccao: metodoDeteccao,
-        atendente_disponivel: true,
-        mensagem_personalizada: true
-      }
-    }).catch(() => {});
-
-  return {
-    success: true,
-    action: 'primeiro_contato_completado',
-    tipo_contato: tipoContatoAtualizado,
-    setor_detectado: setorDetectado,
-    atendente_atribuido: atendente.full_name,
-    mensagem_enviada: mensagemBoasVindas
-  };
-}
+  } catch (error) {
+    console.error('[SKILL-PRIMEIRO-CONTATO-FACHADA] Error:', error.message);
+    return Response.json({ success: false, error: error.message, _delegated: false }, { status: 500, headers });
+  }
+});
