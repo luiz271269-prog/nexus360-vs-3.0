@@ -376,7 +376,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
           const defaultTab = etapasFiltradas[0]?.[0] || 'interna';
           return (
         <Tabs defaultValue={defaultTab} key={etapasVisiveis?.join(',') || 'all'} className="w-full">
-          <TabsList className={`grid w-full ${etapasFiltradas.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-1 rounded-xl shadow-2xl border border-slate-700`}>
+          <TabsList className={`${etapasFiltradas.length === 1 ? 'hidden' : 'grid'} w-full grid-cols-2 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-1 rounded-xl shadow-2xl border border-slate-700`}>
             {etapasFiltradas.map(([key, etapa]) => {
               const Icon = etapa.icon;
               const total = etapa.statuses.reduce((s, st) => s + (orcamentosPorStatus[st]?.length || 0), 0);
