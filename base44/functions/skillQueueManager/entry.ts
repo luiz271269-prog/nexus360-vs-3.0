@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const payload = await req.json().catch(() => ({}));
 
-    console.log('[SKILL-QUEUE-DEPRECATED] ⚠️ Chamada legada — delegando para primeiroAtendimentoUnificado', {
+    console.log('[SKILL-QUEUE-DEPRECATED] ⚠️ Chamada legada — delegando para skillPreAtendimentos', {
       thread_id: payload.thread_id,
       contact_id: payload.contact_id,
       sector_id: payload.sector_id
@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Campos obrigatórios ausentes', _delegated: false }, { status: 400, headers });
     }
 
-    const result = await base44.asServiceRole.functions.invoke('primeiroAtendimentoUnificado', {
+    const result = await base44.asServiceRole.functions.invoke('skillPreAtendimentos', {
       thread_id: payload.thread_id,
       contact_id: payload.contact_id,
       integration_id: payload.integration_id || null,

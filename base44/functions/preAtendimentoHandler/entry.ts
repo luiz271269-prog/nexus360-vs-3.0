@@ -24,18 +24,21 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Missing IDs' }, { status: 400 });
     }
 
-    console.log('[PRE-ATENDIMENTO v14] Delegando para primeiroAtendimentoUnificado');
+    console.log('[PRE-ATENDIMENTO-DEPRECATED] ⚠️ Chamada legada — delegando para skillPreAtendimentos', {
+      thread_id, contact_id, _caller: req.headers.get('user-agent') || 'unknown'
+    });
 
     const messageText = user_input?.content || '';
 
-    // Delegação única — a função unificada cuida de todas as 5 camadas:
+    // Delegação única — skillPreAtendimentos cuida de todas as 5 camadas:
     // Dedup → ACK → Intent → Routing → Atribuição
-    const resultado = await base44.asServiceRole.functions.invoke('primeiroAtendimentoUnificado', {
+    const resultado = await base44.asServiceRole.functions.invoke('skillPreAtendimentos', {
       thread_id,
       contact_id,
       integration_id: whatsapp_integration_id,
       message_id,
-      message_content: messageText
+      message_content: messageText,
+      _legacy_caller: 'preAtendimentoHandler'
     });
 
     return Response.json({

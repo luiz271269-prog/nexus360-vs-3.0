@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
         if (!thread.contact_id) continue;
 
         const ultimaMsg = thread.last_message_content || '';
-        const r = await base44.asServiceRole.functions.invoke('primeiroAtendimentoUnificado', {
+        const r = await base44.asServiceRole.functions.invoke('skillPreAtendimentos', {
           thread_id: thread.id,
           contact_id: thread.contact_id,
           integration_id: thread.whatsapp_integration_id || null,
@@ -94,10 +94,10 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'thread_id e contact_id obrigatórios (ou use batch_mode: true)' }, { status: 400, headers });
   }
 
-  console.log('[SKILL-PRIMEIRO-CONTATO-FACHADA] ⚠️ Chamada individual legada — delegando para primeiroAtendimentoUnificado');
+  console.log('[SKILL-PRIMEIRO-CONTATO-FACHADA] ⚠️ Chamada individual legada — delegando para skillPreAtendimentos');
 
   try {
-    const result = await base44.asServiceRole.functions.invoke('primeiroAtendimentoUnificado', {
+    const result = await base44.asServiceRole.functions.invoke('skillPreAtendimentos', {
       thread_id,
       contact_id,
       integration_id: integration_id || null,

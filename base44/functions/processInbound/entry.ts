@@ -578,13 +578,14 @@ Deno.serve(async (req) => {
     if (ehMicroIntent) {
       result.pipeline.push('micro_intent_thread_ativa');
       try {
-        console.log(`[INBOUND-GATE] 🎯 CAMADA 3 + micro-intent → invocando primeiroAtendimentoUnificado`);
-        await base44.asServiceRole.functions.invoke('primeiroAtendimentoUnificado', {
+        console.log(`[INBOUND-GATE] 🎯 CAMADA 3 + micro-intent → invocando skillPreAtendimentos`);
+        await base44.asServiceRole.functions.invoke('skillPreAtendimentos', {
           thread_id: thread.id,
           contact_id: contact.id,
           integration_id: integration?.id,
           message_id: message?.id,
-          message_content: messageContent
+          message_content: messageContent,
+          _legacy_caller: 'processInbound.micro_intent_thread_ativa'
         });
         result.actions.push('micro_intent_responded_in_active_thread');
         return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, stop: true, reason: 'micro_intent_in_active_thread' });
