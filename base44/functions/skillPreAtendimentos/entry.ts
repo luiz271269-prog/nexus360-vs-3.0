@@ -808,10 +808,13 @@ Deno.serve(async (req) => {
 
       const ack = buildAckMsg(contact?.tipo_contato, contact?.nome, isVIP, horarioInfo);
 
-      // ─── FORA DE HORÁRIO: anexar promoção rotacionada (1 vez por período de 12h) ───
+      // ─── ANEXAR PROMOÇÃO ROTACIONADA EM 2 CENÁRIOS ───
+      // 1) Fora-horário (cooldown 12h por período fora-horário)
+      // 2) Primeiro contato do dia DENTRO do horário comercial (saudação + promo)
       let msgFinal = ack.msg;
       let promoAnexada = null;
       let promoSkipped = false;
+      let primeiroContatoDoDia = false;
 
       if (ack.tipo === 'fora_horario') {
         const ultPromoInbound = thread?.last_promo_inbound_at;
@@ -832,6 +835,37 @@ Deno.serve(async (req) => {
         } else {
           promoSkipped = true;
           console.log('[SKILL-PRE-ATEND] ℹ️ Fora-horário: nenhuma promoção ativa disponível');
+        }
+      } else if (horarioInfo.dentro) {
+        // Detectar primeiro contato do dia (BRT): last_inbound_at é anterior a hoje 00:00 BRT
+        const agoraBrt = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+        const inicioHojeBrt = new Date(agoraBrt.getFullYear(), agoraBrt.getMonth(), agoraBrt.getDate(), 0, 0, 0);
+        const ultInbound = thread?.last_inbound_at ? new Date(thread.last_inbound_at) : null;
+        primeiroContatoDoDia = !ultInbound || ultInbound < inicioHojeBrt;
+
+        // Cooldown universal 12h (mesmo critério das outras promos)
+        const ultAnyPromo = contact?.last_any_promo_sent_at || thread?.last_any_promo_sent_at;
+        const promoCooldownAtivo = ultAnyPromo &&
+          (Date.now() - new Date(ultAnyPromo).getTime() < PROMO_FORA_HORARIO_GAP_MS);
+
+        if (primeiroContatoDoDia && !promoCooldownAtivo) {
+          // Saudação personalizada com nome + período do dia
+          const primeiroNome = (contact?.nome || '').split(' ')[0] || '';
+          const horaBrt = agoraBrt.getHours();
+          const saudacao = horaBrt < 12 ? 'Bom dia' : (horaBrt < 18 ? 'Boa tarde' : 'Boa noite');
+          const saudacaoComNome = primeiroNome
+            ? `☀️ ${saudacao}, ${primeiroNome}! `
+            : `☀️ ${saudacao}! `;
+
+          promoAnexada = await buscarPromocaoRotacionada(base44, contact?.last_promo_ids || []);
+          if (promoAnexada) {
+            msgFinal = saudacaoComNome + ack.msg + formatarPromoTexto(promoAnexada);
+            console.log(`[SKILL-PRE-ATEND] 🌅 1º contato do dia: saudação + promo "${promoAnexada.titulo}"`);
+          } else {
+            // Sem promo disponível → só saudação personalizada (sem alterar fluxo)
+            msgFinal = saudacaoComNome + ack.msg;
+            console.log('[SKILL-PRE-ATEND] 🌅 1º contato do dia: saudação personalizada (sem promo ativa)');
+          }
         }
       }
 
