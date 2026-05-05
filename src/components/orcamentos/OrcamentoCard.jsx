@@ -22,6 +22,9 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
     setHistoricoLocal(Array.isArray(orcamento.historico_interno) ? orcamento.historico_interno : []);
   }, [orcamento.id, orcamento.historico_interno]);
   const totalHistorico = historicoLocal.length;
+  const ultimoHistorico = historicoLocal.length > 0
+    ? [...historicoLocal].sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0))[0]
+    : null;
 
   const formatCurrency = (v) => {
     const n = Number(v) || 0;
@@ -32,6 +35,17 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
 
   const formatDate = (d) =>
     d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }) : null;
+
+  const formatDateTime = (d) => {
+    if (!d) return null;
+    const dt = new Date(d);
+    const hoje = new Date();
+    const diffDias = Math.floor((hoje - dt) / (1000 * 60 * 60 * 24));
+    if (diffDias === 0) return `hoje ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    if (diffDias === 1) return 'ontem';
+    if (diffDias < 7) return `${diffDias}d atrás`;
+    return dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
 
   const temTelefone = orcamento.cliente_telefone || orcamento.cliente_celular;
   const probCor = probCores[orcamento.probabilidade] || probCores['Média'];
@@ -91,6 +105,15 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
             </div>
           )}
         </div>
+
+        {/* Último contato/histórico */}
+        {ultimoHistorico && (
+          <div className="flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">
+            <NotebookPen className="w-2.5 h-2.5 flex-shrink-0" />
+            <span className="font-medium">Último contato:</span>
+            <span className="truncate">{formatDateTime(ultimoHistorico.data)}</span>
+          </div>
+        )}
 
         {/* Linha 4: Badge prob + botão Msg */}
         <div className="flex items-center justify-between gap-1.5 pt-0.5">
