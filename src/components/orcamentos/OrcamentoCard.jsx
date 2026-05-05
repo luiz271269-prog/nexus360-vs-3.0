@@ -40,6 +40,7 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
   const dataFormatada = formatDate(orcamento.data_orcamento);
 
   return (
+    <>
     <div
       className="bg-white rounded-lg border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all cursor-pointer group"
       onClick={() => navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`))}
@@ -141,20 +142,22 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
         </div>
       </div>
 
-      {/* Drawer flutuante de chat — abre por cima do Kanban */}
-      <OrcamentoChatDrawer
-        orcamento={orcamento}
-        isOpen={chatOpen}
-        onClose={() => setChatOpen(false)}
-      />
-
-      {/* Drawer de Histórico Interno */}
-      <OrcamentoHistoricoDrawer
-        orcamento={orcamento}
-        isOpen={historicoOpen}
-        onClose={() => setHistoricoOpen(false)}
-        onSaved={(novo) => setHistoricoLocal(novo)}
-      />
     </div>
+
+    {/* Drawer flutuante de chat — FORA do div clicável para não disparar navigate */}
+    <OrcamentoChatDrawer
+      orcamento={orcamento}
+      isOpen={chatOpen}
+      onClose={() => setChatOpen(false)}
+    />
+
+    {/* Drawer de Histórico Interno */}
+    <OrcamentoHistoricoDrawer
+      orcamento={orcamento}
+      isOpen={historicoOpen}
+      onClose={() => setHistoricoOpen(false)}
+      onSaved={(novo) => setHistoricoLocal(novo)}
+    />
+    </>
   );
 }
