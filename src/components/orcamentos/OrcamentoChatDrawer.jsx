@@ -110,34 +110,60 @@ export default function OrcamentoChatDrawer({ orcamento, isOpen, onClose }) {
         }
 
         // CAMINHO 2: telefone canônico → Contact → MessageThread canônica
+        // Tenta múltiplas variações + fallback por cliente_id
         const telefoneRaw = orcamento.cliente_telefone || orcamento.cliente_celular;
-        if (!telefoneRaw) {
-          setErro('Cliente sem telefone cadastrado neste orçamento');
+        let contatoEncontrado = null;
+
+        if (telefoneRaw) {
+          const telDigitos = String(telefoneRaw).replace(/\D/g, '');
+
+          // Gera variações do telefone (cobrir fixo/celular com ou sem DDI/9)
+          const variacoes = new Set();
+          variacoes.add(telDigitos);
+          if (!telDigitos.startsWith('55')) variacoes.add('55' + telDigitos);
+          if (telDigitos.startsWith('55')) variacoes.add(telDigitos.substring(2));
+          // Para celular: adicionar/remover o 9 após DDD (apenas se já tem DDI 55)
+          if (telDigitos.length === 12 && telDigitos.startsWith('55')) {
+            // 55 + DDD(2) + 8 dígitos → tenta com 9 inserido: 55 + DDD + 9 + 8
+            variacoes.add(telDigitos.substring(0, 4) + '9' + telDigitos.substring(4));
+          }
+          if (telDigitos.length === 13 && telDigitos.startsWith('55') && telDigitos[4] === '9') {
+            // 55 + DDD(2) + 9 + 8 dígitos → tenta sem 9
+            variacoes.add(telDigitos.substring(0, 4) + telDigitos.substring(5));
+          }
+          if (telDigitos.length === 10) {
+            // DDD(2) + 8 dígitos → tenta 55 + DDD + 9 + 8
+            variacoes.add('55' + telDigitos.substring(0, 2) + '9' + telDigitos.substring(2));
+            variacoes.add('55' + telDigitos);
+          }
+
+          // Busca por qualquer variação
+          for (const v of variacoes) {
+            const r = await base44.entities.Contact.filter(
+              { telefone_canonico: v }, '-updated_date', 1
+            ).catch(() => []);
+            if (r && r.length > 0) {
+              contatoEncontrado = r[0];
+              break;
+            }
+          }
+        }
+
+        // FALLBACK: buscar contato vinculado ao cliente_id do orçamento
+        if (!contatoEncontrado && orcamento.cliente_id) {
+          const r = await base44.entities.Contact.filter(
+            { cliente_id: orcamento.cliente_id }, '-updated_date', 1
+          ).catch(() => []);
+          if (r && r.length > 0) contatoEncontrado = r[0];
+        }
+
+        if (!contatoEncontrado) {
+          setErro('Nenhum contato vinculado a este orçamento. Envie uma mensagem pela Central de Comunicação primeiro para criar a conversa.');
           setResolvendo(false);
           return;
         }
 
-        const telDigitos = String(telefoneRaw).replace(/\D/g, '');
-        if (telDigitos.length < 10) {
-          setErro('Telefone do cliente inválido');
-          setResolvendo(false);
-          return;
-        }
-
-        // Busca contato pelo telefone canônico
-        const contatos = await base44.entities.Contact.filter(
-          { telefone_canonico: telDigitos },
-          '-updated_date',
-          1
-        );
-
-        if (!contatos || contatos.length === 0) {
-          setErro('Nenhum contato encontrado com esse telefone. Envie uma mensagem pela Central de Comunicação primeiro.');
-          setResolvendo(false);
-          return;
-        }
-
-        const c = contatos[0];
+        const c = contatoEncontrado;
         if (!cancelado) setContato(c);
 
         // Busca thread canônica desse contato
