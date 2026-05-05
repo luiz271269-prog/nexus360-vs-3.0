@@ -9,6 +9,7 @@ import ManualJarvis from "./ManualJarvis";
 import ContatosRequerendoAtencaoKanban from "./ContatosRequerendoAtencaoKanban";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { getUserDisplayName } from "../lib/userHelpers";
 import InternalMessageComposer from "./InternalMessageComposer";
 import CriarGrupoModal from "./CriarGrupoModal";
@@ -45,7 +46,7 @@ const formatarHorario = (timestamp) => {
 
 // ─── Linha de lista completa (estilo ChatSidebar) — para todos os modos ─
 
-function ThreadRowSidebar({ thread, isAtiva, usuarioAtual, atendentes, integracoes, onSelecionarThread }) {
+function ThreadRowSidebar({ thread, isAtiva, usuarioAtual, atendentes, integracoes, onSelecionarThread, modoSelecaoMultipla = false, isSelecionado = false, onToggleSelecao }) {
   const contato = thread.contato;
   const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
   const { etiquetas: etiquetasDB, getConfig: getEtiquetaConfigDinamico } = useEtiquetasContato();
@@ -70,9 +71,18 @@ function ThreadRowSidebar({ thread, isAtiva, usuarioAtual, atendentes, integraco
 
   return (
     <div
-      onClick={() => onSelecionarThread(thread)}
-      className={`px-2 py-2 flex items-center gap-2.5 cursor-pointer transition-all hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${isAtiva ? 'bg-blue-50 border-l-[3px] border-l-orange-500' : 'border-l-[3px] border-l-transparent'}`}
+      onClick={() => modoSelecaoMultipla ? onToggleSelecao?.(thread) : onSelecionarThread(thread)}
+      className={`px-2 py-2 flex items-center gap-2.5 cursor-pointer transition-all hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${
+        modoSelecaoMultipla && isSelecionado ? 'bg-orange-50 border-l-[3px] border-l-orange-500'
+        : isAtiva ? 'bg-blue-50 border-l-[3px] border-l-orange-500'
+        : 'border-l-[3px] border-l-transparent'
+      }`}
     >
+      {modoSelecaoMultipla && (
+        <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          <Checkbox checked={isSelecionado} onCheckedChange={() => onToggleSelecao?.(thread)} />
+        </div>
+      )}
       <div className="relative flex-shrink-0">
         <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md overflow-hidden ${hasUnread ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'}`}>
           {contato?.foto_perfil_url && contato.foto_perfil_url !== 'null' ? (
@@ -182,7 +192,59 @@ export default function ChatSidebarKanban({
   onSidebarViewModeChange,
   modoSelecaoMultipla = false,
   onModoSelecaoMultiplaChange,
+  contatosSelecionados = [],
+  setContatosSelecionados,
 }) {
+  // ── Helpers de seleção em massa (compartilhados entre todos os modos kanban) ──
+  const idsSelecionados = React.useMemo(
+    () => new Set((contatosSelecionados || []).map(c => c.contact_id || c.id)),
+    [contatosSelecionados]
+  );
+  const isThreadSelecionada = React.useCallback(
+    (thread) => thread?.contact_id ? idsSelecionados.has(thread.contact_id) : false,
+    [idsSelecionados]
+  );
+  const toggleSelecaoThread = React.useCallback((thread) => {
+    if (!setContatosSelecionados || !thread?.contact_id) return;
+    const c = thread.contato || {};
+    const item = {
+      contact_id: thread.contact_id,
+      id: thread.contact_id,
+      nome: c.nome || thread.last_message_sender_name || '',
+      empresa: c.empresa || '',
+      telefone: c.telefone || '',
+      tipo_contato: c.tipo_contato || 'novo'
+    };
+    setContatosSelecionados(prev => {
+      const ja = (prev || []).some(p => (p.contact_id || p.id) === thread.contact_id);
+      return ja ? prev.filter(p => (p.contact_id || p.id) !== thread.contact_id) : [...(prev || []), item];
+    });
+  }, [setContatosSelecionados]);
+  const toggleSelecaoColuna = React.useCallback((threadsDaColuna) => {
+    if (!setContatosSelecionados) return;
+    const threadsValidas = (threadsDaColuna || []).filter(t => t?.contact_id);
+    const todosJa = threadsValidas.every(t => idsSelecionados.has(t.contact_id));
+    if (todosJa) {
+      const ids = new Set(threadsValidas.map(t => t.contact_id));
+      setContatosSelecionados(prev => (prev || []).filter(p => !ids.has(p.contact_id || p.id)));
+    } else {
+      const novos = threadsValidas
+        .filter(t => !idsSelecionados.has(t.contact_id))
+        .map(t => {
+          const c = t.contato || {};
+          return {
+            contact_id: t.contact_id,
+            id: t.contact_id,
+            nome: c.nome || t.last_message_sender_name || '',
+            empresa: c.empresa || '',
+            telefone: c.telefone || '',
+            tipo_contato: c.tipo_contato || 'novo'
+          };
+        });
+      setContatosSelecionados(prev => [...(prev || []), ...novos]);
+    }
+  }, [idsSelecionados, setContatosSelecionados]);
+
   // Modos válidos — qualquer modo não listado aqui cai no fallback do renderKanbanBody
   const MODOS_VALIDOS = ['parados_nao_atrib', 'usuario', 'integracao', 'urgentes', 'broadcast'];
   const [kanbanMode, setKanbanMode] = React.useState('usuario');
@@ -422,7 +484,8 @@ export default function ChatSidebarKanban({
           <div className="text-center py-12 text-slate-400 text-xs">Nenhuma conversa parada</div>
         ) : threadsParadas.map(thread => (
           <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
-            usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread} />
+            usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread}
+            modoSelecaoMultipla={modoSelecaoMultipla} isSelecionado={isThreadSelecionada(thread)} onToggleSelecao={toggleSelecaoThread} />
         ))}
       </div>
     </div>
@@ -519,14 +582,28 @@ export default function ChatSidebarKanban({
         </div>
       </div>
     );
-    return colunasPorBroadcast.map(coluna => (
+    return colunasPorBroadcast.map(coluna => {
+      const todosSelecionados = modoSelecaoMultipla && coluna.threads.length > 0
+        && coluna.threads.filter(t => t.contact_id).every(t => isThreadSelecionada(t));
+      return (
       <div key={coluna.id} className={`flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 ${coluna.borda} overflow-hidden shadow-md`}>
         <div className={`bg-gradient-to-r ${coluna.cor} px-3 py-2 flex items-center justify-between`}>
           <div className="flex items-center gap-1.5 min-w-0">
             <Megaphone className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
             <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
           </div>
-          <span className="text-white/80 text-[10px]">{coluna.threads.length}</span>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-white/80 text-[10px]">{coluna.threads.length}</span>
+            {modoSelecaoMultipla && coluna.threads.length > 0 && (
+              <button
+                onClick={() => toggleSelecaoColuna(coluna.threads)}
+                title={todosSelecionados ? 'Desmarcar todos da coluna' : 'Selecionar todos da coluna'}
+                className="text-white hover:bg-white/20 rounded px-1.5 py-0.5 text-[11px] font-bold transition-colors"
+              >
+                {todosSelecionados ? '❌' : '✅'}
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
           {coluna.threads.length === 0 ? (
@@ -537,7 +614,8 @@ export default function ChatSidebarKanban({
           ))}
         </div>
       </div>
-    ));
+      );
+    });
   };
 
   // ─── Dispatcher principal — ÚNICO ponto de controle de modos ───────────
@@ -663,6 +741,9 @@ export default function ChatSidebarKanban({
               atendentes={atendentes}
               integracoes={integracoes}
               onSelecionarThread={onSelecionarThread}
+              modoSelecaoMultipla={modoSelecaoMultipla}
+              isSelecionado={isThreadSelecionada(thread)}
+              onToggleSelecao={toggleSelecaoThread}
             />
           ))}
         </div>
@@ -702,7 +783,13 @@ export default function ChatSidebarKanban({
               className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all border ${modoSelecaoMultipla ? 'bg-orange-500 text-white border-orange-500 shadow' : 'text-slate-500 bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
               title="Selecionar múltiplos para envio em massa"
             >
-              <CheckSquare className="w-3.5 h-3.5" />Selecionar
+              <CheckSquare className="w-3.5 h-3.5" />
+              Selecionar
+              {modoSelecaoMultipla && contatosSelecionados.length > 0 && (
+                <span className="ml-1 bg-white/30 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+                  {contatosSelecionados.length}
+                </span>
+              )}
             </button>
           )}
 
