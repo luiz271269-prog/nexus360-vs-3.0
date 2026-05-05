@@ -48,15 +48,16 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'sdk_init_error: ' + e.message }, { status: 500, headers });
   }
 
-  const user = await base44.auth.me().catch(() => null);
-  if (!user) {
-    return Response.json({ success: false, error: 'Não autenticado' }, { status: 401, headers });
-  }
-
   let payload = {};
   try { payload = await req.json(); } catch {}
 
-  const { contact_id, modo = 'correcao', periodo_horas = 72 } = payload;
+  const { contact_id, modo = 'correcao', periodo_horas = 72, internal_caller = false } = payload;
+
+  // Auth: aceita user logado OU invocação interna (entity hooks, automações)
+  const user = await base44.auth.me().catch(() => null);
+  if (!user && !internal_caller) {
+    return Response.json({ success: false, error: 'Não autenticado' }, { status: 401, headers });
+  }
 
   if (!contact_id) {
     return Response.json({ success: false, error: 'contact_id é obrigatório' }, { status: 400, headers });
@@ -492,9 +493,9 @@ Deno.serve(async (req) => {
     try {
       await base44.asServiceRole.entities.SkillExecution.create({
         skill_name: 'sanitizacao_contato_forense',
-        triggered_by: 'manual',
+        triggered_by: internal_caller ? 'entity_hook' : 'manual',
         execution_mode: modo === 'diagnostico' ? 'dry_run' : 'autonomous_safe',
-        user_id: user.id,
+        user_id: user?.id || 'system',
         context: {
           contact_id,
           estado_inicial: `${duplicatas.length} duplicatas`,
