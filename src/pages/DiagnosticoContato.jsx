@@ -355,7 +355,27 @@ export default function DiagnosticoContato() {
       }
       
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
+      // 2C️⃣ DEDUPLICAR MENSAGENS COM MESMO whatsapp_message_id
+      // Resolve race condition do webhook W-API que cria 2 Messages idênticas
+      setProgressoFluxo('🧹 Removendo mensagens duplicadas (mesmo whatsapp_message_id)...');
+      try {
+        const resDedup = await base44.asServiceRole.functions.invoke('deduplicarMensagensPorWhatsAppId', {
+          contact_id: contactId,
+          modo: 'correcao'
+        });
+        if (resDedup.data?.mensagens_deletadas > 0) {
+          toast.success(`✅ ${resDedup.data.mensagens_deletadas} mensagem(ns) duplicada(s) removida(s)!`);
+          console.log('[Fluxo] Dedup msgs:', resDedup.data);
+        } else if (resDedup.data?.grupos_duplicados === 0) {
+          console.log('[Fluxo] Nenhuma mensagem duplicada encontrada.');
+        }
+      } catch (e) {
+        console.warn('[Fluxo] Dedup msgs:', e.message);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       // 3️⃣ CORRIGIR CONTATO PRINCIPAL
       setProgressoFluxo('🧹 Corrigindo dados do contato...');
       if (auditoriaContato && !auditoriaContato.saudavel) {
