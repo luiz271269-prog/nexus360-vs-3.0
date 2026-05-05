@@ -11,13 +11,20 @@ import {
   Edit,
   Eye,
   DollarSign,
-  Users
+  Users,
+  MessageSquare,
+  NotebookPen
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import AtribuidorAtendenteRapido from '../comunicacao/AtribuidorAtendenteRapido';
+import ClienteChatDrawer from './ClienteChatDrawer';
+import ClienteHistoricoDrawer from './ClienteHistoricoDrawer';
 
 export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, onViewDetails, statusGradient }) {
+  const [chatOpen, setChatOpen] = React.useState(false);
+  const [historicoOpen, setHistoricoOpen] = React.useState(false);
+  const temTelefone = cliente?.telefone || cliente?.celular;
   const getScoreColor = (scoreTotal) => {
     if (!scoreTotal) return 'text-slate-600 bg-slate-100';
     if (scoreTotal >= 700) return 'text-green-700 bg-green-100';
@@ -149,33 +156,66 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
         )}
 
         {/* Botões de Ação */}
-        <div className="flex gap-1 pt-1 border-t border-slate-200">
+        <div className="grid grid-cols-2 gap-1 pt-1 border-t border-slate-200">
           <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewDetails?.(cliente);
-            }}
+            onClick={(e) => { e.stopPropagation(); onViewDetails?.(cliente); }}
             size="sm"
             variant="ghost"
-            className="flex-1 h-6 text-[10px] hover:bg-blue-500 hover:text-white px-1 transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+            className="h-6 text-[10px] hover:bg-blue-500 hover:text-white px-1 transition-all duration-150 hover:shadow-md hover:scale-105 active:scale-95"
           >
             <Eye className="w-3 h-3 mr-0.5" />
             Ver
           </Button>
           <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(cliente);
-            }}
+            onClick={(e) => { e.stopPropagation(); onEdit(cliente); }}
             size="sm"
             variant="ghost"
-            className="flex-1 h-6 text-[10px] hover:bg-orange-500 hover:text-white px-1 transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+            className="h-6 text-[10px] hover:bg-orange-500 hover:text-white px-1 transition-all duration-150 hover:shadow-md hover:scale-105 active:scale-95"
           >
             <Edit className="w-3 h-3 mr-0.5" />
             Editar
           </Button>
+          <Button
+            onClick={(e) => { e.stopPropagation(); setHistoricoOpen(true); }}
+            size="sm"
+            variant="ghost"
+            className="h-6 text-[10px] bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 px-1 transition-all duration-150 hover:shadow-md hover:scale-105 active:scale-95"
+            title="Histórico interno"
+          >
+            <NotebookPen className="w-3 h-3 mr-0.5" />
+            Notas
+          </Button>
+          <Button
+            onClick={(e) => { e.stopPropagation(); if (temTelefone) setChatOpen(true); }}
+            disabled={!temTelefone}
+            size="sm"
+            variant="ghost"
+            className={`h-6 text-[10px] px-1 transition-all duration-150 ${
+              temTelefone
+                ? 'bg-green-500 hover:bg-green-600 text-white hover:shadow-md hover:scale-105 active:scale-95'
+                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+            }`}
+            title={temTelefone ? 'Abrir chat WhatsApp' : 'Sem telefone cadastrado'}
+          >
+            <MessageSquare className="w-3 h-3 mr-0.5" />
+            Chat
+          </Button>
         </div>
       </CardContent>
+
+      {/* Drawer de Chat WhatsApp */}
+      <ClienteChatDrawer
+        cliente={cliente}
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+      />
+
+      {/* Drawer de Histórico Interno */}
+      <ClienteHistoricoDrawer
+        cliente={cliente}
+        isOpen={historicoOpen}
+        onClose={() => setHistoricoOpen(false)}
+      />
     </Card>
   );
 }
