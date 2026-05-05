@@ -4,7 +4,7 @@
 // Pipeline imutável: Webhook → Core → (Guardas) → PreAtendimentoHandler
 // ============================================================================
 
-const VERSION = 'v10.0.0-IMMUTABLE-LINE';
+const VERSION = 'v10.1.0-CENTRALIZADO-SKILL-PRE-ATENDIMENTOS';
 
 // =================================================================
 // 🛡️ HELPERS DE DECISÃO
@@ -473,10 +473,16 @@ export async function processInboundEvent(params) {
     };
     
     try {
-      await base44.asServiceRole.functions.invoke('preAtendimentoHandler', payloadUnificado);
+      await base44.asServiceRole.functions.invoke('skillPreAtendimentos', {
+        thread_id: payloadUnificado.thread_id,
+        contact_id: payloadUnificado.contact_id,
+        integration_id: payloadUnificado.whatsapp_integration_id,
+        message_content: payloadUnificado.user_input?.content || '',
+        _legacy_caller: 'inboundCore.dispatch'
+      });
       result.actions.push('ura_dispatched');
     } catch (e) {
-      console.error('[CORE] Erro ao disparar preAtendimentoHandler:', e.message);
+      console.error('[CORE] Erro ao disparar skillPreAtendimentos:', e.message);
       result.actions.push('ura_dispatch_failed');
     }
     

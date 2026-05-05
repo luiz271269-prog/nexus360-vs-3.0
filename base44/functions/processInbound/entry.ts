@@ -863,17 +863,18 @@ Deno.serve(async (req) => {
 
   if (shouldDispatch) {
     result.pipeline.push('pre_atendimento_dispatch');
-    console.log(`[${VERSION}] 🎯 Despachando para preAtendimentoHandler (URA ativa=${isUraActive}, novoCiclo=${novoCiclo}, dormant=${isHumanDormant})`);
+    console.log(`[${VERSION}] 🎯 Despachando para skillPreAtendimentos (URA ativa=${isUraActive}, novoCiclo=${novoCiclo}, dormant=${isHumanDormant})`);
     try {
-      await base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
+      await base44.asServiceRole.functions.invoke('skillPreAtendimentos', {
         thread_id: thread.id,
         contact_id: contact.id,
-        whatsapp_integration_id: integration?.id || thread.whatsapp_integration_id,
-        user_input: { type: 'text', content: messageContent || '' }
+        integration_id: integration?.id || thread.whatsapp_integration_id,
+        message_content: messageContent || '',
+        _legacy_caller: 'processInbound.dispatch'
       });
       result.actions.push('pre_atendimento_acionado');
     } catch (e) {
-      console.error(`[${VERSION}] ❌ preAtendimentoHandler falhou: ${e.message}`);
+      console.error(`[${VERSION}] ❌ skillPreAtendimentos falhou: ${e.message}`);
       result.actions.push('pre_atendimento_falhou');
       // Fallback: enfileirar para atendimento manual
       await base44.asServiceRole.entities.WorkQueueItem.create({
