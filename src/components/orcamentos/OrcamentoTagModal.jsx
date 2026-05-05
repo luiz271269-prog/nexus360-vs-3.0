@@ -9,6 +9,7 @@ import {
   Tag, Plus, X, Trash2, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import OrcamentoHistoricoPanel from './OrcamentoHistoricoPanel';
 
 const ICONES_DISPONIVEIS = [
   { key: 'Star', Icon: Star, label: 'Estrela' },
@@ -121,14 +122,14 @@ export default function OrcamentoTagModal({ orcamento, onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
           <div className="flex items-center gap-2">
             <Tag className="w-5 h-5 text-orange-500" />
             <div>
-              <h2 className="font-bold text-slate-800 text-sm">Etiquetas</h2>
-              <p className="text-xs text-slate-500 truncate max-w-[220px]">{orcamento?.cliente_nome}</p>
+              <h2 className="font-bold text-slate-800 text-sm">Etiquetas & Históricos</h2>
+              <p className="text-xs text-slate-500 truncate max-w-[320px]">{orcamento?.cliente_nome}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
@@ -136,7 +137,10 @@ export default function OrcamentoTagModal({ orcamento, onClose, onSave }) {
           </button>
         </div>
 
-        <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+        {/* Conteúdo em 2 colunas */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 overflow-hidden min-h-[400px]">
+          {/* COLUNA 1 — Etiquetas */}
+          <div className="p-4 space-y-4 overflow-y-auto md:border-r">
           {/* Lista de etiquetas */}
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-orange-500" /></div>
@@ -253,10 +257,16 @@ export default function OrcamentoTagModal({ orcamento, onClose, onSave }) {
               <Plus className="w-4 h-4" /> Criar tipo de etiqueta
             </button>
           )}
+          </div>
+
+          {/* COLUNA 2 — Históricos */}
+          <div className="overflow-hidden bg-slate-50/30">
+            <OrcamentoHistoricoPanel orcamento={orcamento} onUpdate={onSave} />
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="flex gap-2 p-4 border-t">
+        <div className="flex gap-2 p-4 border-t flex-shrink-0">
           <Button variant="outline" onClick={onClose} className="flex-1 h-9 text-sm">Cancelar</Button>
           <Button onClick={handleSalvar} disabled={saving}
             className="flex-1 h-9 text-sm bg-orange-500 hover:bg-orange-600 text-white">
