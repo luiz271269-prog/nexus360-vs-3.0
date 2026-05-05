@@ -509,7 +509,8 @@ export default function ChatSidebarKanban({
             <div className="text-center py-12 text-slate-400 text-xs">Sem conversas</div>
           ) : coluna.threads.map(thread => (
             <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
-              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread} />
+              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread}
+              modoSelecaoMultipla={modoSelecaoMultipla} isSelecionado={isThreadSelecionada(thread)} onToggleSelecao={toggleSelecaoThread} />
           ))}
         </div>
       </div>
@@ -539,7 +540,8 @@ export default function ChatSidebarKanban({
             <div className="text-center py-12 text-slate-400 text-xs">Sem conversas</div>
           ) : coluna.threads.map(thread => (
             <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
-              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread} />
+              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread}
+              modoSelecaoMultipla={modoSelecaoMultipla} isSelecionado={isThreadSelecionada(thread)} onToggleSelecao={toggleSelecaoThread} />
           ))}
         </div>
       </div>
@@ -565,7 +567,8 @@ export default function ChatSidebarKanban({
             <div className="text-center py-12 text-slate-400 text-xs">Nenhuma conversa sem atendente</div>
           ) : naoAtribuidas.map(thread => (
             <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
-              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread} />
+              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread}
+              modoSelecaoMultipla={modoSelecaoMultipla} isSelecionado={isThreadSelecionada(thread)} onToggleSelecao={toggleSelecaoThread} />
           ))}
         </div>
       </div>
@@ -610,7 +613,8 @@ export default function ChatSidebarKanban({
             <div className="text-center py-12 text-slate-400 text-xs">Sem conversas</div>
           ) : coluna.threads.map(thread => (
             <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
-              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread} />
+              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread}
+              modoSelecaoMultipla={modoSelecaoMultipla} isSelecionado={isThreadSelecionada(thread)} onToggleSelecao={toggleSelecaoThread} />
           ))}
         </div>
       </div>
