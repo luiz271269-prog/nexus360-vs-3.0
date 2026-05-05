@@ -923,11 +923,11 @@ RETORNE o JSON estruturado conforme o schema.`;
                 </Select>
               </div>
             {modoOperacao === 'edicao' &&
-            <Button variant="outline" size="sm" onClick={() => window.print()} className="text-white border-slate-600 hover:bg-slate-700">
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="hidden md:inline-flex text-white border-slate-600 hover:bg-slate-700">
                 Imprimir
               </Button>
             }
-            <div className="text-right bg-slate-800 rounded-lg px-3 py-1.5 border border-slate-700">
+            <div className="hidden md:block text-right bg-slate-800 rounded-lg px-3 py-1.5 border border-slate-700">
               <p className="text-xs text-slate-400">Total</p>
               <p className="text-xl font-bold text-green-400">
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(orcamento.valor_total || 0)}
@@ -941,12 +941,12 @@ RETORNE o JSON estruturado conforme o schema.`;
         </div>
       </div>
 
-      <div className="px-4 py-4">
-        <div className="flex gap-4">
+      <div className="px-2 md:px-4 py-4">
+        <div className="flex flex-col md:flex-row gap-4">
 
           {/* COLUNA ESQUERDA: IMAGENS ANEXADAS */}
-          <div className="w-64 flex-shrink-0">
-              <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden sticky top-4">
+          <div className="w-full md:w-64 flex-shrink-0">
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden md:sticky md:top-4">
                 <div className="px-2 pt-1.5 pb-1 border-b border-slate-700">
                   <div className="flex items-center gap-1 mb-1.5">
                     <ImageIcon className="w-3 h-3 text-amber-400 flex-shrink-0" />
@@ -988,7 +988,7 @@ RETORNE o JSON estruturado conforme o schema.`;
                 }
                 </div>
 
-                <div className="p-2 space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto">
+                <div className="p-2 space-y-2 max-h-64 md:max-h-[calc(100vh-220px)] overflow-y-auto">
                   {estudosAnexos.length === 0 &&
                 <div className="text-center py-6 px-2">
                       <ImageIcon className="w-8 h-8 text-slate-600 mx-auto mb-2" />
