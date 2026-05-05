@@ -17,6 +17,8 @@ import StatusPipeline from '../components/orcamentos/StatusPipeline';
 import { resolverNomeVendedor, getNomeExibicao } from '../components/lib/vendedorSync';
 import PlanosPagamento from '../components/orcamentos/PlanosPagamento';
 import ClienteCombobox from '../components/orcamentos/ClienteCombobox';
+import OrcamentoChatDrawer from '../components/orcamentos/OrcamentoChatDrawer';
+import { MessageSquare } from 'lucide-react';
 import { getOrCreateCliente } from '@/functions/getOrCreateCliente';
 
 export default function OrcamentoDetalhes() {
@@ -28,6 +30,7 @@ export default function OrcamentoDetalhes() {
   const [processing, setProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(null);
   const [estudosAnexos, setEstudosAnexos] = useState([]);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -922,6 +925,16 @@ RETORNE o JSON estruturado conforme o schema.`;
                   </SelectContent>
                 </Select>
               </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setChatOpen(true)}
+              className="text-white border-emerald-500/60 bg-emerald-500/10 hover:bg-emerald-500/20"
+              title="Abrir chat com o cliente"
+            >
+              <MessageSquare className="w-4 h-4 mr-1.5" />
+              <span className="hidden md:inline">Chat</span>
+            </Button>
             {modoOperacao === 'edicao' &&
             <Button variant="outline" size="sm" onClick={() => window.print()} className="hidden md:inline-flex text-white border-slate-600 hover:bg-slate-700">
                 Imprimir
@@ -1222,5 +1235,12 @@ RETORNE o JSON estruturado conforme o schema.`;
           </div> {/* fim coluna direita */}
         </div> {/* fim flex */}
       </div>
+
+      {/* Drawer lateral de chat (reusa ChatWindow da Central) */}
+      <OrcamentoChatDrawer
+        orcamento={orcamento}
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+      />
     </div>);
 }
