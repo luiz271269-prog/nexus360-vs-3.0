@@ -7,6 +7,7 @@ import { Calendar, DollarSign, User, Brain, Send, Building2, Handshake, Tags, Pe
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import OrcamentoTagModal from './OrcamentoTagModal';
+import OrcamentoChatDrawer from './OrcamentoChatDrawer';
 
 const statusLabels = {
   rascunho: 'Rascunho',
@@ -264,6 +265,7 @@ KanbanColumn.displayName = 'KanbanColumn';
 // ─── Componente Principal ─────────────────────────────────────────────────────
 export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, onUpdateStatus, usuario, onEdit, onMostrarInsightsIA, etapasVisiveis }) {
   const [tagModalOrcamento, setTagModalOrcamento] = useState(null);
+  const [chatOrcamento, setChatOrcamento] = useState(null);
   const [etiquetas, setEtiquetas] = useState([]);
   const [localOrcamentos, setLocalOrcamentos] = useState(null);
   const [savingId, setSavingId] = useState(null);
@@ -350,21 +352,11 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     } catch { toast.error('Erro ao registrar atendimento'); }
   }, []);
 
-  const onAbrirChat = useCallback(async (orcamento) => {
+  const onAbrirChat = useCallback((orcamento) => {
     const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;
     if (!telefone) { toast.error('Telefone não cadastrado neste orçamento'); return; }
-    const raw = telefone.replace(/\D/g, '');
-    // ✅ FIX BÔNUS: remove DDI 55 corretamente para buscar telefone_canonico
-    const canonico = raw.startsWith('55') && raw.length > 11 ? raw.slice(2) : raw;
-    try {
-      const contatos = await base44.entities.Contact.filter({ telefone_canonico: canonico });
-      if (contatos?.length > 0) {
-        navigate(`/Comunicacao?contact_id=${contatos[0].id}`);
-      } else {
-        toast.error('Contato não encontrado na Central de Comunicação');
-      }
-    } catch { toast.error('Erro ao buscar contato'); }
-  }, [navigate]);
+    setChatOrcamento(orcamento);
+  }, []);
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -457,6 +449,11 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
           onSave={handleTagSave}
         />
       }
+      <OrcamentoChatDrawer
+        orcamento={chatOrcamento}
+        isOpen={!!chatOrcamento}
+        onClose={() => setChatOrcamento(null)}
+      />
     </DragDropContext>
   );
 }
