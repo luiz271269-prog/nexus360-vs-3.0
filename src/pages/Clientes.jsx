@@ -77,8 +77,18 @@ export default function Clientes() {
   const { data: contatosFidelizados = [], isLoading: isLoadingContatos } = useQuery({
     queryKey: ['contatosFidelizados'],
     queryFn: async () => {
-      const contatos = await base44.entities.Contact.list('-updated_date', 1000);
-      return (contatos || []).filter(c => c.tipo_contato === 'cliente' && c.atendente_fidelizado_vendas);
+      const contatos = await base44.entities.Contact.list('-updated_date', 2000);
+      // Fidelizado = qualquer contato com atendente fixo em qualquer setor
+      // OU marcado explicitamente com is_cliente_fidelizado/is_vip.
+      // Inclui todos os tipos (cliente, lead, eventual, ex_cliente, etc.)
+      return (contatos || []).filter(c =>
+        c.is_cliente_fidelizado ||
+        c.is_vip ||
+        c.atendente_fidelizado_vendas ||
+        c.atendente_fidelizado_assistencia ||
+        c.atendente_fidelizado_financeiro ||
+        c.atendente_fidelizado_fornecedor
+      );
     },
   });
 
@@ -599,29 +609,67 @@ export default function Clientes() {
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
                           <th className="px-6 py-3 text-left font-semibold text-slate-700">Empresa / Nome</th>
+                          <th className="px-6 py-3 text-left font-semibold text-slate-700">Tipo</th>
                           <th className="px-6 py-3 text-left font-semibold text-slate-700">Telefone</th>
-                          <th className="px-6 py-3 text-left font-semibold text-slate-700">Vendedor</th>
+                          <th className="px-6 py-3 text-left font-semibold text-slate-700">Atendentes Fidelizados</th>
                           <th className="px-6 py-3 text-left font-semibold text-slate-700">Segmento</th>
                           <th className="px-6 py-3 text-left font-semibold text-slate-700">Score Engajamento</th>
                         </tr>
                       </thead>
                       <tbody>
                         {contatosFidelizados.map((contato) => {
-                          const userId = contato.atendente_fidelizado_vendas;
-                          const usuario = usuarios.find(u => u.id === userId || u.full_name === userId || u.email === userId);
-                          const vendedorNome = usuario?.full_name || 'Não identificado';
+                          const resolverNome = (userId) => {
+                            if (!userId) return null;
+                            const u = usuarios.find(u => u.id === userId || u.full_name === userId || u.email === userId);
+                            return u?.full_name || u?.email || userId;
+                          };
+                          const setores = [
+                            { key: 'atendente_fidelizado_vendas', label: 'Vendas', cor: 'bg-blue-100 text-blue-800' },
+                            { key: 'atendente_fidelizado_assistencia', label: 'Suporte', cor: 'bg-purple-100 text-purple-800' },
+                            { key: 'atendente_fidelizado_financeiro', label: 'Financeiro', cor: 'bg-emerald-100 text-emerald-800' },
+                            { key: 'atendente_fidelizado_fornecedor', label: 'Fornecedor', cor: 'bg-amber-100 text-amber-800' },
+                          ].filter(s => contato[s.key]);
+
+                          const tipoCfg = {
+                            cliente: { label: 'Cliente', cor: 'bg-emerald-500' },
+                            lead: { label: 'Lead', cor: 'bg-amber-500' },
+                            eventual: { label: 'Eventual', cor: 'bg-slate-500' },
+                            ex_cliente: { label: 'Ex-cliente', cor: 'bg-red-400' },
+                            fornecedor: { label: 'Fornec.', cor: 'bg-blue-500' },
+                            parceiro: { label: 'Parceiro', cor: 'bg-purple-500' },
+                            novo: { label: 'Novo', cor: 'bg-slate-400' },
+                          }[contato.tipo_contato || 'novo'] || { label: contato.tipo_contato || '—', cor: 'bg-slate-400' };
 
                           return (
                             <tr key={contato.id} className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors">
                               <td className="px-6 py-4">
-                                <div>
-                                  <p className="font-medium text-slate-900">{contato.empresa || 'N/A'}</p>
-                                  <p className="text-xs text-slate-500">{contato.nome || ''}</p>
+                                <div className="flex items-center gap-2">
+                                  {contato.is_vip && <span title="VIP" className="text-amber-500">⭐</span>}
+                                  <div>
+                                    <p className="font-medium text-slate-900">{contato.empresa || contato.nome || 'N/A'}</p>
+                                    {contato.empresa && contato.nome && (
+                                      <p className="text-xs text-slate-500">{contato.nome}</p>
+                                    )}
+                                  </div>
                                 </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <Badge className={`${tipoCfg.cor} text-white hover:opacity-90`}>{tipoCfg.label}</Badge>
                               </td>
                               <td className="px-6 py-4 text-slate-700">{contato.telefone || '-'}</td>
                               <td className="px-6 py-4">
-                                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">{vendedorNome}</Badge>
+                                {setores.length === 0 ? (
+                                  <span className="text-xs text-slate-400 italic">Apenas marcado como fidelizado</span>
+                                ) : (
+                                  <div className="flex flex-col gap-1">
+                                    {setores.map(s => (
+                                      <div key={s.key} className="flex items-center gap-1.5">
+                                        <Badge className={`${s.cor} text-[10px]`}>{s.label}</Badge>
+                                        <span className="text-xs text-slate-700">{resolverNome(contato[s.key])}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </td>
                               <td className="px-6 py-4">
                                 <Badge variant="outline">{contato.segmento_atual || 'N/A'}</Badge>
