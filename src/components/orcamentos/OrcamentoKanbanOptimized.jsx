@@ -17,7 +17,7 @@ const statusLabels = {
   negociando: 'Negociando',
   aprovado: 'Aprovado',
   rejeitado: 'Rejeitado',
-  vencido: 'Vencido'
+  vencido: 'Fechado'
 };
 
 const statusGradients = {
@@ -29,7 +29,7 @@ const statusGradients = {
   negociando: { border: 'border-orange-600', ring: 'ring-orange-700', temp: '🔥 Fervendo' },
   aprovado: { border: 'border-green-600', ring: 'ring-green-700', temp: '✨ Explosão' },
   rejeitado: { border: 'border-red-500', ring: 'ring-red-600', temp: '❄️ Congelado' },
-  vencido: { border: 'border-slate-500', ring: 'ring-slate-600', temp: '🧊 Inativo' }
+  vencido: { border: 'border-green-600', ring: 'ring-green-700', temp: '✅ Fechado' }
 };
 
 const etapasFluxo = {
