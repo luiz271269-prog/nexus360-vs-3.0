@@ -331,46 +331,57 @@ export default function ChatSidebarKanban({
     return Object.values(mapa).filter(c => c.threads.length > 0 || integracoesVisiveis.find(i => i.id === c.id));
   }, [externasKanban, integracoesVisiveis, usuarioAtual, isAdmin]);
 
-  // ── VISUALIZAÇÃO 4: Por atendente — threads que receberam Broadcast ─────
+  // ── VISUALIZAÇÃO 4: Threads que receberam Broadcast — agrupadas por URGÊNCIA ─
   const colunasPorBroadcast = React.useMemo(() => {
-    const norm = (v) => String(v || '').toLowerCase().trim();
-    const mapa = {};
-    // Threads cuja última mensagem é um broadcast (workers processarFilaBroadcast/enviarCampanhaLote
-    // marcam last_message_content com prefixo "[Broadcast]" e/ou metadata.ultima_mensagem_origem)
+    const agora = Date.now();
+    const H24 = 24 * 60 * 60 * 1000;
+
     const threadsBroadcast = externasKanban.filter(t =>
       t.last_message_content?.startsWith('[Broadcast]') ||
       t.metadata?.ultima_mensagem_origem === 'broadcast_massa'
     );
 
-    threadsBroadcast.forEach(thread => {
-      const uid = thread.assigned_user_id || '__sem_atendente__';
-      if (!isAdmin && !isGerente && norm(uid) !== norm(usuarioAtual?.id) && uid !== '__sem_atendente__') return;
+    const colunas = {
+      respondeu_aguardando: { id: 'respondeu_aguardando', nome: '🔥 Respondeu — Aguardando', cor: 'from-red-600 to-rose-700',     borda: 'border-red-300',     threads: [] },
+      sem_resposta_velho:   { id: 'sem_resposta_velho',   nome: '⚡ Sem resposta +24h',       cor: 'from-orange-500 to-amber-600', borda: 'border-orange-300',  threads: [] },
+      sem_resposta_novo:    { id: 'sem_resposta_novo',    nome: '⏱️ Sem resposta <24h',       cor: 'from-yellow-500 to-amber-500', borda: 'border-yellow-300',  threads: [] },
+      atendido:             { id: 'atendido',             nome: '✅ Atendido',                 cor: 'from-emerald-600 to-teal-700', borda: 'border-emerald-300', threads: [] },
+    };
 
-      if (!mapa[uid]) {
-        const at = atendentes.find(a => a.id === uid);
-        mapa[uid] = {
-          id: uid,
-          nome: uid === '__sem_atendente__' ? 'Não Atribuídas' : (at?.full_name || at?.display_name || uid.substring(0, 8)),
-          isSemAtendente: uid === '__sem_atendente__',
-          threads: []
-        };
+    threadsBroadcast.forEach(thread => {
+      const lastInbound  = thread.last_inbound_at  ? new Date(thread.last_inbound_at).getTime()  : 0;
+      const lastOutbound = thread.last_outbound_at ? new Date(thread.last_outbound_at).getTime() : 0;
+      const lastHuman    = thread.last_human_message_at ? new Date(thread.last_human_message_at).getTime() : 0;
+      const ultimaSender = thread.last_message_sender;
+
+      // Cliente respondeu e atendente humano já retornou após a resposta → atendido
+      if (lastInbound > 0 && lastHuman > lastInbound) {
+        colunas.atendido.threads.push(thread);
       }
-      if (!mapa[uid].threads.find(t => t.id === thread.id))
-        mapa[uid].threads.push(thread);
+      // Cliente respondeu mas ninguém retornou ainda → URGENTE
+      else if (ultimaSender === 'contact' && lastInbound > 0) {
+        colunas.respondeu_aguardando.threads.push(thread);
+      }
+      // Broadcast enviado, sem resposta — classificar por idade
+      else {
+        const idadeMs = agora - (lastOutbound || new Date(thread.last_message_at || 0).getTime());
+        if (idadeMs >= H24) colunas.sem_resposta_velho.threads.push(thread);
+        else colunas.sem_resposta_novo.threads.push(thread);
+      }
     });
 
-    Object.values(mapa).forEach(col => col.threads.sort(
-      (a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0)
-    ));
+    // Ordenar cada coluna: mais urgente primeiro
+    colunas.respondeu_aguardando.threads.sort((a, b) =>
+      new Date(a.last_inbound_at || 0) - new Date(b.last_inbound_at || 0)); // resposta mais antiga primeiro
+    colunas.sem_resposta_velho.threads.sort((a, b) =>
+      new Date(a.last_outbound_at || 0) - new Date(b.last_outbound_at || 0));
+    colunas.sem_resposta_novo.threads.sort((a, b) =>
+      new Date(b.last_outbound_at || 0) - new Date(a.last_outbound_at || 0));
+    colunas.atendido.threads.sort((a, b) =>
+      new Date(b.last_human_message_at || 0) - new Date(a.last_human_message_at || 0));
 
-    return Object.values(mapa)
-      .sort((a, b) => {
-        if (a.isSemAtendente) return -1;
-        if (b.isSemAtendente) return 1;
-        return b.threads.length - a.threads.length;
-      })
-      .filter(c => c.threads.length > 0);
-  }, [externasKanban, usuarioAtual, atendentes, isAdmin, isGerente]);
+    return Object.values(colunas).filter(c => c.threads.length > 0);
+  }, [externasKanban]);
 
   const corConfig = {
     blue: 'bg-blue-600', green: 'bg-green-600', purple: 'bg-purple-600',
@@ -508,29 +519,25 @@ export default function ChatSidebarKanban({
         </div>
       </div>
     );
-    return colunasPorBroadcast.map(coluna => {
-      const headerCor = coluna.isSemAtendente ? 'bg-slate-600' : 'bg-gradient-to-r from-emerald-600 to-teal-700';
-      return (
-        <div key={coluna.id} className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 border-emerald-200 overflow-hidden shadow-md">
-          <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Megaphone className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
-              <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
-              <span className="text-white/60 text-[9px] flex-shrink-0">Broadcast</span>
-            </div>
-            <span className="text-white/80 text-[10px]">{coluna.threads.length}</span>
+    return colunasPorBroadcast.map(coluna => (
+      <div key={coluna.id} className={`flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 ${coluna.borda} overflow-hidden shadow-md`}>
+        <div className={`bg-gradient-to-r ${coluna.cor} px-3 py-2 flex items-center justify-between`}>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Megaphone className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
+            <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
           </div>
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-            {coluna.threads.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 text-xs">Sem conversas</div>
-            ) : coluna.threads.map(thread => (
-              <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
-                usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread} />
-            ))}
-          </div>
+          <span className="text-white/80 text-[10px]">{coluna.threads.length}</span>
         </div>
-      );
-    });
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          {coluna.threads.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-xs">Sem conversas</div>
+          ) : coluna.threads.map(thread => (
+            <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
+              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread} />
+          ))}
+        </div>
+      </div>
+    ));
   };
 
   // ─── Dispatcher principal — ÚNICO ponto de controle de modos ───────────
