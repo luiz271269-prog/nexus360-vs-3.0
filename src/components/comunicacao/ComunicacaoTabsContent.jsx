@@ -4,9 +4,7 @@ import LogsFiltragemViewer from "./LogsFiltragemViewer";
 import DiagnosticoComparativoThreads from "./DiagnosticoComparativoThreads";
 import DiagnosticoThreadsInvisiveis from "./DiagnosticoThreadsInvisiveis";
 import DiagnosticoInbound from "./DiagnosticoInbound";
-import DiagnosticoVisibilidadeContato from "./DiagnosticoVisibilidadeContato";
-import DiagnosticoCirurgicoEmbed from "./DiagnosticoCirurgicoEmbed";
-import DiagnosticoMensagensInternas from "./DiagnosticoMensagensInternas";
+import DiagnosticoUnificadoPanel from "./DiagnosticoUnificadoPanel";
 import GerenciadorEtiquetasUnificado from "./GerenciadorEtiquetasUnificado";
 import ConfiguracaoCanaisComunicacao from "./ConfiguracaoCanaisComunicacao";
 import GoToConnectionSetup from "./GoToConnectionSetup";
@@ -66,10 +64,8 @@ export default function ComunicacaoTabsContent({
       </TabsContent>
 
       <TabsContent value="diagnostico-cirurgico" className="h-full m-0 overflow-hidden">
-        <div className="h-full overflow-y-auto p-6 space-y-6">
-          <DiagnosticoVisibilidadeContato integracoes={todasIntegracoes} />
-          <DiagnosticoCirurgicoEmbed />
-          <DiagnosticoMensagensInternas />
+        <div className="h-full overflow-y-auto p-6">
+          <DiagnosticoUnificadoPanel />
         </div>
       </TabsContent>
 
