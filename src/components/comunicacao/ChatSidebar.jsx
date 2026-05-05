@@ -881,6 +881,10 @@ export default function ChatSidebar({
                           if (content && /^(⏰|✅ Tarefa|💬 Lembrete|🔔 Lembrete|🤖 Sistema|📊)/.test(content)) {
                             return "Nova mensagem";
                           }
+                          // ✅ Remover prefixo [Broadcast] do preview da mensagem
+                          if (content) {
+                            content = content.replace(/^\[Broadcast\]\s*/i, '');
+                          }
                           if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
                             if (thread.last_media_type === 'image') return "[Imagem]";
                             if (thread.last_media_type === 'video') return "[Video]";
@@ -924,29 +928,6 @@ export default function ChatSidebar({
                         {cfg.emoji} {cfg.label}
                       </span>
                     );
-                  })()}
-
-                  {/* 📤 BROADCAST RECENTE - Mostrar se última mensagem foi en massa */}
-                  {(() => {
-                    // Detectar se última mensagem foi enviada em massa
-                    const ultimaMensagemBroadcast = thread.metadata?.ultima_mensagem_origem === 'broadcast_massa' || 
-                      thread.last_message_content?.includes('[Broadcast]');
-                    const ultimaMensagemHoras = thread.last_message_at 
-                      ? Math.floor((Date.now() - new Date(thread.last_message_at).getTime()) / (1000 * 60 * 60))
-                      : null;
-                    
-                    if (ultimaMensagemBroadcast && ultimaMensagemHoras !== null && ultimaMensagemHoras < 24) {
-                      return (
-                        <span 
-                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-gradient-to-r from-blue-500 to-cyan-500 shadow-sm animate-pulse"
-                          title={`Broadcast há ${ultimaMensagemHoras}h`}
-                        >
-                          📤 Broadcast
-                        </span>
-                      );
-                    }
-                    
-                    return null;
                   })()}
 
                  {/* ✅ MENSAGEM REATIVAÇÃO RÁPIDA */}
