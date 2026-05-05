@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import {
   CheckCheck, Check, AlertCircle, Image, Video, Mic, FileText,
   UserCheck, Columns, Users, Send, ArrowRightLeft, Plus, CalendarCheck,
-  AlertTriangle, MessagesSquare, Pause, Zap, LayoutList, CheckSquare, BookOpen, Bot
+  AlertTriangle, MessagesSquare, Pause, Zap, LayoutList, CheckSquare, BookOpen, Bot, Megaphone
 } from "lucide-react";
 import ManualJarvis from "./ManualJarvis";
 import ContatosRequerendoAtencaoKanban from "./ContatosRequerendoAtencaoKanban";
@@ -184,7 +184,7 @@ export default function ChatSidebarKanban({
   onModoSelecaoMultiplaChange,
 }) {
   // Modos válidos — qualquer modo não listado aqui cai no fallback do renderKanbanBody
-  const MODOS_VALIDOS = ['parados', 'usuario', 'integracao', 'urgentes', 'jarvis', 'nao_atribuidos'];
+  const MODOS_VALIDOS = ['parados', 'usuario', 'integracao', 'urgentes', 'broadcast', 'nao_atribuidos'];
   const [kanbanMode, setKanbanMode] = React.useState('usuario');
   const [internalComposerOpen, setInternalComposerOpen] = React.useState(false);
   const [delegateMode, setDelegateMode] = React.useState(false);
@@ -331,14 +331,18 @@ export default function ChatSidebarKanban({
     return Object.values(mapa).filter(c => c.threads.length > 0 || integracoesVisiveis.find(i => i.id === c.id));
   }, [externasKanban, integracoesVisiveis, usuarioAtual, isAdmin]);
 
-  // ── VISUALIZAÇÃO 4: Por atendente — monitorado pelo Jarvis ─────────────
-  const colunasPorJarvis = React.useMemo(() => {
+  // ── VISUALIZAÇÃO 4: Por atendente — threads que receberam Broadcast ─────
+  const colunasPorBroadcast = React.useMemo(() => {
     const norm = (v) => String(v || '').toLowerCase().trim();
     const mapa = {};
-    // Threads que o Jarvis monitorou (tem jarvis_alerted_at ou jarvis_last_playbook)
-    const threadsJarvis = externasKanban.filter(t => t.jarvis_alerted_at || t.jarvis_last_playbook);
+    // Threads cuja última mensagem é um broadcast (workers processarFilaBroadcast/enviarCampanhaLote
+    // marcam last_message_content com prefixo "[Broadcast]" e/ou metadata.ultima_mensagem_origem)
+    const threadsBroadcast = externasKanban.filter(t =>
+      t.last_message_content?.startsWith('[Broadcast]') ||
+      t.metadata?.ultima_mensagem_origem === 'broadcast_massa'
+    );
 
-    threadsJarvis.forEach(thread => {
+    threadsBroadcast.forEach(thread => {
       const uid = thread.assigned_user_id || '__sem_atendente__';
       if (!isAdmin && !isGerente && norm(uid) !== norm(usuarioAtual?.id) && uid !== '__sem_atendente__') return;
 
@@ -355,12 +359,9 @@ export default function ChatSidebarKanban({
         mapa[uid].threads.push(thread);
     });
 
-    Object.values(mapa).forEach(col => col.threads.sort((a, b) => {
-      // Ordenar por score do Jarvis (prioridade mais alta primeiro)
-      const scoreA = a._analiseComportamental?.priority_score || 0;
-      const scoreB = b._analiseComportamental?.priority_score || 0;
-      return scoreB - scoreA;
-    }));
+    Object.values(mapa).forEach(col => col.threads.sort(
+      (a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0)
+    ));
 
     return Object.values(mapa)
       .sort((a, b) => {
@@ -497,25 +498,25 @@ export default function ChatSidebarKanban({
     );
   };
 
-  const renderModoJarvis = () => {
-    if (colunasPorJarvis.length === 0) return (
+  const renderModoBroadcast = () => {
+    if (colunasPorBroadcast.length === 0) return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center text-slate-400">
-          <Bot className="w-10 h-10 mx-auto mb-2 opacity-30" />
-          <p className="text-sm font-medium">Nenhum alerta Jarvis ativo</p>
-          <p className="text-xs mt-1">Quando o Jarvis alertar sobre uma conversa, ela aparecerá aqui.</p>
+          <Megaphone className="w-10 h-10 mx-auto mb-2 opacity-30" />
+          <p className="text-sm font-medium">Nenhuma campanha em massa enviada</p>
+          <p className="text-xs mt-1">Threads que receberam broadcast aparecerão aqui agrupadas por atendente.</p>
         </div>
       </div>
     );
-    return colunasPorJarvis.map(coluna => {
-      const headerCor = coluna.isSemAtendente ? 'bg-slate-600' : 'bg-gradient-to-r from-violet-600 to-purple-700';
+    return colunasPorBroadcast.map(coluna => {
+      const headerCor = coluna.isSemAtendente ? 'bg-slate-600' : 'bg-gradient-to-r from-emerald-600 to-teal-700';
       return (
-        <div key={coluna.id} className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 border-violet-200 overflow-hidden shadow-md">
+        <div key={coluna.id} className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 border-emerald-200 overflow-hidden shadow-md">
           <div className={`${headerCor} px-3 py-2 flex items-center justify-between`}>
             <div className="flex items-center gap-1.5 min-w-0">
-              <Bot className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
+              <Megaphone className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
               <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
-              <span className="text-white/60 text-[9px] flex-shrink-0">Jarvis</span>
+              <span className="text-white/60 text-[9px] flex-shrink-0">Broadcast</span>
             </div>
             <span className="text-white/80 text-[10px]">{coluna.threads.length}</span>
           </div>
@@ -541,7 +542,7 @@ export default function ChatSidebarKanban({
       parados:         renderModoParados,
       usuario:         renderModoUsuario,
       integracao:      renderModoIntegracao,
-      jarvis:          renderModoJarvis,
+      broadcast:       renderModoBroadcast,
       nao_atribuidos:  renderModoNaoAtribuidos,
     };
     return modos[modoAtivo]();
@@ -553,7 +554,7 @@ export default function ChatSidebarKanban({
     { key: 'parados',        label: 'Parados',        icon: Pause,          cor: 'bg-yellow-500' },
     { key: 'integracao',     label: 'Canal',          icon: Columns,        cor: 'bg-orange-500' },
     { key: 'urgentes',       label: 'Urgentes',       icon: Zap,            cor: 'bg-purple-600' },
-    { key: 'jarvis',         label: 'Jarvis',         icon: Bot,            cor: 'bg-violet-600' },
+    { key: 'broadcast',      label: 'Broadcast',      icon: Megaphone,      cor: 'bg-emerald-600' },
     { key: 'nao_atribuidos', label: 'Não Atribuídos', icon: AlertTriangle,  cor: 'bg-red-600' },
   ];
 
@@ -728,10 +729,10 @@ export default function ChatSidebarKanban({
             <Zap className="w-3.5 h-3.5 flex-shrink-0" />Urgentes
           </button>
 
-          {/* Jarvis */}
-          <button onClick={() => setKanbanMode('jarvis')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'jarvis' ? 'bg-violet-600 text-white shadow' : 'text-violet-700 bg-violet-50 border border-violet-200 hover:bg-violet-100'}`}>
-            <Bot className="w-3.5 h-3.5 flex-shrink-0" />Jarvis
+          {/* Broadcast */}
+          <button onClick={() => setKanbanMode('broadcast')}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'broadcast' ? 'bg-emerald-600 text-white shadow' : 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'}`}>
+            <Megaphone className="w-3.5 h-3.5 flex-shrink-0" />Broadcast
           </button>
 
           <div className="h-5 w-px bg-slate-200" />
