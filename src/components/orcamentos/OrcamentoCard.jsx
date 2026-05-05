@@ -98,30 +98,30 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
               {orcamento.probabilidade}
             </span>
           )}
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1.5">
             <button
-              className="relative flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 transition-all duration-150 hover:bg-amber-100 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+              className="relative flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 transition-all duration-150 hover:bg-amber-100 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
               onClick={(e) => { e.stopPropagation(); setHistoricoOpen(true); }}
               title="Histórico interno / discussão"
             >
-              <NotebookPen className="w-2.5 h-2.5" />
+              <NotebookPen className="w-4 h-4" />
               Notas
               {totalHistorico > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center shadow">
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shadow">
                   {totalHistorico > 99 ? '99+' : totalHistorico}
                 </span>
               )}
             </button>
             <button
-              className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 transition-all duration-150 hover:bg-slate-200 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 transition-all duration-150 hover:bg-slate-200 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
               onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(orcamento); }}
               title="Editar orçamento"
             >
-              <Pencil className="w-2.5 h-2.5" />
+              <Pencil className="w-4 h-4" />
               Editar
             </button>
             <button
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95 ${
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95 ${
                 temTelefone
                   ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
                   : 'bg-slate-100 text-slate-400 cursor-not-allowed'
@@ -134,7 +134,7 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
               disabled={!temTelefone}
               title={temTelefone ? 'Abrir chat aqui mesmo' : 'Sem telefone cadastrado'}
             >
-              <MessageSquare className="w-2.5 h-2.5" />
+              <MessageSquare className="w-4 h-4" />
               Chat
             </button>
           </div>
