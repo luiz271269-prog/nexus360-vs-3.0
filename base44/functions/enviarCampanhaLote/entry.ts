@@ -321,30 +321,9 @@ Deno.serve(async (req) => {
             })
           );
 
-          // ✅ BATCH: Criar Message com mídia
-          messagePromises.push(
-            base44.asServiceRole.entities.Message.create({
-              thread_id: thread.id,
-              sender_id: senderId,
-              sender_type: 'user',
-              recipient_id: contato.id,
-              recipient_type: 'contact',
-              content: media_url ? `[${media_type}]` : mensagemFinal,
-              channel: 'whatsapp',
-              status: 'pendente',
-              sent_at: now.toISOString(),
-              visibility: 'public_to_customer',
-              media_url: media_url || null,
-              media_type: media_type || 'none',
-              media_caption: media_caption || null,
-              metadata: {
-                whatsapp_integration_id: integration.id,
-                origem_campanha: 'broadcast_massa',
-                broadcast_id: broadcastId,
-                aguardando_worker: true
-              }
-            })
-          );
+          // ⚠️ REMOVIDO: criação de Message preview "aguardando_worker"
+          // O worker (processarFilaBroadcast) agora cria a Message como log interno
+          // colapsado (broadcast_dispatch_log) após envio real — sem duplicação.
 
           // ✅ BATCH: Atualizar thread
           threadUpdatePromises.push(

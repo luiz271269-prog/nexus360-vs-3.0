@@ -281,26 +281,36 @@ Deno.serve(async (req) => {
 
         const sentAt = new Date().toISOString();
 
-        // Persistir mensagem
+        // Persistir mensagem como LOG INTERNO COLAPSADO (bolha 📢 ao invés de bolha gigante)
+        // Renderizado por InternalDispatchLogBubble via internalDispatchLogSkill
+        const previewBroadcast = (mensagem || media_caption || `[${media_type || 'mídia'}]`).substring(0, 200);
         await base44.asServiceRole.entities.Message.create({
           thread_id: thread.id,
           sender_id: sender_id || 'system',
           sender_type: 'user',
           recipient_id: contact_id,
           recipient_type: 'contact',
-          content: mensagem || '',
-          channel: 'whatsapp',
-          status: 'enviada',
+          content: `Campanha em massa enviada (broadcast)`,
+          channel: 'interno',
+          visibility: 'internal_only',
+          status: 'lida',
           whatsapp_message_id: respEnvio.data.message_id,
           sent_at: sentAt,
-          visibility: 'public_to_customer',
-          media_url: media_url || null,
-          media_type: media_type || 'none',
-          media_caption: media_caption || null,
           metadata: {
+            is_system_message: true,
+            message_type: 'broadcast_dispatch_log',
             whatsapp_integration_id: integration_id,
             origem_campanha: 'broadcast_massa',
-            broadcast_id: broadcast_id || null
+            broadcast_id: broadcast_id || null,
+            dispatch_data: {
+              titulo: 'Campanha em massa',
+              descricao: previewBroadcast,
+              trigger: 'massa_manual',
+              broadcast_id: broadcast_id || null,
+              tem_midia: !!media_url,
+              media_type: media_type || 'none',
+              imagem: media_type === 'image' ? media_url : null
+            }
           }
         });
 
