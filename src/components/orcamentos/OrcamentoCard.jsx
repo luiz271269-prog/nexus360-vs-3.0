@@ -2,6 +2,7 @@ import React from 'react';
 import { MessageSquare, Pencil, Calendar, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import OrcamentoChatDrawer from './OrcamentoChatDrawer';
 
 const probCores = {
   'Alta':  'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -11,6 +12,7 @@ const probCores = {
 
 export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
   const navigate = useNavigate();
+  const [chatOpen, setChatOpen] = React.useState(false);
 
   const formatCurrency = (v) => {
     const n = Number(v) || 0;
@@ -105,18 +107,24 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
               onClick={(e) => {
                 e.stopPropagation();
                 if (!temTelefone) return;
-                const telefone = (orcamento.cliente_celular || orcamento.cliente_telefone || '').replace(/\D/g, '');
-                navigate(createPageUrl(`Comunicacao?busca=${encodeURIComponent(orcamento.cliente_nome || '')}${telefone ? '&telefone=' + telefone : ''}`));
+                setChatOpen(true);
               }}
               disabled={!temTelefone}
-              title={temTelefone ? 'Abrir chat' : 'Sem telefone cadastrado'}
+              title={temTelefone ? 'Abrir chat aqui mesmo' : 'Sem telefone cadastrado'}
             >
               <MessageSquare className="w-2.5 h-2.5" />
-              Msg
+              Chat
             </button>
           </div>
         </div>
       </div>
+
+      {/* Drawer flutuante de chat — abre por cima do Kanban */}
+      <OrcamentoChatDrawer
+        orcamento={orcamento}
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+      />
     </div>
   );
 }
