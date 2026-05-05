@@ -612,6 +612,7 @@ export default function Clientes() {
                           <th className="px-6 py-3 text-left font-semibold text-slate-700">Tipo</th>
                           <th className="px-6 py-3 text-left font-semibold text-slate-700">Telefone</th>
                           <th className="px-6 py-3 text-left font-semibold text-slate-700">Atendentes Fidelizados</th>
+                          <th className="px-6 py-3 text-left font-semibold text-slate-700">Sem Contato</th>
                           <th className="px-6 py-3 text-left font-semibold text-slate-700">Segmento</th>
                           <th className="px-6 py-3 text-left font-semibold text-slate-700">Score Engajamento</th>
                         </tr>
@@ -639,6 +640,19 @@ export default function Clientes() {
                             parceiro: { label: 'Parceiro', cor: 'bg-purple-500' },
                             novo: { label: 'Novo', cor: 'bg-slate-400' },
                           }[contato.tipo_contato || 'novo'] || { label: contato.tipo_contato || '—', cor: 'bg-slate-400' };
+
+                          // Dias sem contato (usa ultima_interacao ou updated_date como fallback)
+                          const dataRef = contato.ultima_interacao || contato.updated_date;
+                          const diasSemContato = dataRef
+                            ? Math.floor((Date.now() - new Date(dataRef).getTime()) / (1000 * 60 * 60 * 24))
+                            : null;
+                          const corDias = diasSemContato === null
+                            ? 'bg-slate-100 text-slate-500'
+                            : diasSemContato <= 7
+                              ? 'bg-green-100 text-green-700'
+                              : diasSemContato <= 30
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-red-100 text-red-700';
 
                           return (
                             <tr key={contato.id} className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors">
@@ -670,6 +684,15 @@ export default function Clientes() {
                                     ))}
                                   </div>
                                 )}
+                              </td>
+                              <td className="px-6 py-4">
+                                <Badge className={`${corDias} hover:opacity-90`}>
+                                  {diasSemContato === null
+                                    ? 'Sem registro'
+                                    : diasSemContato === 0
+                                      ? 'Hoje'
+                                      : `${diasSemContato} ${diasSemContato === 1 ? 'dia' : 'dias'}`}
+                                </Badge>
                               </td>
                               <td className="px-6 py-4">
                                 <Badge variant="outline">{contato.segmento_atual || 'N/A'}</Badge>
