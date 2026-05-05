@@ -16,7 +16,8 @@ import {
   Search,
   Plus,
   FileText,
-  Zap
+  Zap,
+  ShoppingCart
 } from "lucide-react";
 import { toast } from "sonner";
 import ClienteKanban from "../components/clientes/ClienteKanban";
@@ -583,6 +584,15 @@ export default function LeadsQualificados() {
                   <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">{orcamentos.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
+                  value="cotacoes"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
+                  <ShoppingCart className="w-3 h-3 mr-1" />
+                  Pedidos de Cotação
+                  <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">
+                    {orcamentos.filter(o => ['rascunho','aguardando_cotacao','analisando','liberado'].includes(o.status)).length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger
                   value="clientes"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
                   <Users className="w-3 h-3 mr-1" />
@@ -709,6 +719,7 @@ export default function LeadsQualificados() {
                 onDelete={handleDeleteOrcamento}
                 usuario={usuarioAtual}
                 atendentes={atendentes}
+                etapasVisiveis={['negociacao']}
                 />
                 ) : (
                 <OrcamentoTable
@@ -716,6 +727,27 @@ export default function LeadsQualificados() {
                 onView={handleViewOrcamento}
                 onEdit={handleEditOrcamento}
                 onDelete={handleDeleteOrcamento}
+                />
+                )}
+                </TabsContent>
+
+                {/* TAB: PEDIDOS DE COTAÇÃO (Etapa Interna) */}
+                <TabsContent value="cotacoes" className="space-y-2 mt-2">
+                {loadingOrcamentos ? (
+                <div className="flex items-center justify-center py-20">
+                <Activity className="w-8 h-8 animate-spin text-orange-500" />
+                <span className="ml-3 text-slate-600">Carregando cotações...</span>
+                </div>
+                ) : (
+                <OrcamentoKanbanOptimized
+                orcamentos={orcamentosFiltrados}
+                onUpdateStatus={handleUpdateOrcamentoStatus}
+                onView={handleViewOrcamento}
+                onEdit={handleEditOrcamento}
+                onDelete={handleDeleteOrcamento}
+                usuario={usuarioAtual}
+                atendentes={atendentes}
+                etapasVisiveis={['interna']}
                 />
                 )}
                 </TabsContent>

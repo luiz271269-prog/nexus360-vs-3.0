@@ -262,7 +262,7 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
 KanbanColumn.displayName = 'KanbanColumn';
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
-export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, onUpdateStatus, usuario, onEdit, onMostrarInsightsIA }) {
+export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, onUpdateStatus, usuario, onEdit, onMostrarInsightsIA, etapasVisiveis }) {
   const [tagModalOrcamento, setTagModalOrcamento] = useState(null);
   const [etiquetas, setEtiquetas] = useState([]);
   const [localOrcamentos, setLocalOrcamentos] = useState(null);
@@ -369,9 +369,15 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="space-y-4">
-        <Tabs defaultValue="interna" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-1 rounded-xl shadow-2xl border border-slate-700">
-            {Object.entries(etapasFluxo).map(([key, etapa]) => {
+        {(() => {
+          const etapasFiltradas = Object.entries(etapasFluxo).filter(
+            ([key]) => !etapasVisiveis || etapasVisiveis.includes(key)
+          );
+          const defaultTab = etapasFiltradas[0]?.[0] || 'interna';
+          return (
+        <Tabs defaultValue={defaultTab} key={etapasVisiveis?.join(',') || 'all'} className="w-full">
+          <TabsList className={`grid w-full ${etapasFiltradas.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-1 rounded-xl shadow-2xl border border-slate-700`}>
+            {etapasFiltradas.map(([key, etapa]) => {
               const Icon = etapa.icon;
               const total = etapa.statuses.reduce((s, st) => s + (orcamentosPorStatus[st]?.length || 0), 0);
               const valor = etapa.statuses.reduce((s, st) => s + (orcamentosPorStatus[st]?.reduce((a, o) => a + (o.valor_total || 0), 0) || 0), 0);
@@ -398,7 +404,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
             })}
           </TabsList>
 
-          {Object.entries(etapasFluxo).map(([key, etapa]) =>
+          {etapasFiltradas.map(([key, etapa]) =>
             <TabsContent key={key} value={key} className="mt-4">
               <div className={`${etapa.containerBg} rounded-2xl p-3 border-2 border-white/50 shadow-2xl`}>
                 {/*
@@ -441,6 +447,8 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
             </TabsContent>
           )}
         </Tabs>
+        );
+        })()}
       </div>
       {tagModalOrcamento &&
         <OrcamentoTagModal
