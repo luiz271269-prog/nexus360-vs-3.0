@@ -499,42 +499,36 @@ export default function LeadsQualificados() {
     <div className="bg-gradient-to-br px-1 py-1 rounded-md min-h-screen from-slate-50 via-gray-50 to-slate-100">
       <div className="max-w-[1920px] mx-auto space-y-2">
 
-        {/* HEADER COMPACTO NO TOPO */}
-        <div className="bg-orange-500 p-3 opacity-90 rounded-lg from-white via-orange-50 to-white shadow-lg border border-orange-200/50">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg flex items-center justify-center shadow-md">
-                <Target className="w-6 h-6 text-white" />
+        {/* HEADER ULTRA-COMPACTO — fundido com a barra de tabs abaixo */}
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-3 py-1.5 rounded-lg shadow-lg border border-orange-500/20">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 bg-gradient-to-br from-orange-400 to-orange-600 rounded-md flex items-center justify-center shadow-md flex-shrink-0">
+                <Target className="w-4 h-4 text-white" />
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-800">🎯 Central de Qualificação</h1>
-                <p className="text-slate-600 text-xs">
-                  Funil de Leads + Gestão de Clientes + Pipeline de Orçamentos
-                </p>
-              </div>
+              <h1 className="text-sm font-bold text-white tracking-tight whitespace-nowrap">Central de Qualificação</h1>
+              <span className="hidden md:inline text-[10px] text-slate-400 truncate">Leads · Clientes · Orçamentos</span>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* BOTÃO NOVO — contextual por tab */}
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Button
                 onClick={() => {
                   if (activeTab === 'orcamentos') navigate(createPageUrl('OrcamentoDetalhes'));
                   else handleNovoLead();
                 }}
                 size="sm"
-                className="h-8 text-xs bg-white text-orange-600 hover:bg-orange-50 font-semibold gap-1">
-                <Plus className="w-3.5 h-3.5" />
+                className="h-7 text-[11px] bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold gap-1 px-2.5 shadow-md">
+                <Plus className="w-3 h-3" />
                 {activeTab === 'orcamentos' ? 'Novo Orçamento' : 'Novo Lead'}
               </Button>
 
-              {/* FILTRO GLOBAL DE VENDEDOR — visível só para admin/gestor/supervisor */}
               {podeVerTodos && (
                 <>
                   <Select value={filtroVendedorGlobal} onValueChange={setFiltroVendedorGlobal}>
-                    <SelectTrigger className="h-8 w-[160px] text-xs bg-white/10 border-white/30 text-white">
+                    <SelectTrigger className="h-7 w-[140px] text-[11px] bg-slate-800/60 border-slate-700 text-white">
                       <SelectValue placeholder="👤 Vendedor" />
                     </SelectTrigger>
-                    <SelectContent className="bg-gray-800 text-white border-slate-600">
+                    <SelectContent className="bg-slate-800 text-white border-slate-700">
                       <SelectItem value="todos" className="text-xs">Todos os vendedores</SelectItem>
                       <SelectItem value="meus" className="text-xs">Meus registros</SelectItem>
                       {atendentes.map((v) =>
@@ -548,20 +542,19 @@ export default function LeadsQualificados() {
                     disabled={sincronizando}
                     size="sm"
                     variant="outline"
-                    className="bg-white/10 border-white/30 text-white hover:bg-white/20 h-8 text-xs gap-1">
+                    className="bg-slate-800/60 border-slate-700 text-slate-200 hover:bg-slate-700 h-7 text-[11px] gap-1 px-2">
                     <RefreshCw className={`w-3 h-3 ${sincronizando ? 'animate-spin' : ''}`} />
-                    Sincronizar
+                    Sync
                   </Button>
 
-                  {/* ✅ BOTÃO BULK UPDATE para vendedor específico */}
                   {filtroVendedorGlobal && filtroVendedorGlobal !== 'todos' && filtroVendedorGlobal !== 'meus' && (
                     <Button
                       onClick={() => handleBulkUpdateOrcamentos(filtroVendedorGlobal)}
                       disabled={sincronizando}
                       size="sm"
                       variant="destructive"
-                      className="bg-red-500 hover:bg-red-600 h-8 text-xs">
-                      ⚡ Bulk Update "{filtroVendedorGlobal}" → Enviado
+                      className="bg-red-500 hover:bg-red-600 h-7 text-[11px] px-2">
+                      ⚡ Bulk → Enviado
                     </Button>
                   )}
                 </>
@@ -570,64 +563,64 @@ export default function LeadsQualificados() {
                 </div>
                 </div>
 
-                {/* TABS + FILTROS INTEGRADOS */}
+                {/* TABS + FILTROS INTEGRADOS — ultra-compactos */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <div className="bg-gradient-to-r from-black via-orange-900/50 to-black rounded-lg border border-orange-500/20 p-2">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                {/* TABS - scroll horizontal no mobile */}
-                <TabsList className="bg-transparent h-9 p-0 gap-1 overflow-x-auto flex-wrap sm:flex-nowrap w-full sm:w-auto">
+                <div className="bg-slate-900/95 rounded-lg border border-slate-700/50 px-2 py-1.5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
+                {/* TABS - underline animado */}
+                <TabsList className="bg-transparent h-8 p-0 gap-0.5 overflow-x-auto flex-wrap sm:flex-nowrap w-full sm:w-auto">
                 <TabsTrigger
                   value="orcamentos"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
                   <FileText className="w-3 h-3 mr-1" />
-                  Business ORÇAMENTOS
-                  <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">{orcamentos.length}</Badge>
+                  Orçamentos
+                  <Badge variant="secondary" className="ml-1 bg-white/20 text-white text-[9px] h-3.5 px-1 data-[state=inactive]:bg-slate-700 data-[state=inactive]:text-slate-300">{orcamentos.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
                   value="cotacoes"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
                   <ShoppingCart className="w-3 h-3 mr-1" />
-                  Pedidos de Cotação
-                  <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">
+                  Cotações
+                  <Badge variant="secondary" className="ml-1 bg-white/20 text-white text-[9px] h-3.5 px-1">
                     {orcamentos.filter(o => ['rascunho','aguardando_cotacao','analisando','liberado'].includes(o.status)).length}
                   </Badge>
                 </TabsTrigger>
                 <TabsTrigger
                   value="clientes"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
                   <Users className="w-3 h-3 mr-1" />
-                  Gestão CLIENTES
-                  <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">{clientesAtivos.length}</Badge>
+                  Clientes
+                  <Badge variant="secondary" className="ml-1 bg-white/20 text-white text-[9px] h-3.5 px-1">{clientesAtivos.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
                   value="leads"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-orange-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
                   <Target className="w-3 h-3 mr-1" />
-                  Qualifica LEADS
-                  <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700 text-[10px] h-4">{leadsFiltrados.length}</Badge>
+                  Leads
+                  <Badge variant="secondary" className="ml-1 bg-white/20 text-white text-[9px] h-3.5 px-1">{leadsFiltrados.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
                   value="nexus"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
                   <Zap className="w-3 h-3 mr-1" />
                   Nexus
                 </TabsTrigger>
                 <TabsTrigger
                   value="listas"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
                   <List className="w-3 h-3 mr-1" />
-                  Listas Trabalho
+                  Listas
                 </TabsTrigger>
                 <TabsTrigger
                   value="nexus_dash"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-500 data-[state=active]:text-white text-slate-300 h-9 px-2 sm:px-4 text-xs font-semibold whitespace-nowrap">
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
                   <Activity className="w-3 h-3 mr-1" />
                   Dashboard
                 </TabsTrigger>
                 </TabsList>
 
-                {/* FILTROS COMPACTOS — busca + status por tab */}
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                {/* FILTROS COMPACTOS */}
+                <div className="flex items-center gap-1 w-full sm:w-auto">
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
                   <Input
@@ -638,7 +631,7 @@ export default function LeadsQualificados() {
                       else if (activeTab === 'leads') setFiltrosLeads({ ...filtrosLeads, busca: e.target.value });
                       else setFiltrosClientes({ ...filtrosClientes, busca: e.target.value });
                     }}
-                    className="pl-7 h-7 w-full sm:w-[180px] text-xs bg-black/30 border-orange-500/30 text-white placeholder:text-slate-400" />
+                    className="pl-7 h-7 w-full sm:w-[160px] text-[11px] bg-slate-800/60 border-slate-700 text-white placeholder:text-slate-500" />
                 </div>
 
                 {activeTab === 'orcamentos' && (
@@ -646,8 +639,8 @@ export default function LeadsQualificados() {
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="h-7 px-3 text-xs bg-black/30 border border-orange-500/30 rounded-md text-white">
-                      <option value="all">Todos Status</option>
+                      className="h-7 px-2 text-[11px] bg-slate-800/60 border border-slate-700 rounded-md text-white">
+                      <option value="all">Todos</option>
                       <option value="rascunho">Rascunho</option>
                       <option value="enviado">Enviado</option>
                       <option value="aprovado">Aprovado</option>
@@ -657,14 +650,14 @@ export default function LeadsQualificados() {
                       variant={viewMode === 'kanban' ? 'default' : 'outline'}
                       onClick={() => setViewMode('kanban')}
                       size="sm"
-                      className={`h-7 px-2 text-xs ${viewMode === 'kanban' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-black/30 border-orange-500/30 text-white'}`}>
+                      className={`h-7 px-1.5 text-xs ${viewMode === 'kanban' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
                       <Grid3x3 className="w-3 h-3" />
                     </Button>
                     <Button
                       variant={viewMode === 'table' ? 'default' : 'outline'}
                       onClick={() => setViewMode('table')}
                       size="sm"
-                      className={`h-7 px-2 text-xs ${viewMode === 'table' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-black/30 border-orange-500/30 text-white'}`}>
+                      className={`h-7 px-1.5 text-xs ${viewMode === 'table' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-700'}`}>
                       <List className="w-3 h-3" />
                     </Button>
                   </>
