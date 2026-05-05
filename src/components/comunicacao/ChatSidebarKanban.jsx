@@ -184,7 +184,7 @@ export default function ChatSidebarKanban({
   onModoSelecaoMultiplaChange,
 }) {
   // Modos válidos — qualquer modo não listado aqui cai no fallback do renderKanbanBody
-  const MODOS_VALIDOS = ['parados', 'usuario', 'integracao', 'urgentes', 'broadcast', 'nao_atribuidos'];
+  const MODOS_VALIDOS = ['parados_nao_atrib', 'usuario', 'integracao', 'urgentes', 'broadcast'];
   const [kanbanMode, setKanbanMode] = React.useState('usuario');
   const [internalComposerOpen, setInternalComposerOpen] = React.useState(false);
   const [delegateMode, setDelegateMode] = React.useState(false);
@@ -538,24 +538,22 @@ export default function ChatSidebarKanban({
   const renderKanbanBody = () => {
     const modoAtivo = MODOS_VALIDOS.includes(kanbanMode) ? kanbanMode : 'usuario';
     const modos = {
-      urgentes:        renderModoUrgentes,
-      parados:         renderModoParados,
-      usuario:         renderModoUsuario,
-      integracao:      renderModoIntegracao,
-      broadcast:       renderModoBroadcast,
-      nao_atribuidos:  renderModoNaoAtribuidos,
+      urgentes:           renderModoUrgentes,
+      usuario:            renderModoUsuario,
+      integracao:         renderModoIntegracao,
+      broadcast:          renderModoBroadcast,
+      parados_nao_atrib:  () => <>{renderModoNaoAtribuidos()}{renderModoParados()}</>,
     };
     return modos[modoAtivo]();
   };
 
   // Configuração dos modos para a barra de ícones mobile
   const modosMobile = [
-    { key: 'usuario',        label: 'Atendente',      icon: Users,          cor: 'bg-indigo-500' },
-    { key: 'parados',        label: 'Parados',        icon: Pause,          cor: 'bg-yellow-500' },
-    { key: 'integracao',     label: 'Canal',          icon: Columns,        cor: 'bg-orange-500' },
-    { key: 'urgentes',       label: 'Urgentes',       icon: Zap,            cor: 'bg-purple-600' },
-    { key: 'broadcast',      label: 'Broadcast',      icon: Megaphone,      cor: 'bg-emerald-600' },
-    { key: 'nao_atribuidos', label: 'Não Atribuídos', icon: AlertTriangle,  cor: 'bg-red-600' },
+    { key: 'usuario',           label: 'Atendente',          icon: Users,          cor: 'bg-indigo-500' },
+    { key: 'parados_nao_atrib', label: 'Parados / S/Atend.', icon: AlertTriangle,  cor: 'bg-red-500' },
+    { key: 'integracao',        label: 'Canal',              icon: Columns,        cor: 'bg-orange-500' },
+    { key: 'urgentes',          label: 'Urgentes',           icon: Zap,            cor: 'bg-purple-600' },
+    { key: 'broadcast',         label: 'Broadcast',          icon: Megaphone,      cor: 'bg-emerald-600' },
   ];
 
   return (
@@ -705,9 +703,9 @@ export default function ChatSidebarKanban({
 
           {/* Toggle visualizações */}
           <div className="flex items-center gap-0.5 bg-slate-100 border border-slate-200 rounded-lg p-0.5">
-            <button onClick={() => setKanbanMode('parados')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'parados' ? 'bg-yellow-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}>
-              <Pause className="w-3 h-3" />Parados
+            <button onClick={() => setKanbanMode('parados_nao_atrib')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'parados_nao_atrib' ? 'bg-red-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}>
+              <AlertTriangle className="w-3 h-3" />Parados / S/Atend.
             </button>
             <button onClick={() => setKanbanMode('usuario')}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'usuario' ? 'bg-indigo-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}>
@@ -716,10 +714,6 @@ export default function ChatSidebarKanban({
             <button onClick={() => setKanbanMode('integracao')}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'integracao' ? 'bg-orange-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}>
               <Columns className="w-3 h-3" />Canal
-            </button>
-            <button onClick={() => setKanbanMode('nao_atribuidos')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'nao_atribuidos' ? 'bg-red-500 text-white shadow' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}>
-              <AlertTriangle className="w-3 h-3" />Não Atrib.
             </button>
           </div>
 
