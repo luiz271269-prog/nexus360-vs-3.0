@@ -368,7 +368,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="space-y-4">
+      <div className="space-y-1">
         {(() => {
           const etapasFiltradas = Object.entries(etapasFluxo).filter(
             ([key]) => !etapasVisiveis || etapasVisiveis.includes(key)
@@ -405,7 +405,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
           </TabsList>
 
           {etapasFiltradas.map(([key, etapa]) =>
-            <TabsContent key={key} value={key} className="mt-4">
+            <TabsContent key={key} value={key} className="mt-1">
               <div className={`${etapa.containerBg} rounded-2xl p-3 border-2 border-white/50 shadow-2xl`}>
                 {/*
                   ✅ FIX 1: overflowY: 'auto' (resolve conflito CSS com overflowX: 'auto')
