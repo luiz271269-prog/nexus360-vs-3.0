@@ -39,8 +39,21 @@ const PATTERNS = [
 ];
 
 const SETOR_DEFAULT = 'vendas';
-const HORA_INICIO = 8;
-const HORA_FIM = 18;
+
+// Horário comercial NeuralTec: Seg-Sex 08:00-12:00 e 13:30-18:00 BRT
+// Fora disso (incl. almoço, fim de semana, feriado, noite) = "fora_horario"
+function avaliarHorarioComercial(date = new Date()) {
+  if (ehFeriadoNacional(date)) return { dentro: false, motivo: 'feriado' };
+  const brt = new Date(date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const dow = brt.getDay(); // 0=dom, 6=sab
+  if (dow === 0 || dow === 6) return { dentro: false, motivo: 'fim_de_semana' };
+  const minutos = brt.getHours() * 60 + brt.getMinutes();
+  const manha = minutos >= 8 * 60 && minutos < 12 * 60;        // 08:00–12:00
+  const tarde = minutos >= 13 * 60 + 30 && minutos < 18 * 60;  // 13:30–18:00
+  if (manha || tarde) return { dentro: true, motivo: 'horario_comercial' };
+  if (minutos >= 12 * 60 && minutos < 13 * 60 + 30) return { dentro: false, motivo: 'almoco' };
+  return { dentro: false, motivo: 'noite' };
+}
 
 // Feriados nacionais brasileiros (timezone São Paulo)
 // Fixos: chave MM-DD | Móveis (Carnaval, Sexta Santa, Corpus Christi): chave YYYY-MM-DD
@@ -157,13 +170,19 @@ function gerarRespostaMicroIntent(tipo, profile, contactNome, hora, foraHorario)
 // HELPER: montar mensagem ACK por contexto
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildAckMsg(tipo, nome, isVIP, hora) {
+function buildAckMsg(tipo, nome, isVIP, horarioInfo) {
   const primeiroNome = (nome || '').split(' ')[0] || '';
-  if (ehFeriadoNacional(new Date())) {
-    return { tipo: 'fora_horario', msg: `Olá! 😊\nHoje é feriado nacional.\nRetornaremos no próximo dia útil, das ${HORA_INICIO}h às ${HORA_FIM}h.` };
-  }
-  if (hora < HORA_INICIO || hora > HORA_FIM) {
-    return { tipo: 'fora_horario', msg: `Olá! 😊\nNosso atendimento é Seg-Sex ${HORA_INICIO}h-${HORA_FIM}h.\nRetornaremos em breve!` };
+  if (!horarioInfo.dentro) {
+    if (horarioInfo.motivo === 'feriado') {
+      return { tipo: 'fora_horario', msg: `Olá! 😊\nHoje é feriado nacional.\nRetornaremos no próximo dia útil — Seg-Sex 08h-12h e 13h30-18h.` };
+    }
+    if (horarioInfo.motivo === 'almoco') {
+      return { tipo: 'fora_horario', msg: `Olá! 😊\nEstamos em horário de almoço (12h-13h30).\nRetornaremos às 13h30!` };
+    }
+    if (horarioInfo.motivo === 'fim_de_semana') {
+      return { tipo: 'fora_horario', msg: `Olá! 😊\nEstamos fora do expediente (fim de semana).\nRetornaremos na segunda-feira a partir das 08h.` };
+    }
+    return { tipo: 'fora_horario', msg: `Olá! 😊\nNosso atendimento é Seg-Sex 08h-12h e 13h30-18h.\nRetornaremos em breve!` };
   }
   if (isVIP) return { tipo: 'vip', msg: `✨ Olá ${primeiroNome}! Já recebi sua mensagem. Um momento!` };
   if (tipo === 'cliente') return { tipo: 'cliente', msg: `👋 Olá ${primeiroNome}! Recebi sua mensagem. Vou ajudar em instantes!` };
@@ -248,6 +267,45 @@ async function enviarWhatsApp(integ, telefone, mensagem) {
     const msgId = resp.messageId || resp.key?.id || resp.id || null;
     const ok = r.ok && !!msgId && !resp.error;
     if (!ok) console.warn('[SKILL-PRE-ATEND] Z-API falhou:', JSON.stringify(resp).substring(0, 300));
+    return { ok, msgId, raw: resp };
+  }
+}
+
+// Envia mídia (vídeo/imagem) com caption — usado no ACK fora-horário
+async function enviarWhatsAppMidia(integ, telefone, mediaUrl, caption, tipo = 'video') {
+  const tel = (telefone || '').replace(/\D/g, '');
+  const phone = tel.startsWith('55') ? tel : '55' + tel;
+
+  if (integ.api_provider === 'w_api') {
+    const endpoint = tipo === 'video' ? 'send-video' : 'send-image';
+    const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
+      + `/message/${endpoint}?instanceId=${integ.instance_id_provider}`;
+    const bodyKey = tipo === 'video' ? 'video' : 'image';
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
+      body: JSON.stringify({ phone, [bodyKey]: mediaUrl, caption, delayMessage: 1 })
+    });
+    const resp = await r.json().catch(() => ({}));
+    const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
+    const ok = r.ok && !!msgId && !resp.error;
+    if (!ok) console.warn('[SKILL-PRE-ATEND] W-API mídia falhou:', JSON.stringify(resp).substring(0, 300));
+    return { ok, msgId, raw: resp };
+  } else {
+    const endpoint = tipo === 'video' ? 'send-video' : 'send-image';
+    const url = (integ.base_url_provider || 'https://api.z-api.io')
+      + `/instances/${integ.instance_id_provider}/token/${integ.api_key_provider}/${endpoint}`;
+    const headers = { 'Content-Type': 'application/json' };
+    if (integ.security_client_token_header) headers['Client-Token'] = integ.security_client_token_header;
+    const bodyKey = tipo === 'video' ? 'video' : 'image';
+    const r = await fetch(url, {
+      method: 'POST', headers,
+      body: JSON.stringify({ phone, [bodyKey]: mediaUrl, caption })
+    });
+    const resp = await r.json().catch(() => ({}));
+    const msgId = resp.messageId || resp.key?.id || resp.id || null;
+    const ok = r.ok && !!msgId && !resp.error;
+    if (!ok) console.warn('[SKILL-PRE-ATEND] Z-API mídia falhou:', JSON.stringify(resp).substring(0, 300));
     return { ok, msgId, raw: resp };
   }
 }
@@ -723,7 +781,7 @@ Deno.serve(async (req) => {
       if (!integ.instance_id_provider || !integ.api_key_provider) throw new Error('credenciais_invalidas');
       if (integ.api_provider === 'w_api' && !integ.security_client_token_header) throw new Error('wapi_sem_client_token');
 
-      const hora = new Date().getHours();
+      const horarioInfo = avaliarHorarioComercial();
       const isVIP = contact?.is_vip || false;
 
       // Cooldown 5min
@@ -748,7 +806,7 @@ Deno.serve(async (req) => {
         throw new Error('__skip_ack');
       }
 
-      const ack = buildAckMsg(contact?.tipo_contato, contact?.nome, isVIP, hora);
+      const ack = buildAckMsg(contact?.tipo_contato, contact?.nome, isVIP, horarioInfo);
 
       // ─── FORA DE HORÁRIO: anexar promoção rotacionada (1 vez por período de 12h) ───
       let msgFinal = ack.msg;
@@ -777,7 +835,24 @@ Deno.serve(async (req) => {
         }
       }
 
-      const { ok, msgId, raw } = await enviarWhatsApp(integ, contact.telefone, msgFinal);
+      // Se fora-horário e há vídeo de pré-atendimento ativo: envia vídeo + caption (ACK+promo)
+      let videoConfig = null;
+      if (ack.tipo === 'fora_horario') {
+        try {
+          const configs = await base44.asServiceRole.entities.ConfiguracaoMidiaSistema.filter({
+            id_chave: 'pre_atendimento_logo_animado', ativa: true
+          }, '-updated_date', 1);
+          if (configs?.[0]?.url && (configs[0].tipo === 'video' || configs[0].tipo === 'gif')) {
+            videoConfig = configs[0];
+          }
+        } catch (e) {
+          console.warn('[SKILL-PRE-ATEND] Falha ao buscar vídeo:', e.message);
+        }
+      }
+
+      const { ok, msgId, raw } = videoConfig
+        ? await enviarWhatsAppMidia(integ, contact.telefone, videoConfig.url, msgFinal, 'video')
+        : await enviarWhatsApp(integ, contact.telefone, msgFinal);
 
       if (!ok) {
         console.warn('[SKILL-PRE-ATEND] ⚠️ ACK envio falhou (NÃO CRÍTICO):', JSON.stringify(raw));
@@ -789,10 +864,15 @@ Deno.serve(async (req) => {
           recipient_id: contact_id, recipient_type: 'contact',
           content: msgFinal, channel: 'whatsapp', status: 'enviada',
           sent_at: new Date().toISOString(), visibility: 'public_to_customer',
+          media_url: videoConfig?.url || null,
+          media_type: videoConfig ? 'video' : 'none',
+          media_caption: videoConfig ? msgFinal : null,
           metadata: {
             is_ack: true, ack_tipo: ack.tipo, whatsapp_msg_id: msgId,
             promo_anexada_id: promoAnexada?.id || null,
-            promo_anexada_titulo: promoAnexada?.titulo || null
+            promo_anexada_titulo: promoAnexada?.titulo || null,
+            horario_motivo: horarioInfo.motivo,
+            video_anexado: !!videoConfig
           }
         }).catch(() => {});
 
@@ -825,10 +905,12 @@ Deno.serve(async (req) => {
 
         resultado.camadas.ack = {
           ok: true, tipo: ack.tipo, msgId,
+          horario_motivo: horarioInfo.motivo,
+          video_anexado: !!videoConfig,
           promo_anexada: promoAnexada?.titulo || null,
           promo_skipped: promoSkipped
         };
-        console.log(`[SKILL-PRE-ATEND] ✅ Camada 1 OK — ACK enviado (${ack.tipo}${promoAnexada ? ' + promo' : ''})`);
+        console.log(`[SKILL-PRE-ATEND] ✅ Camada 1 OK — ACK enviado (${ack.tipo}/${horarioInfo.motivo}${videoConfig ? ' + video' : ''}${promoAnexada ? ' + promo' : ''})`);
       }
     } catch (e) {
       if (e.message !== '__skip_ack') {
@@ -1145,9 +1227,9 @@ Deno.serve(async (req) => {
 
       console.log(`[SKILL-PRE-ATEND] ✅ Atribuído para ${atendente.full_name} em ${setor} (motivo: ${motivoAtribuicao})`);
 
-      // ─── FORA DE HORÁRIO: pular boas-vindas LLM (já foi enviado ACK+promo na Camada 1) ───
-      const horaCamada4 = new Date().getHours();
-      if (ehFeriadoNacional(new Date()) || horaCamada4 < HORA_INICIO || horaCamada4 > HORA_FIM) {
+      // ─── FORA DE HORÁRIO: pular boas-vindas LLM (já foi enviado ACK+vídeo+promo na Camada 1) ───
+      const horarioCamada4 = avaliarHorarioComercial();
+      if (!horarioCamada4.dentro) {
         console.log('[SKILL-PRE-ATEND] ⏭️ Camada 4: fora de horário — boas-vindas LLM SUPRIMIDA (ACK+promo já enviado)');
         resultado.camadas.atribuicao = {
           ok: true,
