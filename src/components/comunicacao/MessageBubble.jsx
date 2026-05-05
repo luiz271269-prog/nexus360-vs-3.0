@@ -1033,7 +1033,7 @@ export default React.memo(function MessageBubble({
         }
 
         <div className={cn(
-          "max-w-[65%]",
+          "max-w-[78%] sm:max-w-[72%] md:max-w-[68%]",
           "flex flex-col group relative"
         )}>
           {!isOwn && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
