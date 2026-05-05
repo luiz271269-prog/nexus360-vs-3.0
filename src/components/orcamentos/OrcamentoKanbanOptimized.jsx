@@ -22,15 +22,15 @@ const statusLabels = {
 };
 
 const statusGradients = {
-  rascunho: { border: 'border-indigo-300', ring: 'ring-indigo-500', temp: '❄️ Frio' },
-  aguardando_cotacao: { border: 'border-sky-400', ring: 'ring-sky-500', temp: '🌡️ Morno' },
-  analisando: { border: 'border-violet-400', ring: 'ring-violet-600', temp: '🔥 Aquecendo' },
-  liberado: { border: 'border-emerald-500', ring: 'ring-emerald-600', temp: '🔥 Quente' },
-  enviado: { border: 'border-amber-500', ring: 'ring-amber-600', temp: '⚡ Energizado' },
-  negociando: { border: 'border-orange-600', ring: 'ring-orange-700', temp: '🔥 Fervendo' },
-  aprovado: { border: 'border-green-600', ring: 'ring-green-700', temp: '✨ Explosão' },
-  rejeitado: { border: 'border-red-500', ring: 'ring-red-600', temp: '❄️ Congelado' },
-  vencido: { border: 'border-green-600', ring: 'ring-green-700', temp: '✅ Fechado' }
+  rascunho: { border: 'border-indigo-400/60', ring: 'ring-indigo-500', temp: '❄️ Frio', header: 'from-slate-800 via-indigo-900 to-slate-900', accent: 'text-indigo-300', dot: 'bg-indigo-400' },
+  aguardando_cotacao: { border: 'border-sky-400/60', ring: 'ring-sky-500', temp: '🌡️ Morno', header: 'from-slate-800 via-sky-900 to-slate-900', accent: 'text-sky-300', dot: 'bg-sky-400' },
+  analisando: { border: 'border-violet-400/60', ring: 'ring-violet-600', temp: '🔥 Aquecendo', header: 'from-slate-800 via-violet-900 to-slate-900', accent: 'text-violet-300', dot: 'bg-violet-400' },
+  liberado: { border: 'border-emerald-400/60', ring: 'ring-emerald-600', temp: '🔥 Quente', header: 'from-slate-800 via-emerald-900 to-slate-900', accent: 'text-emerald-300', dot: 'bg-emerald-400' },
+  enviado: { border: 'border-amber-400/60', ring: 'ring-amber-600', temp: '⚡ Energizado', header: 'from-slate-800 via-amber-900 to-slate-900', accent: 'text-amber-300', dot: 'bg-amber-400' },
+  negociando: { border: 'border-orange-400/60', ring: 'ring-orange-700', temp: '🔥 Fervendo', header: 'from-slate-800 via-orange-900 to-slate-900', accent: 'text-orange-300', dot: 'bg-orange-400' },
+  aprovado: { border: 'border-green-400/60', ring: 'ring-green-700', temp: '✨ Explosão', header: 'from-slate-800 via-green-900 to-slate-900', accent: 'text-green-300', dot: 'bg-green-400' },
+  rejeitado: { border: 'border-rose-400/60', ring: 'ring-rose-600', temp: '❄️ Congelado', header: 'from-slate-800 via-rose-900 to-slate-900', accent: 'text-rose-300', dot: 'bg-rose-400' },
+  vencido: { border: 'border-teal-400/60', ring: 'ring-teal-700', temp: '✅ Fechado', header: 'from-slate-800 via-teal-900 to-slate-900', accent: 'text-teal-300', dot: 'bg-teal-400' }
 };
 
 const etapasFluxo = {
@@ -211,18 +211,21 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
   return (
     // ✅ FIX 2: clamp() — cresce com viewport, respeita min/max
     <div style={{ width: 'clamp(175px, 22vw, 260px)', minWidth: 175, flexShrink: 0 }} className="flex flex-col">
-      <div className={`bg-gradient-to-r ${etapaConfig.headerGradient} p-2 rounded-t-xl shadow-xl`}>
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-1">
-            <h3 className="font-bold text-[11px] text-white truncate">{statusLabels[status]}</h3>
+      <div className={`relative bg-gradient-to-br ${gradient.header} p-2.5 rounded-t-xl shadow-2xl overflow-hidden border-t border-x ${gradient.border}`}>
+        {/* Glow vibrante no canto */}
+        <div className={`absolute -top-8 -right-8 w-24 h-24 ${gradient.dot} opacity-20 blur-2xl rounded-full pointer-events-none`} />
+        <div className="relative flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-1.5">
+            <div className={`w-1.5 h-1.5 rounded-full ${gradient.dot} shadow-lg shadow-current animate-pulse`} />
+            <h3 className="font-bold text-[11px] text-white truncate tracking-wide uppercase">{statusLabels[status]}</h3>
           </div>
-          <Badge className={`bg-gradient-to-r ${etapaConfig.badgeGradient} text-white text-[10px] h-5 px-1.5 font-bold border-0`}>
+          <Badge className={`bg-white/10 backdrop-blur-sm ${gradient.accent} text-[10px] h-5 px-2 font-black border ${gradient.border}`}>
             {colOrcamentos.length}
           </Badge>
         </div>
-        <div className="flex items-center gap-1">
-          <DollarSign className="w-3 h-3 text-amber-300 flex-shrink-0" />
-          <span className="text-[10px] text-amber-200 font-bold truncate">{formatCurrency(totalValor)}</span>
+        <div className="relative flex items-baseline gap-1">
+          <DollarSign className={`w-3 h-3 ${gradient.accent} flex-shrink-0 self-center`} />
+          <span className={`text-sm font-black ${gradient.accent} truncate tracking-tight`}>{formatCurrency(totalValor)}</span>
         </div>
       </div>
 
