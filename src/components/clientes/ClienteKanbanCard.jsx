@@ -18,13 +18,31 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import AtribuidorAtendenteRapido from '../comunicacao/AtribuidorAtendenteRapido';
-import ClienteChatDrawer from './ClienteChatDrawer';
 import ClienteHistoricoDrawer from './ClienteHistoricoDrawer';
+import { useNavigate } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 
 export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, onViewDetails, statusGradient }) {
-  const [chatOpen, setChatOpen] = React.useState(false);
+  const navigate = useNavigate();
   const [historicoOpen, setHistoricoOpen] = React.useState(false);
   const temTelefone = cliente?.telefone || cliente?.celular;
+
+  // Abre a Central de Comunicação na thread do cliente.
+  // Reusa o handler global exposto pela Central (useAbrirConversaPorTelefone).
+  const abrirChatNaCentral = React.useCallback(() => {
+    if (!temTelefone) return;
+    const tel = cliente.telefone || cliente.celular;
+    const nome = cliente.razao_social || cliente.nome_fantasia || '';
+    // Se já está na Central, dispara direto. Senão navega e o handler é
+    // chamado após montagem (pequeno delay para o hook expor a função global).
+    if (typeof window.handleAbrirConversaPorTelefone === 'function') {
+      window.handleAbrirConversaPorTelefone(tel, nome);
+      return;
+    }
+    // Persiste pedido pendente — a Central lê no mount
+    sessionStorage.setItem('pendingOpenChat', JSON.stringify({ telefone: tel, nome }));
+    navigate(createPageUrl('Comunicacao'));
+  }, [cliente, temTelefone, navigate]);
   const getScoreColor = (scoreTotal) => {
     if (!scoreTotal) return 'text-slate-600 bg-slate-100';
     if (scoreTotal >= 700) return 'text-green-700 bg-green-100';
@@ -186,7 +204,7 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
             Notas
           </Button>
           <Button
-            onClick={(e) => { e.stopPropagation(); if (temTelefone) setChatOpen(true); }}
+            onClick={(e) => { e.stopPropagation(); abrirChatNaCentral(); }}
             disabled={!temTelefone}
             size="sm"
             variant="ghost"
@@ -195,20 +213,13 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
                 ? 'bg-green-500 hover:bg-green-600 text-white hover:shadow-md hover:scale-105 active:scale-95'
                 : 'bg-slate-100 text-slate-400 cursor-not-allowed'
             }`}
-            title={temTelefone ? 'Abrir chat WhatsApp' : 'Sem telefone cadastrado'}
+            title={temTelefone ? 'Abrir na Central de Comunicação' : 'Sem telefone cadastrado'}
           >
             <MessageSquare className="w-3 h-3 mr-0.5" />
             Chat
           </Button>
         </div>
       </CardContent>
-
-      {/* Drawer de Chat WhatsApp */}
-      <ClienteChatDrawer
-        cliente={cliente}
-        isOpen={chatOpen}
-        onClose={() => setChatOpen(false)}
-      />
 
       {/* Drawer de Histórico Interno */}
       <ClienteHistoricoDrawer
