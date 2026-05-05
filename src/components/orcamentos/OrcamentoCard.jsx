@@ -1,8 +1,9 @@
 import React from 'react';
-import { MessageSquare, Pencil, Calendar, User } from 'lucide-react';
+import { MessageSquare, Pencil, Calendar, User, NotebookPen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import OrcamentoChatDrawer from './OrcamentoChatDrawer';
+import OrcamentoHistoricoDrawer from './OrcamentoHistoricoDrawer';
 
 const probCores = {
   'Alta':  'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -13,6 +14,14 @@ const probCores = {
 export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
   const navigate = useNavigate();
   const [chatOpen, setChatOpen] = React.useState(false);
+  const [historicoOpen, setHistoricoOpen] = React.useState(false);
+  const [historicoLocal, setHistoricoLocal] = React.useState(
+    Array.isArray(orcamento.historico_interno) ? orcamento.historico_interno : []
+  );
+  React.useEffect(() => {
+    setHistoricoLocal(Array.isArray(orcamento.historico_interno) ? orcamento.historico_interno : []);
+  }, [orcamento.id, orcamento.historico_interno]);
+  const totalHistorico = historicoLocal.length;
 
   const formatCurrency = (v) => {
     const n = Number(v) || 0;
@@ -91,6 +100,19 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
           )}
           <div className="ml-auto flex items-center gap-1">
             <button
+              className="relative flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 transition-all duration-150 hover:bg-amber-100 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+              onClick={(e) => { e.stopPropagation(); setHistoricoOpen(true); }}
+              title="Histórico interno / discussão"
+            >
+              <NotebookPen className="w-2.5 h-2.5" />
+              Notas
+              {totalHistorico > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center shadow">
+                  {totalHistorico > 99 ? '99+' : totalHistorico}
+                </span>
+              )}
+            </button>
+            <button
               className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 transition-all duration-150 hover:bg-slate-200 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
               onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(orcamento); }}
               title="Editar orçamento"
@@ -124,6 +146,14 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
         orcamento={orcamento}
         isOpen={chatOpen}
         onClose={() => setChatOpen(false)}
+      />
+
+      {/* Drawer de Histórico Interno */}
+      <OrcamentoHistoricoDrawer
+        orcamento={orcamento}
+        isOpen={historicoOpen}
+        onClose={() => setHistoricoOpen(false)}
+        onSaved={(novo) => setHistoricoLocal(novo)}
       />
     </div>
   );

@@ -201,6 +201,61 @@
           "tipo_estudo"
         ]
       }
+    },
+    "historico_interno": {
+      "type": "array",
+      "description": "Timeline interna de notas/discuss\u00e3o sobre o or\u00e7amento (texto e \u00e1udio)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID \u00fanico da entrada (uuid/timestamp)"
+          },
+          "autor_id": {
+            "type": "string",
+            "description": "ID do User que registrou"
+          },
+          "autor_nome": {
+            "type": "string",
+            "description": "Nome do autor (cache)"
+          },
+          "data": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Quando foi registrado"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "nota",
+              "ligacao",
+              "visita",
+              "followup",
+              "audio",
+              "sistema"
+            ],
+            "default": "nota",
+            "description": "Tipo da entrada"
+          },
+          "texto": {
+            "type": "string",
+            "description": "Conte\u00fado textual"
+          },
+          "audio_url": {
+            "type": "string",
+            "description": "URL do \u00e1udio (se tipo=audio)"
+          },
+          "audio_duracao_seg": {
+            "type": "number",
+            "description": "Dura\u00e7\u00e3o do \u00e1udio em segundos"
+          }
+        },
+        "required": [
+          "data",
+          "tipo"
+        ]
+      }
     }
   },
   "required": [
