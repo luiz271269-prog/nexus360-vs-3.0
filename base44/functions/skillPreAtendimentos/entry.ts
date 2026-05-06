@@ -30,9 +30,55 @@ const DEDUP_WINDOW_MS = 30_000; // 30s janela de dedup de webhooks
 const PROMO_FORA_HORARIO_GAP_MS = 12 * 60 * 60 * 1000; // 12h — 1 promo por período fora-horário
 const ACK_FORA_HORARIO_GAP_MS = 12 * 60 * 60 * 1000;   // 12h — 1 ACK fora-horário por período (anti-repetição)
 
-// Horário comercial usado em guards rápidos (sem chamar avaliarHorarioComercial)
-const HORA_INICIO = 8;
-const HORA_FIM = 18;
+// Horário comercial — defaults usados como fallback quando BroadcastConfig não responde
+// FONTE DE VERDADE: BroadcastConfig (nome_config='default') no banco. Edite via Painel de Configuração de Broadcast.
+const HORA_INICIO_DEFAULT = 8;
+const HORA_FIM_DEFAULT = 18;
+const ALMOCO_INICIO_DEFAULT = 12;
+const ALMOCO_FIM_DEFAULT = 13.5;
+
+// Cache em memória do worker (5min) para evitar 1 query/webhook
+let _cacheHorarioConfig = null;
+let _cacheHorarioConfigAt = 0;
+const CACHE_HORARIO_TTL_MS = 5 * 60 * 1000;
+
+async function carregarHorarioConfig(base44) {
+  const agora = Date.now();
+  if (_cacheHorarioConfig && (agora - _cacheHorarioConfigAt) < CACHE_HORARIO_TTL_MS) {
+    return _cacheHorarioConfig;
+  }
+  try {
+    const lista = await base44.asServiceRole.entities.BroadcastConfig.filter({ nome_config: 'default', ativo: true });
+    if (lista?.[0]) {
+      _cacheHorarioConfig = {
+        manha_inicio: lista[0].horario_comercial_manha_inicio ?? lista[0].horario_inicio ?? HORA_INICIO_DEFAULT,
+        almoco_inicio: lista[0].horario_almoco_inicio ?? ALMOCO_INICIO_DEFAULT,
+        almoco_fim: lista[0].horario_almoco_fim ?? ALMOCO_FIM_DEFAULT,
+        tarde_fim: lista[0].horario_comercial_tarde_fim ?? HORA_FIM_DEFAULT,
+        feriados_extras: Array.isArray(lista[0].feriados_extras) ? lista[0].feriados_extras : [],
+        enviar_fim_semana: lista[0].enviar_fim_semana === true
+      };
+      _cacheHorarioConfigAt = agora;
+      return _cacheHorarioConfig;
+    }
+  } catch (e) {
+    console.warn('[SKILL-PRE-ATEND] BroadcastConfig falhou, usando defaults:', e.message);
+  }
+  // Fallback hardcoded
+  return {
+    manha_inicio: HORA_INICIO_DEFAULT,
+    almoco_inicio: ALMOCO_INICIO_DEFAULT,
+    almoco_fim: ALMOCO_FIM_DEFAULT,
+    tarde_fim: HORA_FIM_DEFAULT,
+    feriados_extras: [],
+    enviar_fim_semana: false
+  };
+}
+
+// Compat: HORA_INICIO/HORA_FIM usados em guards síncronos (fora da chain async)
+// Mantemos os valores default — guards rápidos não justificam await ao banco.
+const HORA_INICIO = HORA_INICIO_DEFAULT;
+const HORA_FIM = HORA_FIM_DEFAULT;
 
 const PATTERNS = [
   { regex: /pc\s*gam|gam(er|ing)|notebook|computador|placa\s*de\s*v|rtx|processador|ram|ssd|cpu|impressora|monitor|teclado|mouse|headset|fonte|gabinete|cooler|hardware|orcamento|cotacao|preco|quanto\s*custa|comprar|produto|estoque|disponib/i, setor: 'vendas', intencao: 'compra_produto', confidence: 0.95 },
@@ -45,18 +91,28 @@ const PATTERNS = [
 
 const SETOR_DEFAULT = 'vendas';
 
-// Horário comercial NeuralTec: Seg-Sex 08:00-12:00 e 13:30-18:00 BRT
+// Horário comercial NeuralTec — config dinâmica via BroadcastConfig (com fallback hardcoded)
 // Fora disso (incl. almoço, fim de semana, feriado, noite) = "fora_horario"
-function avaliarHorarioComercial(date = new Date()) {
-  if (ehFeriadoNacional(date)) return { dentro: false, motivo: 'feriado' };
+function avaliarHorarioComercial(date = new Date(), cfg = null) {
+  // cfg = { manha_inicio, almoco_inicio, almoco_fim, tarde_fim, feriados_extras[], enviar_fim_semana }
+  const c = cfg || {
+    manha_inicio: HORA_INICIO_DEFAULT,
+    almoco_inicio: ALMOCO_INICIO_DEFAULT,
+    almoco_fim: ALMOCO_FIM_DEFAULT,
+    tarde_fim: HORA_FIM_DEFAULT,
+    feriados_extras: [],
+    enviar_fim_semana: false
+  };
+  if (ehFeriadoNacional(date, c.feriados_extras)) return { dentro: false, motivo: 'feriado' };
   const brt = new Date(date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
   const dow = brt.getDay(); // 0=dom, 6=sab
-  if (dow === 0 || dow === 6) return { dentro: false, motivo: 'fim_de_semana' };
-  const minutos = brt.getHours() * 60 + brt.getMinutes();
-  const manha = minutos >= 8 * 60 && minutos < 12 * 60;        // 08:00–12:00
-  const tarde = minutos >= 13 * 60 + 30 && minutos < 18 * 60;  // 13:30–18:00
+  if (!c.enviar_fim_semana && (dow === 0 || dow === 6)) return { dentro: false, motivo: 'fim_de_semana' };
+  const minutosAgora = brt.getHours() * 60 + brt.getMinutes();
+  const m = (h) => Math.round(h * 60); // hora decimal -> minutos
+  const manha = minutosAgora >= m(c.manha_inicio) && minutosAgora < m(c.almoco_inicio);
+  const tarde = minutosAgora >= m(c.almoco_fim) && minutosAgora < m(c.tarde_fim);
   if (manha || tarde) return { dentro: true, motivo: 'horario_comercial' };
-  if (minutos >= 12 * 60 && minutos < 13 * 60 + 30) return { dentro: false, motivo: 'almoco' };
+  if (minutosAgora >= m(c.almoco_inicio) && minutosAgora < m(c.almoco_fim)) return { dentro: false, motivo: 'almoco' };
   return { dentro: false, motivo: 'noite' };
 }
 
@@ -83,12 +139,16 @@ const FERIADOS_NACIONAIS = new Set([
   '2027-05-27',               // Corpus Christi
 ]);
 
-function ehFeriadoNacional(date) {
+function ehFeriadoNacional(date, feriadosExtras = []) {
   const brt = new Date(date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
   const mm = String(brt.getMonth() + 1).padStart(2, '0');
   const dd = String(brt.getDate()).padStart(2, '0');
   const yyyy = brt.getFullYear();
-  return FERIADOS_NACIONAIS.has(`${mm}-${dd}`) || FERIADOS_NACIONAIS.has(`${yyyy}-${mm}-${dd}`);
+  const isoCompleto = `${yyyy}-${mm}-${dd}`;
+  if (FERIADOS_NACIONAIS.has(`${mm}-${dd}`) || FERIADOS_NACIONAIS.has(isoCompleto)) return true;
+  // Feriados extras configuráveis via BroadcastConfig.feriados_extras (formato YYYY-MM-DD)
+  if (Array.isArray(feriadosExtras) && feriadosExtras.includes(isoCompleto)) return true;
+  return false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -502,8 +562,10 @@ Deno.serve(async (req) => {
       // Guard 1: já atribuída?
       // EXCEÇÃO: em fora-horário/feriado, NÃO pular — precisamos enviar ACK informativo
       // (atendente atribuído não está disponível agora, cliente precisa saber)
+      // Guard rápido usa defaults — avaliação fina vem na Camada 1 com config do banco.
+      const _horarioCfgGuard = await carregarHorarioConfig(base44);
       const horaGuard = new Date().getHours();
-      const foraHorarioOuFeriado = ehFeriadoNacional(new Date()) || horaGuard < HORA_INICIO || horaGuard > HORA_FIM;
+      const foraHorarioOuFeriado = ehFeriadoNacional(new Date(), _horarioCfgGuard.feriados_extras) || horaGuard < _horarioCfgGuard.manha_inicio || horaGuard > _horarioCfgGuard.tarde_fim;
 
       if (thread.assigned_user_id && thread.routing_stage === 'ASSIGNED' && !foraHorarioOuFeriado) {
         resultado.camadas.dedup = { skipped: true, reason: 'ja_atribuida' };
@@ -794,7 +856,8 @@ Deno.serve(async (req) => {
       if (!integ.instance_id_provider || !integ.api_key_provider) throw new Error('credenciais_invalidas');
       if (integ.api_provider === 'w_api' && !integ.security_client_token_header) throw new Error('wapi_sem_client_token');
 
-      const horarioInfo = avaliarHorarioComercial();
+      const horarioCfg = await carregarHorarioConfig(base44);
+      const horarioInfo = avaliarHorarioComercial(new Date(), horarioCfg);
       const isVIP = contact?.is_vip || false;
 
       // Cooldown adaptativo: fora-horário usa 12h, horário comercial usa 5min
@@ -1280,7 +1343,8 @@ Deno.serve(async (req) => {
       console.log(`[SKILL-PRE-ATEND] ✅ Atribuído para ${atendente.full_name} em ${setor} (motivo: ${motivoAtribuicao})`);
 
       // ─── FORA DE HORÁRIO: pular boas-vindas LLM (já foi enviado ACK+vídeo+promo na Camada 1) ───
-      const horarioCamada4 = avaliarHorarioComercial();
+      const horarioCfgC4 = await carregarHorarioConfig(base44);
+      const horarioCamada4 = avaliarHorarioComercial(new Date(), horarioCfgC4);
       if (!horarioCamada4.dentro) {
         console.log('[SKILL-PRE-ATEND] ⏭️ Camada 4: fora de horário — boas-vindas LLM SUPRIMIDA (ACK+promo já enviado)');
         resultado.camadas.atribuicao = {

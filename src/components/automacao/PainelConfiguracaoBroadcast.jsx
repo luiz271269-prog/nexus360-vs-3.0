@@ -14,6 +14,11 @@ const DEFAULTS = {
   ativo: true,
   horario_inicio: 8,
   horario_fim: 20,
+  horario_comercial_manha_inicio: 8,
+  horario_almoco_inicio: 12,
+  horario_almoco_fim: 13.5,
+  horario_comercial_tarde_fim: 18,
+  feriados_extras: [],
   enviar_fim_semana: false,
   tier_novo_max_dia: 30,
   tier_aquecendo_max_dia: 80,
@@ -112,12 +117,12 @@ export default function PainelConfiguracaoBroadcast() {
         </div>
       </div>
 
-      {/* HORÁRIO COMERCIAL */}
+      {/* HORÁRIO DE ENVIO DE BROADCAST/PROMOÇÕES */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Clock className="w-4 h-4 text-amber-600" />
-            Horário permitido para envio
+            Horário permitido para envio de broadcast/promoções
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -137,6 +142,59 @@ export default function PainelConfiguracaoBroadcast() {
             <Label className="text-xs">Permitir envio em fins de semana</Label>
             <Switch checked={config.enviar_fim_semana}
               onCheckedChange={v => setConfig({ ...config, enviar_fim_semana: v })} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* HORÁRIO COMERCIAL — usado pela URA / pré-atendimento */}
+      <Card className="border-emerald-200">
+        <CardHeader className="pb-3 bg-emerald-50/50">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Clock className="w-4 h-4 text-emerald-700" />
+            Horário comercial (URA / pré-atendimento)
+          </CardTitle>
+          <p className="text-[10px] text-slate-600 mt-1">
+            Define quando a URA envia ACK normal vs ACK fora-horário. Fora desse intervalo,
+            o contato recebe mensagem de "fora do expediente" + promoção rotacionada.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Início manhã (ex: 8 = 08:00)</Label>
+              <Input type="number" step="0.25" min="0" max="23.99" value={config.horario_comercial_manha_inicio}
+                onChange={e => setConfig({ ...config, horario_comercial_manha_inicio: parseFloat(e.target.value) || 8 })} />
+            </div>
+            <div>
+              <Label className="text-xs">Início almoço (ex: 12 = 12:00)</Label>
+              <Input type="number" step="0.25" min="0" max="23.99" value={config.horario_almoco_inicio}
+                onChange={e => setConfig({ ...config, horario_almoco_inicio: parseFloat(e.target.value) || 12 })} />
+            </div>
+            <div>
+              <Label className="text-xs">Fim almoço (ex: 13.5 = 13:30)</Label>
+              <Input type="number" step="0.25" min="0" max="23.99" value={config.horario_almoco_fim}
+                onChange={e => setConfig({ ...config, horario_almoco_fim: parseFloat(e.target.value) || 13.5 })} />
+            </div>
+            <div>
+              <Label className="text-xs">Fim tarde (ex: 18 = 18:00)</Label>
+              <Input type="number" step="0.25" min="0" max="23.99" value={config.horario_comercial_tarde_fim}
+                onChange={e => setConfig({ ...config, horario_comercial_tarde_fim: parseFloat(e.target.value) || 18 })} />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Feriados extras (YYYY-MM-DD, separados por vírgula)</Label>
+            <Textarea
+              rows={2}
+              value={(config.feriados_extras || []).join(', ')}
+              onChange={e => {
+                const datas = e.target.value.split(',').map(d => d.trim()).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
+                setConfig({ ...config, feriados_extras: datas });
+              }}
+              placeholder="2026-12-24, 2026-12-31"
+            />
+            <p className="text-[10px] text-slate-500 mt-1">
+              Datas adicionais (ex: vésperas, recessos) que se somam aos feriados nacionais já programados no código.
+            </p>
           </div>
         </CardContent>
       </Card>
