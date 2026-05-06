@@ -33,6 +33,23 @@ export default function FloatingConversationBubble({
     }
   }, [aberto, usuarioAtual?.id, hasPermission, atendentes]);
 
+  // 🆕 Carregar grupos de setor (sector_group) onde o usuário participa
+  const [gruposSetor, setGruposSetor] = useState([]);
+  useEffect(() => {
+    if (!aberto || !hasPermission || !usuarioAtual?.id) return;
+    let cancelled = false;
+    base44.entities.MessageThread.filter(
+      { thread_type: 'sector_group', participants: { $in: [usuarioAtual.id] } },
+      '-last_message_at',
+      20
+    ).then(grupos => {
+      if (!cancelled) setGruposSetor(grupos || []);
+    }).catch(err => {
+      console.warn('[BUBBLE] Erro ao carregar grupos de setor:', err.message);
+    });
+    return () => { cancelled = true; };
+  }, [aberto, usuarioAtual?.id, hasPermission]);
+
   // Mensagens da thread interna 1:1
   const { data: mensagensInternas = [] } = useQuery({
     queryKey: ['mensagens-internas', threadInterna?.id],
@@ -69,6 +86,17 @@ export default function FloatingConversationBubble({
       unsubscribe();
     };
   }, [threadInterna?.id, queryClient]);
+
+  const selecionarGrupo = (grupo) => {
+    setThreadInterna(grupo);
+    setUsuarioSelecionado({
+      id: grupo.id,
+      full_name: grupo.group_name || `Setor ${grupo.sector_key?.replace('sector:', '') || ''}`,
+      display_name: grupo.group_name,
+      attendant_sector: grupo.sector_key?.replace('sector:', '') || ''
+    });
+    toast.success(`💬 Grupo aberto`);
+  };
 
   const selecionarUsuario = async (usuario) => {
     try {
@@ -201,6 +229,30 @@ export default function FloatingConversationBubble({
               // SELEÇÃO DE USUÁRIO
               <ScrollArea className="flex-1">
                 <div className="p-4 space-y-2">
+                  {gruposSetor.length > 0 && (
+                    <>
+                      <p className="text-xs text-slate-500 font-medium mb-2">Grupos de Setor:</p>
+                      {gruposSetor.map((grupo) => (
+                        <button
+                          key={grupo.id}
+                          onClick={() => selecionarGrupo(grupo)}
+                          className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 transition-colors text-left">
+                          <div className="w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            <Users className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-900 truncate">
+                              {grupo.group_name || `Setor ${grupo.sector_key?.replace('sector:', '') || 'Geral'}`}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {grupo.participants?.length || 0} membros
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                      <div className="border-t border-slate-200 my-3" />
+                    </>
+                  )}
                   <p className="text-xs text-slate-500 font-medium mb-3">Selecione um atendente:</p>
                   {usuariosDisponiveis.map((usuario) => (
                     <button
