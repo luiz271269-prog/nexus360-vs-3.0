@@ -22,63 +22,65 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONSTANTES
+// CONSTANTES — TODAS as configurações vêm do banco via BroadcastConfig + ConfiguracaoSistema
+// FONTE DE VERDADE: edite tudo no Painel de Configuração de Broadcast (NUNCA hardcoded)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const COOLDOWN_MS = 300_000;   // 5 min entre ACKs (deploy: camada-neg2 ativa)
-const DEDUP_WINDOW_MS = 30_000; // 30s janela de dedup de webhooks
-const PROMO_FORA_HORARIO_GAP_MS = 12 * 60 * 60 * 1000; // 12h — 1 promo por período fora-horário
-const ACK_FORA_HORARIO_GAP_MS = 12 * 60 * 60 * 1000;   // 12h — 1 ACK fora-horário por período (anti-repetição)
-
-// Horário comercial — defaults usados como fallback quando BroadcastConfig não responde
-// FONTE DE VERDADE: BroadcastConfig (nome_config='default') no banco. Edite via Painel de Configuração de Broadcast.
-const HORA_INICIO_DEFAULT = 8;
-const HORA_FIM_DEFAULT = 18;
-const ALMOCO_INICIO_DEFAULT = 12;
-const ALMOCO_FIM_DEFAULT = 13.5;
-
 // Cache em memória do worker (5min) para evitar 1 query/webhook
-let _cacheHorarioConfig = null;
-let _cacheHorarioConfigAt = 0;
-const CACHE_HORARIO_TTL_MS = 5 * 60 * 1000;
+let _cacheConfig = null;
+let _cacheConfigAt = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
+let _cacheMensagens = null;
+let _cacheMensagensAt = 0;
+
+// Carrega TUDO de BroadcastConfig: horários + feriados + cooldowns
 async function carregarHorarioConfig(base44) {
   const agora = Date.now();
-  if (_cacheHorarioConfig && (agora - _cacheHorarioConfigAt) < CACHE_HORARIO_TTL_MS) {
-    return _cacheHorarioConfig;
+  if (_cacheConfig && (agora - _cacheConfigAt) < CACHE_TTL_MS) {
+    return _cacheConfig;
   }
-  try {
-    const lista = await base44.asServiceRole.entities.BroadcastConfig.filter({ nome_config: 'default', ativo: true });
-    if (lista?.[0]) {
-      _cacheHorarioConfig = {
-        manha_inicio: lista[0].horario_comercial_manha_inicio ?? lista[0].horario_inicio ?? HORA_INICIO_DEFAULT,
-        almoco_inicio: lista[0].horario_almoco_inicio ?? ALMOCO_INICIO_DEFAULT,
-        almoco_fim: lista[0].horario_almoco_fim ?? ALMOCO_FIM_DEFAULT,
-        tarde_fim: lista[0].horario_comercial_tarde_fim ?? HORA_FIM_DEFAULT,
-        feriados_extras: Array.isArray(lista[0].feriados_extras) ? lista[0].feriados_extras : [],
-        enviar_fim_semana: lista[0].enviar_fim_semana === true
-      };
-      _cacheHorarioConfigAt = agora;
-      return _cacheHorarioConfig;
-    }
-  } catch (e) {
-    console.warn('[SKILL-PRE-ATEND] BroadcastConfig falhou, usando defaults:', e.message);
+  const lista = await base44.asServiceRole.entities.BroadcastConfig
+    .filter({ nome_config: 'default', ativo: true });
+  const c = lista?.[0];
+  if (!c) {
+    throw new Error('BroadcastConfig (nome_config=default, ativo=true) não encontrado no banco');
   }
-  // Fallback hardcoded
-  return {
-    manha_inicio: HORA_INICIO_DEFAULT,
-    almoco_inicio: ALMOCO_INICIO_DEFAULT,
-    almoco_fim: ALMOCO_FIM_DEFAULT,
-    tarde_fim: HORA_FIM_DEFAULT,
-    feriados_extras: [],
-    enviar_fim_semana: false
+  _cacheConfig = {
+    manha_inicio: c.horario_comercial_manha_inicio ?? c.horario_inicio,
+    almoco_inicio: c.horario_almoco_inicio,
+    almoco_fim: c.horario_almoco_fim,
+    tarde_fim: c.horario_comercial_tarde_fim ?? c.horario_fim,
+    feriados_extras: Array.isArray(c.feriados_extras) ? c.feriados_extras : [],
+    feriados_nacionais_fixos: Array.isArray(c.feriados_nacionais_fixos) ? c.feriados_nacionais_fixos : [],
+    enviar_fim_semana: c.enviar_fim_semana === true,
+    cooldown_ack_ms: (c.cooldown_ack_minutos ?? 5) * 60 * 1000,
+    dedup_window_ms: (c.dedup_window_segundos ?? 30) * 1000,
+    gap_promo_fora_horario_ms: (c.gap_promo_fora_horario_horas ?? 12) * 60 * 60 * 1000,
+    gap_ack_fora_horario_ms: (c.gap_ack_fora_horario_horas ?? 12) * 60 * 60 * 1000
   };
+  _cacheConfigAt = agora;
+  return _cacheConfig;
 }
 
-// Compat: HORA_INICIO/HORA_FIM usados em guards síncronos (fora da chain async)
-// Mantemos os valores default — guards rápidos não justificam await ao banco.
-const HORA_INICIO = HORA_INICIO_DEFAULT;
-const HORA_FIM = HORA_FIM_DEFAULT;
+// Carrega mensagens de ACK do ConfiguracaoSistema (categoria=pre_atendimento)
+async function carregarMensagensAck(base44) {
+  const agora = Date.now();
+  if (_cacheMensagens && (agora - _cacheMensagensAt) < CACHE_TTL_MS) {
+    return _cacheMensagens;
+  }
+  const lista = await base44.asServiceRole.entities.ConfiguracaoSistema
+    .filter({ categoria: 'pre_atendimento', ativa: true }).catch(() => []);
+  const map = {};
+  for (const item of (lista || [])) {
+    if (item.chave?.startsWith('ack_msg_')) {
+      map[item.chave] = item.valor?.value || '';
+    }
+  }
+  _cacheMensagens = map;
+  _cacheMensagensAt = agora;
+  return _cacheMensagens;
+}
 
 const PATTERNS = [
   { regex: /pc\s*gam|gam(er|ing)|notebook|computador|placa\s*de\s*v|rtx|processador|ram|ssd|cpu|impressora|monitor|teclado|mouse|headset|fonte|gabinete|cooler|hardware|orcamento|cotacao|preco|quanto\s*custa|comprar|produto|estoque|disponib/i, setor: 'vendas', intencao: 'compra_produto', confidence: 0.95 },
@@ -91,63 +93,37 @@ const PATTERNS = [
 
 const SETOR_DEFAULT = 'vendas';
 
-// Horário comercial NeuralTec — config dinâmica via BroadcastConfig (com fallback hardcoded)
+// Horário comercial — 100% dinâmico via BroadcastConfig
 // Fora disso (incl. almoço, fim de semana, feriado, noite) = "fora_horario"
-function avaliarHorarioComercial(date = new Date(), cfg = null) {
-  // cfg = { manha_inicio, almoco_inicio, almoco_fim, tarde_fim, feriados_extras[], enviar_fim_semana }
-  const c = cfg || {
-    manha_inicio: HORA_INICIO_DEFAULT,
-    almoco_inicio: ALMOCO_INICIO_DEFAULT,
-    almoco_fim: ALMOCO_FIM_DEFAULT,
-    tarde_fim: HORA_FIM_DEFAULT,
-    feriados_extras: [],
-    enviar_fim_semana: false
-  };
-  if (ehFeriadoNacional(date, c.feriados_extras)) return { dentro: false, motivo: 'feriado' };
+function avaliarHorarioComercial(date = new Date(), cfg) {
+  if (!cfg) throw new Error('avaliarHorarioComercial requer cfg do BroadcastConfig');
+  if (ehFeriadoNacional(date, cfg.feriados_extras, cfg.feriados_nacionais_fixos)) {
+    return { dentro: false, motivo: 'feriado' };
+  }
   const brt = new Date(date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
   const dow = brt.getDay(); // 0=dom, 6=sab
-  if (!c.enviar_fim_semana && (dow === 0 || dow === 6)) return { dentro: false, motivo: 'fim_de_semana' };
+  if (!cfg.enviar_fim_semana && (dow === 0 || dow === 6)) return { dentro: false, motivo: 'fim_de_semana' };
   const minutosAgora = brt.getHours() * 60 + brt.getMinutes();
   const m = (h) => Math.round(h * 60); // hora decimal -> minutos
-  const manha = minutosAgora >= m(c.manha_inicio) && minutosAgora < m(c.almoco_inicio);
-  const tarde = minutosAgora >= m(c.almoco_fim) && minutosAgora < m(c.tarde_fim);
+  const manha = minutosAgora >= m(cfg.manha_inicio) && minutosAgora < m(cfg.almoco_inicio);
+  const tarde = minutosAgora >= m(cfg.almoco_fim) && minutosAgora < m(cfg.tarde_fim);
   if (manha || tarde) return { dentro: true, motivo: 'horario_comercial' };
-  if (minutosAgora >= m(c.almoco_inicio) && minutosAgora < m(c.almoco_fim)) return { dentro: false, motivo: 'almoco' };
+  if (minutosAgora >= m(cfg.almoco_inicio) && minutosAgora < m(cfg.almoco_fim)) return { dentro: false, motivo: 'almoco' };
   return { dentro: false, motivo: 'noite' };
 }
 
-// Feriados nacionais brasileiros (timezone São Paulo)
-// Fixos: chave MM-DD | Móveis (Carnaval, Sexta Santa, Corpus Christi): chave YYYY-MM-DD
-const FERIADOS_NACIONAIS = new Set([
-  // Fixos (todo ano)
-  '01-01', // Confraternização Universal
-  '04-21', // Tiradentes
-  '05-01', // Dia do Trabalho
-  '09-07', // Independência
-  '10-12', // Nossa Senhora Aparecida
-  '11-02', // Finados
-  '11-15', // Proclamação da República
-  '11-20', // Consciência Negra
-  '12-25', // Natal
-  // Móveis 2026
-  '2026-02-16', '2026-02-17', // Carnaval
-  '2026-04-03',               // Sexta-feira Santa
-  '2026-06-04',               // Corpus Christi
-  // Móveis 2027
-  '2027-02-08', '2027-02-09', // Carnaval
-  '2027-03-26',               // Sexta-feira Santa
-  '2027-05-27',               // Corpus Christi
-]);
-
-function ehFeriadoNacional(date, feriadosExtras = []) {
+// Feriados nacionais — 100% dinâmicos via BroadcastConfig (NADA hardcoded)
+// feriados_nacionais_fixos: array de "MM-DD" (repetem todo ano)
+// feriados_extras: array de "YYYY-MM-DD" (datas específicas, ex: carnaval, corpus christi)
+function ehFeriadoNacional(date, feriadosExtras = [], feriadosFixos = []) {
   const brt = new Date(date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
   const mm = String(brt.getMonth() + 1).padStart(2, '0');
   const dd = String(brt.getDate()).padStart(2, '0');
   const yyyy = brt.getFullYear();
   const isoCompleto = `${yyyy}-${mm}-${dd}`;
-  if (FERIADOS_NACIONAIS.has(`${mm}-${dd}`) || FERIADOS_NACIONAIS.has(isoCompleto)) return true;
-  // Feriados extras configuráveis via BroadcastConfig.feriados_extras (formato YYYY-MM-DD)
-  if (Array.isArray(feriadosExtras) && feriadosExtras.includes(isoCompleto)) return true;
+  const mmdd = `${mm}-${dd}`;
+  if (Array.isArray(feriadosFixos) && feriadosFixos.includes(mmdd)) return true;
+  if (Array.isArray(feriadosExtras) && (feriadosExtras.includes(isoCompleto) || feriadosExtras.includes(mmdd))) return true;
   return false;
 }
 
@@ -200,24 +176,24 @@ async function buscarStyleProfile(base44, user_id) {
   }
 }
 
-function gerarRespostaMicroIntent(tipo, profile, contactNome, hora, foraHorario) {
+function gerarRespostaMicroIntent(tipo, profile, contactNome, hora, foraHorario, cfg = null) {
   const primeiroNome = (contactNome || '').split(' ')[0] || '';
   const assinatura = profile?.assinatura ? `\n\n${profile.assinatura}` : '';
   const chamaPeloNome = profile?.style_features?.chama_pelo_nome && primeiroNome;
-  
+
   if (tipo === 'saudacao_pura') {
     const periodo = getPeriodoDia(hora);
     let saudacaoEstilo = profile?.frases_saudacao_por_hora?.[periodo] || '';
-    // Limpar saudação do profile: remover nomes próprios embutidos (qualquer token capitalizado),
-    // perguntas tipo "tudo bem?" e pontuação terminal — mantém só o verbete puro ("Oie bom diaa")
     saudacaoEstilo = saudacaoEstilo
-      .replace(/,?\s*[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+/g, '') // remove nomes próprios
+      .replace(/,?\s*[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+/g, '')
       .replace(/,?\s*tudo\s*bem\??/i, '')
       .replace(/[!?.,\s]+$/, '')
       .trim();
     const base = saudacaoEstilo || (periodo === 'manha' ? 'Bom dia' : periodo === 'tarde' ? 'Boa tarde' : 'Boa noite');
     if (foraHorario) {
-      return `${base}${chamaPeloNome ? ', ' + primeiroNome : ''}! Recebi sua mensagem 😊\nNosso atendimento é seg-sex ${HORA_INICIO}h-${HORA_FIM}h. Te retorno em breve!${assinatura}`;
+      const inicio = cfg?.manha_inicio ?? 8;
+      const fim = cfg?.tarde_fim ?? 18;
+      return `${base}${chamaPeloNome ? ', ' + primeiroNome : ''}! Recebi sua mensagem 😊\nNosso atendimento é seg-sex ${inicio}h-${fim}h. Te retorno em breve!${assinatura}`;
     }
     return `${base}${chamaPeloNome ? ', ' + primeiroNome : ''}! Tudo bem?${assinatura}`;
   }
@@ -232,28 +208,32 @@ function gerarRespostaMicroIntent(tipo, profile, contactNome, hora, foraHorario)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HELPER: montar mensagem ACK por contexto
+// HELPER: montar mensagem ACK por contexto (templates 100% via ConfiguracaoSistema)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildAckMsg(tipo, nome, isVIP, horarioInfo) {
-  const primeiroNome = (nome || '').split(' ')[0] || '';
+function aplicarPlaceholders(template, ctx) {
+  if (!template) return '';
+  const primeiroNome = (ctx.nome || '').split(' ')[0] || '';
+  return template
+    .replace(/\{\{\s*primeiro_nome\s*\}\}/g, primeiroNome)
+    .replace(/\{\{\s*nome\s*\}\}/g, ctx.nome || '')
+    .replace(/\{\{\s*nome_com_virgula\s*\}\}/g, primeiroNome ? ', ' + primeiroNome : '');
+}
+
+function buildAckMsg(tipo, nome, isVIP, horarioInfo, mensagens) {
+  const ctx = { nome };
   if (!horarioInfo.dentro) {
-    if (horarioInfo.motivo === 'feriado') {
-      return { tipo: 'fora_horario', msg: `Olá! 😊\nHoje é feriado nacional.\nRetornaremos no próximo dia útil — Seg-Sex 08h-12h e 13h30-18h.` };
-    }
-    if (horarioInfo.motivo === 'almoco') {
-      return { tipo: 'fora_horario', msg: `Olá! 😊\nEstamos em horário de almoço (12h-13h30).\nRetornaremos às 13h30!` };
-    }
-    if (horarioInfo.motivo === 'fim_de_semana') {
-      return { tipo: 'fora_horario', msg: `Olá! 😊\nEstamos fora do expediente (fim de semana).\nRetornaremos na segunda-feira a partir das 08h.` };
-    }
-    return { tipo: 'fora_horario', msg: `Olá! 😊\nNosso atendimento é Seg-Sex 08h-12h e 13h30-18h.\nRetornaremos em breve!` };
+    let chave = 'ack_msg_fora_horario';
+    if (horarioInfo.motivo === 'feriado') chave = 'ack_msg_feriado';
+    else if (horarioInfo.motivo === 'almoco') chave = 'ack_msg_almoco';
+    else if (horarioInfo.motivo === 'fim_de_semana') chave = 'ack_msg_fim_de_semana';
+    return { tipo: 'fora_horario', msg: aplicarPlaceholders(mensagens[chave], ctx) };
   }
-  if (isVIP) return { tipo: 'vip', msg: `✨ Olá ${primeiroNome}! Já recebi sua mensagem. Um momento!` };
-  if (tipo === 'cliente') return { tipo: 'cliente', msg: `👋 Olá ${primeiroNome}! Recebi sua mensagem. Vou ajudar em instantes!` };
-  if (tipo === 'ex_cliente') return { tipo: 'ex_cliente', msg: `Que bom ter você de volta${primeiroNome ? ', ' + primeiroNome : ''}! 😊 Vou verificar o que você precisa.` };
-  if (tipo === 'fornecedor') return { tipo: 'fornecedor', msg: `🤝 Olá ${primeiroNome}! Recebi seu contato. Vou direcionar para nossa equipe de compras.` };
-  return { tipo: 'novo', msg: `👋 Olá ${primeiroNome}! Recebi sua mensagem. Vou analisar e já te retorno!` };
+  if (isVIP) return { tipo: 'vip', msg: aplicarPlaceholders(mensagens.ack_msg_vip, ctx) };
+  if (tipo === 'cliente') return { tipo: 'cliente', msg: aplicarPlaceholders(mensagens.ack_msg_cliente, ctx) };
+  if (tipo === 'ex_cliente') return { tipo: 'ex_cliente', msg: aplicarPlaceholders(mensagens.ack_msg_ex_cliente, ctx) };
+  if (tipo === 'fornecedor') return { tipo: 'fornecedor', msg: aplicarPlaceholders(mensagens.ack_msg_fornecedor, ctx) };
+  return { tipo: 'novo', msg: aplicarPlaceholders(mensagens.ack_msg_novo, ctx) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -561,11 +541,11 @@ Deno.serve(async (req) => {
 
       // Guard 1: já atribuída?
       // EXCEÇÃO: em fora-horário/feriado, NÃO pular — precisamos enviar ACK informativo
-      // (atendente atribuído não está disponível agora, cliente precisa saber)
-      // Guard rápido usa defaults — avaliação fina vem na Camada 1 com config do banco.
       const _horarioCfgGuard = await carregarHorarioConfig(base44);
       const horaGuard = new Date().getHours();
-      const foraHorarioOuFeriado = ehFeriadoNacional(new Date(), _horarioCfgGuard.feriados_extras) || horaGuard < _horarioCfgGuard.manha_inicio || horaGuard > _horarioCfgGuard.tarde_fim;
+      const foraHorarioOuFeriado = ehFeriadoNacional(new Date(), _horarioCfgGuard.feriados_extras, _horarioCfgGuard.feriados_nacionais_fixos) || horaGuard < _horarioCfgGuard.manha_inicio || horaGuard > _horarioCfgGuard.tarde_fim;
+      const ACK_FORA_HORARIO_GAP_MS = _horarioCfgGuard.gap_ack_fora_horario_ms;
+      const DEDUP_WINDOW_MS = _horarioCfgGuard.dedup_window_ms;
 
       if (thread.assigned_user_id && thread.routing_stage === 'ASSIGNED' && !foraHorarioOuFeriado) {
         resultado.camadas.dedup = { skipped: true, reason: 'ja_atribuida' };
@@ -704,9 +684,10 @@ Deno.serve(async (req) => {
           ]);
 
           if (integData && contactData?.telefone) {
+            const _cfgMicro = await carregarHorarioConfig(base44);
             const hora = new Date().getHours();
-            const foraHorario = hora < HORA_INICIO || hora > HORA_FIM;
-            const msg = gerarRespostaMicroIntent(microIntent.tipo, styleProfile, contactData.nome, hora, foraHorario);
+            const foraHorario = hora < _cfgMicro.manha_inicio || hora > _cfgMicro.tarde_fim;
+            const msg = gerarRespostaMicroIntent(microIntent.tipo, styleProfile, contactData.nome, hora, foraHorario, _cfgMicro);
 
             if (msg) {
               // Cooldown 2min: se já respondeu micro-intent recentemente, pula
@@ -857,12 +838,16 @@ Deno.serve(async (req) => {
       if (integ.api_provider === 'w_api' && !integ.security_client_token_header) throw new Error('wapi_sem_client_token');
 
       const horarioCfg = await carregarHorarioConfig(base44);
+      const mensagensAck = await carregarMensagensAck(base44);
       const horarioInfo = avaliarHorarioComercial(new Date(), horarioCfg);
       const isVIP = contact?.is_vip || false;
 
-      // Cooldown adaptativo: fora-horário usa 12h, horário comercial usa 5min
-      const cooldownAplicado = horarioInfo.dentro ? COOLDOWN_MS : ACK_FORA_HORARIO_GAP_MS;
-      const cooldownLabel = horarioInfo.dentro ? '5min' : '12h';
+      // Cooldown adaptativo: fora-horário usa gap_ack, horário comercial usa cooldown_ack
+      const cooldownAplicado = horarioInfo.dentro ? horarioCfg.cooldown_ack_ms : horarioCfg.gap_ack_fora_horario_ms;
+      const cooldownLabel = horarioInfo.dentro
+        ? `${(horarioCfg.cooldown_ack_ms / 60000).toFixed(0)}min`
+        : `${(horarioCfg.gap_ack_fora_horario_ms / 3600000).toFixed(0)}h`;
+      const PROMO_FORA_HORARIO_GAP_MS = horarioCfg.gap_promo_fora_horario_ms;
 
       if (thread?.last_outbound_at) {
         const diffMs = Date.now() - new Date(thread.last_outbound_at).getTime();
@@ -887,7 +872,7 @@ Deno.serve(async (req) => {
         throw new Error('__skip_ack');
       }
 
-      const ack = buildAckMsg(contact?.tipo_contato, contact?.nome, isVIP, horarioInfo);
+      const ack = buildAckMsg(contact?.tipo_contato, contact?.nome, isVIP, horarioInfo, mensagensAck);
 
       // ─── ANEXAR PROMOÇÃO ROTACIONADA EM 2 CENÁRIOS ───
       // 1) Fora-horário (cooldown 12h por período fora-horário)
