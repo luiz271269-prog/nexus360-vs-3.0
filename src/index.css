@@ -157,6 +157,10 @@ button:focus-visible {
   }
 }
 
+/* Esconder scrollbar mantendo scroll funcional (usado em tabs mobile) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* Scrollbar do Kanban de orçamentos */
 .kanban-scroll::-webkit-scrollbar {
   height: 10px;
