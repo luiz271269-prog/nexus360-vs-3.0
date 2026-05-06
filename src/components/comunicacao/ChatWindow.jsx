@@ -1261,8 +1261,9 @@ export default function ChatWindow({
 
     if (isThreadInterna) {
       return mensagensFiltradas.filter((m) => {
-        const isInterna = m.channel === 'interno' && m.sender_type === 'user' &&
-          (m.recipient_type === 'user' || m.recipient_type === 'group');
+        // ✅ Threads internas: aceita channel='interno' + sender_type='user'.
+        // recipient_type pode ser null em mensagens criadas por cron/Jarvis (ex: análise diária).
+        const isInterna = m.channel === 'interno' && m.sender_type === 'user';
         if (!isInterna) return false;
         const content = (m.content || '').trim();
         const hasMidia = (m.media_type && m.media_type !== 'none') || m.media_url;
