@@ -59,7 +59,25 @@
         "type": "string"
       },
       "default": [],
-      "description": "Feriados adicionais no formato YYYY-MM-DD (ex: ['2026-12-24', '2026-12-31']) que se somam aos feriados nacionais j\u00e1 programados no c\u00f3digo"
+      "description": "Feriados adicionais no formato YYYY-MM-DD ou MM-DD (ex: ['2026-12-24', '2026-12-31'])"
+    },
+    "feriados_nacionais_fixos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "01-01",
+        "04-21",
+        "05-01",
+        "09-07",
+        "10-12",
+        "11-02",
+        "11-15",
+        "11-20",
+        "12-25"
+      ],
+      "description": "Feriados nacionais fixos (formato MM-DD, repetem todo ano)"
     },
     "enviar_fim_semana": {
       "type": "boolean",
@@ -154,6 +172,26 @@
       "type": "number",
       "default": 120,
       "description": "Dura\u00e7\u00e3o da pausa por bloqueio 403 (min)"
+    },
+    "cooldown_ack_minutos": {
+      "type": "number",
+      "default": 5,
+      "description": "Cooldown em minutos entre ACKs do pr\u00e9-atendimento (hor\u00e1rio comercial)"
+    },
+    "dedup_window_segundos": {
+      "type": "number",
+      "default": 30,
+      "description": "Janela de deduplica\u00e7\u00e3o de webhooks duplicados (segundos)"
+    },
+    "gap_promo_fora_horario_horas": {
+      "type": "number",
+      "default": 12,
+      "description": "Intervalo m\u00ednimo entre promo\u00e7\u00f5es enviadas fora-hor\u00e1rio (horas)"
+    },
+    "gap_ack_fora_horario_horas": {
+      "type": "number",
+      "default": 12,
+      "description": "Intervalo m\u00ednimo entre ACKs enviados fora-hor\u00e1rio (horas)"
     }
   },
   "required": [
