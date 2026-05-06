@@ -710,6 +710,13 @@ export default function Comunicacao() {
 
     // ✅ CASO 0: USUÁRIO INTERNO - Abrir direto sem validações de WhatsApp
     if (threadCompleta.thread_type === 'team_internal' || threadCompleta.thread_type === 'sector_group') {
+      // 🔒 GUARD DE SEGURANÇA: Apenas participantes ou admin podem abrir threads internas
+      const isParticipante = Array.isArray(threadCompleta.participants) && threadCompleta.participants.includes(usuario?.id);
+      const isAdmin = usuario?.role === 'admin';
+      if (!isParticipante && !isAdmin) {
+        toast.error('🔒 Você não é participante desta conversa interna');
+        return;
+      }
       setThreadAtiva(threadCompleta);
       return;
     }
