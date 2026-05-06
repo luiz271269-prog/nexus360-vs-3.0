@@ -28,6 +28,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 const COOLDOWN_MS = 300_000;   // 5 min entre ACKs (deploy: camada-neg2 ativa)
 const DEDUP_WINDOW_MS = 30_000; // 30s janela de dedup de webhooks
 const PROMO_FORA_HORARIO_GAP_MS = 12 * 60 * 60 * 1000; // 12h — 1 promo por período fora-horário
+const ACK_FORA_HORARIO_GAP_MS = 12 * 60 * 60 * 1000;   // 12h — 1 ACK fora-horário por período (anti-repetição)
+
+// Horário comercial usado em guards rápidos (sem chamar avaliarHorarioComercial)
+const HORA_INICIO = 8;
+const HORA_FIM = 18;
 
 const PATTERNS = [
   { regex: /pc\s*gam|gam(er|ing)|notebook|computador|placa\s*de\s*v|rtx|processador|ram|ssd|cpu|impressora|monitor|teclado|mouse|headset|fonte|gabinete|cooler|hardware|orcamento|cotacao|preco|quanto\s*custa|comprar|produto|estoque|disponib/i, setor: 'vendas', intencao: 'compra_produto', confidence: 0.95 },
@@ -507,6 +512,14 @@ Deno.serve(async (req) => {
       }
 
       if (thread.assigned_user_id && thread.routing_stage === 'ASSIGNED' && foraHorarioOuFeriado) {
+        // Cooldown universal: se já mandou ACK fora-horário nas últimas 12h, NÃO repete
+        const ultAck = thread.last_outbound_at ? new Date(thread.last_outbound_at).getTime() : 0;
+        const ackRecente = ultAck && (Date.now() - ultAck < ACK_FORA_HORARIO_GAP_MS);
+        if (ackRecente) {
+          resultado.camadas.dedup = { skipped: true, reason: 'fora_horario_ack_recente_12h' };
+          console.log('[SKILL-PRE-ATEND] 🌙 Thread atribuída + fora-horário + ACK <12h → skip total');
+          return Response.json({ ...resultado, success: true, skipped: true, reason: 'fora_horario_ack_recente_12h' }, { headers });
+        }
         console.log('[SKILL-PRE-ATEND] 🌙 Thread atribuída + fora-horário/feriado → seguir só p/ ACK informativo');
       }
 
@@ -784,25 +797,30 @@ Deno.serve(async (req) => {
       const horarioInfo = avaliarHorarioComercial();
       const isVIP = contact?.is_vip || false;
 
-      // Cooldown 5min
+      // Cooldown adaptativo: fora-horário usa 12h, horário comercial usa 5min
+      const cooldownAplicado = horarioInfo.dentro ? COOLDOWN_MS : ACK_FORA_HORARIO_GAP_MS;
+      const cooldownLabel = horarioInfo.dentro ? '5min' : '12h';
+
       if (thread?.last_outbound_at) {
         const diffMs = Date.now() - new Date(thread.last_outbound_at).getTime();
-        if (diffMs < COOLDOWN_MS) {
-          resultado.camadas.ack = { skipped: true, reason: 'cooldown_5min' };
-          console.log('[SKILL-PRE-ATEND] ⏭️ ACK cooldown ativo');
+        if (diffMs < cooldownAplicado) {
+          resultado.camadas.ack = { skipped: true, reason: `cooldown_${cooldownLabel}` };
+          console.log(`[SKILL-PRE-ATEND] ⏭️ ACK cooldown ativo (${cooldownLabel})`);
           throw new Error('__skip_ack');
         }
       }
 
-      // Dedup: ACK já existe?
-      const cincoMinAtras = new Date(Date.now() - COOLDOWN_MS).toISOString();
+      // Dedup: ACK já existe? (busca por metadata.is_ack=true — mais robusto que sender_id)
+      const cooldownAtras = new Date(Date.now() - cooldownAplicado).toISOString();
       const ackRecente = await base44.asServiceRole.entities.Message.filter({
-        thread_id, sender_id: 'skill_ack',
-        created_date: { $gte: cincoMinAtras }
+        thread_id,
+        'metadata.is_ack': true,
+        created_date: { $gte: cooldownAtras }
       }, '-created_date', 1).catch(() => []);
 
       if (ackRecente.length > 0) {
-        resultado.camadas.ack = { skipped: true, reason: 'ack_recente_db' };
+        resultado.camadas.ack = { skipped: true, reason: `ack_recente_db_${cooldownLabel}` };
+        console.log(`[SKILL-PRE-ATEND] ⏭️ ACK recente no DB (${cooldownLabel}) — skip`);
         throw new Error('__skip_ack');
       }
 
