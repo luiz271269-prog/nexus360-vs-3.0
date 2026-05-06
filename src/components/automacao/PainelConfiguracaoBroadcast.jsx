@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Settings, Save, RefreshCw, Clock, Shield, AlertTriangle, Ban } from 'lucide-react';
+import { Settings, Save, RefreshCw, Clock, Shield, AlertTriangle, Ban, Video } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
 const DEFAULTS = {
@@ -37,22 +38,45 @@ const DEFAULTS = {
   pausa_403_minutos: 120
 };
 
+const MIDIA_DEFAULT = {
+  id_chave: 'pre_atendimento_logo_animado',
+  url: '',
+  tipo: 'video',
+  descricao: 'Vídeo/GIF de pré-atendimento exibido fora do horário comercial',
+  ativa: true,
+  categoria: 'pre_atendimento'
+};
+
 export default function PainelConfiguracaoBroadcast() {
   const [config, setConfig] = useState(DEFAULTS);
   const [configId, setConfigId] = useState(null);
+  const [midiaConfig, setMidiaConfig] = useState(MIDIA_DEFAULT);
+  const [midiaId, setMidiaId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const carregar = async () => {
     setLoading(true);
     try {
-      const lista = await base44.entities.BroadcastConfig.filter({ nome_config: 'default' });
+      const [lista, midias] = await Promise.all([
+        base44.entities.BroadcastConfig.filter({ nome_config: 'default' }),
+        base44.entities.ConfiguracaoMidiaSistema.filter({ id_chave: 'pre_atendimento_logo_animado' })
+      ]);
+
       if (lista.length > 0) {
         setConfig({ ...DEFAULTS, ...lista[0] });
         setConfigId(lista[0].id);
       } else {
         setConfig(DEFAULTS);
         setConfigId(null);
+      }
+
+      if (midias.length > 0) {
+        setMidiaConfig({ ...MIDIA_DEFAULT, ...midias[0] });
+        setMidiaId(midias[0].id);
+      } else {
+        setMidiaConfig(MIDIA_DEFAULT);
+        setMidiaId(null);
       }
     } catch (e) {
       console.error('[PainelConfigBroadcast]', e);
@@ -73,6 +97,17 @@ export default function PainelConfiguracaoBroadcast() {
         const novo = await base44.entities.BroadcastConfig.create(config);
         setConfigId(novo.id);
       }
+
+      // Salvar mídia (apenas se URL preenchida ou já existir registro)
+      if (midiaConfig.url || midiaId) {
+        if (midiaId) {
+          await base44.entities.ConfiguracaoMidiaSistema.update(midiaId, midiaConfig);
+        } else {
+          const novaMidia = await base44.entities.ConfiguracaoMidiaSistema.create(midiaConfig);
+          setMidiaId(novaMidia.id);
+        }
+      }
+
       toast.success('✅ Configurações salvas!');
     } catch (e) {
       toast.error(`Erro: ${e.message}`);
@@ -196,6 +231,69 @@ export default function PainelConfiguracaoBroadcast() {
               Datas adicionais (ex: vésperas, recessos) que se somam aos feriados nacionais já programados no código.
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* MÍDIA DE PRÉ-ATENDIMENTO (anexar URL apenas) */}
+      <Card className="border-purple-200">
+        <CardHeader className="pb-3 bg-purple-50/50">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Video className="w-4 h-4 text-purple-700" />
+            Mídia de pré-atendimento (fora-horário)
+          </CardTitle>
+          <p className="text-[10px] text-slate-600 mt-1">
+            Vídeo/GIF enviado junto com a mensagem de fora do expediente. Cole a URL pública abaixo.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Mídia ativa</Label>
+            <Switch checked={midiaConfig.ativa}
+              onCheckedChange={v => setMidiaConfig({ ...midiaConfig, ativa: v })} />
+          </div>
+          <div>
+            <Label className="text-xs">URL pública do Vídeo/GIF</Label>
+            <Input
+              placeholder="https://exemplo.com/video.mp4"
+              value={midiaConfig.url}
+              onChange={e => setMidiaConfig({ ...midiaConfig, url: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Tipo</Label>
+            <Select value={midiaConfig.tipo} onValueChange={v => setMidiaConfig({ ...midiaConfig, tipo: v })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="video">Vídeo (.mp4)</SelectItem>
+                <SelectItem value="gif">GIF animado (.gif)</SelectItem>
+                <SelectItem value="image">Imagem</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-slate-500 mt-1">
+              Use 'gif' para arquivos .gif que devem tocar como vídeo animado no WhatsApp.
+            </p>
+          </div>
+          <div>
+            <Label className="text-xs">Descrição (uso interno)</Label>
+            <Textarea
+              rows={2}
+              value={midiaConfig.descricao || ''}
+              onChange={e => setMidiaConfig({ ...midiaConfig, descricao: e.target.value })}
+              placeholder="Vídeo institucional do porteiro cego — fora do expediente"
+            />
+          </div>
+          {midiaConfig.url && (
+            <div className="mt-2 p-2 bg-slate-100 rounded-lg border border-slate-200">
+              <p className="text-[10px] text-slate-600 mb-1">Pré-visualização:</p>
+              {(midiaConfig.tipo === 'video' || midiaConfig.tipo === 'gif') ? (
+                <video src={midiaConfig.url} controls className="w-full rounded-md max-h-48" />
+              ) : (
+                <img src={midiaConfig.url} alt="Preview" className="w-full h-auto object-contain rounded-md max-h-48" />
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
