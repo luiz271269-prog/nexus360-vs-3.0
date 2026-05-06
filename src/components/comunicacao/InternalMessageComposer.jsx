@@ -43,7 +43,9 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
         thread_type: 'team_internal',
         is_group_chat: true
       });
-      return threads || [];
+      // 🧹 Filtrar threads-bolha de comentários (criadas pelo ComentariosInternos)
+      // Padrão: group_name termina com "_comentarios" — são bolhas técnicas, não grupos reais
+      return (threads || []).filter(t => !(t.group_name && t.group_name.endsWith('_comentarios')));
     },
     enabled: open,
     staleTime: 5 * 60 * 1000,
@@ -422,6 +424,9 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                               <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[8px] font-medium text-slate-600 bg-slate-100">
                                 {nivelCfg.label}
                               </span>
+                              <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[8px] font-mono text-slate-400 bg-slate-50 border border-slate-200" title={usuario.id}>
+                                {usuario.id?.slice(-8)}
+                              </span>
                             </div>
                           </div>
                         </button>
@@ -461,7 +466,12 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-slate-700 truncate text-xs">{setorCfg.emoji} {setorCfg.label}</div>
-                            <div className="text-[10px] text-slate-500">{usuariosDoSetor.length} {usuariosDoSetor.length === 1 ? 'membro' : 'membros'}</div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[10px] text-slate-500">{usuariosDoSetor.length} {usuariosDoSetor.length === 1 ? 'membro' : 'membros'}</span>
+                              <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[8px] font-mono text-slate-400 bg-slate-50 border border-slate-200" title={`sector:${setor}`}>
+                                sector:{setor}
+                              </span>
+                            </div>
                           </div>
                         </button>
                       );
@@ -511,7 +521,12 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-slate-700 truncate text-xs">{grupo.group_name || 'Grupo sem nome'}</div>
-                            <div className="text-[10px] text-slate-500">{grupo.participants?.length || 0} {grupo.participants?.length === 1 ? 'membro' : 'membros'}</div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[10px] text-slate-500">{grupo.participants?.length || 0} {grupo.participants?.length === 1 ? 'membro' : 'membros'}</span>
+                              <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[8px] font-mono text-slate-400 bg-slate-50 border border-slate-200" title={grupo.id}>
+                                {grupo.id?.slice(-8)}
+                              </span>
+                            </div>
                           </div>
                         </button>
                       );
