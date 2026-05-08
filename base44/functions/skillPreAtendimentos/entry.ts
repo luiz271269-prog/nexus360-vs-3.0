@@ -280,13 +280,18 @@ async function buscarPromocaoRotacionada(base44, lastPromoIds = []) {
   }
 }
 
-function formatarPromoTexto(promo) {
+function formatarPromoTexto(promo, mensagens = {}) {
   if (!promo) return '';
-  let txt = `\n\n━━━━━━━━━━━━━━\n🎁 *${promo.titulo}*`;
-  if (promo.descricao) txt += `\n${promo.descricao}`;
-  if (promo.price_info) txt += `\n💰 ${promo.price_info}`;
-  if (promo.link_produto) txt += `\n🔗 ${promo.link_produto}`;
-  return txt;
+  const tpl = mensagens.promo_separador_template
+    || '\n\n━━━━━━━━━━━━━━\n🎁 *{{titulo}}*\n{{descricao}}\n💰 {{price_info}}\n🔗 {{link_produto}}';
+  return tpl
+    .replace(/\{\{\s*titulo\s*\}\}/g, promo.titulo || '')
+    .replace(/\{\{\s*descricao\s*\}\}/g, promo.descricao || '')
+    .replace(/\{\{\s*price_info\s*\}\}/g, promo.price_info || '')
+    .replace(/\{\{\s*link_produto\s*\}\}/g, promo.link_produto || '')
+    .split('\n')
+    .filter((l, i) => i < 2 || (l.trim() !== '' && !/^[💰🔗]\s*$/.test(l.trim())))
+    .join('\n');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -914,7 +919,7 @@ Deno.serve(async (req) => {
 
         promoAnexada = await buscarPromocaoRotacionada(base44, thread?.last_promo_ids || []);
         if (promoAnexada) {
-          msgFinal = ack.msg + formatarPromoTexto(promoAnexada);
+          msgFinal = ack.msg + formatarPromoTexto(promoAnexada, mensagensAck);
           console.log(`[SKILL-PRE-ATEND] 🎁 Fora-horário: promo "${promoAnexada.titulo}" anexada`);
         } else {
           promoSkipped = true;
@@ -943,7 +948,7 @@ Deno.serve(async (req) => {
 
           promoAnexada = await buscarPromocaoRotacionada(base44, contact?.last_promo_ids || []);
           if (promoAnexada) {
-            msgFinal = saudacaoComNome + ack.msg + formatarPromoTexto(promoAnexada);
+            msgFinal = saudacaoComNome + ack.msg + formatarPromoTexto(promoAnexada, mensagensAck);
             console.log(`[SKILL-PRE-ATEND] 🌅 1º contato do dia: saudação + promo "${promoAnexada.titulo}"`);
           } else {
             // Sem promo disponível → só saudação personalizada (sem alterar fluxo)
