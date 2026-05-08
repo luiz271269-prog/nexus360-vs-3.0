@@ -938,13 +938,16 @@ Deno.serve(async (req) => {
           (Date.now() - new Date(ultAnyPromo).getTime() < PROMO_FORA_HORARIO_GAP_MS);
 
         if (primeiroContatoDoDia && !promoCooldownAtivo) {
-          // Saudação personalizada com nome + período do dia
+          // Saudação personalizada com nome + período do dia (template via banco)
           const primeiroNome = (contact?.nome || '').split(' ')[0] || '';
           const horaBrt = agoraBrt.getHours();
           const saudacao = horaBrt < 12 ? 'Bom dia' : (horaBrt < 18 ? 'Boa tarde' : 'Boa noite');
-          const saudacaoComNome = primeiroNome
-            ? `☀️ ${saudacao}, ${primeiroNome}! `
-            : `☀️ ${saudacao}! `;
+          const tplSaudacao = mensagensAck.saudacao_primeiro_contato_dia_template
+            || (primeiroNome ? '☀️ {{saudacao}}, {{primeiro_nome}}! ' : '☀️ {{saudacao}}! ');
+          const saudacaoComNome = tplSaudacao
+            .replace(/\{\{\s*saudacao\s*\}\}/g, saudacao)
+            .replace(/\{\{\s*primeiro_nome\s*\}\}/g, primeiroNome)
+            .replace(/\{\{\s*nome_com_virgula\s*\}\}/g, primeiroNome ? ', ' + primeiroNome : '');
 
           promoAnexada = await buscarPromocaoRotacionada(base44, contact?.last_promo_ids || []);
           if (promoAnexada) {
