@@ -466,18 +466,38 @@ export default function ChatWindow({
       setEnviandoBroadcast(true);
       setProgressoBroadcast({ enviados: 0, erros: 0, total: broadcastInterno.destinations.length });
       let enviados = 0, erros = 0;
+      const erroDetalhes = [];
       for (const dest of broadcastInterno.destinations) {
+        const destNome = dest.name || dest.user_id || dest.thread_id || 'destino';
         try {
-          if (!dest.thread_id || !usuario?.id) { erros++; continue; }
-          await base44.functions.invoke('sendInternalMessage', { thread_id: dest.thread_id, content: texto.trim() || (mediaUrl ? `[${mediaType}]` : ''), media_type: mediaType || 'none', media_url: mediaUrl, media_caption: mediaCaption });
-          enviados++;
-        } catch (_) { erros++; }
+          if (!dest.thread_id) {
+            console.error('[BROADCAST_INTERNO] ❌ Destino sem thread_id:', dest);
+            erroDetalhes.push(`${destNome}: sem thread_id`);
+            erros++; continue;
+          }
+          if (!usuario?.id) { erros++; continue; }
+          const resp = await base44.functions.invoke('sendInternalMessage', { thread_id: dest.thread_id, content: texto.trim() || (mediaUrl ? `[${mediaType}]` : ''), media_type: mediaType || 'none', media_url: mediaUrl, media_caption: mediaCaption });
+          if (resp?.data?.success === false) {
+            console.error(`[BROADCAST_INTERNO] ❌ Falha ${destNome}:`, resp.data.error);
+            erroDetalhes.push(`${destNome}: ${resp.data.error || 'erro'}`);
+            erros++;
+          } else {
+            enviados++;
+          }
+        } catch (e) {
+          console.error(`[BROADCAST_INTERNO] ❌ Exceção ${destNome}:`, e.message);
+          erroDetalhes.push(`${destNome}: ${e.message}`);
+          erros++;
+        }
         setProgressoBroadcast({ enviados, erros, total: broadcastInterno.destinations.length });
         await new Promise(r => setTimeout(r, 300));
       }
+      if (erros > 0 && erroDetalhes.length > 0) {
+        console.warn('[BROADCAST_INTERNO] Detalhes dos erros:', erroDetalhes);
+      }
       setEnviandoBroadcast(false);
       if (enviados > 0) toast.success(`✅ ${enviados} mensagem(ns) interna(s) enviada(s)!`);
-      if (erros > 0) toast.error(`❌ ${erros} erro(s) no envio interno`);
+      if (erros > 0) toast.error(`❌ ${erros} erro(s): ${erroDetalhes.slice(0, 2).join(' | ')}`, { duration: 8000 });
       if (onCancelarSelecao) onCancelarSelecao();
       if (onAtualizarMensagens) onAtualizarMensagens();
       return;
