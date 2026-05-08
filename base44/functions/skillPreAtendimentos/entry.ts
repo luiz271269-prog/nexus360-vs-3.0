@@ -175,10 +175,11 @@ async function buscarStyleProfile(base44, user_id) {
   }
 }
 
-function gerarRespostaMicroIntent(tipo, profile, contactNome, hora, foraHorario, cfg = null) {
+function gerarRespostaMicroIntent(tipo, profile, contactNome, hora, foraHorario, cfg = null, mensagens = {}) {
   const primeiroNome = (contactNome || '').split(' ')[0] || '';
   const assinatura = profile?.assinatura ? `\n\n${profile.assinatura}` : '';
   const chamaPeloNome = profile?.style_features?.chama_pelo_nome && primeiroNome;
+  const nomeComVirgula = chamaPeloNome ? ', ' + primeiroNome : '';
 
   if (tipo === 'saudacao_pura') {
     const periodo = getPeriodoDia(hora);
@@ -189,20 +190,37 @@ function gerarRespostaMicroIntent(tipo, profile, contactNome, hora, foraHorario,
       .replace(/[!?.,\s]+$/, '')
       .trim();
     const base = saudacaoEstilo || (periodo === 'manha' ? 'Bom dia' : periodo === 'tarde' ? 'Boa tarde' : 'Boa noite');
+
     if (foraHorario) {
       const inicio = cfg?.manha_inicio ?? 8;
       const fim = cfg?.tarde_fim ?? 18;
-      return `${base}${chamaPeloNome ? ', ' + primeiroNome : ''}! Recebi sua mensagem 😊\nNosso atendimento é seg-sex ${inicio}h-${fim}h. Te retorno em breve!${assinatura}`;
+      const tpl = mensagens.micro_saudacao_fora_horario
+        || '{{saudacao}}{{nome_com_virgula}}! Recebi sua mensagem 😊\nNosso atendimento é seg-sex {{hora_inicio}}h-{{hora_fim}}h. Te retorno em breve!';
+      const msg = tpl
+        .replace(/\{\{\s*saudacao\s*\}\}/g, base)
+        .replace(/\{\{\s*nome_com_virgula\s*\}\}/g, nomeComVirgula)
+        .replace(/\{\{\s*hora_inicio\s*\}\}/g, inicio)
+        .replace(/\{\{\s*hora_fim\s*\}\}/g, fim);
+      return `${msg}${assinatura}`;
     }
-    return `${base}${chamaPeloNome ? ', ' + primeiroNome : ''}! Tudo bem?${assinatura}`;
+
+    const tpl = mensagens.micro_saudacao_dentro_horario
+      || '{{saudacao}}{{nome_com_virgula}}! Tudo bem?';
+    const msg = tpl
+      .replace(/\{\{\s*saudacao\s*\}\}/g, base)
+      .replace(/\{\{\s*nome_com_virgula\s*\}\}/g, nomeComVirgula);
+    return `${msg}${assinatura}`;
   }
-  
+
   if (tipo === 'agradecimento') {
     const encerramento = profile?.frases_agradecimento?.[0] || profile?.frases_encerramento?.[0];
     if (encerramento) return `${encerramento}${assinatura}`;
-    return `Por nada${chamaPeloNome ? ', ' + primeiroNome : ''}! Qualquer coisa é só chamar 👋${assinatura}`;
+    const tpl = mensagens.micro_agradecimento
+      || 'Por nada{{nome_com_virgula}}! Qualquer coisa é só chamar 👋';
+    const msg = tpl.replace(/\{\{\s*nome_com_virgula\s*\}\}/g, nomeComVirgula);
+    return `${msg}${assinatura}`;
   }
-  
+
   return null;
 }
 
@@ -684,9 +702,10 @@ Deno.serve(async (req) => {
 
           if (integData && contactData?.telefone) {
             const _cfgMicro = await carregarHorarioConfig(base44);
+            const _msgsMicro = await carregarMensagensAck(base44);
             const hora = new Date().getHours();
             const foraHorario = hora < _cfgMicro.manha_inicio || hora > _cfgMicro.tarde_fim;
-            const msg = gerarRespostaMicroIntent(microIntent.tipo, styleProfile, contactData.nome, hora, foraHorario, _cfgMicro);
+            const msg = gerarRespostaMicroIntent(microIntent.tipo, styleProfile, contactData.nome, hora, foraHorario, _cfgMicro, _msgsMicro);
 
             if (msg) {
               // Cooldown 2min: se já respondeu micro-intent recentemente, pula
