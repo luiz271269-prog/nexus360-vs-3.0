@@ -63,7 +63,7 @@ async function carregarHorarioConfig(base44) {
   return _cacheConfig;
 }
 
-// Carrega mensagens de ACK do ConfiguracaoSistema (categoria=pre_atendimento)
+// Carrega TODAS as configs de pre_atendimento (ack_msg_*, micro_*, boas_vindas_*, outside_hours_*, promo_*)
 async function carregarMensagensAck(base44) {
   const agora = Date.now();
   if (_cacheMensagens && (agora - _cacheMensagensAt) < CACHE_TTL_MS) {
@@ -73,9 +73,8 @@ async function carregarMensagensAck(base44) {
     .filter({ categoria: 'pre_atendimento', ativa: true }).catch(() => []);
   const map = {};
   for (const item of (lista || [])) {
-    if (item.chave?.startsWith('ack_msg_')) {
-      map[item.chave] = item.valor?.value || '';
-    }
+    if (!item.chave) continue;
+    map[item.chave] = item.valor?.value ?? '';
   }
   _cacheMensagens = map;
   _cacheMensagensAt = agora;
