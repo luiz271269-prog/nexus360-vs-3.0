@@ -1,13 +1,16 @@
-// redeploy: 2026-03-20T16:00-FIX-HUMAN-ACTIVE
+// redeploy: 2026-05-12T-B3-B4-GATE-PURO
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 // ============================================================================
-// PROCESS INBOUND - v11.0.0 INLINE (sem imports locais)
+// PROCESS INBOUND - v12.0.0 GATE PURO (B0+B1+B2+B3+B4)
 // ============================================================================
-// Pipeline: normalize → dedup → reset_promos → human_check → URA dispatch
+// O gate é APENAS infraestrutura: idempotência, deduplicação, filtros internos,
+// reset de estado em novo ciclo, opt-out, guards de race condition.
+// TODA decisão de resposta/automação/notificação é da skillPreAtendimentos.
+// Fluxo: webhook → gate (puro) → skill (árbitro único) → playbookEngine.
 // ============================================================================
 
-const VERSION = 'v11.1.1-BUSINESS-HOURS-RESTORED';
+const VERSION = 'v12.0.0-GATE-PURO';
 
 // ── CACHE MÓDULO: chips e usuários internos (TTL 90s) ──────────────────
 let _cacheChipsProc = null;
@@ -354,39 +357,10 @@ Deno.serve(async (req) => {
   // cliente voltou depois de horas/dias → deve passar pelo pré-atendimento.
   const novoCicloPreCheck = detectNovoCiclo(thread?.last_inbound_at);
   result.pipeline.push('context_check');
-  // ✅ FIX CRÍTICO: Se é novo ciclo (>12h), NUNCA bloquear na Camada 3
-  // O cliente voltou depois de horas/dias → precisa do pré-atendimento
-  const _janelaCtx = (thread?.assigned_user_id && thread?.sector_id) ? 48 : 2;
-  if (thread?.assigned_user_id && thread?.sector_id && !humanoAtivo(thread, _janelaCtx) && !novoCicloPreCheck) {
-    // ── CAMADA 0-MICRO em thread ativa: saudações/agradecimentos/testes respondidos no estilo do atendente ──
-    const textoMicroCheck = (messageContent || '').trim();
-    // Detecção de micro-intent é feita pela skill (Camada 0-MICRO).
-    // Aqui só checamos comprimento + presença de texto para decidir
-    // se VALE A PENA invocar a skill em thread já contextualizada.
-    const ehMicroIntent = textoMicroCheck.length > 0 && textoMicroCheck.length <= 80;
-    if (ehMicroIntent) {
-      result.pipeline.push('micro_intent_thread_ativa');
-      try {
-        console.log(`[INBOUND-GATE] 🎯 CAMADA 3 + micro-intent → invocando skillPreAtendimentos`);
-        await base44.asServiceRole.functions.invoke('skillPreAtendimentos', {
-          thread_id: thread.id,
-          contact_id: contact.id,
-          integration_id: integration?.id,
-          message_id: message?.id,
-          message_content: messageContent,
-          _legacy_caller: 'processInbound.micro_intent_thread_ativa'
-        });
-        result.actions.push('micro_intent_responded_in_active_thread');
-        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, stop: true, reason: 'micro_intent_in_active_thread' });
-      } catch (e) {
-        console.warn(`[INBOUND-GATE] ⚠️ Erro ao invocar micro-intent em thread ativa: ${e.message}`);
-        // fallthrough para context_notify_only abaixo
-      }
-    }
-
-    // [PATCH B2] Camada 3 NÃO retorna mais — apenas marca contexto.
-    // Toda decisão (notificar / responder / silenciar / brain) é da skill.
-    console.log(`[INBOUND-GATE] 🔔 CAMADA 3 (B2): Thread contextualizada — encaminhando à skill com context.thread_assigned=true`);
+  // [PATCH B4] Camada 3 simplificada: apenas marca contexto, sem decisão de resposta.
+  // Detecções (micro-intent, agenda, fiscal, brain) são todas da skill em Camada 0.
+  if (thread?.assigned_user_id && thread?.sector_id && !novoCicloPreCheck) {
+    console.log(`[INBOUND-GATE] 🔔 CAMADA 3 (B4): Thread contextualizada — encaminhando à skill com context.thread_assigned=true`);
     result.actions.push('context_marked_for_skill');
   }
 
@@ -567,44 +541,7 @@ Deno.serve(async (req) => {
       notes: `skillPreAtendimentos falhou: ${e.message}`
     }).catch(() => {});
   }
-  return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
-
-  // ✅ FIX: NUNCA chamar Nexus Brain se pré-atendimento foi acionado
-  // preAtendimentoHandler já disparou as Skills autônomas (ACK, IntentRouter, QueueManager)
-  // Chamar Brain aqui causaria duplicação de atendimento
-  const preAtendimentoDispatchado = result.actions.includes('pre_atendimento_acionado');
-
-  result.pipeline.push('nexus_brain');
-  if (!preAtendimentoDispatchado && message?.sender_type === 'contact' && messageContent?.length > 2) {
-    if (!integration?.id) {
-      console.warn(`[${VERSION}] ⚠️ integration.id ausente — nexusAgentBrain não pode ser acionado`);
-      result.actions.push('nexus_brain_skipped_no_integration');
-    } else {
-      try {
-        console.log(`[${VERSION}] 🧠 Ativando Nexus Brain (pré-atendimento não foi despachado)`);
-        await base44.asServiceRole.functions.invoke('nexusAgentBrain', {
-          thread_id: thread.id,
-          contact_id: contact.id,
-          message_content: messageContent,
-          integration_id: integration.id,
-          provider,
-          trigger: 'inbound',
-          mode: 'copilot'
-        });
-        result.actions.push('nexus_brain_responded');
-      } catch (e) {
-        console.error(`[${VERSION}] ❌ nexusAgentBrain falhou: ${e.message}`);
-        result.actions.push('nexus_brain_failed');
-      }
-    }
-  } else if (preAtendimentoDispatchado) {
-    console.log(`[${VERSION}] ⏭️ Pré-atendimento já foi despachado — Nexus Brain SKIPPED para evitar duplicação`);
-    result.pipeline.push('nexus_brain_skipped_pre_atendimento_active');
-  }
-
-  result.pipeline.push('normal_message');
-  result.actions.push('message_in_cycle_no_ura');
-  console.log(`[${VERSION}] ✅ Mensagem processada`);
-
+  // [PATCH B3] Nexus Brain fallback REMOVIDO. A skill é o árbitro único — invoca
+  // o Brain (modo copilot) quando precisa em Camada 0.4. Aqui não há mais fallback.
   return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
 });
