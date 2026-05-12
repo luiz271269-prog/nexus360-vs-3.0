@@ -384,136 +384,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`[INBOUND-GATE] 🔔 CAMADA 3: Thread contextualizada (atendente=${thread.assigned_user_id}, setor=${thread.sector_id}) — apenas notificando, sem URA`);
-    result.actions.push('context_notify_only');
-    try {
-      await base44.asServiceRole.entities.NotificationEvent.create({
-        tipo: 'mensagem_cliente_contextualizada',
-        titulo: `Nova mensagem de ${contact?.nome || 'contato'}`,
-        mensagem: `Mensagem recebida em thread já atribuída. Atendente: ${thread.assigned_user_id}`,
-        prioridade: 'media',
-        metadata: {
-          thread_id: thread.id,
-          contact_id: contact?.id,
-          message_id: message?.id,
-          assigned_user_id: thread.assigned_user_id,
-          sector_id: thread.sector_id
-        }
-      });
-    } catch (e) { /* silencioso */ }
-
-    // ── NEXUS BRAIN: fire-and-forget (não bloqueia resposta do webhook) ─────
-    // Thread contextualizada = atendente existe mas humano dormiu → Brain sugere resposta
-    if (integration?.id && contact?.id && message?.sender_type === 'contact' && (messageContent || '').length > 2) {
-      base44.asServiceRole.functions.invoke('nexusAgentBrain', {
-        thread_id: thread.id,
-        contact_id: contact.id,
-        message_content: messageContent,
-        integration_id: integration.id,
-        provider,
-        trigger: 'inbound',
-        mode: 'copilot'
-      }).then(() => {
-        console.log(`[INBOUND-GATE] 🧠 Brain CAMADA 3 concluído para thread ${thread.id}`);
-      }).catch(e => {
-        console.warn(`[INBOUND-GATE] ⚠️ Brain CAMADA 3 erro: ${e.message}`);
-      });
-      result.actions.push('nexus_brain_copilot_dispatched');
-    }
-
-    return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, stop: true, reason: 'context_notify_only' });
+    // [PATCH B2] Camada 3 NÃO retorna mais — apenas marca contexto.
+    // Toda decisão (notificar / responder / silenciar / brain) é da skill.
+    console.log(`[INBOUND-GATE] 🔔 CAMADA 3 (B2): Thread contextualizada — encaminhando à skill com context.thread_assigned=true`);
+    result.actions.push('context_marked_for_skill');
   }
 
-  // 4. HARD-STOP: Humano ativo
-  result.pipeline.push('human_check');
-  if (humanoAtivo(thread)) {
-    result.actions.push('human_active_stop');
-    console.log(`[${VERSION}] 🛑 Humano ativo - parando pipeline`);
-    return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, stop: true, reason: 'human_active' });
+  // [PATCH B2] HARD-STOP de humano ativo REMOVIDO.
+  // A skill arbitra via Camada 0.5 (context.human_active=true → notify only).
+  result.pipeline.push('human_check_observed');
+  const humanAtivoFlag = thread ? humanoAtivo(thread) : false;
+  if (humanAtivoFlag) {
+    console.log(`[INBOUND-GATE] 👤 (B2): humano ativo observado — encaminhando à skill com context.human_active=true`);
+    result.actions.push('human_active_marked_for_skill');
   }
 
-  // 5. AGENDA IA CHECK
-  result.pipeline.push('agenda_ia_check');
-  if (thread.assistant_mode === 'agenda' || integration?.nome_instancia === 'NEXUS_AGENDA_INTEGRATION' || contact?.telefone === '+5548999142800') {
-    result.actions.push('routing_to_agenda_ia');
-    try {
-      await base44.asServiceRole.functions.invoke('routeToAgendaIA', {
-        thread_id: thread.id,
-        message_id: message?.id,
-        content: messageContent,
-        from_type: 'external_contact',
-        from_id: message?.sender_id
-      });
-      result.actions.push('agenda_ia_dispatched');
-    } catch (e) {
-      console.warn(`[${VERSION}] ⚠️ Erro agenda IA:`, e.message);
-    }
-    return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, routed: true, to: 'agenda_ia' });
-  }
-
-  // 5b. AGENDA IA (CLAUDE): Detectar intenção de agendamento ANTES da URA
-  result.pipeline.push('claude_agenda_check');
-  if (message?.sender_type === 'contact' && messageContent?.length > 2) {
-    if (!integration?.id) {
-      console.warn(`[${VERSION}] ⚠️ integration.id ausente — claudeAgendaAgent não pode ser acionado`);
-    } else {
-      const textoAgenda = (messageContent || '').toLowerCase();
-      const ehAgenda = /(agendar|agendamento|marcar|desmarcar|reagendar|remarcar|cancelar|horário|horario|disponível|disponivel|consulta|visita|reunião|reuniao)/.test(textoAgenda);
-      if (ehAgenda) {
-        result.pipeline.push('claude_agenda_dispatch');
-        try {
-          console.log(`[${VERSION}] 📅 Intenção de agendamento detectada — ativando claudeAgendaAgent`);
-          await base44.asServiceRole.functions.invoke('claudeAgendaAgent', {
-            thread_id: thread.id,
-            contact_id: contact.id,
-            message_content: messageContent,
-            integration_id: integration.id,
-            provider,
-          });
-          result.actions.push('claude_agenda_responded');
-        } catch (e) {
-          console.error(`[${VERSION}] ❌ claudeAgendaAgent falhou: ${e.message}`);
-          result.actions.push('claude_agenda_failed');
-        }
-        return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, routed: true, to: 'claude_agenda' });
-      }
-    }
-  }
-
-  // ── ACK IMEDIATO foi removido deste ponto — o preAtendimentoHandler v12 já envia saudação ──
-
-  // 5c. SOLICITAÇÃO DE DOCUMENTO FISCAL — detectar e disparar PDF automaticamente
-  result.pipeline.push('doc_fiscal_check');
-  if (message?.sender_type === 'contact' && contact?.id && (messageContent || '').length > 2) {
-    try {
-      const deteccaoFiscal = await base44.asServiceRole.functions.invoke('detectarSolicitacaoDocFiscal', {
-        mensagem: messageContent,
-        contact_id: contact.id,
-        thread_id: thread?.id
-      });
-
-      if (deteccaoFiscal?.data?.eh_solicitacao_fiscal && deteccaoFiscal.data.notas?.length > 0) {
-        console.log(`[${VERSION}] 📄 Solicitação fiscal detectada! Notas encontradas: ${deteccaoFiscal.data.notas_encontradas}`);
-        result.actions.push('doc_fiscal_detectado');
-
-        // Enviar a nota mais recente com PDF disponível
-        const notaComPDF = deteccaoFiscal.data.notas.find(n => n.pdf_url);
-        if (notaComPDF) {
-          await base44.asServiceRole.functions.invoke('dispararNotaFiscalWhatsApp', {
-            nota_fiscal_id: notaComPDF.id,
-            contact_id: contact.id,
-            thread_id: thread?.id,
-            integration_id: integration?.id || thread?.whatsapp_integration_id
-          });
-          result.actions.push('nf_enviada_automaticamente');
-          console.log(`[${VERSION}] ✅ NF ${notaComPDF.numero_nf} enviada automaticamente`);
-          return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions, routed: true, to: 'doc_fiscal_auto' });
-        }
-      }
-    } catch (e) {
-      console.warn(`[${VERSION}] ⚠️ doc_fiscal_check falhou (prosseguindo): ${e.message}`);
-    }
-  }
+  // [PATCH B1] Detecções Agenda mode / Claude Agenda / Doc Fiscal MIGRADAS
+  // para skillPreAtendimentos Camada 0.3 (a/b/c). Gate é gate puro.
 
   // 6. NOVO CICLO E DECISÃO: PRÉ-ATENDIMENTO vs SKILL AUTÔNOMA
   result.pipeline.push('cycle_detection');
@@ -631,53 +518,56 @@ Deno.serve(async (req) => {
     console.warn(`[${VERSION}] ⚠️ Erro ao re-buscar thread fresca (prosseguindo):`, e.message);
   }
 
-  let shouldDispatch = false;
+  // [PATCH B2] Dispatch UNIFICADO — toda mensagem inbound válida executa a skill.
+  // A skill é o árbitro único: decide se responde / só notifica / aciona playbook etc.
+  // Lock pre_atendimento_ativo continua sendo gravado pra proteger contra dupla execução.
   const isUraActiveFresco = thread.pre_atendimento_ativo === true;
-  if (isUraActiveFresco) shouldDispatch = true;
-  else if (novoCiclo) shouldDispatch = true;
-  else if (isHumanDormant && messageContent?.length > 4) shouldDispatch = true;
-  else if (!thread.assigned_user_id) shouldDispatch = true;
 
-  if (shouldDispatch) {
-    // Gravar lock no banco antes de disparar
-    try {
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        pre_atendimento_ativo: true,
-        pre_atendimento_started_at: new Date().toISOString()
-      });
-    } catch (e) {
-      console.warn(`[${VERSION}] ⚠️ Erro ao gravar lock dispatch:`, e.message);
-    }
+  try {
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+      pre_atendimento_ativo: true,
+      pre_atendimento_started_at: new Date().toISOString()
+    });
+  } catch (e) {
+    console.warn(`[${VERSION}] ⚠️ Erro ao gravar lock dispatch:`, e.message);
   }
 
-  if (shouldDispatch) {
-    result.pipeline.push('pre_atendimento_dispatch');
-    console.log(`[${VERSION}] 🎯 Despachando para skillPreAtendimentos (URA ativa=${isUraActive}, novoCiclo=${novoCiclo}, dormant=${isHumanDormant})`);
-    try {
-      await base44.asServiceRole.functions.invoke('skillPreAtendimentos', {
-        thread_id: thread.id,
-        contact_id: contact.id,
-        integration_id: integration?.id || thread.whatsapp_integration_id,
-        message_content: messageContent || '',
-        _legacy_caller: 'processInbound.dispatch'
-      });
-      result.actions.push('pre_atendimento_acionado');
-    } catch (e) {
-      console.error(`[${VERSION}] ❌ skillPreAtendimentos falhou: ${e.message}`);
-      result.actions.push('pre_atendimento_falhou');
-      // Fallback: enfileirar para atendimento manual
-      await base44.asServiceRole.entities.WorkQueueItem.create({
-        contact_id: contact.id,
-        thread_id: thread.id,
-        tipo: 'manual',
-        reason: 'pre_atendimento_falhou',
-        severity: 'high',
-        status: 'open',
-        notes: `preAtendimentoHandler falhou: ${e.message}`
-      }).catch(() => {});
-    }
-    return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
+  result.pipeline.push('skill_dispatch_unificado');
+  console.log(`[${VERSION}] 🎯 (B2) Dispatch unificado à skill (URA=${isUraActiveFresco}, novoCiclo=${novoCiclo}, humanAtivo=${humanAtivoFlag}, threadAssigned=${!!thread.assigned_user_id})`);
+  try {
+    await base44.asServiceRole.functions.invoke('skillPreAtendimentos', {
+      thread_id: thread.id,
+      contact_id: contact.id,
+      integration_id: integration?.id || thread.whatsapp_integration_id,
+      message_id: message?.id,
+      message_content: messageContent || '',
+      provider,
+      context: {
+        thread_assigned: !!(thread.assigned_user_id && thread.sector_id),
+        human_active: humanAtivoFlag === true,
+        novo_ciclo: novoCiclo === true,
+        sector_id: thread.sector_id || null,
+        assigned_user_id: thread.assigned_user_id || null,
+        ura_active: isUraActiveFresco,
+        human_dormant: isHumanDormant === true
+      },
+      _legacy_caller: 'processInbound.dispatch_unificado_b2'
+    });
+    result.actions.push('pre_atendimento_acionado');
+  } catch (e) {
+    console.error(`[${VERSION}] ❌ skillPreAtendimentos falhou: ${e.message}`);
+    result.actions.push('pre_atendimento_falhou');
+    await base44.asServiceRole.entities.WorkQueueItem.create({
+      contact_id: contact.id,
+      thread_id: thread.id,
+      tipo: 'manual',
+      reason: 'pre_atendimento_falhou',
+      severity: 'high',
+      status: 'open',
+      notes: `skillPreAtendimentos falhou: ${e.message}`
+    }).catch(() => {});
   }
+  return Response.json({ success: true, pipeline: result.pipeline, actions: result.actions });
 
   // ✅ FIX: NUNCA chamar Nexus Brain se pré-atendimento foi acionado
   // preAtendimentoHandler já disparou as Skills autônomas (ACK, IntentRouter, QueueManager)
