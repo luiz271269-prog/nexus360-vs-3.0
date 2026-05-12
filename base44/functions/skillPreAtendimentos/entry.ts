@@ -1786,11 +1786,17 @@ NUNCA mencione nomes de atendentes. Tom profissional e humano.`
         mensagem_enviada: !!mensagemBoasVindas
       };
       resultado.success = true;
+      marcarFimCamada(9, 'ok', {
+        atendente_id: atendente.id,
+        motivo: motivoAtribuicao,
+        mensagem_enviada: !!mensagemBoasVindas
+      });
 
     } catch (e) {
       console.error('[SKILL-PRE-ATEND] Camada 9 erro:', e.message);
       resultado.camadas.atribuicao = { error: e.message };
       resultado.success = !!resultado.camadas.routing?.ok;
+      marcarFimCamada(9, 'error', { error: e.message });
     }
 
     await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, resultado.success ? 'concluido' : 'parcial');
@@ -1801,7 +1807,8 @@ NUNCA mencione nomes de atendentes. Tom profissional e humano.`
       setor,
       atendente: atendente?.full_name,
       motivo: motivoAtribuicao,
-      tempo_ms: Date.now() - tsInicio
+      tempo_ms: Date.now() - tsInicio,
+      telemetria: resultado.telemetria
     }, { headers });
 
   } catch (error) {
