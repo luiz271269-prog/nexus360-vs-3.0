@@ -1353,27 +1353,37 @@ Deno.serve(async (req) => {
 
       console.log(`[SKILL-PRE-ATEND] ✅ Atribuído para ${atendente.full_name} em ${setor} (motivo: ${motivoAtribuicao})`);
 
-      // ─── FORA DE HORÁRIO: pular boas-vindas LLM (já foi enviado ACK+vídeo+promo na Camada 1) ───
+      // ─── PRINCÍPIO "ÁRBITRO ÚNICO": ACK + LLM nunca saem juntos ───
+      // A skill arbitra entre suas próprias camadas. LLM Camada 4 só dispara
+      // se ninguém ainda falou com o cliente neste turno.
+      // Suprime LLM em 2 casos:
+      //   1. Fora de horário (ACK + vídeo + promo já foi enviado na Camada 1)
+      //   2. Horário comercial mas ACK Camada 1 enviou com sucesso (evita duplicação ACK+LLM)
       const horarioCfgC4 = await carregarHorarioConfig(base44);
       const horarioCamada4 = avaliarHorarioComercial(new Date(), horarioCfgC4);
-      if (!horarioCamada4.dentro) {
-        console.log('[SKILL-PRE-ATEND] ⏭️ Camada 4: fora de horário — boas-vindas LLM SUPRIMIDA (ACK+promo já enviado)');
+      const ackJaEnviou = resultado.camadas.ack?.ok === true;
+      const suprimirLLM = !horarioCamada4.dentro || ackJaEnviou;
+
+      if (suprimirLLM) {
+        const motivoSupressao = !horarioCamada4.dentro ? 'fora_horario' : 'ack_camada1_ja_enviou';
+        console.log(`[SKILL-PRE-ATEND] ⏭️ Camada 4: boas-vindas LLM SUPRIMIDA (motivo: ${motivoSupressao})`);
         resultado.camadas.atribuicao = {
           ok: true,
           atendente: atendente.full_name,
           atendente_id: atendente.id,
           motivo: motivoAtribuicao,
           mensagem_enviada: false,
-          fora_horario: true
+          llm_suprimida_motivo: motivoSupressao
         };
         resultado.success = true;
         await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'concluido');
         return Response.json({
           ...resultado,
-          action: 'atribuicao_concluida_fora_horario',
+          action: 'atribuicao_concluida_sem_llm',
           setor,
           atendente: atendente?.full_name,
           motivo: motivoAtribuicao,
+          llm_suprimida_motivo: motivoSupressao,
           tempo_ms: Date.now() - tsInicio
         }, { headers });
       }
