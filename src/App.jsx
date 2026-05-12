@@ -15,6 +15,7 @@ import NotasFiscais from '@/pages/NotasFiscais';
 import CustoAutomacoes from '@/pages/CustoAutomacoes';
 import Compras from '@/pages/Compras';
 import MonitorPromocoes from '@/pages/MonitorPromocoes';
+import TelemetriaPreAtendimento from '@/pages/TelemetriaPreAtendimento';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -122,6 +123,14 @@ const AuthenticatedApp = () => {
           element={
             <LayoutWrapper currentPageName="MonitorPromocoes">
               <MonitorPromocoes />
+            </LayoutWrapper>
+          } 
+        />
+        <Route 
+          path="/TelemetriaPreAtendimento" 
+          element={
+            <LayoutWrapper currentPageName="TelemetriaPreAtendimento">
+              <TelemetriaPreAtendimento />
             </LayoutWrapper>
           } 
         />
