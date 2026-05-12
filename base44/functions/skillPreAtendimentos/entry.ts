@@ -543,12 +543,187 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const payload = await req.json();
     const { thread_id, contact_id, integration_id, message_id, message_content } = payload;
+    const context = payload.context || {}; // {thread_assigned, human_active, novo_ciclo, sector_id} (vindo do gate v12+)
 
     if (!thread_id || !contact_id) {
       return Response.json({ success: false, error: 'Campos obrigatorios: thread_id, contact_id' }, { status: 400, headers });
     }
 
-    console.log(`[SKILL-PRE-ATEND] 🚀 Início pipeline — thread: ${thread_id}`);
+    console.log(`[SKILL-PRE-ATEND] 🚀 Início pipeline — thread: ${thread_id} | context: ${JSON.stringify(context)}`);
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CAMADA 0.3 — DETECÇÕES ESPECIAIS DE ROTEAMENTO (Agenda / Fiscal)
+    // Movidas do gate para cá (princípio "skill é o árbitro único").
+    // Ordem: mais específico → menos específico
+    //   1. Thread em modo agenda / número especial → routeToAgendaIA
+    //   2. Regex agenda (agendar, marcar, reagendar...) → claudeAgendaAgent
+    //   3. Solicitação fiscal (boleto, nota, 2ª via) → dispararNotaFiscalWhatsApp
+    // ═══════════════════════════════════════════════════════════════════
+
+    let threadInicial = null;
+    let contactInicial = null;
+    try {
+      [threadInicial, contactInicial] = await Promise.all([
+        base44.asServiceRole.entities.MessageThread.get(thread_id).catch(() => null),
+        base44.asServiceRole.entities.Contact.get(contact_id).catch(() => null)
+      ]);
+    } catch (_) { /* segue mesmo se falhar — Camada 0 vai re-buscar */ }
+
+    // 1) AGENDA IA por modo/número (assistant_mode='agenda' OU número especial)
+    try {
+      const integNome = integration_id
+        ? (await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id).catch(() => null))?.nome_instancia
+        : null;
+      const ehAgendaMode = threadInicial?.assistant_mode === 'agenda'
+        || integNome === 'NEXUS_AGENDA_INTEGRATION'
+        || contactInicial?.telefone === '+5548999142800';
+
+      if (ehAgendaMode) {
+        console.log(`[SKILL-PRE-ATEND] 📅 Camada 0.3a → routeToAgendaIA (agenda mode)`);
+        await base44.asServiceRole.functions.invoke('routeToAgendaIA', {
+          thread_id, message_id, content: message_content,
+          from_type: 'external_contact', from_id: contact_id
+        }).catch(e => console.warn('[SKILL-PRE-ATEND] routeToAgendaIA falhou:', e.message));
+        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+          pre_atendimento_ativo: false
+        }).catch(() => {});
+        return Response.json({ success: true, routed: true, to: 'agenda_ia_mode', camadas: resultado.camadas }, { headers });
+      }
+    } catch (e) {
+      console.warn('[SKILL-PRE-ATEND] Camada 0.3a erro (não crítico):', e.message);
+    }
+
+    // 2) CLAUDE AGENDA por regex de intenção
+    try {
+      if ((message_content || '').length > 2 && integration_id) {
+        const textoAgenda = (message_content || '').toLowerCase();
+        const ehAgendaRegex = /(agendar|agendamento|marcar|desmarcar|reagendar|remarcar|cancelar|horário|horario|disponível|disponivel|consulta|visita|reunião|reuniao)/.test(textoAgenda);
+        if (ehAgendaRegex) {
+          console.log(`[SKILL-PRE-ATEND] 📅 Camada 0.3b → claudeAgendaAgent (regex match)`);
+          await base44.asServiceRole.functions.invoke('claudeAgendaAgent', {
+            thread_id, contact_id,
+            message_content,
+            integration_id,
+            provider: payload.provider
+          }).catch(e => console.warn('[SKILL-PRE-ATEND] claudeAgendaAgent falhou:', e.message));
+          await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+            pre_atendimento_ativo: false
+          }).catch(() => {});
+          return Response.json({ success: true, routed: true, to: 'claude_agenda', camadas: resultado.camadas }, { headers });
+        }
+      }
+    } catch (e) {
+      console.warn('[SKILL-PRE-ATEND] Camada 0.3b erro (não crítico):', e.message);
+    }
+
+    // 3) DOC FISCAL por detecção semântica
+    try {
+      if ((message_content || '').length > 2 && contact_id) {
+        const deteccaoFiscal = await base44.asServiceRole.functions.invoke('detectarSolicitacaoDocFiscal', {
+          mensagem: message_content,
+          contact_id,
+          thread_id
+        }).catch(() => null);
+
+        const data = deteccaoFiscal?.data || deteccaoFiscal;
+        if (data?.eh_solicitacao_fiscal && Array.isArray(data.notas) && data.notas.length > 0) {
+          const notaComPDF = data.notas.find(n => n.pdf_url);
+          if (notaComPDF) {
+            console.log(`[SKILL-PRE-ATEND] 📄 Camada 0.3c → dispararNotaFiscalWhatsApp (NF ${notaComPDF.numero_nf})`);
+            await base44.asServiceRole.functions.invoke('dispararNotaFiscalWhatsApp', {
+              nota_fiscal_id: notaComPDF.id,
+              contact_id, thread_id,
+              integration_id: integration_id || threadInicial?.whatsapp_integration_id
+            }).catch(e => console.warn('[SKILL-PRE-ATEND] dispararNotaFiscalWhatsApp falhou:', e.message));
+            await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+              pre_atendimento_ativo: false
+            }).catch(() => {});
+            return Response.json({ success: true, routed: true, to: 'doc_fiscal_auto', camadas: resultado.camadas }, { headers });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[SKILL-PRE-ATEND] Camada 0.3c erro (não crítico):', e.message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CAMADA 0.5 — DECISÃO DE CONTEXTO (humano ativo / thread atribuída)
+    // Migrada do gate. Princípio: skill arbitra, gate só entrega.
+    //   • human_active=true → registra, notifica atendente, NÃO envia ao cliente
+    //   • thread_assigned=true SEM micro-intent SEM novo ciclo → mesma coisa
+    // ═══════════════════════════════════════════════════════════════════
+
+    if (context.human_active === true) {
+      console.log(`[SKILL-PRE-ATEND] 👤 Camada 0.5: humano ativo — notify only, sem responder cliente`);
+      try {
+        await base44.asServiceRole.entities.NotificationEvent.create({
+          tipo: 'mensagem_cliente_humano_ativo',
+          titulo: `Nova mensagem de ${contactInicial?.nome || 'contato'}`,
+          mensagem: `Mensagem recebida com atendente humano ativo. Atendente: ${threadInicial?.assigned_user_id || '?'}`,
+          prioridade: 'media',
+          metadata: {
+            thread_id, contact_id, message_id,
+            assigned_user_id: threadInicial?.assigned_user_id,
+            sector_id: threadInicial?.sector_id,
+            origem: 'skill_camada_0_5'
+          }
+        }).catch(() => {});
+
+        // Brain copilot fire-and-forget (sugere resposta ao humano)
+        if (integration_id && (message_content || '').length > 2) {
+          base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+            thread_id, contact_id, message_content,
+            integration_id, provider: payload.provider,
+            trigger: 'inbound', mode: 'copilot'
+          }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot 0.5 erro:', e.message));
+        }
+      } catch (_) { /* silencioso */ }
+
+      await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+        pre_atendimento_ativo: false
+      }).catch(() => {});
+      return Response.json({ success: true, skipped: true, reason: 'human_active_observed', camadas: resultado.camadas }, { headers });
+    }
+
+    // Thread atribuída + setor definido + não é novo ciclo + texto longo (não é micro-intent)
+    // → mesma postura do gate atual (context_notify_only): só observa
+    const textoMicroCheckCtx = (message_content || '').trim();
+    const ehMicroIntentCtx = textoMicroCheckCtx.length > 0 && textoMicroCheckCtx.length <= 80;
+    if (
+      context.thread_assigned === true
+      && context.sector_id
+      && context.novo_ciclo === false
+      && !ehMicroIntentCtx
+    ) {
+      console.log(`[SKILL-PRE-ATEND] 🔔 Camada 0.5: thread contextualizada sem micro-intent — notify only`);
+      try {
+        await base44.asServiceRole.entities.NotificationEvent.create({
+          tipo: 'mensagem_cliente_contextualizada',
+          titulo: `Nova mensagem de ${contactInicial?.nome || 'contato'}`,
+          mensagem: `Mensagem recebida em thread já atribuída. Atendente: ${threadInicial?.assigned_user_id || '?'}`,
+          prioridade: 'media',
+          metadata: {
+            thread_id, contact_id, message_id,
+            assigned_user_id: threadInicial?.assigned_user_id,
+            sector_id: context.sector_id,
+            origem: 'skill_camada_0_5'
+          }
+        }).catch(() => {});
+
+        if (integration_id && (message_content || '').length > 2) {
+          base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+            thread_id, contact_id, message_content,
+            integration_id, provider: payload.provider,
+            trigger: 'inbound', mode: 'copilot'
+          }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot 0.5 erro:', e.message));
+        }
+      } catch (_) { /* silencioso */ }
+
+      await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+        pre_atendimento_ativo: false
+      }).catch(() => {});
+      return Response.json({ success: true, skipped: true, reason: 'context_notify_only', camadas: resultado.camadas }, { headers });
+    }
 
     // ═══════════════════════════════════════════════════════════════════
     // CAMADA 0 — DEDUP / IDEMPOTENCY GUARD
