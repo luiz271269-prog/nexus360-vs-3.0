@@ -911,12 +911,58 @@ Deno.serve(async (req) => {
           (Date.now() - new Date(ultPromoInbound).getTime() < PROMO_FORA_HORARIO_GAP_MS);
 
         if (promoRecente) {
-          // Já mandou promo+fora-horário nas últimas 12h → silêncio total (não envia ACK)
-          resultado.camadas.ack = { skipped: true, reason: 'fora_horario_promo_recente_12h' };
-          console.log('[SKILL-PRE-ATEND] ⏭️ Fora-horário: promo já enviada nas últimas 12h — silêncio');
+          // Já mandou vídeo+promo nas últimas 12h. NÃO é silêncio total —
+          // mensagem #2+ do mesmo período fora-horário deve detectar intent e
+          // responder de forma útil (sem repetir vídeo nem promo).
+          // Princípio "árbitro único": a skill arbitra que mensagem #2 recebe
+          // resposta contextual em vez de silêncio.
+          const textoIntent = (message_content || '').toLowerCase().trim();
+          let intentForaHorario = null;
+          for (const p of PATTERNS) {
+            if (p.regex.test(textoIntent)) { intentForaHorario = p; break; }
+          }
+
+          if (intentForaHorario && textoIntent.length > 0) {
+            // Resposta contextual fora-horário por setor detectado (sem vídeo, sem promo)
+            const respostasForaHorario = {
+              vendas: 'Recebi sua mensagem! 👋 Nossa equipe de vendas retorna assim que abrirmos. Pode adiantar: qual produto ou serviço você procura?',
+              assistencia: 'Recebi! 🔧 Nossa equipe técnica retorna no próximo expediente. Pode descrever o problema com detalhes que já vamos analisar.',
+              financeiro: 'Recebi sua mensagem! 💰 O financeiro retorna em horário comercial. Se for boleto/NF, pode adiantar o número/data.',
+              fornecedor: 'Recebi! 📦 Nossa equipe de compras retorna no próximo expediente.',
+              geral: 'Recebi sua mensagem! 👋 Retornamos no próximo expediente.'
+            };
+            const respostaIntent = respostasForaHorario[intentForaHorario.setor] || respostasForaHorario.geral;
+
+            const { ok: okI, msgId: msgIdI } = await enviarWhatsApp(integ, contact.telefone, respostaIntent);
+            if (okI) {
+              await base44.asServiceRole.entities.Message.create({
+                thread_id, sender_id: 'skill_ack', sender_type: 'user',
+                recipient_id: contact_id, recipient_type: 'contact',
+                content: respostaIntent, channel: 'whatsapp', status: 'enviada',
+                sent_at: new Date().toISOString(), visibility: 'public_to_customer',
+                metadata: { is_ack: true, ack_tipo: 'fora_horario_intent', intent_setor: intentForaHorario.setor, whatsapp_msg_id: msgIdI }
+              }).catch(() => {});
+              await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+                last_outbound_at: new Date().toISOString(),
+                last_message_at: new Date().toISOString(),
+                last_message_sender: 'user',
+                last_message_content: respostaIntent.substring(0, 100)
+              }).catch(() => {});
+              resultado.camadas.ack = { ok: true, tipo: 'fora_horario_intent', setor: intentForaHorario.setor, msgId: msgIdI };
+              console.log(`[SKILL-PRE-ATEND] ✅ Fora-horário msg #2+: resposta intent (${intentForaHorario.setor})`);
+            } else {
+              resultado.camadas.ack = { skipped: true, reason: 'fora_horario_intent_send_failed' };
+            }
+            throw new Error('__skip_ack'); // pula resto da Camada 1 (já respondeu)
+          }
+
+          // Sem intent detectado em mensagem #2+ → silêncio (mantém comportamento atual)
+          resultado.camadas.ack = { skipped: true, reason: 'fora_horario_promo_recente_12h_sem_intent' };
+          console.log('[SKILL-PRE-ATEND] ⏭️ Fora-horário msg #2+: sem intent detectado — silêncio');
           throw new Error('__skip_ack');
         }
 
+        // Primeira mensagem fora-horário do período → vídeo + ACK + promo (comportamento original)
         promoAnexada = await buscarPromocaoRotacionada(base44, thread?.last_promo_ids || []);
         if (promoAnexada) {
           msgFinal = ack.msg + formatarPromoTexto(promoAnexada, mensagensAck);
