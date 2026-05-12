@@ -1,22 +1,27 @@
 // ============================================================================
-// skillPreAtendimentos.js — v1.0 (renomeado de primeiroAtendimentoUnificado)
+// skillPreAtendimentos.js — v2.0 (Sessão 2: renumeração T1 + dedup helpers T4)
 // ============================================================================
 // UMA ÚNICA FUNÇÃO que substitui em camadas:
 //   preAtendimentoHandler + skillACKImediato + skillIntentRouter
 //   + roteamentoInteligente + skillPrimeiroContatoAutonomo
 //
-// CAMADAS (sequenciais dentro do mesmo processo — sem HTTP entre elas):
-//   0 — Dedup / idempotency guard  (bloqueia webhooks duplicados em paralelo)
-//   1 — ACK imediato               (fire & forget — falha NÃO para o pipeline)
-//   2 — Intent detection           (pattern match → LLM fallback)
-//   3 — Roteamento                 (fidelizado → menor carga → fila)
-//   4 — Atribuição + boas-vindas   (update thread + envia mensagem + loga)
+// CAMADAS (ordem de execução real — sequenciais sem HTTP entre elas):
+//   1 — Detecções de roteamento direto (Agenda 1A/1B, Doc Fiscal 1C)
+//   2 — Decisão de contexto (humano ativo / thread atribuída)
+//   3 — Dedup + lock 30s (bloqueia webhooks duplicados em paralelo)
+//   4 — Micro-intents (saudação/agradecimento/spam/mídia)
+//   5 — ACK adaptativo (horário comercial / fora-horário + promo + vídeo)
+//   6 — Intent detection (pattern match → LLM fallback)
+//   7 — Qualificação (PreAtendimentoRule do banco)
+//   8 — Roteamento (P1 mencionado → P2 fidelizado → P3 último → P4 carga → P5 geral → P6 fila)
+//   9 — Atribuição + boas-vindas (update thread + envia mensagem + loga)
 //
 // FILOSOFIA:
 //   - Nenhuma camada faz fetch HTTP para outra função Base44
 //   - Cada camada tem try/catch próprio — falha isolada, não cascata
 //   - Dedup atômico elimina race conditions de webhooks duplicados
 //   - Resultado de cada camada gravado em AutomationLog para observabilidade
+//   - Helpers de horário cacheados por request (T4) — 1 await em vez de 3
 // ============================================================================
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
@@ -539,6 +544,22 @@ Deno.serve(async (req) => {
     }
   };
 
+  // T4 (Sessão 2): cache local do request — evita 3 awaits redundantes
+  // de carregarHorarioConfig nas Camadas 3, 5 e 9.
+  let _horarioCfgPipeline = null;
+  let _horarioInfoPipeline = null;
+  const getHorarioCfgPipeline = async (base44) => {
+    if (!_horarioCfgPipeline) _horarioCfgPipeline = await carregarHorarioConfig(base44);
+    return _horarioCfgPipeline;
+  };
+  const getHorarioInfoPipeline = async (base44) => {
+    if (!_horarioInfoPipeline) {
+      const cfg = await getHorarioCfgPipeline(base44);
+      _horarioInfoPipeline = avaliarHorarioComercial(new Date(), cfg);
+    }
+    return _horarioInfoPipeline;
+  };
+
   try {
     const base44 = createClientFromRequest(req);
     const payload = await req.json();
@@ -552,12 +573,12 @@ Deno.serve(async (req) => {
     console.log(`[SKILL-PRE-ATEND] 🚀 Início pipeline — thread: ${thread_id} | context: ${JSON.stringify(context)}`);
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 0.3 — DETECÇÕES ESPECIAIS DE ROTEAMENTO (Agenda / Fiscal)
+    // CAMADA 1 — DETECÇÕES DE ROTEAMENTO DIRETO (Agenda / Fiscal)
     // Movidas do gate para cá (princípio "skill é o árbitro único").
     // Ordem: mais específico → menos específico
-    //   1. Thread em modo agenda / número especial → routeToAgendaIA
-    //   2. Regex agenda (agendar, marcar, reagendar...) → claudeAgendaAgent
-    //   3. Solicitação fiscal (boleto, nota, 2ª via) → dispararNotaFiscalWhatsApp
+    //   1A. Thread em modo agenda / número especial → routeToAgendaIA
+    //   1B. Regex agenda (agendar, marcar, reagendar...) → claudeAgendaAgent
+    //   1C. Solicitação fiscal (boleto, nota, 2ª via) → dispararNotaFiscalWhatsApp
     // ═══════════════════════════════════════════════════════════════════
 
     let threadInicial = null;
@@ -579,7 +600,7 @@ Deno.serve(async (req) => {
         || contactInicial?.telefone === '+5548999142800';
 
       if (ehAgendaMode) {
-        console.log(`[SKILL-PRE-ATEND] 📅 Camada 0.3a → routeToAgendaIA (agenda mode)`);
+        console.log(`[SKILL-PRE-ATEND] 📅 Camada 1A → routeToAgendaIA (agenda mode)`);
         await base44.asServiceRole.functions.invoke('routeToAgendaIA', {
           thread_id, message_id, content: message_content,
           from_type: 'external_contact', from_id: contact_id
@@ -590,7 +611,7 @@ Deno.serve(async (req) => {
         return Response.json({ success: true, routed: true, to: 'agenda_ia_mode', camadas: resultado.camadas }, { headers });
       }
     } catch (e) {
-      console.warn('[SKILL-PRE-ATEND] Camada 0.3a erro (não crítico):', e.message);
+      console.warn('[SKILL-PRE-ATEND] Camada 1A erro (não crítico):', e.message);
     }
 
     // 2) CLAUDE AGENDA por regex de intenção
@@ -599,7 +620,7 @@ Deno.serve(async (req) => {
         const textoAgenda = (message_content || '').toLowerCase();
         const ehAgendaRegex = /(agendar|agendamento|marcar|desmarcar|reagendar|remarcar|cancelar|horário|horario|disponível|disponivel|consulta|visita|reunião|reuniao)/.test(textoAgenda);
         if (ehAgendaRegex) {
-          console.log(`[SKILL-PRE-ATEND] 📅 Camada 0.3b → claudeAgendaAgent (regex match)`);
+          console.log(`[SKILL-PRE-ATEND] 📅 Camada 1B → claudeAgendaAgent (regex match)`);
           await base44.asServiceRole.functions.invoke('claudeAgendaAgent', {
             thread_id, contact_id,
             message_content,
@@ -613,7 +634,7 @@ Deno.serve(async (req) => {
         }
       }
     } catch (e) {
-      console.warn('[SKILL-PRE-ATEND] Camada 0.3b erro (não crítico):', e.message);
+      console.warn('[SKILL-PRE-ATEND] Camada 1B erro (não crítico):', e.message);
     }
 
     // 3) DOC FISCAL por detecção semântica
@@ -629,7 +650,7 @@ Deno.serve(async (req) => {
         if (data?.eh_solicitacao_fiscal && Array.isArray(data.notas) && data.notas.length > 0) {
           const notaComPDF = data.notas.find(n => n.pdf_url);
           if (notaComPDF) {
-            console.log(`[SKILL-PRE-ATEND] 📄 Camada 0.3c → dispararNotaFiscalWhatsApp (NF ${notaComPDF.numero_nf})`);
+            console.log(`[SKILL-PRE-ATEND] 📄 Camada 1C → dispararNotaFiscalWhatsApp (NF ${notaComPDF.numero_nf})`);
             await base44.asServiceRole.functions.invoke('dispararNotaFiscalWhatsApp', {
               nota_fiscal_id: notaComPDF.id,
               contact_id, thread_id,
@@ -643,18 +664,18 @@ Deno.serve(async (req) => {
         }
       }
     } catch (e) {
-      console.warn('[SKILL-PRE-ATEND] Camada 0.3c erro (não crítico):', e.message);
+      console.warn('[SKILL-PRE-ATEND] Camada 1C erro (não crítico):', e.message);
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 0.5 — DECISÃO DE CONTEXTO (humano ativo / thread atribuída)
+    // CAMADA 2 — DECISÃO DE CONTEXTO (humano ativo / thread atribuída)
     // Migrada do gate. Princípio: skill arbitra, gate só entrega.
     //   • human_active=true → registra, notifica atendente, NÃO envia ao cliente
     //   • thread_assigned=true SEM micro-intent SEM novo ciclo → mesma coisa
     // ═══════════════════════════════════════════════════════════════════
 
     if (context.human_active === true) {
-      console.log(`[SKILL-PRE-ATEND] 👤 Camada 0.5: humano ativo — notify only, sem responder cliente`);
+      console.log(`[SKILL-PRE-ATEND] 👤 Camada 2: humano ativo — notify only, sem responder cliente`);
       try {
         await base44.asServiceRole.entities.NotificationEvent.create({
           tipo: 'mensagem_cliente_humano_ativo',
@@ -665,7 +686,7 @@ Deno.serve(async (req) => {
             thread_id, contact_id, message_id,
             assigned_user_id: threadInicial?.assigned_user_id,
             sector_id: threadInicial?.sector_id,
-            origem: 'skill_camada_0_5'
+            origem: 'skill_camada_2'
           }
         }).catch(() => {});
 
@@ -675,7 +696,7 @@ Deno.serve(async (req) => {
             thread_id, contact_id, message_content,
             integration_id, provider: payload.provider,
             trigger: 'inbound', mode: 'copilot'
-          }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot 0.5 erro:', e.message));
+          }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot C2 erro:', e.message));
         }
       } catch (_) { /* silencioso */ }
 
@@ -695,7 +716,7 @@ Deno.serve(async (req) => {
       && context.novo_ciclo === false
       && !ehMicroIntentCtx
     ) {
-      console.log(`[SKILL-PRE-ATEND] 🔔 Camada 0.5: thread contextualizada sem micro-intent — notify only`);
+      console.log(`[SKILL-PRE-ATEND] 🔔 Camada 2: thread contextualizada sem micro-intent — notify only`);
       try {
         await base44.asServiceRole.entities.NotificationEvent.create({
           tipo: 'mensagem_cliente_contextualizada',
@@ -706,7 +727,7 @@ Deno.serve(async (req) => {
             thread_id, contact_id, message_id,
             assigned_user_id: threadInicial?.assigned_user_id,
             sector_id: context.sector_id,
-            origem: 'skill_camada_0_5'
+            origem: 'skill_camada_2'
           }
         }).catch(() => {});
 
@@ -715,7 +736,7 @@ Deno.serve(async (req) => {
             thread_id, contact_id, message_content,
             integration_id, provider: payload.provider,
             trigger: 'inbound', mode: 'copilot'
-          }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot 0.5 erro:', e.message));
+          }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot C2 erro:', e.message));
         }
       } catch (_) { /* silencioso */ }
 
@@ -726,7 +747,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 0 — DEDUP / IDEMPOTENCY GUARD
+    // CAMADA 3 — DEDUP / IDEMPOTENCY GUARD
     // ═══════════════════════════════════════════════════════════════════
 
     let thread = null;
@@ -738,7 +759,7 @@ Deno.serve(async (req) => {
 
       // Guard 1: já atribuída?
       // EXCEÇÃO: em fora-horário/feriado, NÃO pular — precisamos enviar ACK informativo
-      const _horarioCfgGuard = await carregarHorarioConfig(base44);
+      const _horarioCfgGuard = await getHorarioCfgPipeline(base44);
       const horaGuard = new Date().getHours();
       const foraHorarioOuFeriado = ehFeriadoNacional(new Date(), _horarioCfgGuard.feriados_extras, _horarioCfgGuard.feriados_nacionais_fixos) || horaGuard < _horarioCfgGuard.manha_inicio || horaGuard > _horarioCfgGuard.tarde_fim;
       const ACK_FORA_HORARIO_GAP_MS = _horarioCfgGuard.gap_ack_fora_horario_ms;
@@ -792,15 +813,15 @@ Deno.serve(async (req) => {
       }).catch(e => console.error('[SKILL-PRE-ATEND] 🔴 Falha ao gravar dedup lock:', e.message));
 
       resultado.camadas.dedup = { ok: true };
-      console.log('[SKILL-PRE-ATEND] ✅ Camada 0 OK — dedup passou');
+      console.log('[SKILL-PRE-ATEND] ✅ Camada 3 OK — dedup passou');
 
     } catch (e) {
-      console.error('[SKILL-PRE-ATEND] Camada 0 erro:', e.message);
+      console.error('[SKILL-PRE-ATEND] Camada 3 erro:', e.message);
       resultado.camadas.dedup = { error: e.message };
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 0-MICRO — MICRO-INTENTS (saudação/agradecimento/spam/mídia)
+    // CAMADA 4 — MICRO-INTENTS (saudação/agradecimento/spam/mídia)
     // Early-return se detecta intent simples com atendente já atribuído
     // ═══════════════════════════════════════════════════════════════════
 
@@ -881,7 +902,7 @@ Deno.serve(async (req) => {
           ]);
 
           if (integData && contactData?.telefone) {
-            const _cfgMicro = await carregarHorarioConfig(base44);
+            const _cfgMicro = await getHorarioCfgPipeline(base44);
             const _msgsMicro = await carregarMensagensAck(base44);
             const hora = new Date().getHours();
             const foraHorario = hora < _cfgMicro.manha_inicio || hora > _cfgMicro.tarde_fim;
@@ -1027,7 +1048,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 1 — ACK IMEDIATO (fire & forget — falha NÃO para pipeline)
+    // CAMADA 5 — ACK ADAPTATIVO (fire & forget — falha NÃO para pipeline)
     // ═══════════════════════════════════════════════════════════════════
 
     try {
@@ -1035,9 +1056,9 @@ Deno.serve(async (req) => {
       if (!integ.instance_id_provider || !integ.api_key_provider) throw new Error('credenciais_invalidas');
       if (integ.api_provider === 'w_api' && !integ.security_client_token_header) throw new Error('wapi_sem_client_token');
 
-      const horarioCfg = await carregarHorarioConfig(base44);
+      const horarioCfg = await getHorarioCfgPipeline(base44);
       const mensagensAck = await carregarMensagensAck(base44);
-      const horarioInfo = avaliarHorarioComercial(new Date(), horarioCfg);
+      const horarioInfo = await getHorarioInfoPipeline(base44);
       const isVIP = contact?.is_vip || false;
 
       // Cooldown adaptativo: fora-horário usa gap_ack, horário comercial usa cooldown_ack
@@ -1282,7 +1303,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 2 — INTENT DETECTION (pattern match → LLM fallback)
+    // CAMADA 6 — INTENT DETECTION (pattern match → LLM fallback)
     // ═══════════════════════════════════════════════════════════════════
 
     let setor = SETOR_DEFAULT;
@@ -1346,7 +1367,7 @@ Deno.serve(async (req) => {
         : null;
 
       resultado.camadas.intent = { ok: true, setor, intencao, confidence, metodo, atendenteFidelizadoId };
-      console.log(`[SKILL-PRE-ATEND] ✅ Camada 2 OK — setor: ${setor} (${metodo}, conf: ${(confidence * 100).toFixed(0)}%)`);
+      console.log(`[SKILL-PRE-ATEND] ✅ Camada 6 OK — setor: ${setor} (${metodo}, conf: ${(confidence * 100).toFixed(0)}%)`);
 
       // Atualizar thread
       await base44.asServiceRole.entities.MessageThread.update(thread_id, {
@@ -1370,12 +1391,12 @@ Deno.serve(async (req) => {
       }).catch(() => {});
 
     } catch (e) {
-      console.error('[SKILL-PRE-ATEND] Camada 2 erro:', e.message);
+      console.error('[SKILL-PRE-ATEND] Camada 6 erro:', e.message);
       resultado.camadas.intent = { error: e.message, setor_fallback: setor };
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 2.5 — QUALIFICAÇÃO via PreAtendimentoRule
+    // CAMADA 7 — QUALIFICAÇÃO via PreAtendimentoRule
     // Avalia regras configuradas no banco e aplica efeitos (bloqueio, rota
     // forçada, mensagem custom). Falha desta camada NÃO interrompe pipeline.
     // ═══════════════════════════════════════════════════════════════════
@@ -1398,7 +1419,7 @@ Deno.serve(async (req) => {
         const acao = regraAplicada.tipo_acao;
         const cfg = regraAplicada.acao_configuracao || {};
 
-        console.log(`[SKILL-PRE-ATEND] 🎯 Camada 2.5 — regra "${regraAplicada.nome}" (${acao})`);
+        console.log(`[SKILL-PRE-ATEND] 🎯 Camada 7 — regra "${regraAplicada.nome}" (${acao})`);
 
         // BLOQUEAR: encerra pipeline silenciosamente
         if (acao === 'bloquear') {
@@ -1449,12 +1470,12 @@ Deno.serve(async (req) => {
         acao: regraAplicada?.tipo_acao || 'seguir_fluxo_padrao'
       };
     } catch (e) {
-      console.warn('[SKILL-PRE-ATEND] Camada 2.5 erro (não crítico):', e.message);
+      console.warn('[SKILL-PRE-ATEND] Camada 7 erro (não crítico):', e.message);
       resultado.camadas.qualificacao = { error: e.message };
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 3 — ROTEAMENTO (prioridades em cascata)
+    // CAMADA 8 — ROTEAMENTO (prioridades em cascata)
     //   P1: Atendente mencionado por NOME na mensagem
     //   P2: Atendente FIDELIZADO para o setor (se online)
     //   P3: ÚLTIMO atendente que respondeu ao contato
@@ -1531,17 +1552,17 @@ Deno.serve(async (req) => {
 
         resultado.camadas.routing = { ok: true, action: 'enfileirado', setor };
         resultado.success = true;
-        console.log(`[SKILL-PRE-ATEND] 📋 Camada 3 — sem atendente em ${setor}, enfileirado`);
+        console.log(`[SKILL-PRE-ATEND] 📋 Camada 8 — sem atendente em ${setor}, enfileirado`);
 
         await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'enfileirado');
         return Response.json({ ...resultado, action: 'enfileirado', setor }, { headers });
       }
 
       resultado.camadas.routing = { ok: true, atendente: atendente.full_name, setor, motivo: motivoAtribuicao };
-      console.log(`[SKILL-PRE-ATEND] ✅ Camada 3 OK — atendente: ${atendente.full_name} (motivo: ${motivoAtribuicao})`);
+      console.log(`[SKILL-PRE-ATEND] ✅ Camada 8 OK — atendente: ${atendente.full_name} (motivo: ${motivoAtribuicao})`);
 
     } catch (e) {
-      console.error('[SKILL-PRE-ATEND] Camada 3 erro:', e.message);
+      console.error('[SKILL-PRE-ATEND] Camada 8 erro:', e.message);
       resultado.camadas.routing = { error: e.message };
       await base44.asServiceRole.entities.WorkQueueItem.create({
         contact_id, thread_id,
@@ -1554,7 +1575,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 4 — ATRIBUIÇÃO + BOAS-VINDAS
+    // CAMADA 9 — ATRIBUIÇÃO + BOAS-VINDAS
     // ═══════════════════════════════════════════════════════════════════
 
     try {
@@ -1578,16 +1599,16 @@ Deno.serve(async (req) => {
       // A skill arbitra entre suas próprias camadas. LLM Camada 4 só dispara
       // se ninguém ainda falou com o cliente neste turno.
       // Suprime LLM em 2 casos:
-      //   1. Fora de horário (ACK + vídeo + promo já foi enviado na Camada 1)
-      //   2. Horário comercial mas ACK Camada 1 enviou com sucesso (evita duplicação ACK+LLM)
-      const horarioCfgC4 = await carregarHorarioConfig(base44);
-      const horarioCamada4 = avaliarHorarioComercial(new Date(), horarioCfgC4);
+      //   1. Fora de horário (ACK + vídeo + promo já foi enviado na Camada 5)
+      //   2. Horário comercial mas ACK Camada 5 enviou com sucesso (evita duplicação ACK+LLM)
+      const horarioCfgC4 = await getHorarioCfgPipeline(base44);
+      const horarioCamada4 = await getHorarioInfoPipeline(base44);
       const ackJaEnviou = resultado.camadas.ack?.ok === true;
       const suprimirLLM = !horarioCamada4.dentro || ackJaEnviou;
 
       if (suprimirLLM) {
-        const motivoSupressao = !horarioCamada4.dentro ? 'fora_horario' : 'ack_camada1_ja_enviou';
-        console.log(`[SKILL-PRE-ATEND] ⏭️ Camada 4: boas-vindas LLM SUPRIMIDA (motivo: ${motivoSupressao})`);
+        const motivoSupressao = !horarioCamada4.dentro ? 'fora_horario' : 'ack_camada5_ja_enviou';
+        console.log(`[SKILL-PRE-ATEND] ⏭️ Camada 9: boas-vindas LLM SUPRIMIDA (motivo: ${motivoSupressao})`);
         resultado.camadas.atribuicao = {
           ok: true,
           atendente: atendente.full_name,
@@ -1670,7 +1691,7 @@ NUNCA mencione nomes de atendentes. Tom profissional e humano.`
       resultado.success = true;
 
     } catch (e) {
-      console.error('[SKILL-PRE-ATEND] Camada 4 erro:', e.message);
+      console.error('[SKILL-PRE-ATEND] Camada 9 erro:', e.message);
       resultado.camadas.atribuicao = { error: e.message };
       resultado.success = !!resultado.camadas.routing?.ok;
     }
