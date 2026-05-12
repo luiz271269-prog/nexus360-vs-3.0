@@ -510,11 +510,13 @@ async function gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio
         mensagem: `Pipeline finalizado: ${status}`,
         dados_contexto: {
           camadas: resultado.camadas,
+          telemetria: resultado.telemetria || {},
           status_final: status
         }
       },
       metadata: {
         camadas: resultado.camadas,
+        telemetria: resultado.telemetria || {},
         status_final: status,
         tempo_execucao_ms: Date.now() - tsInicio
       }
