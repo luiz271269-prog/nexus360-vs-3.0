@@ -1,5 +1,5 @@
 import './App.css'
-import { useState } from 'react'
+import React from 'react'
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -145,7 +145,7 @@ const AuthenticatedApp = () => {
 
 
 function App() {
-  const [splashDone, setSplashDone] = useState(() => {
+  const [splashDone, setSplashDone] = React.useState(() => {
     // Mostra splash apenas uma vez por sessão (evita rodar a cada hot-reload)
     return sessionStorage.getItem('nexus_splash_done') === '1';
   });
