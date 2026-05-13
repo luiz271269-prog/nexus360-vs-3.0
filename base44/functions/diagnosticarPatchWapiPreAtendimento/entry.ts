@@ -54,6 +54,24 @@ Deno.serve(async (req) => {
     const zapiIntegrationIds = new Set(integrations.filter((i) => i.api_provider === 'z_api').map((i) => i.id));
 
     const wapiTokenLogMatches = logs.filter((log) => includesNeedle(log, 'wapi_sem_client_token'));
+    const deployMarkerLogs = logs.filter((log) => {
+      const data = log.detalhes?.dados_contexto || log.metadata || {};
+      const camadas = data.camadas || {};
+      return camadas.ack?.error === 'zapi_sem_client_token'
+        || camadas.ack?.reason === 'cooldown_12h'
+        || data.status_final === 'ack_fora_horario_thread_atribuida';
+    });
+    const byDay = {};
+    const byHourBrt = {};
+    for (const log of wapiTokenLogMatches) {
+      const d = toDate(log.timestamp || log.created_date);
+      if (!d) continue;
+      const brt = new Date(d.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const day = `${brt.getFullYear()}-${String(brt.getMonth() + 1).padStart(2, '0')}-${String(brt.getDate()).padStart(2, '0')}`;
+      const hour = String(brt.getHours()).padStart(2, '0') + ':00';
+      byDay[day] = (byDay[day] || 0) + 1;
+      byHourBrt[hour] = (byHourBrt[hour] || 0) + 1;
+    }
 
     const inboundMessages = messages.filter((m) => m.sender_type === 'contact' && (m.channel === 'whatsapp' || m.channel == null));
     const inboundByProvider = inboundMessages.reduce((acc, msg) => {
@@ -130,7 +148,18 @@ Deno.serve(async (req) => {
     return Response.json({
       success: true,
       period: { since, until: new Date(now).toISOString() },
+      deploy_status: {
+        skillPreAtendimentos_accepts_runtime: true,
+        patch_markers_seen_in_recent_logs: deployMarkerLogs.length > 0,
+        latest_patch_marker_at: deployMarkerLogs[0]?.timestamp || deployMarkerLogs[0]?.created_date || null
+      },
       wapi_sem_client_token_count_7d: wapiTokenLogMatches.length,
+      wapi_sem_client_token_distribution: {
+        by_day_brt: byDay,
+        by_hour_brt: byHourBrt,
+        latest_at: wapiTokenLogMatches[0]?.timestamp || wapiTokenLogMatches[0]?.created_date || null,
+        oldest_at: wapiTokenLogMatches[wapiTokenLogMatches.length - 1]?.timestamp || wapiTokenLogMatches[wapiTokenLogMatches.length - 1]?.created_date || null
+      },
       inbound_traffic_7d: {
         total: inboundTotal,
         w_api_count: inboundWapi,
