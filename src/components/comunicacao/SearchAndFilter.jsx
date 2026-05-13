@@ -85,6 +85,28 @@ export default function SearchAndFilter({
     }));
   }, [etiquetasDB]);
 
+  const { data: contatoExistentePorTelefone = null } = useQuery({
+    queryKey: ['contato-existente-telefone', novoContatoTelefone],
+    queryFn: async () => {
+      if (!novoContatoTelefone) return null;
+
+      const telefoneBusca = String(novoContatoTelefone).replace(/\D/g, '');
+      const response = await base44.functions.invoke('buscarContatosLivre', {
+        searchTerm: telefoneBusca,
+        limit: 20
+      });
+
+      const contatos = response?.data?.contatos || [];
+      return contatos.find((contato) => {
+        const telefoneContato = String(contato.telefone || contato.celular || '').replace(/\D/g, '');
+        return telefoneContato && telefoneContato === telefoneBusca;
+      }) || null;
+    },
+    enabled: !!novoContatoTelefone,
+    staleTime: 30000,
+    retry: 1
+  });
+
   const todasCategorias = [...CATEGORIAS_FIXAS, ...categoriasDB].map((cat) => ({
     value: cat.nome,
     label: cat.label,
@@ -512,8 +534,8 @@ export default function SearchAndFilter({
         )}
       </AnimatePresence>
 
-      {/* Botão criar contato - Só aparece quando é telefone válido */}
-      {novoContatoTelefone && (
+      {/* Botão criar contato - Só aparece quando é telefone válido e ainda não existe */}
+      {novoContatoTelefone && !contatoExistentePorTelefone && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -527,6 +549,16 @@ export default function SearchAndFilter({
             <UserPlus className="w-4 h-4 mr-2" />
             Criar Contato: {novoContatoTelefone}
           </Button>
+        </motion.div>
+      )}
+
+      {novoContatoTelefone && contatoExistentePorTelefone && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700 font-medium"
+        >
+          Contato já cadastrado: {contatoExistentePorTelefone.nome || contatoExistentePorTelefone.empresa || novoContatoTelefone}
         </motion.div>
       )}
     </div>
