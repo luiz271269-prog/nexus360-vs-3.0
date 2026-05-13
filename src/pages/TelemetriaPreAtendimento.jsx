@@ -7,6 +7,7 @@ import { Activity, RefreshCw, Loader2 } from 'lucide-react';
 import TelemetriaKPIs from '@/components/telemetria/TelemetriaKPIs';
 import TelemetriaCamadas from '@/components/telemetria/TelemetriaCamadas';
 import TelemetriaPipelines from '@/components/telemetria/TelemetriaPipelines';
+import TelemetriaEventos from '@/components/telemetria/TelemetriaEventos';
 
 const PERIODOS = [
   { label: '1h', horas: 1 },
@@ -93,6 +94,7 @@ export default function TelemetriaPreAtendimento() {
             camadas={data?.camadas}
             totalPipelines={data?.kpis?.total_pipelines || 0}
           />
+          <TelemetriaEventos eventos={data?.eventos_pre_atendimento} />
           <TelemetriaPipelines pipelines={data?.pipelines_lentos} />
         </>
       )}

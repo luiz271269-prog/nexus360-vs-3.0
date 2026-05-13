@@ -23,11 +23,25 @@ Deno.serve(async (req) => {
     const horas = Math.max(1, Math.min(168, Number(payload.horas) || 24));
     const desde = new Date(Date.now() - horas * 60 * 60 * 1000).toISOString();
 
-    // Busca todos os pipelines finalizados na janela
-    const logs = await base44.asServiceRole.entities.AutomationLog.filter({
-      acao: 'pipeline_primeiro_atendimento',
+    // Busca logs da janela e separa pipelines finalizados dos eventos operacionais
+    const allLogs = await base44.asServiceRole.entities.AutomationLog.filter({
       timestamp: { $gte: desde }
     }, '-timestamp', 1000).catch(() => []);
+
+    const getEventType = (log) => (
+      log.metadata?.event_type ||
+      log.detalhes?.dados_contexto?.event_type ||
+      log.acao
+    );
+
+    const logs = allLogs.filter(log => getEventType(log) === 'pipeline_primeiro_atendimento');
+    const eventosPreAtendimento = allLogs.filter(log => [
+      'ack_sent',
+      'ack_skipped_cooldown',
+      'promo_sent',
+      'promo_skipped_cooldown',
+      'intent_detected_after_ack'
+    ].includes(getEventType(log)));
 
     const totalPipelines = logs.length;
 
@@ -98,6 +112,23 @@ Deno.serve(async (req) => {
       .sort((a, b) => b.tempo_total_ms - a.tempo_total_ms)
       .slice(0, 10);
 
+    const eventosResumo = eventosPreAtendimento.reduce((acc, log) => {
+      const tipo = getEventType(log);
+      acc[tipo] = (acc[tipo] || 0) + 1;
+      return acc;
+    }, {});
+
+    const eventosRecentes = eventosPreAtendimento.slice(0, 20).map(log => ({
+      id: log.id,
+      timestamp: log.timestamp,
+      thread_id: log.thread_id,
+      contato_id: log.contato_id,
+      event_type: getEventType(log),
+      resultado: log.resultado,
+      mensagem: log.detalhes?.mensagem || log.metadata?.mensagem || getEventType(log),
+      metadata: log.metadata || {}
+    }));
+
     // Finaliza médias
     const camadas = Object.values(camadasAgg).map(c => ({
       ...c,
@@ -116,7 +147,11 @@ Deno.serve(async (req) => {
       },
       camadas,
       distribuicao_status_final: distribuicaoStatusFinal,
-      pipelines_lentos: pipelinesLentos
+      pipelines_lentos: pipelinesLentos,
+      eventos_pre_atendimento: {
+        resumo: eventosResumo,
+        recentes: eventosRecentes
+      }
     }, { headers });
 
   } catch (error) {
