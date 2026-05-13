@@ -459,14 +459,6 @@ export default function ChatWindow({
     } catch (e) { console.warn('[CHAT] Auto-atribuição falhou:', e.message); return false; }
   }, [usuario]);
 
-  const contatoEfetivo = React.useMemo(() => ({
-    ...(thread?.contato || {}),
-    ...(contatoPreCarregado || {}),
-    ...(contatoCompleto || {}),
-    telefone: contatoCompleto?.telefone || contatoPreCarregado?.telefone || thread?.contato?.telefone || '',
-    celular: contatoCompleto?.celular || contatoPreCarregado?.celular || thread?.contato?.celular || ''
-  }), [thread?.contato, contatoPreCarregado, contatoCompleto]);
-
   const handleEnviarBroadcast = React.useCallback(async ({ texto = '', mediaUrl = null, mediaType = null, mediaCaption = null, isAudio = false } = {}) => {
     if (!podeEnviarMensagens) { toast.error("❌ Sem permissão para enviar mensagens"); return; }
     if (!texto.trim() && !mediaUrl) { toast.error("Digite uma mensagem ou anexe uma mídia"); return; }
@@ -552,8 +544,8 @@ export default function ChatWindow({
         await handleEnviarBroadcast({ mediaUrl: audioUrl, mediaType: 'audio', isAudio: true });
         setEnviando(false); return;
       }
-      if (!thread || !usuario || carregandoContato || !contatoEfetivo?.id) { toast.error('Dados da conversa não disponíveis.'); setEnviando(false); return; }
-      const telefone = contatoEfetivo.telefone || contatoEfetivo.celular;
+      if (!thread || !usuario || carregandoContato || !contatoCompleto) { toast.error('Dados da conversa não disponíveis.'); setEnviando(false); return; }
+      const telefone = contatoCompleto.telefone || contatoCompleto.celular;
       if (!telefone) { toast.error('Contato sem telefone.'); setEnviando(false); return; }
       const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
       await autoAtribuirThreadSeNecessario(thread);
@@ -646,7 +638,7 @@ export default function ChatWindow({
       return;
     }
 
-    const contatoTel = contatoEfetivo?.telefone || contatoEfetivo?.celular;
+    const contatoTel = contatoCompleto?.telefone || contatoCompleto?.celular;
     if (!contatoTel) {
       toast.error('Contato sem telefone cadastrado.');
       return;
@@ -817,7 +809,7 @@ export default function ChatWindow({
       return;
     }
 
-    const contatoTel = contatoEfetivo?.telefone || contatoEfetivo?.celular;
+    const contatoTel = contatoCompleto?.telefone || contatoCompleto?.celular;
     if (!contatoTel) {
       toast.error('Contato sem telefone cadastrado.');
       return;
@@ -1054,11 +1046,11 @@ export default function ChatWindow({
       toast.error('Thread sem integração WhatsApp configurada');
       return;
     }
-    if (!contatoEfetivo?.id) {
+    if (!contatoCompleto) {
       toast.error('Contato não carregado. Por favor, recarregue a página.');
       return;
     }
-    const telefone = contatoEfetivo.telefone || contatoEfetivo.celular;
+    const telefone = contatoCompleto.telefone || contatoCompleto.celular;
     if (!telefone) {
       toast.error('Este contato não possui telefone cadastrado.');
       return;
@@ -1093,7 +1085,7 @@ export default function ChatWindow({
         replyToMessage: mensagemResposta,
         thread: thread,
         usuario: usuario,
-        contatoCompleto: contatoEfetivo
+        contatoCompleto: contatoCompleto
       });
     } else if (onEnviarMensagem) {
       onEnviarMensagem({
@@ -1418,7 +1410,8 @@ export default function ChatWindow({
 
   }
 
-  const _c = contatoEfetivo;
+  const contatoFallback = contatoCompleto || thread?.contato || null;
+  const _c = contatoFallback;
   let nomeContato = [_c?.empresa, _c?.cargo, (_c?.nome !== _c?.telefone ? _c?.nome : null)].filter(Boolean).join(' - ') || _c?.telefone || 'Contato';
   const telefoneExibicao = _c?.telefone || _c?.celular || 'Sem telefone';
 
