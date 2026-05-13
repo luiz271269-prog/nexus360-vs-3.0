@@ -129,6 +129,29 @@ Deno.serve(async (req) => {
       metadata: log.metadata || {}
     }));
 
+    const alertas = [];
+    if (totalPipelines > 0 && totalErro > 0) {
+      alertas.push({
+        nivel: totalErro / totalPipelines >= 0.2 ? 'critico' : 'atencao',
+        titulo: 'Pipelines com erro',
+        mensagem: `${totalErro} de ${totalPipelines} pipelines falharam no período.`
+      });
+    }
+    if ((eventosResumo.ack_skipped_cooldown || 0) > (eventosResumo.ack_sent || 0)) {
+      alertas.push({
+        nivel: 'atencao',
+        titulo: 'ACKs bloqueados por cooldown',
+        mensagem: 'O volume de ACKs pulados por cooldown está maior que o volume enviado.'
+      });
+    }
+    if ((eventosResumo.promo_skipped_cooldown || 0) > 0 && (eventosResumo.promo_sent || 0) === 0) {
+      alertas.push({
+        nivel: 'info',
+        titulo: 'Promoções em cooldown',
+        mensagem: 'Há promoções bloqueadas por cooldown e nenhuma promoção enviada no período.'
+      });
+    }
+
     // Finaliza médias
     const camadas = Object.values(camadasAgg).map(c => ({
       ...c,
@@ -150,7 +173,8 @@ Deno.serve(async (req) => {
       pipelines_lentos: pipelinesLentos,
       eventos_pre_atendimento: {
         resumo: eventosResumo,
-        recentes: eventosRecentes
+        recentes: eventosRecentes,
+        alertas
       }
     }, { headers });
 

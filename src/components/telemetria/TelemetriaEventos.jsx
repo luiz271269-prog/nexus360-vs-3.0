@@ -30,7 +30,14 @@ const EVENT_ICONS = {
 export default function TelemetriaEventos({ eventos }) {
   const resumo = eventos?.resumo || {};
   const recentes = eventos?.recentes || [];
+  const alertas = eventos?.alertas || [];
   const eventTypes = Object.keys(EVENT_LABELS);
+
+  const alertaStyle = {
+    critico: 'bg-red-50 border-red-200 text-red-800',
+    atencao: 'bg-amber-50 border-amber-200 text-amber-800',
+    info: 'bg-blue-50 border-blue-200 text-blue-800'
+  };
 
   return (
     <Card className="border-slate-200">
@@ -38,6 +45,17 @@ export default function TelemetriaEventos({ eventos }) {
         <CardTitle className="text-base">Eventos Operacionais</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {alertas.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {alertas.map((alerta, index) => (
+              <div key={`${alerta.titulo}-${index}`} className={`rounded-xl border p-3 ${alertaStyle[alerta.nivel] || alertaStyle.info}`}>
+                <div className="text-sm font-semibold">{alerta.titulo}</div>
+                <div className="text-xs mt-1 opacity-80">{alerta.mensagem}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {eventTypes.map((type) => {
             const Icon = EVENT_ICONS[type];
