@@ -502,7 +502,7 @@ async function gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio
     await base44.asServiceRole.entities.AutomationLog.create({
       thread_id,
       contato_id: contact_id,
-      acao: 'pipeline_primeiro_atendimento',
+      acao: 'outro',
       resultado: ['concluido', 'enfileirado'].includes(status) ? 'sucesso' : 'erro',
       origem: 'sistema',
       timestamp: new Date().toISOString(),
@@ -510,12 +510,14 @@ async function gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio
         tempo_execucao_ms: Date.now() - tsInicio,
         mensagem: `Pipeline finalizado: ${status}`,
         dados_contexto: {
+          event_type: 'pipeline_primeiro_atendimento',
           camadas: resultado.camadas,
           telemetria: resultado.telemetria || {},
           status_final: status
         }
       },
       metadata: {
+        event_type: 'pipeline_primeiro_atendimento',
         camadas: resultado.camadas,
         telemetria: resultado.telemetria || {},
         status_final: status,
@@ -524,6 +526,32 @@ async function gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio
     });
   } catch (e) {
     console.error('[SKILL-PRE-ATEND] 🔴 Falha ao gravar log final:', e.message);
+  }
+}
+
+async function registrarEventoPreAtendimento(base44, thread_id, contact_id, event_type, details = {}) {
+  try {
+    await base44.asServiceRole.entities.AutomationLog.create({
+      thread_id,
+      contato_id: contact_id,
+      acao: 'outro',
+      resultado: details.resultado || 'sucesso',
+      origem: 'sistema',
+      timestamp: new Date().toISOString(),
+      detalhes: {
+        mensagem: details.mensagem || event_type,
+        dados_contexto: {
+          event_type,
+          ...details
+        }
+      },
+      metadata: {
+        event_type,
+        ...details
+      }
+    });
+  } catch (e) {
+    console.warn(`[SKILL-PRE-ATEND] ⚠️ Log ${event_type} falhou:`, e.message);
   }
 }
 
@@ -1169,6 +1197,13 @@ Deno.serve(async (req) => {
         const diffMs = Date.now() - lastOutboundDate.getTime();
         if (deveAplicarCooldown && diffMs < cooldownAplicado) {
           resultado.camadas.ack = { skipped: true, reason: `cooldown_${cooldownLabel}` };
+          await registrarEventoPreAtendimento(base44, thread_id, contact_id, 'ack_skipped_cooldown', {
+            mensagem: `ACK pulado por cooldown ativo (${cooldownLabel})`,
+            cooldown_label: cooldownLabel,
+            horario_motivo: horarioInfo.motivo,
+            source: 'last_outbound_at',
+            resultado: 'ignorado'
+          });
           console.log(`[SKILL-PRE-ATEND] ⏭️ ACK cooldown ativo (${cooldownLabel})`);
           throw new Error('__skip_ack');
         }
@@ -1184,6 +1219,14 @@ Deno.serve(async (req) => {
 
       if (ackRecente.length > 0) {
         resultado.camadas.ack = { skipped: true, reason: `ack_recente_db_${cooldownLabel}` };
+        await registrarEventoPreAtendimento(base44, thread_id, contact_id, 'ack_skipped_cooldown', {
+          mensagem: `ACK pulado por registro recente no banco (${cooldownLabel})`,
+          cooldown_label: cooldownLabel,
+          horario_motivo: horarioInfo.motivo,
+          source: 'metadata.is_ack',
+          ultima_msg_id: ackRecente[0]?.id,
+          resultado: 'ignorado'
+        });
         console.log(`[SKILL-PRE-ATEND] ⏭️ ACK recente no DB (${cooldownLabel}) — skip`);
         throw new Error('__skip_ack');
       }
@@ -1204,6 +1247,12 @@ Deno.serve(async (req) => {
           (Date.now() - new Date(ultPromoInbound).getTime() < PROMO_FORA_HORARIO_GAP_MS);
 
         if (promoRecente) {
+          await registrarEventoPreAtendimento(base44, thread_id, contact_id, 'promo_skipped_cooldown', {
+            mensagem: 'Promoção pulada por cooldown fora-horário ativo',
+            cooldown_label: `${(PROMO_FORA_HORARIO_GAP_MS / 3600000).toFixed(0)}h`,
+            last_promo_inbound_at: ultPromoInbound,
+            resultado: 'ignorado'
+          });
           // Já mandou vídeo+promo nas últimas 12h. NÃO é silêncio total —
           // mensagem #2+ do mesmo período fora-horário deve detectar intent e
           // responder de forma útil (sem repetir vídeo nem promo).
@@ -1371,6 +1420,22 @@ Deno.serve(async (req) => {
           promo_anexada: promoAnexada?.titulo || null,
           promo_skipped: promoSkipped
         };
+        await registrarEventoPreAtendimento(base44, thread_id, contact_id, 'ack_sent', {
+          mensagem: `ACK enviado (${ack.tipo}/${horarioInfo.motivo})`,
+          ack_tipo: ack.tipo,
+          horario_motivo: horarioInfo.motivo,
+          video_anexado: !!videoConfig,
+          whatsapp_msg_id: msgId
+        });
+        if (promoAnexada) {
+          await registrarEventoPreAtendimento(base44, thread_id, contact_id, 'promo_sent', {
+            mensagem: `Promoção enviada: ${promoAnexada.titulo}`,
+            promotion_id: promoAnexada.id,
+            promotion_titulo: promoAnexada.titulo,
+            trigger: ack.tipo === 'fora_horario' ? 'fora_horario_ack' : 'primeiro_contato_dia',
+            whatsapp_msg_id: msgId
+          });
+        }
         console.log(`[SKILL-PRE-ATEND] ✅ Camada 1 OK — ACK enviado (${ack.tipo}/${horarioInfo.motivo}${videoConfig ? ' + video' : ''}${promoAnexada ? ' + promo' : ''})`);
       }
     } catch (e) {
@@ -1471,6 +1536,16 @@ Deno.serve(async (req) => {
 
       resultado.camadas.intent = { ok: true, setor, intencao, confidence, metodo, atendenteFidelizadoId };
       console.log(`[SKILL-PRE-ATEND] ✅ Camada 6 OK — setor: ${setor} (${metodo}, conf: ${(confidence * 100).toFixed(0)}%)`);
+
+      await registrarEventoPreAtendimento(base44, thread_id, contact_id, 'intent_detected_after_ack', {
+        mensagem: `Intenção detectada: ${intencao} / ${setor}`,
+        setor,
+        intencao,
+        confidence,
+        metodo,
+        ack_context: resultado.camadas.ack || null,
+        ack_recente: resultado.camadas.dedup?.ack_recente === true
+      });
 
       // Atualizar thread
       await base44.asServiceRole.entities.MessageThread.update(thread_id, {
