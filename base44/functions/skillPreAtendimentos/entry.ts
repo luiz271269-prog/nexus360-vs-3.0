@@ -593,9 +593,15 @@ Deno.serve(async (req) => {
     Object.assign(entry, extras);
   };
 
+  // T5: hoisted para cleanup defensivo no catch fatal
+  let _payloadForCleanup = null;
+  let _base44ForCleanup = null;
+
   try {
     const base44 = createClientFromRequest(req);
+    _base44ForCleanup = base44;
     const payload = await req.json();
+    _payloadForCleanup = payload;
     const { thread_id, contact_id, integration_id, message_id, message_content } = payload;
     const context = payload.context || {}; // {thread_assigned, human_active, novo_ciclo, sector_id} (vindo do gate v12+)
 
@@ -719,41 +725,51 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════════════════════════════
 
     marcarInicioCamada(2);
+    // T6: Camada 2 só bloqueia pipeline em horário comercial.
+    // Fora-horário com human_active "recente" significa que o atendente
+    // provavelmente já saiu — cliente precisa do ACK informativo da Camada 5.
+    const _horarioInfoC2 = await getHorarioInfoPipeline(base44);
+
     if (context.human_active === true) {
-      console.log(`[SKILL-PRE-ATEND] 👤 Camada 2: humano ativo — notify only, sem responder cliente`);
-      try {
-        await base44.asServiceRole.entities.NotificationEvent.create({
-          tipo: 'mensagem_cliente_humano_ativo',
-          titulo: `Nova mensagem de ${contactInicial?.nome || 'contato'}`,
-          mensagem: `Mensagem recebida com atendente humano ativo. Atendente: ${threadInicial?.assigned_user_id || '?'}`,
-          prioridade: 'media',
-          metadata: {
-            thread_id, contact_id, message_id,
-            assigned_user_id: threadInicial?.assigned_user_id,
-            sector_id: threadInicial?.sector_id,
-            origem: 'skill_camada_2'
-          }
+      // Dispara brain copilot fire-and-forget em ambos os casos (notificar humano)
+      if (integration_id && (message_content || '').length > 2) {
+        base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+          thread_id, contact_id, message_content,
+          integration_id, provider: payload.provider,
+          trigger: 'inbound', mode: 'copilot'
+        }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot C2 erro:', e.message));
+      }
+
+      if (_horarioInfoC2.dentro) {
+        // Horário comercial: humano realmente está ativo → notify only, return
+        console.log(`[SKILL-PRE-ATEND] 👤 Camada 2: humano ativo + horário comercial — notify only`);
+        try {
+          await base44.asServiceRole.entities.NotificationEvent.create({
+            tipo: 'mensagem_cliente_humano_ativo',
+            titulo: `Nova mensagem de ${contactInicial?.nome || 'contato'}`,
+            mensagem: `Mensagem recebida com atendente humano ativo. Atendente: ${threadInicial?.assigned_user_id || '?'}`,
+            prioridade: 'media',
+            metadata: {
+              thread_id, contact_id, message_id,
+              assigned_user_id: threadInicial?.assigned_user_id,
+              sector_id: threadInicial?.sector_id,
+              origem: 'skill_camada_2'
+            }
+          }).catch(() => {});
+        } catch (_) { /* silencioso */ }
+
+        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+          pre_atendimento_ativo: false
         }).catch(() => {});
-
-        // Brain copilot fire-and-forget (sugere resposta ao humano)
-        if (integration_id && (message_content || '').length > 2) {
-          base44.asServiceRole.functions.invoke('nexusAgentBrain', {
-            thread_id, contact_id, message_content,
-            integration_id, provider: payload.provider,
-            trigger: 'inbound', mode: 'copilot'
-          }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot C2 erro:', e.message));
-        }
-      } catch (_) { /* silencioso */ }
-
-      await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-        pre_atendimento_ativo: false
-      }).catch(() => {});
-      marcarFimCamada(2, 'skipped', { reason: 'human_active_observed' });
-      return Response.json({ success: true, skipped: true, reason: 'human_active_observed', camadas: resultado.camadas, telemetria: resultado.telemetria }, { headers });
+        marcarFimCamada(2, 'skipped', { reason: 'human_active_observed' });
+        return Response.json({ success: true, skipped: true, reason: 'human_active_observed', camadas: resultado.camadas, telemetria: resultado.telemetria }, { headers });
+      }
+      // Fora-horário: humano "ativo" provavelmente saiu → seguir até Camada 5
+      console.log(`[SKILL-PRE-ATEND] 👤 Camada 2: humano ativo + fora-horário (${_horarioInfoC2.motivo}) — seguir para ACK informativo`);
     }
 
-    // Thread atribuída + setor definido + não é novo ciclo + texto longo (não é micro-intent)
-    // → mesma postura do gate atual (context_notify_only): só observa
+    // Thread atribuída + setor + não-novo-ciclo + texto longo (não micro)
+    // Mesmo princípio do bloco anterior: só bloqueia em horário comercial.
     const textoMicroCheckCtx = (message_content || '').trim();
     const ehMicroIntentCtx = textoMicroCheckCtx.length > 0 && textoMicroCheckCtx.length <= 80;
     if (
@@ -762,38 +778,41 @@ Deno.serve(async (req) => {
       && context.novo_ciclo === false
       && !ehMicroIntentCtx
     ) {
-      console.log(`[SKILL-PRE-ATEND] 🔔 Camada 2: thread contextualizada sem micro-intent — notify only`);
-      try {
-        await base44.asServiceRole.entities.NotificationEvent.create({
-          tipo: 'mensagem_cliente_contextualizada',
-          titulo: `Nova mensagem de ${contactInicial?.nome || 'contato'}`,
-          mensagem: `Mensagem recebida em thread já atribuída. Atendente: ${threadInicial?.assigned_user_id || '?'}`,
-          prioridade: 'media',
-          metadata: {
-            thread_id, contact_id, message_id,
-            assigned_user_id: threadInicial?.assigned_user_id,
-            sector_id: context.sector_id,
-            origem: 'skill_camada_2'
-          }
+      if (integration_id && (message_content || '').length > 2) {
+        base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+          thread_id, contact_id, message_content,
+          integration_id, provider: payload.provider,
+          trigger: 'inbound', mode: 'copilot'
+        }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot C2 erro:', e.message));
+      }
+
+      if (_horarioInfoC2.dentro) {
+        console.log(`[SKILL-PRE-ATEND] 🔔 Camada 2: thread contextualizada sem micro-intent + horário comercial — notify only`);
+        try {
+          await base44.asServiceRole.entities.NotificationEvent.create({
+            tipo: 'mensagem_cliente_contextualizada',
+            titulo: `Nova mensagem de ${contactInicial?.nome || 'contato'}`,
+            mensagem: `Mensagem recebida em thread já atribuída. Atendente: ${threadInicial?.assigned_user_id || '?'}`,
+            prioridade: 'media',
+            metadata: {
+              thread_id, contact_id, message_id,
+              assigned_user_id: threadInicial?.assigned_user_id,
+              sector_id: context.sector_id,
+              origem: 'skill_camada_2'
+            }
+          }).catch(() => {});
+        } catch (_) { /* silencioso */ }
+
+        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+          pre_atendimento_ativo: false
         }).catch(() => {});
-
-        if (integration_id && (message_content || '').length > 2) {
-          base44.asServiceRole.functions.invoke('nexusAgentBrain', {
-            thread_id, contact_id, message_content,
-            integration_id, provider: payload.provider,
-            trigger: 'inbound', mode: 'copilot'
-          }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot C2 erro:', e.message));
-        }
-      } catch (_) { /* silencioso */ }
-
-      await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-        pre_atendimento_ativo: false
-      }).catch(() => {});
-      marcarFimCamada(2, 'skipped', { reason: 'context_notify_only' });
-      return Response.json({ success: true, skipped: true, reason: 'context_notify_only', camadas: resultado.camadas, telemetria: resultado.telemetria }, { headers });
+        marcarFimCamada(2, 'skipped', { reason: 'context_notify_only' });
+        return Response.json({ success: true, skipped: true, reason: 'context_notify_only', camadas: resultado.camadas, telemetria: resultado.telemetria }, { headers });
+      }
+      console.log(`[SKILL-PRE-ATEND] 🔔 Camada 2: thread contextualizada + fora-horário (${_horarioInfoC2.motivo}) — seguir para ACK informativo`);
     }
-    // Camada 2 passou sem early-return
-    marcarFimCamada(2, 'ok', { reason: 'sem_humano_ativo' });
+    // Camada 2 passou sem early-return (ou em fora-horário, seguindo para Camada 5)
+    marcarFimCamada(2, 'ok', { reason: 'pode_seguir_pipeline' });
 
     // ═══════════════════════════════════════════════════════════════════
     // CAMADA 3 — DEDUP / IDEMPOTENCY GUARD
@@ -810,8 +829,8 @@ Deno.serve(async (req) => {
       // Guard 1: já atribuída?
       // EXCEÇÃO: em fora-horário/feriado, NÃO pular — precisamos enviar ACK informativo
       const _horarioCfgGuard = await getHorarioCfgPipeline(base44);
-      const horaGuard = new Date().getHours();
-      const foraHorarioOuFeriado = ehFeriadoNacional(new Date(), _horarioCfgGuard.feriados_extras, _horarioCfgGuard.feriados_nacionais_fixos) || horaGuard < _horarioCfgGuard.manha_inicio || horaGuard > _horarioCfgGuard.tarde_fim;
+      const _horarioInfoGuard = await getHorarioInfoPipeline(base44);
+      const foraHorarioOuFeriado = !_horarioInfoGuard.dentro;
       const ACK_FORA_HORARIO_GAP_MS = _horarioCfgGuard.gap_ack_fora_horario_ms;
       const DEDUP_WINDOW_MS = _horarioCfgGuard.dedup_window_ms;
 
@@ -1185,15 +1204,11 @@ Deno.serve(async (req) => {
           }
 
           if (intentForaHorario && textoIntent.length > 0) {
-            // Resposta contextual fora-horário por setor detectado (sem vídeo, sem promo)
-            const respostasForaHorario = {
-              vendas: 'Recebi sua mensagem! 👋 Nossa equipe de vendas retorna assim que abrirmos. Pode adiantar: qual produto ou serviço você procura?',
-              assistencia: 'Recebi! 🔧 Nossa equipe técnica retorna no próximo expediente. Pode descrever o problema com detalhes que já vamos analisar.',
-              financeiro: 'Recebi sua mensagem! 💰 O financeiro retorna em horário comercial. Se for boleto/NF, pode adiantar o número/data.',
-              fornecedor: 'Recebi! 📦 Nossa equipe de compras retorna no próximo expediente.',
-              geral: 'Recebi sua mensagem! 👋 Retornamos no próximo expediente.'
-            };
-            const respostaIntent = respostasForaHorario[intentForaHorario.setor] || respostasForaHorario.geral;
+            // Resposta contextual fora-horário por setor (template via ConfiguracaoSistema)
+            const chaveResposta = `resposta_fora_horario_intent_${intentForaHorario.setor}`;
+            const respostaIntent = mensagensAck[chaveResposta]
+              || mensagensAck.resposta_fora_horario_intent_geral
+              || 'Recebi sua mensagem! Retornamos no próximo expediente.'; // fallback hardcoded mínimo
 
             const { ok: okI, msgId: msgIdI } = await enviarWhatsApp(integ, contact.telefone, respostaIntent);
             if (okI) {
@@ -1815,6 +1830,21 @@ NUNCA mencione nomes de atendentes. Tom profissional e humano.`
 
   } catch (error) {
     console.error('[SKILL-PRE-ATEND] ❌ Erro fatal:', error.message);
+    // T5: Cleanup defensivo — se erro fatal ocorreu DEPOIS da Camada 3 setar
+    // pre_atendimento_ativo: true via dedup lock, a thread fica presa nesse
+    // estado para sempre. Histórico do projeto mostra backlog de "stuck
+    // threads" decorrente exatamente desse caso (threads com
+    // pre_atendimento_ativo: true sem assigned_user_id).
+    if (_payloadForCleanup?.thread_id && _base44ForCleanup) {
+      try {
+        await _base44ForCleanup.asServiceRole.entities.MessageThread.update(_payloadForCleanup.thread_id, {
+          pre_atendimento_ativo: false
+        });
+        console.log(`[SKILL-PRE-ATEND] 🧹 Cleanup pós-erro-fatal: pre_atendimento_ativo=false (thread ${_payloadForCleanup.thread_id})`);
+      } catch (cleanupErr) {
+        console.error('[SKILL-PRE-ATEND] 🔴 Cleanup também falhou:', cleanupErr.message);
+      }
+    }
     return Response.json({ success: false, error: error.message, camadas: resultado.camadas }, { status: 500, headers });
   }
 });
