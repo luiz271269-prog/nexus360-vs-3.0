@@ -1120,7 +1120,7 @@ Deno.serve(async (req) => {
     try {
       if (!integ) throw new Error('sem_integracao');
       if (!integ.instance_id_provider || !integ.api_key_provider) throw new Error('credenciais_invalidas');
-      if (integ.api_provider === 'w_api' && !integ.security_client_token_header) throw new Error('wapi_sem_client_token');
+      if (integ.api_provider === 'z_api' && !integ.security_client_token_header) throw new Error('zapi_sem_client_token');
 
       const horarioCfg = await getHorarioCfgPipeline(base44);
       const mensagensAck = await carregarMensagensAck(base44);
