@@ -62,7 +62,8 @@ async function carregarHorarioConfig(base44) {
     cooldown_ack_ms: (c.cooldown_ack_minutos ?? 5) * 60 * 1000,
     dedup_window_ms: (c.dedup_window_segundos ?? 30) * 1000,
     gap_promo_fora_horario_ms: (c.gap_promo_fora_horario_horas ?? 12) * 60 * 60 * 1000,
-    gap_ack_fora_horario_ms: (c.gap_ack_fora_horario_horas ?? 12) * 60 * 60 * 1000
+    // ACK/vídeo fora-horário tem cooldown curto; promoção mantém cooldown próprio de 12h.
+    gap_ack_fora_horario_ms: (c.gap_ack_fora_horario_minutos ?? 30) * 60 * 1000
   };
   _cacheConfigAt = agora;
   return _cacheConfig;
@@ -852,12 +853,10 @@ Deno.serve(async (req) => {
         const ackMesmoDia = ultAckDate && brtDayKey(ultAckDate) === brtDayKey(inboundRefDate);
         const ackRecente = ultAckDate && ackMesmoDia && (Date.now() - ultAckDate.getTime() < ACK_FORA_HORARIO_GAP_MS);
         if (ackRecente) {
-          resultado.camadas.dedup = { skipped: true, reason: 'fora_horario_ack_recente_12h_mesmo_dia' };
-          console.log('[SKILL-PRE-ATEND] 🌙 Thread atribuída + fora-horário + ACK <12h → skip total');
-          marcarFimCamada(3, 'skipped', { reason: 'fora_horario_ack_recente_12h' });
-          return Response.json({ ...resultado, success: true, skipped: true, reason: 'fora_horario_ack_recente_12h', telemetria: resultado.telemetria }, { headers });
+          resultado.camadas.dedup = { ok: true, ack_recente: true, reason: 'fora_horario_ack_recente_30min_mesmo_dia' };
+          console.log('[SKILL-PRE-ATEND] 🌙 Thread atribuída + fora-horário + ACK recente → segue sem skip total para detectar intenção');
         }
-        console.log('[SKILL-PRE-ATEND] 🌙 Thread atribuída + fora-horário/feriado → seguir só p/ ACK informativo');
+        console.log('[SKILL-PRE-ATEND] 🌙 Thread atribuída + fora-horário/feriado → seguir para ACK/intent controlado pela skill');
       }
 
       // Guard 2: pipeline recente? (dedup de 30s)
@@ -1156,7 +1155,7 @@ Deno.serve(async (req) => {
       const cooldownAplicado = horarioInfo.dentro ? horarioCfg.cooldown_ack_ms : horarioCfg.gap_ack_fora_horario_ms;
       const cooldownLabel = horarioInfo.dentro
         ? `${(horarioCfg.cooldown_ack_ms / 60000).toFixed(0)}min`
-        : `${(horarioCfg.gap_ack_fora_horario_ms / 3600000).toFixed(0)}h`;
+        : `${(horarioCfg.gap_ack_fora_horario_ms / 60000).toFixed(0)}min`;
       const PROMO_FORA_HORARIO_GAP_MS = horarioCfg.gap_promo_fora_horario_ms;
 
       if (thread?.last_outbound_at) {
@@ -1247,8 +1246,8 @@ Deno.serve(async (req) => {
           }
 
           // Sem intent detectado em mensagem #2+ → silêncio (mantém comportamento atual)
-          resultado.camadas.ack = { skipped: true, reason: 'fora_horario_promo_recente_12h_sem_intent' };
-          console.log('[SKILL-PRE-ATEND] ⏭️ Fora-horário msg #2+: sem intent detectado — silêncio');
+          resultado.camadas.ack = { skipped: true, reason: 'fora_horario_ack_promo_recente_sem_intent' };
+          console.log('[SKILL-PRE-ATEND] ⏭️ Fora-horário msg #2+: ACK/promo recentes e sem intent detectado — silêncio');
           throw new Error('__skip_ack');
         }
 
