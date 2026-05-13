@@ -842,11 +842,17 @@ Deno.serve(async (req) => {
       }
 
       if (thread.assigned_user_id && thread.routing_stage === 'ASSIGNED' && foraHorarioOuFeriado) {
-        // Cooldown universal: se já mandou ACK fora-horário nas últimas 12h, NÃO repete
-        const ultAck = thread.last_outbound_at ? new Date(thread.last_outbound_at).getTime() : 0;
-        const ackRecente = ultAck && (Date.now() - ultAck < ACK_FORA_HORARIO_GAP_MS);
+        // Cooldown universal: só bloqueia ACK fora-horário no mesmo dia BRT.
+        // Virou o dia em São Paulo, inicia novo ciclo mesmo dentro de 12h.
+        const brtDayKey = (value) => value
+          ? new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value))
+          : null;
+        const ultAckDate = thread.last_outbound_at ? new Date(thread.last_outbound_at) : null;
+        const inboundRefDate = thread.last_inbound_at ? new Date(thread.last_inbound_at) : new Date();
+        const ackMesmoDia = ultAckDate && brtDayKey(ultAckDate) === brtDayKey(inboundRefDate);
+        const ackRecente = ultAckDate && ackMesmoDia && (Date.now() - ultAckDate.getTime() < ACK_FORA_HORARIO_GAP_MS);
         if (ackRecente) {
-          resultado.camadas.dedup = { skipped: true, reason: 'fora_horario_ack_recente_12h' };
+          resultado.camadas.dedup = { skipped: true, reason: 'fora_horario_ack_recente_12h_mesmo_dia' };
           console.log('[SKILL-PRE-ATEND] 🌙 Thread atribuída + fora-horário + ACK <12h → skip total');
           marcarFimCamada(3, 'skipped', { reason: 'fora_horario_ack_recente_12h' });
           return Response.json({ ...resultado, success: true, skipped: true, reason: 'fora_horario_ack_recente_12h', telemetria: resultado.telemetria }, { headers });
@@ -1154,8 +1160,15 @@ Deno.serve(async (req) => {
       const PROMO_FORA_HORARIO_GAP_MS = horarioCfg.gap_promo_fora_horario_ms;
 
       if (thread?.last_outbound_at) {
-        const diffMs = Date.now() - new Date(thread.last_outbound_at).getTime();
-        if (diffMs < cooldownAplicado) {
+        const brtDayKeyAck = (value) => value
+          ? new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value))
+          : null;
+        const lastOutboundDate = new Date(thread.last_outbound_at);
+        const inboundRefDate = thread.last_inbound_at ? new Date(thread.last_inbound_at) : new Date();
+        const mesmoDiaBrt = brtDayKeyAck(lastOutboundDate) === brtDayKeyAck(inboundRefDate);
+        const deveAplicarCooldown = horarioInfo.dentro || mesmoDiaBrt;
+        const diffMs = Date.now() - lastOutboundDate.getTime();
+        if (deveAplicarCooldown && diffMs < cooldownAplicado) {
           resultado.camadas.ack = { skipped: true, reason: `cooldown_${cooldownLabel}` };
           console.log(`[SKILL-PRE-ATEND] ⏭️ ACK cooldown ativo (${cooldownLabel})`);
           throw new Error('__skip_ack');
