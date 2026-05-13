@@ -162,6 +162,29 @@ function detectarMicroIntent(texto, temMidia) {
   return null;
 }
 
+function temIntencaoUtilParaBrain(texto) {
+  const t = (texto || '').trim();
+  if (t.length < 8) return false;
+  if (detectarMicroIntent(t, false)) return false;
+  return /(quando|responder|resposta|retorno|cotacao|cotação|orcamento|orçamento|preco|preço|prazo|disponivel|disponível|produto|comprar|pedido|problema|suporte|nota|boleto|pagamento|urgente|preciso|consegue|pode|como faço|como faco)/i.test(t);
+}
+
+async function acionarBrainCopiloto(base44, { thread_id, contact_id, message_id, message_content, integration_id, provider, reason }) {
+  if (!temIntencaoUtilParaBrain(message_content)) return false;
+  base44.asServiceRole.functions.invoke('nexusAgentBrain', {
+    thread_id,
+    contact_id,
+    message_id,
+    message_content,
+    integration_id,
+    provider,
+    trigger: 'inbound',
+    mode: 'copilot',
+    reason
+  }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot erro:', e.message));
+  return true;
+}
+
 function getPeriodoDia(hora) {
   if (hora < 12) return 'manha';
   if (hora < 18) return 'tarde';
@@ -760,16 +783,12 @@ Deno.serve(async (req) => {
     const _horarioInfoC2 = await getHorarioInfoPipeline(base44);
 
     if (context.human_active === true) {
-      // Dispara brain copilot fire-and-forget em ambos os casos (notificar humano)
-      if (integration_id && (message_content || '').length > 2) {
-        base44.asServiceRole.functions.invoke('nexusAgentBrain', {
-          thread_id, contact_id, message_content,
-          integration_id, provider: payload.provider,
-          trigger: 'inbound', mode: 'copilot'
-        }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot C2 erro:', e.message));
-      }
-
       if (_horarioInfoC2.dentro) {
+        await acionarBrainCopiloto(base44, {
+          thread_id, contact_id, message_id, message_content,
+          integration_id, provider: payload.provider,
+          reason: 'human_active_useful_intent'
+        });
         // Horário comercial: humano realmente está ativo → notify only, return
         console.log(`[SKILL-PRE-ATEND] 👤 Camada 2: humano ativo + horário comercial — notify only`);
         try {
@@ -807,15 +826,12 @@ Deno.serve(async (req) => {
       && context.novo_ciclo === false
       && !ehMicroIntentCtx
     ) {
-      if (integration_id && (message_content || '').length > 2) {
-        base44.asServiceRole.functions.invoke('nexusAgentBrain', {
-          thread_id, contact_id, message_content,
-          integration_id, provider: payload.provider,
-          trigger: 'inbound', mode: 'copilot'
-        }).catch(e => console.warn('[SKILL-PRE-ATEND] Brain copilot C2 erro:', e.message));
-      }
-
       if (_horarioInfoC2.dentro) {
+        await acionarBrainCopiloto(base44, {
+          thread_id, contact_id, message_id, message_content,
+          integration_id, provider: payload.provider,
+          reason: 'assigned_thread_useful_intent'
+        });
         console.log(`[SKILL-PRE-ATEND] 🔔 Camada 2: thread contextualizada sem micro-intent + horário comercial — notify only`);
         try {
           await base44.asServiceRole.entities.NotificationEvent.create({
