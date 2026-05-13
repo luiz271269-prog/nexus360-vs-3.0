@@ -1245,7 +1245,7 @@ export default function Comunicacao() {
   const handleEnviarMensagemOtimista = React.useCallback(async (dadosEnvio) => {
     if (!threadAtiva || !usuario) return;
 
-    const { texto, integrationId, replyToMessage, mediaUrl, mediaType, mediaCaption, isAudio } = dadosEnvio;
+    const { texto, integrationId, replyToMessage, mediaUrl, mediaType, mediaCaption, isAudio, contatoCompleto } = dadosEnvio;
 
     // ✅ CIRÚRGICA P1.5: Validar can_send ANTES de enviar
     if (usuario.role !== 'admin') {
@@ -1288,7 +1288,7 @@ export default function Comunicacao() {
 
     // 3. Enviar para servidor em background
     try {
-      const _c = contatos.find((c) => c.id === threadAtiva.contact_id) || contatoPreCarregado;
+      const _c = contatoCompleto || contatos.find((c) => c.id === threadAtiva.contact_id) || contatoPreCarregado;
       const contatoAtual = (!_c?.telefone && !_c?.celular && threadAtiva.contact_id)
         ? await base44.entities.Contact.get(threadAtiva.contact_id).catch(() => _c)
         : _c;
