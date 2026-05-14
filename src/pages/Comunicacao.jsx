@@ -1491,6 +1491,9 @@ export default function Comunicacao() {
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor';
   const contatoAtivo = threadAtiva ? (contatos.find((c) => c.id === threadAtiva.contact_id) || contatoPreCarregado) : null;
+  const instanciaAtivaDesconectada = threadAtiva
+    ? integracoes.find((i) => i.id === threadAtiva.whatsapp_integration_id && i.status === 'desconectado')
+    : null;
 
   // Quando selecionar thread no mobile, ir para tela de chat
   const handleSelecionarThreadMobile = React.useCallback(async (threadData) => {
@@ -1651,7 +1654,8 @@ export default function Comunicacao() {
                   setModoEnvioMassa={setModoEnvioMassa} setContatosParaEnvioMassa={setContatosParaEnvioMassa}
                   setModoSelecaoMultipla={setModoSelecaoMultipla} setContatosSelecionados={setContatosSelecionados}
                   setBroadcastInterno={setBroadcastInterno} setShowContactInfo={setShowContactInfo}
-                  setThreadAtiva={setThreadAtiva} sidebarViewMode={sidebarViewMode} />
+                  setThreadAtiva={setThreadAtiva} sidebarViewMode={sidebarViewMode}
+                  instanciaAtivaDesconectada={instanciaAtivaDesconectada} />
               </div>
 
               {/* ── MOBILE: tela única alternante (lista ↔ chat) ── */}
@@ -1689,6 +1693,7 @@ export default function Comunicacao() {
                 handleCriarNovoContato={handleCriarNovoContato}
                 handleAtualizarContato={handleAtualizarContato}
                 showContactInfo={showContactInfo}
+                instanciaAtivaDesconectada={instanciaAtivaDesconectada}
               />
               </>
               )}

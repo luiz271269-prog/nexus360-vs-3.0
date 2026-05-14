@@ -43,7 +43,7 @@ async function buscarMensagensWAPI({ base44Instance, integration, from, to, phon
     console.log(`[SYNC-WAPI] 🔍 Buscando em ZapiPayloadNormalized...`);
     
     const logs = await base44Instance.asServiceRole.entities.ZapiPayloadNormalized.filter({
-      integration_id: instanceId,
+      integration_id: integration.id,
       timestamp_recebido: {
         $gte: fromDate,
         $lte: toDate

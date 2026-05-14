@@ -6,6 +6,7 @@ import ChatSidebarKanban from '../ChatSidebarKanban';
 import ChatWindow from '../ChatWindow';
 import ContactInfoPanel from '../ContactInfoPanel';
 import EmptyState from '../EmptyState';
+import InstanceDisconnectedAlert from '../InstanceDisconnectedAlert';
 import ContatosNaoAtribuidosKanban from '../ContatosNaoAtribuidosKanban';
 import ContatosRequerendoAtencaoKanban from '../ContatosRequerendoAtencaoKanban';
 
@@ -55,7 +56,8 @@ export default function MobileChatArea({
   handleEnviarMensagemOtimista,
   handleEnviarMensagemInternaOtimista,
   handleAtualizarMensagens,
-  handleCriarNovoContato
+  handleCriarNovoContato,
+  instanciaAtivaDesconectada
 }) {
   return (
     <div className="flex md:hidden h-full flex-col min-h-0">
@@ -151,7 +153,8 @@ export default function MobileChatArea({
             )}
           </div>
 
-          <div className="flex-1 overflow-hidden min-h-0">
+          <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+            <InstanceDisconnectedAlert integracao={instanciaAtivaDesconectada} />
             {mostrarKanbanNaoAtribuidos ? (
               <ContatosNaoAtribuidosKanban
                 usuario={usuario}

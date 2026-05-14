@@ -2,6 +2,7 @@ import React from "react";
 import ChatWindow from "./ChatWindow";
 import ContactInfoPanel from "./ContactInfoPanel";
 import EmptyState from "./EmptyState";
+import InstanceDisconnectedAlert from "./InstanceDisconnectedAlert";
 
 function useHeaderHeight() {
   const [top, setTop] = React.useState(0);
@@ -29,6 +30,7 @@ export default function DesktopChatArea({
   contatoAtivo, showContactInfo, handleAtualizarContato, novoContatoTelefone, contactInitialData,
   handleCriarNovoContato, setModoEnvioMassa, setContatosParaEnvioMassa, setModoSelecaoMultipla,
   setContatosSelecionados, setBroadcastInterno, setShowContactInfo, setThreadAtiva, sidebarViewMode,
+  instanciaAtivaDesconectada,
 }) {
   const isKanban = sidebarViewMode === 'kanban';
   const hasActiveChat = (threadAtiva && !criandoNovoContato) || (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno));
@@ -46,7 +48,8 @@ export default function DesktopChatArea({
 
   const chatContent = (
     <>
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 overflow-hidden relative flex flex-col">
+        <InstanceDisconnectedAlert integracao={instanciaAtivaDesconectada} />
         {hasMassaSend ? (
           <ChatWindow thread={null} mensagens={[]} usuario={usuario} contatoPreCarregado={null}
             onEnviarMensagem={async () => {}} onSendMessageOptimistic={handleEnviarMensagemOtimista}
