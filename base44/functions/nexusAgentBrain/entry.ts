@@ -205,6 +205,8 @@ Deno.serve(async (req) => {
     ]);
 
     const prontuario = analises[0] || null;
+    const conversationState = payload.conversation_state || thread.campos_personalizados?.pre_atendimento_state_v2 || null;
+    const outputRules = conversationState?.outputs_permitidos || {};
 
     // Buscas de memória isoladas — não devem quebrar o pipeline se entidades novas não existirem ainda
     let memoriaContato = [];
@@ -302,6 +304,15 @@ PERFIL DO CONTATO:
 - Setor da conversa: ${thread.sector_id || 'sem setor'}
 - Atendente: ${thread.assigned_user_id ? 'atribuído' : '⚠️ SEM ATENDENTE'}
 
+ESTADO OPERACIONAL DO PRÉ-ATENDIMENTO (fonte de verdade):
+${conversationState ? `- Estado: ${conversationState.estado_principal}
+- Prioridade: ${conversationState.prioridade_operacional}
+- Fora de horário: ${conversationState.fora_horario ? 'sim' : 'não'} (${conversationState.horario_motivo || 'n/d'})
+- Promoção recente: ${conversationState.promocao_recente ? 'sim' : 'não'}
+- Outputs permitidos: ${JSON.stringify(conversationState.outputs_permitidos || {})}
+- Ações descartadas: ${(conversationState.acoes_descartadas || []).join(', ') || 'nenhuma'}
+- Notificar: ${conversationState.notificacao_alvo?.tipo || 'n/d'} | urgência ${conversationState.notificacao_alvo?.urgencia || 'normal'}` : 'Não calculado para esta conversa.'}
+
 ${orcamentosAbertos.length > 0 ? `ORÇAMENTOS ABERTOS (${orcamentosAbertos.length}):
 ${orcamentosAbertos.map(o => `• ${o.numero_orcamento || 'ORC'}: R$ ${o.valor_total?.toLocaleString('pt-BR') || '?'} | ${o.status}`).join('\n')}` : 'Sem orçamentos abertos.'}
 
@@ -330,7 +341,8 @@ REGRAS OBRIGATÓRIAS:
 2. send_message: somente em modo autonomous e apenas para boas-vindas ou confirmações simples
 3. Negociação / cobrança / reclamação / urgência: sempre escalate_to_human
 4. Se o contato já tem atendente e é trigger inbound: prefira suggest_reply
-5. Responda sempre em português brasileiro, tom profissional mas humano`;
+5. Responda sempre em português brasileiro, tom profissional mas humano
+6. Obedeça o ESTADO OPERACIONAL: não recomende ações listadas em "ações descartadas" e respeite "outputs permitidos"`;
 
     // ── STEP 5: Claude com tool_use (fallback Base44 IA) ────────────
     let acao, params;
@@ -416,7 +428,8 @@ Exemplos:
           message: params.message,
           tone: params.tone,
           reasoning: params.reasoning,
-          trigger
+          trigger,
+          conversation_state: conversationState
         }
       });
       resultado = { type: 'suggest_reply', message: params.message, tone: params.tone };
@@ -533,7 +546,7 @@ Exemplos:
       playbook_selected: 'nexus_brain',
       execution_mode: mode === 'copilot' ? 'assistente' : 'auto_execute',
       status: 'concluido',
-      context_snapshot: { thread_id, contact_id, trigger, mode, acao, resultado, duration_ms: Date.now() - inicio },
+      context_snapshot: { thread_id, contact_id, trigger, mode, acao, resultado, conversation_state: conversationState, output_rules: outputRules, duration_ms: Date.now() - inicio },
       started_at: new Date(inicio).toISOString(),
       completed_at: new Date().toISOString(),
       duration_ms: Date.now() - inicio
