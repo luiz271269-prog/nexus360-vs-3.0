@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Brain, Send, Loader2, Trash2, Paperclip, Image as ImageIcon, FileText } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import ReactMarkdown from 'react-markdown';
+import CopilotCard from '@/components/comunicacao/CopilotCard';
 
 const PERSONA_SISTEMA = `🤖 SUPER AGENTE JARVIS - COPILOTO IA (Modo: Assistência Operacional)
 ================================================================================
@@ -36,6 +37,7 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
   const [carregando, setCarregando] = useState(false);
   const [anexos, setAnexos] = useState([]); // [{ name, url, type, uploading }]
   const [uploadando, setUploadando] = useState(false);
+  const [copilotCards, setCopilotCards] = useState([]);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -218,6 +220,40 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
     return { contact_id, thread_id };
   };
 
+  const carregarCopilotCards = async () => {
+    const { thread_id } = extrairContexto(contextoAtivo);
+    if (!thread_id) {
+      setCopilotCards([]);
+      return;
+    }
+
+    const items = await base44.entities.WorkQueueItem.filter({
+      thread_id,
+      status: 'open'
+    }, '-created_date', 5);
+
+    setCopilotCards(items.filter(item => item.payload?.copilot_card));
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    carregarCopilotCards();
+    const interval = setInterval(carregarCopilotCards, 8000);
+    return () => clearInterval(interval);
+  }, [isOpen, contextoAtivo]);
+
+  const usarCopilotCard = async (item) => {
+    await base44.entities.WorkQueueItem.update(item.id, { status: 'processado' });
+    setCopilotCards(prev => prev.filter(card => card.id !== item.id));
+    setInput(item.payload.copilot_card.message || '');
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  const dispensarCopilotCard = async (item) => {
+    await base44.entities.WorkQueueItem.update(item.id, { status: 'dismissed' });
+    setCopilotCards(prev => prev.filter(card => card.id !== item.id));
+  };
+
   const enviarMensagem = async () => {
     const texto = input.trim();
     if ((!texto && anexos.length === 0) || carregando || uploadando) return;
@@ -348,6 +384,19 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
             <span className="text-xs text-purple-700 truncate">
               <span className="font-semibold">Contexto:</span> {contextoAtivo}
             </span>
+          </div>
+        )}
+
+        {copilotCards.length > 0 && (
+          <div className="px-4 py-3 bg-purple-50/60 border-b border-purple-100 space-y-2 flex-shrink-0 max-h-64 overflow-y-auto">
+            {copilotCards.map(item => (
+              <CopilotCard
+                key={item.id}
+                card={item.payload.copilot_card}
+                onUse={() => usarCopilotCard(item)}
+                onDismiss={() => dispensarCopilotCard(item)}
+              />
+            ))}
           </div>
         )}
 
