@@ -557,7 +557,7 @@ async function registrarEventoPreAtendimento(base44, thread_id, contact_id, even
     await base44.asServiceRole.entities.AutomationLog.create({
       thread_id,
       contato_id: contact_id,
-      acao: 'outro',
+      acao: details.acao || 'outro',
       resultado: details.resultado || 'sucesso',
       origem: 'sistema',
       timestamp: new Date().toISOString(),
@@ -576,6 +576,30 @@ async function registrarEventoPreAtendimento(base44, thread_id, contact_id, even
   } catch (e) {
     console.warn(`[SKILL-PRE-ATEND] ⚠️ Log ${event_type} falhou:`, e.message);
   }
+}
+
+async function materializarConversationState(base44, { thread_id, contact_id, thread, contact, context, message_content, horarioInfo, horarioCfg }) {
+  const texto = (message_content || '').toLowerCase().trim();
+  const cobranca = /(consegue\s+me\s+responder|me\s+responde|responder\??|retorno|aguardo|sem\s+resposta|pode\s+me\s+retornar)/i.test(texto);
+  const gapPromo = horarioCfg?.gap_promo_fora_horario_ms || 43200000;
+  const lastPromo = thread?.last_any_promo_sent_at || thread?.last_promo_inbound_at || contact?.last_any_promo_sent_at || contact?.last_promo_inbound_at;
+  const promocaoRecente = !!lastPromo && (Date.now() - new Date(lastPromo).getTime() < gapPromo);
+  const threadAtribuida = !!(thread?.assigned_user_id || context?.thread_assigned);
+  const estado = cobranca ? 'cobranca_retorno' : promocaoRecente ? 'pos_promocao' : threadAtribuida ? 'thread_contextualizada' : 'pre_atendimento_padrao';
+  const prioridade = cobranca || contact?.is_vip ? 'alta' : 'normal';
+  const conversationState = {
+    version: 'v2', calculated_at: new Date().toISOString(), estado_principal: estado,
+    intents: cobranca ? ['cobranca_retorno'] : (promocaoRecente ? ['promocao_recente_contexto'] : ['mensagem_contextual']),
+    humano_ativo: context?.human_active === true, thread_atribuida: threadAtribuida,
+    fora_horario: horarioInfo?.dentro === false, horario_motivo: horarioInfo?.motivo || null,
+    promocao_recente: promocaoRecente, prioridade_operacional: prioridade,
+    outputs_permitidos: { ack: !(cobranca && promocaoRecente), promocao: !(cobranca || promocaoRecente), ura: !threadAtribuida && !cobranca, playbook: !threadAtribuida && !cobranca, brain_copilot: cobranca || threadAtribuida || context?.human_active === true, notificacao: cobranca || threadAtribuida || context?.human_active === true, tarefa: cobranca },
+    notificacao_alvo: { tipo: thread?.assigned_user_id ? 'atendente_atribuido' : (thread?.sector_id || context?.sector_id ? 'setor_responsavel' : 'fila_pre_atendimento'), user_id: thread?.assigned_user_id || null, sector_id: thread?.sector_id || context?.sector_id || null, urgencia: prioridade, motivo: cobranca ? 'cliente_cobrando_retorno' : estado },
+    acoes_descartadas: cobranca ? ['ack_generico', 'promocao_repetida', 'ura_reaberta'] : []
+  };
+  await base44.asServiceRole.entities.MessageThread.update(thread_id, { campos_personalizados: { ...(thread?.campos_personalizados || {}), pre_atendimento_state_v2: conversationState } }).catch(e => console.warn('[SKILL-PRE-ATEND] conversation_state persistência falhou:', e.message));
+  await registrarEventoPreAtendimento(base44, thread_id, contact_id, 'conversation_state_calculated', { acao: 'conversation_state_calculated', contact_id, estado_principal: estado, prioridade_operacional: prioridade, outputs_permitidos: conversationState.outputs_permitidos, notificacao_alvo: conversationState.notificacao_alvo, acoes_descartadas: conversationState.acoes_descartadas, conversation_state: conversationState });
+  return conversationState;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -780,7 +804,12 @@ Deno.serve(async (req) => {
     // T6: Camada 2 só bloqueia pipeline em horário comercial.
     // Fora-horário com human_active "recente" significa que o atendente
     // provavelmente já saiu — cliente precisa do ACK informativo da Camada 5.
+    const _horarioCfgC2 = await getHorarioCfgPipeline(base44);
     const _horarioInfoC2 = await getHorarioInfoPipeline(base44);
+    resultado.conversation_state = await materializarConversationState(base44, {
+      thread_id, contact_id, thread: threadInicial, contact: contactInicial, context,
+      message_content, horarioInfo: _horarioInfoC2, horarioCfg: _horarioCfgC2
+    }).catch(() => null);
 
     if (context.human_active === true) {
       if (_horarioInfoC2.dentro) {
