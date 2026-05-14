@@ -1,28 +1,4 @@
-// ============================================================================
-// skillPreAtendimentos.js — v2.0 (Sessão 2: renumeração T1 + dedup helpers T4)
-// ============================================================================
-// UMA ÚNICA FUNÇÃO que substitui em camadas:
-//   preAtendimentoHandler + skillACKImediato + skillIntentRouter
-//   + roteamentoInteligente + skillPrimeiroContatoAutonomo
-//
-// CAMADAS (ordem de execução real — sequenciais sem HTTP entre elas):
-//   1 — Detecções de roteamento direto (Agenda 1A/1B, Doc Fiscal 1C)
-//   2 — Decisão de contexto (humano ativo / thread atribuída)
-//   3 — Dedup + lock 30s (bloqueia webhooks duplicados em paralelo)
-//   4 — Micro-intents (saudação/agradecimento/spam/mídia)
-//   5 — ACK adaptativo (horário comercial / fora-horário + promo + vídeo)
-//   6 — Intent detection (pattern match → LLM fallback)
-//   7 — Qualificação (PreAtendimentoRule do banco)
-//   8 — Roteamento (P1 mencionado → P2 fidelizado → P3 último → P4 carga → P5 geral → P6 fila)
-//   9 — Atribuição + boas-vindas (update thread + envia mensagem + loga)
-//
-// FILOSOFIA:
-//   - Nenhuma camada faz fetch HTTP para outra função Base44
-//   - Cada camada tem try/catch próprio — falha isolada, não cascata
-//   - Dedup atômico elimina race conditions de webhooks duplicados
-//   - Resultado de cada camada gravado em AutomationLog para observabilidade
-//   - Helpers de horário cacheados por request (T4) — 1 await em vez de 3
-// ============================================================================
+// skillPreAtendimentos.js — motor único do pré-atendimento em camadas.
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
@@ -520,13 +496,21 @@ async function rankearPorCarga(base44, candidatos) {
 // HELPER: gravar AutomationLog final
 // ─────────────────────────────────────────────────────────────────────────────
 
+const STATUS_FINAIS_VALIDOS = [
+  'concluido', 'enfileirado', 'ack_enviado', 'ack_fora_horario_thread_atribuida',
+  'ack_skipped_cooldown', 'brain_copilot_acionado', 'playbook_executado',
+  'roteamento_concluido', 'humano_ativo_sem_acao', 'saudacao_micro_intent',
+  'ja_atribuida', 'pipeline_recente', 'midia_pura_silent', 'spam_detectado',
+  'micro_intent_cooldown', 'micro_intent_responded', 'bloqueado_por_regra'
+];
+
 async function gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, status) {
   try {
     await base44.asServiceRole.entities.AutomationLog.create({
       thread_id,
       contato_id: contact_id,
       acao: 'outro',
-      resultado: ['concluido', 'enfileirado'].includes(status) ? 'sucesso' : 'erro',
+      resultado: STATUS_FINAIS_VALIDOS.includes(status) ? 'sucesso' : 'erro',
       origem: 'sistema',
       timestamp: new Date().toISOString(),
       detalhes: {
@@ -578,6 +562,46 @@ async function registrarEventoPreAtendimento(base44, thread_id, contact_id, even
   }
 }
 
+const ROUTING_STAGES_FINAIS = ['COMPLETED'];
+const ROUTING_STAGES_PRESERVAR = ['ROUTED'];
+
+async function liberarEstadoThread(base44, thread, motivo) {
+  if (!base44 || !thread?.id) return;
+
+  const patch = {};
+  const estagioAtual = thread.routing_stage;
+
+  if (thread.pre_atendimento_ativo === true) {
+    patch.pre_atendimento_ativo = false;
+  }
+
+  if (
+    thread.assigned_user_id &&
+    estagioAtual !== 'ASSIGNED' &&
+    !ROUTING_STAGES_FINAIS.includes(estagioAtual) &&
+    !ROUTING_STAGES_PRESERVAR.includes(estagioAtual)
+  ) {
+    patch.routing_stage = 'ASSIGNED';
+  }
+
+  if (Object.keys(patch).length > 0) {
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, patch).catch(err => {
+      console.error(`[liberarEstadoThread] falha ao atualizar thread ${thread.id}:`, err.message);
+    });
+  }
+
+  await registrarEventoPreAtendimento(base44, thread.id, thread.contact_id, 'thread_state_normalized', {
+    acao: 'outro',
+    mensagem: `Estado da thread verificado/liberado: ${motivo}`,
+    motivo,
+    routing_stage_antes: estagioAtual || null,
+    routing_stage_depois: patch.routing_stage || estagioAtual || null,
+    pre_atendimento_ativo_liberado: patch.pre_atendimento_ativo === false,
+    patch_aplicado: Object.keys(patch).length > 0 ? patch : null,
+    skill_name: 'skillPreAtendimentos'
+  });
+}
+
 async function materializarConversationState(base44, { thread_id, contact_id, thread, contact, context, message_content, horarioInfo, horarioCfg }) {
   const texto = (message_content || '').toLowerCase().trim();
   const cobranca = /(consegue\s+me\s+responder|me\s+responde|responder\??|retorno|aguardo|sem\s+resposta|pode\s+me\s+retornar)/i.test(texto);
@@ -626,8 +650,7 @@ Deno.serve(async (req) => {
     }
   };
 
-  // T4 (Sessão 2): cache local do request — evita 3 awaits redundantes
-  // de carregarHorarioConfig nas Camadas 3, 5 e 9.
+  // Cache local do request.
   let _horarioCfgPipeline = null;
   let _horarioInfoPipeline = null;
   const getHorarioCfgPipeline = async (base44) => {
@@ -642,10 +665,7 @@ Deno.serve(async (req) => {
     return _horarioInfoPipeline;
   };
 
-  // T3 (Sessão 2): telemetria unificada das 9 camadas.
-  // Cada camada chama marcarInicioCamada(N) ao entrar e marcarFimCamada(N, status, extras?)
-  // ao sair (qualquer caminho — ok/skip/error/early-return).
-  // Status válidos: 'ok' | 'skipped' | 'error' | 'routed_out' (camadas 1A/1B/1C)
+  // Telemetria unificada das camadas.
   const marcarInicioCamada = (n) => {
     resultado.telemetria[`camada_${n}`] = {
       ts_start: Date.now(),
@@ -687,14 +707,7 @@ Deno.serve(async (req) => {
 
     console.log(`[SKILL-PRE-ATEND] 🚀 Início pipeline — thread: ${thread_id} | context: ${JSON.stringify(context)}`);
 
-    // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 1 — DETECÇÕES DE ROTEAMENTO DIRETO (Agenda / Fiscal)
-    // Movidas do gate para cá (princípio "skill é o árbitro único").
-    // Ordem: mais específico → menos específico
-    //   1A. Thread em modo agenda / número especial → routeToAgendaIA
-    //   1B. Regex agenda (agendar, marcar, reagendar...) → claudeAgendaAgent
-    //   1C. Solicitação fiscal (boleto, nota, 2ª via) → dispararNotaFiscalWhatsApp
-    // ═══════════════════════════════════════════════════════════════════
+    // CAMADA 1 — roteamentos diretos (Agenda / Fiscal).
 
     let threadInicial = null;
     let contactInicial = null;
@@ -721,9 +734,7 @@ Deno.serve(async (req) => {
           thread_id, message_id, content: message_content,
           from_type: 'external_contact', from_id: contact_id
         }).catch(e => console.warn('[SKILL-PRE-ATEND] routeToAgendaIA falhou:', e.message));
-        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-          pre_atendimento_ativo: false
-        }).catch(() => {});
+        await liberarEstadoThread(base44, threadInicial, 'early_return_camada1a_agenda_ia');
         marcarFimCamada(1, 'routed_out', { to: 'agenda_ia_mode', branch: '1A' });
         return Response.json({ success: true, routed: true, to: 'agenda_ia_mode', camadas: resultado.camadas, telemetria: resultado.telemetria }, { headers });
       }
@@ -745,9 +756,7 @@ Deno.serve(async (req) => {
             integration_id,
             provider: payload.provider
           }).catch(e => console.warn('[SKILL-PRE-ATEND] claudeAgendaAgent falhou:', e.message));
-          await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-            pre_atendimento_ativo: false
-          }).catch(() => {});
+          await liberarEstadoThread(base44, threadInicial, 'early_return_camada1b_claude_agenda');
           marcarFimCamada(1, 'routed_out', { to: 'claude_agenda', branch: '1B' });
           return Response.json({ success: true, routed: true, to: 'claude_agenda', camadas: resultado.camadas, telemetria: resultado.telemetria }, { headers });
         }
@@ -776,9 +785,7 @@ Deno.serve(async (req) => {
               contact_id, thread_id,
               integration_id: integration_id || threadInicial?.whatsapp_integration_id
             }).catch(e => console.warn('[SKILL-PRE-ATEND] dispararNotaFiscalWhatsApp falhou:', e.message));
-            await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-              pre_atendimento_ativo: false
-            }).catch(() => {});
+            await liberarEstadoThread(base44, threadInicial, 'early_return_camada1c_doc_fiscal_auto');
             marcarFimCamada(1, 'routed_out', { to: 'doc_fiscal_auto', branch: '1C', nota_fiscal_id: notaComPDF.id });
             return Response.json({ success: true, routed: true, to: 'doc_fiscal_auto', camadas: resultado.camadas, telemetria: resultado.telemetria }, { headers });
           }
@@ -793,17 +800,10 @@ Deno.serve(async (req) => {
       marcarFimCamada(1, 'skipped', { reason: 'nenhum_branch_disparou' });
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 2 — DECISÃO DE CONTEXTO (humano ativo / thread atribuída)
-    // Migrada do gate. Princípio: skill arbitra, gate só entrega.
-    //   • human_active=true → registra, notifica atendente, NÃO envia ao cliente
-    //   • thread_assigned=true SEM micro-intent SEM novo ciclo → mesma coisa
-    // ═══════════════════════════════════════════════════════════════════
+    // CAMADA 2 — decisão de contexto.
 
     marcarInicioCamada(2);
-    // T6: Camada 2 só bloqueia pipeline em horário comercial.
-    // Fora-horário com human_active "recente" significa que o atendente
-    // provavelmente já saiu — cliente precisa do ACK informativo da Camada 5.
+    // Camada 2 só bloqueia pipeline em horário comercial.
     const _horarioCfgC2 = await getHorarioCfgPipeline(base44);
     const _horarioInfoC2 = await getHorarioInfoPipeline(base44);
     resultado.conversation_state = await materializarConversationState(base44, {
@@ -835,9 +835,7 @@ Deno.serve(async (req) => {
           }).catch(() => {});
         } catch (_) { /* silencioso */ }
 
-        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-          pre_atendimento_ativo: false
-        }).catch(() => {});
+        await liberarEstadoThread(base44, threadInicial, 'early_return_camada2_humano_ativo');
         marcarFimCamada(2, 'skipped', { reason: 'human_active_observed' });
         return Response.json({ success: true, skipped: true, reason: 'human_active_observed', camadas: resultado.camadas, telemetria: resultado.telemetria }, { headers });
       }
@@ -877,9 +875,7 @@ Deno.serve(async (req) => {
           }).catch(() => {});
         } catch (_) { /* silencioso */ }
 
-        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
-          pre_atendimento_ativo: false
-        }).catch(() => {});
+        await liberarEstadoThread(base44, threadInicial, 'early_return_camada2_thread_contextualizada');
         marcarFimCamada(2, 'skipped', { reason: 'context_notify_only' });
         return Response.json({ success: true, skipped: true, reason: 'context_notify_only', camadas: resultado.camadas, telemetria: resultado.telemetria }, { headers });
       }
@@ -911,6 +907,8 @@ Deno.serve(async (req) => {
       if (thread.assigned_user_id && thread.routing_stage === 'ASSIGNED' && !foraHorarioOuFeriado) {
         resultado.camadas.dedup = { skipped: true, reason: 'ja_atribuida' };
         console.log('[SKILL-PRE-ATEND] ⏭️ Thread já atribuída — skip (em horário comercial)');
+        await liberarEstadoThread(base44, thread, 'early_return_camada3_ja_atribuida');
+        await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'ja_atribuida');
         marcarFimCamada(3, 'skipped', { reason: 'ja_atribuida' });
         return Response.json({ ...resultado, success: true, skipped: true, reason: 'ja_atribuida', telemetria: resultado.telemetria }, { headers });
       }
@@ -943,6 +941,8 @@ Deno.serve(async (req) => {
       if (execRecente.length > 0) {
         resultado.camadas.dedup = { skipped: true, reason: 'pipeline_recente_30s' };
         console.log('[SKILL-PRE-ATEND] ⏭️ Pipeline recente detectado — dedup ativo');
+        await liberarEstadoThread(base44, thread, 'early_return_camada3_pipeline_recente');
+        await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'pipeline_recente');
         marcarFimCamada(3, 'skipped', { reason: 'pipeline_recente_30s' });
         return Response.json({ ...resultado, success: true, skipped: true, reason: 'pipeline_recente', telemetria: resultado.telemetria }, { headers });
       }
@@ -1003,6 +1003,8 @@ Deno.serve(async (req) => {
           }).catch(e => console.error('[CAMADA-0-MICRO] log midia_pura falhou:', e.message));
           resultado.camadas.dedup.micro_intent = { tipo: 'midia_pura', action: 'silent' };
           console.log('[CAMADA-0-MICRO] 🔇 Mídia pura — silêncio');
+          await liberarEstadoThread(base44, thread, 'early_return_camada4_midia_pura');
+          await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'midia_pura_silent');
           marcarFimCamada(4, 'skipped', { reason: 'midia_pura_silent', micro_intent_tipo: 'midia_pura' });
           return Response.json({ ...resultado, success: true, skipped: true, reason: 'midia_pura_silent', micro_intent: microIntent, telemetria: resultado.telemetria }, { headers });
         }
@@ -1023,6 +1025,8 @@ Deno.serve(async (req) => {
           }).catch(e => console.error('[CAMADA-0-MICRO] log spam falhou:', e.message));
           resultado.camadas.dedup.micro_intent = { tipo: 'spam_prospec', action: 'silent' };
           console.log('[CAMADA-0-MICRO] 🚫 Spam detectado — silêncio');
+          await liberarEstadoThread(base44, thread, 'early_return_camada4_spam_detectado');
+          await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'spam_detectado');
           marcarFimCamada(4, 'skipped', { reason: 'spam_detectado', micro_intent_tipo: 'spam_prospec' });
           return Response.json({ ...resultado, success: true, skipped: true, reason: 'spam_detectado', micro_intent: microIntent, telemetria: resultado.telemetria }, { headers });
         }
@@ -1087,6 +1091,8 @@ Deno.serve(async (req) => {
                 }).catch(e => console.error('[CAMADA-0-MICRO] log cooldown falhou:', e.message));
                 console.log('[CAMADA-0-MICRO] ⏭️ Cooldown 2min ativo — skip');
                 resultado.camadas.dedup.micro_intent = { tipo: microIntent.tipo, action: 'cooldown_skip' };
+                await liberarEstadoThread(base44, thread, 'early_return_camada4_micro_intent_cooldown');
+                await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'micro_intent_cooldown');
                 marcarFimCamada(4, 'skipped', { reason: 'micro_intent_cooldown_2min', micro_intent_tipo: microIntent.tipo });
                 return Response.json({ ...resultado, success: true, skipped: true, reason: 'micro_intent_cooldown', telemetria: resultado.telemetria }, { headers });
               }
@@ -1153,6 +1159,8 @@ Deno.serve(async (req) => {
 
                 resultado.camadas.dedup.micro_intent = { tipo: microIntent.tipo, action: 'responded', style_profile_used: !!styleProfile };
                 console.log(`[CAMADA-0-MICRO] ✅ Respondido ${microIntent.tipo} ${styleProfile ? 'no estilo ' + styleProfile.display_name : '(genérico)'}`);
+                await liberarEstadoThread(base44, thread, 'early_return_camada4_micro_intent_responded');
+                await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'micro_intent_responded');
                 marcarFimCamada(4, 'ok', { reason: 'micro_intent_responded', micro_intent_tipo: microIntent.tipo, style_profile_used: !!styleProfile });
                 return Response.json({ ...resultado, success: true, action: 'micro_intent_responded', micro_intent: microIntent, tempo_ms: Date.now() - tsInicio, telemetria: resultado.telemetria }, { headers });
               }
@@ -1504,6 +1512,7 @@ Deno.serve(async (req) => {
     if (thread.assigned_user_id && thread.routing_stage === 'ASSIGNED') {
       console.log('[SKILL-PRE-ATEND] 🌙 Pipeline encerrado após ACK fora-horário (thread já atribuída)');
       resultado.success = true;
+      await liberarEstadoThread(base44, thread, 'early_return_camada5_ack_fora_horario_thread_atribuida');
       await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'ack_fora_horario_thread_atribuida');
       return Response.json({
         ...resultado,
@@ -1662,6 +1671,7 @@ Deno.serve(async (req) => {
           resultado.camadas.qualificacao = { ok: true, regra: regraAplicada.nome, acao: 'bloqueado' };
           resultado.success = true;
           marcarFimCamada(7, 'routed_out', { regra: regraAplicada.nome, acao: 'bloqueado' });
+          await liberarEstadoThread(base44, { ...thread, id: thread_id, contact_id, routing_stage: 'COMPLETED', pre_atendimento_ativo: false }, 'early_return_camada7_bloqueado_por_regra');
           await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'bloqueado_por_regra');
           return Response.json({ ...resultado, action: 'bloqueado_por_regra', regra: regraAplicada.nome, telemetria: resultado.telemetria }, { headers });
         }
@@ -1708,15 +1718,7 @@ Deno.serve(async (req) => {
       marcarFimCamada(7, 'error', { error: e.message });
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 8 — ROTEAMENTO (prioridades em cascata)
-    //   P1: Atendente mencionado por NOME na mensagem
-    //   P2: Atendente FIDELIZADO para o setor (se online)
-    //   P3: ÚLTIMO atendente que respondeu ao contato
-    //   P4: Atendente do setor com MENOR CARGA
-    //   P5: Fallback setor geral
-    //   P6: Fila
-    // ═══════════════════════════════════════════════════════════════════
+    // CAMADA 8 — roteamento por prioridade.
 
     let atendente = null;
     let motivoAtribuicao = null;
@@ -1790,6 +1792,7 @@ Deno.serve(async (req) => {
         console.log(`[SKILL-PRE-ATEND] 📋 Camada 8 — sem atendente em ${setor}, enfileirado`);
         marcarFimCamada(8, 'routed_out', { action: 'enfileirado', setor, motivo: 'sem_atendente_disponivel' });
 
+        await liberarEstadoThread(base44, { ...thread, id: thread_id, contact_id, routing_stage: 'ROUTED', pre_atendimento_ativo: false }, 'early_return_camada8_enfileirado');
         await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'enfileirado');
         return Response.json({ ...resultado, action: 'enfileirado', setor, telemetria: resultado.telemetria }, { headers });
       }
@@ -1808,6 +1811,7 @@ Deno.serve(async (req) => {
       }).catch(() => {});
       resultado.success = false;
       marcarFimCamada(8, 'error', { error: e.message });
+      await liberarEstadoThread(base44, thread || { id: thread_id, contact_id }, 'early_return_camada8_erro_routing');
       await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'erro_routing');
       return Response.json({ ...resultado, error: 'routing_falhou', telemetria: resultado.telemetria }, { status: 500, headers });
     }
@@ -1834,12 +1838,7 @@ Deno.serve(async (req) => {
 
       console.log(`[SKILL-PRE-ATEND] ✅ Atribuído para ${atendente.full_name} em ${setor} (motivo: ${motivoAtribuicao})`);
 
-      // ─── PRINCÍPIO "ÁRBITRO ÚNICO": ACK + LLM nunca saem juntos ───
-      // A skill arbitra entre suas próprias camadas. LLM Camada 4 só dispara
-      // se ninguém ainda falou com o cliente neste turno.
-      // Suprime LLM em 2 casos:
-      //   1. Fora de horário (ACK + vídeo + promo já foi enviado na Camada 5)
-      //   2. Horário comercial mas ACK Camada 5 enviou com sucesso (evita duplicação ACK+LLM)
+      // ACK + LLM nunca saem juntos.
       const horarioCfgC4 = await getHorarioCfgPipeline(base44);
       const horarioCamada4 = await getHorarioInfoPipeline(base44);
       const ackJaEnviou = resultado.camadas.ack?.ok === true;
@@ -1863,6 +1862,7 @@ Deno.serve(async (req) => {
           mensagem_enviada: false,
           llm_suprimida_motivo: motivoSupressao
         });
+        await liberarEstadoThread(base44, { ...thread, id: thread_id, contact_id, assigned_user_id: atendente.id, routing_stage: 'ASSIGNED', pre_atendimento_ativo: false }, 'early_return_camada9_atribuicao_sem_llm');
         await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'concluido');
         return Response.json({
           ...resultado,
@@ -1948,6 +1948,7 @@ NUNCA mencione nomes de atendentes. Tom profissional e humano.`
       marcarFimCamada(9, 'error', { error: e.message });
     }
 
+    await liberarEstadoThread(base44, thread || { id: thread_id, contact_id }, 'conclusao_normal_skill');
     await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, resultado.success ? 'concluido' : 'parcial');
 
     return Response.json({
@@ -1969,10 +1970,9 @@ NUNCA mencione nomes de atendentes. Tom profissional e humano.`
     // pre_atendimento_ativo: true sem assigned_user_id).
     if (_payloadForCleanup?.thread_id && _base44ForCleanup) {
       try {
-        await _base44ForCleanup.asServiceRole.entities.MessageThread.update(_payloadForCleanup.thread_id, {
-          pre_atendimento_ativo: false
-        });
-        console.log(`[SKILL-PRE-ATEND] 🧹 Cleanup pós-erro-fatal: pre_atendimento_ativo=false (thread ${_payloadForCleanup.thread_id})`);
+        const threadCleanup = await _base44ForCleanup.asServiceRole.entities.MessageThread.get(_payloadForCleanup.thread_id).catch(() => ({ id: _payloadForCleanup.thread_id, contact_id: _payloadForCleanup.contact_id }));
+        await liberarEstadoThread(_base44ForCleanup, threadCleanup, 'catch_fatal_skill');
+        console.log(`[SKILL-PRE-ATEND] 🧹 Cleanup pós-erro-fatal executado (thread ${_payloadForCleanup.thread_id})`);
       } catch (cleanupErr) {
         console.error('[SKILL-PRE-ATEND] 🔴 Cleanup também falhou:', cleanupErr.message);
       }
