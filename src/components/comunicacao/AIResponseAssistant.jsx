@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Sparkles, Loader2, X, RefreshCw, ChevronDown, ChevronUp, Zap, Edit3, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import CopilotCard from './CopilotCard';
 
 const TONS = [
   { id: 'auto', label: '✨ Automático', desc: 'Adaptado ao estilo do contato' },
@@ -30,7 +31,25 @@ export default function AIResponseAssistant({
   const [aba, setAba] = useState('sugestoes'); // 'sugestoes' | 'rascunho'
   const [rascunhoEditado, setRascunhoEditado] = useState('');
   const [ultimaThreadId, setUltimaThreadId] = useState(null);
+  const [copilotCards, setCopilotCards] = useState([]);
   const gerandoRef = useRef(false);
+
+  const carregarCopilotCards = useCallback(async () => {
+    if (!thread?.id) return;
+    const items = await base44.entities.WorkQueueItem.filter({
+      thread_id: thread.id,
+      status: 'open'
+    }, '-created_date', 5);
+
+    setCopilotCards(items.filter(item => item.payload?.copilot_card));
+  }, [thread?.id]);
+
+  useEffect(() => {
+    if (!visible || !thread?.id) return;
+    carregarCopilotCards();
+    const interval = setInterval(carregarCopilotCards, 8000);
+    return () => clearInterval(interval);
+  }, [visible, thread?.id, carregarCopilotCards]);
 
   // Gerar sugestões automaticamente quando chega nova mensagem do cliente
   useEffect(() => {
@@ -184,6 +203,17 @@ INSTRUÇÕES:
     onSugestaoSelecionada(texto);
   }, [onSugestaoSelecionada]);
 
+  const handleUsarCopilotCard = useCallback(async (item) => {
+    await base44.entities.WorkQueueItem.update(item.id, { status: 'processado' });
+    setCopilotCards(prev => prev.filter(card => card.id !== item.id));
+    onSugestaoSelecionada(item.payload.copilot_card.message);
+  }, [onSugestaoSelecionada]);
+
+  const handleDispensarCopilotCard = useCallback(async (item) => {
+    await base44.entities.WorkQueueItem.update(item.id, { status: 'dismissed' });
+    setCopilotCards(prev => prev.filter(card => card.id !== item.id));
+  }, []);
+
   const handleUsarRascunho = useCallback(() => {
     onSugestaoSelecionada(rascunhoEditado || rascunho);
     onClose();
@@ -247,6 +277,20 @@ INSTRUÇÕES:
           </button>
         </div>
       </div>
+
+      {copilotCards.length > 0 && (
+        <div className="p-2 border-b border-purple-100 bg-purple-50/40 space-y-2">
+          {copilotCards.map(item => (
+            <CopilotCard
+              key={item.id}
+              card={item.payload.copilot_card}
+              onUse={() => handleUsarCopilotCard(item)}
+              onDismiss={() => handleDispensarCopilotCard(item)}
+              compact
+            />
+          ))}
+        </div>
+      )}
 
       {/* Abas */}
       <div className="flex border-b border-purple-100 bg-purple-50/50">

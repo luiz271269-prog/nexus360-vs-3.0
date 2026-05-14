@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sparkles, X, Send, RefreshCw } from 'lucide-react';
+import { Sparkles, RefreshCw } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import CopilotCard from './CopilotCard';
 
 /**
  * NexusBrainSuggestions
@@ -71,33 +72,21 @@ export default function NexusBrainSuggestions({ thread, onUsar }) {
         </button>
       </div>
 
-      <div className="space-y-1.5 max-h-32 overflow-y-auto">
+      <div className="space-y-1.5 max-h-56 overflow-y-auto">
         {sugestoes.map(item => (
-          <div
+          <CopilotCard
             key={item.id}
-            className="flex items-start gap-2 bg-white border border-purple-200 rounded-lg px-3 py-2 shadow-sm"
-          >
-            <p className="flex-1 text-sm text-slate-700 leading-snug line-clamp-2">
-              {item.payload.message}
-            </p>
-            <div className="flex gap-1 flex-shrink-0">
-              <button
-                onClick={() => usar(item)}
-                className="flex items-center gap-1 text-xs px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors"
-                title="Usar esta sugestão"
-              >
-                <Send className="w-3 h-3" />
-                Usar
-              </button>
-              <button
-                onClick={() => dispensar(item.id)}
-                className="text-xs p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
-                title="Dispensar"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
+            card={item.payload.copilot_card || {
+              title: 'Nexus Brain sugeriu',
+              message: item.payload.message,
+              tone: item.payload.tone,
+              reasoning: item.payload.reasoning,
+              conversation_state: item.payload.conversation_state
+            }}
+            onUse={() => usar(item)}
+            onDismiss={() => dispensar(item.id)}
+            compact
+          />
         ))}
       </div>
     </div>

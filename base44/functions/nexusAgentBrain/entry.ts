@@ -414,6 +414,17 @@ Exemplos:
     let resultado = {};
 
     if (acao === 'suggest_reply') {
+      const copilotCard = {
+        type: 'suggest_reply',
+        title: 'Sugestão do Nexus Brain',
+        message: params.message,
+        tone: params.tone,
+        reasoning: params.reasoning,
+        priority: conversationState?.prioridade_operacional || 'normal',
+        conversation_state: conversationState,
+        output_rules: outputRules
+      };
+
       // Salvar sugestão na fila para atendente ver no painel
       await base44.asServiceRole.entities.WorkQueueItem.create({
         contact_id,
@@ -429,10 +440,11 @@ Exemplos:
           tone: params.tone,
           reasoning: params.reasoning,
           trigger,
-          conversation_state: conversationState
+          conversation_state: conversationState,
+          copilot_card: copilotCard
         }
       });
-      resultado = { type: 'suggest_reply', message: params.message, tone: params.tone };
+      resultado = { type: 'suggest_reply', message: params.message, tone: params.tone, copilot_card: copilotCard };
     }
 
     else if (acao === 'send_message') {
