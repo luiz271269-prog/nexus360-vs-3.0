@@ -535,12 +535,34 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Selecionar promoção
-      const stage = lista_tipo === 'urgentes' ? '36h' : (lista_config?.stage || null);
-      const promo = await selecionarPromocao(base44, {
+      // Estado de relacionamento derivado do tempo de inatividade (rótulo + bucket stage)
+      let diasInatividade = null;
+      let relationshipState = 'unknown';
+      let stageDerivado = null;
+      if (thread?.last_inbound_at) {
+        diasInatividade = Math.floor((Date.now() - new Date(thread.last_inbound_at).getTime()) / (24 * 60 * 60 * 1000));
+        if (diasInatividade <= 7) { relationshipState = 'ativo'; stageDerivado = '6h'; }
+        else if (diasInatividade <= 30) { relationshipState = 'morno'; stageDerivado = '36h'; }
+        else if (diasInatividade <= 60) { relationshipState = 'esfriando'; stageDerivado = '60d'; }
+        else if (diasInatividade <= 90) { relationshipState = 'reativacao'; stageDerivado = '90d'; }
+        else { relationshipState = 'perdido'; stageDerivado = '120d'; }
+      }
+
+      // Selecionar promoção: stage explícito da listaConfig > stage derivado > fallback 36h
+      let stage = lista_config?.stage || stageDerivado || (lista_tipo === 'urgentes' ? '36h' : null);
+      let promo = await selecionarPromocao(base44, {
         contact, thread, stage,
         eligibilityStatus: eligibility.status
       });
+
+      // Fallback: se não encontrou promoção para o stage derivado, tenta '36h' (genérico)
+      if (!promo && stage !== '36h' && lista_tipo === 'urgentes') {
+        stage = '36h';
+        promo = await selecionarPromocao(base44, {
+          contact, thread, stage,
+          eligibilityStatus: eligibility.status
+        });
+      }
 
       if (!promo) {
         resultado.por_status[ELIGIBILITY.NO_ACTIVE_CAMPAIGN] = (resultado.por_status[ELIGIBILITY.NO_ACTIVE_CAMPAIGN] || 0) + 1;
@@ -608,6 +630,9 @@ Deno.serve(async (req) => {
           eligibility_status: eligibility.status,
           eligibility_motivo: eligibility.motivo,
           legitimacy_tier: eligibility.legitimacy_tier || 'unknown',
+          relationship_state: relationshipState,
+          dias_inatividade: diasInatividade,
+          stage_solicitado: stage,
           promo_stage: promo.stage,
           whatsapp_message_id: envio.whatsapp_message_id || null,
           tempo_item_ms: Date.now() - itemTs
