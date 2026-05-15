@@ -455,6 +455,18 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
+    const is429 = error?.status === 429
+      || error?.originalError?.response?.status === 429
+      || /rate limit|429/i.test(error?.message || '');
+    if (is429) {
+      console.warn('[enviarPromocao] ⏸️ Rate limit 429 detectado — sinalizando aos crons para abortar ciclo');
+      return Response.json({
+        success: false,
+        status: 'rate_limited',
+        error: 'Rate limit exceeded',
+        retry_after_ms: 30000
+      }, { status: 429 });
+    }
     console.error('[enviarPromocao] ❌ ERRO GERAL:', error);
     return Response.json({ success: false, status: 'erro', error: error.message }, { status: 500 });
   }

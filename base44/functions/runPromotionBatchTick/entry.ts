@@ -73,6 +73,13 @@ Deno.serve(async (req) => {
           initiated_by: 'cron:runPromotionBatchTick'
         });
 
+        // ABORTAR ciclo se motor sinalizou rate limit (SDK Base44 sob pressão)
+        if (resp?.data?.status === 'rate_limited' || resp?.status === 429) {
+          console.warn('[PROMO-BATCH] ⏸️ Rate limit — abortando ciclo. Próximo cron retoma.');
+          reasons['rate_limited_abort'] = (reasons['rate_limited_abort'] || 0) + 1;
+          break;
+        }
+
         if (resp?.data?.success) {
           sent++;
         } else if (resp?.data?.status === 'bloqueada') {
@@ -83,8 +90,15 @@ Deno.serve(async (req) => {
           reasons['error'] = (reasons['error'] || 0) + 1;
         }
 
-        await new Promise(r => setTimeout(r, 300));
+        // Delay aumentado: 1500ms entre envios (era 300ms) — protege SDK Base44
+        await new Promise(r => setTimeout(r, 1500));
       } catch (e) {
+        const is429 = e?.status === 429 || /rate limit|429/i.test(e?.message || '');
+        if (is429) {
+          console.warn('[PROMO-BATCH] ⏸️ 429 capturado em exceção — abortando ciclo.');
+          reasons['rate_limited_exception'] = (reasons['rate_limited_exception'] || 0) + 1;
+          break;
+        }
         errors++;
         reasons['exception'] = (reasons['exception'] || 0) + 1;
         console.error('[PROMO-BATCH] ❌', e.message);
