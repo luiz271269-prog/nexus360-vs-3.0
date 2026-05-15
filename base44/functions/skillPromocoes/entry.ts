@@ -197,39 +197,62 @@ async function avaliarElegibilidade(base44, { contact, thread, cfg, integracoes 
 
 async function selecionarPublicoUrgentes(base44, cfg) {
   // Contatos urgentes: threads com last_inbound_at entre 48h e 14 dias atrás
-  // e sem resposta humana desde então
+  // E que ainda NÃO foram respondidas (last_outbound_at < last_inbound_at OU sem outbound)
   const agora = new Date();
   const limite48h = new Date(agora.getTime() - 48 * 60 * 60 * 1000).toISOString();
   const limite14d = new Date(agora.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
 
-  const threads = await base44.asServiceRole.entities.MessageThread.filter({
+  // Query mais ampla (sem $exists), filtro fino em memória
+  const brutas = await base44.asServiceRole.entities.MessageThread.filter({
     thread_type: 'contact_external',
     status: 'aberta',
-    last_inbound_at: { $gte: limite14d, $lte: limite48h },
-    contact_id: { $exists: true }
-  }, '-last_inbound_at', cfg.limite_por_execucao).catch(() => []);
+    last_inbound_at: { $gte: limite14d, $lte: limite48h }
+  }, '-last_inbound_at', cfg.limite_por_execucao * 3).catch(() => []);
 
-  console.log(`[SKILL-PROMO] 📋 Urgentes: ${threads.length} threads encontradas`);
+  const threads = brutas.filter(t => {
+    // Precisa ter contato vinculado
+    if (!t.contact_id) return false;
+    // Precisa NÃO ter sido respondida depois do inbound
+    if (t.last_outbound_at && t.last_inbound_at) {
+      if (new Date(t.last_outbound_at) > new Date(t.last_inbound_at)) return false;
+    }
+    return true;
+  }).slice(0, cfg.limite_por_execucao);
+
+  console.log(`[SKILL-PROMO] 📋 Urgentes: ${brutas.length} brutas → ${threads.length} elegíveis (após filtro de resposta)`);
   return threads;
 }
 
 async function selecionarPublicoCustom(base44, listaConfig, cfg) {
   // Lista customizada com filtros configuráveis
+  // Filtros de Contact (tipo, tags) são aplicados em memória após carregar contatos
   const filtros = listaConfig.filtros || {};
-  const query = { thread_type: 'contact_external', status: 'aberta', contact_id: { $exists: true } };
+  const query = { thread_type: 'contact_external', status: 'aberta' };
 
-  if (filtros.tipo_contato?.length > 0) query['contact_tipo'] = { $in: filtros.tipo_contato };
-  if (filtros.tags?.length > 0) query['tags'] = { $in: filtros.tags };
   if (filtros.dias_sem_resposta_min) {
     const limite = new Date(Date.now() - filtros.dias_sem_resposta_min * 24 * 60 * 60 * 1000).toISOString();
     query['last_inbound_at'] = { $lte: limite };
   }
 
-  const threads = await base44.asServiceRole.entities.MessageThread.filter(
-    query, '-last_inbound_at', cfg.limite_por_execucao
+  const brutas = await base44.asServiceRole.entities.MessageThread.filter(
+    query, '-last_inbound_at', cfg.limite_por_execucao * 3
   ).catch(() => []);
 
-  console.log(`[SKILL-PROMO] 📋 Lista "${listaConfig.nome}": ${threads.length} threads encontradas`);
+  // Filtro em memória: tem contact_id + não foi respondida
+  const threads = brutas.filter(t => {
+    if (!t.contact_id) return false;
+    if (t.last_outbound_at && t.last_inbound_at) {
+      if (new Date(t.last_outbound_at) > new Date(t.last_inbound_at)) return false;
+    }
+    return true;
+  }).slice(0, cfg.limite_por_execucao);
+
+  console.log(`[SKILL-PROMO] 📋 Lista "${listaConfig.nome}": ${brutas.length} brutas → ${threads.length} elegíveis`);
+  // Anexa filtros de contato para aplicação posterior no loop principal
+  threads._filtrosContato = {
+    tipo_contato: filtros.tipo_contato || null,
+    tags: filtros.tags || null
+  };
   return threads;
 }
 
@@ -314,7 +337,8 @@ async function processarEnvio(base44, { thread, contact, promo, trigger, campaig
       return {
         ok: true,
         status: 'enviada',
-        message_id: data.message_id || data.whatsapp_message_id || null,
+        message_id: data.message_id || null,                          // ID interno do Message
+        whatsapp_message_id: data.whatsapp_message_id || null,        // ID externo do provedor
         mensagem_enviada: data.mensagem_enviada || null
       };
     }
@@ -430,6 +454,19 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Filtros de Contact aplicados em memória (para listas customizadas)
+      const filtrosContato = threads._filtrosContato;
+      if (filtrosContato) {
+        if (filtrosContato.tipo_contato?.length > 0 && !filtrosContato.tipo_contato.includes(contact.tipo_contato)) {
+          continue;
+        }
+        if (filtrosContato.tags?.length > 0) {
+          const tagsContato = Array.isArray(contact.tags) ? contact.tags : [];
+          const temTag = filtrosContato.tags.some(t => tagsContato.includes(t));
+          if (!temTag) continue;
+        }
+      }
+
       // CAMADA 2: Dry-run de elegibilidade
       const eligibility = await avaliarElegibilidade(base44, { contact, thread, cfg, integracoes });
 
@@ -525,7 +562,7 @@ Deno.serve(async (req) => {
         cfg
       });
 
-      // CAMADA 4: Auditoria
+      // CAMADA 4: Auditoria — message_id (interno) vs whatsapp_message_id (externo, em metadata)
       await gravarDispatchLog(base44, {
         trigger: triggerFinal,
         promotion_id: promo.id,
@@ -546,6 +583,7 @@ Deno.serve(async (req) => {
           eligibility_status: eligibility.status,
           eligibility_motivo: eligibility.motivo,
           promo_stage: promo.stage,
+          whatsapp_message_id: envio.whatsapp_message_id || null,
           tempo_item_ms: Date.now() - itemTs
         }
       });
