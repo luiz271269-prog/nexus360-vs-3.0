@@ -1467,7 +1467,7 @@ export default function Comunicacao() {
 
       const contato = contatosMap.get(thread.contact_id);
 
-      if (permissionsService.isNaoAtribuida(thread) && permissionsService.canUserSeeThreadBase(userPermissions, thread, contato)) {
+      if (permissionsService.isNaoAtribuida(thread, contato) && permissionsService.canUserSeeThreadBase(userPermissions, thread, contato)) {
         setIds.add(thread.id);
       }
     });
