@@ -576,10 +576,10 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // GUARD: buckets frios (reativacao/perdido) DEVEM usar template (compliance Meta 24h)
-      // Mesmo dentro da janela técnica, se há 60d+ sem inbound, exigir template.
-      const buckesQueExigemTemplate = ['reativacao', 'perdido'];
-      const exigeTemplate = buckesQueExigemTemplate.includes(relationshipState)
+      // GUARD: buckets frios (esfriando/reativacao/perdido) DEVEM usar template (compliance Meta 24h)
+      // Regra acordada: 60d+ sem inbound = exigir whatsapp_template_name.
+      const bucketsQueExigemTemplate = ['esfriando', 'reativacao', 'perdido'];
+      const exigeTemplate = bucketsQueExigemTemplate.includes(relationshipState)
         || eligibility.status === ELIGIBILITY.ELIGIBLE_WITH_TEMPLATE;
 
       // Classificação de qualification_type (derivado, custo zero — para análise)
