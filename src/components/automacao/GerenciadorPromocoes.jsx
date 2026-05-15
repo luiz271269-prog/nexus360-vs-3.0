@@ -705,6 +705,22 @@ export default function GerenciadorPromocoes() {
                           Cooldown: {promo.cooldown_hours}h
                         </Badge>
 
+                        {Array.isArray(promo.target_contact_types) && promo.target_contact_types.length > 0 && (
+                          promo.target_contact_types.map(t => (
+                            <Badge key={`type-${t}`} className="bg-indigo-100 text-indigo-800 capitalize">
+                              👤 {t}
+                            </Badge>
+                          ))
+                        )}
+
+                        {Array.isArray(promo.target_tags) && promo.target_tags.length > 0 && (
+                          promo.target_tags.map(tag => (
+                            <Badge key={`tag-${tag}`} className="bg-amber-100 text-amber-800">
+                              🏷️ {tag}
+                            </Badge>
+                          ))
+                        )}
+
                         {promo.whatsapp_template_name && (
                           <Badge className="bg-blue-100 text-blue-800">
                             📋 Template: {promo.whatsapp_template_name}
