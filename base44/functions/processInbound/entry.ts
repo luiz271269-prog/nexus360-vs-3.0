@@ -405,17 +405,45 @@ Deno.serve(async (req) => {
     const preservarVinculo = atendenteNoHistorico && threadAtualizadaRecente;
 
     if (temFidelizado) {
-      console.log(`[${VERSION}] ⚡ NOVO CICLO + FIDELIZADO → preservando atendente, apenas resetando estado`);
+      // ✅ FIX FORENSE: identifica QUAL atendente é o fidelizado e força a thread
+      // para ele se a atribuição atual estiver errada (ex: thread sequestrada
+      // por admin durante envio manual de promoção).
+      const fidelizadoId =
+        contact.atendente_fidelizado_vendas ||
+        contact.atendente_fidelizado_assistencia ||
+        contact.atendente_fidelizado_financeiro ||
+        contact.atendente_fidelizado_fornecedor;
+
+      const setorFidelizado =
+        contact.atendente_fidelizado_vendas ? 'vendas' :
+        contact.atendente_fidelizado_assistencia ? 'assistencia' :
+        contact.atendente_fidelizado_financeiro ? 'financeiro' :
+        contact.atendente_fidelizado_fornecedor ? 'fornecedor' : null;
+
+      const precisaCorrigir = fidelizadoId && thread.assigned_user_id !== fidelizadoId;
+
+      console.log(`[${VERSION}] ⚡ NOVO CICLO + FIDELIZADO → fidelizado=${fidelizadoId}, atual=${thread.assigned_user_id}, corrigir=${precisaCorrigir}`);
+
       try {
-        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        const updateData = {
           pre_atendimento_ativo: false,
           pre_atendimento_state: 'INIT'
-        });
-        thread = { ...thread, pre_atendimento_ativo: false, pre_atendimento_state: 'INIT' };
+        };
+        if (precisaCorrigir) {
+          updateData.assigned_user_id = fidelizadoId;
+          if (setorFidelizado) updateData.sector_id = setorFidelizado;
+          updateData.routing_stage = 'ASSIGNED';
+        }
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, updateData);
+        thread = { ...thread, ...updateData };
       } catch (e) {
         console.warn(`[${VERSION}] ⚠️ Erro ao resetar estado (fidelizado):`, e.message);
       }
-      result.actions.push('thread_reset_new_cycle_fidelizado_preserved');
+      result.actions.push(
+        precisaCorrigir
+          ? 'thread_fixed_new_cycle_fidelizado_reassigned'
+          : 'thread_reset_new_cycle_fidelizado_preserved'
+      );
     } else if (preservarVinculo) {
       console.log(`[${VERSION}] 🔗 NOVO CICLO + atendente no histórico <7d → preservando vínculo, resetando routing_stage para reanálise`);
       try {
