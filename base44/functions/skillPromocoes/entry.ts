@@ -202,6 +202,30 @@ async function avaliarElegibilidade(base44, { contact, thread, cfg, integracoes 
     }
   }
 
+  // P1 — SILENT SUPPRESSION: contato em supressão silenciosa (decidido pelo sistema)
+  if (contact.suppressed_until) {
+    const suppressedUntilMs = new Date(contact.suppressed_until).getTime();
+    if (agora < suppressedUntilMs) {
+      return { status: ELIGIBILITY.BLOCKED_TEMPORARY, motivo: 'silent_suppression' };
+    }
+  }
+
+  // P0 — FADIGA DE CONTATO: streak de promoções ignoradas
+  // Reset implícito: se o contato respondeu DEPOIS da última promo, ignora o streak.
+  const streak = contact.outbound_streak_sem_resposta || 0;
+  const lastInboundMs = thread?.last_inbound_at ? new Date(thread.last_inbound_at).getTime() : 0;
+  const lastAnyPromoMs = lastAny ? new Date(lastAny).getTime() : 0;
+  const respondeuAposUltimaPromo = lastInboundMs > lastAnyPromoMs && lastAnyPromoMs > 0;
+
+  if (!respondeuAposUltimaPromo && streak >= 3) {
+    // Ativa supressão silenciosa: 60 dias sem novas promoções
+    const supressaoAte = new Date(agora + 60 * 24 * 60 * 60 * 1000).toISOString();
+    await base44.asServiceRole.entities.Contact.update(contact.id, {
+      suppressed_until: supressaoAte
+    }).catch(() => null);
+    return { status: ELIGIBILITY.BLOCKED_TEMPORARY, motivo: `fatigue_streak_${streak}_auto_suppressed_60d` };
+  }
+
   // JANELA META 24H + classificação de legitimidade (rótulo derivado, custo zero)
   let horasDesdeInbound = null;
   let legitimacyTier = 'unknown';

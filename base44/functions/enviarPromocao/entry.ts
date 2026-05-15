@@ -390,10 +390,18 @@ Deno.serve(async (req) => {
     const lastIds = Array.isArray(contact.last_promo_ids) ? contact.last_promo_ids : [];
     const nextIds = [promo.id, ...lastIds.filter(id => id !== promo.id)].slice(0, 3);
 
+    // P0 — Fadiga de contato: incrementa streak se cliente NÃO respondeu desde última promo
+    const lastInbound = thread?.last_inbound_at ? new Date(thread.last_inbound_at).getTime() : 0;
+    const lastAnyPromo = contact.last_any_promo_sent_at ? new Date(contact.last_any_promo_sent_at).getTime() : 0;
+    const novoStreak = (lastInbound > lastAnyPromo && lastAnyPromo > 0)
+      ? 1  // cliente respondeu antes desta promo → reseta streak para 1 (esta é a 1ª da nova rodada)
+      : (contact.outbound_streak_sem_resposta || 0) + 1;
+
     const updates = [
       base44.asServiceRole.entities.Contact.update(contact.id, {
         last_any_promo_sent_at: now.toISOString(),
         last_promo_ids: nextIds,
+        outbound_streak_sem_resposta: novoStreak,
         ...(trigger === 'inbound_6h' && { last_promo_inbound_at: now.toISOString() }),
         ...(trigger === 'batch_36h' && { last_promo_batch_at: now.toISOString() }),
         promocoes_recebidas: {
