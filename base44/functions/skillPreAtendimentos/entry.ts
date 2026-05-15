@@ -820,20 +820,25 @@ Deno.serve(async (req) => {
         });
         // Horário comercial: humano realmente está ativo → notify only, return
         console.log(`[SKILL-PRE-ATEND] 👤 Camada 2: humano ativo + horário comercial — notify only`);
-        try {
-          await base44.asServiceRole.entities.NotificationEvent.create({
-            tipo: 'mensagem_cliente_humano_ativo',
-            titulo: `Nova mensagem de ${contactInicial?.nome || 'contato'}`,
-            mensagem: `Mensagem recebida com atendente humano ativo. Atendente: ${threadInicial?.assigned_user_id || '?'}`,
-            prioridade: 'media',
-            metadata: {
-              thread_id, contact_id, message_id,
-              assigned_user_id: threadInicial?.assigned_user_id,
-              sector_id: threadInicial?.sector_id,
-              origem: 'skill_camada_2'
-            }
-          }).catch(() => {});
-        } catch (_) { /* silencioso */ }
+        if (threadInicial?.assigned_user_id) {
+          try {
+            await base44.asServiceRole.entities.NotificationEvent.create({
+              tipo: 'mensagem_nao_lida',
+              titulo: `Nova mensagem de ${contactInicial?.nome || 'contato'}`,
+              mensagem: `Mensagem recebida com atendente humano ativo.`,
+              prioridade: 'normal',
+              usuario_id: threadInicial.assigned_user_id,
+              entidade_relacionada: 'MessageThread',
+              entidade_id: thread_id,
+              origem: 'skill_camada_2_humano_ativo',
+              metadata: {
+                thread_id, contact_id, message_id,
+                sector_id: threadInicial?.sector_id,
+                origem: 'skill_camada_2'
+              }
+            }).catch(() => {});
+          } catch (_) { /* silencioso */ }
+        }
 
         await liberarEstadoThread(base44, threadInicial, 'early_return_camada2_humano_ativo');
         marcarFimCamada(2, 'skipped', { reason: 'human_active_observed' });
@@ -860,20 +865,25 @@ Deno.serve(async (req) => {
           reason: 'assigned_thread_useful_intent'
         });
         console.log(`[SKILL-PRE-ATEND] 🔔 Camada 2: thread contextualizada sem micro-intent + horário comercial — notify only`);
-        try {
-          await base44.asServiceRole.entities.NotificationEvent.create({
-            tipo: 'mensagem_cliente_contextualizada',
-            titulo: `Nova mensagem de ${contactInicial?.nome || 'contato'}`,
-            mensagem: `Mensagem recebida em thread já atribuída. Atendente: ${threadInicial?.assigned_user_id || '?'}`,
-            prioridade: 'media',
-            metadata: {
-              thread_id, contact_id, message_id,
-              assigned_user_id: threadInicial?.assigned_user_id,
-              sector_id: context.sector_id,
-              origem: 'skill_camada_2'
-            }
-          }).catch(() => {});
-        } catch (_) { /* silencioso */ }
+        if (threadInicial?.assigned_user_id) {
+          try {
+            await base44.asServiceRole.entities.NotificationEvent.create({
+              tipo: 'mensagem_nao_lida',
+              titulo: `Nova mensagem de ${contactInicial?.nome || 'contato'}`,
+              mensagem: `Mensagem recebida em thread já atribuída.`,
+              prioridade: 'normal',
+              usuario_id: threadInicial.assigned_user_id,
+              entidade_relacionada: 'MessageThread',
+              entidade_id: thread_id,
+              origem: 'skill_camada_2_contextualizada',
+              metadata: {
+                thread_id, contact_id, message_id,
+                sector_id: context.sector_id,
+                origem: 'skill_camada_2'
+              }
+            }).catch(() => {});
+          } catch (_) { /* silencioso */ }
+        }
 
         await liberarEstadoThread(base44, threadInicial, 'early_return_camada2_thread_contextualizada');
         marcarFimCamada(2, 'skipped', { reason: 'context_notify_only' });
