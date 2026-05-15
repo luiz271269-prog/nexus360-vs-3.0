@@ -23,7 +23,14 @@ import { isNaoAtribuida } from "../lib/threadVisibility";
  * 2️⃣ Breakdown por setor
  * 3️⃣ Breakdown por integração
  */
-export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], usuario = null, onClickVerFila, onClickConexao, className = "", variant = "header" }) {
+export default function ContadorNaoAtribuidas({ threads = [], contatos = [], integracoes = [], usuario = null, onClickVerFila, onClickConexao, className = "", variant = "header" }) {
+  // Mapa de contatos para checagem de fidelização (mesma regra do Kanban + skillNaoAtribuidas)
+  const contatosMap = useMemo(() => {
+    const map = {};
+    (contatos || []).forEach(c => { if (c?.id) map[c.id] = c; });
+    return map;
+  }, [contatos]);
+
   // ✅ CIRÚRGICA: CALCULAR LOCALMENTE - APENAS threads EXTERNAS não atribuídas
   const dados = useMemo(() => {
     if (!threads.length || !usuario) {
@@ -42,7 +49,7 @@ export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], 
       if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') {
         return false;
       }
-      return isNaoAtribuida(t);
+      return isNaoAtribuida(t, contatosMap[t.contact_id]);
     });
 
     // Breakdown por setor
@@ -73,7 +80,7 @@ export default function ContadorNaoAtribuidas({ threads = [], integracoes = [], 
       por_setor: Object.values(porSetorMap),
       por_integracao: Object.values(porIntegracaoMap)
     };
-  }, [threads, usuario]);
+  }, [threads, usuario, contatosMap]);
 
   // Obter nome amigável da integração
   const getNomeIntegracao = (integrationId) => {

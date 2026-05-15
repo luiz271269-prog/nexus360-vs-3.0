@@ -43,10 +43,10 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], con
     return mapa;
   }, [contatos]);
 
-  // ✅ FONTE ÚNICA: usa isNaoAtribuida do threadVisibility (mesma do contador da barra)
+  // ✅ FONTE ÚNICA: passa o contato para checar fidelização (mesma regra da skillNaoAtribuidas)
   const naoAtribuidasBase = useMemo(() => {
     return threads
-      .filter(t => isNaoAtribuida(t))
+      .filter(t => isNaoAtribuida(t, contatosMap[t.contact_id]))
       .map(t => ({ ...t, contato: contatosMap[t.contact_id] || null }));
   }, [threads, contatosMap]);
 
