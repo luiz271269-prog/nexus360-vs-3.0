@@ -66,6 +66,7 @@ import {
 import { getUserDisplayName } from "../lib/userHelpers";
 import UsuarioDisplay from "./UsuarioDisplay";
 import { canUserSeeThreadBase } from "../lib/threadVisibility";
+import { isThreadRealmenteNaoAtribuida } from "../lib/naoAtribuidasFilter";
 import { decidirVisibilidade } from "@/components/lib/decisionEngine";
 import MensagemReativacaoRapida from './MensagemReativacaoRapida';
 
@@ -471,14 +472,13 @@ export default function ChatSidebar({
           {/* ✅ BOTÕES AÇÃO - Não Atribuídos + Contatos Parados */}
            <div className="grid grid-cols-2 gap-1">
              {onOpenKanbanNaoAtribuidos && (() => {
-               // ✅ CORRIGIDO: excluir threads internas do count
-               const naoAtribuidos = threads?.filter(t => 
-                 !t.assigned_user_id && 
-                 t.contact_id && 
-                 !t.is_contact_only &&
-                 t.thread_type !== 'team_internal' && 
-                 t.thread_type !== 'sector_group'
-               ).length || 0;
+               // ✅ FONTE ÚNICA: mesma regra do Kanban + skillNaoAtribuidas
+               // (fidelização + janela 3d + cliente voltou após atendimento)
+               const contatosPorId = {};
+               (contatos || []).forEach(c => { if (c?.id) contatosPorId[c.id] = c; });
+               const naoAtribuidos = (threads || []).filter(t =>
+                 isThreadRealmenteNaoAtribuida(t, contatosPorId[t.contact_id])
+               ).length;
                return (
                  <Button
                    onClick={() => onOpenKanbanNaoAtribuidos()}
