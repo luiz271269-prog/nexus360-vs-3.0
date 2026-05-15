@@ -150,7 +150,22 @@ async function avaliarElegibilidade(base44, { contact, thread, cfg, integracoes 
       if (['erro_conexao', 'token_invalido'].includes(integ.status)) {
         return { status: ELIGIBILITY.BLOCKED_TEMPORARY, motivo: 'integration_paused_' + integ.status };
       }
+      // SAÚDE DE INTEGRAÇÃO: proporção outbound/inbound desbalanceada (sinal de spam para Meta)
+      const stats = integ.estatisticas || {};
+      const out = stats.total_mensagens_enviadas || 0;
+      const inb = stats.total_mensagens_recebidas || 0;
+      if (out > 500 && inb > 0 && (out / inb) > 5) {
+        return { status: ELIGIBILITY.BLOCKED_TEMPORARY, motivo: 'integration_outbound_ratio_high' };
+      }
     }
+  }
+
+  // RECIPROCIDADE HISTÓRICA: bloqueia base totalmente fria sem histórico de relação
+  // (contato com 0 mensagens trocadas E não-cliente conhecido)
+  const totalMsgs = thread?.total_mensagens || 0;
+  const tipoConhecido = ['cliente', 'lead'].includes(contact.tipo_contato);
+  if (totalMsgs < 2 && !tipoConhecido) {
+    return { status: ELIGIBILITY.NEEDS_HUMAN_REVIEW, motivo: 'no_reciprocity_history' };
   }
 
   // REVISÃO HUMANA: atendente humano ativo na conversa
@@ -178,16 +193,26 @@ async function avaliarElegibilidade(base44, { contact, thread, cfg, integracoes 
     }
   }
 
-  // JANELA META 24H: verifica último inbound
+  // JANELA META 24H + classificação de legitimidade (rótulo derivado, custo zero)
+  let horasDesdeInbound = null;
+  let legitimacyTier = 'unknown';
   if (thread?.last_inbound_at) {
-    const horasDesdeInbound = (agora - new Date(thread.last_inbound_at).getTime()) / (60 * 60 * 1000);
+    horasDesdeInbound = (agora - new Date(thread.last_inbound_at).getTime()) / (60 * 60 * 1000);
+    if (horasDesdeInbound <= 24) legitimacyTier = 'contextual_window';
+    else if (horasDesdeInbound <= 168) legitimacyTier = 'recent_followup';      // até 7d
+    else if (horasDesdeInbound <= 336) legitimacyTier = 'warm_reactivation';     // até 14d
+    else legitimacyTier = 'cold_reactivation';
+
     if (horasDesdeInbound > cfg.janela_meta_horas) {
-      // Fora da janela de 24h → só pode com template
-      return { status: ELIGIBILITY.ELIGIBLE_WITH_TEMPLATE, motivo: 'window_expired_' + Math.round(horasDesdeInbound) + 'h' };
+      return {
+        status: ELIGIBILITY.ELIGIBLE_WITH_TEMPLATE,
+        motivo: 'window_expired_' + Math.round(horasDesdeInbound) + 'h',
+        legitimacy_tier: legitimacyTier
+      };
     }
   }
 
-  return { status: ELIGIBILITY.ELIGIBLE_NOW, motivo: 'all_checks_passed' };
+  return { status: ELIGIBILITY.ELIGIBLE_NOW, motivo: 'all_checks_passed', legitimacy_tier: legitimacyTier };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -582,6 +607,7 @@ Deno.serve(async (req) => {
         metadata: {
           eligibility_status: eligibility.status,
           eligibility_motivo: eligibility.motivo,
+          legitimacy_tier: eligibility.legitimacy_tier || 'unknown',
           promo_stage: promo.stage,
           whatsapp_message_id: envio.whatsapp_message_id || null,
           tempo_item_ms: Date.now() - itemTs
