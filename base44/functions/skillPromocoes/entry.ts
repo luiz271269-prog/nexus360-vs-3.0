@@ -68,6 +68,15 @@ async function carregarConfig(base44) {
     // Limites por lote
     limite_por_execucao: 50,
     delay_entre_envios_ms: (c?.delay_min_segundos ?? 4) * 1000,
+    // Limites por bucket de inatividade (pacing por temperatura)
+    // Buckets mais frios = volume menor por execução (mais risco com Meta)
+    limite_por_bucket: {
+      ativo: 50,        // ≤7d  — janela quente
+      morno: 30,        // ≤30d — ainda contextual
+      esfriando: 15,    // ≤60d — reativação inicial
+      reativacao: 8,    // ≤90d — reativação forte (precisa template)
+      perdido: 3,       // >90d — muito frio, mínimo
+    },
     // Meta / WhatsApp
     janela_meta_horas: 24,
   };
@@ -458,12 +467,16 @@ Deno.serve(async (req) => {
       dry_run,
       total_encontrados: threads.length,
       por_status: {},
+      por_bucket: { ativo: 0, morno: 0, esfriando: 0, reativacao: 0, perdido: 0, unknown: 0 },
       enviados: 0,
       bloqueados: 0,
       erros: 0,
       detalhes: [],
       tempo_ms: 0
     };
+
+    // Contadores de envios por bucket (controle de pacing por temperatura)
+    const enviadosPorBucket = { ativo: 0, morno: 0, esfriando: 0, reativacao: 0, perdido: 0, unknown: 0 };
 
     for (const thread of threads) {
       const itemTs = Date.now();
@@ -547,12 +560,41 @@ Deno.serve(async (req) => {
         else if (diasInatividade <= 90) { relationshipState = 'reativacao'; stageDerivado = '90d'; }
         else { relationshipState = 'perdido'; stageDerivado = '120d'; }
       }
+      resultado.por_bucket[relationshipState] = (resultado.por_bucket[relationshipState] || 0) + 1;
+
+      // GUARD: limite por bucket de inatividade (pacing por temperatura — proteção Meta)
+      const limiteBucket = cfg.limite_por_bucket?.[relationshipState] ?? cfg.limite_por_execucao;
+      if (enviadosPorBucket[relationshipState] >= limiteBucket) {
+        resultado.bloqueados++;
+        resultado.detalhes.push({
+          contact_id: contact.id,
+          nome: contact.nome,
+          status: 'bloqueada',
+          motivo: `bucket_limit_reached_${relationshipState}_${limiteBucket}`,
+          bucket: relationshipState
+        });
+        continue;
+      }
+
+      // GUARD: buckets frios (reativacao/perdido) DEVEM usar template (compliance Meta 24h)
+      // Mesmo dentro da janela técnica, se há 60d+ sem inbound, exigir template.
+      const buckesQueExigemTemplate = ['reativacao', 'perdido'];
+      const exigeTemplate = buckesQueExigemTemplate.includes(relationshipState)
+        || eligibility.status === ELIGIBILITY.ELIGIBLE_WITH_TEMPLATE;
+
+      // Classificação de qualification_type (derivado, custo zero — para análise)
+      let qualificationType = 'unknown';
+      if (contact.tipo_contato === 'lead') qualificationType = 'lead_qualificacao';
+      else if (contact.tipo_contato === 'cliente') qualificationType = 'cliente_reativacao';
+      else if (contact.tipo_contato === 'eventual') qualificationType = 'oportunidade_followup';
 
       // Selecionar promoção: stage explícito da listaConfig > stage derivado > fallback 36h
       let stage = lista_config?.stage || stageDerivado || (lista_tipo === 'urgentes' ? '36h' : null);
+      // Se exige template, força o motor a só aceitar promoções com whatsapp_template_name
+      const eligStatusParaSelecao = exigeTemplate ? ELIGIBILITY.ELIGIBLE_WITH_TEMPLATE : eligibility.status;
       let promo = await selecionarPromocao(base44, {
         contact, thread, stage,
-        eligibilityStatus: eligibility.status
+        eligibilityStatus: eligStatusParaSelecao
       });
 
       // Fallback: se não encontrou promoção para o stage derivado, tenta '36h' (genérico)
@@ -560,7 +602,7 @@ Deno.serve(async (req) => {
         stage = '36h';
         promo = await selecionarPromocao(base44, {
           contact, thread, stage,
-          eligibilityStatus: eligibility.status
+          eligibilityStatus: eligStatusParaSelecao
         });
       }
 
@@ -634,6 +676,11 @@ Deno.serve(async (req) => {
           dias_inatividade: diasInatividade,
           stage_solicitado: stage,
           promo_stage: promo.stage,
+          // Camada conversacional (3 rótulos derivados, custo zero)
+          strategy_type: 'reactivation',
+          qualification_type: qualificationType,
+          bucket_inactive: relationshipState,
+          forced_template: exigeTemplate,
           whatsapp_message_id: envio.whatsapp_message_id || null,
           tempo_item_ms: Date.now() - itemTs
         }
@@ -641,11 +688,14 @@ Deno.serve(async (req) => {
 
       if (envio.ok) {
         resultado.enviados++;
+        enviadosPorBucket[relationshipState] = (enviadosPorBucket[relationshipState] || 0) + 1;
         resultado.detalhes.push({
           contact_id: contact.id,
           nome: contact.nome,
           status: 'enviada',
           promo: promo.titulo,
+          bucket: relationshipState,
+          qualification_type: qualificationType,
           message_id: envio.message_id
         });
       } else {
