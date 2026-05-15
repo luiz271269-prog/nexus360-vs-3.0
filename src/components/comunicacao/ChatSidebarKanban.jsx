@@ -17,6 +17,7 @@ import AgendaIAUnificada from "./AgendaIAUnificada";
 import { useEtiquetasContato } from "./SeletorEtiquetasContato";
 import AtribuidorAtendenteRapido from "./AtribuidorAtendenteRapido";
 import { getAtendenteFidelizadoAtualizado } from "../lib/userMatcher";
+import { isThreadRealmenteNaoAtribuida } from "../lib/naoAtribuidasFilter";
 import { toast } from "sonner";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -187,6 +188,7 @@ export default function ChatSidebarKanban({
   onOpenKanbanNaoAtribuidos,
   onOpenKanbanRequerAtencao,
   onSelectInternalDestinations,
+  contatos = [], // ✅ SSOT: precisa para checar fidelização nas regras de "não atribuída"
   // Props do modo lista (passadas de Comunicacao)
   sidebarViewMode,
   onSidebarViewModeChange,
@@ -195,6 +197,12 @@ export default function ChatSidebarKanban({
   contatosSelecionados = [],
   setContatosSelecionados,
 }) {
+  // ✅ SSOT: Mapa de contatos para checagem de fidelização
+  const contatosMap = React.useMemo(() => {
+    const map = {};
+    (contatos || []).forEach(c => { if (c?.id) map[c.id] = c; });
+    return map;
+  }, [contatos]);
   // ── Helpers de seleção em massa (compartilhados entre todos os modos kanban) ──
   const idsSelecionados = React.useMemo(
     () => new Set((contatosSelecionados || []).map(c => c.contact_id || c.id)),
@@ -336,6 +344,9 @@ export default function ChatSidebarKanban({
     externasKanban.forEach(thread => {
       const uid = thread.assigned_user_id;
       if (!uid) {
+        // ✅ SSOT: só entra em "Não Atribuídas" se passar na regra única
+        // (exclui fidelizados + atendidos <3d + outbound puro)
+        if (!isThreadRealmenteNaoAtribuida(thread, contatosMap[thread.contact_id])) return;
         if (!mapa['__sem_atendente__'].threads.find(t => t.id === thread.id))
           mapa['__sem_atendente__'].threads.push(thread);
         return;
@@ -358,7 +369,7 @@ export default function ChatSidebarKanban({
       const idxB = atendentes.findIndex(at => at.id === b.id);
       return (idxA === -1 ? 9999 : idxA) - (idxB === -1 ? 9999 : idxB);
     }).filter(c => c.isSemAtendente || c.threads.length > 0);
-  }, [externasKanban, usuarioAtual, atendentes, isAdmin, isGerente]);
+  }, [externasKanban, usuarioAtual, atendentes, isAdmin, isGerente, contatosMap]);
 
   // ── VISUALIZAÇÃO 3: Por instância/canal ─────────────────────────────────
   const integracoesVisiveis = React.useMemo(() => {
@@ -549,9 +560,10 @@ export default function ChatSidebarKanban({
   });
 
   const renderModoNaoAtribuidos = () => {
-    const naoAtribuidas = externasKanban.filter(t =>
-      !t.assigned_user_id && t.contact_id && !t.is_contact_only
-    ).sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
+    // ✅ SSOT: usa a regra única (fidelização + janela 3d + outbound puro)
+    const naoAtribuidas = externasKanban
+      .filter(t => isThreadRealmenteNaoAtribuida(t, contatosMap[t.contact_id]))
+      .sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
 
     return (
       <div className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 border-red-400 overflow-hidden shadow-md">
