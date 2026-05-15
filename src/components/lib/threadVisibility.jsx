@@ -18,9 +18,10 @@
  */
 
 import { usuarioCorresponde, contatoFidelizadoAoUsuario } from './userMatcher';
-import { isThreadRealmenteNaoAtribuida as isNaoAtribuida } from './naoAtribuidasFilter';
+import { isThreadRealmenteNaoAtribuida } from './naoAtribuidasFilter';
 
-export { isNaoAtribuida };
+// ✅ Alias local + re-export explícito (compatível com HMR/Vite)
+export const isNaoAtribuida = isThreadRealmenteNaoAtribuida;
 
 const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
 

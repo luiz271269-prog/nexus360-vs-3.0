@@ -11,8 +11,8 @@
  */
 
 // ✅ Re-exporta da fonte única (mesma regra do contador e do kanban)
-import { isThreadRealmenteNaoAtribuida as isNaoAtribuida } from './naoAtribuidasFilter';
-export { isNaoAtribuida };
+import { isThreadRealmenteNaoAtribuida } from './naoAtribuidasFilter';
+export const isNaoAtribuida = isThreadRealmenteNaoAtribuida;
 
 // ═══════════════════════════════════════════════════════════════
 // PRESETS DE BLOQUEIOS POR PERFIL
