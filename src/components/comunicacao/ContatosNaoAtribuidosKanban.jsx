@@ -43,39 +43,11 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], con
     return mapa;
   }, [contatos]);
 
-  // Filtrar APENAS threads externas REALMENTE não atribuídas
-  // Análise forense identificou ~70% de falsos positivos: threads que JÁ FORAM atendidas
-  // (atendentes_historico preenchido) e o cliente apenas encerrou ("ok, obrigado").
-  // Regra correta: só é "não atribuída" quando o cliente está REALMENTE aguardando.
+  // ✅ FONTE ÚNICA: usa isNaoAtribuida do threadVisibility (mesma do contador da barra)
   const naoAtribuidasBase = useMemo(() => {
-    return threads.filter(t => {
-      // Excluir threads internas
-      if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group' || !t.contact_id) {
-        return false;
-      }
-      // Excluir threads com atendente atribuído
-      if (t.assigned_user_id) return false;
-
-      // Excluir threads de outbound puro (massa/promoção) sem inbound real
-      if (!t.last_inbound_at) return false;
-
-      const lastInboundMs = new Date(t.last_inbound_at).getTime();
-      const lastHumanMs = t.last_human_message_at ? new Date(t.last_human_message_at).getTime() : 0;
-      const jaTeveAtendente = Array.isArray(t.atendentes_historico) && t.atendentes_historico.length > 0;
-
-      // CASO A: nunca foi atendida → mostrar
-      if (!jaTeveAtendente && !lastHumanMs) return true;
-
-      // CASO B: já foi atendida, mas cliente enviou mensagem DEPOIS do último atendimento humano → mostrar
-      // (cliente voltou e ninguém respondeu ainda)
-      if (lastHumanMs > 0 && lastInboundMs > lastHumanMs) return true;
-
-      // CASO C: já foi atendida e cliente NÃO voltou após resposta → conversa encerrada, esconder
-      return false;
-    }).map(t => ({
-      ...t,
-      contato: contatosMap[t.contact_id] || null
-    }));
+    return threads
+      .filter(t => isNaoAtribuida(t))
+      .map(t => ({ ...t, contato: contatosMap[t.contact_id] || null }));
   }, [threads, contatosMap]);
 
   // Aplicar filtro de etiquetas

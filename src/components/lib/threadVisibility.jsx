@@ -18,6 +18,9 @@
  */
 
 import { usuarioCorresponde, contatoFidelizadoAoUsuario } from './userMatcher';
+import { isThreadRealmenteNaoAtribuida as isNaoAtribuida } from './naoAtribuidasFilter';
+
+export { isNaoAtribuida };
 
 const normalizar = (v) => (v ? String(v).trim().toLowerCase() : '');
 
@@ -211,17 +214,18 @@ export const isFidelizadoAoUsuario = (usuario, contato) => {
 };
 
 /**
- * Verifica se a thread não está atribuída a ninguém
- * ✅ THREADS INTERNAS NUNCA SÃO "NÃO ATRIBUÍDAS" (já têm participants)
+ * Verificação TÉCNICA: thread sem campo assigned_user_id.
+ * Use para: permissão de interação, fluxos de auto-atribuição.
+ * ⚠️ Não confunda com isNaoAtribuida (regra de negócio).
  */
-export const isNaoAtribuida = (thread) => {
-  // Threads internas não usam assigned_user_id (usam participants)
+export const isThreadSemAtribuicao = (thread) => {
   if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
     return false;
   }
-  
   return !thread.assigned_user_id && !thread.assigned_user_name && !thread.assigned_user_email;
 };
+
+// ✅ isNaoAtribuida agora vem de naoAtribuidasFilter (import + re-export no topo do arquivo)
 
 /**
  * Verifica se o usuário já participou desta thread em algum momento.
@@ -706,7 +710,7 @@ export const verificarBloqueioThread = (usuario, thread, contato = null) => {
   // ═══════════════════════════════════════════════════════════════════════════════
   // PRIORIDADE 3: Thread NÃO ATRIBUÍDA → verificar permissões de integração/setor
   // ═══════════════════════════════════════════════════════════════════════════════
-  const naoAtribuida = isNaoAtribuida(thread);
+  const naoAtribuida = isThreadSemAtribuicao(thread);
   if (naoAtribuida) {
     // Verificar permissões básicas antes de permitir
     if (!temPermissaoIntegracao(usuario, thread.whatsapp_integration_id)) {
@@ -812,7 +816,7 @@ export const podeInteragirNaThread = (usuario, thread, contato = null) => {
   }
   
   // PRIORIDADE 4: Thread NÃO ATRIBUÍDA → pode interagir (auto-atribui)
-  if (isNaoAtribuida(thread)) {
+  if (isThreadSemAtribuicao(thread)) {
     return true;
   }
   

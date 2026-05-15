@@ -10,6 +10,10 @@
  * Ele é a infraestrutura NOVA que será migrada gradualmente.
  */
 
+// ✅ Re-exporta da fonte única (mesma regra do contador e do kanban)
+import { isThreadRealmenteNaoAtribuida as isNaoAtribuida } from './naoAtribuidasFilter';
+export { isNaoAtribuida };
+
 // ═══════════════════════════════════════════════════════════════
 // PRESETS DE BLOQUEIOS POR PERFIL
 // ═══════════════════════════════════════════════════════════════
@@ -488,10 +492,6 @@ export function isFidelizadoAoUsuario(userPermissions, contact) {
   if (!campoFidelizacao) return false;
   
   return contact[campoFidelizacao] === userPermissions.email;
-}
-
-export function isNaoAtribuida(thread) {
-  return !thread?.assigned_user_id;
 }
 
 export function getSectorFromThreadOrTags(thread) {
