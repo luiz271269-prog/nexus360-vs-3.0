@@ -533,6 +533,9 @@ async function gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio
   }
 }
 
+// Patch 3 helper — log fire-and-forget compacto p/ fallthroughs Camada 4
+const logC4 = (b, t, c, e, d) => b.asServiceRole.entities.AutomationLog.create({ thread_id: t, contato_id: c, acao: 'outro', resultado: d.erro ? 'erro' : 'ignorado', origem: 'sistema', timestamp: new Date().toISOString(), detalhes: { mensagem: d.mensagem || e, dados_contexto: { ...d, camada: '4-micro' } }, metadata: { event_type: e, ...d, camada: '4-micro' } }).catch(() => {});
+
 async function registrarEventoPreAtendimento(base44, thread_id, contact_id, event_type, details = {}) {
   try {
     await base44.asServiceRole.entities.AutomationLog.create({
@@ -1055,6 +1058,10 @@ Deno.serve(async (req) => {
           console.log('[CAMADA-0-MICRO] ⏭️ Confirmação sem atendente — segue fluxo normal');
         }
 
+        // Patch 3: log saudação/agradecimento SEM atendente (fallthrough antes oculto)
+        if ((microIntent.tipo === 'saudacao_pura' || microIntent.tipo === 'agradecimento') && !thread?.assigned_user_id) {
+          await logC4(base44, thread_id, contact_id, 'micro_intent_saudacao_sem_atendente', { tipo: microIntent.tipo, action: 'fallthrough_sem_atendente', texto: microIntent.texto.substring(0, 80) });
+        }
         // Saudação/agradecimento COM atendente atribuído → responde no estilo
         if ((microIntent.tipo === 'saudacao_pura' || microIntent.tipo === 'agradecimento') && thread?.assigned_user_id) {
           const [contactData, integData, styleProfile] = await Promise.all([
@@ -1105,6 +1112,7 @@ Deno.serve(async (req) => {
               }
 
               const { ok, msgId } = await enviarWhatsApp(integData, contactData.telefone, msg);
+              if (!ok) await logC4(base44, thread_id, contact_id, 'micro_intent_envio_falhou', { tipo: microIntent.tipo, integration_id: integData.id, action: 'send_failed', erro: true });
               if (ok) {
                 await base44.asServiceRole.entities.Message.create({
                   thread_id, sender_id: thread.assigned_user_id, sender_type: 'user',
@@ -1197,9 +1205,9 @@ Deno.serve(async (req) => {
       }
       marcarFimCamada(4, 'error', { error: e.message });
     }
-    // Camada 4 não disparou nenhum micro-intent — segue fluxo
+    // Camada 4 sem micro-intent — segue fluxo (Patch 3: texto_len p/ queries)
     if (resultado.telemetria.camada_4 && resultado.telemetria.camada_4.status === 'not_executed') {
-      marcarFimCamada(4, 'skipped', { reason: 'nenhum_micro_intent' });
+      marcarFimCamada(4, 'skipped', { reason: 'nenhum_micro_intent', texto_len: (message_content || thread?.last_message_content || '').trim().length, fallthrough: true });
     }
 
     // ═══════════════════════════════════════════════════════════════════
