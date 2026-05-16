@@ -1058,18 +1058,7 @@ Deno.serve(async (req) => {
               }, '-created_date', 1).catch(() => []);
 
               if (respRecente.length > 0) {
-                await base44.asServiceRole.entities.AutomationLog.create({
-                  thread_id, contato_id: contact_id,
-                  acao: `micro_intent_cooldown_skip`,
-                  resultado: 'ignorado',
-                  origem: 'sistema',
-                  timestamp: new Date().toISOString(),
-                  detalhes: {
-                    mensagem: `Cooldown 2min ativo — ${microIntent.tipo} ignorado`,
-                    dados_contexto: { tipo: microIntent.tipo, camada: '0-micro', action: 'cooldown_skip_2min', ultima_resp_id: respRecente[0].id }
-                  },
-                  metadata: { tipo: microIntent.tipo, camada: '0-micro', action: 'cooldown_skip_2min', ultima_resp_id: respRecente[0].id }
-                }).catch(e => console.error('[CAMADA-0-MICRO] log cooldown falhou:', e.message));
+                await logC4(base44, thread_id, contact_id, 'micro_intent_cooldown_skip', { mensagem: `Cooldown 2min ativo — ${microIntent.tipo} ignorado`, tipo: microIntent.tipo, action: 'cooldown_skip_2min', ultima_resp_id: respRecente[0].id });
                 console.log('[CAMADA-0-MICRO] ⏭️ Cooldown 2min ativo — skip');
                 resultado.camadas.dedup.micro_intent = { tipo: microIntent.tipo, action: 'cooldown_skip' };
                 await liberarEstadoThread(base44, thread, 'early_return_camada4_micro_intent_cooldown');
