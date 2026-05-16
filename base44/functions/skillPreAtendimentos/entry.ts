@@ -534,7 +534,9 @@ async function gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio
 }
 
 // Patch 3 helper — log fire-and-forget compacto p/ fallthroughs Camada 4
-const logC4 = (b, t, c, e, d) => b.asServiceRole.entities.AutomationLog.create({ thread_id: t, contato_id: c, acao: 'outro', resultado: d.erro ? 'erro' : 'ignorado', origem: 'sistema', timestamp: new Date().toISOString(), detalhes: { mensagem: d.mensagem || e, dados_contexto: { ...d, camada: '4-micro' } }, metadata: { event_type: e, ...d, camada: '4-micro' } }).catch(() => {});
+// d.acao e d.resultado são opcionais; se ausentes usa defaults seguros.
+// d.camada também é opcional (default '4-micro' por compatibilidade retroativa).
+const logC4 = (b, t, c, e, d) => b.asServiceRole.entities.AutomationLog.create({ thread_id: t, contato_id: c, acao: d.acao || 'outro', resultado: d.resultado || (d.erro ? 'erro' : 'ignorado'), origem: 'sistema', timestamp: new Date().toISOString(), detalhes: { mensagem: d.mensagem || e, dados_contexto: { ...d, camada: d.camada || '4-micro' } }, metadata: { event_type: e, ...d, camada: d.camada || '4-micro' } }).catch(() => {});
 
 async function registrarEventoPreAtendimento(base44, thread_id, contact_id, event_type, details = {}) {
   try {
