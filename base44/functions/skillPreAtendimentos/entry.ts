@@ -506,30 +506,27 @@ const STATUS_FINAIS_VALIDOS = [
 
 async function gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, status) {
   try {
+    // Sprint 1 — sumário plano por camada em metadata para queries rápidas.
+    // Ex: AutomationLog.filter({ 'metadata.camada_4_status': 'ok' })
+    const sum = {};
+    const tele = resultado.telemetria || {};
+    const flatKeys = ['status', 'duration_ms', 'reason', 'error', 'branch', 'to', 'atendente_id', 'motivo', 'micro_intent_tipo', 'setor', 'tipo', 'regra', 'acao'];
+    for (const k of Object.keys(tele)) {
+      const c = tele[k] || {};
+      for (const f of flatKeys) {
+        if (c[f] !== undefined && c[f] !== null) sum[`${k}_${f}`] = typeof c[f] === 'string' ? c[f].substring(0, 200) : c[f];
+      }
+    }
     await base44.asServiceRole.entities.AutomationLog.create({
-      thread_id,
-      contato_id: contact_id,
-      acao: 'outro',
+      thread_id, contato_id: contact_id, acao: 'outro',
       resultado: STATUS_FINAIS_VALIDOS.includes(status) ? 'sucesso' : 'erro',
-      origem: 'sistema',
-      timestamp: new Date().toISOString(),
+      origem: 'sistema', timestamp: new Date().toISOString(),
       detalhes: {
         tempo_execucao_ms: Date.now() - tsInicio,
         mensagem: `Pipeline finalizado: ${status}`,
-        dados_contexto: {
-          event_type: 'pipeline_primeiro_atendimento',
-          camadas: resultado.camadas,
-          telemetria: resultado.telemetria || {},
-          status_final: status
-        }
+        dados_contexto: { event_type: 'pipeline_primeiro_atendimento', camadas: resultado.camadas, telemetria: tele, status_final: status }
       },
-      metadata: {
-        event_type: 'pipeline_primeiro_atendimento',
-        camadas: resultado.camadas,
-        telemetria: resultado.telemetria || {},
-        status_final: status,
-        tempo_execucao_ms: Date.now() - tsInicio
-      }
+      metadata: { event_type: 'pipeline_primeiro_atendimento', camadas: resultado.camadas, telemetria: tele, status_final: status, tempo_execucao_ms: Date.now() - tsInicio, ...sum }
     });
   } catch (e) {
     console.error('[SKILL-PRE-ATEND] 🔴 Falha ao gravar log final:', e.message);
