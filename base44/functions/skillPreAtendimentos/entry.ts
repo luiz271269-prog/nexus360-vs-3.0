@@ -999,18 +999,7 @@ Deno.serve(async (req) => {
 
         // Mídia pura sem texto → silêncio (não responde, só loga)
         if (microIntent.tipo === 'midia_pura') {
-          await base44.asServiceRole.entities.AutomationLog.create({
-            thread_id, contato_id: contact_id,
-            acao: 'micro_intent_midia_pura',
-            resultado: 'ignorado',
-            origem: 'sistema',
-            timestamp: new Date().toISOString(),
-            detalhes: {
-              mensagem: `Mídia ${mediaType} sem texto — silêncio`,
-              dados_contexto: { media_type: mediaType, camada: '0-micro', action: 'silent' }
-            },
-            metadata: { media_type: mediaType, camada: '0-micro', action: 'silent' }
-          }).catch(e => console.error('[CAMADA-0-MICRO] log midia_pura falhou:', e.message));
+          await logC4(base44, thread_id, contact_id, 'micro_intent_midia_pura', { mensagem: `Mídia ${mediaType} sem texto — silêncio`, media_type: mediaType, action: 'silent' });
           resultado.camadas.dedup.micro_intent = { tipo: 'midia_pura', action: 'silent' };
           console.log('[CAMADA-0-MICRO] 🔇 Mídia pura — silêncio');
           await liberarEstadoThread(base44, thread, 'early_return_camada4_midia_pura');
@@ -1021,18 +1010,7 @@ Deno.serve(async (req) => {
 
         // Spam/prospecção → silêncio + log low-severity
         if (microIntent.tipo === 'spam_prospec') {
-          await base44.asServiceRole.entities.AutomationLog.create({
-            thread_id, contato_id: contact_id,
-            acao: 'micro_intent_spam_detectado',
-            resultado: 'ignorado',
-            origem: 'sistema',
-            timestamp: new Date().toISOString(),
-            detalhes: {
-              mensagem: `Spam detectado: "${microIntent.texto.substring(0, 80)}"`,
-              dados_contexto: { texto: microIntent.texto, camada: '0-micro', action: 'silent' }
-            },
-            metadata: { texto: microIntent.texto, camada: '0-micro', action: 'silent' }
-          }).catch(e => console.error('[CAMADA-0-MICRO] log spam falhou:', e.message));
+          await logC4(base44, thread_id, contact_id, 'micro_intent_spam_detectado', { mensagem: `Spam detectado: "${microIntent.texto.substring(0, 80)}"`, texto: microIntent.texto, action: 'silent' });
           resultado.camadas.dedup.micro_intent = { tipo: 'spam_prospec', action: 'silent' };
           console.log('[CAMADA-0-MICRO] 🚫 Spam detectado — silêncio');
           await liberarEstadoThread(base44, thread, 'early_return_camada4_spam_detectado');
@@ -1043,18 +1021,7 @@ Deno.serve(async (req) => {
 
         // Confirmação curta sem atendente → log informativo (cai no fluxo antigo)
         if (microIntent.tipo === 'confirmacao_curta' && !thread?.assigned_user_id) {
-          await base44.asServiceRole.entities.AutomationLog.create({
-            thread_id, contato_id: contact_id,
-            acao: 'micro_intent_confirmacao_sem_atendente',
-            resultado: 'ignorado',
-            origem: 'sistema',
-            timestamp: new Date().toISOString(),
-            detalhes: {
-              mensagem: `Confirmação curta sem atendente: "${microIntent.texto}" — segue fluxo antigo`,
-              dados_contexto: { texto: microIntent.texto, camada: '0-micro', action: 'fallthrough_fluxo_antigo' }
-            },
-            metadata: { texto: microIntent.texto, camada: '0-micro', action: 'fallthrough_fluxo_antigo' }
-          }).catch(e => console.error('[CAMADA-0-MICRO] log confirmacao falhou:', e.message));
+          await logC4(base44, thread_id, contact_id, 'micro_intent_confirmacao_sem_atendente', { mensagem: `Confirmação curta sem atendente: "${microIntent.texto}" — segue fluxo antigo`, texto: microIntent.texto, action: 'fallthrough_fluxo_antigo' });
           console.log('[CAMADA-0-MICRO] ⏭️ Confirmação sem atendente — segue fluxo normal');
         }
 
@@ -1135,6 +1102,19 @@ Deno.serve(async (req) => {
                   last_message_content: msg.substring(0, 100)
                 }).catch(() => {});
 
+                const ctxMicroResp = {
+                  tipo: microIntent.tipo,
+                  style_profile_usado: !!styleProfile,
+                  style_profile_id: styleProfile?.id || null,
+                  style_profile_display_name: styleProfile?.display_name || null,
+                  atendente_id: thread.assigned_user_id,
+                  camada: '0-micro',
+                  fora_horario: foraHorario,
+                  texto_recebido: microIntent.texto.substring(0, 100),
+                  texto_enviado: msg.substring(0, 200),
+                  whatsapp_msg_id: msgId,
+                  tempo_execucao_ms: Date.now() - tsInicio
+                };
                 await base44.asServiceRole.entities.AutomationLog.create({
                   thread_id, contato_id: contact_id,
                   acao: `micro_intent_${microIntent.tipo}`,
@@ -1144,32 +1124,9 @@ Deno.serve(async (req) => {
                   detalhes: {
                     tempo_execucao_ms: Date.now() - tsInicio,
                     mensagem: `${microIntent.tipo} respondido ${styleProfile ? 'no estilo ' + styleProfile.display_name : '(genérico)'} | recebido: "${microIntent.texto.substring(0, 60)}" | enviado: "${msg.substring(0, 80)}"`,
-                    dados_contexto: {
-                      tipo: microIntent.tipo,
-                      style_profile_usado: !!styleProfile,
-                      style_profile_id: styleProfile?.id || null,
-                      style_profile_display_name: styleProfile?.display_name || null,
-                      atendente_id: thread.assigned_user_id,
-                      camada: '0-micro',
-                      fora_horario: foraHorario,
-                      texto_recebido: microIntent.texto.substring(0, 100),
-                      texto_enviado: msg.substring(0, 200),
-                      whatsapp_msg_id: msgId
-                    }
+                    dados_contexto: ctxMicroResp
                   },
-                  metadata: {
-                    tipo: microIntent.tipo,
-                    style_profile_usado: !!styleProfile,
-                    style_profile_id: styleProfile?.id || null,
-                    style_profile_display_name: styleProfile?.display_name || null,
-                    atendente_id: thread.assigned_user_id,
-                    camada: '0-micro',
-                    fora_horario: foraHorario,
-                    texto_recebido: microIntent.texto.substring(0, 100),
-                    texto_enviado: msg.substring(0, 200),
-                    whatsapp_msg_id: msgId,
-                    tempo_execucao_ms: Date.now() - tsInicio
-                  }
+                  metadata: ctxMicroResp
                 }).catch(e => console.error(`[CAMADA-0-MICRO] log ${microIntent.tipo} falhou:`, e.message));
 
                 resultado.camadas.dedup.micro_intent = { tipo: microIntent.tipo, action: 'responded', style_profile_used: !!styleProfile };
