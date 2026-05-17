@@ -1060,7 +1060,7 @@ Deno.serve(async (req) => {
               }, '-created_date', 1).catch(() => []);
 
               if (respRecente.length > 0) {
-                await logC4(base44, thread_id, contact_id, 'micro_intent_cooldown_skip', { mensagem: `Cooldown 2min ativo — ${microIntent.tipo} ignorado`, tipo: microIntent.tipo, action: 'cooldown_skip_2min', ultima_resp_id: respRecente[0].id });
+                await logC4(base44, thread_id, contact_id, 'micro_intent_cooldown_skip', { acao: 'micro_intent_cooldown_skip', resultado: 'ignorado', camada: '4-micro', mensagem: `Cooldown 2min ativo — ${microIntent.tipo} ignorado`, tipo: microIntent.tipo, action: 'cooldown_skip_2min', ultima_resp_id: respRecente[0].id });
                 console.log('[CAMADA-0-MICRO] ⏭️ Cooldown 2min ativo — skip');
                 resultado.camadas.dedup.micro_intent = { tipo: microIntent.tipo, action: 'cooldown_skip' };
                 await liberarEstadoThread(base44, thread, 'early_return_camada4_micro_intent_cooldown');
