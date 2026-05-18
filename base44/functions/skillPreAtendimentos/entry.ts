@@ -259,47 +259,6 @@ function buildAckMsg(tipo, nome, isVIP, horarioInfo, mensagens) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HELPER: buscar promoção rotacionada (evita últimas 3 enviadas) + formatar texto
-// Usado APENAS no fluxo fora-de-horário (ACK + promo em UMA mensagem)
-// ─────────────────────────────────────────────────────────────────────────────
-async function buscarPromocaoRotacionada(base44, lastPromoIds = []) {
-  try {
-    const hojeIso = new Date().toISOString().split('T')[0];
-    const promos = await base44.asServiceRole.entities.Promotion.filter(
-      { ativo: true }, '-priority', 50
-    ).catch(() => []);
-
-    const elegiveis = promos.filter(p => {
-      if (p.validade && p.validade < hojeIso) return false;
-      if (Array.isArray(lastPromoIds) && lastPromoIds.includes(p.id)) return false;
-      return true;
-    });
-
-    // Se todas já foram enviadas recentemente, reseta e usa a de maior prioridade
-    const candidatas = elegiveis.length > 0 ? elegiveis : promos;
-    if (candidatas.length === 0) return null;
-    return candidatas[0]; // já vem ordenado por -priority
-  } catch (e) {
-    console.warn('[ROTACAO-PROMO] erro:', e.message);
-    return null;
-  }
-}
-
-function formatarPromoTexto(promo, mensagens = {}) {
-  if (!promo) return '';
-  const tpl = mensagens.promo_separador_template
-    || '\n\n━━━━━━━━━━━━━━\n🎁 *{{titulo}}*\n{{descricao}}\n💰 {{price_info}}\n🔗 {{link_produto}}';
-  return tpl
-    .replace(/\{\{\s*titulo\s*\}\}/g, promo.titulo || '')
-    .replace(/\{\{\s*descricao\s*\}\}/g, promo.descricao || '')
-    .replace(/\{\{\s*price_info\s*\}\}/g, promo.price_info || '')
-    .replace(/\{\{\s*link_produto\s*\}\}/g, promo.link_produto || '')
-    .split('\n')
-    .filter((l, i) => i < 2 || (l.trim() !== '' && !/^[💰🔗]\s*$/.test(l.trim())))
-    .join('\n');
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // HELPER: enviar WhatsApp (Z-API e W-API)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1249,12 +1208,10 @@ Deno.serve(async (req) => {
 
       const ack = buildAckMsg(contact?.tipo_contato, contact?.nome, isVIP, horarioInfo, mensagensAck);
 
-      // ─── ANEXAR PROMOÇÃO ROTACIONADA EM 2 CENÁRIOS ───
-      // 1) Fora-horário (cooldown 12h por período fora-horário)
-      // 2) Primeiro contato do dia DENTRO do horário comercial (saudação + promo)
+      // ─── Caminho B (Sprint 1.3): ACK puro. Promoção SEMPRE em mensagem
+      // separada via skillPromocoes (fire-and-forget). Pré-atendimento não
+      // formata, não anexa, não persiste estado promocional.
       let msgFinal = ack.msg;
-      let promoAnexada = null;
-      let promoSkipped = false;
       let primeiroContatoDoDia = false;
 
       if (ack.tipo === 'fora_horario') {
@@ -1331,15 +1288,10 @@ Deno.serve(async (req) => {
           throw new Error('__skip_ack');
         }
 
-        // Primeira mensagem fora-horário do período → vídeo + ACK + promo (comportamento original)
-        promoAnexada = await buscarPromocaoRotacionada(base44, thread?.last_promo_ids || []);
-        if (promoAnexada) {
-          msgFinal = ack.msg + formatarPromoTexto(promoAnexada, mensagensAck);
-          console.log(`[SKILL-PRE-ATEND] 🎁 Fora-horário: promo "${promoAnexada.titulo}" anexada`);
-        } else {
-          promoSkipped = true;
-          console.log('[SKILL-PRE-ATEND] ℹ️ Fora-horário: nenhuma promoção ativa disponível');
-        }
+        // Caminho B (Sprint 1.3): ACK fora-horário vai PURO. A promo já foi
+        // disparada acima via skillPromocoes (mensagem separada). Pré-atendimento
+        // não decide, não formata, não persiste estado promocional.
+        console.log('[SKILL-PRE-ATEND] 🌙 Fora-horário: ACK puro (promo via skillPromocoes em msg separada)');
       } else if (horarioInfo.dentro) {
         // Detectar primeiro contato do dia (BRT): last_inbound_at é anterior a hoje 00:00 BRT
         const agoraBrt = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
@@ -1417,46 +1369,25 @@ Deno.serve(async (req) => {
           media_caption: videoConfig ? msgFinal : null,
           metadata: {
             is_ack: true, ack_tipo: ack.tipo, whatsapp_msg_id: msgId,
-            promo_anexada_id: promoAnexada?.id || null,
-            promo_anexada_titulo: promoAnexada?.titulo || null,
             horario_motivo: horarioInfo.motivo,
             video_anexado: !!videoConfig
           }
         }).catch(() => {});
 
-        // Atualiza thread + (se anexou promo) registra rotação
-        const threadUpdate = {
+        // Caminho B (Sprint 1.4): pré-atendimento atualiza APENAS estado de
+        // mensagem. Estado promocional (last_promo_*, last_any_promo_sent_at,
+        // last_promo_ids) é responsabilidade EXCLUSIVA do motor enviarPromocao.
+        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
           last_outbound_at: new Date().toISOString(),
           last_message_at: new Date().toISOString(),
           last_message_sender: 'user',
           last_message_content: msgFinal.substring(0, 100)
-        };
-
-        if (promoAnexada) {
-          threadUpdate.last_promo_inbound_at = new Date().toISOString();
-          threadUpdate.last_any_promo_sent_at = new Date().toISOString();
-          const prevIds = Array.isArray(thread?.last_promo_ids) ? thread.last_promo_ids : [];
-          threadUpdate.last_promo_ids = [...prevIds, promoAnexada.id].slice(-3);
-        }
-
-        await base44.asServiceRole.entities.MessageThread.update(thread_id, threadUpdate).catch(() => {});
-
-        // Atualiza Contact para rotação cross-thread
-        if (promoAnexada && contact_id) {
-          const prevContactIds = Array.isArray(contact?.last_promo_ids) ? contact.last_promo_ids : [];
-          await base44.asServiceRole.entities.Contact.update(contact_id, {
-            last_promo_inbound_at: new Date().toISOString(),
-            last_any_promo_sent_at: new Date().toISOString(),
-            last_promo_ids: [...prevContactIds, promoAnexada.id].slice(-3)
-          }).catch(() => {});
-        }
+        }).catch(() => {});
 
         resultado.camadas.ack = {
           ok: true, tipo: ack.tipo, msgId,
           horario_motivo: horarioInfo.motivo,
-          video_anexado: !!videoConfig,
-          promo_anexada: promoAnexada?.titulo || null,
-          promo_skipped: promoSkipped
+          video_anexado: !!videoConfig
         };
         await registrarEventoPreAtendimento(base44, thread_id, contact_id, 'ack_sent', {
           mensagem: `ACK enviado (${ack.tipo}/${horarioInfo.motivo})`,
@@ -1465,16 +1396,7 @@ Deno.serve(async (req) => {
           video_anexado: !!videoConfig,
           whatsapp_msg_id: msgId
         });
-        if (promoAnexada) {
-          await registrarEventoPreAtendimento(base44, thread_id, contact_id, 'promo_sent', {
-            mensagem: `Promoção enviada: ${promoAnexada.titulo}`,
-            promotion_id: promoAnexada.id,
-            promotion_titulo: promoAnexada.titulo,
-            trigger: ack.tipo === 'fora_horario' ? 'fora_horario_ack' : 'primeiro_contato_dia',
-            whatsapp_msg_id: msgId
-          });
-        }
-        console.log(`[SKILL-PRE-ATEND] ✅ Camada 1 OK — ACK enviado (${ack.tipo}/${horarioInfo.motivo}${videoConfig ? ' + video' : ''}${promoAnexada ? ' + promo' : ''})`);
+        console.log(`[SKILL-PRE-ATEND] ✅ Camada 1 OK — ACK enviado (${ack.tipo}/${horarioInfo.motivo}${videoConfig ? ' + video' : ''})`);
       }
     } catch (e) {
       if (e.message !== '__skip_ack') {
