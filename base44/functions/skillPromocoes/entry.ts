@@ -541,6 +541,208 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    // AÇÃO: executar_massa_manual (FASE 1 — pool comercial)
+    // Frontend manda contact_ids + promotion_id; backend resolve pool,
+    // aplica elegibilidade, agrupa por integração e delega ao motor de massa.
+    // ═══════════════════════════════════════════════════════════════════
+    if (payload.action === 'executar_massa_manual') {
+      const { loadPoolComercial, createWeightedRoundRobin, resolveInstanceForContact } =
+        await import('./lib/poolComercialResolver.js');
+
+      const {
+        promotion_id,
+        contact_ids = [],
+        sector = 'vendas',
+        initiated_by: ibMassa = null,
+        campaign_id: campMassa = null
+      } = payload;
+
+      if (!promotion_id) {
+        return Response.json({ success: false, error: 'promotion_id obrigatório' }, { status: 400, headers });
+      }
+      if (!Array.isArray(contact_ids) || contact_ids.length === 0) {
+        return Response.json({ success: false, error: 'contact_ids vazio' }, { status: 400, headers });
+      }
+      if (sector !== 'vendas') {
+        return Response.json({ success: false, error: `sector ainda não suportado: ${sector}` }, { status: 400, headers });
+      }
+
+      const promo = await base44.asServiceRole.entities.Promotion.get(promotion_id).catch(() => null);
+      if (!promo) return Response.json({ success: false, error: 'Promoção não encontrada' }, { status: 404, headers });
+      if (!promo.ativo) return Response.json({ success: false, error: 'Promoção inativa' }, { status: 400, headers });
+      if (promo.validade && new Date(promo.validade) < new Date()) {
+        return Response.json({ success: false, error: 'Promoção fora da validade' }, { status: 400, headers });
+      }
+
+      const cfgMassa = await carregarConfig(base44);
+      const pool = await loadPoolComercial(base44);
+      if (!pool.healthy || pool.healthy.length === 0) {
+        return Response.json({
+          success: false,
+          error: 'Pool comercial sem instâncias saudáveis com capacidade disponível',
+          pool_total: pool.all?.length || 0
+        }, { status: 503, headers });
+      }
+
+      const campaignFinalMassa = campMassa || `massa_manual_${promotion_id}_${Date.now()}`;
+      const integracoesAll = pool.all;
+      const rrCursor = createWeightedRoundRobin(pool.healthy);
+
+      // Carregar contatos + threads de afinidade em batch
+      const contatosRaw = await base44.asServiceRole.entities.Contact
+        .filter({ id: { $in: contact_ids } }).catch(() => []);
+      const contatosMap = new Map(contatosRaw.map(c => [c.id, c]));
+
+      const threadsAfinidade = await base44.asServiceRole.entities.MessageThread.filter({
+        contact_id: { $in: contact_ids },
+        channel: 'whatsapp'
+      }, '-last_message_at', contact_ids.length * 2).catch(() => []);
+      const afinidadeMap = new Map();
+      for (const t of threadsAfinidade) {
+        if (!afinidadeMap.has(t.contact_id) && t.whatsapp_integration_id) {
+          afinidadeMap.set(t.contact_id, { thread: t, integration_id: t.whatsapp_integration_id });
+        }
+      }
+
+      // Agrupar contatos por integração resolvida + filtrar inelegíveis
+      const gruposPorIntegracao = new Map();
+      const bloqueados = [];
+      let inelegiveis = 0;
+
+      for (const cid of contact_ids) {
+        const contact = contatosMap.get(cid);
+        if (!contact) { inelegiveis++; bloqueados.push({ contact_id: cid, motivo: 'contact_not_found' }); continue; }
+
+        const afin = afinidadeMap.get(cid);
+        const eleg = await avaliarElegibilidade(base44, {
+          contact,
+          thread: afin?.thread || null,
+          cfg: cfgMassa,
+          integracoes: integracoesAll
+        });
+
+        if ([ELIGIBILITY.BLOCKED_PERMANENT, ELIGIBILITY.BLOCKED_TEMPORARY, ELIGIBILITY.NEEDS_HUMAN_REVIEW].includes(eleg.status)) {
+          inelegiveis++;
+          bloqueados.push({ contact_id: cid, nome: contact.nome, motivo: eleg.motivo, status: eleg.status });
+          await gravarDispatchLog(base44, {
+            trigger: 'massa_manual',
+            promotion_id: promo.id,
+            promotion_titulo: promo.titulo,
+            contact_id: contact.id,
+            contact_nome: contact.nome,
+            thread_id: afin?.thread?.id || null,
+            campaign_id: campaignFinalMassa,
+            status: 'bloqueada',
+            bloqueio_motivo: eleg.motivo,
+            initiated_by: ibMassa || user?.email || 'skill_promocoes_massa',
+            metadata: { eligibility_status: eleg.status, origem: 'massa_manual' }
+          });
+          continue;
+        }
+
+        const resolve = resolveInstanceForContact({
+          contact,
+          affinityIntegrationId: afin?.integration_id || null,
+          healthyPool: pool.healthy,
+          allPool: pool.all,
+          rrCursor
+        });
+
+        if (!resolve) {
+          inelegiveis++;
+          bloqueados.push({ contact_id: cid, nome: contact.nome, motivo: 'pool_sem_capacidade' });
+          continue;
+        }
+
+        const integId = resolve.integration.id;
+        if (!gruposPorIntegracao.has(integId)) {
+          gruposPorIntegracao.set(integId, {
+            integration: resolve.integration,
+            contact_ids: [],
+            strategies: { affinity: 0, affinity_fallback: 0, round_robin_weighted: 0 }
+          });
+        }
+        const grupo = gruposPorIntegracao.get(integId);
+        grupo.contact_ids.push(cid);
+        grupo.strategies[resolve.strategy] = (grupo.strategies[resolve.strategy] || 0) + 1;
+      }
+
+      // Montar mensagem (mesmo formato do enviarPromocaoEmMassa)
+      let mensagemMassa = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎁 *${promo.titulo || 'Oferta Especial'}*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      if (promo.descricao_curta || promo.descricao) mensagemMassa += `${promo.descricao_curta || promo.descricao}\n\n`;
+      if (promo.price_info) mensagemMassa += `💰 *${promo.price_info}*\n\n`;
+      if (promo.validade) mensagemMassa += `⏰ *Válido até:* ${new Date(promo.validade).toLocaleDateString('pt-BR')}\n\n`;
+      if (promo.link_produto) mensagemMassa += `🔗 ${promo.link_produto}\n\n`;
+      mensagemMassa += `_Quer aproveitar? Me diga o que você precisa que eu te ajudo!_ ✨`;
+
+      // Disparar 1 enviarCampanhaLote por integração — em paralelo
+      const disparos = await Promise.all(
+        [...gruposPorIntegracao.values()].map(async (grupo) => {
+          try {
+            const resp = await base44.asServiceRole.functions.invoke('enviarCampanhaLote', {
+              contact_ids: grupo.contact_ids,
+              modo: 'broadcast',
+              mensagem: mensagemMassa,
+              personalizar: true,
+              media_url: promo.imagem_url || null,
+              media_type: promo.imagem_url ? 'image' : 'none',
+              integration_id: grupo.integration.id
+            });
+            return {
+              integration_id: grupo.integration.id,
+              integration_nome: grupo.integration.nome_instancia,
+              tier: grupo.integration.tier,
+              total_destinatarios: grupo.contact_ids.length,
+              estrategias: grupo.strategies,
+              broadcast_id: resp?.data?.broadcast_id || null,
+              enfileirados: resp?.data?.enfileirados || 0,
+              erros: resp?.data?.erros || 0,
+              excedentes: resp?.data?.excedentes || 0,
+              success: !!resp?.data?.success,
+              motivo_erro: resp?.data?.error || null
+            };
+          } catch (e) {
+            return {
+              integration_id: grupo.integration.id,
+              integration_nome: grupo.integration.nome_instancia,
+              total_destinatarios: grupo.contact_ids.length,
+              success: false,
+              motivo_erro: e.message
+            };
+          }
+        })
+      );
+
+      const totalEnfileirados = disparos.reduce((s, d) => s + (d.enfileirados || 0), 0);
+      const totalErros = disparos.reduce((s, d) => s + (d.erros || 0), 0);
+
+      // Atualizar contador da promoção
+      if (totalEnfileirados > 0) {
+        await base44.asServiceRole.entities.Promotion.update(promotion_id, {
+          contador_envios: (promo.contador_envios || 0) + totalEnfileirados
+        }).catch(() => null);
+      }
+
+      return Response.json({
+        success: true,
+        origem: 'massa_manual',
+        campaign_id: campaignFinalMassa,
+        promotion_id,
+        promotion_titulo: promo.titulo,
+        total_solicitados: contact_ids.length,
+        inelegiveis,
+        enfileirados: totalEnfileirados,
+        erros: totalErros,
+        integracoes_usadas: disparos.length,
+        pool_saudavel: pool.healthy.length,
+        pool_total: pool.all.length,
+        disparos,
+        bloqueados: bloqueados.slice(0, 50),
+        tempo_ms: Date.now() - tsInicio
+      }, { headers });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     // FLUXO LEGADO — disparo em lote (listas urgentes/customizadas)
     // ═══════════════════════════════════════════════════════════════════
     const {
