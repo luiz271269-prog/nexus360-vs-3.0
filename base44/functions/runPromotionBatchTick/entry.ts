@@ -1,13 +1,18 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.26';
 
 // ============================================================================
-// CRON — PROMOÇÕES BATCH 36h (v6.0 — delega ao motor único)
+// CRON — PROMOÇÕES BATCH 36h (v6.2 — delega ao motor único)
 // ============================================================================
 // Executa diariamente. Busca threads com 36h+ de inatividade e inbound nos
 // últimos 7 dias (lista quente Meta). Delega ao motor único enviarPromocao.
+//
+// ARQUITETURA (Fase 2 conclusão): chama enviarPromocao DIRETO (sem passar
+// pelo skillPromocoes.sugerir_ou_enviar). O gestor existe para o pré-atendimento
+// e chamadores ad-hoc que precisam mapear contexto → trigger. Crons já têm
+// tudo definido — passar pelo gestor só agrega latência e risco de 429.
 // ============================================================================
 
-const VERSION = 'v6.1-TIMEOUT-SAFE';
+const VERSION = 'v6.2-MOTOR-UNICO-DIRETO';
 const BATCH_LIMIT = 15;          // max envios por ciclo (1h = 15 envios × 1.5s + overhead)
 const MAX_RUNTIME_MS = 45_000;   // abort antes do timeout de 60s da plataforma
 

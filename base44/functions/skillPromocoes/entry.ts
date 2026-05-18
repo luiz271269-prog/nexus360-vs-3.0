@@ -108,8 +108,20 @@ function dentroDaJanelaComercial(cfg) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CAMADA 2 — DRY-RUN / ELEGIBILIDADE
-// Classifica o contato/thread segundo status padronizado ANTES de enviar
+// CAMADA 2 — DRY-RUN / ELEGIBILIDADE (pré-filtro de pacing)
+//
+// IMPORTANTE (Fase 2 — Sprint 2): esta função NÃO é a fonte de verdade.
+// O motor `enviarPromocao` aplica TODAS estas regras novamente antes de enviar
+// (com locks distribuídos, atualizações atômicas e auditoria em PromotionDispatchLog).
+//
+// Aqui, a pré-validação serve a 3 propósitos legítimos:
+//   1. Pacing — evita gastar 1 chamada do motor por contato obviamente bloqueado
+//      (opt-out, tag, tipo proibido) em listas grandes (50-200 contatos por ciclo)
+//   2. Bucketing — produz `legitimacy_tier` e `relationshipState` usados nos logs
+//   3. Skip silencioso de `human_active` (não polui PromotionDispatchLog)
+//
+// Se o motor mudar uma regra (ex: novo bloqueio), esta função pode ficar
+// desatualizada SEM quebrar nada — o motor sempre tem a palavra final.
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function avaliarElegibilidade(base44, { contact, thread, cfg, integracoes }) {

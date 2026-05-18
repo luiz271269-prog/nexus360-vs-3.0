@@ -1,13 +1,18 @@
-// v2.0 — delega ao motor único enviarPromocao
+// v2.1 — delega ao motor único enviarPromocao
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.26';
 
 // ============================================================================
-// PROCESSADOR DA FILA DE PROMOÇÕES — v2.0
+// PROCESSADOR DA FILA DE PROMOÇÕES — v2.1
 // ============================================================================
 // Executa a cada 5-30 min via automação.
 // Processa WorkQueueItems do tipo 'enviar_promocao' agendados.
 // Cada item vira 1 chamada ao motor único enviarPromocao (trigger=fila_agendada).
 // Toda lógica de bloqueio/cooldown/formatação vive no motor.
+//
+// ARQUITETURA (Fase 2 conclusão): chama enviarPromocao DIRETO. O gestor
+// skillPromocoes.sugerir_ou_enviar existe para chamadores que precisam mapear
+// contexto → trigger (pré-atendimento). A fila já carrega trigger explícito
+// no payload — passar pelo gestor seria latência sem ganho.
 // ============================================================================
 
 Deno.serve(async (req) => {

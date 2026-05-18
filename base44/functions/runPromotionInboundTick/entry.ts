@@ -1,14 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.26';
 
 // ============================================================================
-// CRON — PROMOÇÕES INBOUND 6h (v5.0 — delega ao motor único)
+// CRON — PROMOÇÕES INBOUND 6h (v5.1 — delega ao motor único)
 // ============================================================================
 // Executa a cada 30 min. Busca threads com inbound 6-48h atrás e dentro da
 // janela 24h Meta. Para cada thread, chama enviarPromocao(trigger=inbound_6h).
 // Toda lógica de bloqueio/cooldown/formatação vive no motor.
+//
+// ARQUITETURA (Fase 2 conclusão): este cron chama enviarPromocao DIRETO
+// (não passa por skillPromocoes.sugerir_ou_enviar) porque já tem trigger
+// e initiated_by corretos. A camada extra do gestor agregaria latência e
+// risco de 429 sem ganho funcional. O motor é o ponto único de convergência.
 // ============================================================================
 
-const VERSION = 'v5.0-MOTOR-UNICO';
+const VERSION = 'v5.1-MOTOR-UNICO-DIRETO';
 const BATCH_LIMIT = 30;
 
 async function carregarBroadcastConfig(base44) {
