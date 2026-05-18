@@ -1,18 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.26';
 
 // ============================================================================
-// CRON — PROMOÇÕES BATCH 36h (v6.2 — delega ao motor único)
+// CRON — PROMOÇÕES BATCH 36h (v7.0 — via gestor único)
 // ============================================================================
 // Executa diariamente. Busca threads com 36h+ de inatividade e inbound nos
-// últimos 7 dias (lista quente Meta). Delega ao motor único enviarPromocao.
+// últimos 7 dias (lista quente Meta). Delega ao gestor único skillPromocoes
+// que repassa ao motor enviarPromocao.
 //
-// ARQUITETURA (Fase 2 conclusão): chama enviarPromocao DIRETO (sem passar
-// pelo skillPromocoes.sugerir_ou_enviar). O gestor existe para o pré-atendimento
-// e chamadores ad-hoc que precisam mapear contexto → trigger. Crons já têm
-// tudo definido — passar pelo gestor só agrega latência e risco de 429.
+// ARQUITETURA (F2-Sprint 4): dumb worker. Só seleciona público e delega.
+// Gestor skillPromocoes é o portão único; motor enviarPromocao é a verdade.
 // ============================================================================
 
-const VERSION = 'v6.2-MOTOR-UNICO-DIRETO';
+const VERSION = 'v7.0-GESTOR-UNICO';
 const BATCH_LIMIT = 15;          // max envios por ciclo (1h = 15 envios × 1.5s + overhead)
 const MAX_RUNTIME_MS = 45_000;   // abort antes do timeout de 60s da plataforma
 
@@ -95,7 +94,9 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const resp = await base44.asServiceRole.functions.invoke('enviarPromocao', {
+        const resp = await base44.asServiceRole.functions.invoke('skillPromocoes', {
+          action: 'sugerir_ou_enviar',
+          origem: 'cron_batch',
           contact_id: thread.contact_id,
           thread_id: thread.id,
           integration_id: thread.whatsapp_integration_id,
@@ -103,18 +104,19 @@ Deno.serve(async (req) => {
           initiated_by: 'cron:runPromotionBatchTick'
         });
 
-        // ABORTAR ciclo se motor sinalizou rate limit (SDK Base44 sob pressão)
-        if (resp?.data?.status === 'rate_limited' || resp?.status === 429) {
+        // ABORTAR ciclo se gestor sinalizou rate limit
+        if (resp?.data?.rate_limited || resp?.data?.status === 'rate_limited' || resp?.status === 429) {
           console.warn('[PROMO-BATCH] ⏸️ Rate limit — abortando ciclo. Próximo cron retoma.');
           reasons['rate_limited_abort'] = (reasons['rate_limited_abort'] || 0) + 1;
           break;
         }
 
-        if (resp?.data?.success) {
+        if (resp?.data?.sent) {
           sent++;
         } else if (resp?.data?.status === 'bloqueada') {
           skipped++;
-          reasons[resp.data.reason || 'unknown'] = (reasons[resp.data.reason || 'unknown'] || 0) + 1;
+          const motivo = resp.data.motivo || 'unknown';
+          reasons[motivo] = (reasons[motivo] || 0) + 1;
         } else {
           errors++;
           reasons['error'] = (reasons['error'] || 0) + 1;

@@ -451,14 +451,21 @@ Deno.serve(async (req) => {
     // Idempotente, não-bloqueante: se falhar, retorna { sent: false } sem
     // derrubar o chamador.
     // ═══════════════════════════════════════════════════════════════════
+    // F2-Sprint 2/4: Gestor único — porta de entrada para TODOS os disparos
+    // individuais (pré-atendimento, crons inbound/batch/fila, ad-hoc).
+    // Crons passam trigger explícito; pré-atendimento passa contexto.
+    // O gestor traduz tudo num único contrato e delega ao motor enviarPromocao.
     if (payload.action === 'sugerir_ou_enviar') {
       const {
-        origem = 'manual',          // 'pre_atendimento' | 'cron_inbound' | 'cron_batch' | 'manual'
+        origem = 'manual',          // 'pre_atendimento' | 'cron_inbound' | 'cron_batch' | 'cron_fila' | 'manual'
         contexto = null,             // 'fora_horario' | 'primeiro_contato_dia' | 'reativacao' | null
         contact_id,
         thread_id = null,
         integration_id = null,
-        intent = null,               // opcional, ajuda na seleção futura
+        promotion_id = null,         // opcional — se fixado, motor não roteia
+        trigger: triggerExplicito = null, // crons passam isso direto (inbound_6h, batch_36h, fila_agendada)
+        campaign_id = null,
+        skip_cooldown = false,
         dry_run = false,
         initiated_by = null
       } = payload;
@@ -467,15 +474,14 @@ Deno.serve(async (req) => {
         return Response.json({ success: false, error: 'contact_id obrigatório' }, { status: 400, headers });
       }
 
-      // Mapear contexto → trigger do motor
+      // Resolução de trigger: explícito > mapeado por contexto > fallback
       const triggerMap = {
         'fora_horario': 'inbound_6h',
         'primeiro_contato_dia': 'inbound_6h',
         'reativacao': 'batch_36h'
       };
-      const trigger = triggerMap[contexto] || 'manual_individual';
+      const trigger = triggerExplicito || triggerMap[contexto] || 'manual_individual';
 
-      // Dry-run não envia: usa motor com flag para apenas validar
       if (dry_run) {
         return Response.json({
           success: true,
@@ -483,20 +489,23 @@ Deno.serve(async (req) => {
           tipo: 'preview',
           origem,
           contexto,
+          trigger,
           contact_id,
           thread_id
         }, { headers });
       }
 
-      // Delega ao motor único — envio em mensagem separada
+      // Delega ao motor — fonte única de verdade para regras finais
       try {
         const resp = await base44.asServiceRole.functions.invoke('enviarPromocao', {
           contact_id,
           thread_id,
           integration_id,
+          promotion_id,
           trigger,
+          skip_cooldown,
           initiated_by: initiated_by || `skillPromocoes:${origem}`,
-          campaign_id: contexto ? `${origem}_${contexto}` : null
+          campaign_id: campaign_id || (contexto ? `${origem}_${contexto}` : null)
         });
 
         const data = resp?.data || {};
@@ -509,19 +518,24 @@ Deno.serve(async (req) => {
           promotion_id: data.promotion_id || null,
           promotion_titulo: data.promotion_titulo || null,
           message_id: data.message_id || null,
+          rate_limited: data.status === 'rate_limited',
+          retry_after_ms: data.retry_after_ms || null,
           origem,
           contexto,
           trigger
         }, { headers });
       } catch (e) {
+        const is429 = e?.status === 429 || /rate limit|429/i.test(e?.message || '');
         console.warn('[SKILL-PROMO sugerir_ou_enviar] erro não-bloqueante:', e.message);
         return Response.json({
           success: false,
           sent: false,
-          status: 'erro',
+          status: is429 ? 'rate_limited' : 'erro',
+          rate_limited: is429,
           error: e.message,
           origem,
-          contexto
+          contexto,
+          trigger
         }, { headers });
       }
     }

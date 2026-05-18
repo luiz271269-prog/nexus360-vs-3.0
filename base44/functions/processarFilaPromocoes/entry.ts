@@ -1,18 +1,15 @@
-// v2.1 — delega ao motor único enviarPromocao
+// v3.0 — delega ao gestor único skillPromocoes
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.26';
 
 // ============================================================================
-// PROCESSADOR DA FILA DE PROMOÇÕES — v2.1
+// PROCESSADOR DA FILA DE PROMOÇÕES — v3.0
 // ============================================================================
 // Executa a cada 5-30 min via automação.
 // Processa WorkQueueItems do tipo 'enviar_promocao' agendados.
-// Cada item vira 1 chamada ao motor único enviarPromocao (trigger=fila_agendada).
-// Toda lógica de bloqueio/cooldown/formatação vive no motor.
+// Cada item vira 1 chamada ao gestor único skillPromocoes (sugerir_ou_enviar).
 //
-// ARQUITETURA (Fase 2 conclusão): chama enviarPromocao DIRETO. O gestor
-// skillPromocoes.sugerir_ou_enviar existe para chamadores que precisam mapear
-// contexto → trigger (pré-atendimento). A fila já carrega trigger explícito
-// no payload — passar pelo gestor seria latência sem ganho.
+// ARQUITETURA (F2-Sprint 4): dumb worker. Só lê fila e delega ao gestor.
+// Gestor skillPromocoes é o portão único; motor enviarPromocao é a verdade.
 // ============================================================================
 
 Deno.serve(async (req) => {
@@ -54,8 +51,10 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Delegar pro motor único
-        const resp = await base44.asServiceRole.functions.invoke('enviarPromocao', {
+        // Delegar pro gestor único
+        const resp = await base44.asServiceRole.functions.invoke('skillPromocoes', {
+          action: 'sugerir_ou_enviar',
+          origem: 'cron_fila',
           contact_id,
           promotion_id,
           thread_id,
@@ -65,7 +64,7 @@ Deno.serve(async (req) => {
           campaign_id: triggerOrig === 'lote_urgentes' ? `lote_urgentes_${payload.lote_id || 'default'}` : null
         });
 
-        if (resp?.data?.success) {
+        if (resp?.data?.sent) {
           await base44.asServiceRole.entities.WorkQueueItem.update(item.id, {
             status: 'processado',
             processed_at: now.toISOString()
@@ -74,7 +73,7 @@ Deno.serve(async (req) => {
         } else if (resp?.data?.status === 'bloqueada') {
           await base44.asServiceRole.entities.WorkQueueItem.update(item.id, {
             status: 'cancelado',
-            metadata: { ...item.metadata, bloqueio_motivo: resp.data.reason }
+            metadata: { ...item.metadata, bloqueio_motivo: resp.data.motivo }
           });
           bloqueados++;
         } else {

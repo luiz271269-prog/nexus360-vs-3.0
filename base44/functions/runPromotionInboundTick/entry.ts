@@ -1,19 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.26';
 
 // ============================================================================
-// CRON — PROMOÇÕES INBOUND 6h (v5.1 — delega ao motor único)
+// CRON — PROMOÇÕES INBOUND 6h (v6.0 — via gestor único)
 // ============================================================================
-// Executa a cada 30 min. Busca threads com inbound 6-48h atrás e dentro da
-// janela 24h Meta. Para cada thread, chama enviarPromocao(trigger=inbound_6h).
-// Toda lógica de bloqueio/cooldown/formatação vive no motor.
+// Executa a cada 30 min. Busca threads com inbound 6-48h atrás. Para cada
+// thread, chama skillPromocoes.sugerir_ou_enviar(trigger=inbound_6h).
 //
-// ARQUITETURA (Fase 2 conclusão): este cron chama enviarPromocao DIRETO
-// (não passa por skillPromocoes.sugerir_ou_enviar) porque já tem trigger
-// e initiated_by corretos. A camada extra do gestor agregaria latência e
-// risco de 429 sem ganho funcional. O motor é o ponto único de convergência.
+// ARQUITETURA (F2-Sprint 4): este cron é dumb worker — só seleciona público.
+// Toda decisão (bloqueios, cooldown, seleção de promoção, envio, auditoria)
+// vive no motor enviarPromocao. O gestor skillPromocoes é o portão único.
 // ============================================================================
 
-const VERSION = 'v5.1-MOTOR-UNICO-DIRETO';
+const VERSION = 'v6.0-GESTOR-UNICO';
 const BATCH_LIMIT = 30;
 
 async function carregarBroadcastConfig(base44) {
@@ -77,7 +75,9 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const resp = await base44.asServiceRole.functions.invoke('enviarPromocao', {
+        const resp = await base44.asServiceRole.functions.invoke('skillPromocoes', {
+          action: 'sugerir_ou_enviar',
+          origem: 'cron_inbound',
           contact_id: thread.contact_id,
           thread_id: thread.id,
           integration_id: thread.whatsapp_integration_id,
@@ -85,18 +85,19 @@ Deno.serve(async (req) => {
           initiated_by: 'cron:runPromotionInboundTick'
         });
 
-        // ABORTAR ciclo se motor sinalizou rate limit (SDK Base44 sob pressão)
-        if (resp?.data?.status === 'rate_limited' || resp?.status === 429) {
+        // ABORTAR ciclo se gestor sinalizou rate limit
+        if (resp?.data?.rate_limited || resp?.data?.status === 'rate_limited' || resp?.status === 429) {
           console.warn('[PROMO-INBOUND] ⏸️ Rate limit — abortando ciclo. Próximo cron retoma.');
           reasons['rate_limited_abort'] = (reasons['rate_limited_abort'] || 0) + 1;
           break;
         }
 
-        if (resp?.data?.success) {
+        if (resp?.data?.sent) {
           sent++;
         } else if (resp?.data?.status === 'bloqueada') {
           skipped++;
-          reasons[resp.data.reason || 'unknown'] = (reasons[resp.data.reason || 'unknown'] || 0) + 1;
+          const motivo = resp.data.motivo || 'unknown';
+          reasons[motivo] = (reasons[motivo] || 0) + 1;
         } else {
           errors++;
           reasons['error'] = (reasons['error'] || 0) + 1;
