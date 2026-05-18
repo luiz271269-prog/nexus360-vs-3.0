@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/components/ui/use-toast.jsx';
 import { RefreshCw, Megaphone, ShieldCheck, AlertCircle } from 'lucide-react';
 
 import StatusCronsPromocao from '@/components/promocoes/StatusCronsPromocao';

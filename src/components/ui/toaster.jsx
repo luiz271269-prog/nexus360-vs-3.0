@@ -1,5 +1,5 @@
 import React from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/use-toast.jsx";
 import {
   Toast,
   ToastClose,
