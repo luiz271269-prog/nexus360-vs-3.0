@@ -186,8 +186,21 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'trigger obrigatório' }, { status: 400 });
     }
 
-    // 1. Carregar contato
-    const contact = await base44.asServiceRole.entities.Contact.get(contact_id);
+    // 1. Carregar contato (trata 404 como bloqueio — contato pode ter sido deletado)
+    let contact;
+    try {
+      contact = await base44.asServiceRole.entities.Contact.get(contact_id);
+    } catch (e) {
+      if (e?.status === 404 || /not found/i.test(e?.message || '')) {
+        await logDispatch(base44, {
+          trigger, promotion_id: promotion_id || 'none', contact_id,
+          status: 'bloqueada', bloqueio_motivo: 'contact_not_found',
+          campaign_id, initiated_by
+        });
+        return Response.json({ success: false, status: 'bloqueada', reason: 'contact_not_found' });
+      }
+      throw e;
+    }
     if (!contact?.telefone) {
       await logDispatch(base44, {
         trigger, promotion_id: promotion_id || 'none', contact_id,
@@ -466,6 +479,13 @@ Deno.serve(async (req) => {
         error: 'Rate limit exceeded',
         retry_after_ms: 30000
       }, { status: 429 });
+    }
+    // 404/403 em entidade = contato ou thread não existe mais → bloqueio silencioso
+    const isEntityMissing = error?.status === 404 || error?.status === 403
+      || /not found|404|403/i.test(error?.message || '');
+    if (isEntityMissing) {
+      console.warn('[enviarPromocao] ⚠️ Entidade não encontrada (contact/thread deletado):', error.message);
+      return Response.json({ success: false, status: 'bloqueada', reason: 'entity_not_found' });
     }
     console.error('[enviarPromocao] ❌ ERRO GERAL:', error);
     return Response.json({ success: false, status: 'erro', error: error.message }, { status: 500 });

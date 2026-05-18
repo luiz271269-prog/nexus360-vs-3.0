@@ -7,8 +7,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.26';
 // últimos 7 dias (lista quente Meta). Delega ao motor único enviarPromocao.
 // ============================================================================
 
-const VERSION = 'v6.0-MOTOR-UNICO';
-const BATCH_LIMIT = 50;
+const VERSION = 'v6.1-TIMEOUT-SAFE';
+const BATCH_LIMIT = 15;          // max envios por ciclo (1h = 15 envios × 1.5s + overhead)
+const MAX_RUNTIME_MS = 45_000;   // abort antes do timeout de 60s da plataforma
 
 async function carregarBroadcastConfig(base44) {
   const defaults = { horario_inicio: 8, horario_fim: 20, enviar_fim_semana: false };
@@ -46,23 +47,47 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, sent: 0, reason: 'no_active_batch_promos' });
     }
 
+    // Carregar apenas integrações com token ativo (evita 403 em massa)
+    const integracoesAtivas = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' });
+    const integIdsAtivos = new Set(integracoesAtivas.map(i => i.id));
+    if (!integIdsAtivos.size) {
+      return Response.json({ success: true, sent: 0, reason: 'no_active_integrations' });
+    }
+
     const trintaSeisHorasAtras = new Date(now.getTime() - 36 * 60 * 60 * 1000).toISOString();
     const seteDiasAtras = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const threads = await base44.asServiceRole.entities.MessageThread.filter({
+    const threadsRaw = await base44.asServiceRole.entities.MessageThread.filter({
       last_message_at: { $lte: trintaSeisHorasAtras },
       last_inbound_at: { $gte: seteDiasAtras },
       thread_type: 'contact_external'
     }, '-last_message_at', 200);
 
-    console.log(`[PROMO-BATCH] ${threads.length} threads elegíveis`);
+    // Filtrar threads com integração ativa (evita 403 em massa por token inválido)
+    const threads = threadsRaw.filter(t => !t.whatsapp_integration_id || integIdsAtivos.has(t.whatsapp_integration_id));
+
+    console.log(`[PROMO-BATCH] ${threads.length} threads elegíveis (${threadsRaw.length - threads.length} descartadas — integração inativa)`);
     if (!threads.length) return Response.json({ success: true, sent: 0, reason: 'no_eligible_threads' });
 
     let sent = 0, skipped = 0, errors = 0;
     const reasons = {};
+    const startTime = Date.now();
 
     for (const thread of threads) {
       if (sent >= BATCH_LIMIT) break;
+      // Abort se estiver próximo do timeout da plataforma
+      if (Date.now() - startTime > MAX_RUNTIME_MS) {
+        console.warn('[PROMO-BATCH] ⏱️ Tempo máximo atingido — abortando ciclo. Próximo cron retoma.');
+        reasons['timeout_abort'] = 1;
+        break;
+      }
+
+      // Guard: pular threads sem contact_id (contatos deletados causam 404 → exceção)
+      if (!thread.contact_id) {
+        skipped++;
+        reasons['no_contact_id'] = (reasons['no_contact_id'] || 0) + 1;
+        continue;
+      }
 
       try {
         const resp = await base44.asServiceRole.functions.invoke('enviarPromocao', {
@@ -90,13 +115,14 @@ Deno.serve(async (req) => {
           reasons['error'] = (reasons['error'] || 0) + 1;
         }
 
-        // Delay aumentado: 1500ms entre envios (era 300ms) — protege SDK Base44
-        await new Promise(r => setTimeout(r, 1500));
+        // Delay 3s entre invocações — evita rate limit 403 do SDK Base44 em function-to-function
+        await new Promise(r => setTimeout(r, 3000));
       } catch (e) {
         const is429 = e?.status === 429 || /rate limit|429/i.test(e?.message || '');
-        if (is429) {
-          console.warn('[PROMO-BATCH] ⏸️ 429 capturado em exceção — abortando ciclo.');
-          reasons['rate_limited_exception'] = (reasons['rate_limited_exception'] || 0) + 1;
+        const is403 = e?.status === 403 || /403/i.test(e?.message || '');
+        if (is429 || is403) {
+          console.warn(`[PROMO-BATCH] ⏸️ ${is403 ? '403' : '429'} capturado — abortando ciclo. Próximo cron retoma.`);
+          reasons[is403 ? 'rate_limit_403_abort' : 'rate_limited_exception'] = (reasons['rate_limit_403_abort'] || 0) + 1;
           break;
         }
         errors++;
