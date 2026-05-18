@@ -1262,6 +1262,21 @@ Deno.serve(async (req) => {
         const promoRecente = ultPromoInbound &&
           (Date.now() - new Date(ultPromoInbound).getTime() < PROMO_FORA_HORARIO_GAP_MS);
 
+        // Caminho B: promoção sai em MENSAGEM SEPARADA via skillPromocoes,
+        // fire-and-forget. Pré-atendimento não decide nem formata promoção.
+        // Disparado APÓS o envio do ACK, abaixo. Aqui só sinalizamos a intenção.
+        if (!promoRecente && integ?.id) {
+          base44.asServiceRole.functions.invoke('skillPromocoes', {
+            action: 'sugerir_ou_enviar',
+            origem: 'pre_atendimento',
+            contexto: 'fora_horario',
+            contact_id,
+            thread_id,
+            integration_id: integ.id,
+            initiated_by: 'skillPreAtendimentos:ack_fora_horario'
+          }).catch(e => console.warn('[SKILL-PRE-ATEND] sugerir_ou_enviar falhou (não-crítico):', e.message));
+        }
+
         if (promoRecente) {
           await registrarEventoPreAtendimento(base44, thread_id, contact_id, 'promo_skipped_cooldown', {
             mensagem: 'Promoção pulada por cooldown fora-horário ativo',
@@ -1349,14 +1364,21 @@ Deno.serve(async (req) => {
             .replace(/\{\{\s*primeiro_nome\s*\}\}/g, primeiroNome)
             .replace(/\{\{\s*nome_com_virgula\s*\}\}/g, primeiroNome ? ', ' + primeiroNome : '');
 
-          promoAnexada = await buscarPromocaoRotacionada(base44, contact?.last_promo_ids || []);
-          if (promoAnexada) {
-            msgFinal = saudacaoComNome + ack.msg + formatarPromoTexto(promoAnexada, mensagensAck);
-            console.log(`[SKILL-PRE-ATEND] 🌅 1º contato do dia: saudação + promo "${promoAnexada.titulo}"`);
-          } else {
-            // Sem promo disponível → só saudação personalizada (sem alterar fluxo)
-            msgFinal = saudacaoComNome + ack.msg;
-            console.log('[SKILL-PRE-ATEND] 🌅 1º contato do dia: saudação personalizada (sem promo ativa)');
+          // Caminho B: ACK personalizado vai PURO. Promo sai em mensagem
+          // separada via skillPromocoes (fire-and-forget, não-bloqueante).
+          msgFinal = saudacaoComNome + ack.msg;
+          console.log('[SKILL-PRE-ATEND] 🌅 1º contato do dia: ACK personalizado (promo via skillPromocoes em msg separada)');
+
+          if (integ?.id) {
+            base44.asServiceRole.functions.invoke('skillPromocoes', {
+              action: 'sugerir_ou_enviar',
+              origem: 'pre_atendimento',
+              contexto: 'primeiro_contato_dia',
+              contact_id,
+              thread_id,
+              integration_id: integ.id,
+              initiated_by: 'skillPreAtendimentos:primeiro_contato_dia'
+            }).catch(e => console.warn('[SKILL-PRE-ATEND] sugerir_ou_enviar falhou (não-crítico):', e.message));
           }
         }
       }

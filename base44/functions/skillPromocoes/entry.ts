@@ -431,6 +431,92 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me().catch(() => null);
 
     const payload = await req.json();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CONTRATO ÚNICO (Fase 1 — Caminho B): sugerirOuEnviar
+    // Porta de entrada única para o pré-atendimento e outros chamadores.
+    // Delega ao motor enviarPromocao (mensagem separada — não anexa ao ACK).
+    // Idempotente, não-bloqueante: se falhar, retorna { sent: false } sem
+    // derrubar o chamador.
+    // ═══════════════════════════════════════════════════════════════════
+    if (payload.action === 'sugerir_ou_enviar') {
+      const {
+        origem = 'manual',          // 'pre_atendimento' | 'cron_inbound' | 'cron_batch' | 'manual'
+        contexto = null,             // 'fora_horario' | 'primeiro_contato_dia' | 'reativacao' | null
+        contact_id,
+        thread_id = null,
+        integration_id = null,
+        intent = null,               // opcional, ajuda na seleção futura
+        dry_run = false,
+        initiated_by = null
+      } = payload;
+
+      if (!contact_id) {
+        return Response.json({ success: false, error: 'contact_id obrigatório' }, { status: 400, headers });
+      }
+
+      // Mapear contexto → trigger do motor
+      const triggerMap = {
+        'fora_horario': 'inbound_6h',
+        'primeiro_contato_dia': 'inbound_6h',
+        'reativacao': 'batch_36h'
+      };
+      const trigger = triggerMap[contexto] || 'manual_individual';
+
+      // Dry-run não envia: usa motor com flag para apenas validar
+      if (dry_run) {
+        return Response.json({
+          success: true,
+          dry_run: true,
+          tipo: 'preview',
+          origem,
+          contexto,
+          contact_id,
+          thread_id
+        }, { headers });
+      }
+
+      // Delega ao motor único — envio em mensagem separada
+      try {
+        const resp = await base44.asServiceRole.functions.invoke('enviarPromocao', {
+          contact_id,
+          thread_id,
+          integration_id,
+          trigger,
+          initiated_by: initiated_by || `skillPromocoes:${origem}`,
+          campaign_id: contexto ? `${origem}_${contexto}` : null
+        });
+
+        const data = resp?.data || {};
+
+        return Response.json({
+          success: !!data.success,
+          sent: data.status === 'enviada',
+          status: data.status || 'erro',
+          motivo: data.reason || data.bloqueio_motivo || null,
+          promotion_id: data.promotion_id || null,
+          promotion_titulo: data.promotion_titulo || null,
+          message_id: data.message_id || null,
+          origem,
+          contexto,
+          trigger
+        }, { headers });
+      } catch (e) {
+        console.warn('[SKILL-PROMO sugerir_ou_enviar] erro não-bloqueante:', e.message);
+        return Response.json({
+          success: false,
+          sent: false,
+          status: 'erro',
+          error: e.message,
+          origem,
+          contexto
+        }, { headers });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // FLUXO LEGADO — disparo em lote (listas urgentes/customizadas)
+    // ═══════════════════════════════════════════════════════════════════
     const {
       lista_tipo = 'urgentes',   // 'urgentes' | id de PromotionList
       lista_config = null,        // config customizada se lista_tipo != 'urgentes'
