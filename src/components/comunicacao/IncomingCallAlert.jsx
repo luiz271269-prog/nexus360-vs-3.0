@@ -197,48 +197,58 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
         />
       )}
 
-      {/* Alerta de chamada entrante */}
+      {/* Alerta flutuante de chamada entrante — canto inferior direito, não bloqueia a tela */}
       {chamadaEntrante && !chamadaAtiva && (
-        <div className="fixed inset-0 z-[210] flex items-end justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm overflow-hidden rounded-t-3xl shadow-2xl"
-            style={{ background: 'linear-gradient(180deg, #0d1b2a 0%, #1b3a4b 100%)' }}>
+        <div className="fixed bottom-24 right-5 z-[210] w-80 rounded-2xl shadow-2xl overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #0f2027 0%, #1a3a4a 60%, #0f4c35 100%)' }}>
 
-            <div className="flex flex-col items-center pt-10 pb-6 px-6">
-              <div className="relative mb-5">
-                <div className="absolute inset-0 rounded-full bg-green-400/25 animate-ping" style={{ transform: 'scale(1.4)' }} />
-                <div className="absolute inset-0 rounded-full bg-green-400/10 animate-ping" style={{ transform: 'scale(1.7)', animationDelay: '0.4s' }} />
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 border-4 border-white/20 flex items-center justify-center text-white text-4xl font-bold shadow-2xl relative z-10">
-                  {(chamadaEntrante.caller_nome || '?')[0].toUpperCase()}
-                </div>
+          {/* Barra pulsante no topo */}
+          <div className="h-1 w-full bg-gradient-to-r from-green-400 via-emerald-300 to-green-400 animate-pulse" />
+
+          <div className="p-4 flex items-center gap-4">
+            {/* Avatar com pulso */}
+            <div className="relative flex-shrink-0">
+              <div className="absolute inset-0 rounded-full bg-green-400/30 animate-ping" />
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-500 to-slate-700 border-2 border-white/20 flex items-center justify-center text-white text-xl font-bold relative z-10">
+                {(chamadaEntrante.caller_nome || '?')[0].toUpperCase()}
               </div>
-              <p className="text-white/50 text-xs tracking-widest uppercase mb-1">
-                {isVideo ? 'Videochamada interna' : 'Chamada de voz'}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <p className="text-white/60 text-[10px] tracking-widest uppercase">
+                {isVideo ? '📹 Videochamada' : '📞 Chamada de voz'}
               </p>
-              <p className="text-white text-2xl font-bold">{chamadaEntrante.caller_nome || 'Colega'}</p>
-              <div className="flex gap-1.5 mt-3">
+              <p className="text-white font-semibold text-sm truncate">{chamadaEntrante.caller_nome || 'Colega'}</p>
+              {/* Bolinhas animadas */}
+              <div className="flex gap-1 mt-1">
                 {[0, 1, 2].map(i => (
                   <div key={i} className="w-1.5 h-1.5 rounded-full bg-green-400 animate-bounce"
-                    style={{ animationDelay: `${i * 0.15}s` }} />
+                    style={{ animationDelay: `${i * 0.2}s` }} />
                 ))}
               </div>
             </div>
+          </div>
 
-            <div className="flex items-center justify-around py-8 px-10 border-t border-white/10">
-              <div className="flex flex-col items-center gap-3">
-                <button onClick={rejeitar}
-                  className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center shadow-xl transition-all active:scale-95">
-                  <PhoneOff className="w-7 h-7 text-white" />
-                </button>
-                <span className="text-white/50 text-xs">Recusar</span>
+          {/* Botões */}
+          <div className="flex border-t border-white/10">
+            <button onClick={rejeitar}
+              className="flex-1 flex flex-col items-center gap-1 py-3 hover:bg-red-500/20 transition-colors group">
+              <div className="w-10 h-10 rounded-full bg-red-500 group-hover:bg-red-600 flex items-center justify-center shadow-lg transition-colors">
+                <PhoneOff className="w-5 h-5 text-white" />
               </div>
-              <div className="flex flex-col items-center gap-3">
-                <button onClick={aceitar}
-                  className="w-16 h-16 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center shadow-xl transition-all active:scale-95 ring-4 ring-green-400/40 animate-pulse">
-                  {isVideo ? <Video className="w-7 h-7 text-white" /> : <Phone className="w-7 h-7 text-white" />}
-                </button>
-                <span className="text-white/50 text-xs">Aceitar</span>
+              <span className="text-white/50 text-[10px]">Recusar</span>
+            </button>
+
+            <div className="w-px bg-white/10" />
+
+            <button onClick={aceitar}
+              className="flex-1 flex flex-col items-center gap-1 py-3 hover:bg-green-500/20 transition-colors group">
+              <div className="w-10 h-10 rounded-full bg-green-500 group-hover:bg-green-600 flex items-center justify-center shadow-lg ring-2 ring-green-400/50 animate-pulse transition-colors">
+                {isVideo ? <Video className="w-5 h-5 text-white" /> : <Phone className="w-5 h-5 text-white" />}
               </div>
-            </div>
+              <span className="text-white/50 text-[10px]">Aceitar</span>
+            </button>
           </div>
         </div>
       )}
