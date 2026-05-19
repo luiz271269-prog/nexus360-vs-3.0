@@ -4,14 +4,6 @@ import { base44 } from '@/api/base44Client';
 /**
  * Motor WebRTC para chamadas internas diretas (áudio e vídeo).
  * Sinalização via CallSession (Base44 entity).
- *
- * Props:
- *  - sessionId: ID da CallSession
- *  - isCaller: boolean
- *  - tipo: 'audio' | 'video'
- *  - localVideoRef / remoteVideoRef: refs para elementos <video>
- *  - localStreamRef: ref externo compartilhado para controle de mic/cam
- *  - onConnected / onEnded / onError: callbacks
  */
 export default function WebRTCCallManager({
   sessionId,
@@ -26,12 +18,13 @@ export default function WebRTCCallManager({
 }) {
   const pcRef             = useRef(null);
   const internalStreamRef = useRef(null);
-  const unsubRef          = useRef(null);
   const endedRef          = useRef(false);
-  const remoteAudioRef    = useRef(null);
+  const remoteAudioElem   = useRef(null); // elemento <audio> real injetado no DOM
   const icePendingRef     = useRef([]);
   const appliedIceCaller  = useRef(new Set());
   const appliedIceCallee  = useRef(new Set());
+  const publishingIce     = useRef(false);
+  const iceQueueRef       = useRef([]); // fila local de ICE a publicar
 
   const localStreamRef = externalLocalStreamRef || internalStreamRef;
 
@@ -42,25 +35,25 @@ export default function WebRTCCallManager({
     ]
   };
 
+  // ── Cleanup ───────────────────────────────────────────────────────────────
   const cleanup = useCallback(() => {
     if (endedRef.current) return;
     endedRef.current = true;
-    if (unsubRef.current) { unsubRef.current(); unsubRef.current = null; }
     if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(t => t.stop());
       localStreamRef.current = null;
     }
-    if (remoteAudioRef.current) {
-      remoteAudioRef.current.pause();
-      remoteAudioRef.current.srcObject = null;
-      remoteAudioRef.current = null;
+    if (remoteAudioElem.current) {
+      remoteAudioElem.current.srcObject = null;
+      remoteAudioElem.current.remove();
+      remoteAudioElem.current = null;
     }
     if (localVideoRef?.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef?.current) remoteVideoRef.current.srcObject = null;
   }, []);
 
-  // Aplica ICE candidate deduplicated
+  // ── Aplica ICE deduplicado ────────────────────────────────────────────────
   const applyIce = useCallback(async (pc, candidates, seenSet) => {
     if (!candidates?.length || !pc) return;
     for (const c of candidates) {
@@ -84,21 +77,32 @@ export default function WebRTCCallManager({
     }
   }, []);
 
-  const publishIce = useCallback(async (candidate) => {
-    if (!sessionId) return;
-    try {
-      const s = await base44.entities.CallSession.get(sessionId);
-      if (!s) return;
-      const field = isCaller ? 'ice_candidates_caller' : 'ice_candidates_callee';
-      const existing = Array.isArray(s[field]) ? s[field] : [];
-      await base44.entities.CallSession.update(sessionId, {
-        [field]: [...existing, JSON.stringify(candidate)]
-      });
-    } catch (_) {}
+  // ── Publica ICE em fila serial para evitar race condition de leitura/escrita ──
+  const publishIce = useCallback((candidate) => {
+    iceQueueRef.current.push(JSON.stringify(candidate));
+    if (publishingIce.current) return; // já tem um flush em progresso
+    const flush = async () => {
+      publishingIce.current = true;
+      while (iceQueueRef.current.length > 0) {
+        const batch = [...iceQueueRef.current];
+        iceQueueRef.current = [];
+        try {
+          const s = await base44.entities.CallSession.get(sessionId);
+          if (!s || endedRef.current) break;
+          const field = isCaller ? 'ice_candidates_caller' : 'ice_candidates_callee';
+          const existing = Array.isArray(s[field]) ? s[field] : [];
+          await base44.entities.CallSession.update(sessionId, {
+            [field]: [...existing, ...batch]
+          });
+        } catch (_) {}
+      }
+      publishingIce.current = false;
+    };
+    flush();
   }, [sessionId, isCaller]);
 
+  // ── Inicia PeerConnection e captura microfone ─────────────────────────────
   const initPeerConnection = useCallback(async () => {
-    // Solicitar permissão de microfone/câmera
     const constraints = tipo === 'video'
       ? { audio: true, video: { width: 1280, height: 720, facingMode: 'user' } }
       : { audio: true, video: false };
@@ -120,6 +124,7 @@ export default function WebRTCCallManager({
     const pc = new RTCPeerConnection(ICE_SERVERS);
     pcRef.current = pc;
 
+    // Adiciona todas as tracks (áudio obrigatório, vídeo opcional)
     stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
     pc.onicecandidate = (e) => {
@@ -136,12 +141,17 @@ export default function WebRTCCallManager({
       if (tipo === 'video' && remoteVideoRef?.current) {
         remoteVideoRef.current.srcObject = remoteStream;
       } else {
-        if (!remoteAudioRef.current) {
-          remoteAudioRef.current = new Audio();
-          remoteAudioRef.current.autoplay = true;
+        // Usa elemento <audio> real no DOM — evita bloqueio de autoplay
+        if (!remoteAudioElem.current) {
+          const audio = document.createElement('audio');
+          audio.autoplay = true;
+          audio.setAttribute('playsinline', '');
+          audio.style.display = 'none';
+          document.body.appendChild(audio);
+          remoteAudioElem.current = audio;
         }
-        remoteAudioRef.current.srcObject = remoteStream;
-        remoteAudioRef.current.play().catch(() => {});
+        remoteAudioElem.current.srcObject = remoteStream;
+        remoteAudioElem.current.play().catch(() => {});
       }
     };
 
@@ -167,16 +177,15 @@ export default function WebRTCCallManager({
       });
       await pc.setLocalDescription(offer);
 
-      // Salva offer E muda status para 'chamando' — callee só vê quando offer já está disponível
+      // Salva offer + muda para 'chamando' atomicamente
       await base44.entities.CallSession.update(sessionId, {
         webrtc_offer: JSON.stringify(offer),
         status: 'chamando'
       });
 
-      // Poll a cada 1.5s esperando answer do callee
       let attempts = 0;
       const poll = setInterval(async () => {
-        if (endedRef.current || attempts++ > 60) { clearInterval(poll); return; }
+        if (endedRef.current || attempts++ > 80) { clearInterval(poll); return; }
         try {
           const s = await base44.entities.CallSession.get(sessionId);
           if (!s) return;
@@ -186,13 +195,24 @@ export default function WebRTCCallManager({
           }
 
           if (s.webrtc_answer && !pc.remoteDescription) {
-            try {
-              await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(s.webrtc_answer)));
-              await flushPendingIce(pc);
-            } catch (_) {}
+            await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(s.webrtc_answer)));
+            await flushPendingIce(pc);
+            clearInterval(poll); // para de pollar — ICE já é tratado separado
+            // Inicia poll só para ICE callee
+            let iceAttempts = 0;
+            const icePoll = setInterval(async () => {
+              if (endedRef.current || iceAttempts++ > 60) { clearInterval(icePoll); return; }
+              try {
+                const ss = await base44.entities.CallSession.get(sessionId);
+                if (!ss || ['encerrada', 'rejeitada'].includes(ss.status)) {
+                  clearInterval(icePoll); cleanup(); onEnded?.(); return;
+                }
+                await applyIce(pc, ss.ice_candidates_callee, appliedIceCallee.current);
+              } catch (_) {}
+            }, 2000);
+          } else {
+            await applyIce(pc, s.ice_candidates_callee, appliedIceCallee.current);
           }
-
-          await applyIce(pc, s.ice_candidates_callee, appliedIceCallee.current);
         } catch (_) {}
       }, 1500);
 
@@ -204,7 +224,7 @@ export default function WebRTCCallManager({
   // ─── CALLEE ──────────────────────────────────────────────────────────────
   const startAsCallee = useCallback(async () => {
     try {
-      // Aguarda o offer ficar disponível (o caller pode ter acabado de criar a sessão)
+      // Aguarda offer (máx 15s)
       let session = null;
       for (let i = 0; i < 15; i++) {
         try {
@@ -216,7 +236,7 @@ export default function WebRTCCallManager({
       }
 
       if (!session?.webrtc_offer) {
-        onError?.('Offer não recebido — verifique a conexão do chamador'); return;
+        onError?.('Offer não recebido'); return;
       }
 
       const pc = await initPeerConnection();
@@ -233,7 +253,7 @@ export default function WebRTCCallManager({
         status: 'ativa'
       });
 
-      // Poll para novos ICE candidates do caller
+      // Poll para ICE caller
       let attempts = 0;
       const poll = setInterval(async () => {
         if (endedRef.current || attempts++ > 60) { clearInterval(poll); return; }
@@ -246,7 +266,7 @@ export default function WebRTCCallManager({
           }
           await applyIce(pc, s.ice_candidates_caller, appliedIceCaller.current);
         } catch (_) {}
-      }, 1500);
+      }, 2000);
 
     } catch (e) {
       onError?.(e.message); cleanup();
@@ -257,6 +277,7 @@ export default function WebRTCCallManager({
     if (!sessionId) return;
     endedRef.current = false;
     icePendingRef.current = [];
+    iceQueueRef.current = [];
     appliedIceCaller.current = new Set();
     appliedIceCallee.current = new Set();
     if (isCaller) startAsCaller();

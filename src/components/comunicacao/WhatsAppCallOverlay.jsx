@@ -32,13 +32,13 @@ export default function WhatsAppCallOverlay({
 
   const toggleMic = () => {
     const stream = localStreamRef.current;
-    if (stream) stream.getAudioTracks().forEach(t => { t.enabled = micMutado; });
+    if (stream) stream.getAudioTracks().forEach(t => { t.enabled = micMutado; }); // micMutado=true → enable (desmutar), false → disable (mutar)
     setMicMutado(m => !m);
   };
 
   const toggleCam = () => {
     const stream = localStreamRef.current;
-    if (stream) stream.getVideoTracks().forEach(t => { t.enabled = camDesligada; });
+    if (stream) stream.getVideoTracks().forEach(t => { t.enabled = camDesligada; }); // camDesligada=true → enable (ligar), false → disable (desligar)
     setCamDesligada(c => !c);
   };
 
