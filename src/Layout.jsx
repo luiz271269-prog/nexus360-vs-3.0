@@ -39,6 +39,7 @@ import DeploymentBanner from "@/components/global/DeploymentBanner";
 import UserAuthWidget from "@/components/global/UserAuthWidget";
 import { calcularLembretesGlobal } from "@/components/global/MotorLembretesGlobal";
 import NovasMensagensAlert from "@/components/global/NovasMensagensAlert";
+import IncomingCallAlert from "@/components/comunicacao/IncomingCallAlert";
 
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
   const isActive = window.location.pathname === new URL(href, window.location.origin).pathname;
@@ -641,6 +642,9 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Alerta flutuante de novas mensagens (só aparece fora da Central de Comunicação) */}
       {globalUsuario && <NovasMensagensAlert usuario={globalUsuario} currentPageName={currentPageName} />}
+
+      {/* Alertas de chamada WebRTC entrante (global para todos os atendentes) */}
+      {globalUsuario && <IncomingCallAlert usuario={globalUsuario} />}
 
       {/* Copiloto IA — painel lateral com Superagent */}
       <CopilotoIA

@@ -5,11 +5,11 @@
   "properties": {
     "room_name": {
       "type": "string",
-      "description": "Nome \u00fanico da sala Jitsi (ex: nexus-abc123)"
+      "description": "Nome \u00fanico da sala Jitsi (ex: nexus-abc123) \u2014 usado s\u00f3 para modo externo"
     },
     "room_url": {
       "type": "string",
-      "description": "URL completa da sala Jitsi"
+      "description": "URL completa da sala Jitsi \u2014 usado s\u00f3 para modo externo"
     },
     "tipo": {
       "type": "string",
@@ -17,23 +17,50 @@
         "video",
         "audio"
       ],
-      "default": "video",
+      "default": "audio",
       "description": "Tipo de chamada"
+    },
+    "modo": {
+      "type": "string",
+      "enum": [
+        "interno_webrtc",
+        "externo_jitsi"
+      ],
+      "default": "interno_webrtc",
+      "description": "Modo de chamada: WebRTC direto (interno) ou Jitsi via link (externo)"
     },
     "status": {
       "type": "string",
       "enum": [
-        "iniciando",
+        "chamando",
         "ativa",
         "encerrada",
-        "perdida"
+        "rejeitada",
+        "perdida",
+        "iniciando"
       ],
-      "default": "iniciando",
+      "default": "chamando",
       "description": "Status atual da chamada"
+    },
+    "caller_id": {
+      "type": "string",
+      "description": "ID do User que iniciou a chamada (modo interno)"
+    },
+    "caller_nome": {
+      "type": "string",
+      "description": "Nome do chamador (cache)"
+    },
+    "callee_id": {
+      "type": "string",
+      "description": "ID do User destinat\u00e1rio (modo interno)"
+    },
+    "callee_nome": {
+      "type": "string",
+      "description": "Nome do destinat\u00e1rio (cache)"
     },
     "contact_id": {
       "type": "string",
-      "description": "ID do Contact destinat\u00e1rio"
+      "description": "ID do Contact destinat\u00e1rio (modo externo)"
     },
     "contact_nome": {
       "type": "string",
@@ -41,7 +68,7 @@
     },
     "contact_telefone": {
       "type": "string",
-      "description": "Telefone do contato"
+      "description": "Telefone do contato (modo externo)"
     },
     "thread_id": {
       "type": "string",
@@ -49,7 +76,7 @@
     },
     "integration_id": {
       "type": "string",
-      "description": "ID da WhatsAppIntegration usada para notificar"
+      "description": "ID da WhatsAppIntegration usada para notificar (modo externo)"
     },
     "iniciado_por": {
       "type": "string",
@@ -72,17 +99,39 @@
     "link_enviado_whatsapp": {
       "type": "boolean",
       "default": false,
-      "description": "Se o link foi enviado via WhatsApp"
+      "description": "Se o link foi enviado via WhatsApp (modo externo)"
     },
     "mensagem_enviada": {
       "type": "string",
       "description": "Texto da mensagem enviada ao contato"
+    },
+    "webrtc_offer": {
+      "type": "string",
+      "description": "SDP offer do caller (JSON serializado)"
+    },
+    "webrtc_answer": {
+      "type": "string",
+      "description": "SDP answer do callee (JSON serializado)"
+    },
+    "ice_candidates_caller": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "ICE candidates do caller (JSON serializado por item)"
+    },
+    "ice_candidates_callee": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "ICE candidates do callee (JSON serializado por item)"
     }
   },
   "required": [
-    "room_name",
-    "room_url",
-    "contact_id",
-    "tipo"
+    "tipo",
+    "status"
   ]
 }
