@@ -1,93 +1,88 @@
 {
   "name": "CallSession",
   "type": "object",
+  "description": "Registro de chamadas de v\u00eddeo/voz iniciadas pelo sistema",
   "properties": {
-    "connection_id": {
+    "room_name": {
       "type": "string",
-      "description": "ID da GoToIntegration"
+      "description": "Nome \u00fanico da sala Jitsi (ex: nexus-abc123)"
     },
-    "contact_id": {
+    "room_url": {
       "type": "string",
-      "description": "ID do Contact associado"
+      "description": "URL completa da sala Jitsi"
     },
-    "assigned_user_id": {
-      "type": "string",
-      "description": "ID do User atribu\u00eddo/atendente"
-    },
-    "direction": {
+    "tipo": {
       "type": "string",
       "enum": [
-        "inbound",
-        "outbound"
+        "video",
+        "audio"
       ],
-      "description": "Dire\u00e7\u00e3o da chamada"
-    },
-    "from_number": {
-      "type": "string",
-      "description": "N\u00famero de origem"
-    },
-    "to_number": {
-      "type": "string",
-      "description": "N\u00famero de destino"
+      "default": "video",
+      "description": "Tipo de chamada"
     },
     "status": {
       "type": "string",
       "enum": [
-        "ringing",
-        "answered",
-        "missed",
-        "ended",
-        "busy",
-        "failed"
+        "iniciando",
+        "ativa",
+        "encerrada",
+        "perdida"
       ],
-      "default": "ringing",
-      "description": "Status da chamada"
+      "default": "iniciando",
+      "description": "Status atual da chamada"
     },
-    "started_at": {
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact destinat\u00e1rio"
+    },
+    "contact_nome": {
+      "type": "string",
+      "description": "Nome do contato (cache)"
+    },
+    "contact_telefone": {
+      "type": "string",
+      "description": "Telefone do contato"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread vinculada"
+    },
+    "integration_id": {
+      "type": "string",
+      "description": "ID da WhatsAppIntegration usada para notificar"
+    },
+    "iniciado_por": {
+      "type": "string",
+      "description": "ID ou email do usu\u00e1rio que iniciou"
+    },
+    "iniciado_em": {
       "type": "string",
       "format": "datetime",
-      "description": "Quando a chamada iniciou"
+      "description": "Quando a chamada foi iniciada"
     },
-    "answered_at": {
+    "encerrado_em": {
       "type": "string",
       "format": "datetime",
-      "description": "Quando foi atendida"
+      "description": "Quando a chamada foi encerrada"
     },
-    "ended_at": {
-      "type": "string",
-      "format": "datetime",
-      "description": "Quando encerrou"
-    },
-    "duration_seconds": {
+    "duracao_segundos": {
       "type": "number",
-      "description": "Dura\u00e7\u00e3o em segundos"
+      "description": "Dura\u00e7\u00e3o total em segundos"
     },
-    "provider_call_id": {
+    "link_enviado_whatsapp": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o link foi enviado via WhatsApp"
+    },
+    "mensagem_enviada": {
       "type": "string",
-      "description": "ID da chamada no provedor GoTo"
-    },
-    "conversation_space_id": {
-      "type": "string",
-      "description": "ID da conversa/space no GoTo (se aplic\u00e1vel)"
-    },
-    "recording_url": {
-      "type": "string",
-      "description": "URL da grava\u00e7\u00e3o (se dispon\u00edvel)"
-    },
-    "metadata": {
-      "type": "object",
-      "description": "Dados brutos do evento GoTo"
-    },
-    "observacoes": {
-      "type": "string",
-      "description": "Notas sobre a chamada"
+      "description": "Texto da mensagem enviada ao contato"
     }
   },
   "required": [
-    "connection_id",
+    "room_name",
+    "room_url",
     "contact_id",
-    "direction",
-    "from_number",
-    "to_number"
+    "tipo"
   ]
 }

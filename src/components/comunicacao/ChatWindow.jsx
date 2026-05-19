@@ -80,6 +80,7 @@ import useScrollPaginacao from './useScrollPaginacao';
 import NexusBrainSuggestions from './NexusBrainSuggestions';
 import { useAudioRecorder } from './useAudioRecorder';
 import FloatingConversationBubble from './FloatingConversationBubble';
+import BotaoVideochamada from './BotaoVideochamada';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Contagem de não lidas (externo + interno)
@@ -1580,6 +1581,16 @@ export default function ChatWindow({
                   <CheckSquare className="w-3.5 h-3.5" />
                 </button>
             }
+
+              {/* Botão Videochamada — apenas contatos externos com telefone */}
+              {contatoCompleto?.telefone && !isThreadInterna && (
+                <BotaoVideochamada
+                  contato={contatoCompleto}
+                  thread={thread}
+                  usuario={usuario}
+                  integracoes={integracoes}
+                />
+              )}
 
               {/* Botão Ver Detalhes */}
               <button
