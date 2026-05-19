@@ -317,8 +317,13 @@ export default function Comunicacao() {
     refetchInterval: 120000,
     staleTime: 90000,
     enabled: !!usuario && !isRateLimited,
-    retry: 2,
-    retryDelay: 1000,
+    retry: (failureCount, error) => {
+      // NUNCA retry em 429 — agrava rate-limit e cria cascata
+      const status = error?.status || error?.response?.status;
+      if (status === 429) return false;
+      return failureCount < 2;
+    },
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000), // backoff exponencial até 30s
     refetchOnWindowFocus: false,
     refetchOnMount: true,
     onError: (error) => {
