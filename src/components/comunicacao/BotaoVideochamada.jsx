@@ -26,15 +26,34 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
     setIniciando(true);
 
     try {
-      // Encontrar integração ativa para enviar link WhatsApp
-      const integracaoAtiva = integracoes.find(i => i.status === 'conectado') || null;
+      // Detectar se é thread interna (usuário interno sem telefone)
+      const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
 
-      const resultado = await base44.functions.invoke('skillInitiateVideoCall', {
-        contact_id: contato.id,
-        thread_id: thread?.id || null,
-        integration_id: integracaoAtiva?.id || null,
-        tipo
-      });
+      let payload;
+
+      if (isThreadInterna) {
+        // Modo interno: link enviado via mensagem interna na thread
+        // user_id_destino = o outro participante (não o usuário atual)
+        const outroParticipante = thread?.participants?.find(id => id !== usuario?.id) || null;
+        payload = {
+          modo: 'interno',
+          thread_id: thread.id,
+          user_id_destino: outroParticipante,
+          tipo
+        };
+      } else {
+        // Modo externo: link enviado via WhatsApp para o telefone do contato
+        const integracaoAtiva = integracoes.find(i => i.status === 'conectado') || null;
+        payload = {
+          modo: 'externo',
+          contact_id: contato.id,
+          thread_id: thread?.id || null,
+          integration_id: integracaoAtiva?.id || null,
+          tipo
+        };
+      }
+
+      const resultado = await base44.functions.invoke('skillInitiateVideoCall', payload);
 
       if (!resultado?.data?.success) {
         throw new Error(resultado?.data?.error || 'Falha ao iniciar chamada');
@@ -49,7 +68,9 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
         link_enviado_whatsapp: resultado.data.link_enviado_whatsapp
       });
 
-      if (resultado.data.link_enviado_whatsapp) {
+      if (isThreadInterna) {
+        toast.success(`📹 Chamada iniciada! Link enviado na conversa interna.`);
+      } else if (resultado.data.link_enviado_whatsapp) {
         toast.success(`📹 Chamada iniciada! Link enviado via WhatsApp para ${resultado.data.contact_nome}`);
       } else {
         toast.success(`📹 Chamada iniciada! Copie o link para compartilhar.`);

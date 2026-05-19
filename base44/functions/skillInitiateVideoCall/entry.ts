@@ -32,22 +32,88 @@ Deno.serve(async (req) => {
     }
 
     // ── INICIAR CHAMADA ───────────────────────────────────────────────
-    if (!contact_id) return Response.json({ success: false, error: 'contact_id obrigatório' }, { status: 400 });
+    // Suporta dois modos:
+    // Modo EXTERNO: contact_id + integration_id → envia link via WhatsApp
+    // Modo INTERNO: user_id_destino + thread_id → envia link via mensagem interna
+    const { user_id_destino, modo = 'externo' } = body;
 
-    // Buscar contato
+    // Gerar sala Jitsi (comum a ambos os modos)
+    const roomSuffix = `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 6)}`;
+    const roomName = `nexus-${roomSuffix}`;
+    const roomUrl = `https://meet.jit.si/${roomName}`;
+    const tipoLabel = tipo === 'audio' ? '📞 Chamada de Voz' : '📹 Videochamada';
+    const nomeAtendente = user.full_name?.split(' ')[0] || 'Atendente';
+    const agora = new Date().toISOString();
+
+    // ── MODO INTERNO: usuário interno via thread interna ──────────────
+    if (modo === 'interno') {
+      if (!thread_id) return Response.json({ success: false, error: 'thread_id obrigatório para modo interno' }, { status: 400 });
+      if (!user_id_destino) return Response.json({ success: false, error: 'user_id_destino obrigatório para modo interno' }, { status: 400 });
+
+      // Buscar nome do destinatário
+      let nomeDestino = 'Colega';
+      try {
+        const userDest = await base44.asServiceRole.entities.User.get(user_id_destino);
+        nomeDestino = userDest.full_name || userDest.email || 'Colega';
+      } catch (_) {}
+
+      const session = await base44.asServiceRole.entities.CallSession.create({
+        room_name: roomName,
+        room_url: roomUrl,
+        tipo,
+        status: 'iniciando',
+        contact_id: null,
+        contact_nome: nomeDestino,
+        contact_telefone: null,
+        thread_id,
+        integration_id: null,
+        iniciado_por: user.email || user.id,
+        iniciado_em: agora,
+        link_enviado_whatsapp: false
+      });
+
+      const mensagemInterna = `${tipoLabel} — ${nomeAtendente} está te chamando!\n\nClique para entrar:\n${roomUrl}\n\n_A sala ficará disponível por 60 minutos._`;
+
+      // Enviar link via mensagem interna na thread
+      let linkEnviado = false;
+      try {
+        const resp = await base44.asServiceRole.functions.invoke('sendInternalMessage', {
+          thread_id,
+          content: mensagemInterna,
+          media_type: 'none'
+        });
+        linkEnviado = resp?.data?.success === true;
+      } catch (e) {
+        console.warn('[skillInitiateVideoCall] Falha ao enviar mensagem interna:', e.message);
+      }
+
+      await base44.asServiceRole.entities.CallSession.update(session.id, {
+        status: 'ativa',
+        link_enviado_whatsapp: linkEnviado,
+        mensagem_enviada: mensagemInterna
+      });
+
+      return Response.json({
+        success: true,
+        session_id: session.id,
+        room_url: roomUrl,
+        room_name: roomName,
+        tipo,
+        contact_nome: nomeDestino,
+        link_enviado_interno: linkEnviado,
+        link_enviado_whatsapp: false
+      });
+    }
+
+    // ── MODO EXTERNO: contato com telefone via WhatsApp ───────────────
+    if (!contact_id) return Response.json({ success: false, error: 'contact_id obrigatório para modo externo' }, { status: 400 });
+
     const contact = await base44.asServiceRole.entities.Contact.get(contact_id);
     if (!contact) return Response.json({ success: false, error: 'Contato não encontrado' }, { status: 404 });
 
     const telefone = contact.telefone || contact.celular;
     if (!telefone) return Response.json({ success: false, error: 'Contato sem telefone cadastrado' }, { status: 400 });
 
-    // Gerar sala Jitsi
-    const roomSuffix = `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 6)}`;
-    const roomName = `nexus-${roomSuffix}`;
-    const roomUrl = `https://meet.jit.si/${roomName}`;
-
-    // Criar registro da sessão
-    const agora = new Date().toISOString();
     const session = await base44.asServiceRole.entities.CallSession.create({
       room_name: roomName,
       room_url: roomUrl,
@@ -63,12 +129,8 @@ Deno.serve(async (req) => {
       link_enviado_whatsapp: false
     });
 
-    // Montar mensagem WhatsApp
-    const tipoLabel = tipo === 'audio' ? '📞 Chamada de Voz' : '📹 Videochamada';
-    const nomeAtendente = user.full_name?.split(' ')[0] || 'Atendente';
     const mensagem = `${tipoLabel} — ${nomeAtendente} está te chamando!\n\nClique para entrar:\n${roomUrl}\n\n_A sala ficará disponível por 60 minutos._`;
 
-    // Enviar via WhatsApp se tiver integração
     let linkEnviado = false;
     if (integration_id) {
       try {
@@ -83,7 +145,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Atualizar sessão com status da notificação
     await base44.asServiceRole.entities.CallSession.update(session.id, {
       status: 'ativa',
       link_enviado_whatsapp: linkEnviado,

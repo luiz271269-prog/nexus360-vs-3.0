@@ -1582,8 +1582,8 @@ export default function ChatWindow({
                 </button>
             }
 
-              {/* Botão Videochamada — apenas contatos externos com telefone */}
-              {contatoCompleto?.telefone && !isThreadInterna && (
+              {/* Botão Videochamada — externo (telefone) ou interno (thread interna) */}
+              {(contatoCompleto?.telefone || isThreadInterna) && (
                 <BotaoVideochamada
                   contato={contatoCompleto}
                   thread={thread}
