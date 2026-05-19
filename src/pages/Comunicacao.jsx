@@ -131,10 +131,9 @@ export default function Comunicacao() {
   const [isRateLimited, setIsRateLimited] = React.useState(false); // 🚫 Cool-down para 429
 
   const [filterScope, setFilterScope] = React.useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('filterScope') || 'all';
-    }
-    return 'all';
+    if (typeof window === 'undefined') return 'all';
+    const saved = localStorage.getItem('filterScope');
+    return saved && ['all', 'my', 'unassigned'].includes(saved) ? saved : 'all'; // ✅ Validar valor salvo
   });
 
   const [selectedAttendantId, setSelectedAttendantId] = React.useState(null);
