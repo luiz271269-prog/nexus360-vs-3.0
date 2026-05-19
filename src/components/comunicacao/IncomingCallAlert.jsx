@@ -56,23 +56,17 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
     return () => { if (interval) clearInterval(interval); if (ctx) ctx.close().catch(() => {}); };
   }, [chamadaEntrante?.id]);
 
-  // ── Polling: busca todas chamadas 'chamando' e filtra no cliente ──────────
+  // ── Polling: usa backend function com service role para bypassar RLS ──────
   const poll = useCallback(async () => {
     const uid = usuarioIdRef.current;
     if (!uid) return;
 
     try {
-      // Busca somente por status para não depender de query combinada
-      const sessoes = await base44.entities.CallSession.filter(
-        { status: 'chamando' },
-        '-created_date',
-        20
-      );
+      // Usa backend function que roda como service role — bypassa RLS do Base44
+      const resultado = await base44.functions.invoke('buscarChamadasEntrantes', {});
+      const sessoes = resultado?.data?.sessoes || [];
 
       for (const s of sessoes) {
-        // Deve ser para mim, modo webrtc
-        if (s.callee_id !== uid) continue;
-        if (s.modo !== 'interno_webrtc') continue;
         // Já tratei?
         if (jaVistosRef.current.has(s.id)) continue;
         // Não sobrepor chamada ativa
