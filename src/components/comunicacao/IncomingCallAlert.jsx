@@ -1,23 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import WebRTCCallManager from './WebRTCCallManager';
+import { Phone, PhoneOff, Video } from 'lucide-react';
+import WhatsAppCallOverlay from './WhatsAppCallOverlay';
 
 /**
- * Escuta por chamadas WebRTC entrantes para o usuário logado.
- * Suporta áudio e vídeo.
+ * Alerta global de chamada entrante + overlay de chamada ativa.
+ * Estilo WhatsApp.
  */
 export default function IncomingCallAlert({ usuario }) {
   const [chamadaEntrante, setChamadaEntrante] = useState(null);
-  const [chamadaAtiva, setChamadaAtiva] = useState(null); // { sessionId, isCaller, tipo }
+  const [chamadaAtiva, setChamadaAtiva] = useState(null); // { sessionId, tipo, peerNome }
   const [duracao, setDuracao] = useState(0);
-  const [micMutado, setMicMutado] = useState(false);
-  const [camDesligada, setCamDesligada] = useState(false);
   const duracaoRef = useRef(null);
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
-  const localStreamRef = useRef(null); // Referência ao stream local para mute
 
   // Toque de chamada
   useEffect(() => {
@@ -31,33 +25,23 @@ export default function IncomingCallAlert({ usuario }) {
       osc.frequency.value = 440;
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
       osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.4);
+      osc.stop(ctx.currentTime + 0.5);
     };
     beep();
-    const interval = setInterval(beep, 2000);
+    const interval = setInterval(beep, 3000);
     return () => { clearInterval(interval); ctx.close(); };
   }, [chamadaEntrante?.id]);
 
-  // Subscribe global para chamadas destinadas a este usuário
+  // Subscribe global
   useEffect(() => {
     if (!usuario?.id) return;
     const unsub = base44.entities.CallSession.subscribe((event) => {
       const s = event.data;
       if (!s) return;
-
-      if (
-        s.modo === 'interno_webrtc' &&
-        s.callee_id === usuario.id &&
-        s.status === 'chamando' &&
-        event.type === 'create'
-      ) {
+      if (s.modo === 'interno_webrtc' && s.callee_id === usuario.id && s.status === 'chamando' && event.type === 'create') {
         setChamadaEntrante(s);
       }
-
-      if (
-        chamadaEntrante?.id === s.id &&
-        ['encerrada', 'rejeitada', 'perdida'].includes(s.status)
-      ) {
+      if (chamadaEntrante?.id === s.id && ['encerrada', 'rejeitada', 'perdida'].includes(s.status)) {
         setChamadaEntrante(null);
         setChamadaAtiva(null);
       }
@@ -85,7 +69,7 @@ export default function IncomingCallAlert({ usuario }) {
 
   const aceitar = () => {
     if (!chamadaEntrante) return;
-    setChamadaAtiva({ sessionId: chamadaEntrante.id, isCaller: false, tipo: chamadaEntrante.tipo || 'audio' });
+    setChamadaAtiva({ sessionId: chamadaEntrante.id, tipo: chamadaEntrante.tipo || 'audio', peerNome: chamadaEntrante.caller_nome });
     setChamadaEntrante(null);
   };
 
@@ -107,128 +91,68 @@ export default function IncomingCallAlert({ usuario }) {
     setChamadaAtiva(null);
   };
 
-  const toggleMic = () => {
-    const stream = localVideoRef.current?.srcObject;
-    if (stream) {
-      stream.getAudioTracks().forEach(t => { t.enabled = micMutado; });
-    }
-    setMicMutado(m => !m);
-  };
-
-  const toggleCam = () => {
-    const stream = localVideoRef.current?.srcObject;
-    if (stream) {
-      stream.getVideoTracks().forEach(t => { t.enabled = camDesligada; });
-    }
-    setCamDesligada(c => !c);
-  };
-
-  const isVideo = chamadaAtiva?.tipo === 'video';
+  const isVideo = chamadaEntrante?.tipo === 'video';
 
   return (
     <>
-      {/* Motor WebRTC invisível */}
+      {/* Overlay de chamada ativa (callee) */}
       {chamadaAtiva && (
-        <WebRTCCallManager
-          sessionId={chamadaAtiva.sessionId}
-          isCaller={chamadaAtiva.isCaller}
+        <WhatsAppCallOverlay
           tipo={chamadaAtiva.tipo}
-          localVideoRef={isVideo ? localVideoRef : undefined}
-          remoteVideoRef={isVideo ? remoteVideoRef : undefined}
-          onConnected={() => {}}
-          onEnded={() => setChamadaAtiva(null)}
-          onError={() => setChamadaAtiva(null)}
+          peerNome={chamadaAtiva.peerNome}
+          sessionId={chamadaAtiva.sessionId}
+          duracao={duracao}
+          formatDuracao={formatDuracao}
+          isCaller={false}
+          onEncerrar={encerrar}
         />
       )}
 
-      {/* Alerta de chamada entrante */}
-      {chamadaEntrante && (
-        <div className="fixed bottom-24 right-6 z-[100] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-5 w-72">
-          <div className="flex items-center gap-3 mb-4">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center animate-pulse ${chamadaEntrante.tipo === 'video' ? 'bg-purple-500/20' : 'bg-green-500/20'}`}>
-              {chamadaEntrante.tipo === 'video'
-                ? <Video className="w-6 h-6 text-purple-400" />
-                : <Phone className="w-6 h-6 text-green-400" />}
-            </div>
-            <div>
-              <p className="text-white font-semibold text-sm">
-                {chamadaEntrante.tipo === 'video' ? 'Videochamada' : 'Chamada de voz'}
+      {/* Alerta de chamada entrante — estilo WhatsApp */}
+      {chamadaEntrante && !chamadaAtiva && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-80 overflow-hidden">
+            {/* Cabeçalho verde */}
+            <div
+              className="flex flex-col items-center pt-8 pb-6 px-6"
+              style={{ background: 'linear-gradient(160deg, #075e54 0%, #128c7e 100%)' }}
+            >
+              <div className="w-20 h-20 rounded-full bg-white/20 border-4 border-white/30 flex items-center justify-center text-white text-3xl font-bold shadow-xl mb-4">
+                {(chamadaEntrante.caller_nome || '?')[0].toUpperCase()}
+              </div>
+              <p className="text-white text-xl font-semibold">{chamadaEntrante.caller_nome || 'Colega'}</p>
+              <p className="text-white/70 text-sm mt-1 flex items-center gap-1.5">
+                {isVideo
+                  ? <><Video className="w-3.5 h-3.5" /> Videochamada de voz</>
+                  : <><Phone className="w-3.5 h-3.5" /> Chamada de voz</>}
               </p>
-              <p className="text-slate-300 text-sm">{chamadaEntrante.caller_nome || 'Colega'}</p>
+            </div>
+
+            {/* Botões */}
+            <div className="flex items-center justify-around py-6 px-8 bg-white">
+              {/* Rejeitar */}
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  onClick={rejeitar}
+                  className="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center shadow-lg transition-all active:scale-95"
+                >
+                  <PhoneOff className="w-6 h-6 text-white" />
+                </button>
+                <span className="text-xs text-slate-500">Recusar</span>
+              </div>
+
+              {/* Aceitar */}
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  onClick={aceitar}
+                  className="w-14 h-14 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center shadow-lg transition-all active:scale-95"
+                >
+                  {isVideo ? <Video className="w-6 h-6 text-white" /> : <Phone className="w-6 h-6 text-white" />}
+                </button>
+                <span className="text-xs text-slate-500">Aceitar</span>
+              </div>
             </div>
           </div>
-          <div className="flex gap-3">
-            <Button onClick={rejeitar} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl" size="sm">
-              <PhoneOff className="w-4 h-4 mr-1" /> Rejeitar
-            </Button>
-            <Button onClick={aceitar} className={`flex-1 text-white rounded-xl ${chamadaEntrante.tipo === 'video' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-600 hover:bg-green-700'}`} size="sm">
-              {chamadaEntrante.tipo === 'video'
-                ? <><Video className="w-4 h-4 mr-1" /> Aceitar</>
-                : <><Phone className="w-4 h-4 mr-1" /> Aceitar</>}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Overlay de videochamada ativa */}
-      {chamadaAtiva && isVideo && (
-        <div className="fixed inset-0 z-[99] bg-black flex flex-col">
-          {/* Vídeo remoto (tela cheia) */}
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="flex-1 w-full object-cover"
-          />
-          {/* Vídeo local (canto) */}
-          <video
-            ref={localVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className="absolute bottom-24 right-4 w-36 h-28 rounded-xl object-cover border-2 border-white/30 shadow-xl"
-          />
-          {/* Nome + duração */}
-          <div className="absolute top-4 left-0 right-0 flex justify-center">
-            <div className="bg-black/50 text-white text-sm px-4 py-2 rounded-full flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              {formatDuracao(duracao)}
-            </div>
-          </div>
-          {/* Controles */}
-          <div className="bg-black/80 flex items-center justify-center gap-6 py-5">
-            <button
-              onClick={toggleMic}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${micMutado ? 'bg-red-600' : 'bg-slate-700 hover:bg-slate-600'}`}
-            >
-              {micMutado ? <MicOff className="w-5 h-5 text-white" /> : <Mic className="w-5 h-5 text-white" />}
-            </button>
-            <button
-              onClick={encerrar}
-              className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center shadow-lg"
-            >
-              <PhoneOff className="w-6 h-6 text-white" />
-            </button>
-            <button
-              onClick={toggleCam}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${camDesligada ? 'bg-red-600' : 'bg-slate-700 hover:bg-slate-600'}`}
-            >
-              {camDesligada ? <VideoOff className="w-5 h-5 text-white" /> : <Video className="w-5 h-5 text-white" />}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Barra de chamada de áudio ativa */}
-      {chamadaAtiva && !isVideo && (
-        <div className="fixed top-0 left-0 right-0 z-[100] bg-green-700 flex items-center justify-between px-6 py-2 shadow-lg">
-          <div className="flex items-center gap-2 text-white text-sm font-medium">
-            <div className="w-2 h-2 rounded-full bg-green-300 animate-pulse" />
-            Chamada ativa — {formatDuracao(duracao)}
-          </div>
-          <Button onClick={encerrar} size="sm" className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-3 py-1 text-xs">
-            <PhoneOff className="w-3 h-3 mr-1" /> Encerrar
-          </Button>
         </div>
       )}
     </>

@@ -1,33 +1,27 @@
 import React from "react";
-import { Video, Phone, Loader2, PhoneOff } from "lucide-react";
+import { Video, Phone, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { base44 } from "@/api/base44Client";
 import VideoCallModule from "./VideoCallModule";
 import WebRTCCallManager from "./WebRTCCallManager";
-import VideoCallWebRTC from "./VideoCallWebRTC";
+import WhatsAppCallOverlay from "./WhatsAppCallOverlay";
 
+/**
+ * Dois botões estilo WhatsApp: câmera (vídeo) + telefone (voz).
+ * Threads internas → WebRTC direto.
+ * Threads externas → Jitsi via link WhatsApp.
+ */
 export default function BotaoVideochamada({ contato, thread, usuario, integracoes = [] }) {
-  const [sessaoExterna, setSessaoExterna] = React.useState(null); // Jitsi (externo)
-  const [sessaoInterna, setSessaoInterna] = React.useState(null); // WebRTC (interno) { sessionId }
+  const [sessaoExterna, setSessaoExterna] = React.useState(null);
+  const [sessaoInterna, setSessaoInterna] = React.useState(null); // { sessionId, tipo }
   const [duracaoInterna, setDuracaoInterna] = React.useState(0);
   const [iniciando, setIniciando] = React.useState(false);
-  const [menuAberto, setMenuAberto] = React.useState(false);
-  const menuRef = React.useRef(null);
   const duracaoTimer = React.useRef(null);
 
   const isThreadInterna =
     thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
 
-  // Fechar menu ao clicar fora
-  React.useEffect(() => {
-    const handler = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuAberto(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  // Temporizador da chamada interna
+  // Temporizador
   React.useEffect(() => {
     if (sessaoInterna) {
       setDuracaoInterna(0);
@@ -45,20 +39,18 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
   };
 
   const iniciarChamadaInterna = async (tipo) => {
-    setMenuAberto(false);
+    if (iniciando || sessaoInterna) return;
     setIniciando(true);
     try {
       const outroParticipante = thread?.participants?.find(id => id !== usuario?.id) || null;
       if (!outroParticipante) throw new Error('Participante não encontrado na thread');
 
-      // Buscar nome do destinatário
       let calleeNome = 'Colega';
       try {
         const users = await base44.entities.User.list();
         calleeNome = users.find(u => u.id === outroParticipante)?.full_name || 'Colega';
       } catch (_) {}
 
-      // Criar sessão de sinalização no banco
       const session = await base44.entities.CallSession.create({
         modo: 'interno_webrtc',
         tipo,
@@ -72,8 +64,7 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
         iniciado_em: new Date().toISOString()
       });
 
-      setSessaoInterna({ sessionId: session.id, tipo });
-      toast.success(`📞 Chamando ${calleeNome}...`);
+      setSessaoInterna({ sessionId: session.id, tipo, peerNome: calleeNome });
     } catch (e) {
       toast.error('Erro ao iniciar chamada: ' + e.message);
     } finally {
@@ -94,7 +85,7 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
   };
 
   const iniciarChamadaExterna = async (tipo) => {
-    setMenuAberto(false);
+    if (iniciando) return;
     setIniciando(true);
     try {
       const integracaoAtiva = integracoes.find(i => i.status === 'conectado') || null;
@@ -118,9 +109,7 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
       });
 
       if (resultado.data.link_enviado_whatsapp) {
-        toast.success(`📹 Link enviado via WhatsApp para ${resultado.data.contact_nome}`);
-      } else {
-        toast.success(`📹 Sala criada! Copie o link para compartilhar.`);
+        toast.success(`Link enviado via WhatsApp para ${resultado.data.contact_nome}`);
       }
     } catch (e) {
       toast.error('Erro ao iniciar chamada: ' + e.message);
@@ -130,87 +119,63 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
   };
 
   const iniciarChamada = (tipo) => {
-    if (isThreadInterna) {
-      iniciarChamadaInterna(tipo);
-    } else {
-      iniciarChamadaExterna(tipo);
-    }
+    if (isThreadInterna) iniciarChamadaInterna(tipo);
+    else iniciarChamadaExterna(tipo);
   };
 
   return (
     <>
-      {/* Motor WebRTC invisível (áudio) ou overlay vídeo (gerenciado pelo IncomingCallAlert no lado do callee) */}
+      {/* Motor WebRTC áudio (invisível) */}
       {sessaoInterna && sessaoInterna.tipo === 'audio' && (
         <WebRTCCallManager
           sessionId={sessaoInterna.sessionId}
           isCaller={true}
           tipo="audio"
-          onConnected={() => toast.success('📞 Conectado!')}
+          onConnected={() => {}}
           onEnded={() => setSessaoInterna(null)}
-          onError={(msg) => { toast.error('Erro na chamada: ' + msg); setSessaoInterna(null); }}
+          onError={() => setSessaoInterna(null)}
         />
       )}
 
-      {/* Overlay de videochamada ativa (caller) */}
-      {sessaoInterna && sessaoInterna.tipo === 'video' && (
-        <VideoCallWebRTC
+      {/* Overlay estilo WhatsApp (áudio ou vídeo) */}
+      {sessaoInterna && (
+        <WhatsAppCallOverlay
+          tipo={sessaoInterna.tipo}
+          peerNome={sessaoInterna.peerNome}
           sessionId={sessaoInterna.sessionId}
           duracao={duracaoInterna}
-          onEncerrar={encerrarChamadaInterna}
           formatDuracao={formatDuracao}
+          isCaller={true}
+          onEncerrar={encerrarChamadaInterna}
         />
       )}
 
-      {/* Barra de chamada de áudio ativa */}
-      {sessaoInterna && sessaoInterna.tipo === 'audio' && (
-        <div className="fixed top-0 left-0 right-0 z-[100] bg-green-700 flex items-center justify-between px-6 py-2 shadow-lg">
-          <div className="flex items-center gap-2 text-white text-sm font-medium">
-            <div className="w-2 h-2 rounded-full bg-green-300 animate-pulse" />
-            Chamando... {formatDuracao(duracaoInterna)}
-          </div>
-          <button
-            onClick={encerrarChamadaInterna}
-            className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-3 py-1 text-xs flex items-center gap-1"
-          >
-            <PhoneOff className="w-3 h-3" /> Encerrar
-          </button>
-        </div>
-      )}
-
-      {/* Botão dropdown */}
-      <div className="relative" ref={menuRef}>
+      {/* Dois botões estilo WhatsApp */}
+      <div className="flex items-center gap-1">
+        {/* Botão Vídeo */}
         <button
-          onClick={() => setMenuAberto(prev => !prev)}
+          onClick={() => iniciarChamada('video')}
           disabled={iniciando || !!sessaoInterna}
-          className="bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-lg p-1.5 shadow-md flex items-center justify-center hover:from-green-600 hover:to-emerald-700 hover:shadow-lg transition-all disabled:opacity-50"
-          title="Iniciar chamada"
+          title="Videochamada"
+          className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors disabled:opacity-40"
         >
           {iniciando
-            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            : <Phone className="w-3.5 h-3.5" />}
+            ? <Loader2 className="w-5 h-5 animate-spin" />
+            : <Video className="w-5 h-5" />}
         </button>
 
-        {menuAberto && !iniciando && (
-          <div className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden min-w-[160px]">
-            <button
-              onClick={() => iniciarChamada('video')}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-purple-50 text-slate-700 text-sm transition-colors"
-            >
-              <Video className="w-4 h-4 text-purple-600" />
-              Videochamada
-            </button>
-            <button
-              onClick={() => iniciarChamada('audio')}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-blue-50 text-slate-700 text-sm transition-colors border-t border-slate-100"
-            >
-              <Phone className="w-4 h-4 text-blue-600" />
-              Chamada de voz
-            </button>
-          </div>
-        )}
+        {/* Botão Voz */}
+        <button
+          onClick={() => iniciarChamada('audio')}
+          disabled={iniciando || !!sessaoInterna}
+          title="Chamada de voz"
+          className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors disabled:opacity-40"
+        >
+          <Phone className="w-5 h-5" />
+        </button>
       </div>
 
-      {/* Overlay Jitsi — só para chamadas externas */}
+      {/* Overlay Jitsi (chamadas externas) */}
       {sessaoExterna && (
         <VideoCallModule
           session={sessaoExterna}
