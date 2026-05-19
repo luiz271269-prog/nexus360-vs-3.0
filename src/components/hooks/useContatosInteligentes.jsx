@@ -13,7 +13,7 @@ const _moduleCache = {
   lastFetchTs: 0,
   inflightPromise: null,
   result: null,
-  THROTTLE_MS: 3 * 60 * 1000 // 3min entre chamadas globais
+  THROTTLE_MS: 10 * 60 * 1000 // 10min entre chamadas globais (evita bursts de 429)
 };
 
 export function useContatosInteligentes(usuario, opcoes = {}) {
@@ -28,7 +28,7 @@ export function useContatosInteligentes(usuario, opcoes = {}) {
     minDealRisk = 30,
     limit = 50,
     autoRefresh = true,
-    refreshInterval = 5 * 60 * 1000 // 5min
+    refreshInterval = 15 * 60 * 1000 // 15min (reduzido para evitar 429)
   } = opcoes;
 
   const carregarContatos = async (forcarReanalise = false) => {
