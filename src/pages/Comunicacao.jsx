@@ -131,9 +131,10 @@ export default function Comunicacao() {
   const [isRateLimited, setIsRateLimited] = React.useState(false); // 🚫 Cool-down para 429
 
   const [filterScope, setFilterScope] = React.useState(() => {
-    if (typeof window === 'undefined') return 'all';
-    const saved = localStorage.getItem('filterScope');
-    return saved && ['all', 'my', 'unassigned'].includes(saved) ? saved : 'all'; // ✅ Validar valor salvo
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('filterScope') || 'all';
+    }
+    return 'all';
   });
 
   const [selectedAttendantId, setSelectedAttendantId] = React.useState(null);
@@ -211,33 +212,28 @@ export default function Comunicacao() {
     const unsubscribe = base44.entities.MessageThread.subscribe((event) => {
       console.log(`[COMUNICACAO] 🔔 Thread ${event.type}d:`, event.id);
 
-      // Adicionar à fila de invalidações com metadado do tipo
-      const isInterna = event.data?.thread_type === 'team_internal' || event.data?.thread_type === 'sector_group';
-      invalidacoesPendentes.add({ id: event.id, isInterna });
+      // Adicionar à fila de invalidações
+      invalidacoesPendentes.add(event.id);
 
       // Limpar timer anterior
       if (debounceTimer) clearTimeout(debounceTimer);
 
-      // Agendar invalidação em 5 segundos (agrupa múltiplos eventos — reduz 429)
+      // Agendar invalidação em 2 segundos (agrupa múltiplos eventos)
       debounceTimer = setTimeout(() => {
         console.log(`[COMUNICACAO] ♻️ Invalidando ${invalidacoesPendentes.size} thread(s) agrupadas`);
 
-        const temExterna = [...invalidacoesPendentes].some(item => !item.isInterna);
-        const temInterna = [...invalidacoesPendentes].some(item => item.isInterna);
-
-        // ✅ FIX SELETIVO: Invalidar apenas a query afetada pelo evento
-        if (temExterna) queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
-        if (temInterna) queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
+        // ✅ FIX: Invalidar queries SEPARADAS (evita recarregar internas desnecessariamente)
+        queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+        queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
 
         // Se alguma thread ativa foi atualizada, recarregar mensagens
-        const idsInvalidados = new Set([...invalidacoesPendentes].map(item => item.id));
-        if (threadAtiva?.id && idsInvalidados.has(threadAtiva.id)) {
+        if (threadAtiva?.id && invalidacoesPendentes.has(threadAtiva.id)) {
           queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
         }
 
         // Limpar fila
         invalidacoesPendentes.clear();
-      }, 5000);
+      }, 3500);
     });
 
     return () => {
@@ -552,7 +548,7 @@ export default function Comunicacao() {
   const { data: mensagens = [] } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
     queryFn: async () => {
-      if (!threadAtiva) return [];
+      if (!threadAtiva || isRateLimited) return [];
 
       try {
         // BRANCH INTERNO: Busca simples, SEM merge
@@ -1451,7 +1447,7 @@ export default function Comunicacao() {
   }, [contatos]);
 
   // ✅ PATCH 3: Segurar "unassigned" até ter dados mínimos carregados
-  const hasBaseData = !!usuario && threads.length > 0;
+  const hasBaseData = !!usuario && Array.isArray(threads) && threads.length >= 0;
   const effectiveScope =
   !hasBaseData && filterScope === 'unassigned' ? 'all' : filterScope;
 

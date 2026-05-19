@@ -89,10 +89,35 @@ Deno.serve(async (req) => {
       }, { status: 400, headers });
     }
 
+    // Se lista vazia, apenas consolidada a mestre (agrupa threads se duplicadas)
+    if (duplicateContactIds.length === 0) {
+      console.log('[MERGE] ℹ️ Consolidando threads do mestre (sem duplicatas)...');
+      
+      // Buscar threads do mestre
+      const threads = await base44.asServiceRole.entities.MessageThread.filter({
+        contact_id: masterContactId
+      });
+      
+      console.log('[MERGE] Threads do mestre:', threads.length);
+      
+      return Response.json({
+        success: true,
+        stats: {
+          duplicatasProcessadas: 0,
+          threadsMovidas: 0,
+          mensagensMovidas: 0,
+          interacoesMovidas: 0
+        },
+        masterContactName: mestre.nome || mestre.telefone,
+        message: 'Consolidação concluída (sem duplicatas para mesclar)',
+        version: VERSION
+      }, { headers });
+    }
+
     console.log('[MERGE] Master:', masterContactId);
     console.log('[MERGE] Duplicatas:', duplicateContactIds);
 
-    // Buscar contato mestre PRIMEIRO (antes de qualquer uso)
+    // Buscar contato mestre
     const mestre = await base44.asServiceRole.entities.Contact.get(masterContactId);
     if (!mestre) {
       return Response.json({
@@ -102,18 +127,6 @@ Deno.serve(async (req) => {
     }
 
     console.log('[MERGE] ✅ Mestre carregado:', mestre.nome || mestre.telefone);
-
-    // Se lista vazia, apenas retorna (sem duplicatas para processar)
-    if (duplicateContactIds.length === 0) {
-      console.log('[MERGE] ℹ️ Sem duplicatas para mesclar.');
-      return Response.json({
-        success: true,
-        stats: { duplicatasProcessadas: 0, threadsMovidas: 0, mensagensMovidas: 0, interacoesMovidas: 0 },
-        masterContactName: mestre.nome || mestre.telefone,
-        message: 'Consolidação concluída (sem duplicatas para mesclar)',
-        version: VERSION
-      }, { headers });
-    }
 
     // Estatísticas
     const stats = {

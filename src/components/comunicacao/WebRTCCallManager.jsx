@@ -189,7 +189,8 @@ export default function WebRTCCallManager({
       const poll = setInterval(async () => {
         if (endedRef.current || attempts++ > 80) { clearInterval(poll); return; }
         try {
-           const s = await base44.entities.CallSession.get(sessionId);
+           const res = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
+           const s = res?.data?.session;
            if (!s) return;
 
            if (['rejeitada', 'encerrada'].includes(s.status)) {
@@ -205,7 +206,8 @@ export default function WebRTCCallManager({
              icePollRef.current = setInterval(async () => {
                if (endedRef.current || iceAttempts++ > 60) { clearInterval(icePollRef.current); return; }
                try {
-                 const ss = await base44.entities.CallSession.get(sessionId);
+                 const res2 = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
+                 const ss = res2?.data?.session;
                 if (!ss || ['encerrada', 'rejeitada'].includes(ss.status)) {
                   clearInterval(icePollRef.current); cleanup(); onEnded?.(); return;
                 }
@@ -260,7 +262,8 @@ export default function WebRTCCallManager({
       const poll = setInterval(async () => {
         if (endedRef.current || attempts++ > 60) { clearInterval(poll); return; }
         try {
-          const s = await base44.entities.CallSession.get(sessionId);
+          const res = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
+          const s = res?.data?.session;
           if (!s) return;
           if (s.status === 'encerrada') {
             clearInterval(poll); cleanup(); onEnded?.(); return;
