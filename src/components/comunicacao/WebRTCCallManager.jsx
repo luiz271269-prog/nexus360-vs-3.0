@@ -211,12 +211,12 @@ export default function WebRTCCallManager({
                 }
                 await applyIce(pc, ss.ice_candidates_callee, appliedIceCallee.current);
               } catch (_) {}
-            }, 5000);
+            }, 2000);
           } else {
             await applyIce(pc, s.ice_candidates_callee, appliedIceCallee.current);
           }
         } catch (_) {}
-      }, 5000);
+      }, 1500);
 
     } catch (e) {
       onError?.(e.message); cleanup();
@@ -234,7 +234,7 @@ export default function WebRTCCallManager({
           const s = res?.data?.session;
           if (s?.webrtc_offer) { session = s; break; }
         } catch (_) {}
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 1000));
       }
 
       if (!session?.webrtc_offer) {
@@ -268,7 +268,7 @@ export default function WebRTCCallManager({
           }
           await applyIce(pc, s.ice_candidates_caller, appliedIceCaller.current);
         } catch (_) {}
-      }, 5000);
+      }, 2000);
 
     } catch (e) {
       onError?.(e.message); cleanup();
