@@ -648,8 +648,9 @@ export default function Comunicacao() {
       return [];
     },
     // ✅ Começa IMEDIATAMENTE (função não precisa de usuário)
-    staleTime: 5 * 60 * 1000,
-    retry: 3,
+    staleTime: 10 * 60 * 1000, // 10min — atendentes mudam raramente
+    refetchOnWindowFocus: false, // ✅ FIX: evita burst ao trocar de aba/recarregar
+    retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000)
   });
 
