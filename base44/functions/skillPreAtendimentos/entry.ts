@@ -1466,6 +1466,7 @@ Deno.serve(async (req) => {
 
         try {
           const llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+            model: 'gemini_3_flash',
             prompt: `Classifique a intenção em JSON:\nTEXTO: "${textoAnalise.substring(0, 200)}"${stickyHint}\nRetorne: {"intencao":"string","setor":"vendas|assistencia|financeiro|fornecedor","confidence":0.0-1.0}`,
             response_json_schema: {
               type: 'object',
@@ -1483,11 +1484,8 @@ Deno.serve(async (req) => {
             metodo = 'llm';
           }
         } catch (e) {
-          // Erros do provedor Modal (1MO0GZ32) ou rate limit são esperados — silencioso, usa fallback
-          const isProviderError = e.message?.includes('1MO0GZ32') || e.message?.includes('429') || e.message?.includes('Rate limit') || e.message?.includes('Modal') || e.message?.includes('provider');
-          console.warn(`[SKILL-PRE-ATEND] LLM falhou (${isProviderError ? 'provider_error' : 'unknown'}), usando setor anterior ou default:`, e.message);
+          console.warn('[SKILL-PRE-ATEND] LLM falhou, usando setor anterior ou default:', e.message);
           setor = setorAnterior || SETOR_DEFAULT;
-          metodo = 'pattern_fallback';
         }
       }
 
@@ -1523,7 +1521,7 @@ Deno.serve(async (req) => {
         intencao_detectada: intencao,
         setor_detectado: setor,
         tipo_contato_detectado: contact?.tipo_contato || 'novo',
-        confidence, modelo_usado: metodo === 'llm' ? 'automatic' : 'pattern_match',
+        confidence, modelo_usado: metodo === 'llm' ? 'gemini_3_flash' : 'pattern_match',
         metodo_deteccao: metodo,
         threshold_aplicado: 0.65,
         resultado_roteamento: confidence >= 0.65 ? 'auto_roteado' : 'menu_fallback',
@@ -1792,6 +1790,7 @@ Deno.serve(async (req) => {
 
       try {
         const respLLM = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          model: 'gemini_3_flash',
           prompt: `Você é a equipe de ${setor} de uma empresa de tecnologia.
 TIPO: ${tipoContato} | Cliente: ${primeiroNome}
 Mensagem do cliente: "${textoAnalise.substring(0, 200)}"
@@ -1801,8 +1800,7 @@ NUNCA mencione nomes de atendentes. Tom profissional e humano.`
         });
         mensagemBoasVindas = typeof respLLM === 'string' ? respLLM : respLLM?.text || null;
       } catch (e) {
-        // Erros do provedor Modal (1MO0GZ32) ou rate limit são esperados — usa fallback silenciosamente
-        console.warn('[SKILL-PRE-ATEND] LLM boas-vindas falhou (provider error esperado), usando fallback:', e.message?.substring(0, 100));
+        console.warn('[SKILL-PRE-ATEND] LLM boas-vindas falhou, usando fallback');
         const fallbacks = {
           cliente: `Olá${primeiroNome ? ' ' + primeiroNome : ''}! Que bom ter você. Estamos verificando o que você precisa. 😊`,
           fornecedor: `Olá! Obrigado pelo contato. Nossa equipe de compras vai te atender.`,

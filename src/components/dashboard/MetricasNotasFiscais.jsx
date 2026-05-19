@@ -1,5 +1,4 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useMemo } from "react";
 import { dedupById } from "../../utils/dedup";
 import { buscarNotasFiscaisExternas } from "@/functions/buscarNotasFiscaisExternas";
 import { CheckCircle, Clock, AlertTriangle, FileText, ChevronLeft, ChevronRight } from "lucide-react";
@@ -9,24 +8,32 @@ const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov"
 
 export default function MetricasNotasFiscais({ mesSel: mesProp, anoSel: anoProp, modoAnual }) {
   const hoje = new Date();
+  const [notas, setNotas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState(null);
   // Controlado externamente quando recebe props, caso contrário usa estado interno
   const [mesSel, setMesSel] = useState(hoje.getMonth());
   const [anoSel, setAnoSel] = useState(hoje.getFullYear());
   const mesFinal = mesProp !== undefined && mesProp !== null ? mesProp : mesSel;
   const anoFinal = anoProp !== undefined ? anoProp : anoSel;
 
-  const { data: notas = [], isLoading: loading, error: erroQuery } = useQuery({
-    queryKey: ['notas-fiscais-externas'],
-    queryFn: async () => {
+  const carregarNotas = async () => {
+    setLoading(true);
+    setErro(null);
+    try {
       const resp = await buscarNotasFiscaisExternas({});
-      if (!resp.data?.success) throw new Error(resp.data?.error || 'Erro ao carregar');
-      return dedupById(resp.data.notas || []);
-    },
-    staleTime: 10 * 60 * 1000,      // 10 min — não refaz enquanto dados frescos
-    refetchOnWindowFocus: false,     // não refaz ao trocar de aba
-    retry: 1,
-  });
-  const erro = erroQuery?.message || null;
+      if (resp.data?.success) {
+        setNotas(dedupById(resp.data.notas || []));
+      } else {
+        setErro(resp.data?.error || 'Erro ao carregar');
+      }
+    } catch(e) {
+      setErro(e.message);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { carregarNotas(); }, []);
 
   // Filtrar notas pelo mês/ano selecionado
   const notasMes = useMemo(() => {

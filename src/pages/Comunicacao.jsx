@@ -233,7 +233,7 @@ export default function Comunicacao() {
 
         // Limpar fila
         invalidacoesPendentes.clear();
-      }, 3500);
+      }, 2000);
     });
 
     return () => {
@@ -314,12 +314,13 @@ export default function Comunicacao() {
         throw error;
       }
     },
-    refetchInterval: 0,
-    staleTime: 60000,
+    refetchInterval: 120000,
+    staleTime: 90000,
     enabled: !!usuario && !isRateLimited,
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: false,
+    refetchOnMount: true,
     onError: (error) => {
       console.error('[COMUNICACAO] Erro ao carregar threads externas:', error);
     }
@@ -647,9 +648,8 @@ export default function Comunicacao() {
       return [];
     },
     // ✅ Começa IMEDIATAMENTE (função não precisa de usuário)
-    staleTime: 10 * 60 * 1000, // 10min — atendentes mudam raramente
-    refetchOnWindowFocus: false, // ✅ FIX: evita burst ao trocar de aba/recarregar
-    retry: 2,
+    staleTime: 5 * 60 * 1000,
+    retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000)
   });
 

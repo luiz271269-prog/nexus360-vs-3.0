@@ -13,7 +13,7 @@ const _moduleCache = {
   lastFetchTs: 0,
   inflightPromise: null,
   result: null,
-  THROTTLE_MS: 10 * 60 * 1000 // 10min entre chamadas globais (evita bursts de 429)
+  THROTTLE_MS: 3 * 60 * 1000 // 3min entre chamadas globais
 };
 
 export function useContatosInteligentes(usuario, opcoes = {}) {
@@ -28,7 +28,7 @@ export function useContatosInteligentes(usuario, opcoes = {}) {
     minDealRisk = 30,
     limit = 50,
     autoRefresh = true,
-    refreshInterval = 15 * 60 * 1000 // 15min (reduzido para evitar 429)
+    refreshInterval = 5 * 60 * 1000 // 5min
   } = opcoes;
 
   const carregarContatos = async (forcarReanalise = false) => {
@@ -92,14 +92,8 @@ export function useContatosInteligentes(usuario, opcoes = {}) {
     } catch (err) {
       console.error('[useContatosInteligentes] Erro:', err);
       setError(err.message);
-      // Em 429, manter throttle ativo por mais 5min (não resetar para 0)
-      if (err.message?.includes('429') || err.message?.includes('Rate limit')) {
-        _moduleCache.lastFetchTs = Date.now() + (5 * 60 * 1000); // penalidade extra de 5min
-        console.warn('[useContatosInteligentes] ⚠️ 429 detectado — próxima chamada em 8min');
-      } else {
-        // Para outros erros: retry após 2min (não imediato)
-        _moduleCache.lastFetchTs = Date.now() - (_moduleCache.THROTTLE_MS - 2 * 60 * 1000);
-      }
+      // Resetar timestamp para permitir retry imediato
+      _moduleCache.lastFetchTs = 0;
     } finally {
       setLoading(false);
       _moduleCache.inflightPromise = null;
