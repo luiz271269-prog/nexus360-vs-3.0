@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { base44 } from "@/api/base44Client";
 import VideoCallModule from "./VideoCallModule";
 import WebRTCCallManager from "./WebRTCCallManager";
+import VideoCallWebRTC from "./VideoCallWebRTC";
 
 export default function BotaoVideochamada({ contato, thread, usuario, integracoes = [] }) {
   const [sessaoExterna, setSessaoExterna] = React.useState(null); // Jitsi (externo)
@@ -138,19 +139,30 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
 
   return (
     <>
-      {/* Motor WebRTC invisível (só quando chamada interna ativa) */}
-      {sessaoInterna && (
+      {/* Motor WebRTC invisível (áudio) ou overlay vídeo (gerenciado pelo IncomingCallAlert no lado do callee) */}
+      {sessaoInterna && sessaoInterna.tipo === 'audio' && (
         <WebRTCCallManager
           sessionId={sessaoInterna.sessionId}
           isCaller={true}
+          tipo="audio"
           onConnected={() => toast.success('📞 Conectado!')}
           onEnded={() => setSessaoInterna(null)}
           onError={(msg) => { toast.error('Erro na chamada: ' + msg); setSessaoInterna(null); }}
         />
       )}
 
-      {/* Barra de chamada interna ativa */}
-      {sessaoInterna && (
+      {/* Overlay de videochamada ativa (caller) */}
+      {sessaoInterna && sessaoInterna.tipo === 'video' && (
+        <VideoCallWebRTC
+          sessionId={sessaoInterna.sessionId}
+          duracao={duracaoInterna}
+          onEncerrar={encerrarChamadaInterna}
+          formatDuracao={formatDuracao}
+        />
+      )}
+
+      {/* Barra de chamada de áudio ativa */}
+      {sessaoInterna && sessaoInterna.tipo === 'audio' && (
         <div className="fixed top-0 left-0 right-0 z-[100] bg-green-700 flex items-center justify-between px-6 py-2 shadow-lg">
           <div className="flex items-center gap-2 text-white text-sm font-medium">
             <div className="w-2 h-2 rounded-full bg-green-300 animate-pulse" />
@@ -180,21 +192,19 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
 
         {menuAberto && !iniciando && (
           <div className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden min-w-[160px]">
-            {!isThreadInterna && (
-              <button
-                onClick={() => iniciarChamada('video')}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-green-50 text-slate-700 text-sm transition-colors"
-              >
-                <Video className="w-4 h-4 text-green-600" />
-                Videochamada
-              </button>
-            )}
+            <button
+              onClick={() => iniciarChamada('video')}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-purple-50 text-slate-700 text-sm transition-colors"
+            >
+              <Video className="w-4 h-4 text-purple-600" />
+              Videochamada
+            </button>
             <button
               onClick={() => iniciarChamada('audio')}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-blue-50 text-slate-700 text-sm transition-colors ${!isThreadInterna ? 'border-t border-slate-100' : ''}`}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-blue-50 text-slate-700 text-sm transition-colors border-t border-slate-100"
             >
               <Phone className="w-4 h-4 text-blue-600" />
-              {isThreadInterna ? 'Ligar agora' : 'Chamada de voz'}
+              Chamada de voz
             </button>
           </div>
         )}

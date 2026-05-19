@@ -2,24 +2,35 @@ import { useEffect, useRef, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 
 /**
- * Motor WebRTC para chamadas internas diretas.
+ * Motor WebRTC para chamadas internas diretas (áudio e vídeo).
  * Usa CallSession como canal de sinalização via subscribe.
  *
  * Props:
  *  - sessionId: ID da CallSession
  *  - isCaller: boolean — true se este usuário iniciou a chamada
+ *  - tipo: 'audio' | 'video'
+ *  - localVideoRef: ref para <video> do stream local (só vídeo)
+ *  - remoteVideoRef: ref para <video> do stream remoto (só vídeo)
  *  - onConnected: () => void
  *  - onEnded: () => void
  *  - onError: (msg) => void
  */
-export default function WebRTCCallManager({ sessionId, isCaller, onConnected, onEnded, onError }) {
+export default function WebRTCCallManager({
+  sessionId,
+  isCaller,
+  tipo = 'audio',
+  localVideoRef,
+  remoteVideoRef,
+  onConnected,
+  onEnded,
+  onError
+}) {
   const pcRef = useRef(null);
   const localStreamRef = useRef(null);
-  const remoteAudioRef = useRef(null);
   const unsubRef = useRef(null);
   const endedRef = useRef(false);
+  const remoteAudioRef = useRef(null); // Para áudio sem elemento <video>
 
-  // Config STUN público (sem TURN por ora — funciona em rede local/LAN)
   const ICE_CONFIG = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
@@ -36,9 +47,14 @@ export default function WebRTCCallManager({ sessionId, isCaller, onConnected, on
       localStreamRef.current.getTracks().forEach(t => t.stop());
       localStreamRef.current = null;
     }
-  }, []);
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = null;
+      remoteAudioRef.current = null;
+    }
+    if (localVideoRef?.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef?.current) remoteVideoRef.current.srcObject = null;
+  }, [localVideoRef, remoteVideoRef]);
 
-  // Adicionar ICE candidates recebidos do outro lado
   const applyRemoteCandidates = useCallback(async (candidates) => {
     if (!pcRef.current || !candidates?.length) return;
     for (const c of candidates) {
@@ -48,7 +64,6 @@ export default function WebRTCCallManager({ sessionId, isCaller, onConnected, on
     }
   }, []);
 
-  // Publicar ICE candidate local no banco
   const publishIceCandidate = useCallback(async (candidate) => {
     if (!sessionId) return;
     try {
@@ -62,8 +77,18 @@ export default function WebRTCCallManager({ sessionId, isCaller, onConnected, on
   }, [sessionId, isCaller]);
 
   const initPeerConnection = useCallback(async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    const constraints = tipo === 'video'
+      ? { audio: true, video: { width: 1280, height: 720 } }
+      : { audio: true, video: false };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
     localStreamRef.current = stream;
+
+    // Exibir stream local no elemento de vídeo (se houver)
+    if (localVideoRef?.current && tipo === 'video') {
+      localVideoRef.current.srcObject = stream;
+      localVideoRef.current.muted = true; // Evita eco
+    }
 
     const pc = new RTCPeerConnection(ICE_CONFIG);
     pcRef.current = pc;
@@ -75,12 +100,17 @@ export default function WebRTCCallManager({ sessionId, isCaller, onConnected, on
     };
 
     pc.ontrack = (e) => {
-      // Reproduzir áudio remoto
-      if (!remoteAudioRef.current) {
-        remoteAudioRef.current = new Audio();
-        remoteAudioRef.current.autoplay = true;
+      const remoteStream = e.streams[0];
+      if (tipo === 'video' && remoteVideoRef?.current) {
+        remoteVideoRef.current.srcObject = remoteStream;
+      } else {
+        // Áudio: usar elemento Audio invisível
+        if (!remoteAudioRef.current) {
+          remoteAudioRef.current = new Audio();
+          remoteAudioRef.current.autoplay = true;
+        }
+        remoteAudioRef.current.srcObject = remoteStream;
       }
-      remoteAudioRef.current.srcObject = e.streams[0];
     };
 
     pc.onconnectionstatechange = () => {
@@ -92,13 +122,15 @@ export default function WebRTCCallManager({ sessionId, isCaller, onConnected, on
     };
 
     return pc;
-  }, [publishIceCandidate, onConnected, onEnded, cleanup]);
+  }, [tipo, localVideoRef, remoteVideoRef, publishIceCandidate, onConnected, onEnded, cleanup]);
 
-  // Fluxo CALLER: criar offer, salvar no banco, esperar answer
   const startAsCaller = useCallback(async () => {
     try {
       const pc = await initPeerConnection();
-      const offer = await pc.createOffer({ offerToReceiveAudio: true });
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: tipo === 'video'
+      });
       await pc.setLocalDescription(offer);
 
       await base44.entities.CallSession.update(sessionId, {
@@ -106,7 +138,6 @@ export default function WebRTCCallManager({ sessionId, isCaller, onConnected, on
         status: 'chamando'
       });
 
-      // Observar resposta do callee
       unsubRef.current = base44.entities.CallSession.subscribe(async (event) => {
         if (event.id !== sessionId) return;
         const s = event.data;
@@ -128,9 +159,8 @@ export default function WebRTCCallManager({ sessionId, isCaller, onConnected, on
       onError?.(e.message);
       cleanup();
     }
-  }, [sessionId, initPeerConnection, applyRemoteCandidates, cleanup, onEnded, onError]);
+  }, [sessionId, tipo, initPeerConnection, applyRemoteCandidates, cleanup, onEnded, onError]);
 
-  // Fluxo CALLEE: pegar offer, criar answer, salvar no banco
   const startAsCallee = useCallback(async () => {
     try {
       const session = await base44.entities.CallSession.get(sessionId);
@@ -146,10 +176,8 @@ export default function WebRTCCallManager({ sessionId, isCaller, onConnected, on
         status: 'ativa'
       });
 
-      // Aplicar ICE candidates do caller que já chegaram
       await applyRemoteCandidates(session.ice_candidates_caller);
 
-      // Observar novos ICE candidates do caller
       unsubRef.current = base44.entities.CallSession.subscribe(async (event) => {
         if (event.id !== sessionId) return;
         const s = event.data;
@@ -168,6 +196,7 @@ export default function WebRTCCallManager({ sessionId, isCaller, onConnected, on
 
   useEffect(() => {
     if (!sessionId) return;
+    endedRef.current = false;
     if (isCaller) {
       startAsCaller();
     } else {
@@ -176,6 +205,5 @@ export default function WebRTCCallManager({ sessionId, isCaller, onConnected, on
     return cleanup;
   }, [sessionId, isCaller]);
 
-  // Componente invisível — só lógica
   return null;
 }
