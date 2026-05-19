@@ -189,25 +189,23 @@ export default function WebRTCCallManager({
       const poll = setInterval(async () => {
         if (endedRef.current || attempts++ > 80) { clearInterval(poll); return; }
         try {
-           const res = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
-           const s = res?.data?.session;
-           if (!s) return;
+          const s = await base44.entities.CallSession.get(sessionId);
+          if (!s) return;
 
-           if (['rejeitada', 'encerrada'].includes(s.status)) {
-             clearInterval(poll); cleanup(); onEnded?.(); return;
-           }
+          if (['rejeitada', 'encerrada'].includes(s.status)) {
+            clearInterval(poll); cleanup(); onEnded?.(); return;
+          }
 
-           if (s.webrtc_answer && !pc.remoteDescription) {
-             await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(s.webrtc_answer)));
-             await flushPendingIce(pc);
-             clearInterval(poll); // para de pollar — ICE já é tratado separado
-             // Inicia poll só para ICE callee — salvo em ref para cleanup correto
-             let iceAttempts = 0;
-             icePollRef.current = setInterval(async () => {
-               if (endedRef.current || iceAttempts++ > 60) { clearInterval(icePollRef.current); return; }
-               try {
-                 const res2 = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
-                 const ss = res2?.data?.session;
+          if (s.webrtc_answer && !pc.remoteDescription) {
+            await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(s.webrtc_answer)));
+            await flushPendingIce(pc);
+            clearInterval(poll); // para de pollar — ICE já é tratado separado
+            // Inicia poll só para ICE callee — salvo em ref para cleanup correto
+            let iceAttempts = 0;
+            icePollRef.current = setInterval(async () => {
+              if (endedRef.current || iceAttempts++ > 60) { clearInterval(icePollRef.current); return; }
+              try {
+                const ss = await base44.entities.CallSession.get(sessionId);
                 if (!ss || ['encerrada', 'rejeitada'].includes(ss.status)) {
                   clearInterval(icePollRef.current); cleanup(); onEnded?.(); return;
                 }
