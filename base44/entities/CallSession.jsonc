@@ -52,11 +52,27 @@
     },
     "callee_id": {
       "type": "string",
-      "description": "ID do User destinat\u00e1rio (modo interno)"
+      "description": "ID do User destinat\u00e1rio principal (modo interno) \u2014 compatibilidade 1:1"
     },
     "callee_nome": {
       "type": "string",
-      "description": "Nome do destinat\u00e1rio (cache)"
+      "description": "Nome do destinat\u00e1rio principal (cache)"
+    },
+    "callee_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "IDs de todos os destinat\u00e1rios (grupo/setor). Inclui callee_id para grupos com N participantes."
+    },
+    "callee_nomes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Nomes dos destinat\u00e1rios (cache para exibi\u00e7\u00e3o no overlay)"
     },
     "contact_id": {
       "type": "string",

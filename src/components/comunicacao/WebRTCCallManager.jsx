@@ -25,6 +25,7 @@ export default function WebRTCCallManager({
   const appliedIceCallee  = useRef(new Set());
   const publishingIce     = useRef(false);
   const iceQueueRef       = useRef([]); // fila local de ICE a publicar
+  const icePollRef        = useRef(null); // ref para cleanup do poll de ICE pós-answer
 
   const localStreamRef = externalLocalStreamRef || internalStreamRef;
 
@@ -39,6 +40,7 @@ export default function WebRTCCallManager({
   const cleanup = useCallback(() => {
     if (endedRef.current) return;
     endedRef.current = true;
+    if (icePollRef.current) { clearInterval(icePollRef.current); icePollRef.current = null; }
     if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(t => t.stop());
@@ -198,14 +200,14 @@ export default function WebRTCCallManager({
             await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(s.webrtc_answer)));
             await flushPendingIce(pc);
             clearInterval(poll); // para de pollar — ICE já é tratado separado
-            // Inicia poll só para ICE callee
+            // Inicia poll só para ICE callee — salvo em ref para cleanup correto
             let iceAttempts = 0;
-            const icePoll = setInterval(async () => {
-              if (endedRef.current || iceAttempts++ > 60) { clearInterval(icePoll); return; }
+            icePollRef.current = setInterval(async () => {
+              if (endedRef.current || iceAttempts++ > 60) { clearInterval(icePollRef.current); return; }
               try {
                 const ss = await base44.entities.CallSession.get(sessionId);
                 if (!ss || ['encerrada', 'rejeitada'].includes(ss.status)) {
-                  clearInterval(icePoll); cleanup(); onEnded?.(); return;
+                  clearInterval(icePollRef.current); cleanup(); onEnded?.(); return;
                 }
                 await applyIce(pc, ss.ice_candidates_callee, appliedIceCallee.current);
               } catch (_) {}

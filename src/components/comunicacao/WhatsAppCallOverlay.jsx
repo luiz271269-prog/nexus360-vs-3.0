@@ -21,14 +21,15 @@ export default function WhatsAppCallOverlay({
   onConnected
 }) {
   const isVideo = tipo === 'video';
-  const localVideoRef  = useRef(null);
-  const remoteVideoRef = useRef(null);
-  const localStreamRef = useRef(null); // stream local compartilhado com toggleMic/Cam
+  const localVideoRef   = useRef(null);
+  const remoteVideoRef  = useRef(null);
+  const localStreamRef  = useRef(null); // stream local compartilhado com toggleMic/Cam
+  const remoteAudioRef  = useRef(null); // ref para o <audio> remoto — controle de speaker
 
-  const [micMutado, setMicMutado]     = useState(false);
+  const [micMutado, setMicMutado]       = useState(false);
   const [camDesligada, setCamDesligada] = useState(false);
-  const [speaker, setSpeaker]         = useState(true);
-  const [conectado, setConectado]     = useState(false);
+  const [speakerMudo, setSpeakerMudo]   = useState(false);
+  const [conectado, setConectado]       = useState(false);
 
   const toggleMic = () => {
     const stream = localStreamRef.current;
@@ -40,6 +41,24 @@ export default function WhatsAppCallOverlay({
     const stream = localStreamRef.current;
     if (stream) stream.getVideoTracks().forEach(t => { t.enabled = camDesligada; }); // camDesligada=true → enable (ligar), false → disable (desligar)
     setCamDesligada(c => !c);
+  };
+
+  const toggleSpeaker = () => {
+    // Controla volume do elemento <audio> remoto injetado no DOM pelo WebRTCCallManager
+    const audio = remoteAudioRef.current || document.querySelector('audio[playsinline]');
+    if (audio) audio.volume = speakerMudo ? 1 : 0;
+    setSpeakerMudo(s => !s);
+  };
+
+  // Conecta remoteAudioRef ao elemento criado pelo WebRTCCallManager após conexão
+  const handleConnected = () => {
+    setConectado(true);
+    onConnected?.();
+    // Pequeno delay para o elemento <audio> já estar no DOM
+    setTimeout(() => {
+      const audio = document.querySelector('audio[playsinline]');
+      if (audio) remoteAudioRef.current = audio;
+    }, 300);
   };
 
   const statusLabel = conectado
@@ -56,7 +75,7 @@ export default function WhatsAppCallOverlay({
           localVideoRef={localVideoRef}
           remoteVideoRef={remoteVideoRef}
           localStreamRef={localStreamRef}
-          onConnected={() => { setConectado(true); onConnected?.(); }}
+          onConnected={handleConnected}
           onEnded={onEncerrar}
           onError={onEncerrar}
         />
@@ -108,7 +127,7 @@ export default function WhatsAppCallOverlay({
         isCaller={isCaller}
         tipo="audio"
         localStreamRef={localStreamRef}
-        onConnected={() => { setConectado(true); onConnected?.(); }}
+        onConnected={handleConnected}
         onEnded={onEncerrar}
         onError={onEncerrar}
       />
@@ -139,7 +158,7 @@ export default function WhatsAppCallOverlay({
           className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center shadow-2xl transition-all active:scale-95">
           <PhoneOff className="w-7 h-7 text-white" />
         </button>
-        <CallButton onClick={() => setSpeaker(s => !s)} active={!speaker} icon={speaker ? Volume2 : VolumeX} label="Alto-fal." light />
+        <CallButton onClick={toggleSpeaker} active={speakerMudo} icon={speakerMudo ? VolumeX : Volume2} label={speakerMudo ? 'Mudo' : 'Alto-fal.'} light />
       </div>
     </div>
   );

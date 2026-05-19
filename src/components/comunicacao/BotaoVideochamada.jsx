@@ -41,29 +41,40 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
     if (iniciando || sessaoInterna) return;
     setIniciando(true);
     try {
-      const outroParticipante = thread?.participants?.find(id => id !== usuario?.id) || null;
-      if (!outroParticipante) throw new Error('Participante não encontrado na thread');
+      const isGrupo = thread?.thread_type === 'sector_group' ||
+        (thread?.participants?.filter(id => id !== usuario?.id).length > 1);
 
-      let calleeNome = 'Colega';
+      const outrosParticipantes = (thread?.participants || []).filter(id => id !== usuario?.id);
+      if (!outrosParticipantes.length) throw new Error('Nenhum participante encontrado na thread');
+
+      // Resolve nomes via listarUsuariosParaAtribuicao (evita User.list() completo)
+      let nomesPorId = {};
       try {
-        const users = await base44.entities.User.list();
-        calleeNome = users.find(u => u.id === outroParticipante)?.full_name || 'Colega';
+        const res = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
+        (res?.data?.usuarios || []).forEach(u => { nomesPorId[u.id] = u.full_name || u.email; });
       } catch (_) {}
+
+      const calleeNomes = outrosParticipantes.map(id => nomesPorId[id] || 'Colega');
+      const peerNomeDisplay = isGrupo
+        ? (thread?.group_name || `Grupo (${outrosParticipantes.length} pessoas)`)
+        : (calleeNomes[0] || 'Colega');
 
       const session = await base44.entities.CallSession.create({
         modo: 'interno_webrtc',
         tipo,
-        status: 'iniciando', // Muda para 'chamando' após o offer ser salvo pelo WebRTCCallManager
+        status: 'iniciando',
         caller_id: usuario.id,
         caller_nome: usuario.full_name || 'Eu',
-        callee_id: outroParticipante,
-        callee_nome: calleeNome,
+        callee_id: outrosParticipantes[0],       // compatibilidade 1:1
+        callee_nome: calleeNomes[0] || 'Colega', // compatibilidade 1:1
+        callee_ids: outrosParticipantes,          // grupo: todos os destinatários
+        callee_nomes: calleeNomes,                // grupo: todos os nomes
         thread_id: thread.id,
         iniciado_por: usuario.email || usuario.id,
         iniciado_em: new Date().toISOString()
       });
 
-      setSessaoInterna({ sessionId: session.id, tipo, peerNome: calleeNome });
+      setSessaoInterna({ sessionId: session.id, tipo, peerNome: peerNomeDisplay });
     } catch (e) {
       toast.error('Erro ao iniciar chamada: ' + e.message);
     } finally {

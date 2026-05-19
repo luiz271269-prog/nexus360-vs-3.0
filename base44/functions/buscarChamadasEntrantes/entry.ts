@@ -6,14 +6,32 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Usa service role para bypassar RLS e buscar chamadas destinadas ao usuário autenticado
-    const sessoes = await base44.asServiceRole.entities.CallSession.filter(
+    // Busca chamadas 1:1 onde o usuário é o callee direto
+    const sessoes1a1 = await base44.asServiceRole.entities.CallSession.filter(
       { callee_id: user.id, status: 'chamando', modo: 'interno_webrtc' },
       '-created_date',
       10
     );
 
-    return Response.json({ sessoes: sessoes || [] });
+    // Busca todas as chamadas recentes de grupo (callee_ids não é filtrável diretamente)
+    // Pega as últimas 30 chamadas e filtra no lado servidor
+    const sessoesRecentes = await base44.asServiceRole.entities.CallSession.filter(
+      { status: 'chamando', modo: 'interno_webrtc' },
+      '-created_date',
+      30
+    );
+
+    const sessoesGrupo = sessoesRecentes.filter(s =>
+      Array.isArray(s.callee_ids) &&
+      s.callee_ids.includes(user.id) &&
+      s.callee_id !== user.id // evita duplicar com sessoes1a1
+    );
+
+    // Unifica e deduplica por id
+    const todas = [...sessoes1a1, ...sessoesGrupo];
+    const unicas = todas.filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i);
+
+    return Response.json({ sessoes: unicas });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
