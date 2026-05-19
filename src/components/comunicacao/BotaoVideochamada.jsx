@@ -3,7 +3,6 @@ import { Video, Phone, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { base44 } from "@/api/base44Client";
 import VideoCallModule from "./VideoCallModule";
-import WebRTCCallManager from "./WebRTCCallManager";
 import WhatsAppCallOverlay from "./WhatsAppCallOverlay";
 
 /**
@@ -125,19 +124,7 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
 
   return (
     <>
-      {/* Motor WebRTC áudio (invisível) */}
-      {sessaoInterna && sessaoInterna.tipo === 'audio' && (
-        <WebRTCCallManager
-          sessionId={sessaoInterna.sessionId}
-          isCaller={true}
-          tipo="audio"
-          onConnected={() => {}}
-          onEnded={() => setSessaoInterna(null)}
-          onError={() => setSessaoInterna(null)}
-        />
-      )}
-
-      {/* Overlay estilo WhatsApp (áudio ou vídeo) */}
+      {/* Overlay estilo WhatsApp (áudio ou vídeo) — já inclui o WebRTCCallManager internamente */}
       {sessaoInterna && (
         <WhatsAppCallOverlay
           tipo={sessaoInterna.tipo}

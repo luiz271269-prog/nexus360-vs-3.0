@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 
 /**
  * Motor WebRTC para chamadas internas diretas (áudio e vídeo).
- * Usa CallSession como canal de sinalização via subscribe.
+ * Usa CallSession como canal de sinalização via polling + subscribe.
  *
  * Props:
  *  - sessionId: ID da CallSession
@@ -11,6 +11,7 @@ import { base44 } from '@/api/base44Client';
  *  - tipo: 'audio' | 'video'
  *  - localVideoRef: ref para <video> do stream local (só vídeo)
  *  - remoteVideoRef: ref para <video> do stream remoto (só vídeo)
+ *  - localStreamRef: ref externo para controlar o stream local (mute/unmute)
  *  - onConnected: () => void
  *  - onEnded: () => void
  *  - onError: (msg) => void
@@ -21,20 +22,26 @@ export default function WebRTCCallManager({
   tipo = 'audio',
   localVideoRef,
   remoteVideoRef,
+  localStreamRef: externalLocalStreamRef,
   onConnected,
   onEnded,
   onError
 }) {
-  const pcRef = useRef(null);
-  const localStreamRef = useRef(null);
-  const unsubRef = useRef(null);
-  const endedRef = useRef(false);
-  const remoteAudioRef = useRef(null); // Para áudio sem elemento <video>
+  const pcRef            = useRef(null);
+  const internalStreamRef = useRef(null);
+  const unsubRef         = useRef(null);
+  const endedRef         = useRef(false);
+  const remoteAudioRef   = useRef(null);
+  const icePendingRef    = useRef([]); // ICE candidates recebidos antes do remoteDescription
+
+  // Expõe o localStream externamente se ref fornecida
+  const localStreamRef = externalLocalStreamRef || internalStreamRef;
 
   const ICE_CONFIG = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
     ]
   };
 
@@ -48,28 +55,45 @@ export default function WebRTCCallManager({
       localStreamRef.current = null;
     }
     if (remoteAudioRef.current) {
+      remoteAudioRef.current.pause();
       remoteAudioRef.current.srcObject = null;
       remoteAudioRef.current = null;
     }
     if (localVideoRef?.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef?.current) remoteVideoRef.current.srcObject = null;
-  }, [localVideoRef, remoteVideoRef]);
+  }, []);
 
-  const applyRemoteCandidates = useCallback(async (candidates) => {
-    if (!pcRef.current || !candidates?.length) return;
+  const safeAddIce = useCallback(async (pc, candidates) => {
+    if (!candidates?.length) return;
     for (const c of candidates) {
       try {
-        await pcRef.current.addIceCandidate(new RTCIceCandidate(JSON.parse(c)));
+        if (pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(c)));
+        } else {
+          icePendingRef.current.push(c);
+        }
       } catch (_) {}
+    }
+  }, []);
+
+  const flushPendingIce = useCallback(async (pc) => {
+    const pending = [...icePendingRef.current];
+    icePendingRef.current = [];
+    for (const c of pending) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(c))); } catch (_) {}
     }
   }, []);
 
   const publishIceCandidate = useCallback(async (candidate) => {
     if (!sessionId) return;
     try {
-      const session = await base44.entities.CallSession.get(sessionId);
+      // Usa backend function para bypassar RLS
+      const session = await base44.functions.invoke('buscarChamadasEntrantes', {});
+      // Fallback: atualiza diretamente (funciona para o caller que criou o registro)
+      const s = await base44.entities.CallSession.get(sessionId).catch(() => null);
+      if (!s) return;
       const field = isCaller ? 'ice_candidates_caller' : 'ice_candidates_callee';
-      const existing = session[field] || [];
+      const existing = s[field] || [];
       await base44.entities.CallSession.update(sessionId, {
         [field]: [...existing, JSON.stringify(candidate)]
       });
@@ -84,10 +108,9 @@ export default function WebRTCCallManager({
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     localStreamRef.current = stream;
 
-    // Exibir stream local no elemento de vídeo (se houver)
     if (localVideoRef?.current && tipo === 'video') {
       localVideoRef.current.srcObject = stream;
-      localVideoRef.current.muted = true; // Evita eco
+      localVideoRef.current.muted = true;
     }
 
     const pc = new RTCPeerConnection(ICE_CONFIG);
@@ -100,74 +123,99 @@ export default function WebRTCCallManager({
     };
 
     pc.ontrack = (e) => {
-      const remoteStream = e.streams[0];
+      const remoteStream = e.streams[0] || new MediaStream([e.track]);
       if (tipo === 'video' && remoteVideoRef?.current) {
         remoteVideoRef.current.srcObject = remoteStream;
       } else {
-        // Áudio: usar elemento Audio invisível
+        // Áudio: criar elemento Audio e reproduzir
         if (!remoteAudioRef.current) {
           remoteAudioRef.current = new Audio();
           remoteAudioRef.current.autoplay = true;
         }
         remoteAudioRef.current.srcObject = remoteStream;
+        // Forçar play (necessário em alguns browsers mobile)
+        remoteAudioRef.current.play().catch(() => {});
       }
     };
 
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') onConnected?.();
       if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
-        cleanup();
-        onEnded?.();
+        if (!endedRef.current) { cleanup(); onEnded?.(); }
       }
     };
 
     return pc;
   }, [tipo, localVideoRef, remoteVideoRef, publishIceCandidate, onConnected, onEnded, cleanup]);
 
+  // ── CALLER ────────────────────────────────────────────────────────────────
   const startAsCaller = useCallback(async () => {
     try {
       const pc = await initPeerConnection();
-      const offer = await pc.createOffer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: tipo === 'video'
-      });
+      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: tipo === 'video' });
       await pc.setLocalDescription(offer);
 
       await base44.entities.CallSession.update(sessionId, {
-        webrtc_offer: JSON.stringify(offer),
-        status: 'chamando'
+        webrtc_offer: JSON.stringify(offer)
       });
 
-      unsubRef.current = base44.entities.CallSession.subscribe(async (event) => {
-        if (event.id !== sessionId) return;
-        const s = event.data;
+      // Polling para detectar answer (subscribe tem RLS também)
+      let pollCount = 0;
+      const pollInterval = setInterval(async () => {
+        if (endedRef.current || pollCount++ > 60) { clearInterval(pollInterval); return; }
+        try {
+          const s = await base44.entities.CallSession.get(sessionId);
+          if (!s) return;
+          if (['rejeitada', 'encerrada'].includes(s.status)) {
+            clearInterval(pollInterval);
+            cleanup(); onEnded?.(); return;
+          }
+          if (s.webrtc_answer && pc.remoteDescription == null) {
+            await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(s.webrtc_answer)));
+            await flushPendingIce(pc);
+          }
+          if (s.ice_candidates_callee?.length) {
+            await safeAddIce(pc, s.ice_candidates_callee);
+          }
+        } catch (_) {}
+      }, 2000);
 
-        if (s.status === 'rejeitada' || s.status === 'encerrada') {
+      // Subscribe como complemento (pode chegar mais rápido)
+      unsubRef.current = base44.entities.CallSession.subscribe(async (event) => {
+        if (event.id !== sessionId && event.data?.id !== sessionId) return;
+        const s = event.data;
+        if (!s) return;
+        if (['rejeitada', 'encerrada'].includes(s.status)) {
+          clearInterval(pollInterval);
           cleanup(); onEnded?.(); return;
         }
-
         if (s.webrtc_answer && pc.remoteDescription == null) {
-          await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(s.webrtc_answer)));
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(s.webrtc_answer)));
+            await flushPendingIce(pc);
+          } catch (_) {}
         }
-
-        if (s.ice_candidates_callee?.length) {
-          await applyRemoteCandidates(s.ice_candidates_callee);
-        }
+        if (s.ice_candidates_callee?.length) await safeAddIce(pc, s.ice_candidates_callee);
       });
 
     } catch (e) {
-      onError?.(e.message);
-      cleanup();
+      onError?.(e.message); cleanup();
     }
-  }, [sessionId, tipo, initPeerConnection, applyRemoteCandidates, cleanup, onEnded, onError]);
+  }, [sessionId, tipo, initPeerConnection, safeAddIce, flushPendingIce, cleanup, onEnded, onError]);
 
+  // ── CALLEE ────────────────────────────────────────────────────────────────
   const startAsCallee = useCallback(async () => {
     try {
-      const session = await base44.entities.CallSession.get(sessionId);
-      if (!session.webrtc_offer) { onError?.('Offer não encontrado'); return; }
+      // Busca a sessão via backend function (bypassa RLS)
+      const res = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
+      const session = res?.data?.session;
+      if (!session?.webrtc_offer) {
+        onError?.('Offer não encontrado'); return;
+      }
 
       const pc = await initPeerConnection();
       await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(session.webrtc_offer)));
+      await flushPendingIce(pc);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
@@ -176,32 +224,46 @@ export default function WebRTCCallManager({
         status: 'ativa'
       });
 
-      await applyRemoteCandidates(session.ice_candidates_caller);
+      await safeAddIce(pc, session.ice_candidates_caller);
+
+      // Polling para novos ICE candidates do caller
+      let pollCount = 0;
+      const pollInterval = setInterval(async () => {
+        if (endedRef.current || pollCount++ > 60) { clearInterval(pollInterval); return; }
+        try {
+          const r = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
+          const s = r?.data?.session;
+          if (!s) return;
+          if (s.status === 'encerrada') {
+            clearInterval(pollInterval);
+            cleanup(); onEnded?.(); return;
+          }
+          if (s.ice_candidates_caller?.length) await safeAddIce(pc, s.ice_candidates_caller);
+        } catch (_) {}
+      }, 2000);
 
       unsubRef.current = base44.entities.CallSession.subscribe(async (event) => {
-        if (event.id !== sessionId) return;
+        if (event.id !== sessionId && event.data?.id !== sessionId) return;
         const s = event.data;
-
-        if (s.status === 'encerrada') { cleanup(); onEnded?.(); return; }
-        if (s.ice_candidates_caller?.length) {
-          await applyRemoteCandidates(s.ice_candidates_caller);
+        if (!s) return;
+        if (s.status === 'encerrada') {
+          clearInterval(pollInterval);
+          cleanup(); onEnded?.(); return;
         }
+        if (s.ice_candidates_caller?.length) await safeAddIce(pc, s.ice_candidates_caller);
       });
 
     } catch (e) {
-      onError?.(e.message);
-      cleanup();
+      onError?.(e.message); cleanup();
     }
-  }, [sessionId, initPeerConnection, applyRemoteCandidates, cleanup, onEnded, onError]);
+  }, [sessionId, initPeerConnection, safeAddIce, flushPendingIce, cleanup, onEnded, onError]);
 
   useEffect(() => {
     if (!sessionId) return;
     endedRef.current = false;
-    if (isCaller) {
-      startAsCaller();
-    } else {
-      startAsCallee();
-    }
+    icePendingRef.current = [];
+    if (isCaller) startAsCaller();
+    else startAsCallee();
     return cleanup;
   }, [sessionId, isCaller]);
 
