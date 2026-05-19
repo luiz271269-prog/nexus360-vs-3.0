@@ -233,7 +233,7 @@ export default function Comunicacao() {
 
         // Limpar fila
         invalidacoesPendentes.clear();
-      }, 2000);
+      }, 3500);
     });
 
     return () => {
@@ -314,13 +314,12 @@ export default function Comunicacao() {
         throw error;
       }
     },
-    refetchInterval: 60000,
-    staleTime: 30000,
+    refetchInterval: 0,
+    staleTime: 60000,
     enabled: !!usuario && !isRateLimited,
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: false,
-    refetchOnMount: true,
     onError: (error) => {
       console.error('[COMUNICACAO] Erro ao carregar threads externas:', error);
     }
