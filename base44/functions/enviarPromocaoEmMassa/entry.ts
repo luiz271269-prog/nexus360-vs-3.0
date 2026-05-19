@@ -21,8 +21,51 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { promotion_id, contact_ids = [], integration_id = null } = body;
+    const { promotion_id, contact_ids = [], integration_id = null, action = null } = body;
 
+    // ─ FASE 1.2 — PREVIEW (dry-run via skillPromocoes + pool comercial) ─
+    // Frontend (Patch 3) chamará com action='preview' antes do envio real
+    // para mostrar relatório de distribuição. NÃO envia nada, não altera dados.
+    if (action === 'preview') {
+      if (!promotion_id) return Response.json({ success: false, error: 'promotion_id obrigatório' }, { status: 400 });
+      if (!contact_ids.length) return Response.json({ success: false, error: 'contact_ids vazio' }, { status: 400 });
+
+      const respPreview = await base44.asServiceRole.functions.invoke('skillPromocoes', {
+        action: 'executar_massa_manual',
+        dry_run: true,
+        promotion_id,
+        contact_ids,
+        sector: 'vendas',
+        initiated_by: user.email || user.id
+      });
+
+      const d = respPreview?.data || {};
+      if (!d.success) {
+        return Response.json({
+          success: false,
+          mode: 'preview',
+          error: d.error || 'Falha no preview',
+          phase: d.phase || null,
+          pool_total: d.pool_total ?? null
+        }, { status: 400 });
+      }
+
+      return Response.json({
+        success: true,
+        mode: 'preview',
+        promotion_id: d.promotion_id,
+        promotion_titulo: d.promotion_titulo,
+        total_solicitados: d.total_solicitados,
+        elegiveis: d.elegiveis,
+        inelegiveis: d.inelegiveis,
+        integracoes_planejadas: d.integracoes_planejadas || [],
+        pool: d.pool || { saudavel: 0, total: 0 },
+        bloqueados: d.bloqueados || [],
+        tempo_ms: d.tempo_ms
+      });
+    }
+
+    // ─ Fluxo legado (envio real) — preservado intacto ─
     if (!promotion_id) return Response.json({ success: false, error: 'promotion_id obrigatório' }, { status: 400 });
     if (!contact_ids.length) return Response.json({ success: false, error: 'contact_ids vazio' }, { status: 400 });
 
