@@ -14,11 +14,11 @@ Deno.serve(async (req) => {
     );
 
     // Busca todas as chamadas recentes de grupo (callee_ids não é filtrável diretamente)
-    // Pega as últimas 30 chamadas e filtra no lado servidor
+    // Pega as últimas 100 chamadas e filtra no lado servidor
     const sessoesRecentes = await base44.asServiceRole.entities.CallSession.filter(
       { status: 'chamando', modo: 'interno_webrtc' },
       '-created_date',
-      30
+      100
     );
 
     const sessoesGrupo = sessoesRecentes.filter(s =>

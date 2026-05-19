@@ -4,6 +4,21 @@ import { base44 } from '@/api/base44Client';
 /**
  * Motor WebRTC para chamadas internas diretas (áudio e vídeo).
  * Sinalização via CallSession (Base44 entity).
+ *
+ * ⚠️ REGRA ARQUITETURAL — NÃO VIOLAR:
+ * Este motor suporta SOMENTE chamadas 1:1 (P2P puro).
+ *   - thread_type === 'team_internal' com 1 outro participante → OK aqui
+ *   - thread_type === 'sector_group' ou >1 participante       → usar Jitsi (VideoCallModule)
+ *
+ * Por que: WebRTC peer-to-peer não escala para multipoint. Cada callee adicional
+ * sobrescreve webrtc_answer no banco. Apenas 1 dos N conecta com áudio.
+ *
+ * callee_ids[] no schema serve APENAS para:
+ *   - Roteamento de NOTIFICAÇÃO (todos recebem alerta)
+ *   - Auditoria (quem foi convidado)
+ * NÃO serve para roteamento de MÍDIA.
+ *
+ * Grupo não é "múltiplo destinatário". Grupo é outra topologia de mídia (SFU).
  */
 export default function WebRTCCallManager({
   sessionId,
@@ -226,14 +241,16 @@ export default function WebRTCCallManager({
   // ─── CALLEE ──────────────────────────────────────────────────────────────
   const startAsCallee = useCallback(async () => {
     try {
-      // Aguarda offer (máx 15s)
+      // Aguarda offer (máx 15s, com check de cancelamento)
       let session = null;
       for (let i = 0; i < 15; i++) {
+        if (endedRef.current) return; // FIX: cancela se chamada foi encerrada
         try {
           const res = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
           const s = res?.data?.session;
           if (s?.webrtc_offer) { session = s; break; }
         } catch (_) {}
+        if (endedRef.current) return; // FIX: cancela antes do sleep também
         await new Promise(r => setTimeout(r, 1000));
       }
 
