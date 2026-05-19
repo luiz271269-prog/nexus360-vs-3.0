@@ -314,8 +314,8 @@ export default function Comunicacao() {
         throw error;
       }
     },
-    refetchInterval: 120000,
-    staleTime: 90000,
+    refetchInterval: 60000,
+    staleTime: 30000,
     enabled: !!usuario && !isRateLimited,
     retry: 2,
     retryDelay: 1000,
