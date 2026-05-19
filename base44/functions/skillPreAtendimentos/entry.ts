@@ -1484,8 +1484,11 @@ Deno.serve(async (req) => {
             metodo = 'llm';
           }
         } catch (e) {
-          console.warn('[SKILL-PRE-ATEND] LLM falhou, usando setor anterior ou default:', e.message);
+          // Erros do provedor Modal (1MO0GZ32) ou rate limit são esperados — silencioso, usa fallback
+          const isProviderError = e.message?.includes('1MO0GZ32') || e.message?.includes('429') || e.message?.includes('Rate limit') || e.message?.includes('Modal') || e.message?.includes('provider');
+          console.warn(`[SKILL-PRE-ATEND] LLM falhou (${isProviderError ? 'provider_error' : 'unknown'}), usando setor anterior ou default:`, e.message);
           setor = setorAnterior || SETOR_DEFAULT;
+          metodo = 'pattern_fallback';
         }
       }
 
@@ -1800,7 +1803,8 @@ NUNCA mencione nomes de atendentes. Tom profissional e humano.`
         });
         mensagemBoasVindas = typeof respLLM === 'string' ? respLLM : respLLM?.text || null;
       } catch (e) {
-        console.warn('[SKILL-PRE-ATEND] LLM boas-vindas falhou, usando fallback');
+        // Erros do provedor Modal (1MO0GZ32) ou rate limit são esperados — usa fallback silenciosamente
+        console.warn('[SKILL-PRE-ATEND] LLM boas-vindas falhou (provider error esperado), usando fallback:', e.message?.substring(0, 100));
         const fallbacks = {
           cliente: `Olá${primeiroNome ? ' ' + primeiroNome : ''}! Que bom ter você. Estamos verificando o que você precisa. 😊`,
           fornecedor: `Olá! Obrigado pelo contato. Nossa equipe de compras vai te atender.`,
