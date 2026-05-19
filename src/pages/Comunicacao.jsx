@@ -1452,7 +1452,7 @@ export default function Comunicacao() {
   }, [contatos]);
 
   // ✅ PATCH 3: Segurar "unassigned" até ter dados mínimos carregados
-  const hasBaseData = !!usuario && Array.isArray(threads) && threads.length >= 0;
+  const hasBaseData = !!usuario && threads.length > 0;
   const effectiveScope =
   !hasBaseData && filterScope === 'unassigned' ? 'all' : filterScope;
 
