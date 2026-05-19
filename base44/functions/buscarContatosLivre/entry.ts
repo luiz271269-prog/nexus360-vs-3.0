@@ -92,19 +92,24 @@ Deno.serve(async (req) => {
       }
       
       // Busca por texto se não achou por telefone
-      if (contatos.length === 0) {
-        const todosBD = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 1000);
-        contatos = todosBD.filter(c => {
-          const nome = (c.nome || '').toLowerCase();
-          const empresa = (c.empresa || '').toLowerCase();
-          const cargo = (c.cargo || '').toLowerCase();
-          const observacoes = (c.observacoes || '').toLowerCase();
-          const telefone = (c.telefone || '').replace(/\D/g, '');
-          const matchTexto = nome.includes(termo) || empresa.includes(termo) || cargo.includes(termo) || observacoes.includes(termo);
-          const matchTelefone = termoNumeros.length >= 4 && telefone.includes(termoNumeros);
-          return matchTexto || matchTelefone;
-        }).slice(0, 200);
-      }
+       if (contatos.length === 0) {
+         try {
+           const todosBD = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 500);
+           contatos = todosBD.filter(c => {
+             const nome = (c.nome || '').toLowerCase();
+             const empresa = (c.empresa || '').toLowerCase();
+             const cargo = (c.cargo || '').toLowerCase();
+             const observacoes = (c.observacoes || '').toLowerCase();
+             const telefone = (c.telefone || '').replace(/\D/g, '');
+             const matchTexto = nome.includes(termo) || empresa.includes(termo) || cargo.includes(termo) || observacoes.includes(termo);
+             const matchTelefone = termoNumeros.length >= 4 && telefone.includes(termoNumeros);
+             return matchTexto || matchTelefone;
+           }).slice(0, 200);
+         } catch (searchError) {
+           console.warn('[buscarContatosLivre] Busca em memória falhou, retornando vazio:', searchError.message);
+           contatos = [];
+         }
+       }
     }
 
     // Adicionar _meta de completude
