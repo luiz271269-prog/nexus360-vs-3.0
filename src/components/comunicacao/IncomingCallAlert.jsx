@@ -149,8 +149,8 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
   const aceitar = useCallback(async () => {
     const chamada = chamadaEntranteRef.current;
     if (!chamada) return;
-    // Marcar como ativa no banco
-    try { await base44.entities.CallSession.update(chamada.id, { status: 'ativa' }); } catch (_) {}
+    // NÃO mudar status aqui — o WebRTCCallManager (startAsCallee) muda para 'ativa'
+    // após criar o answer. Mudar antes quebraria o handshake do caller.
     const ativa = { sessionId: chamada.id, tipo: chamada.tipo || 'audio', peerNome: chamada.caller_nome };
     setChamadaAtiva(ativa);
     chamadaAtivaRef.current = ativa;

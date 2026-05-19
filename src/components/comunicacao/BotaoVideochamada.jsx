@@ -53,7 +53,7 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
       const session = await base44.entities.CallSession.create({
         modo: 'interno_webrtc',
         tipo,
-        status: 'chamando',
+        status: 'iniciando', // Muda para 'chamando' após o offer ser salvo pelo WebRTCCallManager
         caller_id: usuario.id,
         caller_nome: usuario.full_name || 'Eu',
         callee_id: outroParticipante,

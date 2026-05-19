@@ -3,18 +3,15 @@ import { base44 } from '@/api/base44Client';
 
 /**
  * Motor WebRTC para chamadas internas diretas (áudio e vídeo).
- * Usa CallSession como canal de sinalização via polling + subscribe.
+ * Sinalização via CallSession (Base44 entity).
  *
  * Props:
  *  - sessionId: ID da CallSession
- *  - isCaller: boolean — true se este usuário iniciou a chamada
+ *  - isCaller: boolean
  *  - tipo: 'audio' | 'video'
- *  - localVideoRef: ref para <video> do stream local (só vídeo)
- *  - remoteVideoRef: ref para <video> do stream remoto (só vídeo)
- *  - localStreamRef: ref externo para controlar o stream local (mute/unmute)
- *  - onConnected: () => void
- *  - onEnded: () => void
- *  - onError: (msg) => void
+ *  - localVideoRef / remoteVideoRef: refs para elementos <video>
+ *  - localStreamRef: ref externo compartilhado para controle de mic/cam
+ *  - onConnected / onEnded / onError: callbacks
  */
 export default function WebRTCCallManager({
   sessionId,
@@ -27,21 +24,21 @@ export default function WebRTCCallManager({
   onEnded,
   onError
 }) {
-  const pcRef            = useRef(null);
+  const pcRef             = useRef(null);
   const internalStreamRef = useRef(null);
-  const unsubRef         = useRef(null);
-  const endedRef         = useRef(false);
-  const remoteAudioRef   = useRef(null);
-  const icePendingRef    = useRef([]); // ICE candidates recebidos antes do remoteDescription
+  const unsubRef          = useRef(null);
+  const endedRef          = useRef(false);
+  const remoteAudioRef    = useRef(null);
+  const icePendingRef     = useRef([]);
+  const appliedIceCaller  = useRef(new Set());
+  const appliedIceCallee  = useRef(new Set());
 
-  // Expõe o localStream externamente se ref fornecida
   const localStreamRef = externalLocalStreamRef || internalStreamRef;
 
-  const ICE_CONFIG = {
+  const ICE_SERVERS = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
+      { urls: 'stun:stun1.l.google.com:19302' }
     ]
   };
 
@@ -63,9 +60,12 @@ export default function WebRTCCallManager({
     if (remoteVideoRef?.current) remoteVideoRef.current.srcObject = null;
   }, []);
 
-  const safeAddIce = useCallback(async (pc, candidates) => {
-    if (!candidates?.length) return;
+  // Aplica ICE candidate deduplicated
+  const applyIce = useCallback(async (pc, candidates, seenSet) => {
+    if (!candidates?.length || !pc) return;
     for (const c of candidates) {
+      if (seenSet.has(c)) continue;
+      seenSet.add(c);
       try {
         if (pc.remoteDescription) {
           await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(c)));
@@ -84,16 +84,13 @@ export default function WebRTCCallManager({
     }
   }, []);
 
-  const publishIceCandidate = useCallback(async (candidate) => {
+  const publishIce = useCallback(async (candidate) => {
     if (!sessionId) return;
     try {
-      // Usa backend function para bypassar RLS
-      const session = await base44.functions.invoke('buscarChamadasEntrantes', {});
-      // Fallback: atualiza diretamente (funciona para o caller que criou o registro)
-      const s = await base44.entities.CallSession.get(sessionId).catch(() => null);
+      const s = await base44.entities.CallSession.get(sessionId);
       if (!s) return;
       const field = isCaller ? 'ice_candidates_caller' : 'ice_candidates_callee';
-      const existing = s[field] || [];
+      const existing = Array.isArray(s[field]) ? s[field] : [];
       await base44.entities.CallSession.update(sessionId, {
         [field]: [...existing, JSON.stringify(candidate)]
       });
@@ -101,11 +98,18 @@ export default function WebRTCCallManager({
   }, [sessionId, isCaller]);
 
   const initPeerConnection = useCallback(async () => {
+    // Solicitar permissão de microfone/câmera
     const constraints = tipo === 'video'
-      ? { audio: true, video: { width: 1280, height: 720 } }
+      ? { audio: true, video: { width: 1280, height: 720, facingMode: 'user' } }
       : { audio: true, video: false };
 
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err) {
+      throw new Error('Permissão de microfone negada: ' + err.message);
+    }
+
     localStreamRef.current = stream;
 
     if (localVideoRef?.current && tipo === 'video') {
@@ -113,109 +117,114 @@ export default function WebRTCCallManager({
       localVideoRef.current.muted = true;
     }
 
-    const pc = new RTCPeerConnection(ICE_CONFIG);
+    const pc = new RTCPeerConnection(ICE_SERVERS);
     pcRef.current = pc;
 
     stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
     pc.onicecandidate = (e) => {
-      if (e.candidate) publishIceCandidate(e.candidate.toJSON());
+      if (e.candidate) publishIce(e.candidate.toJSON());
     };
 
     pc.ontrack = (e) => {
-      const remoteStream = e.streams[0] || new MediaStream([e.track]);
+      const remoteStream = e.streams?.[0] || (() => {
+        const ms = new MediaStream();
+        ms.addTrack(e.track);
+        return ms;
+      })();
+
       if (tipo === 'video' && remoteVideoRef?.current) {
         remoteVideoRef.current.srcObject = remoteStream;
       } else {
-        // Áudio: criar elemento Audio e reproduzir
         if (!remoteAudioRef.current) {
           remoteAudioRef.current = new Audio();
           remoteAudioRef.current.autoplay = true;
         }
         remoteAudioRef.current.srcObject = remoteStream;
-        // Forçar play (necessário em alguns browsers mobile)
         remoteAudioRef.current.play().catch(() => {});
       }
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'connected') onConnected?.();
-      if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+      const state = pc.connectionState;
+      if (state === 'connected') onConnected?.();
+      if (['disconnected', 'failed', 'closed'].includes(state)) {
         if (!endedRef.current) { cleanup(); onEnded?.(); }
       }
     };
 
     return pc;
-  }, [tipo, localVideoRef, remoteVideoRef, publishIceCandidate, onConnected, onEnded, cleanup]);
+  }, [tipo, localVideoRef, remoteVideoRef, publishIce, onConnected, onEnded, cleanup]);
 
-  // ── CALLER ────────────────────────────────────────────────────────────────
+  // ─── CALLER ──────────────────────────────────────────────────────────────
   const startAsCaller = useCallback(async () => {
     try {
       const pc = await initPeerConnection();
-      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: tipo === 'video' });
+
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: tipo === 'video'
+      });
       await pc.setLocalDescription(offer);
 
+      // Salva offer E muda status para 'chamando' — callee só vê quando offer já está disponível
       await base44.entities.CallSession.update(sessionId, {
-        webrtc_offer: JSON.stringify(offer)
+        webrtc_offer: JSON.stringify(offer),
+        status: 'chamando'
       });
 
-      // Polling para detectar answer (subscribe tem RLS também)
-      let pollCount = 0;
-      const pollInterval = setInterval(async () => {
-        if (endedRef.current || pollCount++ > 60) { clearInterval(pollInterval); return; }
+      // Poll a cada 1.5s esperando answer do callee
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        if (endedRef.current || attempts++ > 60) { clearInterval(poll); return; }
         try {
           const s = await base44.entities.CallSession.get(sessionId);
           if (!s) return;
-          if (['rejeitada', 'encerrada'].includes(s.status)) {
-            clearInterval(pollInterval);
-            cleanup(); onEnded?.(); return;
-          }
-          if (s.webrtc_answer && pc.remoteDescription == null) {
-            await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(s.webrtc_answer)));
-            await flushPendingIce(pc);
-          }
-          if (s.ice_candidates_callee?.length) {
-            await safeAddIce(pc, s.ice_candidates_callee);
-          }
-        } catch (_) {}
-      }, 2000);
 
-      // Subscribe como complemento (pode chegar mais rápido)
-      unsubRef.current = base44.entities.CallSession.subscribe(async (event) => {
-        if (event.id !== sessionId && event.data?.id !== sessionId) return;
-        const s = event.data;
-        if (!s) return;
-        if (['rejeitada', 'encerrada'].includes(s.status)) {
-          clearInterval(pollInterval);
-          cleanup(); onEnded?.(); return;
-        }
-        if (s.webrtc_answer && pc.remoteDescription == null) {
-          try {
-            await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(s.webrtc_answer)));
-            await flushPendingIce(pc);
-          } catch (_) {}
-        }
-        if (s.ice_candidates_callee?.length) await safeAddIce(pc, s.ice_candidates_callee);
-      });
+          if (['rejeitada', 'encerrada'].includes(s.status)) {
+            clearInterval(poll); cleanup(); onEnded?.(); return;
+          }
+
+          if (s.webrtc_answer && !pc.remoteDescription) {
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(s.webrtc_answer)));
+              await flushPendingIce(pc);
+            } catch (_) {}
+          }
+
+          await applyIce(pc, s.ice_candidates_callee, appliedIceCallee.current);
+        } catch (_) {}
+      }, 1500);
 
     } catch (e) {
       onError?.(e.message); cleanup();
     }
-  }, [sessionId, tipo, initPeerConnection, safeAddIce, flushPendingIce, cleanup, onEnded, onError]);
+  }, [sessionId, tipo, initPeerConnection, applyIce, flushPendingIce, cleanup, onEnded, onError]);
 
-  // ── CALLEE ────────────────────────────────────────────────────────────────
+  // ─── CALLEE ──────────────────────────────────────────────────────────────
   const startAsCallee = useCallback(async () => {
     try {
-      // Busca a sessão via backend function (bypassa RLS)
-      const res = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
-      const session = res?.data?.session;
+      // Aguarda o offer ficar disponível (o caller pode ter acabado de criar a sessão)
+      let session = null;
+      for (let i = 0; i < 15; i++) {
+        try {
+          const res = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
+          const s = res?.data?.session;
+          if (s?.webrtc_offer) { session = s; break; }
+        } catch (_) {}
+        await new Promise(r => setTimeout(r, 1000));
+      }
+
       if (!session?.webrtc_offer) {
-        onError?.('Offer não encontrado'); return;
+        onError?.('Offer não recebido — verifique a conexão do chamador'); return;
       }
 
       const pc = await initPeerConnection();
+
       await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(session.webrtc_offer)));
       await flushPendingIce(pc);
+      await applyIce(pc, session.ice_candidates_caller, appliedIceCaller.current);
+
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
@@ -224,44 +233,32 @@ export default function WebRTCCallManager({
         status: 'ativa'
       });
 
-      await safeAddIce(pc, session.ice_candidates_caller);
-
-      // Polling para novos ICE candidates do caller
-      let pollCount = 0;
-      const pollInterval = setInterval(async () => {
-        if (endedRef.current || pollCount++ > 60) { clearInterval(pollInterval); return; }
+      // Poll para novos ICE candidates do caller
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        if (endedRef.current || attempts++ > 60) { clearInterval(poll); return; }
         try {
-          const r = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
-          const s = r?.data?.session;
+          const res = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
+          const s = res?.data?.session;
           if (!s) return;
           if (s.status === 'encerrada') {
-            clearInterval(pollInterval);
-            cleanup(); onEnded?.(); return;
+            clearInterval(poll); cleanup(); onEnded?.(); return;
           }
-          if (s.ice_candidates_caller?.length) await safeAddIce(pc, s.ice_candidates_caller);
+          await applyIce(pc, s.ice_candidates_caller, appliedIceCaller.current);
         } catch (_) {}
-      }, 2000);
-
-      unsubRef.current = base44.entities.CallSession.subscribe(async (event) => {
-        if (event.id !== sessionId && event.data?.id !== sessionId) return;
-        const s = event.data;
-        if (!s) return;
-        if (s.status === 'encerrada') {
-          clearInterval(pollInterval);
-          cleanup(); onEnded?.(); return;
-        }
-        if (s.ice_candidates_caller?.length) await safeAddIce(pc, s.ice_candidates_caller);
-      });
+      }, 1500);
 
     } catch (e) {
       onError?.(e.message); cleanup();
     }
-  }, [sessionId, initPeerConnection, safeAddIce, flushPendingIce, cleanup, onEnded, onError]);
+  }, [sessionId, initPeerConnection, applyIce, flushPendingIce, cleanup, onEnded, onError]);
 
   useEffect(() => {
     if (!sessionId) return;
     endedRef.current = false;
     icePendingRef.current = [];
+    appliedIceCaller.current = new Set();
+    appliedIceCallee.current = new Set();
     if (isCaller) startAsCaller();
     else startAsCallee();
     return cleanup;
