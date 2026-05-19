@@ -42,6 +42,33 @@ export default function WebRTCCallManager({
   const iceQueueRef       = useRef([]); // fila local de ICE a publicar
   const icePollRef        = useRef(null); // ref para cleanup do poll de ICE pós-answer
 
+  // ── Backoff 429: pula iterações quando rate-limited (1→2→4, teto 4) ────────
+  const backoffCallerMain = useRef({ skip: 0, factor: 1 });
+  const backoffCallerIce  = useRef({ skip: 0, factor: 1 });
+  const backoffCalleeWait = useRef({ skip: 0, factor: 1 });
+  const backoffCalleeIce  = useRef({ skip: 0, factor: 1 });
+
+  // Detecção ampla de 429 (status, response.status ou mensagem)
+  const is429 = (err) =>
+    err?.status === 429 ||
+    err?.response?.status === 429 ||
+    /429|rate.?limit|too many/i.test(err?.message || '');
+
+  // Wrapper: se for 429 → aumenta factor (teto 4) e seta skip; senão → reseta
+  const withBackoff = async (ref, fn) => {
+    if (ref.current.skip > 0) { ref.current.skip--; return; }
+    try {
+      await fn();
+      ref.current.factor = 1; // sucesso reseta
+    } catch (err) {
+      if (is429(err)) {
+        ref.current.skip = ref.current.factor;
+        ref.current.factor = Math.min(ref.current.factor * 2, 4);
+      }
+      // outros erros: silencioso (mesma semântica do try/catch original)
+    }
+  };
+
   const localStreamRef = externalLocalStreamRef || internalStreamRef;
 
   const ICE_SERVERS = {
@@ -203,7 +230,7 @@ export default function WebRTCCallManager({
       let attempts = 0;
       const poll = setInterval(async () => {
         if (endedRef.current || attempts++ > 80) { clearInterval(poll); return; }
-        try {
+        await withBackoff(backoffCallerMain, async () => {
           const s = await base44.entities.CallSession.get(sessionId);
           if (!s) return;
 
@@ -219,18 +246,18 @@ export default function WebRTCCallManager({
             let iceAttempts = 0;
             icePollRef.current = setInterval(async () => {
               if (endedRef.current || iceAttempts++ > 60) { clearInterval(icePollRef.current); return; }
-              try {
+              await withBackoff(backoffCallerIce, async () => {
                 const ss = await base44.entities.CallSession.get(sessionId);
                 if (!ss || ['encerrada', 'rejeitada'].includes(ss.status)) {
                   clearInterval(icePollRef.current); cleanup(); onEnded?.(); return;
                 }
                 await applyIce(pc, ss.ice_candidates_callee, appliedIceCallee.current);
-              } catch (_) {}
+              });
             }, 2000);
           } else {
             await applyIce(pc, s.ice_candidates_callee, appliedIceCallee.current);
           }
-        } catch (_) {}
+        });
       }, 1500);
 
     } catch (e) {
@@ -241,15 +268,16 @@ export default function WebRTCCallManager({
   // ─── CALLEE ──────────────────────────────────────────────────────────────
   const startAsCallee = useCallback(async () => {
     try {
-      // Aguarda offer (máx 15s, com check de cancelamento)
+      // Aguarda offer (máx 15s, com check de cancelamento + backoff 429)
       let session = null;
       for (let i = 0; i < 15; i++) {
         if (endedRef.current) return; // FIX: cancela se chamada foi encerrada
-        try {
+        await withBackoff(backoffCalleeWait, async () => {
           const res = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
           const s = res?.data?.session;
-          if (s?.webrtc_offer) { session = s; break; }
-        } catch (_) {}
+          if (s?.webrtc_offer) { session = s; }
+        });
+        if (session?.webrtc_offer) break;
         if (endedRef.current) return; // FIX: cancela antes do sleep também
         await new Promise(r => setTimeout(r, 1000));
       }
@@ -272,11 +300,11 @@ export default function WebRTCCallManager({
         status: 'ativa'
       });
 
-      // Poll para ICE caller
+      // Poll para ICE caller — com backoff em 429
       let attempts = 0;
       const poll = setInterval(async () => {
         if (endedRef.current || attempts++ > 60) { clearInterval(poll); return; }
-        try {
+        await withBackoff(backoffCalleeIce, async () => {
           const res = await base44.functions.invoke('buscarSessaoChamada', { sessionId });
           const s = res?.data?.session;
           if (!s) return;
@@ -284,7 +312,7 @@ export default function WebRTCCallManager({
             clearInterval(poll); cleanup(); onEnded?.(); return;
           }
           await applyIce(pc, s.ice_candidates_caller, appliedIceCaller.current);
-        } catch (_) {}
+        });
       }, 2000);
 
     } catch (e) {
