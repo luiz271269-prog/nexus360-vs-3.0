@@ -554,8 +554,18 @@ Deno.serve(async (req) => {
         contact_ids = [],
         sector = 'vendas',
         initiated_by: ibMassa = null,
-        campaign_id: campMassa = null
+        campaign_id: campMassa = null,
+        dry_run = true                          // FASE 1.1 — preview obrigatório
       } = payload;
+
+      // GUARD FASE 1.1: modo real bloqueado até Patch 4
+      if (dry_run !== true) {
+        return Response.json({
+          success: false,
+          error: 'Modo real ainda não habilitado. Use dry_run: true (preview). Será liberado em Patch 4.',
+          phase: 'FASE_1_1_PREVIEW_ONLY'
+        }, { status: 501, headers });
+      }
 
       if (!promotion_id) {
         return Response.json({ success: false, error: 'promotion_id obrigatório' }, { status: 400, headers });
@@ -624,19 +634,7 @@ Deno.serve(async (req) => {
         if ([ELIGIBILITY.BLOCKED_PERMANENT, ELIGIBILITY.BLOCKED_TEMPORARY, ELIGIBILITY.NEEDS_HUMAN_REVIEW].includes(eleg.status)) {
           inelegiveis++;
           bloqueados.push({ contact_id: cid, nome: contact.nome, motivo: eleg.motivo, status: eleg.status });
-          await gravarDispatchLog(base44, {
-            trigger: 'massa_manual',
-            promotion_id: promo.id,
-            promotion_titulo: promo.titulo,
-            contact_id: contact.id,
-            contact_nome: contact.nome,
-            thread_id: afin?.thread?.id || null,
-            campaign_id: campaignFinalMassa,
-            status: 'bloqueada',
-            bloqueio_motivo: eleg.motivo,
-            initiated_by: ibMassa || user?.email || 'skill_promocoes_massa',
-            metadata: { eligibility_status: eleg.status, origem: 'massa_manual' }
-          });
+          // FASE 1.1: NÃO grava PromotionDispatchLog em modo preview (evita poluir métricas)
           continue;
         }
 
@@ -667,77 +665,37 @@ Deno.serve(async (req) => {
         grupo.strategies[resolve.strategy] = (grupo.strategies[resolve.strategy] || 0) + 1;
       }
 
-      // Montar mensagem (mesmo formato do enviarPromocaoEmMassa)
-      let mensagemMassa = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎁 *${promo.titulo || 'Oferta Especial'}*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-      if (promo.descricao_curta || promo.descricao) mensagemMassa += `${promo.descricao_curta || promo.descricao}\n\n`;
-      if (promo.price_info) mensagemMassa += `💰 *${promo.price_info}*\n\n`;
-      if (promo.validade) mensagemMassa += `⏰ *Válido até:* ${new Date(promo.validade).toLocaleDateString('pt-BR')}\n\n`;
-      if (promo.link_produto) mensagemMassa += `🔗 ${promo.link_produto}\n\n`;
-      mensagemMassa += `_Quer aproveitar? Me diga o que você precisa que eu te ajudo!_ ✨`;
+      // FASE 1.1 — PREVIEW: monta planejamento sem disparar envio nem atualizar contador
+      const integracoesPlanejadas = [...gruposPorIntegracao.values()].map(grupo => ({
+        integration_id: grupo.integration.id,
+        integration_nome: grupo.integration.nome_instancia,
+        numero: grupo.integration.numero_telefone || null,
+        tier: grupo.integration.tier,
+        capacidade_restante: grupo.integration.capacidade_restante ?? null,
+        total_destinatarios: grupo.contact_ids.length,
+        estrategias: grupo.strategies,
+        contact_ids: grupo.contact_ids
+      }));
 
-      // Disparar 1 enviarCampanhaLote por integração — em paralelo
-      const disparos = await Promise.all(
-        [...gruposPorIntegracao.values()].map(async (grupo) => {
-          try {
-            const resp = await base44.asServiceRole.functions.invoke('enviarCampanhaLote', {
-              contact_ids: grupo.contact_ids,
-              modo: 'broadcast',
-              mensagem: mensagemMassa,
-              personalizar: true,
-              media_url: promo.imagem_url || null,
-              media_type: promo.imagem_url ? 'image' : 'none',
-              integration_id: grupo.integration.id
-            });
-            return {
-              integration_id: grupo.integration.id,
-              integration_nome: grupo.integration.nome_instancia,
-              tier: grupo.integration.tier,
-              total_destinatarios: grupo.contact_ids.length,
-              estrategias: grupo.strategies,
-              broadcast_id: resp?.data?.broadcast_id || null,
-              enfileirados: resp?.data?.enfileirados || 0,
-              erros: resp?.data?.erros || 0,
-              excedentes: resp?.data?.excedentes || 0,
-              success: !!resp?.data?.success,
-              motivo_erro: resp?.data?.error || null
-            };
-          } catch (e) {
-            return {
-              integration_id: grupo.integration.id,
-              integration_nome: grupo.integration.nome_instancia,
-              total_destinatarios: grupo.contact_ids.length,
-              success: false,
-              motivo_erro: e.message
-            };
-          }
-        })
-      );
-
-      const totalEnfileirados = disparos.reduce((s, d) => s + (d.enfileirados || 0), 0);
-      const totalErros = disparos.reduce((s, d) => s + (d.erros || 0), 0);
-
-      // Atualizar contador da promoção
-      if (totalEnfileirados > 0) {
-        await base44.asServiceRole.entities.Promotion.update(promotion_id, {
-          contador_envios: (promo.contador_envios || 0) + totalEnfileirados
-        }).catch(() => null);
-      }
+      const elegiveis = integracoesPlanejadas.reduce((s, g) => s + g.total_destinatarios, 0);
 
       return Response.json({
         success: true,
-        origem: 'massa_manual',
-        campaign_id: campaignFinalMassa,
+        dry_run: true,
+        phase: 'FASE_1_1_PREVIEW_ONLY',
+        origem: 'massa_manual_preview',
+        campaign_id_previsto: campaignFinalMassa,
         promotion_id,
         promotion_titulo: promo.titulo,
         total_solicitados: contact_ids.length,
+        elegiveis,
         inelegiveis,
-        enfileirados: totalEnfileirados,
-        erros: totalErros,
-        integracoes_usadas: disparos.length,
-        pool_saudavel: pool.healthy.length,
-        pool_total: pool.all.length,
-        disparos,
-        bloqueados: bloqueados.slice(0, 50),
+        integracoes_planejadas: integracoesPlanejadas,
+        pool: {
+          saudavel: pool.healthy.length,
+          total: pool.all.length
+        },
+        bloqueados,
         tempo_ms: Date.now() - tsInicio
       }, { headers });
     }
