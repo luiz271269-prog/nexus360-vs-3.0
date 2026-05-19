@@ -218,7 +218,7 @@ export default function Comunicacao() {
       // Limpar timer anterior
       if (debounceTimer) clearTimeout(debounceTimer);
 
-      // Agendar invalidação em 2 segundos (agrupa múltiplos eventos)
+      // Agendar invalidação em 5 segundos (agrupa múltiplos eventos — reduz 429)
       debounceTimer = setTimeout(() => {
         console.log(`[COMUNICACAO] ♻️ Invalidando ${invalidacoesPendentes.size} thread(s) agrupadas`);
 
@@ -233,7 +233,7 @@ export default function Comunicacao() {
 
         // Limpar fila
         invalidacoesPendentes.clear();
-      }, 3500);
+      }, 5000);
     });
 
     return () => {

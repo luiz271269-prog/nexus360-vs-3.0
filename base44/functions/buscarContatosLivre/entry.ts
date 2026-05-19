@@ -172,6 +172,14 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
+    // Exponential backoff hint para o cliente em caso de 429
+    if (error?.status === 429 || error?.message?.includes('Rate limit')) {
+      console.warn('[buscarContatosLivre] ⚠️ Rate limit — retornando 429 para cooldown no cliente');
+      return Response.json({ success: false, error: 'Rate limit exceeded' }, { 
+        status: 429,
+        headers: { 'Retry-After': '30' }
+      });
+    }
     console.error('[buscarContatosLivre] ERRO:', error.message);
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
