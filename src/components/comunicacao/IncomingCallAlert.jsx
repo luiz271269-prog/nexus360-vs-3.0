@@ -124,7 +124,7 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
   useEffect(() => {
     if (!usuarioId) return;
     poll(); // Imediato
-    pollingRef.current = setInterval(poll, 2000); // A cada 2s
+    pollingRef.current = setInterval(poll, 10000); // 10s — reduzido de 2s para aliviar rate-limit
     return () => clearInterval(pollingRef.current);
   }, [usuarioId, poll]);
 
