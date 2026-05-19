@@ -553,7 +553,7 @@ export default function Comunicacao() {
   const { data: mensagens = [] } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
     queryFn: async () => {
-      if (!threadAtiva || isRateLimited) return [];
+      if (!threadAtiva) return [];
 
       try {
         // BRANCH INTERNO: Busca simples, SEM merge
