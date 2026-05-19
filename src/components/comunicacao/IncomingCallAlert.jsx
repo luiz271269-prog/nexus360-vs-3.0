@@ -4,10 +4,12 @@ import { Phone, PhoneOff, Video } from 'lucide-react';
 import WhatsAppCallOverlay from './WhatsAppCallOverlay';
 
 /**
- * Detecta chamadas entrantes via POLLING (a cada 3s) + subscribe.
- * O polling é necessário porque o subscribe só entrega eventos ao criador do registro.
+ * Detecta chamadas entrantes via POLLING a cada 2s.
+ * Busca CallSession com status='chamando' e filtra pelo callee_id no cliente.
+ * Não depende de subscribe (que só funciona para o criador do registro).
  */
-export default function IncomingCallAlert({ usuario }) {
+export default function IncomingCallAlert({ usuario: usuarioProp }) {
+  const [usuarioId, setUsuarioId]         = useState(usuarioProp?.id || null);
   const [chamadaEntrante, setChamadaEntrante] = useState(null);
   const [chamadaAtiva, setChamadaAtiva]   = useState(null);
   const [duracao, setDuracao]             = useState(0);
@@ -16,10 +18,19 @@ export default function IncomingCallAlert({ usuario }) {
   const chamadaAtivaRef    = useRef(null);
   const duracaoRef         = useRef(null);
   const pollingRef         = useRef(null);
-  const jaNotificadosRef   = useRef(new Set()); // IDs já tratados (evita duplicata)
+  const jaVistosRef        = useRef(new Set());
+  const usuarioIdRef       = useRef(usuarioId);
 
+  // Atualiza refs ao mudar state
   useEffect(() => { chamadaEntranteRef.current = chamadaEntrante; }, [chamadaEntrante]);
   useEffect(() => { chamadaAtivaRef.current    = chamadaAtiva;    }, [chamadaAtiva]);
+  useEffect(() => { usuarioIdRef.current       = usuarioId;       }, [usuarioId]);
+
+  // Se não recebeu usuário via prop, busca autonomamente
+  useEffect(() => {
+    if (usuarioProp?.id) { setUsuarioId(usuarioProp.id); return; }
+    base44.auth.me().then(u => { if (u?.id) setUsuarioId(u.id); }).catch(() => {});
+  }, [usuarioProp?.id]);
 
   // ── Toque de chamada ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -45,66 +56,83 @@ export default function IncomingCallAlert({ usuario }) {
     return () => { if (interval) clearInterval(interval); if (ctx) ctx.close().catch(() => {}); };
   }, [chamadaEntrante?.id]);
 
-  // ── Polling principal: busca chamadas "chamando" destinadas a mim ─────────
-  const verificarChamadasEntrantes = useCallback(async () => {
-    if (!usuario?.id) return;
+  // ── Polling: busca todas chamadas 'chamando' e filtra no cliente ──────────
+  const poll = useCallback(async () => {
+    const uid = usuarioIdRef.current;
+    if (!uid) return;
+
     try {
-      const sessoes = await base44.entities.CallSession.filter({
-        callee_id: usuario.id,
-        status: 'chamando',
-        modo: 'interno_webrtc'
-      });
+      // Busca somente por status para não depender de query combinada
+      const sessoes = await base44.entities.CallSession.filter(
+        { status: 'chamando' },
+        '-created_date',
+        20
+      );
 
       for (const s of sessoes) {
-        // Ignorar se já tratamos este ID
-        if (jaNotificadosRef.current.has(s.id)) continue;
-        // Ignorar se já temos chamada ativa ou entrante diferente
-        if (chamadaAtivaRef.current) continue;
-        // Ignorar chamadas com mais de 60 segundos (perdida)
-        const iniciadoEm = new Date(s.iniciado_em || s.created_date).getTime();
-        if (Date.now() - iniciadoEm > 60000) {
-          jaNotificadosRef.current.add(s.id);
-          continue;
-        }
+        // Deve ser para mim, modo webrtc
+        if (s.callee_id !== uid) continue;
+        if (s.modo !== 'interno_webrtc') continue;
+        // Já tratei?
+        if (jaVistosRef.current.has(s.id)) continue;
+        // Não sobrepor chamada ativa
+        if (chamadaAtivaRef.current) { jaVistosRef.current.add(s.id); continue; }
+        // Chamada expirada (> 60s)
+        const t = new Date(s.iniciado_em || s.created_date).getTime();
+        if (Date.now() - t > 60000) { jaVistosRef.current.add(s.id); continue; }
 
-        jaNotificadosRef.current.add(s.id);
+        // ✅ Nova chamada para mim!
+        jaVistosRef.current.add(s.id);
         setChamadaEntrante(s);
         chamadaEntranteRef.current = s;
-        break; // Processar uma por vez
+        break;
+      }
+
+      // Verificar se chamada entrante atual foi encerrada/rejeitada remotamente
+      const entrante = chamadaEntranteRef.current;
+      if (entrante) {
+        const atualizada = sessoes.find(s => s.id === entrante.id);
+        if (atualizada && ['encerrada', 'rejeitada', 'perdida'].includes(atualizada.status)) {
+          setChamadaEntrante(null);
+          chamadaEntranteRef.current = null;
+        }
+        // Se não aparece mais na lista (deletado ou mudou status)
+        if (!atualizada) {
+          // Buscar diretamente para confirmar
+          try {
+            const check = await base44.entities.CallSession.get(entrante.id);
+            if (!check || ['encerrada', 'rejeitada', 'perdida'].includes(check.status)) {
+              setChamadaEntrante(null);
+              chamadaEntranteRef.current = null;
+            }
+          } catch (_) {
+            setChamadaEntrante(null);
+            chamadaEntranteRef.current = null;
+          }
+        }
+      }
+
+      // Verificar se chamada ativa foi encerrada remotamente
+      const ativa = chamadaAtivaRef.current;
+      if (ativa) {
+        try {
+          const check = await base44.entities.CallSession.get(ativa.sessionId);
+          if (!check || check.status === 'encerrada') {
+            setChamadaAtiva(null);
+            chamadaAtivaRef.current = null;
+          }
+        } catch (_) {}
       }
     } catch (_) {}
-  }, [usuario?.id]);
+  }, []);
 
-  // ── Subscribe para detectar encerramento/rejeição remota ─────────────────
+  // ── Iniciar polling ───────────────────────────────────────────────────────
   useEffect(() => {
-    if (!usuario?.id) return;
-    const unsub = base44.entities.CallSession.subscribe((event) => {
-      const s = event.data;
-      if (!s) return;
-
-      // Chamada encerrada/rejeitada remotamente
-      const entrante = chamadaEntranteRef.current;
-      const ativa    = chamadaAtivaRef.current;
-
-      if (entrante?.id === s.id && ['encerrada', 'rejeitada', 'perdida'].includes(s.status)) {
-        setChamadaEntrante(null);
-        chamadaEntranteRef.current = null;
-      }
-      if (ativa?.sessionId === s.id && s.status === 'encerrada') {
-        setChamadaAtiva(null);
-        chamadaAtivaRef.current = null;
-      }
-    });
-    return unsub;
-  }, [usuario?.id]);
-
-  // ── Iniciar polling a cada 3s ─────────────────────────────────────────────
-  useEffect(() => {
-    if (!usuario?.id) return;
-    verificarChamadasEntrantes(); // Imediato
-    pollingRef.current = setInterval(verificarChamadasEntrantes, 3000);
+    if (!usuarioId) return;
+    poll(); // Imediato
+    pollingRef.current = setInterval(poll, 2000); // A cada 2s
     return () => clearInterval(pollingRef.current);
-  }, [usuario?.id, verificarChamadasEntrantes]);
+  }, [usuarioId, poll]);
 
   // ── Temporizador de duração ───────────────────────────────────────────────
   useEffect(() => {
@@ -124,9 +152,11 @@ export default function IncomingCallAlert({ usuario }) {
     return `${m}:${ss}`;
   };
 
-  const aceitar = useCallback(() => {
+  const aceitar = useCallback(async () => {
     const chamada = chamadaEntranteRef.current;
     if (!chamada) return;
+    // Marcar como ativa no banco
+    try { await base44.entities.CallSession.update(chamada.id, { status: 'ativa' }); } catch (_) {}
     const ativa = { sessionId: chamada.id, tipo: chamada.tipo || 'audio', peerNome: chamada.caller_nome };
     setChamadaAtiva(ativa);
     chamadaAtivaRef.current = ativa;
@@ -173,29 +203,24 @@ export default function IncomingCallAlert({ usuario }) {
         />
       )}
 
-      {/* Alerta de chamada entrante — estilo WhatsApp */}
+      {/* Alerta de chamada entrante */}
       {chamadaEntrante && !chamadaAtiva && (
         <div className="fixed inset-0 z-[210] flex items-end justify-center bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-sm overflow-hidden rounded-t-3xl shadow-2xl"
             style={{ background: 'linear-gradient(180deg, #0d1b2a 0%, #1b3a4b 100%)' }}>
 
-            {/* Cabeçalho */}
             <div className="flex flex-col items-center pt-10 pb-6 px-6">
-              {/* Avatar com pulso */}
               <div className="relative mb-5">
                 <div className="absolute inset-0 rounded-full bg-green-400/25 animate-ping" style={{ transform: 'scale(1.4)' }} />
-                <div className="absolute inset-0 rounded-full bg-green-400/10 animate-ping" style={{ transform: 'scale(1.7)', animationDelay: '0.3s' }} />
+                <div className="absolute inset-0 rounded-full bg-green-400/10 animate-ping" style={{ transform: 'scale(1.7)', animationDelay: '0.4s' }} />
                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 border-4 border-white/20 flex items-center justify-center text-white text-4xl font-bold shadow-2xl relative z-10">
                   {(chamadaEntrante.caller_nome || '?')[0].toUpperCase()}
                 </div>
               </div>
-
               <p className="text-white/50 text-xs tracking-widest uppercase mb-1">
                 {isVideo ? 'Videochamada interna' : 'Chamada de voz'}
               </p>
               <p className="text-white text-2xl font-bold">{chamadaEntrante.caller_nome || 'Colega'}</p>
-
-              {/* Bolinhas animadas */}
               <div className="flex gap-1.5 mt-3">
                 {[0, 1, 2].map(i => (
                   <div key={i} className="w-1.5 h-1.5 rounded-full bg-green-400 animate-bounce"
@@ -204,7 +229,6 @@ export default function IncomingCallAlert({ usuario }) {
               </div>
             </div>
 
-            {/* Botões */}
             <div className="flex items-center justify-around py-8 px-10 border-t border-white/10">
               <div className="flex flex-col items-center gap-3">
                 <button onClick={rejeitar}
@@ -213,13 +237,10 @@ export default function IncomingCallAlert({ usuario }) {
                 </button>
                 <span className="text-white/50 text-xs">Recusar</span>
               </div>
-
               <div className="flex flex-col items-center gap-3">
                 <button onClick={aceitar}
                   className="w-16 h-16 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center shadow-xl transition-all active:scale-95 ring-4 ring-green-400/40 animate-pulse">
-                  {isVideo
-                    ? <Video className="w-7 h-7 text-white" />
-                    : <Phone className="w-7 h-7 text-white" />}
+                  {isVideo ? <Video className="w-7 h-7 text-white" /> : <Phone className="w-7 h-7 text-white" />}
                 </button>
                 <span className="text-white/50 text-xs">Aceitar</span>
               </div>
