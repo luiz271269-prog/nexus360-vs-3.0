@@ -212,8 +212,9 @@ export default function Comunicacao() {
     const unsubscribe = base44.entities.MessageThread.subscribe((event) => {
       console.log(`[COMUNICACAO] 🔔 Thread ${event.type}d:`, event.id);
 
-      // Adicionar à fila de invalidações
-      invalidacoesPendentes.add(event.id);
+      // Adicionar à fila de invalidações com metadado do tipo
+      const isInterna = event.data?.thread_type === 'team_internal' || event.data?.thread_type === 'sector_group';
+      invalidacoesPendentes.add({ id: event.id, isInterna });
 
       // Limpar timer anterior
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -222,12 +223,16 @@ export default function Comunicacao() {
       debounceTimer = setTimeout(() => {
         console.log(`[COMUNICACAO] ♻️ Invalidando ${invalidacoesPendentes.size} thread(s) agrupadas`);
 
-        // ✅ FIX: Invalidar queries SEPARADAS (evita recarregar internas desnecessariamente)
-        queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
-        queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
+        const temExterna = [...invalidacoesPendentes].some(item => !item.isInterna);
+        const temInterna = [...invalidacoesPendentes].some(item => item.isInterna);
+
+        // ✅ FIX SELETIVO: Invalidar apenas a query afetada pelo evento
+        if (temExterna) queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+        if (temInterna) queryClient.invalidateQueries({ queryKey: ['threads-internas'] });
 
         // Se alguma thread ativa foi atualizada, recarregar mensagens
-        if (threadAtiva?.id && invalidacoesPendentes.has(threadAtiva.id)) {
+        const idsInvalidados = new Set([...invalidacoesPendentes].map(item => item.id));
+        if (threadAtiva?.id && idsInvalidados.has(threadAtiva.id)) {
           queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
         }
 
