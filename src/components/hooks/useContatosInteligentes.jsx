@@ -92,8 +92,14 @@ export function useContatosInteligentes(usuario, opcoes = {}) {
     } catch (err) {
       console.error('[useContatosInteligentes] Erro:', err);
       setError(err.message);
-      // Resetar timestamp para permitir retry imediato
-      _moduleCache.lastFetchTs = 0;
+      // Em 429, manter throttle ativo por mais 5min (não resetar para 0)
+      if (err.message?.includes('429') || err.message?.includes('Rate limit')) {
+        _moduleCache.lastFetchTs = Date.now() + (5 * 60 * 1000); // penalidade extra de 5min
+        console.warn('[useContatosInteligentes] ⚠️ 429 detectado — próxima chamada em 8min');
+      } else {
+        // Para outros erros: retry após 2min (não imediato)
+        _moduleCache.lastFetchTs = Date.now() - (_moduleCache.THROTTLE_MS - 2 * 60 * 1000);
+      }
     } finally {
       setLoading(false);
       _moduleCache.inflightPromise = null;
