@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       // Busca por texto se não achou por telefone
        if (contatos.length === 0) {
          try {
-           const todosBD = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 500);
+           const todosBD = await base44.asServiceRole.entities.Contact.list('-ultima_interacao', 1000);
            contatos = todosBD.filter(c => {
              const nome = (c.nome || '').toLowerCase();
              const empresa = (c.empresa || '').toLowerCase();
