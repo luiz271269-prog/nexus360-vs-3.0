@@ -23,7 +23,7 @@ import BotaoNexusFlutuante from "../components/global/BotaoNexusFlutuante";
 import MetricasNotasFiscais from "../components/dashboard/MetricasNotasFiscais";
 import { dedupById, dedupClientes, dedupVendas, dedupOrcamentos, dedupContatos } from "../utils/dedup";
 import { getNomeExibicao } from "../components/lib/vendedorSync";
-import { buscarNotasFiscaisExternas } from "@/functions/buscarNotasFiscaisExternas";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Cache global para evitar chamadas desnecessárias
 const dashboardCache = {
@@ -148,7 +148,7 @@ export default function Dashboard() {
     orcamentos: [],
     interacoes: []
   });
-  const [notasFiscais, setNotasFiscais] = useState([]);
+  const queryClient = useQueryClient();
 
   const [usuario, setUsuario] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -168,8 +168,9 @@ export default function Dashboard() {
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
   const [modoAnual, setModoAnual] = useState(false);
 
-  // Notas fiscais filtradas pelo período selecionado
-  const notasFiltradas = notasFiscais.filter(n => {
+  // Lê notas fiscais do cache do useQuery (preenchido por MetricasNotasFiscais) — sem fetch duplicado
+  const notasFiscaisCache = queryClient.getQueryData(['notas-fiscais-externas']) || [];
+  const notasFiltradas = notasFiscaisCache.filter(n => {
     const d = new Date(n.data_emissao || n.created_date || '');
     if (isNaN(d.getTime())) return false;
     if (modoAnual) return d.getFullYear() === anoSelecionado;
@@ -384,15 +385,6 @@ export default function Dashboard() {
     setLoading(false);
   }, [filtros, carregarDadosComCache]);
 
-  const carregarNotasFiscais = async () => {
-    try {
-      const resp = await buscarNotasFiscaisExternas({});
-      if (resp.data?.success) setNotasFiscais(dedupById(resp.data.notas || []));
-    } catch (e) {
-      console.warn('[Dashboard] Notas fiscais indisponíveis:', e.message);
-    }
-  };
-
   const carregarMetricasIA = async () => {
     try {
       const anoAtual = new Date().getFullYear();
@@ -508,7 +500,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     carregarDados();
-    carregarNotasFiscais();
     base44.analytics.track({
       eventName: "dashboard_viewed",
       properties: { view_mode: viewMode, is_gerente: isGerente }
