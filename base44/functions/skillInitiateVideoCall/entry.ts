@@ -120,6 +120,17 @@ Deno.serve(async (req) => {
       // Dedup
       userIds = [...new Set(userIds)];
 
+      // GUARDRAIL: se front enviou thread_type='team_internal', forçar max 1 destino
+      // (segunda camada de proteção caso o botão não sanitize corretamente)
+      const threadType = body.thread_type || '';
+      if (threadType === 'team_internal' && userIds.length > 1) {
+        console.warn(`[skillInitiateVideoCall] GUARDRAIL: team_internal com ${userIds.length} destinos. Forçando 1:1. IDs: ${JSON.stringify(userIds)}`);
+        userIds = [userIds[0]];
+      }
+
+      // Log de auditoria
+      console.log(`[skillInitiateVideoCall] modo=interno, thread_type=${threadType}, caller=${user.id}, destinos=${JSON.stringify(userIds)}`);
+
       if (userIds.length === 0) {
         return Response.json({ success: false, error: 'Nenhum destinatário interno informado' }, { status: 400 });
       }

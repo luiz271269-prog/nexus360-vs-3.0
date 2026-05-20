@@ -177,6 +177,65 @@ Se algum item for **NÃO**, **PARAR** e revisar antes de aplicar.
 
 ---
 
+## 📏 REGRA DE DECISÃO DE CHAMADA (versão definitiva)
+
+```
+1. Thread externa (contact_id presente)
+   → modo: externo, transporte: Jitsi, destino: contato WhatsApp
+
+2. Thread interna
+   → montar user_ids_destino = participantes únicos − usuário logado
+
+3. user_ids_destino.length === 1
+   → WebRTC P2P, CallSession.modo = interno_webrtc
+
+4. user_ids_destino.length > 1
+   → Jitsi SFU, CallSession.modo = externo_jitsi (aliasing legado)
+   → ideal futuro: interno_jitsi (quando enum existir)
+   → room_url é a mídia real; callee_ids é notificação/auditoria
+
+5. callee_ids[] nunca roteia mídia — apenas:
+   → notificação (IncomingCallAlert poll)
+   → alerta entrante (botão "Entrar")
+   → auditoria (quem foi convidado)
+   → UI (nomes no overlay)
+```
+
+### ⚠️ Aliasing `externo_jitsi`
+
+Hoje `CallSession.modo = 'externo_jitsi'` cobre **dois cenários**:
+- **Externo real**: `contact_id` preenchido, sem `thread_id` ou com thread de contato
+- **Grupo interno**: `thread_id` preenchido + `callee_ids.length > 1` + **sem** `contact_id`
+
+Critério de distinção: presença de `contact_id` (externo) vs `thread_id sem contact_id` (interno grupo).
+
+### 🔐 Guardrail anti-falso-grupo
+
+BotaoVideochamada: se `thread.thread_type === 'team_internal'`, envia **exatamente 1** destinatário (primeiro outro participante), ignorando poluição do array `participants`/`user_ids`.
+
+skillInitiateVideoCall: segunda camada — se `thread_type === 'team_internal'` e `user_ids_destino.length > 1`, trunca para `[userIds[0]]` e loga warning.
+
+---
+
+## 🔚 REGRA DE ENCERRAMENTO
+
+```
+1:1 WebRTC:
+  - Qualquer lado encerra → CallSession.status = 'encerrada'
+  - Conexão termina para os dois
+
+Grupo Jitsi (comportamento de reunião):
+  - Caller fecha VideoCallModule → apenas caller sai
+  - Outros participantes continuam na sala Jitsi
+  - CallSession.status permanece 'ativa' enquanto sala existir
+  - CallSession encerrada por:
+    a) cron limparCallSessionsOrfas (>2h sem atividade)
+    b) admin/sistema manualmente
+  - callee_ids[] não controla saída — cada participante decide
+```
+
+---
+
 ## 🗓️ FASES POSTERIORES (referência)
 
 | Fase | Escopo | Status |
@@ -184,11 +243,13 @@ Se algum item for **NÃO**, **PARAR** e revisar antes de aplicar.
 | **Fase 0** | Regra arquitetural (este documento) | ✅ vigente |
 | Fase 1 | Higiene operacional (limpeza órfãs) | ✅ concluída |
 | Fase 2 | Resiliência (backoff exponencial, 429) | ✅ concluída |
-| Fase 3.1 | Skill aceita grupo + retorna `overlay_type` | 🟡 planejada |
-| Fase 3.2 | `BotaoVideochamada` refatorado para delegar | 🟡 planejada |
-| Fase 3.3 | `IncomingCallAlert` toca para grupo Jitsi | 🟡 planejada |
+| Fase 3.1-v2 | Skill aceita `user_ids_destino[]` + grupo Jitsi | ✅ concluída |
+| Fase 3.2-v2 | `BotaoVideochamada` proxy fino + guardrail anti-falso-grupo | ✅ concluída |
+| Fase 3.3-v2 | `IncomingCallAlert` detecta grupo Jitsi + botão "Entrar" | ✅ concluída |
+| Fase 3.4 | Guardrail `team_internal` → forçar 1:1 (botão + skill) | ✅ concluída |
 | Fase 4 | TURN server (NAT traversal corporativo) | 🔵 backlog |
 | Fase 5 | `CallParticipant` (auditoria individual) | 🔵 backlog |
+| Fase 6 | Enum `interno_jitsi` para grupo interno (eliminar aliasing) | 🔵 backlog |
 
 ---
 
@@ -198,6 +259,11 @@ Se algum item for **NÃO**, **PARAR** e revisar antes de aplicar.
   arquiteturais convergentes (Jitsi-MVP, CallParticipant, Delegar-à-skill,
   Convergência-final). Decisão: front é fino, skill é orquestrador,
   WebRTC só 1:1, grupo só Jitsi, `callee_ids[]` é metadata.
+
+- **2026-05-20** — Fases 3.1-v2 a 3.4 aplicadas: skill aceita grupo, botão
+  é proxy fino, IncomingCallAlert detecta Jitsi grupo, guardrail impede
+  falso-grupo em threads team_internal. Regra de encerramento documentada:
+  1:1 encerra para ambos; grupo = reunião, caller sair não derruba sala.
 
 ---
 

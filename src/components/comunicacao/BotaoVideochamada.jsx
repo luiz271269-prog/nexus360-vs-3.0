@@ -57,13 +57,24 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
       let payload;
 
       if (isThreadInterna) {
-        const outros = (thread?.participants || []).filter(id => id !== usuario?.id);
-        if (!outros.length) throw new Error('Nenhum participante na thread');
+        // Coleta participantes — usa user_ids como fallback para participants
+        const rawIds = (thread?.participants?.length ? thread.participants : thread?.user_ids) || [];
+        const todosOutros = [...new Set(rawIds.filter(id => id && id !== usuario?.id))];
+        if (!todosOutros.length) throw new Error('Nenhum participante na thread');
+
+        // REGRA CRÍTICA (Fase 0):
+        // team_internal (1:1) → FORÇAR exatamente 1 destinatário → WebRTC
+        // sector_group (grupo) → enviar todos → Jitsi
+        const destinos = thread.thread_type === 'team_internal'
+          ? [todosOutros[0]]   // 1:1: só o outro usuário, ignora poluição do array
+          : todosOutros;       // grupo: envia todos
+
         payload = {
           modo: 'interno',
           tipo,
           thread_id: thread.id,
-          user_ids_destino: outros
+          thread_type: thread.thread_type, // para auditoria na skill
+          user_ids_destino: destinos
         };
       } else {
         const integracaoAtiva = integracoes.find(i => i.status === 'conectado') || null;
