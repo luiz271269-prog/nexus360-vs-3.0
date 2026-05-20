@@ -6,30 +6,39 @@ import VideoCallModule from "./VideoCallModule";
 import WhatsAppCallOverlay from "./WhatsAppCallOverlay";
 
 /**
- * Dois botões estilo WhatsApp: câmera (vídeo) + telefone (voz).
- * Threads internas → WebRTC direto.
- * Threads externas → Jitsi via link WhatsApp.
+ * 🔒 FASE 0 — Proxy fino para a skill `skillInitiateVideoCall`.
+ *
+ * Este componente NÃO decide nada sobre transporte de mídia, NÃO cria
+ * CallSession, NÃO resolve nomes, NÃO envia mensagens. Toda lógica vive
+ * em `functions/skillInitiateVideoCall.js`.
+ *
+ * Responsabilidades aqui:
+ *   1. Coletar contexto (thread, contato, integração)
+ *   2. Invocar a skill
+ *   3. Renderizar overlay com base em `overlay_type` retornado:
+ *        - 'webrtc' → <WhatsAppCallOverlay>  (1:1 interno)
+ *        - 'jitsi'  → <VideoCallModule>      (grupo interno ou externo)
  */
 export default function BotaoVideochamada({ contato, thread, usuario, integracoes = [] }) {
-  const [sessaoExterna, setSessaoExterna] = React.useState(null);
-  const [sessaoInterna, setSessaoInterna] = React.useState(null); // { sessionId, tipo }
-  const [duracaoInterna, setDuracaoInterna] = React.useState(0);
+  const [sessaoJitsi, setSessaoJitsi] = React.useState(null);     // overlay_type='jitsi'
+  const [sessaoWebRTC, setSessaoWebRTC] = React.useState(null);   // overlay_type='webrtc'
+  const [duracaoWebRTC, setDuracaoWebRTC] = React.useState(0);
   const [iniciando, setIniciando] = React.useState(false);
   const duracaoTimer = React.useRef(null);
 
   const isThreadInterna =
     thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
 
-  // Temporizador
+  // Temporizador da chamada WebRTC (visual)
   React.useEffect(() => {
-    if (sessaoInterna) {
-      setDuracaoInterna(0);
-      duracaoTimer.current = setInterval(() => setDuracaoInterna(d => d + 1), 1000);
+    if (sessaoWebRTC) {
+      setDuracaoWebRTC(0);
+      duracaoTimer.current = setInterval(() => setDuracaoWebRTC(d => d + 1), 1000);
     } else {
       clearInterval(duracaoTimer.current);
     }
     return () => clearInterval(duracaoTimer.current);
-  }, [sessaoInterna?.sessionId]);
+  }, [sessaoWebRTC?.sessionId]);
 
   const formatDuracao = (s) => {
     const m = Math.floor(s / 60).toString().padStart(2, '0');
@@ -37,89 +46,65 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
     return `${m}:${ss}`;
   };
 
-  const iniciarChamadaInterna = async (tipo) => {
-    if (iniciando || sessaoInterna) return;
+  /**
+   * Dispara a skill — único caminho para iniciar chamadas.
+   */
+  const iniciarChamada = async (tipo) => {
+    if (iniciando || sessaoWebRTC || sessaoJitsi) return;
     setIniciando(true);
     try {
-      const isGrupo = thread?.thread_type === 'sector_group' ||
-        (thread?.participants?.filter(id => id !== usuario?.id).length > 1);
+      // Monta payload mínimo. A skill decide tudo a partir daqui.
+      let payload;
 
-      const outrosParticipantes = (thread?.participants || []).filter(id => id !== usuario?.id);
-      if (!outrosParticipantes.length) throw new Error('Nenhum participante encontrado na thread');
+      if (isThreadInterna) {
+        const outros = (thread?.participants || []).filter(id => id !== usuario?.id);
+        if (!outros.length) throw new Error('Nenhum participante na thread');
+        payload = {
+          modo: 'interno',
+          tipo,
+          thread_id: thread.id,
+          user_ids_destino: outros
+        };
+      } else {
+        const integracaoAtiva = integracoes.find(i => i.status === 'conectado') || null;
+        if (!contato?.id) throw new Error('Contato não informado');
+        payload = {
+          modo: 'externo',
+          tipo,
+          contact_id: contato.id,
+          thread_id: thread?.id || null,
+          integration_id: integracaoAtiva?.id || null
+        };
+      }
 
-      // Resolve nomes via listarUsuariosParaAtribuicao (evita User.list() completo)
-      let nomesPorId = {};
-      try {
-        const res = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
-        (res?.data?.usuarios || []).forEach(u => { nomesPorId[u.id] = u.full_name || u.email; });
-      } catch (_) {}
+      const resultado = await base44.functions.invoke('skillInitiateVideoCall', payload);
+      const data = resultado?.data;
+      if (!data?.success) throw new Error(data?.error || 'Falha ao iniciar chamada');
 
-      const calleeNomes = outrosParticipantes.map(id => nomesPorId[id] || 'Colega');
-      const peerNomeDisplay = isGrupo
-        ? (thread?.group_name || `Grupo (${outrosParticipantes.length} pessoas)`)
-        : (calleeNomes[0] || 'Colega');
-
-      const session = await base44.entities.CallSession.create({
-        modo: 'interno_webrtc',
-        tipo,
-        status: 'iniciando',
-        caller_id: usuario.id,
-        caller_nome: usuario.full_name || 'Eu',
-        callee_id: outrosParticipantes[0],       // compatibilidade 1:1
-        callee_nome: calleeNomes[0] || 'Colega', // compatibilidade 1:1
-        callee_ids: outrosParticipantes,          // grupo: todos os destinatários
-        callee_nomes: calleeNomes,                // grupo: todos os nomes
-        thread_id: thread.id,
-        iniciado_por: usuario.email || usuario.id,
-        iniciado_em: new Date().toISOString()
-      });
-
-      setSessaoInterna({ sessionId: session.id, tipo, peerNome: peerNomeDisplay });
-    } catch (e) {
-      toast.error('Erro ao iniciar chamada: ' + e.message);
-    } finally {
-      setIniciando(false);
-    }
-  };
-
-  const encerrarChamadaInterna = async () => {
-    if (!sessaoInterna) return;
-    try {
-      await base44.entities.CallSession.update(sessaoInterna.sessionId, {
-        status: 'encerrada',
-        encerrado_em: new Date().toISOString(),
-        duracao_segundos: duracaoInterna
-      });
-    } catch (_) {}
-    setSessaoInterna(null);
-  };
-
-  const iniciarChamadaExterna = async (tipo) => {
-    if (iniciando) return;
-    setIniciando(true);
-    try {
-      const integracaoAtiva = integracoes.find(i => i.status === 'conectado') || null;
-      const resultado = await base44.functions.invoke('skillInitiateVideoCall', {
-        modo: 'externo',
-        contact_id: contato.id,
-        thread_id: thread?.id || null,
-        integration_id: integracaoAtiva?.id || null,
-        tipo
-      });
-
-      if (!resultado?.data?.success) throw new Error(resultado?.data?.error || 'Falha ao iniciar chamada');
-
-      setSessaoExterna({
-        session_id: resultado.data.session_id,
-        room_url: resultado.data.room_url,
-        room_name: resultado.data.room_name,
-        tipo,
-        contact_nome: resultado.data.contact_nome,
-        link_enviado_whatsapp: resultado.data.link_enviado_whatsapp
-      });
-
-      if (resultado.data.link_enviado_whatsapp) {
-        toast.success(`Link enviado via WhatsApp para ${resultado.data.contact_nome}`);
+      // Render condicional pelo overlay_type retornado pela skill
+      if (data.overlay_type === 'webrtc') {
+        setSessaoWebRTC({
+          sessionId: data.session_id,
+          tipo: data.tipo,
+          peerNome: data.peer_nome || 'Colega'
+        });
+      } else if (data.overlay_type === 'jitsi') {
+        setSessaoJitsi({
+          session_id: data.session_id,
+          room_url: data.room_url,
+          room_name: data.room_name,
+          tipo: data.tipo,
+          contact_nome: data.contact_nome,
+          link_enviado_whatsapp: data.link_enviado_whatsapp,
+          link_enviado_interno: data.link_enviado_interno
+        });
+        if (data.link_enviado_whatsapp) {
+          toast.success(`Link enviado via WhatsApp para ${data.contact_nome}`);
+        } else if (data.link_enviado_interno) {
+          toast.success('Reunião criada e link postado no chat');
+        }
+      } else {
+        throw new Error('overlay_type desconhecido retornado pela skill');
       }
     } catch (e) {
       toast.error('Erro ao iniciar chamada: ' + e.message);
@@ -128,32 +113,51 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
     }
   };
 
-  const iniciarChamada = (tipo) => {
-    if (isThreadInterna) iniciarChamadaInterna(tipo);
-    else iniciarChamadaExterna(tipo);
+  /**
+   * Encerra chamada WebRTC delegando à skill (não toca em CallSession direto).
+   */
+  const encerrarChamadaWebRTC = async () => {
+    if (!sessaoWebRTC) return;
+    try {
+      await base44.functions.invoke('skillInitiateVideoCall', {
+        action: 'encerrar',
+        session_id: sessaoWebRTC.sessionId
+      });
+    } catch (_) {}
+    setSessaoWebRTC(null);
+  };
+
+  const encerrarChamadaJitsi = async () => {
+    if (!sessaoJitsi) return;
+    try {
+      await base44.functions.invoke('skillInitiateVideoCall', {
+        action: 'encerrar',
+        session_id: sessaoJitsi.session_id
+      });
+    } catch (_) {}
+    setSessaoJitsi(null);
   };
 
   return (
     <>
-      {/* Overlay estilo WhatsApp (áudio ou vídeo) — já inclui o WebRTCCallManager internamente */}
-      {sessaoInterna && (
+      {/* Overlay WebRTC P2P (1:1 interno) */}
+      {sessaoWebRTC && (
         <WhatsAppCallOverlay
-          tipo={sessaoInterna.tipo}
-          peerNome={sessaoInterna.peerNome}
-          sessionId={sessaoInterna.sessionId}
-          duracao={duracaoInterna}
+          tipo={sessaoWebRTC.tipo}
+          peerNome={sessaoWebRTC.peerNome}
+          sessionId={sessaoWebRTC.sessionId}
+          duracao={duracaoWebRTC}
           formatDuracao={formatDuracao}
           isCaller={true}
-          onEncerrar={encerrarChamadaInterna}
+          onEncerrar={encerrarChamadaWebRTC}
         />
       )}
 
       {/* Dois botões estilo WhatsApp */}
       <div className="flex items-center gap-1">
-        {/* Botão Vídeo */}
         <button
           onClick={() => iniciarChamada('video')}
-          disabled={iniciando || !!sessaoInterna}
+          disabled={iniciando || !!sessaoWebRTC || !!sessaoJitsi}
           title="Videochamada"
           className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors disabled:opacity-40"
         >
@@ -162,10 +166,9 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
             : <Video className="w-5 h-5" />}
         </button>
 
-        {/* Botão Voz */}
         <button
           onClick={() => iniciarChamada('audio')}
-          disabled={iniciando || !!sessaoInterna}
+          disabled={iniciando || !!sessaoWebRTC || !!sessaoJitsi}
           title="Chamada de voz"
           className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors disabled:opacity-40"
         >
@@ -173,12 +176,12 @@ export default function BotaoVideochamada({ contato, thread, usuario, integracoe
         </button>
       </div>
 
-      {/* Overlay Jitsi (chamadas externas) */}
-      {sessaoExterna && (
+      {/* Overlay Jitsi (grupo interno ou externo) */}
+      {sessaoJitsi && (
         <VideoCallModule
-          session={sessaoExterna}
-          onEncerrar={() => setSessaoExterna(null)}
-          onClose={() => setSessaoExterna(null)}
+          session={sessaoJitsi}
+          onEncerrar={encerrarChamadaJitsi}
+          onClose={encerrarChamadaJitsi}
         />
       )}
     </>
