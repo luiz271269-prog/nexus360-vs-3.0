@@ -384,9 +384,12 @@ export default function WebRTCCallManager({
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
-      await base44.entities.CallSession.update(sessionId, {
-        webrtc_answer: JSON.stringify(answer),
-        status: 'ativa'
+      // RLS bypass: callee não é created_by da sessão, então update direto
+      // via SDK do user é bloqueado. Função usa service role (mesmo padrão
+      // de publicarIceChamada).
+      await base44.functions.invoke('registrarRespostaChamada', {
+        sessionId,
+        webrtc_answer: JSON.stringify(answer)
       });
 
       // Poll para ICE caller — com backoff em 429
