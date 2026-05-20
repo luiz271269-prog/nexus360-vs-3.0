@@ -86,6 +86,7 @@ export default function WebRTCCallManager({
   //     valor_json: [ {urls:'stun:...'}, {urls:'turn:...', username, credential} ]
   //   })
   const [iceServersConfig, setIceServersConfig] = useState(DEFAULT_ICE_SERVERS);
+  const [iceServersLoaded, setIceServersLoaded] = useState(false);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -98,15 +99,20 @@ export default function WebRTCCallManager({
         const cfg = rows?.[0]?.valor_json;
         if (Array.isArray(cfg) && cfg.length > 0) setIceServersConfig(cfg);
       } catch (_) { /* mantém STUN default */ }
+      finally { if (!cancelled) setIceServersLoaded(true); }
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Ref para timeout de 'disconnected' (estado transitório do WebRTC)
+  const disconnectTimerRef = useRef(null);
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
   const cleanup = useCallback(() => {
     if (endedRef.current) return;
     endedRef.current = true;
     if (icePollRef.current) { clearInterval(icePollRef.current); icePollRef.current = null; }
+    if (disconnectTimerRef.current) { clearTimeout(disconnectTimerRef.current); disconnectTimerRef.current = null; }
     if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(t => t.stop());
@@ -237,16 +243,45 @@ export default function WebRTCCallManager({
 
     pc.onconnectionstatechange = () => {
       const state = pc.connectionState;
-      if (state === 'connected') onConnected?.();
-      if (['disconnected', 'failed', 'closed'].includes(state)) {
-        if (!endedRef.current) {
-          // Só estados terminais reais disparam encerramento no servidor.
-          // 'disconnected' pode ser transitório, mas se chegou aqui sem reconectar,
-          // o cleanup vai rodar — então também encerramos.
-          encerrarViaSkill(state === 'failed' ? 'ice_failed' : 'peer_disconnected');
-          cleanup();
-          onEnded?.();
+
+      if (state === 'connected') {
+        // Reconectou — cancela timeout de disconnect pendente
+        if (disconnectTimerRef.current) {
+          clearTimeout(disconnectTimerRef.current);
+          disconnectTimerRef.current = null;
         }
+        onConnected?.();
+        return;
+      }
+
+      if (state === 'failed' && !endedRef.current) {
+        // Falha real — encerra imediatamente
+        encerrarViaSkill('ice_failed');
+        cleanup();
+        onEnded?.();
+        return;
+      }
+
+      if (state === 'closed' && !endedRef.current) {
+        // Conexão fechada sem cleanup local prévio — encerra
+        encerrarViaSkill('peer_disconnected');
+        cleanup();
+        onEnded?.();
+        return;
+      }
+
+      if (state === 'disconnected' && !endedRef.current) {
+        // Transitório: aguarda 10s para tentar reconexão automática do ICE.
+        // Se ainda estiver 'disconnected' ao fim do timeout, encerra.
+        if (disconnectTimerRef.current) return;
+        disconnectTimerRef.current = setTimeout(() => {
+          disconnectTimerRef.current = null;
+          if (!endedRef.current && pc.connectionState === 'disconnected') {
+            encerrarViaSkill('peer_disconnected_timeout');
+            cleanup();
+            onEnded?.();
+          }
+        }, 10000);
       }
     };
 
@@ -373,7 +408,9 @@ export default function WebRTCCallManager({
   }, [sessionId, initPeerConnection, applyIce, flushPendingIce, cleanup, onEnded, onError]);
 
   useEffect(() => {
-    if (!sessionId) return;
+    // PATCH C: aguarda iceServers carregar antes de criar RTCPeerConnection.
+    // Garante que TURN (se configurado) seja usado já na primeira chamada.
+    if (!sessionId || !iceServersLoaded) return;
     endedRef.current = false;
     icePendingRef.current = [];
     iceQueueRef.current = [];
@@ -382,7 +419,7 @@ export default function WebRTCCallManager({
     if (isCaller) startAsCaller();
     else startAsCallee();
     return cleanup;
-  }, [sessionId, isCaller]);
+  }, [sessionId, isCaller, iceServersLoaded]);
 
   return null;
 }
