@@ -1,5 +1,11 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { base44 } from '@/api/base44Client';
+
+// STUN-only fallback usado quando ConfiguracaoSistema não tem 'ice_servers' configurado
+const DEFAULT_ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' }
+];
 
 /**
  * Motor WebRTC para chamadas internas diretas (áudio e vídeo).
@@ -71,12 +77,30 @@ export default function WebRTCCallManager({
 
   const localStreamRef = externalLocalStreamRef || internalStreamRef;
 
-  const ICE_SERVERS = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
-    ]
-  };
+  // ── PATCH B: iceServers configurável via ConfiguracaoSistema ─────────────
+  // Lê uma vez no mount. Fallback STUN se não houver config no banco.
+  // Para adicionar TURN no futuro:
+  //   ConfiguracaoSistema.create({
+  //     categoria: 'video_call',
+  //     chave: 'ice_servers',
+  //     valor_json: [ {urls:'stun:...'}, {urls:'turn:...', username, credential} ]
+  //   })
+  const [iceServersConfig, setIceServersConfig] = useState(DEFAULT_ICE_SERVERS);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await base44.entities.ConfiguracaoSistema.filter({
+          categoria: 'video_call',
+          chave: 'ice_servers'
+        }, '-created_date', 1);
+        if (cancelled) return;
+        const cfg = rows?.[0]?.valor_json;
+        if (Array.isArray(cfg) && cfg.length > 0) setIceServersConfig(cfg);
+      } catch (_) { /* mantém STUN default */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
   const cleanup = useCallback(() => {
@@ -164,7 +188,7 @@ export default function WebRTCCallManager({
       localVideoRef.current.muted = true;
     }
 
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    const pc = new RTCPeerConnection({ iceServers: iceServersConfig });
     pcRef.current = pc;
 
     // Adiciona todas as tracks (áudio obrigatório, vídeo opcional)
@@ -198,16 +222,45 @@ export default function WebRTCCallManager({
       }
     };
 
+    // ── PATCH A: detecta falha de ICE/conexão e encerra via skill ──────────
+    // Garante que o OUTRO LADO sempre vê CallSession.status='encerrada'
+    // (cleanup local sozinho deixava sessão presa em 'ativa' no banco).
+    const encerrarViaSkill = async (reason) => {
+      try {
+        await base44.functions.invoke('skillInitiateVideoCall', {
+          action: 'encerrar',
+          session_id: sessionId,
+          ended_reason: reason
+        });
+      } catch (_) {}
+    };
+
     pc.onconnectionstatechange = () => {
       const state = pc.connectionState;
       if (state === 'connected') onConnected?.();
       if (['disconnected', 'failed', 'closed'].includes(state)) {
-        if (!endedRef.current) { cleanup(); onEnded?.(); }
+        if (!endedRef.current) {
+          // Só estados terminais reais disparam encerramento no servidor.
+          // 'disconnected' pode ser transitório, mas se chegou aqui sem reconectar,
+          // o cleanup vai rodar — então também encerramos.
+          encerrarViaSkill(state === 'failed' ? 'ice_failed' : 'peer_disconnected');
+          cleanup();
+          onEnded?.();
+        }
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      const state = pc.iceConnectionState;
+      if (state === 'failed' && !endedRef.current) {
+        encerrarViaSkill('ice_failed');
+        cleanup();
+        onEnded?.();
       }
     };
 
     return pc;
-  }, [tipo, localVideoRef, remoteVideoRef, publishIce, onConnected, onEnded, cleanup]);
+  }, [tipo, localVideoRef, remoteVideoRef, publishIce, onConnected, onEnded, cleanup, sessionId, iceServersConfig]);
 
   // ─── CALLER ──────────────────────────────────────────────────────────────
   const startAsCaller = useCallback(async () => {
