@@ -92,11 +92,13 @@ export default function WebRTCCallManager({
     (async () => {
       try {
         const rows = await base44.entities.ConfiguracaoSistema.filter({
-          categoria: 'video_call',
-          chave: 'ice_servers'
+          chave: 'ice_servers',
+          ativa: true
         }, '-created_date', 1);
         if (cancelled) return;
-        const cfg = rows?.[0]?.valor_json;
+        // Schema usa 'valor' (objeto). Aceita { servers: [...] } ou array direto.
+        const raw = rows?.[0]?.valor;
+        const cfg = Array.isArray(raw) ? raw : raw?.servers;
         if (Array.isArray(cfg) && cfg.length > 0) setIceServersConfig(cfg);
       } catch (_) { /* mantém STUN default */ }
       finally { if (!cancelled) setIceServersLoaded(true); }
