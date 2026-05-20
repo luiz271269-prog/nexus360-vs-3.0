@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Phone, PhoneOff, Video } from 'lucide-react';
+import { Phone, PhoneOff, Video, Users } from 'lucide-react';
 import WhatsAppCallOverlay from './WhatsAppCallOverlay';
+import VideoCallModule from './VideoCallModule';
 
 /**
  * Detecta chamadas entrantes via POLLING a cada 2s.
@@ -12,6 +13,7 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
   const [usuarioId, setUsuarioId]         = useState(usuarioProp?.id || null);
   const [chamadaEntrante, setChamadaEntrante] = useState(null);
   const [chamadaAtiva, setChamadaAtiva]   = useState(null);
+  const [sessaoJitsiEntrada, setSessaoJitsiEntrada] = useState(null); // grupo Jitsi: { session_id, room_url, tipo, contact_nome }
   const [duracao, setDuracao]             = useState(0);
 
   const chamadaEntranteRef = useRef(null);
@@ -149,6 +151,22 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
   const aceitar = useCallback(async () => {
     const chamada = chamadaEntranteRef.current;
     if (!chamada) return;
+
+    // ── BRANCH A: Grupo Jitsi → abre VideoCallModule com room_url ──
+    if (chamada.is_grupo_jitsi) {
+      setSessaoJitsiEntrada({
+        session_id: chamada.id,
+        room_url: chamada.room_url,
+        room_name: chamada.room_name,
+        tipo: chamada.tipo || 'video',
+        contact_nome: chamada.caller_nome ? `Reunião de ${chamada.caller_nome}` : 'Reunião em grupo'
+      });
+      setChamadaEntrante(null);
+      chamadaEntranteRef.current = null;
+      return;
+    }
+
+    // ── BRANCH B: WebRTC P2P 1:1 (fluxo original intacto) ──
     // NÃO mudar status aqui — o WebRTCCallManager (startAsCallee) muda para 'ativa'
     // após criar o answer. Mudar antes quebraria o handshake do caller.
     const ativa = { sessionId: chamada.id, tipo: chamada.tipo || 'audio', peerNome: chamada.caller_nome };
@@ -181,10 +199,11 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
   }, [duracao]);
 
   const isVideo = chamadaEntrante?.tipo === 'video';
+  const isGrupoJitsi = !!chamadaEntrante?.is_grupo_jitsi;
 
   return (
     <>
-      {/* Overlay de chamada ativa (callee) */}
+      {/* Overlay de chamada ativa WebRTC 1:1 (callee) */}
       {chamadaAtiva && (
         <WhatsAppCallOverlay
           tipo={chamadaAtiva.tipo}
@@ -194,6 +213,15 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
           formatDuracao={formatDuracao}
           isCaller={false}
           onEncerrar={encerrar}
+        />
+      )}
+
+      {/* Overlay Jitsi para grupo interno (entrou via "Entrar") */}
+      {sessaoJitsiEntrada && (
+        <VideoCallModule
+          session={sessaoJitsiEntrada}
+          onEncerrar={() => setSessaoJitsiEntrada(null)}
+          onClose={() => setSessaoJitsiEntrada(null)}
         />
       )}
 
@@ -217,9 +245,16 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
             {/* Info */}
             <div className="flex-1 min-w-0">
               <p className="text-white/60 text-[10px] tracking-widest uppercase">
-                {isVideo ? '📹 Videochamada' : '📞 Chamada de voz'}
+                {isGrupoJitsi
+                  ? '👥 Reunião em grupo'
+                  : (isVideo ? '📹 Videochamada' : '📞 Chamada de voz')}
               </p>
               <p className="text-white font-semibold text-sm truncate">{chamadaEntrante.caller_nome || 'Colega'}</p>
+              {isGrupoJitsi && Array.isArray(chamadaEntrante.callee_ids) && (
+                <p className="text-white/50 text-[10px] mt-0.5">
+                  {chamadaEntrante.callee_ids.length} participante{chamadaEntrante.callee_ids.length !== 1 ? 's' : ''} convidado{chamadaEntrante.callee_ids.length !== 1 ? 's' : ''}
+                </p>
+              )}
               {/* Bolinhas animadas */}
               <div className="flex gap-1 mt-1">
                 {[0, 1, 2].map(i => (
@@ -237,7 +272,7 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
               <div className="w-10 h-10 rounded-full bg-red-500 group-hover:bg-red-600 flex items-center justify-center shadow-lg transition-colors">
                 <PhoneOff className="w-5 h-5 text-white" />
               </div>
-              <span className="text-white/50 text-[10px]">Recusar</span>
+              <span className="text-white/50 text-[10px]">{isGrupoJitsi ? 'Ignorar' : 'Recusar'}</span>
             </button>
 
             <div className="w-px bg-white/10" />
@@ -245,9 +280,11 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
             <button onClick={aceitar}
               className="flex-1 flex flex-col items-center gap-1 py-3 hover:bg-green-500/20 transition-colors group">
               <div className="w-10 h-10 rounded-full bg-green-500 group-hover:bg-green-600 flex items-center justify-center shadow-lg ring-2 ring-green-400/50 animate-pulse transition-colors">
-                {isVideo ? <Video className="w-5 h-5 text-white" /> : <Phone className="w-5 h-5 text-white" />}
+                {isGrupoJitsi
+                  ? <Users className="w-5 h-5 text-white" />
+                  : (isVideo ? <Video className="w-5 h-5 text-white" /> : <Phone className="w-5 h-5 text-white" />)}
               </div>
-              <span className="text-white/50 text-[10px]">Aceitar</span>
+              <span className="text-white/50 text-[10px]">{isGrupoJitsi ? 'Entrar' : 'Aceitar'}</span>
             </button>
           </div>
         </div>
