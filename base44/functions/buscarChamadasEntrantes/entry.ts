@@ -17,43 +17,42 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // ── 1. WebRTC 1:1: usuário é callee_id direto ─────────────────────────
-    const sessoes1a1 = await base44.asServiceRole.entities.CallSession.filter(
-      { callee_id: user.id, status: 'chamando', modo: 'interno_webrtc' },
+    // ── UNIFICADO: 1 query com $or cobre os 3 cenários da Fase 0 ──────────
+    // Cenário A: WebRTC 1:1 → modo='interno_webrtc' + status='chamando' + callee_id=user.id
+    // Cenário B: WebRTC grupo legado → modo='interno_webrtc' + status='chamando' + callee_ids ∋ user.id
+    // Cenário C: Jitsi grupo interno → modo='externo_jitsi' + status='ativa' + thread_id + callee_ids ∋ user.id
+    const candidatas = await base44.asServiceRole.entities.CallSession.filter(
+      {
+        $or: [
+          { modo: 'interno_webrtc', status: 'chamando' },
+          { modo: 'externo_jitsi', status: 'ativa' }
+        ]
+      },
       '-created_date',
-      10
+      150
     );
 
-    // ── 2. WebRTC grupo legado (caso ainda exista no banco) ───────────────
-    const sessoesWebrtcRecentes = await base44.asServiceRole.entities.CallSession.filter(
-      { status: 'chamando', modo: 'interno_webrtc' },
-      '-created_date',
-      100
+    const sessoes1a1 = candidatas.filter(s =>
+      s.modo === 'interno_webrtc' && s.status === 'chamando' && s.callee_id === user.id
     );
-    const sessoesWebrtcGrupo = sessoesWebrtcRecentes.filter(s =>
+    const sessoesWebrtcGrupo = candidatas.filter(s =>
+      s.modo === 'interno_webrtc' &&
+      s.status === 'chamando' &&
       Array.isArray(s.callee_ids) &&
       s.callee_ids.includes(user.id) &&
       s.callee_id !== user.id
     );
-
-    // ── 3. Jitsi GRUPO INTERNO: modo=externo_jitsi com thread_id ──────────
-    // (chamadas Jitsi externas para contato WhatsApp não têm thread_id ou
-    //  têm contact_id e não devem alertar atendentes que estão na thread)
-    const sessoesJitsiRecentes = await base44.asServiceRole.entities.CallSession.filter(
-      { status: 'ativa', modo: 'externo_jitsi' },
-      '-created_date',
-      100
-    );
-    const sessoesJitsiGrupo = sessoesJitsiRecentes.filter(s =>
+    const sessoesJitsiGrupo = candidatas.filter(s =>
+      s.modo === 'externo_jitsi' &&
+      s.status === 'ativa' &&
       Array.isArray(s.callee_ids) &&
       s.callee_ids.length > 0 &&
       s.callee_ids.includes(user.id) &&
-      !!s.thread_id &&        // só interno (tem thread)
-      !s.contact_id &&        // exclui chamadas externas para contato
-      s.caller_id !== user.id // não notifica quem iniciou
+      !!s.thread_id &&
+      !s.contact_id &&
+      s.caller_id !== user.id
     );
 
-    // ── Unifica, deduplica e marca tipo ───────────────────────────────────
     const todas = [
       ...sessoes1a1.map(s => ({ ...s, is_grupo_jitsi: false })),
       ...sessoesWebrtcGrupo.map(s => ({ ...s, is_grupo_jitsi: false })),

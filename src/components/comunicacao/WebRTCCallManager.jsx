@@ -121,22 +121,21 @@ export default function WebRTCCallManager({
     }
   }, []);
 
-  // ── Publica ICE em fila serial para evitar race condition de leitura/escrita ──
+  // ── Publica ICE em fila serial via backend (service role bypassa RLS) ──
   const publishIce = useCallback((candidate) => {
     iceQueueRef.current.push(JSON.stringify(candidate));
-    if (publishingIce.current) return; // já tem um flush em progresso
+    if (publishingIce.current) return;
     const flush = async () => {
       publishingIce.current = true;
       while (iceQueueRef.current.length > 0) {
         const batch = [...iceQueueRef.current];
         iceQueueRef.current = [];
+        if (endedRef.current) break;
         try {
-          const s = await base44.entities.CallSession.get(sessionId);
-          if (!s || endedRef.current) break;
-          const field = isCaller ? 'ice_candidates_caller' : 'ice_candidates_callee';
-          const existing = Array.isArray(s[field]) ? s[field] : [];
-          await base44.entities.CallSession.update(sessionId, {
-            [field]: [...existing, ...batch]
+          await base44.functions.invoke('publicarIceChamada', {
+            sessionId,
+            isCaller,
+            candidates: batch
           });
         } catch (_) {}
       }

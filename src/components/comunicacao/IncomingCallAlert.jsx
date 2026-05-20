@@ -126,7 +126,7 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
   useEffect(() => {
     if (!usuarioId) return;
     poll(); // Imediato
-    pollingRef.current = setInterval(poll, 10000); // 10s — reduzido de 2s para aliviar rate-limit
+    pollingRef.current = setInterval(poll, 4000); // 4s — backend unificado em 1 query (P1)
     return () => clearInterval(pollingRef.current);
   }, [usuarioId, poll]);
 
@@ -188,15 +188,15 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
     const ativa = chamadaAtivaRef.current;
     if (!ativa) return;
     try {
-      await base44.entities.CallSession.update(ativa.sessionId, {
-        status: 'encerrada',
-        encerrado_em: new Date().toISOString(),
-        duracao_segundos: duracao
+      // Delega à skill (service role) — bypass RLS + cálculo preciso de duração
+      await base44.functions.invoke('skillInitiateVideoCall', {
+        action: 'encerrar',
+        session_id: ativa.sessionId
       });
     } catch (_) {}
     setChamadaAtiva(null);
     chamadaAtivaRef.current = null;
-  }, [duracao]);
+  }, []);
 
   const isVideo = chamadaEntrante?.tipo === 'video';
   const isGrupoJitsi = !!chamadaEntrante?.is_grupo_jitsi;
