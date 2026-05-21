@@ -435,6 +435,56 @@ export default function Comunicacao() {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════════
+  // 🎯 BUG B FIX v3 — Seed defensivo de cache contacts via thread.contato
+  // Race condition: threadsExternas chega antes que useQuery contacts hidrate.
+  // Seed o cache com thread.contato (já enriquecido pelo backend) para evitar
+  // que sidebar mostre apenas threads internas durante a janela T1→T2.
+  // ═══════════════════════════════════════════════════════════════════════════════
+  React.useEffect(() => {
+    if (!threadsExternas?.length) return;
+
+    // 1) Replica EXATAMENTE a lógica de contactIdsParaCarregar:
+    //    [...new Set(threads.map(t => t.contact_id).filter(Boolean))]
+    //    Como internas não têm contact_id, o filtro remove. Ordem natural de inserção.
+    const ids = [...new Set(
+      threadsExternas.map(t => t.contact_id).filter(Boolean)
+    )];
+    if (ids.length === 0) return;
+
+    // 2) Map de contatos válidos vindos enriquecidos do backend
+    const seedPorId = new Map();
+    threadsExternas.forEach(t => {
+      if (!t.contact_id || !t.contato) return;
+      seedPorId.set(t.contact_id, {
+        ...t.contato,
+        id: t.contato.id || t.contact_id
+      });
+    });
+    if (seedPorId.size === 0) return;
+
+    // 3) Mesma queryKey do useQuery contacts (linha 400)
+    const queryKey = ['contacts', ids.join(',')];
+
+    // 4) Merge defensivo: cache existente (mais completo, com _meta) prevalece;
+    //    seed preenche apenas IDs ainda não hidratados.
+    queryClient.setQueryData(queryKey, (existente) => {
+      const base = Array.isArray(existente) ? existente : [];
+      const porId = new Map(
+        base.filter(c => c?.id).map(c => [c.id, c])
+      );
+      ids.forEach(id => {
+        const seed = seedPorId.get(id);
+        if (!seed) return;
+        const atual = porId.get(id);
+        // seed primeiro, atual sobrepõe — campos completos nunca substituídos
+        porId.set(id, { ...seed, ...atual });
+      });
+      return Array.from(porId.values());
+    });
+  }, [threadsExternas, queryClient]);
+
+
+  // ═══════════════════════════════════════════════════════════════════════════════
   // 🔍 BUSCA LIVRE NO BANCO - Quando há termo de busca (sem bloqueio de integração)
   // ═══════════════════════════════════════════════════════════════════════════════
   const { data: contatosBuscados = [] } = useQuery({
