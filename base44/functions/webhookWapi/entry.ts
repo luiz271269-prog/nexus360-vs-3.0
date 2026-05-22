@@ -755,10 +755,10 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   if (dados.instanceId) {
     try {
-      // ✅ P1: retry com mais tentativas para evitar integration_id=null por 429 transiente
+      // ✅ P1: 1 retry curto (2 tentativas, 800ms) — conforme aprovação restritiva
       const int = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
         { instance_id_provider: dados.instanceId, api_provider: 'w_api' }, '-created_date', 1
-      ), 5, 1500);
+      ), 2, 800);
       if (int && int.length > 0) {
         integracaoId = int[0].id;
         integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
@@ -776,10 +776,10 @@ async function handleMessage(dados, payloadBruto, base44) {
       // Query direta por numero_telefone (evita carregar 50 registros)
       const normConnected = normalizarTelefone(connectedPhone);
       if (normConnected) {
-        // ✅ P1: retry com mais tentativas para evitar integration_id=null por 429 transiente
+        // ✅ P1: 1 retry curto (2 tentativas, 800ms) — conforme aprovação restritiva
         const intsPorTel = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
           { numero_telefone: normConnected, api_provider: 'w_api' }, '-created_date', 1
-        ), 5, 1500);
+        ), 2, 800);
         if (intsPorTel && intsPorTel.length > 0) {
           integracaoId = intsPorTel[0].id;
           integracaoInfo = { nome: intsPorTel[0].nome_instancia, numero: intsPorTel[0].numero_telefone };
@@ -796,6 +796,13 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ✅ P1: telemetria explícita quando integration_id continua null após todas as tentativas
   if (!integracaoId) {
     console.error(`[WAPI] 🔴 INTEGRATION_ID_NULL | instanceId=${dados.instanceId || 'N/A'} | connectedPhone=${connectedPhone || 'N/A'} | msgId=${dados.messageId || 'N/A'} | from=${dados.from || 'N/A'}`);
+    // ✅ P1: marcar audit como falha de lookup (NÃO bloqueia Message.create — apenas registra causa)
+    const _auditId = payloadBruto.__auditPayloadId;
+    if (_auditId) {
+      base44.asServiceRole.entities.ZapiPayloadNormalized.update(_auditId, {
+        erro_detalhes: 'integration_lookup_failed_after_retry'
+      }).catch(() => {});
+    }
   }
 
   console.log(`[WAPI] 🏛️ PORTEIRO RESULTADO: ${integracaoId ? '✅ Integração encontrada' : '❌ Não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
