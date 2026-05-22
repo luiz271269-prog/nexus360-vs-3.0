@@ -341,30 +341,7 @@ Deno.serve(async (req) => {
   }
 });
 
-/**
- * Cron Job - Executa a cada 10 minutos
- */
-Deno.cron("Healthcheck VendaPro", "*/10 * * * *", async () => {
-  console.log('[CRON] ⏰ Executando healthcheck agendado...');
-  
-  try {
-    // Criar um cliente service role para o cron
-    // (não temos req disponível aqui)
-    const BASE44_APP_ID = Deno.env.get('BASE44_APP_ID');
-    const BASE44_SERVICE_KEY = Deno.env.get('BASE44_SERVICE_KEY');
-    
-    if (!BASE44_APP_ID || !BASE44_SERVICE_KEY) {
-      console.error('[CRON] ❌ Credenciais Base44 não configuradas');
-      return;
-    }
-    
-    // Importar SDK e criar cliente service role manualmente
-    const { createClient } = await import('npm:@base44/sdk@0.8.23');
-    const base44 = createClient(BASE44_APP_ID, BASE44_SERVICE_KEY);
-    
-    await executarHealthcheck(base44);
-    
-  } catch (error) {
-    console.error('[CRON] ❌ Erro no healthcheck agendado:', error);
-  }
-});
+// Deno.cron removido — usava BASE44_SERVICE_KEY que não existe nos secrets,
+// causando logs de erro repetitivos a cada 10 minutos. Se quiser reativar o
+// healthcheck agendado, crie uma automação scheduled no Base44 apontando para
+// esta função (Deno.serve já está configurado acima).

@@ -15,11 +15,11 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Aceita execução por automação (sem auth user) ou admin manual
-    const user = await base44.auth.me().catch(() => null);
-    if (user && user.role !== 'admin') {
-      return Response.json({ error: 'Forbidden: admin only' }, { status: 403 });
-    }
+    // Função roda 100% via asServiceRole (CallSession.filter/update).
+    // Não precisa de auth.me() — ela só polui logs com 403 quando o cron
+    // dispara sem token de usuário. Toda a lógica abaixo é admin-only por
+    // design (só asServiceRole tem acesso) — não há rota de chamada manual
+    // documentada nesta função.
 
     const agora = new Date();
     const limiteChamando = new Date(agora.getTime() - 5 * 60 * 1000).toISOString();   // 5 min
