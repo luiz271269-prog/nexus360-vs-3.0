@@ -91,8 +91,13 @@ async function getChipsInternosWapi(base44) {
       console.log(`[WAPI-CHIPS-CACHE] ✅ Cache atualizado: ${_cacheChips.length} chips internos`);
       return _cacheChips;
     } catch (e) {
-      console.warn(`[WAPI-CHIPS-CACHE] ⚠️ Erro ao carregar chips (usando cache antigo):`, e.message);
-      return _cacheChips || [];
+      // ✅ RL-2B: stale-if-error — preferimos cache antigo a quebrar o webhook
+      if (_cacheChips && _cacheChips.length > 0) {
+        console.warn(`[WAPI-CHIPS-CACHE] ⚠️ stale-if-error: servindo cache antigo (${_cacheChips.length} chips). Motivo:`, e.message);
+        return _cacheChips;
+      }
+      console.warn(`[WAPI-CHIPS-CACHE] ⚠️ Erro ao carregar chips e sem cache antigo:`, e.message);
+      return [];
     } finally {
       _cacheChipsPromise = null;
     }
