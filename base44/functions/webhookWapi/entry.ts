@@ -96,8 +96,10 @@ async function getChipsInternosWapi(base44) {
         console.warn(`[WAPI-CHIPS-CACHE] ⚠️ stale-if-error: servindo cache antigo (${_cacheChips.length} chips). Motivo:`, e.message);
         return _cacheChips;
       }
-      console.warn(`[WAPI-CHIPS-CACHE] 🔴 RISCO OPERACIONAL: cache indisponivel e 429 persistente. Guard inter-chips DESATIVADO temporariamente. Motivo:`, e.message);
-      return [];
+      // ✅ CORREÇÃO FUNCIONAL: retornar null (não []) para que o caller saiba
+      // que o cache FALHOU e não confunda com "lista vazia válida".
+      console.warn(`[WAPI-CHIPS-CACHE] 🔴 cache_unavailable | sem cache antigo + 429/erro. Motivo:`, e.message);
+      return null;
     } finally {
       _cacheChipsPromise = null;
     }
@@ -711,7 +713,11 @@ async function handleMessage(dados, payloadBruto, base44) {
   const fromCanonChips = String(dados.from || '').replace(/\D/g, '').replace(/^0+/, '');
   try {
     const chipNumbers = await getChipsInternosWapi(base44);
-    if (chipNumbers.includes(fromCanonChips)) {
+    if (chipNumbers === null) {
+      // Cache indisponível por 429/erro e sem cache antigo → guard incerto.
+      // Decisão: NÃO bloquear (preferir processar a perder mensagem real).
+      console.warn(`[WAPI] ⚠️ GUARD inter-chips SKIPPED (cache_unavailable) | from=${dados.from} | prosseguindo`);
+    } else if (chipNumbers.includes(fromCanonChips)) {
       console.log(`[WAPI] 🛡️ GUARD inter-chips (cache): from=${dados.from} é chip interno`);
       return jsonOk({ ignored: true, reason: 'mensagem_interna_entre_chips' });
     }

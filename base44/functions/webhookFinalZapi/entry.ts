@@ -124,8 +124,10 @@ async function getChipsInternos(base44) {
         console.warn(`[CHIPS-CACHE] ⚠️ stale-if-error: servindo cache antigo (${_cacheChips.length} chips). Motivo:`, e.message);
         return _cacheChips;
       }
-      console.warn(`[CHIPS-CACHE] 🔴 RISCO OPERACIONAL: cache indisponivel e 429 persistente. Guard inter-chips DESATIVADO temporariamente. Motivo:`, e.message);
-      return [];
+      // ✅ CORREÇÃO FUNCIONAL: retornar null (não []) para que o caller saiba
+      // que o cache FALHOU e não confunda com "lista vazia válida".
+      console.warn(`[CHIPS-CACHE] 🔴 cache_unavailable | sem cache antigo + 429/erro. Motivo:`, e.message);
+      return null;
     } finally {
       _cacheChipsPromise = null;
     }
@@ -679,7 +681,11 @@ async function handleMessage(dados, payloadBruto, base44) {
   const fromCanon = String(dados.from).replace(/\D/g, '').replace(/^0+/, '');
   try {
     const chipNumbers = await getChipsInternos(base44);
-    if (chipNumbers.includes(fromCanon)) {
+    if (chipNumbers === null) {
+      // Cache indisponível por 429/erro e sem cache antigo → guard incerto.
+      // Decisão: NÃO bloquear (preferir processar a perder mensagem real).
+      console.warn(`[${VERSION}] ⚠️ GUARD inter-chips SKIPPED (cache_unavailable) | from=${dados.from} | prosseguindo`);
+    } else if (chipNumbers.includes(fromCanon)) {
       console.log(`[${VERSION}] 🛡️ GUARD inter-chips: from=${dados.from} é um chip interno (cache)`);
       return jsonOk({ success: true, ignored: true, reason: 'mensagem_interna_entre_chips' });
     }
