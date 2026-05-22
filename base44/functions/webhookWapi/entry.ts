@@ -755,16 +755,19 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   if (dados.instanceId) {
     try {
+      // ✅ P1: retry com mais tentativas para evitar integration_id=null por 429 transiente
       const int = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
         { instance_id_provider: dados.instanceId, api_provider: 'w_api' }, '-created_date', 1
-      ));
+      ), 5, 1500);
       if (int && int.length > 0) {
         integracaoId = int[0].id;
         integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
         console.log(`[WAPI] 🔑 PORTEIRO: Integração encontrada por instanceId: ${dados.instanceId}`);
+      } else {
+        console.warn(`[WAPI] ⚠️ PORTEIRO MISS: instanceId=${dados.instanceId} | nenhuma integração w_api retornada`);
       }
     } catch (err) {
-      console.error('[WAPI] ❌ Erro ao buscar por instanceId:', err.message);
+      console.error('[WAPI] ❌ Erro ao buscar por instanceId (após retries):', err.message);
     }
   }
 
@@ -773,18 +776,26 @@ async function handleMessage(dados, payloadBruto, base44) {
       // Query direta por numero_telefone (evita carregar 50 registros)
       const normConnected = normalizarTelefone(connectedPhone);
       if (normConnected) {
+        // ✅ P1: retry com mais tentativas para evitar integration_id=null por 429 transiente
         const intsPorTel = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
           { numero_telefone: normConnected, api_provider: 'w_api' }, '-created_date', 1
-        ));
+        ), 5, 1500);
         if (intsPorTel && intsPorTel.length > 0) {
           integracaoId = intsPorTel[0].id;
           integracaoInfo = { nome: intsPorTel[0].nome_instancia, numero: intsPorTel[0].numero_telefone };
           console.log(`[WAPI] 🔑 PORTEIRO FALLBACK: Integração encontrada por connectedPhone. ID: ${intsPorTel[0].id}`);
+        } else {
+          console.warn(`[WAPI] ⚠️ PORTEIRO FALLBACK MISS: connectedPhone=${connectedPhone} | nenhuma integração w_api retornada`);
         }
       }
     } catch (err) {
-      console.error('[WAPI] ❌ Erro no fallback por connectedPhone:', err.message);
+      console.error('[WAPI] ❌ Erro no fallback por connectedPhone (após retries):', err.message);
     }
+  }
+
+  // ✅ P1: telemetria explícita quando integration_id continua null após todas as tentativas
+  if (!integracaoId) {
+    console.error(`[WAPI] 🔴 INTEGRATION_ID_NULL | instanceId=${dados.instanceId || 'N/A'} | connectedPhone=${connectedPhone || 'N/A'} | msgId=${dados.messageId || 'N/A'} | from=${dados.from || 'N/A'}`);
   }
 
   console.log(`[WAPI] 🏛️ PORTEIRO RESULTADO: ${integracaoId ? '✅ Integração encontrada' : '❌ Não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
