@@ -1,0 +1,122 @@
+{
+  "name": "UserDevice",
+  "type": "object",
+  "description": "Dispositivos registrados para Wake-Up (Web Push, FCM, APNs no futuro). 1 user pode ter N devices ativos. Idempotente por (user_id + device_id).",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "ID do User dono do dispositivo"
+    },
+    "device_id": {
+      "type": "string",
+      "description": "Identificador \u00fanico do dispositivo (gerado no frontend e persistido em localStorage)"
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "web_desktop",
+        "web_mobile",
+        "pwa_desktop",
+        "pwa_mobile",
+        "android_capacitor",
+        "ios_capacitor",
+        "electron"
+      ],
+      "default": "web_desktop",
+      "description": "Plataforma de origem"
+    },
+    "device_label": {
+      "type": "string",
+      "description": "R\u00f3tulo leg\u00edvel para suporte (ex: 'Chrome Windows', 'Edge Desktop', 'Chrome Android')"
+    },
+    "browser": {
+      "type": "string",
+      "description": "Nome do browser detectado (Chrome, Firefox, Safari, Edge)"
+    },
+    "os": {
+      "type": "string",
+      "description": "Sistema operacional detectado (Windows, macOS, Linux, Android, iOS)"
+    },
+    "user_agent": {
+      "type": "string",
+      "description": "User-Agent completo (auditoria/diagn\u00f3stico)"
+    },
+    "push_provider": {
+      "type": "string",
+      "enum": [
+        "web_push",
+        "fcm",
+        "apns",
+        "none"
+      ],
+      "default": "web_push",
+      "description": "Provedor de push usado por este device"
+    },
+    "push_endpoint": {
+      "type": "string",
+      "description": "Endpoint Web Push (PushSubscription.endpoint) \u2014 \u00fanico globalmente"
+    },
+    "push_keys_p256dh": {
+      "type": "string",
+      "description": "Chave p\u00fablica P-256 ECDH do subscription (base64url)"
+    },
+    "push_keys_auth": {
+      "type": "string",
+      "description": "Auth secret do subscription (base64url)"
+    },
+    "can_wake_call": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se este device pode receber wake-up de chamada"
+    },
+    "can_wake_message": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se este device pode receber wake-up de mensagem"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o device est\u00e1 ativo. False quando revogado/logout/falha persistente"
+    },
+    "consent_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o usu\u00e1rio deu consentimento expl\u00edcito para notifica\u00e7\u00f5es"
+    },
+    "revoked_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando o device foi revogado (logout, opt-out, expira\u00e7\u00e3o)"
+    },
+    "last_seen_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima vez que o device se registrou/atualizou"
+    },
+    "last_success_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltimo wake-up entregue com sucesso"
+    },
+    "last_failure_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima falha de wake-up"
+    },
+    "failure_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Contador de falhas consecutivas. Reseta em sucesso. Ao atingir threshold, marcar is_active=false"
+    },
+    "last_failure_reason": {
+      "type": "string",
+      "description": "Motivo da \u00faltima falha (ex: gone_410, unauthorized_401, payload_too_large)"
+    }
+  },
+  "required": [
+    "user_id",
+    "device_id",
+    "platform"
+  ]
+}

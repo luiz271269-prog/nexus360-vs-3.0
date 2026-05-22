@@ -1,0 +1,111 @@
+{
+  "name": "WakeUpLog",
+  "type": "object",
+  "description": "Auditoria obrigat\u00f3ria de cada tentativa de wake-up (call ou message). 1 registro POR DEVICE alvo (n\u00e3o por evento). Permite diagn\u00f3stico de n\u00e3o-entrega.",
+  "properties": {
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "call",
+        "message"
+      ],
+      "description": "Tipo do evento que originou o wake-up"
+    },
+    "target_user_id": {
+      "type": "string",
+      "description": "ID do User destinat\u00e1rio"
+    },
+    "device_id": {
+      "type": "string",
+      "description": "ID do UserDevice alvo. NULL se status=skipped por aus\u00eancia de device"
+    },
+    "platform": {
+      "type": "string",
+      "description": "Plataforma do device alvo (cache para relat\u00f3rio)"
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "web_push",
+        "fcm",
+        "apns",
+        "none"
+      ],
+      "default": "web_push"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "sent",
+        "failed",
+        "skipped"
+      ],
+      "description": "sent=push aceito pelo provedor; failed=erro no envio; skipped=n\u00e3o tentou (ex: sem device, opt-out)"
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "no_active_device",
+        "permission_revoked",
+        "sender_excluded",
+        "duplicate_target",
+        "feature_disabled",
+        "provider_error",
+        "invalid_payload",
+        "endpoint_gone_410",
+        "unauthorized_401",
+        "rate_limited_429",
+        "vapid_not_configured",
+        "unknown_error"
+      ],
+      "description": "Motivo categorizado para diagn\u00f3stico"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread (se tipo=message)"
+    },
+    "message_id": {
+      "type": "string",
+      "description": "ID da Message (se tipo=message)"
+    },
+    "call_session_id": {
+      "type": "string",
+      "description": "ID da CallSession (se tipo=call)"
+    },
+    "sender_user_id": {
+      "type": "string",
+      "description": "ID do User que originou o evento (caller ou autor da mensagem)"
+    },
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo da notifica\u00e7\u00e3o enviada (auditoria)"
+    },
+    "body": {
+      "type": "string",
+      "description": "Corpo da notifica\u00e7\u00e3o enviada (auditoria \u2014 banner sem conte\u00fado confidencial)"
+    },
+    "action_url": {
+      "type": "string",
+      "description": "URL que o clique abre"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Mensagem de erro raw (se status=failed)"
+    },
+    "provider_status_code": {
+      "type": "number",
+      "description": "HTTP status retornado pelo provedor (200, 410, 401, 429...)"
+    },
+    "duration_ms": {
+      "type": "number",
+      "description": "Tempo total de envio em ms"
+    }
+  },
+  "required": [
+    "tipo",
+    "target_user_id",
+    "status",
+    "reason"
+  ]
+}
