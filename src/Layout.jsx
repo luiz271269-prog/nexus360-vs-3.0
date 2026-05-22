@@ -535,7 +535,7 @@ export default function Layout({ children, currentPageName }) {
     carregarDadosGlobais();
     checkAgentHealth();
 
-    const intervalDados = setInterval(carregarDadosGlobais, 5 * 60 * 1000); // ✅ Poll a cada 5min
+    const intervalDados = setInterval(carregarDadosGlobais, 15 * 60 * 1000); // ✅ Poll a cada 15min (reduz ruído 403 no painel)
     const intervalAgent = setInterval(checkAgentHealth, 3 * 60 * 1000); // 3 minutos (otimizado)
 
     return () => {
