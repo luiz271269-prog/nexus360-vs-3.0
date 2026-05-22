@@ -20,7 +20,8 @@ const ARCHITECTURE = 'PORTEIRO-CEGO+RETRY';
 // ════════════════════════════════════════════════════════════════
 let _cacheChips = null;
 let _cacheChipsTs = 0;
-const CACHE_CHIPS_TTL_MS = 60_000;
+let _cacheChipsPromise = null; // ✅ RL-1: lock para evitar refresh paralelo
+const CACHE_CHIPS_TTL_MS = 300_000; // ✅ RL-2: TTL 5min (era 60s) — reduz refresh em ~5x
 
 // ════════════════════════════════════════════════════════════════
 // CACHE DE MESSAGE IDs PROCESSADOS — anti-duplicata imune a 429
@@ -75,20 +76,28 @@ async function getChipsInternosWapi(base44) {
   if (_cacheChips && (agora - _cacheChipsTs) < CACHE_CHIPS_TTL_MS) {
     return _cacheChips;
   }
-  try {
-    const integracoes = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
-      { status: 'conectado' }, '-created_date', 100
-    ));
-    _cacheChips = integracoes
-      .map(i => (i.numero_telefone || '').replace(/\D/g, '').replace(/^0+/, ''))
-      .filter(n => n && n.length > 8);
-    _cacheChipsTs = agora;
-    console.log(`[WAPI-CHIPS-CACHE] ✅ Cache atualizado: ${_cacheChips.length} chips internos`);
-    return _cacheChips;
-  } catch (e) {
-    console.warn(`[WAPI-CHIPS-CACHE] ⚠️ Erro ao carregar chips (usando cache antigo):`, e.message);
-    return _cacheChips || [];
-  }
+  // ✅ RL-1: lock anti-stampede — se outro webhook já está refrescando, aguardar
+  if (_cacheChipsPromise) return _cacheChipsPromise;
+
+  _cacheChipsPromise = (async () => {
+    try {
+      const integracoes = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
+        { status: 'conectado' }, '-created_date', 100
+      ));
+      _cacheChips = integracoes
+        .map(i => (i.numero_telefone || '').replace(/\D/g, '').replace(/^0+/, ''))
+        .filter(n => n && n.length > 8);
+      _cacheChipsTs = Date.now();
+      console.log(`[WAPI-CHIPS-CACHE] ✅ Cache atualizado: ${_cacheChips.length} chips internos`);
+      return _cacheChips;
+    } catch (e) {
+      console.warn(`[WAPI-CHIPS-CACHE] ⚠️ Erro ao carregar chips (usando cache antigo):`, e.message);
+      return _cacheChips || [];
+    } finally {
+      _cacheChipsPromise = null;
+    }
+  })();
+  return _cacheChipsPromise;
 }
 
 console.log('╔════════════════════════════════════════════════════════════════╗');
