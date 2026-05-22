@@ -10,13 +10,89 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 // ║  4. Log de telemetria para PTTs quebrados                             ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 
-const VERSION = 'v26.0.0-MEDIA-FIX';
-const BUILD_DATE = '2026-03-04T00:00:00';
-const DEPLOYMENT_ID = 'WAPI_MEDIA_FIX_2026_03_04';
-const ARCHITECTURE = 'PORTEIRO-CEGO';
+const VERSION = 'v27.0.0-RETRY-CACHE-DEDUP';
+const BUILD_DATE = '2026-05-22T11:00:00';
+const DEPLOYMENT_ID = 'WAPI_RETRY_CACHE_2026_05_22';
+const ARCHITECTURE = 'PORTEIRO-CEGO+RETRY';
+
+// ════════════════════════════════════════════════════════════════
+// CACHE DE CHIPS INTERNOS — TTL 60s (portado do Z-API v11.6.0)
+// ════════════════════════════════════════════════════════════════
+let _cacheChips = null;
+let _cacheChipsTs = 0;
+const CACHE_CHIPS_TTL_MS = 60_000;
+
+// ════════════════════════════════════════════════════════════════
+// CACHE DE MESSAGE IDs PROCESSADOS — anti-duplicata imune a 429
+// ════════════════════════════════════════════════════════════════
+const _messageIdsProcessados = new Map();
+const MESSAGE_ID_CACHE_TTL_MS = 60_000;
+
+function jaProcessado(messageId) {
+  if (!messageId) return false;
+  const ts = _messageIdsProcessados.get(messageId);
+  if (!ts) return false;
+  if (Date.now() - ts > MESSAGE_ID_CACHE_TTL_MS) {
+    _messageIdsProcessados.delete(messageId);
+    return false;
+  }
+  return true;
+}
+
+function marcarComoProcessado(messageId) {
+  if (!messageId) return;
+  _messageIdsProcessados.set(messageId, Date.now());
+  if (_messageIdsProcessados.size > 500) {
+    const cutoff = Date.now() - MESSAGE_ID_CACHE_TTL_MS;
+    for (const [k, v] of _messageIdsProcessados) {
+      if (v < cutoff) _messageIdsProcessados.delete(k);
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// RETRY COM BACKOFF EXPONENCIAL PARA 429 (portado do Z-API)
+// ════════════════════════════════════════════════════════════════
+async function retryOn429(fn, maxTentativas = 3, delayBase = 1000) {
+  for (let i = 0; i < maxTentativas; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const is429 = e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa');
+      if (is429 && i < maxTentativas - 1) {
+        const delay = delayBase * Math.pow(2, i);
+        console.warn(`[WAPI-RETRY] 429 detectado, aguardando ${delay}ms (tentativa ${i + 1}/${maxTentativas})`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
+async function getChipsInternosWapi(base44) {
+  const agora = Date.now();
+  if (_cacheChips && (agora - _cacheChipsTs) < CACHE_CHIPS_TTL_MS) {
+    return _cacheChips;
+  }
+  try {
+    const integracoes = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
+      { status: 'conectado' }, '-created_date', 100
+    ));
+    _cacheChips = integracoes
+      .map(i => (i.numero_telefone || '').replace(/\D/g, '').replace(/^0+/, ''))
+      .filter(n => n && n.length > 8);
+    _cacheChipsTs = agora;
+    console.log(`[WAPI-CHIPS-CACHE] ✅ Cache atualizado: ${_cacheChips.length} chips internos`);
+    return _cacheChips;
+  } catch (e) {
+    console.warn(`[WAPI-CHIPS-CACHE] ⚠️ Erro ao carregar chips (usando cache antigo):`, e.message);
+    return _cacheChips || [];
+  }
+}
 
 console.log('╔════════════════════════════════════════════════════════════════╗');
-console.log('║  🚀 W-API WEBHOOK v26 - MEDIA FIX                             ║');
+console.log('║  🚀 W-API WEBHOOK v27 - RETRY+CACHE+DEDUP                     ║');
 console.log('╠════════════════════════════════════════════════════════════════╣');
 console.log(`║  📅 BUILD: ${BUILD_DATE}                          ║`);
 console.log(`║  🆔 DEPLOY: ${DEPLOYMENT_ID}             ║`);
@@ -611,17 +687,44 @@ async function handleMessage(dados, payloadBruto, base44) {
   // ✅ SINCRONIZAÇÃO WHATSAPP WEB: mensagens enviadas fora do app (fromMe=true)
   const isFromMe = payloadBruto.fromMe === true;
 
-  // DEDUPLICAÇÃO por messageId
+  // ⚡ CAMADA 0: CACHE EM MEMÓRIA — dedup instantâneo imune a 429
+  if (dados.messageId && jaProcessado(dados.messageId)) {
+    console.log(`[WAPI] ⚡ CACHE HIT: messageId ${dados.messageId} já processado recentemente — IGNORADO`);
+    return jsonOk({ ignored: true, reason: 'duplicata_cache_memoria', duration_ms: Date.now() - inicio });
+  }
+
+  // ⚡ CAMADA 2: Guard inter-chips via cache (evita storm de queries paralelas)
+  const fromCanonChips = String(dados.from || '').replace(/\D/g, '').replace(/^0+/, '');
+  try {
+    const chipNumbers = await getChipsInternosWapi(base44);
+    if (chipNumbers.includes(fromCanonChips)) {
+      console.log(`[WAPI] 🛡️ GUARD inter-chips (cache): from=${dados.from} é chip interno`);
+      return jsonOk({ ignored: true, reason: 'mensagem_interna_entre_chips' });
+    }
+  } catch (e) {
+    console.warn(`[WAPI] ⚠️ Erro ao verificar chips internos (prosseguindo):`, e.message);
+  }
+
+  // DEDUPLICAÇÃO por messageId — com retry 429 + fail-safe HTTP 429
   if (dados.messageId) {
     try {
-      const dup = await base44.asServiceRole.entities.Message.filter(
+      const dup = await retryOn429(() => base44.asServiceRole.entities.Message.filter(
         { whatsapp_message_id: dados.messageId }, '-created_date', 1
-      );
+      ), 5, 1500);
       if (dup && dup.length > 0) {
         console.log(`[WAPI] ⏭️ DUPLICADA por messageId: ${dados.messageId}`);
         return jsonOk({ message_id: dup[0].id, ignored: true, reason: 'duplicata_message_id', duration_ms: Date.now() - inicio });
       }
     } catch (e) {
+      // ✅ FAIL-SAFE: se dedup falhou por 429, retornar 429 para W-API reenviar
+      const is429 = e?.message?.includes('429') || e?.message?.includes('Rate limit');
+      if (is429) {
+        console.error(`[WAPI] 🔴 Dedup messageId falhou por 429 — retornando 429 para reenvio:`, e.message);
+        return Response.json(
+          { success: false, error: 'dedup_check_failed', retry: true },
+          { status: 429, headers: corsHeaders }
+        );
+      }
       console.warn(`[WAPI] ⚠️ Erro ao verificar duplicata por messageId:`, e.message);
     }
   }
@@ -632,9 +735,9 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   if (dados.instanceId) {
     try {
-      const int = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+      const int = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
         { instance_id_provider: dados.instanceId, api_provider: 'w_api' }, '-created_date', 1
-      );
+      ));
       if (int && int.length > 0) {
         integracaoId = int[0].id;
         integracaoInfo = { nome: int[0].nome_instancia, numero: int[0].numero_telefone };
@@ -650,9 +753,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       // Query direta por numero_telefone (evita carregar 50 registros)
       const normConnected = normalizarTelefone(connectedPhone);
       if (normConnected) {
-        const intsPorTel = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+        const intsPorTel = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
           { numero_telefone: normConnected, api_provider: 'w_api' }, '-created_date', 1
-        );
+        ));
         if (intsPorTel && intsPorTel.length > 0) {
           integracaoId = intsPorTel[0].id;
           integracaoInfo = { nome: intsPorTel[0].nome_instancia, numero: intsPorTel[0].numero_telefone };
@@ -677,11 +780,11 @@ async function handleMessage(dados, payloadBruto, base44) {
   const _canonicoBusca = (dados.from || '').replace(/\D/g, '');
   if (_canonicoBusca && _canonicoBusca.length >= 10) {
     try {
-      const _buscaRapida = await base44.asServiceRole.entities.Contact.filter(
+      const _buscaRapida = await retryOn429(() => base44.asServiceRole.entities.Contact.filter(
         { telefone_canonico: _canonicoBusca },
         'created_date',
         1
-      );
+      ));
       if (_buscaRapida && _buscaRapida.length > 0) {
         contato = _buscaRapida[0];
         console.log(`[WAPI] ⚡ Contato encontrado via busca rápida: ${contato.id} | ${contato.nome}`);
@@ -719,9 +822,9 @@ async function handleMessage(dados, payloadBruto, base44) {
   let thread = null;
   try {
     console.log(`[WAPI] 🔍 Buscando thread canônica para contact_id: "${contato.id}"`);
-    const threads = await base44.asServiceRole.entities.MessageThread.filter(
+    const threads = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
       { contact_id: contato.id, is_canonical: true, status: 'aberta' }, '-last_message_at', 1
-    );
+    ), 5, 1500);
     if (threads && threads.length > 0) {
       thread = threads[0];
       console.log(`[WAPI] ✅ canonical-thread-found: ${thread.id}`);
@@ -835,6 +938,8 @@ async function handleMessage(dados, payloadBruto, base44) {
     });
 
     console.log(`[WAPI] ✅ Mensagem salva: ${mensagem.id} | media_url: ${mediaUrlInicial || 'nenhuma'}`);
+    // ⚡ CAMADA 0: marcar messageId no cache logo após save bem-sucedido
+    marcarComoProcessado(dados.messageId);
   } catch (e) {
     console.error(`[WAPI] ❌ Erro salvar mensagem:`, e?.message);
     return jsonErr('erro_salvar_mensagem', 500);
