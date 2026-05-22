@@ -1,5 +1,5 @@
-// redeploy: 2026-04-23T00:00-SDK-0.8.25
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+// redeploy: 2026-05-22T18:00-WH3-CHIPS-SDK025
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // Fonte: functions/lib/phoneNormalizer.js (inlined — Deno não suporta imports locais)
 // phoneNormalizer v2.0 — canônica sincronizada em todos os arquivos
@@ -124,7 +124,7 @@ async function getChipsInternos(base44) {
         console.warn(`[CHIPS-CACHE] ⚠️ stale-if-error: servindo cache antigo (${_cacheChips.length} chips). Motivo:`, e.message);
         return _cacheChips;
       }
-      console.warn(`[CHIPS-CACHE] ⚠️ Erro ao carregar chips e sem cache antigo:`, e.message);
+      console.warn(`[CHIPS-CACHE] 🔴 RISCO OPERACIONAL: cache indisponivel e 429 persistente. Guard inter-chips DESATIVADO temporariamente. Motivo:`, e.message);
       return [];
     } finally {
       _cacheChipsPromise = null;
@@ -471,10 +471,38 @@ Deno.serve(async (req) => {
     console.log(`[${VERSION}] 📥 Payload recebido (1/2):`, JSON.stringify(payload).substring(0, 1000));
     console.log(`[${VERSION}] 📥 Carga recebida (2/2):`, JSON.stringify(payload).substring(1000, 2000));
 
+    // ✅ WH-3: salvar payload bruto IMEDIATAMENTE após parse, antes de qualquer processamento.
+    // Garante replay caso o webhook quebre antes de Message.create.
+    let auditPayloadId = null;
+    try {
+      const _clientAudit = createClientFromRequest(req);
+      const _audit = await _clientAudit.asServiceRole.entities.ZapiPayloadNormalized.create({
+        payload_bruto: payload,
+        instance_identificado: payload.instanceId || payload.instance || 'unknown',
+        message_id: payload.messageId || payload.id || null,
+        evento: payload.event || payload.type || 'unknown',
+        provider: 'z_api',
+        timestamp_recebido: new Date().toISOString(),
+        sucesso_processamento: false
+      });
+      auditPayloadId = _audit?.id || null;
+    } catch (e) {
+      console.warn(`[${VERSION}] ⚠️ WH-3: Falha ao salvar payload bruto inicial:`, e.message);
+    }
+
     const motivoIgnorar = deveIgnorar(payload);
     if (motivoIgnorar) {
       console.log(`[${VERSION}] ⏭️ Ignorado: ${motivoIgnorar}`);
-      return jsonOk({ success: true, ignored: true, reason: motivoIgnorar });
+      // WH-3: atualizar audit com motivo de skip (não criar duplicado)
+      if (auditPayloadId) {
+        try {
+          const _cli = createClientFromRequest(req);
+          await _cli.asServiceRole.entities.ZapiPayloadNormalized.update(auditPayloadId, {
+            erro_detalhes: `Ignorado: ${motivoIgnorar}`
+          });
+        } catch {}
+      }
+      return jsonOk({ success: true, ignored: true, reason: motivoIgnorar, audit_id: auditPayloadId });
     }
 
     let base44;
@@ -501,13 +529,16 @@ Deno.serve(async (req) => {
       return jsonOk({ success: true, ignored: true, reason: 'fromMe_outbound' });
     }
 
+    // WH-3: anexar auditPayloadId ao payload para handleMessage atualizar no fim
+    if (auditPayloadId) payload.__auditPayloadId = auditPayloadId;
+
     switch (dados.type) {
       case 'qrcode':        return await handleQRCode(dados, base44);
       case 'connection':    return await handleConnection(dados, base44);
       case 'disconnection': return await handleDisconnection(dados, base44);
       case 'message_update':return await handleMessageUpdate(dados, base44);
       case 'message':       return await handleMessage(dados, payload, base44);
-      default:              return jsonOk({ success: true, ignored: true, reason: 'tipo_desconhecido' });
+      default:              return jsonOk({ success: true, ignored: true, reason: 'tipo_desconhecido', audit_id: auditPayloadId });
     }
   } catch (error) {
     console.error(`[${VERSION}] ❌ ERRO não tratado:`, error?.message || error);
@@ -1060,18 +1091,28 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.error(`[${VERSION}] ⚠️ Erro ao preparar processInbound:`, error?.message || error);
   }
 
-  // AUDIT LOG
+  // AUDIT LOG — WH-3: atualizar registro pré-existente em vez de criar duplicado
   try {
-    await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
-      payload_bruto: payloadBruto,
-      instance_identificado: dados.instanceId ?? null,
-      integration_id: integracaoId,
-      message_id: dados.messageId ?? null,
-      evento: 'ReceivedCallback',
-      timestamp_recebido: new Date().toISOString(),
-      sucesso_processamento: true,
-      provider: 'z_api'
-    });
+    const auditId = payloadBruto.__auditPayloadId || null;
+    if (auditId) {
+      await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditId, {
+        sucesso_processamento: true,
+        integration_id: integracaoId,
+        message_id: dados.messageId ?? null,
+        telefone_normalizado: dados.from || null
+      });
+    } else {
+      await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+        payload_bruto: payloadBruto,
+        instance_identificado: dados.instanceId ?? 'unknown',
+        integration_id: integracaoId,
+        message_id: dados.messageId ?? null,
+        evento: 'ReceivedCallback',
+        timestamp_recebido: new Date().toISOString(),
+        sucesso_processamento: true,
+        provider: 'z_api'
+      });
+    }
   } catch (auditErr) {
     console.warn(`[${VERSION}] ⚠️ Erro ao salvar audit log:`, auditErr?.message);
   }

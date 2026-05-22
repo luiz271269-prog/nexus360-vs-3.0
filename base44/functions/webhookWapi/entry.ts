@@ -1,5 +1,5 @@
-// redeploy: 2026-03-20T16:00-FIX-HUMAN-ACTIVE
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+// redeploy: 2026-05-22T18:00-WH3-CHIPS-SDK025
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
 // ║  WEBHOOK WHATSAPP W-API - v26.0.0-MEDIA-FIX                           ║
@@ -96,7 +96,7 @@ async function getChipsInternosWapi(base44) {
         console.warn(`[WAPI-CHIPS-CACHE] ⚠️ stale-if-error: servindo cache antigo (${_cacheChips.length} chips). Motivo:`, e.message);
         return _cacheChips;
       }
-      console.warn(`[WAPI-CHIPS-CACHE] ⚠️ Erro ao carregar chips e sem cache antigo:`, e.message);
+      console.warn(`[WAPI-CHIPS-CACHE] 🔴 RISCO OPERACIONAL: cache indisponivel e 429 persistente. Guard inter-chips DESATIVADO temporariamente. Motivo:`, e.message);
       return [];
     } finally {
       _cacheChipsPromise = null;
@@ -1109,17 +1109,28 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.error('[WAPI] 🔴 GERENTE: Erro no setup do processamento:', err.message);
   }
 
-  // AUDIT LOG
+  // AUDIT LOG — WH-3: atualizar registro pré-existente em vez de criar duplicado
   try {
-    await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
-      payload_bruto: payloadBruto,
-      instance_identificado: dados.instanceId ?? null,
-      integration_id: integracaoId,
-      evento: 'ReceivedCallback',
-      timestamp_recebido: new Date().toISOString(),
-      sucesso_processamento: true,
-      message_id: payloadBruto.messageId || dados.messageId,
-    });
+    const auditId = payloadBruto.__auditPayloadId || null;
+    if (auditId) {
+      await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditId, {
+        sucesso_processamento: true,
+        integration_id: integracaoId,
+        message_id: payloadBruto.messageId || dados.messageId,
+        telefone_normalizado: dados.from || null
+      });
+    } else {
+      await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+        payload_bruto: payloadBruto,
+        instance_identificado: dados.instanceId ?? 'unknown',
+        integration_id: integracaoId,
+        evento: 'ReceivedCallback',
+        provider: 'w_api',
+        timestamp_recebido: new Date().toISOString(),
+        sucesso_processamento: true,
+        message_id: payloadBruto.messageId || dados.messageId,
+      });
+    }
   } catch {}
 
   const duracao = Date.now() - inicio;
@@ -1202,11 +1213,30 @@ Deno.serve(async (req) => {
     return jsonErr('JSON invalido', 200);
   }
 
+  // ✅ WH-3: salvar payload bruto IMEDIATAMENTE após parse, antes de qualquer processamento.
+  // Garante replay caso o webhook quebre antes de Message.create.
+  let auditPayloadId = null;
+  try {
+    const _clientAudit = createClientFromRequest(req);
+    const _audit = await _clientAudit.asServiceRole.entities.ZapiPayloadNormalized.create({
+      payload_bruto: payload,
+      instance_identificado: payload.instanceId || payload.instance || 'unknown',
+      message_id: payload.messageId || null,
+      evento: payload.event || payload.type || 'unknown',
+      provider: 'w_api',
+      timestamp_recebido: new Date().toISOString(),
+      sucesso_processamento: false
+    });
+    auditPayloadId = _audit?.id || null;
+  } catch (e) {
+    console.warn('[WAPI-AUDIT-WH3] ⚠️ Falha ao salvar payload bruto inicial:', e.message);
+  }
+
   // ✅ RETORNO ANTECIPADO para confirmações de entrega (webhookDelivery/fromMe)
   // Esses eventos não precisam de DB — evita 403 por contexto sem token
   if (payload.event === 'webhookDelivery' || (payload.fromMe === true && payload.fromApi === true)) {
     console.log('[WAPI] 📋 webhookDelivery — retorno antecipado (evita 403)');
-    return jsonOk({ ignored: true, reason: 'webhook_delivery_skip' });
+    return jsonOk({ ignored: true, reason: 'webhook_delivery_skip', audit_id: auditPayloadId });
   }
 
   let base44;
@@ -1225,23 +1255,15 @@ Deno.serve(async (req) => {
 
   if (motivoIgnorar) {
     console.log('[WAPI] ⏭️ Ignorado:', motivoIgnorar);
-    // ✅ PATCH A: skip audit log para eventos de sistema sem necessidade DB (evita 403/429 ruído)
-    const skipAudit = ['evento_sistema', 'evento_desconhecido', 'jid_sistema', 'status_broadcast', 'sem_telefone', 'from_me'].includes(motivoIgnorar);
-    if (!skipAudit) {
+    // WH-3: se já temos auditPayloadId, atualizar com motivo de skip (não duplicar)
+    if (auditPayloadId) {
       try {
-        await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
-          payload_bruto: payload,
-          instance_identificado: payload.instanceId || null,
-          integration_id: null,
-          message_id: payload.messageId || null,
-          evento: payload.event || payload.type || 'unknown',
-          timestamp_recebido: new Date().toISOString(),
-          sucesso_processamento: false,
+        await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditPayloadId, {
           erro_detalhes: `Ignorado: ${motivoIgnorar}`
         });
       } catch {}
     }
-    return jsonOk({ ignored: true, reason: motivoIgnorar });
+    return jsonOk({ ignored: true, reason: motivoIgnorar, audit_id: auditPayloadId });
   }
 
   // ✅ HOTFIX: normalizar payload antes de usar `dados` (linha removida em patch anterior)
@@ -1269,16 +1291,27 @@ Deno.serve(async (req) => {
 
   console.log(`[WAPI] 🔄 Processando: ${dados.type}`);
 
+  // WH-3: anexar auditPayloadId ao payload para handleMessage atualizar em vez de criar
+  if (auditPayloadId) payload.__auditPayloadId = auditPayloadId;
+
   try {
     switch (dados.type) {
       case 'qrcode':         return await handleQRCode(dados, base44);
       case 'connection':     return await handleConnection(dados, base44, payload);
       case 'message_update': return await handleMessageUpdate(dados, base44);
       case 'message':        return await handleMessage(dados, payload, base44);
-      default:               return jsonOk({ ignored: true, reason: 'tipo_desconhecido' });
+      default:               return jsonOk({ ignored: true, reason: 'tipo_desconhecido', audit_id: auditPayloadId });
     }
   } catch (error) {
     console.error('[WAPI] ❌ ERRO:', error?.message);
+    // WH-3: marcar audit com erro para diagnóstico/replay
+    if (auditPayloadId) {
+      try {
+        await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditPayloadId, {
+          erro_detalhes: `erro_interno: ${error?.message || 'unknown'}`
+        });
+      } catch {}
+    }
     return jsonErr('erro_interno', 500);
   }
 });
