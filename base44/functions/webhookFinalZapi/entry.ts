@@ -777,21 +777,47 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // 🔧 CAMADA 2: limparContatosDuplicados removido (carregava 2000 contatos por mensagem sem filtro — waste crítico)
 
-  // BUSCAR/CRIAR THREAD — sem AUTO-MERGE (pertence ao UnificadorContatosCentralizado, não ao webhook)
+  // BUSCAR/CRIAR THREAD — com WH-2: re-eleição de canônica + double-check anti-race
   let thread = null;
   try {
     console.log(`[${VERSION}] 🔍 Buscando thread canônica para contact_id: "${contato.id}"`);
-    // ✅ FIX: thread lookup usa mais retries (5) com delay maior para absorver bursts
+    // ✅ WH-2: limit=5 (era 1) — para detectar múltiplas canônicas e re-eleger
     const threads = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
       { contact_id: contato.id, is_canonical: true, status: 'aberta' },
       '-last_message_at',
-      1
+      5
     ), 5, 1500);
 
-    if (threads && threads.length > 0) {
+    if (threads && threads.length > 1) {
+      // ✅ WH-2: múltiplas canônicas detectadas — eleger vencedora (mesma regra de corrigirThreadsCanonicasDuplicadas)
+      console.warn(`[${VERSION}] ⚠️ WH-2: ${threads.length} canônicas detectadas para contact_id ${contato.id} — re-elegendo`);
+      const vencedora = [...threads].sort((a, b) => {
+        const ta = new Date(a.last_message_at || a.updated_date || a.created_date || 0).getTime();
+        const tb = new Date(b.last_message_at || b.updated_date || b.created_date || 0).getTime();
+        if (tb !== ta) return tb - ta;
+        const ma = a.total_mensagens || 0;
+        const mb = b.total_mensagens || 0;
+        if (mb !== ma) return mb - ma;
+        return String(a.id).localeCompare(String(b.id));
+      })[0];
+      thread = vencedora;
+      // Marca as perdedoras como merged (fire-and-forget — não bloqueia o webhook)
+      threads
+        .filter(t => t.id !== vencedora.id)
+        .forEach(loser => {
+          base44.asServiceRole.entities.MessageThread.update(loser.id, {
+            is_canonical: false,
+            status: 'merged',
+            merged_into: vencedora.id
+          }).catch(err => console.warn(`[${VERSION}] ⚠️ WH-2: falhou merge ${loser.id} → ${vencedora.id}:`, err?.message));
+        });
+      console.log(`[${VERSION}] ✅ WH-2: vencedora=${vencedora.id} | perdedoras=${threads.length - 1}`);
+    } else if (threads && threads.length === 1) {
       thread = threads[0];
       console.log(`[${VERSION}] ✅ canonical-thread-found: ${thread.id}`);
+    }
 
+    if (thread) {
       // Atualizar integração se mudou (chip migrou)
       if (integracaoId && thread.whatsapp_integration_id !== integracaoId) {
         const historicoAtual = thread.origin_integration_ids || [];
@@ -802,27 +828,40 @@ async function handleMessage(dados, payloadBruto, base44) {
         });
       }
     } else {
-      console.log(`[${VERSION}] 🆕 Criando thread ÚNICA para este contato.`);
-      const agora = new Date().toISOString();
-      thread = await base44.asServiceRole.entities.MessageThread.create({
-        contact_id: contato.id,
-        whatsapp_integration_id: integracaoId,
-        conexao_id: integracaoId,
-        origin_integration_ids: integracaoId ? [integracaoId] : [],
-        thread_type: 'contact_external',
-        channel: 'whatsapp',
-        is_canonical: true,
-        status: 'aberta',
-        primeira_mensagem_at: agora,
-        last_message_at: agora,
-        last_inbound_at: agora,
-        last_message_sender: 'contact',
-        last_message_content: String(dados.content || '').substring(0, 100),
-        last_media_type: dados.mediaType || 'none',
-        total_mensagens: 1,
-        unread_count: 1,
-      });
-      console.log(`[${VERSION}] ✅ new-canonical-thread-created: ${thread.id}`);
+      // ✅ WH-2: double-check anti-race antes de criar — jitter 50-150ms + nova consulta
+      const jitter = 50 + Math.floor(Math.random() * 100);
+      await new Promise(r => setTimeout(r, jitter));
+      const recheck = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
+        { contact_id: contato.id, is_canonical: true, status: 'aberta' },
+        '-last_message_at',
+        1
+      ), 3, 1000);
+      if (recheck && recheck.length > 0) {
+        thread = recheck[0];
+        console.log(`[${VERSION}] ✅ WH-2: thread criada por webhook paralelo (recheck): ${thread.id}`);
+      } else {
+        console.log(`[${VERSION}] 🆕 Criando thread ÚNICA para este contato.`);
+        const agora = new Date().toISOString();
+        thread = await base44.asServiceRole.entities.MessageThread.create({
+          contact_id: contato.id,
+          whatsapp_integration_id: integracaoId,
+          conexao_id: integracaoId,
+          origin_integration_ids: integracaoId ? [integracaoId] : [],
+          thread_type: 'contact_external',
+          channel: 'whatsapp',
+          is_canonical: true,
+          status: 'aberta',
+          primeira_mensagem_at: agora,
+          last_message_at: agora,
+          last_inbound_at: agora,
+          last_message_sender: 'contact',
+          last_message_content: String(dados.content || '').substring(0, 100),
+          last_media_type: dados.mediaType || 'none',
+          total_mensagens: 1,
+          unread_count: 1,
+        });
+        console.log(`[${VERSION}] ✅ new-canonical-thread-created: ${thread.id}`);
+      }
     }
   } catch (e) {
     if (e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa')) {

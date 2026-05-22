@@ -818,38 +818,75 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   }
 
-  // BUSCAR/CRIAR THREAD — sem AUTO-MERGE (pertence ao UnificadorContatosCentralizado)
+  // BUSCAR/CRIAR THREAD — com WH-2: re-eleição de canônica + double-check anti-race
   let thread = null;
   try {
     console.log(`[WAPI] 🔍 Buscando thread canônica para contact_id: "${contato.id}"`);
+    // ✅ WH-2: limit=5 (era 1) — detecta múltiplas canônicas e re-elege
     const threads = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
-      { contact_id: contato.id, is_canonical: true, status: 'aberta' }, '-last_message_at', 1
+      { contact_id: contato.id, is_canonical: true, status: 'aberta' }, '-last_message_at', 5
     ), 5, 1500);
-    if (threads && threads.length > 0) {
+    if (threads && threads.length > 1) {
+      // ✅ WH-2: múltiplas canônicas — eleger vencedora
+      console.warn(`[WAPI] ⚠️ WH-2: ${threads.length} canônicas detectadas para contact_id ${contato.id} — re-elegendo`);
+      const vencedora = [...threads].sort((a, b) => {
+        const ta = new Date(a.last_message_at || a.updated_date || a.created_date || 0).getTime();
+        const tb = new Date(b.last_message_at || b.updated_date || b.created_date || 0).getTime();
+        if (tb !== ta) return tb - ta;
+        const ma = a.total_mensagens || 0;
+        const mb = b.total_mensagens || 0;
+        if (mb !== ma) return mb - ma;
+        return String(a.id).localeCompare(String(b.id));
+      })[0];
+      thread = vencedora;
+      threads
+        .filter(t => t.id !== vencedora.id)
+        .forEach(loser => {
+          base44.asServiceRole.entities.MessageThread.update(loser.id, {
+            is_canonical: false,
+            status: 'merged',
+            merged_into: vencedora.id
+          }).catch(err => console.warn(`[WAPI] ⚠️ WH-2: falhou merge ${loser.id} → ${vencedora.id}:`, err?.message));
+        });
+      console.log(`[WAPI] ✅ WH-2: vencedora=${vencedora.id} | perdedoras=${threads.length - 1}`);
+    } else if (threads && threads.length === 1) {
       thread = threads[0];
       console.log(`[WAPI] ✅ canonical-thread-found: ${thread.id}`);
-    } else {
-      console.log(`[WAPI] 🆕 Criando thread ÚNICA para este contato.`);
-      const agora = new Date().toISOString();
-      thread = await base44.asServiceRole.entities.MessageThread.create({
-        contact_id: contato.id,
-        whatsapp_integration_id: integracaoId,
-        conexao_id: integracaoId,
-        origin_integration_ids: integracaoId ? [integracaoId] : [],
-        thread_type: 'contact_external',
-        channel: 'whatsapp',
-        is_canonical: true,
-        status: 'aberta',
-        primeira_mensagem_at: agora,
-        last_message_at: agora,
-        last_inbound_at: agora,
-        last_message_sender: 'contact',
-        last_message_content: String(dados.content || '').substring(0, 100),
-        last_media_type: dados.mediaType || 'none',
-        total_mensagens: 1,
-        unread_count: 1,
-      });
-      console.log(`[WAPI] ✅ new-canonical-thread-created: ${thread.id}`);
+    }
+
+    if (!thread) {
+      // ✅ WH-2: double-check anti-race antes de criar — jitter 50-150ms + nova consulta
+      const jitter = 50 + Math.floor(Math.random() * 100);
+      await new Promise(r => setTimeout(r, jitter));
+      const recheck = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
+        { contact_id: contato.id, is_canonical: true, status: 'aberta' }, '-last_message_at', 1
+      ), 3, 1000);
+      if (recheck && recheck.length > 0) {
+        thread = recheck[0];
+        console.log(`[WAPI] ✅ WH-2: thread criada por webhook paralelo (recheck): ${thread.id}`);
+      } else {
+        console.log(`[WAPI] 🆕 Criando thread ÚNICA para este contato.`);
+        const agora = new Date().toISOString();
+        thread = await base44.asServiceRole.entities.MessageThread.create({
+          contact_id: contato.id,
+          whatsapp_integration_id: integracaoId,
+          conexao_id: integracaoId,
+          origin_integration_ids: integracaoId ? [integracaoId] : [],
+          thread_type: 'contact_external',
+          channel: 'whatsapp',
+          is_canonical: true,
+          status: 'aberta',
+          primeira_mensagem_at: agora,
+          last_message_at: agora,
+          last_inbound_at: agora,
+          last_message_sender: 'contact',
+          last_message_content: String(dados.content || '').substring(0, 100),
+          last_media_type: dados.mediaType || 'none',
+          total_mensagens: 1,
+          unread_count: 1,
+        });
+        console.log(`[WAPI] ✅ new-canonical-thread-created: ${thread.id}`);
+      }
     }
   } catch (e) {
     console.error(`[WAPI] ❌ Erro thread:`, e?.message);
@@ -1174,22 +1211,24 @@ Deno.serve(async (req) => {
 
   if (motivoIgnorar) {
     console.log('[WAPI] ⏭️ Ignorado:', motivoIgnorar);
-    try {
-      await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
-        payload_bruto: payload,
-        instance_identificado: payload.instanceId || null,
-        integration_id: null,
-        message_id: payload.messageId || null,
-        evento: payload.event || payload.type || 'unknown',
-        timestamp_recebido: new Date().toISOString(),
-        sucesso_processamento: false,
-        erro_detalhes: `Ignorado: ${motivoIgnorar}`
-      });
-    } catch {}
+    // ✅ PATCH A: skip audit log para eventos de sistema sem necessidade DB (evita 403/429 ruído)
+    const skipAudit = ['evento_sistema', 'evento_desconhecido', 'jid_sistema', 'status_broadcast', 'sem_telefone', 'from_me'].includes(motivoIgnorar);
+    if (!skipAudit) {
+      try {
+        await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+          payload_bruto: payload,
+          instance_identificado: payload.instanceId || null,
+          integration_id: null,
+          message_id: payload.messageId || null,
+          evento: payload.event || payload.type || 'unknown',
+          timestamp_recebido: new Date().toISOString(),
+          sucesso_processamento: false,
+          erro_detalhes: `Ignorado: ${motivoIgnorar}`
+        });
+      } catch {}
+    }
     return jsonOk({ ignored: true, reason: motivoIgnorar });
   }
-
-  const dados = normalizarPayload(payload);
   console.log('[WAPI] 🔄 Dados normalizados:', {
     type: dados.type, error: dados.error, from: dados.from,
     mediaType: dados.mediaType, hasDownloadSpec: !!dados.downloadSpec
