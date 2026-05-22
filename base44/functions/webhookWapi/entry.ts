@@ -1243,6 +1243,10 @@ Deno.serve(async (req) => {
     }
     return jsonOk({ ignored: true, reason: motivoIgnorar });
   }
+
+  // ✅ HOTFIX: normalizar payload antes de usar `dados` (linha removida em patch anterior)
+  const dados = normalizarPayload(payload);
+
   console.log('[WAPI] 🔄 Dados normalizados:', {
     type: dados.type, error: dados.error, from: dados.from,
     mediaType: dados.mediaType, hasDownloadSpec: !!dados.downloadSpec
