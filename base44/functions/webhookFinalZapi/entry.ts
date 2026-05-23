@@ -723,21 +723,25 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
   }
 
-  // Buscar integração — 1 query, normalização canônica
+  // Buscar integração — retry curto, telemetria explícita em caso de falha
   let integracaoId = null;
   let integracaoInfo = null;
+  let integration_lookup_failed = false; // ✅ flag para telemetria no audit final
 
   // Query direta por instanceId (evita fetch de 50 registros)
   if (dados.instanceId) {
     try {
       const r = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
         { instance_id_provider: dados.instanceId }, '-created_date', 1
-      ));
+      ), 2, 800); // ✅ patch: 2x/800ms (era padrão 3x/1000ms = até 7s)
       if (r && r.length > 0) {
         integracaoId = r[0].id;
         integracaoInfo = { nome: r[0].nome_instancia, numero: r[0].numero_telefone };
       }
-    } catch { /* silencioso */ }
+    } catch (e) {
+      integration_lookup_failed = true;
+      console.warn(`[${VERSION}] ⚠️ Lookup integração por instanceId falhou:`, e?.message);
+    }
   }
 
   // Fallback por connectedPhone
@@ -747,13 +751,17 @@ async function handleMessage(dados, payloadBruto, base44) {
       if (norm) {
         const r = await retryOn429(() => base44.asServiceRole.entities.WhatsAppIntegration.filter(
           { numero_telefone: norm }, '-created_date', 1
-        ));
+        ), 2, 800); // ✅ patch: 2x/800ms
         if (r && r.length > 0) {
           integracaoId = r[0].id;
           integracaoInfo = { nome: r[0].nome_instancia, numero: r[0].numero_telefone };
+          integration_lookup_failed = false; // fallback recuperou
         }
       }
-    } catch { /* silencioso */ }
+    } catch (e) {
+      integration_lookup_failed = true;
+      console.warn(`[${VERSION}] ⚠️ Lookup integração por connectedPhone falhou:`, e?.message);
+    }
   }
 
   console.log(`[${VERSION}] 🔗 Integração: ${integracaoId || 'não encontrada'} | Canal: ${integracaoInfo?.numero || connectedPhone || 'N/A'}`);
@@ -869,6 +877,17 @@ async function handleMessage(dados, payloadBruto, base44) {
     }
 
     if (thread) {
+      // ✅ FALLBACK: se lookup falhou (integracaoId null), recuperar da thread
+      if (!integracaoId && thread.whatsapp_integration_id) {
+        integracaoId = thread.whatsapp_integration_id;
+        integration_lookup_failed = false; // recuperado via thread
+        console.log(`[${VERSION}] 🔁 integration_id recuperado via thread.whatsapp_integration_id: ${integracaoId}`);
+        // Tenta hidratar integracaoInfo (best-effort, sem bloquear)
+        try {
+          const info = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
+          if (info) integracaoInfo = { nome: info.nome_instancia, numero: info.numero_telefone };
+        } catch { /* não-bloqueante */ }
+      }
       // Atualizar integração se mudou (chip migrou)
       if (integracaoId && thread.whatsapp_integration_id !== integracaoId) {
         const historicoAtual = thread.origin_integration_ids || [];
@@ -929,30 +948,78 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonServerError({ success: false, error: 'thread_not_found' });
   }
 
-  // DEDUPLICAÇÃO POR CONTEÚDO (janela 60s para cobrir retries lentos da Z-API)
-  try {
-    const sessentaSegundosAtras = new Date(Date.now() - 60000).toISOString();
-    const msgRecentes = await retryOn429(() => base44.asServiceRole.entities.Message.filter({
-      thread_id: thread.id,
-      sender_type: 'contact',
-      created_date: { $gte: sessentaSegundosAtras }
-    }, '-created_date', 20), 5, 1500);
-    const duplicadaPorConteudo = msgRecentes.find(m =>
-      m.media_type === dados.mediaType &&
-      m.content === dados.content &&
-      Math.abs(new Date(m.created_date) - Date.now()) < 60000
-    );
-    if (duplicadaPorConteudo) {
-      console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO (60s): ${duplicadaPorConteudo.id}`);
-      return jsonOk({ success: true, ignored: true, reason: 'duplicata_conteudo' });
+  // ============================================================================
+  // DEDUP HÍBRIDO ANTI-RACE — executado imediatamente antes do Message.create
+  // Camada 1 (forte): recheck por whatsapp_message_id se ID disponível
+  // Camada 2 (fallback): dedup por conteúdo 60s se messageId ausente
+  // ============================================================================
+
+  // CAMADA 1 — Recheck por whatsapp_message_id (caso normal: race 429)
+  if (dados.messageId) {
+    try {
+      const recheckMsg = await retryOn429(() => base44.asServiceRole.entities.Message.filter(
+        { whatsapp_message_id: dados.messageId }, '-created_date', 1
+      ), 2, 800);
+      if (recheckMsg && recheckMsg.length > 0) {
+        console.log(`[${VERSION}] ⏭️ RECHECK por messageId: duplicata detectada (${recheckMsg[0].id}) — NÃO criar Message`);
+        // Marcar audit atual como duplicata (preservar erro_detalhes anterior se houver)
+        if (payloadBruto.__auditPayloadId) {
+          try {
+            const auditAtual = await base44.asServiceRole.entities.ZapiPayloadNormalized.get(payloadBruto.__auditPayloadId);
+            const motivoAnterior = auditAtual?.erro_detalhes || null;
+            const novoMotivo = motivoAnterior
+              ? `${motivoAnterior} | duplicata_whatsapp_message_id`
+              : 'duplicata_whatsapp_message_id';
+            await base44.asServiceRole.entities.ZapiPayloadNormalized.update(payloadBruto.__auditPayloadId, {
+              erro_detalhes: novoMotivo,
+              sucesso_processamento: true,
+              integration_id: integracaoId || (thread && thread.whatsapp_integration_id) || null,
+              message_id: dados.messageId,
+              telefone_normalizado: dados.from || null
+            });
+          } catch { /* não-bloqueante */ }
+        }
+        marcarComoProcessado(dados.messageId);
+        return jsonOk({
+          success: true,
+          ignored: true,
+          reason: 'duplicata_whatsapp_message_id',
+          existing_message_id: recheckMsg[0].id
+        });
+      }
+    } catch (err) {
+      // ✅ Recheck falhou por 429 persistente — NÃO interpretar como "não existe"
+      // Política: prefere processar com tag de incerteza a perder mensagem real
+      console.warn(`[${VERSION}] ⚠️ Recheck dedup por messageId inconclusivo (429 persistente):`, err?.message);
+      payloadBruto.__dedup_check_inconclusive = true;
     }
-  } catch (err) {
-    // ✅ FAIL-SAFE: sem dedup confiável → Z-API reenvia (preferível a duplicar)
-    console.error(`[${VERSION}] 🔴 Dedup conteúdo falhou — retornando 429 para Z-API reenviar:`, err.message);
-    return Response.json(
-      { success: false, error: 'dedup_content_check_failed', retry: true },
-      { status: 429, headers: corsHeaders }
-    );
+  } else {
+    // CAMADA 2 — Fallback por CONTEÚDO 60s (só quando messageId AUSENTE)
+    // Cobre casos em que provedor envia evento sem ID ou ID inconsistente
+    try {
+      const sessentaSegundosAtras = new Date(Date.now() - 60000).toISOString();
+      const msgRecentes = await retryOn429(() => base44.asServiceRole.entities.Message.filter({
+        thread_id: thread.id,
+        sender_type: 'contact',
+        created_date: { $gte: sessentaSegundosAtras }
+      }, '-created_date', 20), 5, 1500);
+      const duplicadaPorConteudo = msgRecentes.find(m =>
+        m.media_type === dados.mediaType &&
+        m.content === dados.content &&
+        Math.abs(new Date(m.created_date) - Date.now()) < 60000
+      );
+      if (duplicadaPorConteudo) {
+        console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO (60s, sem messageId): ${duplicadaPorConteudo.id}`);
+        return jsonOk({ success: true, ignored: true, reason: 'duplicata_conteudo' });
+      }
+    } catch (err) {
+      // Sem messageId E dedup conteúdo falhou → política conservadora original (Z-API reenvia)
+      console.error(`[${VERSION}] 🔴 Dedup conteúdo falhou (sem messageId) — 429 para Z-API:`, err.message);
+      return Response.json(
+        { success: false, error: 'dedup_content_check_failed', retry: true },
+        { status: 429, headers: corsHeaders }
+      );
+    }
   }
 
   // MÍDIA — se URL temporária, salva 'pending_download' (worker atualiza depois)
@@ -1099,13 +1166,20 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // AUDIT LOG — WH-3: atualizar registro pré-existente em vez de criar duplicado
   try {
+    // ✅ Compor erro_detalhes preservando múltiplos motivos quando aplicável
+    const motivos = [];
+    if (payloadBruto.__dedup_check_inconclusive) motivos.push('dedup_check_inconclusive');
+    if (integration_lookup_failed && !integracaoId) motivos.push('integration_lookup_failed_after_retry');
+    const erro_detalhes_final = motivos.length > 0 ? motivos.join(' | ') : null;
+
     const auditId = payloadBruto.__auditPayloadId || null;
     if (auditId) {
       await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditId, {
         sucesso_processamento: true,
         integration_id: integracaoId,
         message_id: dados.messageId ?? null,
-        telefone_normalizado: dados.from || null
+        telefone_normalizado: dados.from || null,
+        erro_detalhes: erro_detalhes_final
       });
     } else {
       await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
@@ -1116,7 +1190,8 @@ async function handleMessage(dados, payloadBruto, base44) {
         evento: 'ReceivedCallback',
         timestamp_recebido: new Date().toISOString(),
         sucesso_processamento: true,
-        provider: 'z_api'
+        provider: 'z_api',
+        erro_detalhes: erro_detalhes_final
       });
     }
   } catch (auditErr) {
