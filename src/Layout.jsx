@@ -319,14 +319,14 @@ export default function Layout({ children, currentPageName }) {
     const nivelAtendente = usuario.attendant_role || 'pleno';
     const paginasAcesso = usuario.paginas_acesso || [];
 
+    // Administrador - acesso total (SEMPRE prevalece sobre paginas_acesso)
+    if (role === 'admin') {
+      return todosMenuItems;
+    }
+
     // Se tem páginas específicas configuradas, usa elas
     if (paginasAcesso.length > 0) {
       return todosMenuItems.filter(item => paginasAcesso.includes(item.page));
-    }
-
-    // Administrador - acesso total
-    if (role === 'admin') {
-      return todosMenuItems;
     }
 
     // Gerência (coordenador/gerente)
