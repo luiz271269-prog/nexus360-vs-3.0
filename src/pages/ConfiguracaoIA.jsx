@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Save, Settings, CheckCircle2, AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import GmailConnectionCard from "@/components/configuracao/GmailConnectionCard";
 
 const CONFIG_SCHEMA = [
   {
@@ -139,7 +140,10 @@ export default function ConfiguracaoIA() {
         </Button>
       </div>
 
+      <GmailConnectionCard />
+
       {CONFIG_SCHEMA.map((grupo) => (
+
         <Card key={grupo.categoria} className="shadow-sm border border-gray-200">
           <CardHeader className="pb-3 border-b border-gray-100">
             <CardTitle className="text-base font-semibold text-gray-800">{grupo.categoria}</CardTitle>
