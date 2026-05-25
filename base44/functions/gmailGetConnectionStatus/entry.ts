@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const GMAIL_CONNECTOR_ID = '6a14551f7aeb48cd7e7db807';
+const GMAIL_CONNECTOR_ID = '6a14df6da76515d039e6833c';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {

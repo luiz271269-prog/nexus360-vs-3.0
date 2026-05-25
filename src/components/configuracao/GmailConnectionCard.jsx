@@ -7,7 +7,7 @@ import { Mail, CheckCircle2, AlertCircle, Loader2, LinkIcon, Unlink } from 'luci
 import { toast } from 'sonner';
 import { gmailGetConnectionStatus } from '@/functions/gmailGetConnectionStatus';
 
-const GMAIL_CONNECTOR_ID = '6a14551f7aeb48cd7e7db807';
+const GMAIL_CONNECTOR_ID = '6a14df6da76515d039e6833c';
 
 export default function GmailConnectionCard() {
   const [status, setStatus] = useState({ connected: false, email: null });
