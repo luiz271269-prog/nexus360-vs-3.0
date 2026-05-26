@@ -725,6 +725,36 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.warn(`[WAPI] ⚠️ Erro ao verificar chips internos (prosseguindo):`, e.message);
   }
 
+  // ✅ WAL — gravar payload bruto como pending ANTES de qualquer operação que possa dar 429.
+  // Idempotência: se já existe WAL para este messageId, não duplica.
+  let walId = null;
+  if (dados.messageId) {
+    try {
+      const walExistente = await base44.asServiceRole.entities.WebhookInboundWAL.filter(
+        { message_id: dados.messageId }, '-created_date', 1
+      );
+      if (walExistente?.length > 0) {
+        walId = walExistente[0].id;
+      } else {
+        const wal = await base44.asServiceRole.entities.WebhookInboundWAL.create({
+          provider: 'w_api',
+          message_id: dados.messageId,
+          payload_bruto: payloadBruto,
+          evento_tipo: 'ReceivedCallback',
+          telefone_origem: dados.from || null,
+          integration_id: null,
+          status: 'pending',
+          tentativas: 0,
+          max_tentativas: 5,
+          next_attempt_at: new Date(Date.now() + 60_000).toISOString()
+        });
+        walId = wal?.id || null;
+      }
+    } catch (e) {
+      console.warn(`[WAPI] ⚠️ WAL.create falhou (não-bloqueante):`, e.message);
+    }
+  }
+
   // DEDUPLICAÇÃO por messageId — com retry 429 + fail-safe HTTP 429
   if (dados.messageId) {
     try {
@@ -1156,6 +1186,16 @@ async function handleMessage(dados, payloadBruto, base44) {
       });
     }
   } catch {}
+
+  // ✅ WAL — marcar como processed após Message.create bem-sucedido
+  if (walId) {
+    base44.asServiceRole.entities.WebhookInboundWAL.update(walId, {
+      status: 'processed',
+      processed_message_id: mensagem.id,
+      integration_id: integracaoId,
+      erro_ultimo: null
+    }).catch(e => console.warn(`[WAPI] ⚠️ WAL update→processed falhou:`, e.message));
+  }
 
   const duracao = Date.now() - inicio;
   console.log(`[WAPI] ✅ SUCESSO! Mensagem: ${mensagem.id} | Tópico: ${thread.id} | ${duracao}ms`);

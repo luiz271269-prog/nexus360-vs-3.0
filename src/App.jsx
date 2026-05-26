@@ -17,6 +17,7 @@ import Compras from '@/pages/Compras';
 import MonitorPromocoes from '@/pages/MonitorPromocoes';
 import TelemetriaPreAtendimento from '@/pages/TelemetriaPreAtendimento';
 import CentralSaneamento from '@/pages/CentralSaneamento';
+import MonitorWAL from '@/pages/MonitorWAL';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -140,6 +141,14 @@ const AuthenticatedApp = () => {
           element={
             <LayoutWrapper currentPageName="CentralSaneamento">
               <CentralSaneamento />
+            </LayoutWrapper>
+          } 
+        />
+        <Route 
+          path="/MonitorWAL" 
+          element={
+            <LayoutWrapper currentPageName="MonitorWAL">
+              <MonitorWAL />
             </LayoutWrapper>
           } 
         />
