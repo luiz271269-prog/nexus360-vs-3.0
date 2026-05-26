@@ -814,8 +814,9 @@ async function handleMessage(dados, payloadBruto, base44) {
         integracaoId: integracaoId
       }));
       if (resultado?.data?.error === 'rate_limit') {
-        console.warn(`[${VERSION}] ⚠️ rate_limit_contact: getOrCreateContactCentralized retornou rate_limit — Z-API fará retry automático`);
-        return jsonOk({ success: true, skipped: true, reason: 'rate_limit_contact' });
+        // ✅ FIX: 429 explícito para Z-API REENVIAR (antes era jsonOk 200 = mensagem perdida)
+        console.warn(`[${VERSION}] ⚠️ rate_limit_contact: getOrCreateContactCentralized retornou rate_limit — devolvendo 429`);
+        return Response.json({ success: false, error: 'rate_limit_contact', retry: true }, { status: 429, headers: corsHeaders });
       }
       if (!resultado?.data?.success || !resultado?.data?.contact) {
         console.error(`[${VERSION}] ❌ getOrCreateContactCentralized falhou:`, resultado?.data);
@@ -827,8 +828,10 @@ async function handleMessage(dados, payloadBruto, base44) {
   } catch (e) {
     const is429 = e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa') || e?.message?.includes('rate_limit');
     if (is429) {
-      console.warn(`[${VERSION}] ⚠️ rate_limit_contact (catch): 429 persistente após retries — descartando sem criar contato fantasma`);
-      return jsonOk({ success: true, skipped: true, reason: 'rate_limit_contact' });
+      // ✅ FIX: retornar 429 para a Z-API REENVIAR o webhook (idempotente via messageId).
+      // Antes, retornávamos 200 e a mensagem era PERDIDA. Agora a Z-API entrega de novo em 30-60s.
+      console.warn(`[${VERSION}] ⚠️ rate_limit_contact (catch): 429 persistente — devolvendo 429 para Z-API reenviar`);
+      return Response.json({ success: false, error: 'rate_limit_contact', retry: true }, { status: 429, headers: corsHeaders });
     }
     console.error(`[${VERSION}] ❌ Erro ao buscar/criar contato:`, e?.message || e);
     return jsonServerError({ success: false, error: 'erro_contato' });

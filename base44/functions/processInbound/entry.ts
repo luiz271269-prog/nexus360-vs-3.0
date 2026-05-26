@@ -61,6 +61,11 @@ Deno.serve(async (req) => {
   try {
     base44 = createClientFromRequest(req);
   } catch (e) {
+    // Z-API retry sem token vai cair aqui. Silenciar 403 ruidoso (não é bug real).
+    if (e?.message?.includes('private') || e?.message?.includes('auth') || e?.message?.includes('403')) {
+      console.log(`[${VERSION}] ⏭️ Chamada sem auth (retry sem token) — skipped`);
+      return Response.json({ success: true, skipped: true, reason: 'sdk_no_auth' });
+    }
     return Response.json({ success: false, error: 'sdk_init_error' }, { status: 500 });
   }
 
