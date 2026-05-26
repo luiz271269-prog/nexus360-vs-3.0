@@ -412,6 +412,8 @@ export default function Layout({ children, currentPageName }) {
   const baseMenuItems = getMenuItemsParaPerfil(globalUsuario);
 
   const checkAgentHealth = async () => {
+    // L-2: pausa polling se aba está oculta (economiza pressão 429)
+    if (typeof document !== 'undefined' && document.hidden) return;
     try {
       const runs = await base44.entities.AgentRun.filter({
         status: 'processando',
@@ -446,6 +448,8 @@ export default function Layout({ children, currentPageName }) {
   };
 
   const carregarDadosGlobais = async () => {
+    // L-2: pausa polling se aba está oculta (economiza pressão 429)
+    if (typeof document !== 'undefined' && document.hidden) return;
     const agora = Date.now();
     if (agora - ultimaAtualizacaoRef.current < 120000) { // Aumentado para 2min
       console.log('[LAYOUT] ⏭️ Pulando atualização (muito recente)');
@@ -536,7 +540,7 @@ export default function Layout({ children, currentPageName }) {
     checkAgentHealth();
 
     const intervalDados = setInterval(carregarDadosGlobais, 15 * 60 * 1000); // ✅ Poll a cada 15min (reduz ruído 403 no painel)
-    const intervalAgent = setInterval(checkAgentHealth, 3 * 60 * 1000); // 3 minutos (otimizado)
+    const intervalAgent = setInterval(checkAgentHealth, 10 * 60 * 1000); // L-1: 10 minutos (reduz pressão 429 ~70%)
 
     return () => {
       clearInterval(intervalDados);
