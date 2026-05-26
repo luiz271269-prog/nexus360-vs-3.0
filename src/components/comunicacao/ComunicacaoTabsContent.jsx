@@ -4,7 +4,7 @@ import LogsFiltragemViewer from "./LogsFiltragemViewer";
 import DiagnosticoComparativoThreads from "./DiagnosticoComparativoThreads";
 import DiagnosticoThreadsInvisiveis from "./DiagnosticoThreadsInvisiveis";
 import DiagnosticoInbound from "./DiagnosticoInbound";
-import DiagnosticoUnificadoPanel from "./DiagnosticoUnificadoPanel";
+// DiagnosticoUnificadoPanel foi unificado em pages/CentralSaneamento
 import GerenciadorEtiquetasUnificado from "./GerenciadorEtiquetasUnificado";
 import ConfiguracaoCanaisComunicacao from "./ConfiguracaoCanaisComunicacao";
 import GoToConnectionSetup from "./GoToConnectionSetup";
@@ -65,7 +65,11 @@ export default function ComunicacaoTabsContent({
 
       <TabsContent value="diagnostico-cirurgico" className="h-full m-0 overflow-hidden">
         <div className="h-full overflow-y-auto p-6">
-          <DiagnosticoUnificadoPanel />
+          <div className="max-w-2xl mx-auto bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+            <h3 className="text-lg font-semibold text-blue-900 mb-2">Diagnóstico foi movido</h3>
+            <p className="text-sm text-blue-700 mb-4">Todas as ferramentas de diagnóstico e correção foram unificadas em uma única central.</p>
+            <a href="/CentralSaneamento" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">Ir para Central de Saneamento</a>
+          </div>
         </div>
       </TabsContent>
 

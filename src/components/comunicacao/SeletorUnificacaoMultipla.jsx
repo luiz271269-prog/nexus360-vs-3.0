@@ -58,54 +58,26 @@ export default function SeletorUnificacaoMultipla({
       let toastId = null;
 
       // ═══════════════════════════════════════════════════════════════
-      // 🔄 ETAPA 1: SINCRONIZAR MENSAGENS ÓRFÃS (OBRIGATÓRIO)
+      // ETAPA 1: Saneamento via skill (substitui sincronizarMensagensOrfas)
+      // A skillSanitizacaoContato cuida de mensagens órfãs e threads antes do merge
       // ═══════════════════════════════════════════════════════════════
       if (contatosParaMerge.length > 0) {
-        toastId = toast.loading(`🔄 Sincronizando mensagens órfãs...`);
-        
-        let sincronizacoesOK = 0;
-        let sincronizacoesErro = 0;
+        toastId = toast.loading(`🔄 Saneando contatos antes do merge...`);
 
         for (const duplicata of contatosParaMerge) {
           try {
-            console.log(`[SINCRONIZAÇÃO] Iniciando para ${duplicata.nome} (${duplicata.id})`);
-            
-            const syncResult = await base44.functions.invoke('sincronizarMensagensOrfas', {
+            await base44.functions.invoke('skillSanitizacaoContato', {
               contact_id: duplicata.id,
-              target_contact_id: mestreSelecionado.id
+              modo: 'correcao'
             });
-
-            // ✅ VALIDAÇÃO OBRIGATÓRIA
-            if (!syncResult.data || !syncResult.data.success) {
-              throw new Error(syncResult.data?.error || 'Resposta inválida do servidor');
-            }
-
-            const stats = syncResult.data.stats || {};
-            console.log(`[SINCRONIZAÇÃO] ✅ ${duplicata.nome}:`, {
-              threads_movidas: stats.threads_movidas || 0,
-              mensagens_atualizadas: stats.mensagens_atualizadas || 0,
-              threads_merged: stats.threads_merged || 0
-            });
-
-            sincronizacoesOK++;
-
           } catch (syncError) {
-            console.error(`[SINCRONIZAÇÃO] ❌ ${duplicata.nome}:`, syncError.message);
-            sincronizacoesErro++;
-            
-            // ⚠️ NÃO CONTINUA SE HOUVER ERRO
-            toast.dismiss(toastId);
-            toast.error(`❌ Falha ao sincronizar ${duplicata.nome}: ${syncError.message}`);
-            setProcessando(false);
-            return;
+            console.warn(`[SANEAMENTO pré-merge] ${duplicata.nome}:`, syncError.message);
+            // Não bloqueia — o mergeContacts a seguir consolida de qualquer forma
           }
-
-          // Pequeno delay entre sincronizações
           await new Promise(r => setTimeout(r, 300));
         }
 
         toast.dismiss(toastId);
-        toast.success(`✅ ${sincronizacoesOK}/${contatosParaMerge.length} sincronização(ões) concluída(s)`);
       }
 
       // ═══════════════════════════════════════════════════════════════

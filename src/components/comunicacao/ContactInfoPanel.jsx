@@ -26,7 +26,7 @@ import AtribuidorAtendenteRapido from './AtribuidorAtendenteRapido';
 import SeletorEtiquetasContato from './SeletorEtiquetasContato';
 import UsuarioDisplay from './UsuarioDisplay';
 import CallHistoryPanel from './CallHistoryPanel';
-import DiagnosticoSincronizacaoUnificado from './DiagnosticoSincronizacaoUnificado';
+import PainelSaneamentoContato from '../saneamento/PainelSaneamentoContato';
 
 export default function ContactInfoPanel({ 
   contact, 
@@ -781,7 +781,7 @@ export default function ContactInfoPanel({
         </TabsContent>
 
         <TabsContent value="diagnostico" className="flex-1 overflow-y-auto m-0">
-          <DiagnosticoSincronizacaoUnificado 
+          <PainelSaneamentoContato 
             contact={contact}
             usuario={usuario}
             onUpdate={onUpdate}
