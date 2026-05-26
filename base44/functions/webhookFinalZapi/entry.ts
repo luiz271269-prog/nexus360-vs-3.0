@@ -828,13 +828,55 @@ async function handleMessage(dados, payloadBruto, base44) {
   } catch (e) {
     const is429 = e?.message?.includes('429') || e?.message?.includes('Rate limit') || e?.message?.includes('Limite de taxa') || e?.message?.includes('rate_limit');
     if (is429) {
-      // ✅ FIX: retornar 429 para a Z-API REENVIAR o webhook (idempotente via messageId).
-      // Antes, retornávamos 200 e a mensagem era PERDIDA. Agora a Z-API entrega de novo em 30-60s.
-      console.warn(`[${VERSION}] ⚠️ rate_limit_contact (catch): 429 persistente — devolvendo 429 para Z-API reenviar`);
-      return Response.json({ success: false, error: 'rate_limit_contact', retry: true }, { status: 429, headers: corsHeaders });
+      // ✅ P0-E1 MITIGAÇÃO EMERGENCIAL — recuperar contato JÁ EXISTENTE sob 429
+      // ⚠️ NÃO resolve contatos NOVOS/leads (esses ainda precisam de getOrCreateContactCentralized).
+      // Caso real: Edilton (Pamplona) — contato existia mas lookup falhou por 429 acumulado.
+      console.warn(`[${VERSION}] ⚠️ P0-E1: 429 em getOrCreateContact — tentativa última busca direta (contato existente)`);
+      try {
+        const last = await base44.asServiceRole.entities.Contact.filter(
+          { telefone_canonico: telefoneCanonico }, 'created_date', 1
+        );
+        if (last?.length > 0) {
+          contato = last[0];
+          console.log(`[${VERSION}] ✅ P0-E1 contato recuperado após 429: ${contato.id} | ${contato.nome}`);
+          // Atualizar ultima_interacao fire-and-forget (não bloqueia)
+          base44.asServiceRole.entities.Contact.update(contato.id, {
+            ultima_interacao: new Date().toISOString()
+          }).catch(() => {});
+        } else {
+          // Contato NÃO existe — marcar audit como rescue_required antes de devolver 429
+          console.error(`[${VERSION}] 🔴 P0-E1 falhou: contato novo + 429 — marcando rescue_required`);
+          if (payloadBruto.__auditPayloadId) {
+            try {
+              await base44.asServiceRole.entities.ZapiPayloadNormalized.update(payloadBruto.__auditPayloadId, {
+                sucesso_processamento: false,
+                erro_detalhes: 'rescue_required | 429_persistente_contato_novo',
+                message_id: dados.messageId ?? null,
+                telefone_normalizado: dados.from || null
+              });
+            } catch { /* não-bloqueante */ }
+          }
+          return Response.json({ success: false, error: 'rate_limit_contact', retry: true, rescue_required: true }, { status: 429, headers: corsHeaders });
+        }
+      } catch (rescueErr) {
+        console.error(`[${VERSION}] 🔴 P0-E1 busca direta também falhou:`, rescueErr?.message);
+        // Marcar audit como rescue_required antes de devolver 429
+        if (payloadBruto.__auditPayloadId) {
+          try {
+            await base44.asServiceRole.entities.ZapiPayloadNormalized.update(payloadBruto.__auditPayloadId, {
+              sucesso_processamento: false,
+              erro_detalhes: 'rescue_required | 429_persistente_busca_direta_falhou',
+              message_id: dados.messageId ?? null,
+              telefone_normalizado: dados.from || null
+            });
+          } catch { /* não-bloqueante */ }
+        }
+        return Response.json({ success: false, error: 'rate_limit_contact', retry: true, rescue_required: true }, { status: 429, headers: corsHeaders });
+      }
+    } else {
+      console.error(`[${VERSION}] ❌ Erro ao buscar/criar contato:`, e?.message || e);
+      return jsonServerError({ success: false, error: 'erro_contato' });
     }
-    console.error(`[${VERSION}] ❌ Erro ao buscar/criar contato:`, e?.message || e);
-    return jsonServerError({ success: false, error: 'erro_contato' });
   }
 
   // 🔧 CAMADA 2: limparContatosDuplicados removido (carregava 2000 contatos por mensagem sem filtro — waste crítico)
