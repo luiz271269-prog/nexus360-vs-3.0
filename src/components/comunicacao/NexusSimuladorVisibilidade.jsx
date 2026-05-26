@@ -1014,13 +1014,13 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                       checked={contatosSelecionadosMultiplos.length === simulationResults.resultados.length && simulationResults.resultados.length > 0}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          const contatos = simulationResults.resultados
+                          const contatosSelecionados = simulationResults.resultados
                             .map(res => {
                               const thread = threads.find(t => t.id === res.threadId);
                               return thread?.contact_id ? contatos.find(c => c.id === thread.contact_id) : null;
                             })
                             .filter((c, idx, arr) => c && arr.findIndex(x => x?.id === c.id) === idx);
-                          setContatosSelecionadosMultiplos(contatos);
+                          setContatosSelecionadosMultiplos(contatosSelecionados);
                         } else {
                           setContatosSelecionadosMultiplos([]);
                         }
@@ -1344,7 +1344,7 @@ export default function NexusSimuladorVisibilidade({ usuario, integracoes = [], 
                           <div className="col-span-2 mt-2">
                             <h4 className="font-bold text-slate-700 mb-1 flex items-center gap-2">
                               <Database className="w-4 h-4" />
-                              Metadados Thread & Contato
+                              Metadados Thread &amp; Contato
                             </h4>
                             <div className="bg-white rounded p-2 border space-y-2">
                               {/* Thread */}
