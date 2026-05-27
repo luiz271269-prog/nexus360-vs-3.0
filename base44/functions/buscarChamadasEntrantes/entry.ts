@@ -1,27 +1,65 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+// ── Cache em memória por usuário (best-effort, vive enquanto isolate estiver quente) ──
+type CacheEntry = { fetchedAt: number; payload: any };
+const CACHE_TTL_MS = 2500;        // idade máxima para servir cache "fresco"
+const STALE_MAX_MS = 15000;       // idade máxima para servir cache "stale" em caso de erro
+const cachePorUsuario = new Map<string, CacheEntry>();
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function filtrarComBackoff(base44: any, filtro: any, ordem: string, limite: number) {
+  const delays = [0, 120, 250]; // tentativa 1 imediata, depois 120ms, depois 250ms
+  let lastErr: any = null;
+  for (const d of delays) {
+    if (d > 0) await sleep(d);
+    try {
+      return await base44.asServiceRole.entities.CallSession.filter(filtro, ordem, limite);
+    } catch (err: any) {
+      lastErr = err;
+      const is429 = err?.status === 429
+        || err?.response?.status === 429
+        || /429|rate.?limit|taxa/i.test(err?.message || '');
+      if (!is429) throw err; // erro diferente de 429 → não retry
+    }
+  }
+  throw lastErr;
+}
+
 /**
  * Retorna chamadas entrantes ativas para o usuário autenticado.
  *
  * Cobre os 3 cenários da Fase 0:
  *   1. WebRTC 1:1 interno      → modo='interno_webrtc' + callee_id=user.id
- *   2. Jitsi grupo interno     → modo='externo_jitsi'  + thread_id != null + callee_ids ∋ user.id
- *   3. (Não cobre externo Jitsi para contato WhatsApp — não é chamada "entrante" para atendente)
+ *   2. WebRTC grupo legado     → modo='interno_webrtc' + callee_ids ∋ user.id
+ *   3. Jitsi grupo interno     → modo='externo_jitsi'  + thread_id != null + callee_ids ∋ user.id
  *
  * Retorna a lista enriquecida com `is_grupo_jitsi: boolean` para o front
  * decidir o overlay correto (WhatsAppCallOverlay vs VideoCallModule).
+ *
+ * Otimizações operacionais:
+ *   - Cache 2.5s por usuário (absorve poll de 4s do IncomingCallAlert)
+ *   - Retry curto (120ms / 250ms) apenas para 429
+ *   - Stale-cache fallback (até 15s) em caso de erro persistente
  */
 Deno.serve(async (req) => {
+  let userIdParaFallback: string | null = null;
+
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    userIdParaFallback = user.id;
+
+    const agora = Date.now();
+    const cache = cachePorUsuario.get(user.id);
+    if (cache && (agora - cache.fetchedAt) <= CACHE_TTL_MS) {
+      return Response.json(cache.payload);
+    }
 
     // ── UNIFICADO: 1 query com $or cobre os 3 cenários da Fase 0 ──────────
-    // Cenário A: WebRTC 1:1 → modo='interno_webrtc' + status='chamando' + callee_id=user.id
-    // Cenário B: WebRTC grupo legado → modo='interno_webrtc' + status='chamando' + callee_ids ∋ user.id
-    // Cenário C: Jitsi grupo interno → modo='externo_jitsi' + status='ativa' + thread_id + callee_ids ∋ user.id
-    const candidatas = await base44.asServiceRole.entities.CallSession.filter(
+    const candidatas = await filtrarComBackoff(
+      base44,
       {
         $or: [
           { modo: 'interno_webrtc', status: 'chamando' },
@@ -29,20 +67,20 @@ Deno.serve(async (req) => {
         ]
       },
       '-created_date',
-      30
+      80
     );
 
-    const sessoes1a1 = candidatas.filter(s =>
+    const sessoes1a1 = candidatas.filter((s: any) =>
       s.modo === 'interno_webrtc' && s.status === 'chamando' && s.callee_id === user.id
     );
-    const sessoesWebrtcGrupo = candidatas.filter(s =>
+    const sessoesWebrtcGrupo = candidatas.filter((s: any) =>
       s.modo === 'interno_webrtc' &&
       s.status === 'chamando' &&
       Array.isArray(s.callee_ids) &&
       s.callee_ids.includes(user.id) &&
       s.callee_id !== user.id
     );
-    const sessoesJitsiGrupo = candidatas.filter(s =>
+    const sessoesJitsiGrupo = candidatas.filter((s: any) =>
       s.modo === 'externo_jitsi' &&
       s.status === 'ativa' &&
       Array.isArray(s.callee_ids) &&
@@ -54,14 +92,25 @@ Deno.serve(async (req) => {
     );
 
     const todas = [
-      ...sessoes1a1.map(s => ({ ...s, is_grupo_jitsi: false })),
-      ...sessoesWebrtcGrupo.map(s => ({ ...s, is_grupo_jitsi: false })),
-      ...sessoesJitsiGrupo.map(s => ({ ...s, is_grupo_jitsi: true }))
+      ...sessoes1a1.map((s: any) => ({ ...s, is_grupo_jitsi: false })),
+      ...sessoesWebrtcGrupo.map((s: any) => ({ ...s, is_grupo_jitsi: false })),
+      ...sessoesJitsiGrupo.map((s: any) => ({ ...s, is_grupo_jitsi: true }))
     ];
-    const unicas = todas.filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i);
+    const unicas = todas.filter((s: any, i: number, arr: any[]) =>
+      arr.findIndex((x: any) => x.id === s.id) === i
+    );
 
-    return Response.json({ sessoes: unicas });
-  } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    const payload = { sessoes: unicas };
+    cachePorUsuario.set(user.id, { fetchedAt: agora, payload });
+    return Response.json(payload);
+  } catch (error: any) {
+    // Stale-cache fallback: se temos cache recente (≤ 15s), devolve em vez de 500
+    if (userIdParaFallback) {
+      const cache = cachePorUsuario.get(userIdParaFallback);
+      if (cache && (Date.now() - cache.fetchedAt) <= STALE_MAX_MS) {
+        return Response.json(cache.payload);
+      }
+    }
+    return Response.json({ error: error?.message || 'Erro interno' }, { status: 500 });
   }
 });
