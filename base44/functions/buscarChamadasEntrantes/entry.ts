@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
         ]
       },
       '-created_date',
-      150
+      30
     );
 
     const sessoes1a1 = candidatas.filter(s =>
