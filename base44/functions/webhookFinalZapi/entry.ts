@@ -1067,10 +1067,15 @@ async function handleMessage(dados, payloadBruto, base44) {
         });
       }
     } catch (err) {
-      // ✅ Recheck falhou por 429 persistente — NÃO interpretar como "não existe"
-      // Política: prefere processar com tag de incerteza a perder mensagem real
-      console.warn(`[${VERSION}] ⚠️ Recheck dedup por messageId inconclusivo (429 persistente):`, err?.message);
-      payloadBruto.__dedup_check_inconclusive = true;
+      // ✅ G1 FIX: Recheck falhou por 429 persistente — devolver 429 para Z-API reenviar.
+      // Política anterior ("prefere processar a perder") causava DUPLICATAS quando
+      // a Message já existia mas o recheck não conseguia ver por causa do 429.
+      // Z-API tem retry idempotente por messageId, então reenvio é seguro.
+      console.warn(`[${VERSION}] 🔴 G1: Recheck dedup falhou por 429 — devolvendo 429 para Z-API reenviar (evita duplicata):`, err?.message);
+      return Response.json(
+        { success: false, error: 'dedup_recheck_429', retry: true },
+        { status: 429, headers: corsHeaders }
+      );
     }
   } else {
     // CAMADA 2 — Fallback por CONTEÚDO 60s (só quando messageId AUSENTE)
