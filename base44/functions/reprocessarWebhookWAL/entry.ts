@@ -2,7 +2,7 @@
 // WORKER: REPROCESSAR WEBHOOK WAL
 // ============================================================================
 // Lê WebhookInboundWAL com status=pending e next_attempt_at <= now.
-// Re-invoca webhookFinalZapi (ou webhookWapi) com o payload bruto.
+// Reenvia para endpoint HTTP do webhook (simula provedor externo) com payload bruto.
 // Idempotente via whatsapp_message_id (o próprio webhook deduplica).
 // Backoff exponencial: 2^tentativas minutos.
 // Admin-only.
@@ -10,9 +10,15 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.1.0-http-replay';
 const BATCH_LIMIT = 50;
 const MAX_DEFAULT = 5;
+const APP_BASE_URL = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions';
+
+function getWebhookUrl(provider) {
+  const fn = provider === 'w_api' ? 'webhookWapi' : 'webhookFinalZapi';
+  return `${APP_BASE_URL}/${fn}`;
+}
 
 function nextAttemptDate(tentativas) {
   // backoff 2^n minutos: 1min, 2min, 4min, 8min, 16min, 32min...
@@ -99,14 +105,29 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Re-invocar o webhook correspondente
-      const funcAlvo = wal.provider === 'w_api' ? 'webhookWapi' : 'webhookFinalZapi';
+      // Reenviar para endpoint HTTP do webhook correspondente (simula chamada real do provedor)
+      // — evita o 403 que ocorre via base44.asServiceRole.functions.invoke() em contexto admin.
+      const webhookUrl = getWebhookUrl(wal.provider);
       const novasTentativas = (wal.tentativas || 0) + 1;
       const maxT = wal.max_tentativas || MAX_DEFAULT;
 
       try {
-        const ret = await base44.asServiceRole.functions.invoke(funcAlvo, wal.payload_bruto);
-        const sucesso = ret?.status === 200 || (ret?.data?.success === true && !ret?.data?.error);
+        // 🔑 SEM Authorization: simula o provedor externo (Z-API/W-API) chamando o endpoint público.
+        // Com header de admin herdado, o SDK responde 403 dentro do webhook em contexto serverless.
+        const resp = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(wal.payload_bruto || {})
+        });
+
+        let retData = null;
+        try {
+          retData = await resp.json();
+        } catch {
+          retData = null;
+        }
+
+        const sucesso = resp.ok && (retData?.success !== false);
 
         if (sucesso) {
           let novoMessageId = null;
@@ -129,14 +150,14 @@ Deno.serve(async (req) => {
           if (novasTentativas >= maxT) {
             await base44.asServiceRole.entities.WebhookInboundWAL.update(wal.id, {
               status: 'failed',
-              erro_ultimo: `max_tentativas_excedidas | última: ${JSON.stringify(ret?.data || ret).substring(0, 200)}`
+              erro_ultimo: `max_tentativas_excedidas | http_${resp.status} | última: ${JSON.stringify(retData).substring(0, 200)}`
             });
             resultados.failed++;
           } else {
             await base44.asServiceRole.entities.WebhookInboundWAL.update(wal.id, {
               status: 'pending',
               next_attempt_at: nextAttemptDate(novasTentativas),
-              erro_ultimo: `retry_pending | ${JSON.stringify(ret?.data || ret).substring(0, 200)}`
+              erro_ultimo: `retry_pending | http_${resp.status} | ${JSON.stringify(retData).substring(0, 200)}`
             });
             resultados.retry++;
           }
