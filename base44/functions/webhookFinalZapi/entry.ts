@@ -159,6 +159,24 @@ async function retryOn429(fn, maxTentativas = 3, delayBase = 1000) {
   }
 }
 
+// ============================================================================
+// DETECÇÃO DE ERRO DE AUTENTICAÇÃO / ACESSO BASE44 (403)
+// Usado para converter 500 genérico em 503 retryável quando o SDK responde
+// com "private / auth_required / 403 / you do not have access" durante
+// invocações internas (ex.: reprocessarWebhookWAL → webhookFinalZapi).
+// ============================================================================
+function isAuthOrAccessError(e) {
+  const msg = String(e?.message || '').toLowerCase();
+  return msg.includes('403') || msg.includes('auth_required') || msg.includes('private') || msg.includes('you do not have access');
+}
+
+function retryableAuthResponse(errorCode = 'base44_auth_required') {
+  return Response.json(
+    { success: false, error: errorCode, retry: true, rescue_required: true },
+    { status: 503, headers: corsHeaders }
+  );
+}
+
 // --------------------------------------------------------------------------------------
 // FILTRO ULTRA-RÁPIDO
 // --------------------------------------------------------------------------------------
@@ -909,6 +927,10 @@ async function handleMessage(dados, payloadBruto, base44) {
       }
     } else {
       console.error(`[${VERSION}] ❌ Erro ao buscar/criar contato:`, e?.message || e);
+      if (isAuthOrAccessError(e)) {
+        console.error(`[${VERSION}] 🔴 Auth/access no Base44 ao resolver contato — devolvendo 503 para retry do provedor`);
+        return retryableAuthResponse('erro_contato_auth');
+      }
       return jsonServerError({ success: false, error: 'erro_contato' });
     }
   }
@@ -1019,6 +1041,10 @@ async function handleMessage(dados, payloadBruto, base44) {
       return Response.json({ success: false, error: 'rate_limit_thread' }, { status: 429, headers: corsHeaders });
     }
     console.error(`[${VERSION}] ❌ Erro thread:`, e?.message || e);
+    if (isAuthOrAccessError(e)) {
+      console.error(`[${VERSION}] 🔴 Auth/access no Base44 ao resolver thread — devolvendo 503 para retry do provedor`);
+      return retryableAuthResponse('erro_thread_auth');
+    }
     return jsonServerError({ success: false, error: 'erro_thread' });
   }
 
@@ -1167,6 +1193,17 @@ async function handleMessage(dados, payloadBruto, base44) {
     marcarComoProcessado(dados.messageId);
   } catch (e) {
     console.error(`[${VERSION}] ❌ Erro salvar mensagem:`, e?.message || e);
+    if (isAuthOrAccessError(e)) {
+      console.error(`[${VERSION}] 🔴 Auth/access no Base44 ao salvar Message — devolvendo 503 para retry do provedor`);
+      if (walId) {
+        base44.asServiceRole.entities.WebhookInboundWAL.update(walId, {
+          status: 'pending',
+          erro_ultimo: `auth_required | ${e?.message || 'forbidden'}`,
+          next_attempt_at: new Date(Date.now() + 120000).toISOString()
+        }).catch(() => {});
+      }
+      return retryableAuthResponse('erro_salvar_mensagem_auth');
+    }
     return jsonServerError({ success: false, error: 'erro_salvar_mensagem' });
   }
 
