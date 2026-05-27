@@ -137,5 +137,17 @@
     "mensagem",
     "prioridade",
     "usuario_id"
-  ]
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "data.usuario_id": "{{user.id}}"
+    },
+    "update": {
+      "data.usuario_id": "{{user.id}}"
+    },
+    "delete": {
+      "data.usuario_id": "{{user.id}}"
+    }
+  }
 }

@@ -490,5 +490,40 @@
       "description": "\u00daltimo playbook executado pelo Jarvis nesta thread (ex: notificacao_atendente, claude_resposta_automatica)"
     }
   },
-  "required": []
+  "required": [],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "data.assigned_user_id": "{{user.id}}"
+        },
+        {
+          "data.shared_with_users": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.assigned_user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }
