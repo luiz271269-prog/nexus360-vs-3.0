@@ -42,6 +42,10 @@ function isSamePhone(a, b) {
 // ============================================================================
 const VERSION = 'v11.6.0-DEDUP-CONTEUDO-60S';
 const BUILD_DATE = '2026-04-22';
+const CLASSIFIER_VERSION = 'v2-status-update'; // MessageStatusCallback → handleMessageUpdate
+
+// Stamp de boot — loga uma única vez por instância Deno (cold start)
+console.log(`[${VERSION}] 🟢 BOOT | BUILD=${BUILD_DATE} | CLASSIFIER=${CLASSIFIER_VERSION}`);
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -454,7 +458,7 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === 'GET') {
-      return jsonOk({ version: VERSION, build: BUILD_DATE, status: 'ok' });
+      return jsonOk({ version: VERSION, build: BUILD_DATE, classifier: CLASSIFIER_VERSION, status: 'ok' });
     }
 
     if (req.method !== 'POST') {

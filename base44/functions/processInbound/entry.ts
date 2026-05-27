@@ -71,6 +71,8 @@ Deno.serve(async (req) => {
   } catch (e) {
     // Z-API retry sem token vai cair aqui. Silenciar 403 ruidoso (não é bug real).
     if (e?.message?.includes('private') || e?.message?.includes('auth') || e?.message?.includes('403')) {
+      // [403_ORIGIN] carimbo de origem para separar dos 403 de frontend/audit no log
+      console.warn(`[${VERSION}] [403_ORIGIN] etapa=processInbound_sdk_init msg="${e?.message || 'unknown'}"`);
       console.log(`[${VERSION}] ⏭️ Chamada sem auth (retry sem token) — skipped`);
       return Response.json({ success: true, skipped: true, reason: 'sdk_no_auth' });
     }
