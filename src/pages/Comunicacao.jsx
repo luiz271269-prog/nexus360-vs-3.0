@@ -203,13 +203,13 @@ export default function Comunicacao() {
   React.useEffect(() => {
     if (!usuario) return;
 
-    console.log('[COMUNICACAO] 🔔 Ativando listener real-time para threads');
+    console.log('[COMUNICACAO] 🔔 Ativando listeners real-time (MessageThread + Message)');
 
     // ✅ DEBOUNCE: Evitar invalidações excessivas que causam 429
     let debounceTimer = null;
     const invalidacoesPendentes = new Set();
 
-    const unsubscribe = base44.entities.MessageThread.subscribe((event) => {
+    const unsubscribeThread = base44.entities.MessageThread.subscribe((event) => {
       console.log(`[COMUNICACAO] 🔔 Thread ${event.type}d:`, event.id);
 
       // Adicionar à fila de invalidações
@@ -236,10 +236,23 @@ export default function Comunicacao() {
       }, 2000);
     });
 
+    // ⚡ NOVO: Subscribe DIRETO em Message — garante que bolha aparece sem depender
+    // de MessageThread update (que pode falhar/atrasar). Invalida APENAS se a mensagem
+    // pertencer à thread ativa (evita carga desnecessária).
+    const unsubscribeMessage = base44.entities.Message.subscribe((event) => {
+      if (!threadAtiva?.id) return;
+      const msgThreadId = event?.data?.thread_id;
+      if (msgThreadId && msgThreadId === threadAtiva.id) {
+        console.log(`[COMUNICACAO] 💬 Message ${event.type}d na thread ativa — invalidando bolha`);
+        queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+      }
+    });
+
     return () => {
-      console.log('[COMUNICACAO] 🔕 Desativando listener real-time');
+      console.log('[COMUNICACAO] 🔕 Desativando listeners real-time');
       if (debounceTimer) clearTimeout(debounceTimer);
-      unsubscribe();
+      unsubscribeThread();
+      unsubscribeMessage();
     };
   }, [usuario, threadAtiva?.id, queryClient]);
 
@@ -625,7 +638,7 @@ export default function Comunicacao() {
         const msgs = await base44.entities.Message.filter(
           { thread_id: threadAtiva.id },
           '-sent_at',
-          20
+          50
         );
 
         return msgs.reverse();
@@ -1411,7 +1424,12 @@ export default function Comunicacao() {
           pre_atendimento_ativo: false
         });
 
-        // 4. Invalidar queries para substituir mensagem temporária pela real (apenas externas)
+        // 4. ⚡ FIX: Remover temp explicitamente ANTES de invalidar (igual ao handler interno).
+        // Evita "mensagem fantasma" se o usuário trocar de thread antes do refetch terminar.
+        queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => {
+          return antigas.filter((m) => m.id !== msgTemp.id);
+        });
+        // Invalidar queries para substituir mensagem temporária pela real (apenas externas)
         queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
         queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
       } else {
