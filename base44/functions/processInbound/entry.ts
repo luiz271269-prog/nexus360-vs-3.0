@@ -584,13 +584,21 @@ Deno.serve(async (req) => {
   // dois webhooks paralelos sob 429 poderiam ambos passar do guard de re-leitura
   // e ambos chamar a skill sem lock confirmado, causando pré-atendimento duplicado.
   // Em vez disso, criar WorkQueueItem para retry posterior e abortar com sucesso.
+  const lockStartedAt = new Date().toISOString();
   try {
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       pre_atendimento_ativo: true,
-      pre_atendimento_started_at: new Date().toISOString()
+      pre_atendimento_started_at: lockStartedAt
+    });
+    // Atualiza cache positivo local para o próximo webhook bloquear sem nova leitura ao banco.
+    _cacheThreadFresca.set(thread.id, {
+      thread: { ...thread, pre_atendimento_ativo: true, pre_atendimento_started_at: lockStartedAt },
+      ts: Date.now()
     });
   } catch (e) {
-    const is429 = e.message?.includes('429') || e.message?.includes('Rate limit');
+    const is429 = e.message?.includes('429')
+      || e.message?.includes('Rate limit')
+      || e.message?.includes('Limite de taxa');
     console.warn(`[${VERSION}] ⚠️ Erro ao gravar lock dispatch (is429=${is429}):`, e.message);
     result.actions.push(is429 ? 'rate_limit_lock_dispatch' : 'lock_dispatch_failed');
     await base44.asServiceRole.entities.WorkQueueItem.create({
