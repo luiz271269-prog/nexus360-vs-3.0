@@ -19,6 +19,14 @@ let _cacheUsersProc = null;
 let _cacheUsersProcTs = 0;
 const CACHE_INTERNO_TTL = 90_000;
 
+// ── CACHE POSITIVO de thread fresca (TTL 5s) ──────────────────────────
+// SEGURANÇA v2: só cacheia quando pre_atendimento_ativo=true (lock ativo).
+// Cache negativo NÃO é guardado — poderia liberar dispatch duplicado quando
+// outro webhook gravou o lock entre cache e leitura. Race-condition de 500ms
+// continua coberta (TTL 5s >> 500ms), sem enfraquecer o guard de duplicidade.
+const _cacheThreadFresca = new Map(); // thread_id -> { thread, ts }
+const CACHE_THREAD_FRESCA_TTL = 5_000;
+
 // ── Verificar horário comercial (Brasília = UTC-3) ──────────────────────
 // Regra: Seg-Sex 08:00-18:00. Sábado e Domingo: FECHADO.
 function isWithinBusinessHours() {
@@ -190,7 +198,15 @@ Deno.serve(async (req) => {
 
   // ════════════════════════════════════════════════════════════════
   // [INBOUND-GATE] CAMADA 5 — BATCH WINDOW (10 segundos)
-  if (contact?.id) {
+  // [OTIMIZAÇÃO 429 v2] Skip se thread.last_inbound_at é mais antigo que 10s:
+  // impossível haver msgs em janela de 10s se a última inbound foi há +10s.
+  // SEGURANÇA: ausência de last_inbound_at = consulta (não pula guard).
+  // Princípio: "não sei" é diferente de "posso pular".
+  const hasLastInbound = !!thread?.last_inbound_at;
+  const lastInboundMs = hasLastInbound
+    ? Date.now() - new Date(thread.last_inbound_at).getTime()
+    : null;
+  if (contact?.id && (!hasLastInbound || lastInboundMs <= 10_000)) {
     try {
       const dezSegAtras = new Date(Date.now() - 10_000).toISOString();
       const msgRecentes = await base44.asServiceRole.entities.Message.filter({
@@ -484,8 +500,15 @@ Deno.serve(async (req) => {
   // GUARD OUTBOUND: Se há mensagem do sistema nos últimos 30s, URA já está ativa.
   // Resolve a race condition onde 2 webhooks chegam com < 500ms de diferença
   // e ambos passam pelo lock check antes de qualquer um gravar no banco.
+  // [OTIMIZAÇÃO 429 v2] Skip se thread.last_outbound_at é mais antigo que 30s.
+  // SEGURANÇA: ausência de last_outbound_at = consulta (não pula guard).
+  // Princípio: "não sei" é diferente de "posso pular".
   // ════════════════════════════════════════════════════════════════
-  if (message?.sender_type === 'contact') {
+  const hasLastOutbound = !!thread?.last_outbound_at;
+  const lastOutboundMs = hasLastOutbound
+    ? Date.now() - new Date(thread.last_outbound_at).getTime()
+    : null;
+  if (message?.sender_type === 'contact' && (!hasLastOutbound || lastOutboundMs <= 30_000)) {
     try {
       const trintaSegAtras = new Date(Date.now() - 30000).toISOString();
       const msgsSistema = await base44.asServiceRole.entities.Message.filter({
@@ -507,9 +530,35 @@ Deno.serve(async (req) => {
   // ════════════════════════════════════════════════════════════════
   // OPÇÃO C: Re-buscar thread fresca ANTES de calcular shouldDispatch.
   // Garante que o 2º webhook lê pre_atendimento_ativo=true gravado pelo 1º.
+  // [OTIMIZAÇÃO 429 v2] Cache POSITIVO (TTL 5s):
+  // • Cache positivo (pre_atendimento_ativo=true): BLOQUEIA rápido sem ler banco
+  // • Cache negativo (pre_atendimento_ativo=false): NÃO confia, lê banco fresco
+  // Justificativa: cache negativo poderia liberar dispatch duplicado quando o
+  // lock foi gravado por outro webhook entre cache e leitura. Sem cache negativo,
+  // mantém exatamente a proteção do MessageThread.get() fresco original.
   // ════════════════════════════════════════════════════════════════
   try {
-    const threadFresca = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+    let threadFresca;
+    const cached = _cacheThreadFresca.get(thread.id);
+    // Cache SÓ vale se for um lock positivo (pre_atendimento_ativo=true) recente.
+    if (cached?.thread?.pre_atendimento_ativo === true
+        && (Date.now() - cached.ts) < CACHE_THREAD_FRESCA_TTL) {
+      threadFresca = cached.thread;
+      console.log(`[${VERSION}] ♻️ Cache POSITIVO hit (lock ativo, age=${Date.now() - cached.ts}ms)`);
+    } else {
+      threadFresca = await base44.asServiceRole.entities.MessageThread.get(thread.id);
+      // Só cacheia se for lock positivo — cache negativo não é útil e é perigoso.
+      if (threadFresca.pre_atendimento_ativo === true) {
+        _cacheThreadFresca.set(thread.id, { thread: threadFresca, ts: Date.now() });
+      } else {
+        _cacheThreadFresca.delete(thread.id); // invalida cache antigo se existir
+      }
+      // Limpeza simples: se cache > 200 entradas, descarta o mais antigo.
+      if (_cacheThreadFresca.size > 200) {
+        const oldest = [..._cacheThreadFresca.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
+        if (oldest) _cacheThreadFresca.delete(oldest[0]);
+      }
+    }
     if (threadFresca.pre_atendimento_ativo === true) {
       const ageMs = threadFresca.pre_atendimento_started_at
         ? Date.now() - new Date(threadFresca.pre_atendimento_started_at).getTime()
