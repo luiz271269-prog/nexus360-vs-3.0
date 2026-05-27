@@ -19,7 +19,10 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
   const chamadaEntranteRef = useRef(null);
   const chamadaAtivaRef    = useRef(null);
   const duracaoRef         = useRef(null);
-  const pollingRef         = useRef(null);
+  const pollingTimerRef    = useRef(null);
+  const isPollingRef       = useRef(false);
+  const isMountedRef       = useRef(true);
+  const consecutiveErrorsRef = useRef(0);
   const jaVistosRef        = useRef(new Set());
   const usuarioIdRef       = useRef(usuarioId);
 
@@ -58,22 +61,23 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
     return () => { if (interval) clearInterval(interval); if (ctx) ctx.close().catch(() => {}); };
   }, [chamadaEntrante?.id]);
 
-  // ── Polling: usa backend function com service role para bypassar RLS ──────
+  // ── Polling adaptativo: setTimeout recursivo, 15s/30s/backoff ─────────────
+  // Retorna próximo intervalo em ms (adaptativo por estado/erro).
   const poll = useCallback(async () => {
     const uid = usuarioIdRef.current;
-    if (!uid) return;
+    if (!uid || !isMountedRef.current) return 15000;
+    if (isPollingRef.current) return 15000; // anti-concorrência: pula se anterior ainda rodando
+    isPollingRef.current = true;
 
     try {
       // Usa backend function que roda como service role — bypassa RLS do Base44
       const resultado = await base44.functions.invoke('buscarChamadasEntrantes', {});
       const sessoes = resultado?.data?.sessoes || [];
+      const degraded = resultado?.data?.degraded === true;
 
       for (const s of sessoes) {
-        // Já tratei?
         if (jaVistosRef.current.has(s.id)) continue;
-        // Não sobrepor chamada ativa
         if (chamadaAtivaRef.current) { jaVistosRef.current.add(s.id); continue; }
-        // Chamada expirada (> 60s)
         const t = new Date(s.iniciado_em || s.created_date).getTime();
         if (Date.now() - t > 60000) { jaVistosRef.current.add(s.id); continue; }
 
@@ -92,9 +96,8 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
           setChamadaEntrante(null);
           chamadaEntranteRef.current = null;
         }
-        // Se não aparece mais na lista (deletado ou mudou status)
-        if (!atualizada) {
-          // Buscar diretamente para confirmar
+        // Se sumiu da lista E não estamos em degraded → confirmar via get()
+        if (!atualizada && !degraded) {
           try {
             const check = await base44.entities.CallSession.get(entrante.id);
             if (!check || ['encerrada', 'rejeitada', 'perdida'].includes(check.status)) {
@@ -108,9 +111,9 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
         }
       }
 
-      // Verificar se chamada ativa foi encerrada remotamente
+      // Verificar se chamada ativa foi encerrada remotamente (só fora de degraded)
       const ativa = chamadaAtivaRef.current;
-      if (ativa) {
+      if (ativa && !degraded) {
         try {
           const check = await base44.entities.CallSession.get(ativa.sessionId);
           if (!check || check.status === 'encerrada') {
@@ -119,15 +122,45 @@ export default function IncomingCallAlert({ usuario: usuarioProp }) {
           }
         } catch (_) {}
       }
-    } catch (_) {}
+
+      // Reset contador de erros em sucesso
+      consecutiveErrorsRef.current = 0;
+
+      // Decide próximo intervalo:
+      // - degraded → 30s (backend sob pressão, não pressionar mais)
+      // - aba oculta OU já em chamada ativa → 30s
+      // - normal → 15s
+      if (degraded) return 30000;
+      if (typeof document !== 'undefined' && document.hidden) return 30000;
+      if (chamadaAtivaRef.current) return 30000;
+      return 15000;
+    } catch (_) {
+      // Erro → backoff progressivo: 30s, depois 60s
+      consecutiveErrorsRef.current += 1;
+      return consecutiveErrorsRef.current === 1 ? 30000 : 60000;
+    } finally {
+      isPollingRef.current = false;
+    }
   }, []);
 
-  // ── Iniciar polling ───────────────────────────────────────────────────────
+  // ── Iniciar polling com setTimeout recursivo adaptativo ─────────────────
   useEffect(() => {
     if (!usuarioId) return;
-    poll(); // Imediato
-    pollingRef.current = setInterval(poll, 4000); // 4s — backend unificado em 1 query (P1)
-    return () => clearInterval(pollingRef.current);
+    isMountedRef.current = true;
+
+    const loop = async () => {
+      if (!isMountedRef.current) return;
+      const next = await poll();
+      if (!isMountedRef.current) return;
+      pollingTimerRef.current = setTimeout(loop, next);
+    };
+
+    loop(); // dispara imediato
+
+    return () => {
+      isMountedRef.current = false;
+      if (pollingTimerRef.current) clearTimeout(pollingTimerRef.current);
+    };
   }, [usuarioId, poll]);
 
   // ── Temporizador de duração ───────────────────────────────────────────────

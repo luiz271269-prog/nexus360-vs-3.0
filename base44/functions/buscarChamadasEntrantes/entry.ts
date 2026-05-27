@@ -1,30 +1,10 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // ── Cache em memória por usuário (best-effort, vive enquanto isolate estiver quente) ──
-type CacheEntry = { fetchedAt: number; payload: any };
+type CacheEntry = { createdAt: number; payload: any };
 const CACHE_TTL_MS = 2500;        // idade máxima para servir cache "fresco"
-const STALE_MAX_MS = 15000;       // idade máxima para servir cache "stale" em caso de erro
+const STALE_MAX_MS = 15000;       // idade máxima para servir cache "stale" em caso de erro 429
 const cachePorUsuario = new Map<string, CacheEntry>();
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-async function filtrarComBackoff(base44: any, filtro: any, ordem: string, limite: number) {
-  const delays = [0, 120, 250]; // tentativa 1 imediata, depois 120ms, depois 250ms
-  let lastErr: any = null;
-  for (const d of delays) {
-    if (d > 0) await sleep(d);
-    try {
-      return await base44.asServiceRole.entities.CallSession.filter(filtro, ordem, limite);
-    } catch (err: any) {
-      lastErr = err;
-      const is429 = err?.status === 429
-        || err?.response?.status === 429
-        || /429|rate.?limit|taxa/i.test(err?.message || '');
-      if (!is429) throw err; // erro diferente de 429 → não retry
-    }
-  }
-  throw lastErr;
-}
 
 /**
  * Retorna chamadas entrantes ativas para o usuário autenticado.
@@ -43,23 +23,23 @@ async function filtrarComBackoff(base44: any, filtro: any, ordem: string, limite
  *   - Stale-cache fallback (até 15s) em caso de erro persistente
  */
 Deno.serve(async (req) => {
-  let userIdParaFallback: string | null = null;
+  let user: any = null;
 
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+    user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    userIdParaFallback = user.id;
 
     const agora = Date.now();
     const cache = cachePorUsuario.get(user.id);
-    if (cache && (agora - cache.fetchedAt) <= CACHE_TTL_MS) {
+    if (cache && (agora - cache.createdAt) <= CACHE_TTL_MS) {
       return Response.json(cache.payload);
     }
 
     // ── UNIFICADO: 1 query com $or cobre os 3 cenários da Fase 0 ──────────
-    const candidatas = await filtrarComBackoff(
-      base44,
+    // SEM RETRY interno: deixa o 429 propagar para o catch → degraded response.
+    // Retry interno amplificava em 3x (same-second × 3) sob carga.
+    const candidatas = await base44.asServiceRole.entities.CallSession.filter(
       {
         $or: [
           { modo: 'interno_webrtc', status: 'chamando' },
@@ -101,16 +81,29 @@ Deno.serve(async (req) => {
     );
 
     const payload = { sessoes: unicas };
-    cachePorUsuario.set(user.id, { fetchedAt: agora, payload });
+    cachePorUsuario.set(user.id, { createdAt: agora, payload });
     return Response.json(payload);
   } catch (error: any) {
-    // Stale-cache fallback: se temos cache recente (≤ 15s), devolve em vez de 500
-    if (userIdParaFallback) {
-      const cache = cachePorUsuario.get(userIdParaFallback);
-      if (cache && (Date.now() - cache.fetchedAt) <= STALE_MAX_MS) {
+    const agora = Date.now();
+    const is429 = error?.status === 429
+      || error?.response?.status === 429
+      || /429|rate.?limit|taxa|too many/i.test(error?.message || '');
+
+    if (is429) {
+      // Stale-cache fallback: se temos cache recente (≤ 15s), devolve último estado válido
+      const cache = user?.id ? cachePorUsuario.get(user.id) : null;
+      if (cache?.payload && (agora - cache.createdAt) <= STALE_MAX_MS) {
         return Response.json(cache.payload);
       }
+      // Sem cache válido → degraded response (HTTP 200, frontend não recebe 500)
+      return Response.json({
+        sessoes: [],
+        degraded: true,
+        reason: user?.id ? 'rate_limited' : 'rate_limited_auth'
+      });
     }
+
+    // 401/403/outros erros → 500 (não mascara problemas reais)
     return Response.json({ error: error?.message || 'Erro interno' }, { status: 500 });
   }
 });
