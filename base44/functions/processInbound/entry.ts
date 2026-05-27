@@ -579,13 +579,36 @@ Deno.serve(async (req) => {
   // Lock pre_atendimento_ativo continua sendo gravado pra proteger contra dupla execução.
   const isUraActiveFresco = thread.pre_atendimento_ativo === true;
 
+  // [P0-E2] LOCK OBRIGATÓRIO antes do dispatch.
+  // Se a gravação do lock falhar (especialmente sob 429), NÃO chamar a skill —
+  // dois webhooks paralelos sob 429 poderiam ambos passar do guard de re-leitura
+  // e ambos chamar a skill sem lock confirmado, causando pré-atendimento duplicado.
+  // Em vez disso, criar WorkQueueItem para retry posterior e abortar com sucesso.
   try {
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       pre_atendimento_ativo: true,
       pre_atendimento_started_at: new Date().toISOString()
     });
   } catch (e) {
-    console.warn(`[${VERSION}] ⚠️ Erro ao gravar lock dispatch:`, e.message);
+    const is429 = e.message?.includes('429') || e.message?.includes('Rate limit');
+    console.warn(`[${VERSION}] ⚠️ Erro ao gravar lock dispatch (is429=${is429}):`, e.message);
+    result.actions.push(is429 ? 'rate_limit_lock_dispatch' : 'lock_dispatch_failed');
+    await base44.asServiceRole.entities.WorkQueueItem.create({
+      contact_id: contact.id,
+      thread_id: thread.id,
+      tipo: 'manual',
+      reason: is429 ? 'rate_limit_lock_dispatch' : 'lock_dispatch_failed',
+      severity: 'high',
+      status: 'open',
+      notes: `Falha ao gravar lock antes da skill: ${e.message}`
+    }).catch(() => {});
+    return Response.json({
+      success: true,
+      skipped: true,
+      reason: is429 ? 'rate_limit_lock_dispatch' : 'lock_dispatch_failed',
+      pipeline: result.pipeline,
+      actions: result.actions
+    });
   }
 
   result.pipeline.push('skill_dispatch_unificado');
