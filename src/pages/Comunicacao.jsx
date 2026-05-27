@@ -315,6 +315,7 @@ export default function Comunicacao() {
       }
     },
     refetchInterval: 120000,
+    refetchIntervalInBackground: false, // ⚡ Não fazer polling quando aba está oculta (reduz carga global)
     staleTime: 90000,
     enabled: !!usuario && !isRateLimited,
     retry: (failureCount, error) => {
@@ -388,8 +389,9 @@ export default function Comunicacao() {
   const contactIdsParaCarregar = React.useMemo(() => {
     if (!threads.length) return [];
     const ids = threads.map((t) => t.contact_id).filter((id) => id);
-
-    return [...new Set(ids)]; // Remove duplicatas
+    // ⚡ FIX RACE: ordenar para queryKey estável (ordem das threads varia a cada msg nova,
+    // o que invalidava o cache de ['contacts', ids.join(',')] desnecessariamente).
+    return [...new Set(ids)].sort();
   }, [threads]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -424,11 +426,12 @@ export default function Comunicacao() {
     },
     enabled: contactIdsParaCarregar.length > 0,
     keepPreviousData: true,
-    staleTime: 60000,
+    staleTime: 3 * 60 * 1000, // ⚡ 3min: contatos mudam pouco (nome/foto), reduz refetch agressivo
     cacheTime: 15 * 60 * 1000,
     retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: false,
+    refetchOnMount: false, // ⚡ Não refazer ao remontar componente — cache de 3min basta
     onError: (error) => {
       console.error('[Comunicacao] Erro ao carregar contatos:', error);
     }
@@ -448,7 +451,7 @@ export default function Comunicacao() {
     //    Como internas não têm contact_id, o filtro remove. Ordem natural de inserção.
     const ids = [...new Set(
       threadsExternas.map(t => t.contact_id).filter(Boolean)
-    )];
+    )].sort(); // ⚡ Mesma ordenação do contactIdsParaCarregar (Patch A) para queryKey alinhada
     if (ids.length === 0) return;
 
     // 2) Map de contatos válidos vindos enriquecidos do backend
