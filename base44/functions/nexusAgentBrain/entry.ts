@@ -547,9 +547,12 @@ Exemplos:
       }
     }
 
-    // ── STEP 6b: Atualizar memória do contato (fire-and-forget) ────────
-    base44.asServiceRole.functions.invoke('atualizarMemoriaContato', { contact_id })
-      .catch(e => console.error('[CONTACT-MEMORY] Erro async:', e.message));
+    // ── STEP 6b: Atualizar memória do contato ─────────────────────────
+    // Desativado no runtime de webhook: invokes server-to-server para
+    // atualizarMemoriaContato podem retornar 403 no gateway Base44 antes do
+    // handler destino rodar, poluindo logs do webhook e mascarando sucesso do
+    // inbound. A atualização em lote permanece coberta pelos crons/rotinas de
+    // análise diária; reprocessos pontuais devem ser feitos via UI/admin.
 
     // ── STEP 7: Registrar AgentRun ──────────────────────────────────
     await base44.asServiceRole.entities.AgentRun.create({
