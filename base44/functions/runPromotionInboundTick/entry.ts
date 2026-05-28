@@ -35,6 +35,7 @@ function estaNoHorarioComercial(cfg) {
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   const now = new Date();
+  const startTime = Date.now();
 
   try {
     console.log(`[PROMO-INBOUND ${VERSION}] Iniciando...`);
@@ -62,7 +63,6 @@ Deno.serve(async (req) => {
 
     let sent = 0, skipped = 0, errors = 0;
     const reasons = {};
-    const startTime = Date.now();
 
     for (const thread of threads) {
       if (sent >= BATCH_LIMIT) break;
