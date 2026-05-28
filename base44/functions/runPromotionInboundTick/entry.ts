@@ -11,8 +11,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.26';
 // vive no motor enviarPromocao. O gestor skillPromocoes é o portão único.
 // ============================================================================
 
-const VERSION = 'v6.0-GESTOR-UNICO';
-const BATCH_LIMIT = 30;
+const VERSION = 'v6.1-TIMEOUT-GUARD';
+const BATCH_LIMIT = 12;           // 12 × ~4s = 48s, dentro do timeout de 60s da plataforma
+const MAX_RUNTIME_MS = 50_000;   // abort gracioso antes do 504 (mesmo padrão do batch v7.0)
 
 async function carregarBroadcastConfig(base44) {
   const defaults = { horario_inicio: 8, horario_fim: 20, enviar_fim_semana: false };
@@ -61,9 +62,16 @@ Deno.serve(async (req) => {
 
     let sent = 0, skipped = 0, errors = 0;
     const reasons = {};
+    const startTime = Date.now();
 
     for (const thread of threads) {
       if (sent >= BATCH_LIMIT) break;
+      // Abort gracioso antes do timeout de 60s da plataforma. Próximo cron (30min) retoma threads pendentes.
+      if (Date.now() - startTime > MAX_RUNTIME_MS) {
+        console.warn('[PROMO-INBOUND] ⏱️ Tempo máximo atingido — abortando ciclo. Próximo cron retoma.');
+        reasons['timeout_abort'] = (reasons['timeout_abort'] || 0) + 1;
+        break;
+      }
 
       // Já enviou promoção inbound depois da última msg do cliente?
       const lastInbound = thread.last_inbound_at ? new Date(thread.last_inbound_at) : null;
@@ -103,8 +111,9 @@ Deno.serve(async (req) => {
           reasons['error'] = (reasons['error'] || 0) + 1;
         }
 
-        // Delay aumentado: 1500ms entre envios (era 400ms) — protege SDK Base44
-        await new Promise(r => setTimeout(r, 1500));
+        // Delay 2000ms entre envios — protege SDK Base44 da cadeia invoke encadeada
+        // (skillPromocoes → enviarPromocao → enviarWhatsApp). Aumentado de 1500 → 2000.
+        await new Promise(r => setTimeout(r, 2000));
       } catch (e) {
         const is429 = e?.status === 429 || /rate limit|429/i.test(e?.message || '');
         if (is429) {
