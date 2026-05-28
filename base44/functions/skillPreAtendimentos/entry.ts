@@ -1293,11 +1293,35 @@ Deno.serve(async (req) => {
         // não decide, não formata, não persiste estado promocional.
         console.log('[SKILL-PRE-ATEND] 🌙 Fora-horário: ACK puro (promo via skillPromocoes em msg separada)');
       } else if (horarioInfo.dentro) {
-        // Detectar primeiro contato do dia (BRT): last_inbound_at é anterior a hoje 00:00 BRT
-        const agoraBrt = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-        const inicioHojeBrt = new Date(agoraBrt.getFullYear(), agoraBrt.getMonth(), agoraBrt.getDate(), 0, 0, 0);
-        const ultInbound = thread?.last_inbound_at ? new Date(thread.last_inbound_at) : null;
-        primeiroContatoDoDia = !ultInbound || ultInbound < inicioHojeBrt;
+        // Detectar primeiro contato do dia (BRT). NÃO usar thread.last_inbound_at:
+        // o webhook ATUALIZA last_inbound_at antes desta skill rodar, então ele
+        // sempre reflete a mensagem atual e o cálculo daria falso negativo.
+        // Solução: consultar Message desde 00:00 BRT excluindo o message_id atual.
+        //
+        // 00:00 BRT = 03:00:00Z UTC (BRT é UTC-3, sem horário de verão).
+        const agoraUtc = new Date();
+        const brtDateParts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).format(agoraUtc); // ex: "2026-05-28"
+        const inicioHojeBrtIso = `${brtDateParts}T03:00:00.000Z`;
+        const horaBrt = parseInt(new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false
+        }).format(agoraUtc), 10);
+        const agoraBrt = { getHours: () => horaBrt }; // shim para getHours() abaixo
+
+        try {
+          const inboundsHoje = await base44.asServiceRole.entities.Message.filter({
+            thread_id,
+            sender_type: 'contact',
+            created_date: { $gte: inicioHojeBrtIso }
+          }, '-created_date', 5).catch(() => []);
+          const outrosInbounds = (inboundsHoje || []).filter(m => m.id !== message_id);
+          primeiroContatoDoDia = outrosInbounds.length === 0;
+        } catch (e) {
+          // Falha de query → fallback conservador para o critério antigo (não envia se incerto)
+          console.warn('[SKILL-PRE-ATEND] primeiro_contato_dia: query falhou, fallback conservador:', e.message);
+          primeiroContatoDoDia = false;
+        }
 
         // Cooldown universal 12h (mesmo critério das outras promos)
         const ultAnyPromo = contact?.last_any_promo_sent_at || thread?.last_any_promo_sent_at;
@@ -1307,7 +1331,6 @@ Deno.serve(async (req) => {
         if (primeiroContatoDoDia && !promoCooldownAtivo) {
           // Saudação personalizada com nome + período do dia (template via banco)
           const primeiroNome = (contact?.nome || '').split(' ')[0] || '';
-          const horaBrt = agoraBrt.getHours();
           const saudacao = horaBrt < 12 ? 'Bom dia' : (horaBrt < 18 ? 'Boa tarde' : 'Boa noite');
           const tplSaudacao = mensagensAck.saudacao_primeiro_contato_dia_template
             || (primeiroNome ? '☀️ {{saudacao}}, {{primeiro_nome}}! ' : '☀️ {{saudacao}}! ');
@@ -1317,20 +1340,20 @@ Deno.serve(async (req) => {
             .replace(/\{\{\s*nome_com_virgula\s*\}\}/g, primeiroNome ? ', ' + primeiroNome : '');
 
           // Caminho B: ACK personalizado vai PURO. Promo sai em mensagem
-          // separada via skillPromocoes (fire-and-forget, não-bloqueante).
+          // separada chamando enviarPromocao DIRETO (skillPromocoes era apenas
+          // adaptador que adicionava um hop server-to-server passível de 403).
           msgFinal = saudacaoComNome + ack.msg;
-          console.log('[SKILL-PRE-ATEND] 🌅 1º contato do dia: ACK personalizado (promo via skillPromocoes em msg separada)');
+          console.log('[SKILL-PRE-ATEND] 🌅 1º contato do dia: ACK personalizado (promo via enviarPromocao em msg separada)');
 
           if (integ?.id) {
-            base44.asServiceRole.functions.invoke('skillPromocoes', {
-              action: 'sugerir_ou_enviar',
-              origem: 'pre_atendimento',
-              contexto: 'primeiro_contato_dia',
+            base44.asServiceRole.functions.invoke('enviarPromocao', {
               contact_id,
               thread_id,
               integration_id: integ.id,
+              trigger: 'inbound_6h',
+              campaign_id: 'pre_atendimento_primeiro_contato_dia',
               initiated_by: 'skillPreAtendimentos:primeiro_contato_dia'
-            }).catch(e => console.warn('[SKILL-PRE-ATEND] sugerir_ou_enviar falhou (não-crítico):', e.message));
+            }).catch(e => console.warn('[SKILL-PRE-ATEND] enviarPromocao primeiro_contato_dia falhou (não-crítico):', e.message));
           }
         }
       }

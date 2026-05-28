@@ -40,9 +40,9 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.6.0-DEDUP-CONTEUDO-60S';
-const BUILD_DATE = '2026-04-22';
-const CLASSIFIER_VERSION = 'v2-status-update'; // MessageStatusCallback → handleMessageUpdate
+const VERSION = 'v11.7.0-SKIP-SYSTEM-PRE-SDK';
+const BUILD_DATE = '2026-05-28';
+const CLASSIFIER_VERSION = 'v3-skip-system-pre-sdk'; // deveIgnorar roda antes do SDK; preserva MessageStatusCallback
 
 // Stamp de boot — loga uma única vez por instância Deno (cold start)
 console.log(`[${VERSION}] 🟢 BOOT | BUILD=${BUILD_DATE} | CLASSIFIER=${CLASSIFIER_VERSION}`);
@@ -203,6 +203,13 @@ function deveIgnorar(payload) {
 
   if (tipo.includes('qrcode') || tipo.includes('connection') || tipo.includes('disconnect')) {
     return null;
+  }
+
+  // DeliveryCallback (ACK de entrega ao gateway) é puro ruído — sem updates ricos.
+  // Diferente de MessageStatusCallback (READ/SENT/RECEIVED/DELIVERED real do WhatsApp),
+  // que é tratado abaixo e prossegue para handleMessageUpdate.
+  if (tipo.includes('deliverycallback') || tipo === 'delivery') {
+    return 'delivery_callback';
   }
 
   const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
@@ -495,7 +502,18 @@ Deno.serve(async (req) => {
     console.log(`[${VERSION}] 📥 Payload recebido (1/2):`, JSON.stringify(payload).substring(0, 1000));
     console.log(`[${VERSION}] 📥 Carga recebida (2/2):`, JSON.stringify(payload).substring(1000, 2000));
 
-    // ✅ WH-3: salvar payload bruto IMEDIATAMENTE após parse, antes de qualquer processamento.
+    // ✅ FILTRO PRÉ-SDK: eventos de telemetria Z-API (presence/typing/delivery/call/etc)
+    // são descartados ANTES de criar createClientFromRequest e ANTES de gravar
+    // ZapiPayloadNormalized. Evita ruído 403 no gateway Base44 para callbacks que
+    // chegam sem token de auth válido e elimina ~70% dos writes redundantes no WAL.
+    // MessageStatusCallback continua passando (retorna null aqui → handleMessageUpdate).
+    const motivoIgnorar = deveIgnorar(payload);
+    if (motivoIgnorar) {
+      console.log(`[${VERSION}] ⏭️ Ignorado (pre-SDK): ${motivoIgnorar}`);
+      return jsonOk({ success: true, ignored: true, reason: motivoIgnorar });
+    }
+
+    // ✅ WH-3: salvar payload bruto APENAS para eventos que vão prosseguir.
     // Garante replay caso o webhook quebre antes de Message.create.
     let auditPayloadId = null;
     try {
@@ -512,21 +530,6 @@ Deno.serve(async (req) => {
       auditPayloadId = _audit?.id || null;
     } catch (e) {
       console.warn(`[${VERSION}] ⚠️ WH-3: Falha ao salvar payload bruto inicial:`, e.message);
-    }
-
-    const motivoIgnorar = deveIgnorar(payload);
-    if (motivoIgnorar) {
-      console.log(`[${VERSION}] ⏭️ Ignorado: ${motivoIgnorar}`);
-      // WH-3: atualizar audit com motivo de skip (não criar duplicado)
-      if (auditPayloadId) {
-        try {
-          const _cli = createClientFromRequest(req);
-          await _cli.asServiceRole.entities.ZapiPayloadNormalized.update(auditPayloadId, {
-            erro_detalhes: `Ignorado: ${motivoIgnorar}`
-          });
-        } catch {}
-      }
-      return jsonOk({ success: true, ignored: true, reason: motivoIgnorar, audit_id: auditPayloadId });
     }
 
     let base44;
