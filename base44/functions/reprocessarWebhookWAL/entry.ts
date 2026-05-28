@@ -10,14 +10,23 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const VERSION = 'v1.1.0-http-replay';
+const VERSION = 'v1.2.0';
 const BATCH_LIMIT = 50;
 const MAX_DEFAULT = 5;
 const APP_BASE_URL = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions';
 
-function getWebhookUrl(provider) {
-  const fn = provider === 'w_api' ? 'webhookWapi' : 'webhookFinalZapi';
-  return `${APP_BASE_URL}/${fn}`;
+function resolveWebhookBaseUrl(body) {
+  const fromBody = String(body?.webhook_base_url || '').trim();
+  if (fromBody) return fromBody.replace(/\/$/, '');
+  const fromEnv = String(Deno.env.get('BASE44_WEBHOOK_BASE_URL') || '').trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
+  return APP_BASE_URL;
+}
+
+function getWebhookUrl(provider, webhookBaseUrl) {
+  const p = String(provider || '').toLowerCase();
+  const fn = (p === 'w_api' || p === 'w_api_integrator') ? 'webhookWapi' : 'webhookFinalZapi';
+  return `${webhookBaseUrl}/${fn}`;
 }
 
 function nextAttemptDate(tentativas) {
@@ -39,6 +48,7 @@ Deno.serve(async (req) => {
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
     const limit = Math.min(body.limit || BATCH_LIMIT, 100);
     const dryRun = body.dry_run === true;
+    const webhookBaseUrl = resolveWebhookBaseUrl(body);
 
     const agora = new Date().toISOString();
 
@@ -107,7 +117,7 @@ Deno.serve(async (req) => {
 
       // Reenviar para endpoint HTTP do webhook correspondente (simula chamada real do provedor)
       // — evita o 403 que ocorre via base44.asServiceRole.functions.invoke() em contexto admin.
-      const webhookUrl = getWebhookUrl(wal.provider);
+      const webhookUrl = getWebhookUrl(wal.provider, webhookBaseUrl);
       const novasTentativas = (wal.tentativas || 0) + 1;
       const maxT = wal.max_tentativas || MAX_DEFAULT;
 
