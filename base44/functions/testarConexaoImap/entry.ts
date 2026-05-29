@@ -1,6 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-// redeploy: pick up new secrets
 const DEFAULT_IMAP_PORT = 993;
 const DEFAULT_TIMEOUT_MS = 15000;
 const MAX_PREVIEW_MESSAGES = 5;
@@ -40,6 +39,32 @@ function sanitizeLine(line) {
   return line
     .replace(/LOGIN\s+"[^"]*"\s+"[^"]*"/gi, 'LOGIN "***" "***"')
     .replace(/AUTHENTICATE\s+\S+/gi, 'AUTHENTICATE ***');
+}
+
+function resolveSecurityMode(value) {
+  if (value === 'tls' || value === 'starttls') return value;
+  throw new Error(`Modo de segurança IMAP inválido: ${value}. Use tls ou starttls.`);
+}
+
+function readCaCerts(secretName) {
+  if (!secretName) return undefined;
+  const caCert = Deno.env.get(secretName);
+  if (!caCert) {
+    throw new Error(`Secret de certificado ${secretName} não encontrado ou vazio.`);
+  }
+  return [caCert];
+}
+
+function buildErrorHint(errorMessage) {
+  if (/UnknownIssuer|invalid peer certificate|certificate/i.test(errorMessage)) {
+    return 'Conexão TCP/STARTTLS chegou ao servidor, mas o certificado não é confiável para o Deno. Cadastre o certificado público/CA do Zimbra em um secret e envie ca_cert_secret_name no payload.';
+  }
+
+  if (/STARTTLS/i.test(errorMessage)) {
+    return 'A porta respondeu, mas o upgrade STARTTLS falhou. Confirme se a porta suporta STARTTLS IMAP ou teste security=tls na porta 993.';
+  }
+
+  return 'Se o erro for timeout/conexão, o servidor IMAP pode estar bloqueando a origem externa. Se o erro for certificado, cadastre o PEM público/CA no secret e use ca_cert_secret_name.';
 }
 
 function parseHeaderBlocks(lines) {
@@ -90,21 +115,24 @@ class ImapConnection {
     this.buffer = '';
     this.tagCounter = 1;
     this.transcript = [];
+    this.greeting = '';
   }
 
-  static async connect(hostname, port, timeoutMs, security = 'tls', caCert = null) {
-    const caCerts = caCert ? [caCert] : undefined;
+  static async connect(options) {
+    const { hostname, port, timeoutMs, security, caCerts } = options;
+
     if (security === 'starttls') {
-      const plain = await withTimeout(
+      const plainConn = await withTimeout(
         Deno.connect({ hostname, port }),
         timeoutMs,
         `Conexão TCP IMAP com ${hostname}:${port}`
       );
-      const imap = new ImapConnection(plain);
+      const imap = new ImapConnection(plainConn);
       imap.greeting = await imap.readGreeting(timeoutMs);
       await imap.command('STARTTLS', timeoutMs);
+
       const tlsConn = await withTimeout(
-        Deno.startTls(plain, { hostname, caCerts }),
+        Deno.startTls(plainConn, { hostname, caCerts }),
         timeoutMs,
         `Upgrade STARTTLS com ${hostname}:${port}`
       );
@@ -220,7 +248,11 @@ Deno.serve(async (req) => {
     const timeoutMs = Number(body.timeout_ms || DEFAULT_TIMEOUT_MS);
     const mailbox = String(body.mailbox || 'INBOX').trim() || 'INBOX';
     const maxMessages = Math.min(Number(body.max_messages || MAX_PREVIEW_MESSAGES), MAX_PREVIEW_MESSAGES);
-    const security = String(body.security || (port === 143 ? 'starttls' : 'tls')).trim().toLowerCase();
+    const security = resolveSecurityMode(
+      String(body.security || (port === 143 ? 'starttls' : 'tls')).trim().toLowerCase()
+    );
+    const caCertSecretName = String(body.ca_cert_secret_name || body.ca_secret_name || '').trim();
+    const caCerts = readCaCerts(caCertSecretName);
 
     if (!host || !username || !passwordSecretName) {
       return jsonResponse({
@@ -228,9 +260,11 @@ Deno.serve(async (req) => {
         required: ['host', 'username', 'password_secret_name'],
         example: {
           host: 'mail.seudominio.com.br',
-          port: 993,
+          port: 143,
+          security: 'starttls',
           username: 'caixa@seudominio.com.br',
           password_secret_name: 'ZIMBRA_PWD_CAIXA_TESTE',
+          ca_cert_secret_name: 'ZIMBRA_CA_CERT',
           mailbox: 'INBOX'
         }
       }, 400);
@@ -243,19 +277,14 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    const caCertSecretName = String(body.ca_cert_secret_name || body.ca_secret_name || '').trim();
-    let caCert = null;
-    if (caCertSecretName) {
-      caCert = Deno.env.get(caCertSecretName);
-      if (!caCert) {
-        return jsonResponse({
-          error: `Secret ${caCertSecretName} (certificado CA) não encontrado ou vazio.`
-        }, 400);
-      }
-    }
-
     const startedAt = new Date().toISOString();
-    imap = await ImapConnection.connect(host, port, timeoutMs, security, caCert);
+    imap = await ImapConnection.connect({
+      hostname: host,
+      port,
+      timeoutMs,
+      security,
+      caCerts
+    });
     const greeting = imap.greeting;
 
     await imap.command('CAPABILITY', timeoutMs);
@@ -294,6 +323,8 @@ Deno.serve(async (req) => {
       started_at: startedAt,
       host,
       port,
+      security,
+      ca_cert_configured: Boolean(caCertSecretName),
       mailbox,
       username,
       greeting: sanitizeLine(greeting),
@@ -308,7 +339,7 @@ Deno.serve(async (req) => {
     return jsonResponse({
       ok: false,
       error: error instanceof Error ? error.message : String(error),
-      hint: 'Se o erro for timeout/conexão, o runtime pode estar bloqueando TCP/993 ou o servidor Zimbra pode estar bloqueando origem externa. Nesse caso, use relé externo + webhook Base44.',
+      hint: buildErrorHint(error instanceof Error ? error.message : String(error)),
       transcript_preview: imap?.transcript.slice(-40) || []
     }, 500);
   } finally {

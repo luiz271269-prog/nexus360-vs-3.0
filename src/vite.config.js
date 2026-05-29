@@ -7,10 +7,12 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 import { base44 } from '@base44/vite-plugin'
 
+// Bump este valor quando precisar invalidar o cache de deps pré-bundladas do Vite
+// (corrige o crash de null-dispatcher/useState por cópias stale do React).
 const VITE_REACT_CACHE_BUST = 'react-singleton-2026-05-29'
 
 export default defineConfig({
-  cacheDir: `../node_modules/.vite-${VITE_REACT_CACHE_BUST}`,
+  cacheDir: `node_modules/.vite-${VITE_REACT_CACHE_BUST}`,
   plugins: [
     react(),
     base44({
@@ -33,7 +35,6 @@ export default defineConfig({
   },
   assetsInclude: ['**/*.md'],
   optimizeDeps: {
-    force: true,
     include: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
     exclude: [],
     // bump para forçar re-otimização limpa do cache .vite (corrige mismatch de cópias do React)

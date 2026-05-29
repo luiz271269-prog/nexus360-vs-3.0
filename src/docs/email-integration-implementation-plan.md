@@ -27,7 +27,7 @@ O MVP não deve começar por envio SMTP, tela completa, IA, Outlook ou automaç�
 
 ### 0.1. Validar conectividade IMAP
 
-Usar a função de spike `testarConexaoImap` apenas para responder uma pergunta arquitetural: o runtime consegue abrir TLS/IMAP no servidor?
+Usar a função de spike `testarConexaoImap` apenas para responder uma pergunta arquitetural: o runtime consegue abrir TLS/IMAP na porta 993?
 
 Entrada esperada:
 
@@ -57,7 +57,7 @@ Se falhar por timeout, bloqueio de TCP ou erro de rede, a arquitetura muda para 
 
 ### 0.1.1. Resultado do spike executado
 
-O teste relatado com o secret `Email_ZIMBRA_TESTE` mostrou estes achados práticos:
+O teste relatado com o secret `Email_ZIMBRA_TESTE` mostrou três achados práticos:
 
 | Teste | Resultado | Interpretação |
 | --- | --- | --- |
@@ -159,9 +159,8 @@ Campos mínimos:
 | `provider` | `zimbra`, `imap` ou `gmail`. |
 | `owner_user_id` | Atendente principal responsável. |
 | `imap_host` | Host IMAP. |
-| `imap_port` | Porta IMAP. |
-| `imap_security` | `tls` ou `starttls`. |
-| `ca_cert_secret_name` | Nome do secret com o certificado CA (quando STARTTLS). |
+| `imap_port` | Porta IMAP, normalmente 993. |
+| `imap_secure` | Indica uso de TLS. |
 | `secret_name` | Nome do secret que guarda a senha. |
 | `status` | `pendente`, `conectado`, `erro` ou `inativo`. |
 | `ativo` | Liga/desliga sincronização. |
@@ -212,7 +211,7 @@ Fluxo:
 
 1. Buscar `EmailAccount` ativas.
 2. Para cada conta, validar provider.
-3. Para IMAP/Zimbra, conectar no host/porta usando `secret_name` (e `ca_cert_secret_name` quando STARTTLS).
+3. Para IMAP/Zimbra, conectar no host/porta usando `secret_name`.
 4. Ler apenas mensagens novas com base em `uidvalidity` + `last_uid_seen`.
 5. Normalizar remetente, assunto, data, corpo texto/html e identificadores.
 6. Deduplicar por `email_account_id` + `email_message_id`.
@@ -353,7 +352,7 @@ Melhorias futuras, fora do MVP:
 ## Ordem final recomendada
 
 ```text
-1. Repetir o teste IMAP no Zimbra pela porta 143/STARTTLS com ca_cert_secret_name ou decidir formalmente pelo relé.
+1. Repetir o teste IMAP no Zimbra pela porta 143/STARTTLS com `ca_cert_secret_name` ou decidir formalmente pelo relé.
 2. Validar renderização do canal email na Central.
 3. Criar EmailAccount + campos mínimos em Message/MessageThread.
 4. Criar importarEmails interno ou emailInboundWebhook, conforme Caminho A/B.
