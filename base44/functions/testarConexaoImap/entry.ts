@@ -92,13 +92,34 @@ class ImapConnection {
     this.transcript = [];
   }
 
-  static async connect(hostname, port, timeoutMs) {
+  static async connect(hostname, port, timeoutMs, security = 'tls') {
+    if (security === 'starttls') {
+      const plain = await withTimeout(
+        Deno.connect({ hostname, port }),
+        timeoutMs,
+        `Conexão TCP IMAP com ${hostname}:${port}`
+      );
+      const imap = new ImapConnection(plain);
+      imap.greeting = await imap.readGreeting(timeoutMs);
+      await imap.command('STARTTLS', timeoutMs);
+      const tlsConn = await withTimeout(
+        Deno.startTls(plain, { hostname }),
+        timeoutMs,
+        `Upgrade STARTTLS com ${hostname}:${port}`
+      );
+      imap.conn = tlsConn;
+      imap.buffer = '';
+      return imap;
+    }
+
     const conn = await withTimeout(
       Deno.connectTls({ hostname, port }),
       timeoutMs,
       `Conexão TLS IMAP com ${hostname}:${port}`
     );
-    return new ImapConnection(conn);
+    const imap = new ImapConnection(conn);
+    imap.greeting = await imap.readGreeting(timeoutMs);
+    return imap;
   }
 
   close() {
@@ -198,6 +219,7 @@ Deno.serve(async (req) => {
     const timeoutMs = Number(body.timeout_ms || DEFAULT_TIMEOUT_MS);
     const mailbox = String(body.mailbox || 'INBOX').trim() || 'INBOX';
     const maxMessages = Math.min(Number(body.max_messages || MAX_PREVIEW_MESSAGES), MAX_PREVIEW_MESSAGES);
+    const security = String(body.security || (port === 143 ? 'starttls' : 'tls')).trim().toLowerCase();
 
     if (!host || !username || !passwordSecretName) {
       return jsonResponse({
@@ -221,8 +243,8 @@ Deno.serve(async (req) => {
     }
 
     const startedAt = new Date().toISOString();
-    imap = await ImapConnection.connect(host, port, timeoutMs);
-    const greeting = await imap.readGreeting(timeoutMs);
+    imap = await ImapConnection.connect(host, port, timeoutMs, security);
+    const greeting = imap.greeting;
 
     await imap.command('CAPABILITY', timeoutMs);
     await imap.command(`LOGIN "${escapeImapString(username)}" "${escapeImapString(password)}"`, timeoutMs);
