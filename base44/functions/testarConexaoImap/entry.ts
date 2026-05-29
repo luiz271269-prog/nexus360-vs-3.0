@@ -92,7 +92,8 @@ class ImapConnection {
     this.transcript = [];
   }
 
-  static async connect(hostname, port, timeoutMs, security = 'tls') {
+  static async connect(hostname, port, timeoutMs, security = 'tls', caCert = null) {
+    const caCerts = caCert ? [caCert] : undefined;
     if (security === 'starttls') {
       const plain = await withTimeout(
         Deno.connect({ hostname, port }),
@@ -103,7 +104,7 @@ class ImapConnection {
       imap.greeting = await imap.readGreeting(timeoutMs);
       await imap.command('STARTTLS', timeoutMs);
       const tlsConn = await withTimeout(
-        Deno.startTls(plain, { hostname }),
+        Deno.startTls(plain, { hostname, caCerts }),
         timeoutMs,
         `Upgrade STARTTLS com ${hostname}:${port}`
       );
@@ -113,7 +114,7 @@ class ImapConnection {
     }
 
     const conn = await withTimeout(
-      Deno.connectTls({ hostname, port }),
+      Deno.connectTls({ hostname, port, caCerts }),
       timeoutMs,
       `Conexão TLS IMAP com ${hostname}:${port}`
     );
@@ -242,8 +243,19 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
+    const caCertSecretName = String(body.ca_cert_secret_name || body.ca_secret_name || '').trim();
+    let caCert = null;
+    if (caCertSecretName) {
+      caCert = Deno.env.get(caCertSecretName);
+      if (!caCert) {
+        return jsonResponse({
+          error: `Secret ${caCertSecretName} (certificado CA) não encontrado ou vazio.`
+        }, 400);
+      }
+    }
+
     const startedAt = new Date().toISOString();
-    imap = await ImapConnection.connect(host, port, timeoutMs, security);
+    imap = await ImapConnection.connect(host, port, timeoutMs, security, caCert);
     const greeting = imap.greeting;
 
     await imap.command('CAPABILITY', timeoutMs);
