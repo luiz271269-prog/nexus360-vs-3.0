@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+// redeploy: pick up new secrets
 const DEFAULT_IMAP_PORT = 993;
 const DEFAULT_TIMEOUT_MS = 15000;
 const MAX_PREVIEW_MESSAGES = 5;
