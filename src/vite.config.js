@@ -32,6 +32,8 @@ export default defineConfig({
   optimizeDeps: {
     include: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
     exclude: [],
+    // bump para forçar re-otimização limpa do cache .vite (corrige mismatch de cópias do React)
+    force: true,
   },
   build: {
     rollupOptions: {
