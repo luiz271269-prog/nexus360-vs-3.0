@@ -121,7 +121,8 @@ export default function ChatWindow({
   selectedIntegrationId = 'all',
   selectedAttendantId = null,
   contatoAtivo = null,
-  onFecharChat = null
+  onFecharChat = null,
+  loadingMensagens = false
 }) {
   const queryClient = useQueryClient(); // ✅ CRÍTICO: Hook do React Query
 
@@ -1755,7 +1756,12 @@ export default function ChatWindow({
           </div>
         )}
 
-        {mensagens.length === 0 ?
+        {loadingMensagens && mensagens.length === 0 ?
+        <div className="flex flex-col items-center justify-center h-full gap-3">
+            <Loader2 className="w-7 h-7 animate-spin text-orange-500" />
+            <p className="text-slate-400 text-sm">Carregando mensagens...</p>
+          </div> :
+        mensagens.length === 0 ?
         <div className="flex items-center justify-center h-full">
             <p className="text-slate-400">Nenhuma mensagem ainda. Inicie a conversa!</p>
           </div> :

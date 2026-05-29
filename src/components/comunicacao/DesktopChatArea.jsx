@@ -30,7 +30,7 @@ export default function DesktopChatArea({
   contatoAtivo, showContactInfo, handleAtualizarContato, novoContatoTelefone, contactInitialData,
   handleCriarNovoContato, setModoEnvioMassa, setContatosParaEnvioMassa, setModoSelecaoMultipla,
   setContatosSelecionados, setBroadcastInterno, setShowContactInfo, setThreadAtiva, sidebarViewMode,
-  instanciaAtivaDesconectada,
+  instanciaAtivaDesconectada, loadingMensagens,
 }) {
   const isKanban = sidebarViewMode === 'kanban';
   const hasActiveChat = (threadAtiva && !criandoNovoContato) || (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno));
@@ -63,6 +63,7 @@ export default function DesktopChatArea({
             onFecharChat={fecharChat} />
         ) : (
           <ChatWindow thread={threadAtiva} mensagens={mensagens} usuario={usuario}
+            loadingMensagens={loadingMensagens}
             contatoPreCarregado={contatoPreCarregado} onEnviarMensagem={async () => {}}
             onSendMessageOptimistic={handleEnviarMensagemOtimista}
             onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}

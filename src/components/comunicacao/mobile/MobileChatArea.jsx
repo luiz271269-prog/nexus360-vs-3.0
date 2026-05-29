@@ -57,7 +57,8 @@ export default function MobileChatArea({
   handleEnviarMensagemInternaOtimista,
   handleAtualizarMensagens,
   handleCriarNovoContato,
-  instanciaAtivaDesconectada
+  instanciaAtivaDesconectada,
+  loadingMensagens
 }) {
   return (
     <div className="flex md:hidden h-full flex-col min-h-0">
@@ -188,6 +189,7 @@ export default function MobileChatArea({
                 atendentes={atendentes} />
             ) : threadAtiva || (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno)) ? (
               <ChatWindow thread={threadAtiva} mensagens={mensagens} usuario={usuario}
+                loadingMensagens={loadingMensagens}
                 contatoPreCarregado={contatoPreCarregado} onEnviarMensagem={async () => {}}
                 onSendMessageOptimistic={handleEnviarMensagemOtimista}
                 onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}

@@ -617,7 +617,7 @@ export default function Comunicacao() {
   const isThreadInterna = threadAtiva?.thread_type === 'team_internal' || threadAtiva?.thread_type === 'sector_group';
 
   // ✅ QUERY OTIMIZADA: 1 query para thread ativa + IDs extras resolvidos EM MEMÓRIA
-  const { data: mensagens = [] } = useQuery({
+  const { data: mensagens = [], isLoading: loadingMensagens } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
     queryFn: async () => {
       if (!threadAtiva || isRateLimited) return [];
@@ -1732,6 +1732,7 @@ export default function Comunicacao() {
                   modoSelecaoMultipla={modoSelecaoMultipla} contatosSelecionados={contatosSelecionados}
                   broadcastInterno={broadcastInterno} threadAtiva={threadAtiva} criandoNovoContato={criandoNovoContato}
                   mensagens={mensagens} usuario={usuario} contatoPreCarregado={contatoPreCarregado}
+                  loadingMensagens={loadingMensagens && mensagens.length === 0}
                   handleEnviarMensagemOtimista={handleEnviarMensagemOtimista}
                   handleEnviarMensagemInternaOtimista={handleEnviarMensagemInternaOtimista}
                   handleAtualizarMensagens={handleAtualizarMensagens} integracoes={integracoes}
@@ -1770,6 +1771,7 @@ export default function Comunicacao() {
                 setThreadAtiva={setThreadAtiva} setShowContactInfo={setShowContactInfo}
                 contatoPreCarregado={contatoPreCarregado} contactInitialData={contactInitialData} setContactInitialData={setContactInitialData}
                 mensagens={mensagens} broadcastInterno={broadcastInterno} setBroadcastInterno={setBroadcastInterno}
+                loadingMensagens={loadingMensagens && mensagens.length === 0}
                 contatoAtivo={contatoAtivo}
                 isPendingFilter={isPendingFilter} setDuplicataEncontrada={setDuplicataEncontrada}
                 handleSelecionarThreadMobile={handleSelecionarThreadMobile}
