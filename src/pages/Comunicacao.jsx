@@ -617,7 +617,11 @@ export default function Comunicacao() {
   const isThreadInterna = threadAtiva?.thread_type === 'team_internal' || threadAtiva?.thread_type === 'sector_group';
 
   // ✅ QUERY OTIMIZADA: 1 query para thread ativa + IDs extras resolvidos EM MEMÓRIA
-  const { data: mensagens = [] } = useQuery({
+  const {
+    data: mensagens = [],
+    isLoading: loadingMensagensQuery,
+    isFetching: fetchingMensagensQuery
+  } = useQuery({
     queryKey: ['mensagens', threadAtiva?.id],
     queryFn: async () => {
       if (!threadAtiva || isRateLimited) return [];
@@ -627,7 +631,7 @@ export default function Comunicacao() {
         if (isThreadInterna) {
           const ultimasMensagens = await base44.entities.Message.filter(
             { thread_id: threadAtiva.id },
-            '-sent_at',
+            '-created_date',
             20
           );
           return ultimasMensagens.reverse();
@@ -637,7 +641,7 @@ export default function Comunicacao() {
         // Cada thread é uma conversa independente (não mesclar com outras)
         const msgs = await base44.entities.Message.filter(
           { thread_id: threadAtiva.id },
-          '-sent_at',
+          '-created_date',
           50
         );
 
@@ -660,6 +664,12 @@ export default function Comunicacao() {
     retryDelay: 1000,
     refetchOnWindowFocus: false,
   });
+
+  const loadingMensagens = Boolean(
+    threadAtiva &&
+    mensagens.length === 0 &&
+    (loadingMensagensQuery || fetchingMensagensQuery || isRateLimited)
+  );
 
   const { data: gotoIntegracoes = [] } = useQuery({
     queryKey: ['goto-integrations'],
@@ -1731,7 +1741,8 @@ export default function Comunicacao() {
                   modoEnvioMassa={modoEnvioMassa} contatosParaEnvioMassa={contatosParaEnvioMassa}
                   modoSelecaoMultipla={modoSelecaoMultipla} contatosSelecionados={contatosSelecionados}
                   broadcastInterno={broadcastInterno} threadAtiva={threadAtiva} criandoNovoContato={criandoNovoContato}
-                  mensagens={mensagens} usuario={usuario} contatoPreCarregado={contatoPreCarregado}
+                  mensagens={mensagens} loadingMensagens={loadingMensagens}
+                  usuario={usuario} contatoPreCarregado={contatoPreCarregado}
                   handleEnviarMensagemOtimista={handleEnviarMensagemOtimista}
                   handleEnviarMensagemInternaOtimista={handleEnviarMensagemInternaOtimista}
                   handleAtualizarMensagens={handleAtualizarMensagens} integracoes={integracoes}
@@ -1769,7 +1780,8 @@ export default function Comunicacao() {
                 criandoNovoContato={criandoNovoContato} setCriandoNovoContato={setCriandoNovoContato}
                 setThreadAtiva={setThreadAtiva} setShowContactInfo={setShowContactInfo}
                 contatoPreCarregado={contatoPreCarregado} contactInitialData={contactInitialData} setContactInitialData={setContactInitialData}
-                mensagens={mensagens} broadcastInterno={broadcastInterno} setBroadcastInterno={setBroadcastInterno}
+                mensagens={mensagens} loadingMensagens={loadingMensagens}
+                broadcastInterno={broadcastInterno} setBroadcastInterno={setBroadcastInterno}
                 contatoAtivo={contatoAtivo}
                 isPendingFilter={isPendingFilter} setDuplicataEncontrada={setDuplicataEncontrada}
                 handleSelecionarThreadMobile={handleSelecionarThreadMobile}

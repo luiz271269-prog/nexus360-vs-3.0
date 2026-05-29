@@ -42,7 +42,7 @@ export default function MobileChatArea({
   setThreadAtiva, setShowContactInfo,
   contatoPreCarregado, contactInitialData, setContactInitialData,
   // mensagens / broadcast
-  mensagens, broadcastInterno, setBroadcastInterno,
+  mensagens, loadingMensagens, broadcastInterno, setBroadcastInterno,
   contatoAtivo,
   // ui flags
   isPendingFilter, setDuplicataEncontrada,
@@ -187,7 +187,7 @@ export default function MobileChatArea({
                 onUpdate={handleAtualizarContato}
                 atendentes={atendentes} />
             ) : threadAtiva || (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno)) ? (
-              <ChatWindow thread={threadAtiva} mensagens={mensagens} usuario={usuario}
+              <ChatWindow thread={threadAtiva} mensagens={mensagens} loadingMensagens={loadingMensagens} usuario={usuario}
                 contatoPreCarregado={contatoPreCarregado} onEnviarMensagem={async () => {}}
                 onSendMessageOptimistic={handleEnviarMensagemOtimista}
                 onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}

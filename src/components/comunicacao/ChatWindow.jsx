@@ -102,6 +102,7 @@ const getUnreadCount = (thread, userId) => {
 export default function ChatWindow({
   thread = null,
   mensagens = [],
+  loadingMensagens = false,
   usuario = null,
   contatoPreCarregado = null,
   onEnviarMensagem,
@@ -1755,7 +1756,14 @@ export default function ChatWindow({
           </div>
         )}
 
-        {mensagens.length === 0 ?
+        {loadingMensagens ?
+        <div className="flex items-center justify-center h-full">
+            <div className="flex items-center gap-2 text-slate-500">
+              <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+              <span>Carregando mensagens...</span>
+            </div>
+          </div> :
+        mensagens.length === 0 ?
         <div className="flex items-center justify-center h-full">
             <p className="text-slate-400">Nenhuma mensagem ainda. Inicie a conversa!</p>
           </div> :

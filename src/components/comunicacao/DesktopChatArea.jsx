@@ -24,7 +24,7 @@ function useHeaderHeight() {
 
 export default function DesktopChatArea({
   modoEnvioMassa, contatosParaEnvioMassa, modoSelecaoMultipla, contatosSelecionados, broadcastInterno,
-  threadAtiva, criandoNovoContato, mensagens, usuario, contatoPreCarregado,
+  threadAtiva, criandoNovoContato, mensagens, loadingMensagens, usuario, contatoPreCarregado,
   handleEnviarMensagemOtimista, handleEnviarMensagemInternaOtimista, handleAtualizarMensagens,
   integracoes, selectedCategoria, atendentes, filterScope, selectedIntegrationId, selectedAttendantId,
   contatoAtivo, showContactInfo, handleAtualizarContato, novoContatoTelefone, contactInitialData,
@@ -62,7 +62,7 @@ export default function DesktopChatArea({
             selectedAttendantId={selectedAttendantId} contatoAtivo={null}
             onFecharChat={fecharChat} />
         ) : (
-          <ChatWindow thread={threadAtiva} mensagens={mensagens} usuario={usuario}
+          <ChatWindow thread={threadAtiva} mensagens={mensagens} loadingMensagens={loadingMensagens} usuario={usuario}
             contatoPreCarregado={contatoPreCarregado} onEnviarMensagem={async () => {}}
             onSendMessageOptimistic={handleEnviarMensagemOtimista}
             onSendInternalMessageOptimistic={handleEnviarMensagemInternaOtimista}
