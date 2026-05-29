@@ -26,7 +26,7 @@
       ]
     }
   ],
-  "model": "gpt_5_5",
+  "model": "automatic",
   "whatsapp_greeting": "",
   "memory_config": {
     "enabled": true,
@@ -42,5 +42,7 @@
   ],
   "telegram_greeting": "",
   "app_user_connector_configs": [],
+  "context_files": [],
+  "line_greeting": "",
   "name": "promocoes_automaticas"
 }
