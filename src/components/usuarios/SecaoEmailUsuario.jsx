@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { Mail } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Mail, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { base44 } from '@/api/base44Client';
 
 // Defaults do servidor de e-mail da empresa (Zimbra Liesch).
 // Ficam embutidos — o operador só precisa informar o e-mail do usuário.
@@ -16,6 +19,9 @@ const SERVER_DEFAULTS = {
 };
 
 export default function SecaoEmailUsuario({ usuarioSelecionado, atualizarUsuario }) {
+  const [testando, setTestando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+
   if (!usuarioSelecionado) return null;
 
   const email = usuarioSelecionado.email_account || {};
@@ -32,6 +38,27 @@ export default function SecaoEmailUsuario({ usuarioSelecionado, atualizarUsuario
       });
     } else {
       atualizarUsuario('email_account', { ...email, ativo: false });
+    }
+  };
+
+  const testarConexao = async () => {
+    setTestando(true);
+    setResultado(null);
+    try {
+      const resp = await base44.functions.invoke('testarConexaoImap', { user_id: usuarioSelecionado.id });
+      const data = resp?.data || resp;
+      if (data?.ok) {
+        setResultado({ ok: true, msg: `Conectado! ${data.total_uids_found ?? 0} mensagens na caixa.` });
+        toast.success('✅ Conexão de e-mail OK');
+      } else {
+        setResultado({ ok: false, msg: data?.error || 'Falha na conexão', hint: data?.hint });
+        toast.error('❌ Falha ao conectar');
+      }
+    } catch (e) {
+      setResultado({ ok: false, msg: e.message || 'Erro ao testar' });
+      toast.error('❌ Erro ao testar conexão');
+    } finally {
+      setTestando(false);
     }
   };
 
@@ -66,6 +93,26 @@ export default function SecaoEmailUsuario({ usuarioSelecionado, atualizarUsuario
               <code className="bg-slate-100 px-1 rounded">{email.password_secret_name || secretName}</code>{' '}
               com a senha desta caixa de e-mail. Servidor e portas são configurados automaticamente.
             </p>
+
+            <Button
+              onClick={testarConexao}
+              disabled={testando || !email.login}
+              variant="outline"
+              className="w-full gap-2 border-indigo-300"
+            >
+              {testando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+              {testando ? 'Testando...' : 'Testar conexão'}
+            </Button>
+
+            {resultado && (
+              <div className={`flex items-start gap-2 p-3 rounded-lg text-xs ${resultado.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                {resultado.ok ? <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+                <div>
+                  <p className="font-medium">{resultado.msg}</p>
+                  {resultado.hint && <p className="mt-1 opacity-80">{resultado.hint}</p>}
+                </div>
+              </div>
+            )}
           </>
         )}
       </CardContent>
