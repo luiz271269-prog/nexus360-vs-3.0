@@ -18,6 +18,7 @@ import MonitorPromocoes from '@/pages/MonitorPromocoes';
 import TelemetriaPreAtendimento from '@/pages/TelemetriaPreAtendimento';
 import CentralSaneamento from '@/pages/CentralSaneamento';
 import MonitorWAL from '@/pages/MonitorWAL';
+import Emails from '@/pages/Emails';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -149,6 +150,14 @@ const AuthenticatedApp = () => {
           element={
             <LayoutWrapper currentPageName="MonitorWAL">
               <MonitorWAL />
+            </LayoutWrapper>
+          } 
+        />
+        <Route 
+          path="/Emails" 
+          element={
+            <LayoutWrapper currentPageName="Emails">
+              <Emails />
             </LayoutWrapper>
           } 
         />
