@@ -419,9 +419,35 @@ Deno.serve(async (req) => {
     const greeting = imap.greeting;
 
     await imap.command('CAPABILITY', timeoutMs);
-    // Zimbra: usa AUTHENTICATE PLAIN (SASL-IR) — o comando LOGIN direto retorna "BAD internal server error"
+
+    // Autenticação com fallback automático: tenta AUTHENTICATE PLAIN; se falhar,
+    // reconecta e tenta o comando LOGIN clássico (alguns Zimbra recusam SASL-IR com BAD)
+    const authMethod = String(body.auth_method || 'auto').toLowerCase();
     const saslPlain = btoa(`\u0000${username}\u0000${password}`);
-    await imap.command(`AUTHENTICATE PLAIN ${saslPlain}`, timeoutMs);
+    const tryPlain = async (c) => { await c.command(`AUTHENTICATE PLAIN ${saslPlain}`, timeoutMs); return 'AUTHENTICATE PLAIN'; };
+    const tryLogin = async (c) => { await c.command(`LOGIN "${escapeImapString(username)}" "${escapeImapString(password)}"`, timeoutMs); return 'LOGIN'; };
+    let authUsed = null;
+
+    if (authMethod === 'login') {
+      authUsed = await tryLogin(imap);
+    } else if (authMethod === 'plain') {
+      authUsed = await tryPlain(imap);
+    } else {
+      try {
+        authUsed = await tryPlain(imap);
+      } catch (plainErr) {
+        try { imap.close(); } catch { /* ignore */ }
+        imap = await ImapConnection.connect({ hostname: host, port, timeoutMs, security, caCerts });
+        await imap.command('CAPABILITY', timeoutMs);
+        try {
+          authUsed = await tryLogin(imap);
+        } catch (loginErr) {
+          const pMsg = plainErr instanceof Error ? plainErr.message : String(plainErr);
+          const lMsg = loginErr instanceof Error ? loginErr.message : String(loginErr);
+          throw new Error(`Autenticação falhou nos dois métodos. AUTHENTICATE PLAIN: ${pMsg} | LOGIN: ${lMsg}`);
+        }
+      }
+    }
     const selectLines = await imap.command(`SELECT "${escapeImapString(mailbox)}"`, timeoutMs);
     const uidValidity = selectLines
       .map((line) => line.match(/UIDVALIDITY\s+(\d+)/i)?.[1])
@@ -460,6 +486,7 @@ Deno.serve(async (req) => {
       ca_cert_configured: Boolean(caCertSecretName),
       mailbox,
       username,
+      auth_method_used: authUsed,
       greeting: sanitizeLine(greeting),
       uidvalidity: uidValidity,
       total_uids_found: allUids.length,
