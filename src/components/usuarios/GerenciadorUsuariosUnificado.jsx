@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Save, User, Shield, Settings, ChevronRight, Check, Loader2, Trash2, Zap, MessageSquare } from "lucide-react";
+import { Search, Plus, Save, User, Shield, Settings, ChevronRight, ChevronLeft, Check, Loader2, Trash2, Zap, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import PainelPermissoesUnificado from "./PainelPermissoesUnificado";
 import SecaoDadosUsuario from "./SecaoDadosUsuario";
@@ -523,11 +523,11 @@ export default function GerenciadorUsuariosUnificado({
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-[calc(100vh-140px)] gap-3">
+    <div className="flex flex-col md:flex-row md:h-[calc(100vh-140px)] gap-3">
       {/* ════════════════════════════════════════════════════════════════════════ */}
       {/* COLUNA 1: LISTA DE USUÁRIOS */}
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      <section className="w-full md:w-64 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
+      <section className={`w-full md:w-64 ${usuarioSelecionado ? 'hidden md:flex' : 'flex'} flex-col bg-white rounded-xl border shadow-sm overflow-hidden h-[65vh] md:h-auto`}>
         <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-bold text-slate-800">Usuários</h2>
@@ -608,7 +608,7 @@ export default function GerenciadorUsuariosUnificado({
       {/* ════════════════════════════════════════════════════════════════════════ */}
       {/* COLUNA 2: RECURSOS DO SISTEMA */}
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      <section className="w-full md:w-72 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
+      <section className="w-full md:w-72 hidden md:flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
         <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
           <h2 className="text-sm font-bold text-slate-800">Recursos & Páginas</h2>
           <p className="text-[10px] text-slate-500">Selecione para configurar</p>
@@ -650,15 +650,24 @@ export default function GerenciadorUsuariosUnificado({
       {/* ════════════════════════════════════════════════════════════════════════ */}
       {/* COLUNA 3: DETALHES / PERMISSÕES / DADOS */}
       {/* ════════════════════════════════════════════════════════════════════════ */}
-      <section className="flex-1 flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
+      <section className={`flex-1 ${usuarioSelecionado ? 'flex' : 'hidden md:flex'} flex-col bg-white rounded-xl border shadow-sm overflow-hidden h-[75vh] md:h-auto`}>
         <header className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-slate-800">
-              {recursoSelecionado?.nome || "Detalhes"}
-            </h2>
-            <p className="text-[10px] text-slate-500">
-              {recursoSelecionado?.description || "Selecione um recurso"}
-            </p>
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => setUsuarioSelecionado(null)}
+              className="md:hidden p-1 -ml-1 rounded hover:bg-slate-200 flex-shrink-0"
+              title="Voltar"
+            >
+              <ChevronLeft className="w-5 h-5 text-slate-600" />
+            </button>
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-slate-800 truncate">
+                {recursoSelecionado?.nome || "Detalhes"}
+              </h2>
+              <p className="text-[10px] text-slate-500 truncate">
+                {recursoSelecionado?.description || "Selecione um recurso"}
+              </p>
+            </div>
           </div>
           {salvando && (
             <div className="flex items-center gap-1 text-xs text-amber-600">
