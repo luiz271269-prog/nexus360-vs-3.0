@@ -82,7 +82,8 @@
         "internal_system",
         "instagram_api",
         "facebook_graph_api",
-        "goto_phone"
+        "goto_phone",
+        "email_imap"
       ],
       "default": "whatsapp",
       "description": "Provedor que originou a mensagem"
@@ -112,6 +113,10 @@
     "whatsapp_message_id": {
       "type": "string",
       "description": "ID \u00fanico da mensagem no WhatsApp (para sincroniza\u00e7\u00e3o)"
+    },
+    "email_message_id": {
+      "type": "string",
+      "description": "Cabe\u00e7alho Message-ID do e-mail (dedup de topo para mensagens do canal email)"
     },
     "instagram_message_id": {
       "type": "string",
@@ -233,6 +238,18 @@
         "sender_name": {
           "type": "string",
           "description": "Nome do remetente (cache para mensagens internas)"
+        },
+        "email_account": {
+          "type": "string",
+          "description": "Login da caixa de e-mail que recebeu (canal email)"
+        },
+        "remetente_email": {
+          "type": "string",
+          "description": "E-mail do remetente (canal email)"
+        },
+        "assunto": {
+          "type": "string",
+          "description": "Assunto do e-mail (canal email)"
         }
       }
     },

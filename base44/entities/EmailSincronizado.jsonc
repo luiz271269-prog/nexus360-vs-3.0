@@ -1,0 +1,77 @@
+{
+  "name": "EmailSincronizado",
+  "type": "object",
+  "description": "E-mail recebido sincronizado e vinculado a um Contato/Cliente do CRM. Dedup por (account_login + message_uid).",
+  "properties": {
+    "account_login": {
+      "type": "string",
+      "description": "Login da conta de e-mail que recebeu (ex: luiz@liesch.com.br)"
+    },
+    "account_tipo": {
+      "type": "string",
+      "description": "Tipo do conector (zimbra, gmail)"
+    },
+    "owner_user_id": {
+      "type": "string",
+      "description": "ID do User dono da conta de e-mail"
+    },
+    "message_uid": {
+      "type": "string",
+      "description": "UID da mensagem no servidor IMAP (chave de idempot\u00eancia junto com account_login)"
+    },
+    "email_message_id": {
+      "type": "string",
+      "description": "Cabe\u00e7alho Message-ID do e-mail (dedup forte para a ponte com a Central)"
+    },
+    "remetente_email": {
+      "type": "string",
+      "description": "E-mail do remetente (normalizado lowercase)"
+    },
+    "remetente_nome": {
+      "type": "string",
+      "description": "Nome do remetente extra\u00eddo do cabe\u00e7alho From"
+    },
+    "assunto": {
+      "type": "string",
+      "description": "Assunto do e-mail"
+    },
+    "corpo_preview": {
+      "type": "string",
+      "description": "Pr\u00e9via do corpo do e-mail (texto) para exibir na bolha da Central"
+    },
+    "data_email": {
+      "type": "string",
+      "description": "Data do cabe\u00e7alho do e-mail (texto original)"
+    },
+    "contact_id": {
+      "type": "string",
+      "description": "ID do Contact vinculado (se houver match)"
+    },
+    "cliente_id": {
+      "type": "string",
+      "description": "ID do Cliente vinculado (se houver match)"
+    },
+    "vinculo_tipo": {
+      "type": "string",
+      "enum": [
+        "contact",
+        "cliente",
+        "ambos"
+      ],
+      "description": "Tipo de v\u00ednculo encontrado no CRM"
+    },
+    "central_thread_id": {
+      "type": "string",
+      "description": "ID da MessageThread (canal email) criada/atualizada na Central a partir deste e-mail"
+    },
+    "central_message_id": {
+      "type": "string",
+      "description": "ID da Message (canal email) criada na Central. Preenchido => j\u00e1 levado pra Central (evita duplicar)"
+    }
+  },
+  "required": [
+    "account_login",
+    "message_uid",
+    "remetente_email"
+  ]
+}
