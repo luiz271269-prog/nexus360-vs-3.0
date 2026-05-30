@@ -38,8 +38,8 @@ export default function UsuariosPage() {
       permissoes_comunicacao: u.permissoes_comunicacao || {},
       paginas_acesso: u.paginas_acesso || [],
       max_concurrent_conversations: u.max_concurrent_conversations || 5,
-      // Conta de e-mail (IMAP/SMTP) do usuário
-      email_account: u.email_account || {},
+      // Contas de e-mail (IMAP/SMTP) do usuário (uma ou várias)
+      email_accounts: u.email_accounts || [],
       // IMPORTANTE: Campo de permissões de páginas/recursos
       permissoes: u.paginas_acesso || [],
     }));
@@ -66,7 +66,7 @@ export default function UsuariosPage() {
       permissoes_comunicacao: usuario.permissoes_comunicacao || {},
       paginas_acesso: permissoesParaSalvar,
       max_concurrent_conversations: usuario.max_concurrent_conversations || 5,
-      email_account: usuario.email_account || {},
+      email_accounts: usuario.email_accounts || [],
       // NEXUS360: Sempre ativo
       sistema_permissoes_ativo: 'nexus360',
       configuracao_visibilidade_nexus: usuario.configuracao_visibilidade_nexus || {
@@ -112,7 +112,7 @@ export default function UsuariosPage() {
           permissoes_comunicacao: encontrado.permissoes_comunicacao,
           paginas_acesso: encontrado.paginas_acesso,
           max_concurrent_conversations: encontrado.max_concurrent_conversations,
-          email_account: encontrado.email_account || {},
+          email_accounts: encontrado.email_accounts || [],
           permissoes: encontrado.paginas_acesso,
           configuracao_visibilidade_nexus: encontrado.configuracao_visibilidade_nexus,
           permissoes_acoes_nexus: encontrado.permissoes_acoes_nexus,
