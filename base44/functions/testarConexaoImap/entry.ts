@@ -264,6 +264,30 @@ Deno.serve(async (req) => {
       }
       const beginCount = (raw.match(/-----BEGIN CERTIFICATE-----/g) || []).length;
       const endCount = (raw.match(/-----END CERTIFICATE-----/g) || []).length;
+
+      // Decodifica o base64 (sem headers/whitespace) e valida a estrutura DER
+      let derInfo = { decoded: false };
+      try {
+        let b64 = raw.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
+        while (b64.length % 4 !== 0) b64 += '=';
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        // DER de um certificado começa com 0x30 0x82 (SEQUENCE, long-form length 2 bytes)
+        const seqOk = bytes[0] === 0x30 && bytes[1] === 0x82;
+        const declaredLen = seqOk ? (bytes[2] << 8) + bytes[3] + 4 : null;
+        derInfo = {
+          decoded: true,
+          byte_length: bytes.length,
+          starts_with_30_82: seqOk,
+          declared_total_length: declaredLen,
+          length_matches: declaredLen === bytes.length,
+          first_bytes_hex: Array.from(bytes.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join(' ')
+        };
+      } catch (e) {
+        derInfo = { decoded: false, error: e instanceof Error ? e.message : String(e) };
+      }
+
       return jsonResponse({
         diagnose_ca: true,
         secret_name: name,
@@ -275,7 +299,8 @@ Deno.serve(async (req) => {
         contains_leaf_marker_MIIDSz: raw.includes('MIIDSz'),
         contains_ca_marker_MIIED: raw.includes('MIIED'),
         first_40: raw.slice(0, 40),
-        last_40: raw.slice(-40)
+        last_40: raw.slice(-40),
+        der: derInfo
       });
     }
 
