@@ -361,7 +361,8 @@ Deno.serve(async (req) => {
 
     const caCerts = readCaCerts(caCertSecretName, body.use_embedded_ca === true);
 
-    if (!host || !username || !passwordSecretName) {
+    const inlinePassword = typeof body.password === 'string' ? body.password : '';
+    if (!host || !username || (!passwordSecretName && !inlinePassword)) {
       return jsonResponse({
         error: 'Parâmetros obrigatórios ausentes.',
         required: ['host', 'username', 'password_secret_name'],
@@ -377,7 +378,7 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    const password = Deno.env.get(passwordSecretName);
+    const password = inlinePassword || Deno.env.get(passwordSecretName);
     if (!password) {
       return jsonResponse({
         error: `Secret ${passwordSecretName} não encontrado ou vazio. Cadastre a senha no cofre/secrets antes do teste.`
@@ -395,7 +396,9 @@ Deno.serve(async (req) => {
     const greeting = imap.greeting;
 
     await imap.command('CAPABILITY', timeoutMs);
-    await imap.command(`LOGIN "${escapeImapString(username)}" "${escapeImapString(password)}"`, timeoutMs);
+    // Zimbra: usa AUTHENTICATE PLAIN (SASL-IR) — o comando LOGIN direto retorna "BAD internal server error"
+    const saslPlain = btoa(`\u0000${username}\u0000${password}`);
+    await imap.command(`AUTHENTICATE PLAIN ${saslPlain}`, timeoutMs);
     const selectLines = await imap.command(`SELECT "${escapeImapString(mailbox)}"`, timeoutMs);
     const uidValidity = selectLines
       .map((line) => line.match(/UIDVALIDITY\s+(\d+)/i)?.[1])
