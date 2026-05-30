@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import PainelPermissoesUnificado from "./PainelPermissoesUnificado";
 import SecaoDadosUsuario from "./SecaoDadosUsuario";
 import SecaoComunicacaoUsuario from "./SecaoComunicacaoUsuario";
+import SecaoEmailUsuario from "./SecaoEmailUsuario";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CONFIGURAÇÃO DE RECURSOS DO SISTEMA
@@ -758,6 +759,10 @@ export default function GerenciadorUsuariosUnificado({
                 <SecaoComunicacaoUsuario
                   usuarioSelecionado={usuarioSelecionado}
                   integracoesWhatsApp={integracoesWhatsApp}
+                  atualizarUsuario={atualizarUsuario}
+                />
+                <SecaoEmailUsuario
+                  usuarioSelecionado={usuarioSelecionado}
                   atualizarUsuario={atualizarUsuario}
                 />
               </TabsContent>
