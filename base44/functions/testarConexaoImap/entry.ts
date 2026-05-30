@@ -46,13 +46,26 @@ function resolveSecurityMode(value) {
   throw new Error(`Modo de segurança IMAP inválido: ${value}. Use tls ou starttls.`);
 }
 
+function normalizeToPem(raw) {
+  const trimmed = raw.trim();
+  // Já está em formato PEM completo
+  if (trimmed.includes('-----BEGIN CERTIFICATE-----')) {
+    return trimmed;
+  }
+  // Base64 puro: limpa espaços/quebras, corrige padding e envelopa em PEM
+  let b64 = trimmed.replace(/\s+/g, '');
+  while (b64.length % 4 !== 0) b64 += '=';
+  const lines = b64.match(/.{1,64}/g) || [];
+  return `-----BEGIN CERTIFICATE-----\n${lines.join('\n')}\n-----END CERTIFICATE-----`;
+}
+
 function readCaCerts(secretName) {
   if (!secretName) return undefined;
   const caCert = Deno.env.get(secretName);
   if (!caCert) {
     throw new Error(`Secret de certificado ${secretName} não encontrado ou vazio.`);
   }
-  return [caCert];
+  return [normalizeToPem(caCert)];
 }
 
 function buildErrorHint(errorMessage) {
