@@ -241,6 +241,31 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
+
+    // Modo diagnóstico: inspeciona o que está salvo no secret da CA (sem expor conteúdo)
+    if (body.diagnose_ca) {
+      const name = String(body.ca_cert_secret_name || body.ca_secret_name || '').trim();
+      const raw = name ? Deno.env.get(name) : undefined;
+      if (!raw) {
+        return jsonResponse({ diagnose_ca: true, secret_name: name, found: false });
+      }
+      const beginCount = (raw.match(/-----BEGIN CERTIFICATE-----/g) || []).length;
+      const endCount = (raw.match(/-----END CERTIFICATE-----/g) || []).length;
+      return jsonResponse({
+        diagnose_ca: true,
+        secret_name: name,
+        found: true,
+        length: raw.length,
+        starts_with_full_header: raw.trimStart().startsWith('-----BEGIN CERTIFICATE-----'),
+        begin_blocks: beginCount,
+        end_blocks: endCount,
+        contains_leaf_marker_MIIDSz: raw.includes('MIIDSz'),
+        contains_ca_marker_MIIED: raw.includes('MIIED'),
+        first_40: raw.slice(0, 40),
+        last_40: raw.slice(-40)
+      });
+    }
+
     const host = String(body.host || body.imap_host || '').trim();
     const username = String(body.username || body.email || '').trim();
     const passwordSecretName = String(body.password_secret_name || body.secret_name || '').trim();
@@ -252,6 +277,23 @@ Deno.serve(async (req) => {
       String(body.security || (port === 143 ? 'starttls' : 'tls')).trim().toLowerCase()
     );
     const caCertSecretName = String(body.ca_cert_secret_name || body.ca_secret_name || '').trim();
+
+    if (body.debug_ca) {
+      const raw = caCertSecretName ? Deno.env.get(caCertSecretName) : null;
+      const blocks = raw ? (raw.match(/-----BEGIN CERTIFICATE-----/g) || []).length : 0;
+      return jsonResponse({
+        debug_ca: true,
+        ca_secret_name: caCertSecretName,
+        found: Boolean(raw),
+        length: raw ? raw.length : 0,
+        certificate_blocks: blocks,
+        first_line: raw ? raw.split('\n')[0] : null,
+        last_line: raw ? raw.trim().split('\n').slice(-1)[0] : null,
+        starts_ok: raw ? raw.trim().startsWith('-----BEGIN CERTIFICATE-----') : false,
+        ends_ok: raw ? raw.trim().endsWith('-----END CERTIFICATE-----') : false
+      });
+    }
+
     const caCerts = readCaCerts(caCertSecretName);
 
     if (!host || !username || !passwordSecretName) {
