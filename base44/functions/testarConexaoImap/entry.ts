@@ -331,6 +331,28 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Modo "por usuário": carrega a config do email_account do User e a senha do secret indicado
+    if (body.user_id) {
+      const users = await base44.asServiceRole.entities.User.filter({ id: String(body.user_id) });
+      const alvo = users && users[0];
+      if (!alvo) {
+        return jsonResponse({ error: `Usuário ${body.user_id} não encontrado.` }, 404);
+      }
+      const ec = alvo.email_account || {};
+      if (!ec.ativo) {
+        return jsonResponse({ error: 'A conta de e-mail deste usuário está inativa. Ative em Comunicação > Conta de E-mail.' }, 400);
+      }
+      body.imap_host = body.imap_host || ec.imap_host;
+      body.username = body.username || ec.login;
+      body.imap_port = body.imap_port || ec.imap_port;
+      body.security = body.security || ec.imap_security;
+      body.password_secret_name = body.password_secret_name || ec.password_secret_name;
+      // CA embutida automática para o Zimbra da Liesch
+      if (body.use_embedded_ca === undefined && String(ec.imap_host || '').includes('liesch.com.br')) {
+        body.use_embedded_ca = true;
+      }
+    }
+
     const host = String(body.host || body.imap_host || '').trim();
     const username = String(body.username || body.email || '').trim();
     const passwordSecretName = String(body.password_secret_name || body.secret_name || '').trim();
