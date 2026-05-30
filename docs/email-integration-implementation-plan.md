@@ -33,10 +33,11 @@ Entrada esperada:
 
 ```json
 {
-  "host": "mail.seudominio.com.br",
-  "port": 143,
-  "security": "starttls",
-  "username": "caixa@seudominio.com.br",
+  "host": "201.76.14.230",
+  "port": 993,
+  "security": "tls",
+  "tls_hostname": "mail.liesch.com.br",
+  "username": "caixa@liesch.com.br",
   "password_secret_name": "ZIMBRA_PWD_CAIXA_TESTE",
   "ca_cert_secret_name": "ZIMBRA_CA_CERT",
   "mailbox": "INBOX",
@@ -63,23 +64,30 @@ O teste relatado com o secret `Email_ZIMBRA_TESTE` mostrou três achados prátic
 | --- | --- | --- |
 | Secret `Email_ZIMBRA_TESTE` antes do redeploy | HTTP 400 | O secret existia, mas ainda não estava disponível para a função em runtime. |
 | `imap.gmail.com:993` | Conectou e falhou apenas no login com credencial de teste | O runtime consegue abrir saída TCP/TLS para IMAP 993. |
-| `mail.liesch.com.br:993` | Timeout na conexão TLS | A porta 993 ainda não está acessível pela origem do Base44 ou não está liberada no firewall. |
-| `mail.liesch.com.br:143` com `security: "starttls"` | TCP conectou, greeting foi recebido e `STARTTLS` respondeu OK; falhou em `UnknownIssuer` | A conectividade com o Zimbra está confirmada pela porta 143. O bloqueio restante é validação de certificado autoassinado/CA privada. |
+| `mail.liesch.com.br:993` | Inicialmente timeout; depois passou a responder TLS com `UnknownIssuer` | A porta 993 foi liberada e o Base44 chega no servidor, mas o certificado do Zimbra não está na cadeia pública de confiança do Deno. |
+| `mail.liesch.com.br:143` com `security: "starttls"` | TCP conectou, greeting foi recebido e `STARTTLS` respondeu OK; falhou em `UnknownIssuer` | A porta 143 também é viável como fallback com STARTTLS. |
 
-Conclusão atual: a arquitetura com cron IMAP interno é tecnicamente possível no Base44 **sem depender da porta 993**, usando IMAP 143 com STARTTLS. O próximo bloqueio é cadastrar o certificado público/CA do Zimbra como secret e reenviar o payload com `ca_cert_secret_name`. O IP de saída observado no teste anterior foi `34.16.156.208`, porém ele deve ser tratado como potencialmente variável se a plataforma não garantir IP fixo de egress.
+Conclusão atual: a arquitetura com cron IMAP interno é tecnicamente possível no Base44. O próximo bloqueio é cadastrar o certificado público/CA do Zimbra como secret e reenviar o payload com `ca_cert_secret_name`. Se o teste usar IP como `host`, enviar também `tls_hostname` com o DNS presente no certificado para SNI/validação de nome. O IP de saída observado no teste anterior foi `34.16.156.208`, porém ele deve ser tratado como potencialmente variável se a plataforma não garantir IP fixo de egress.
 
-Comando para extrair o certificado público do servidor:
+Comandos para extrair o certificado público do servidor:
 
 ```bash
-openssl s_client -connect mail.liesch.com.br:143 -starttls imap -showcerts </dev/null 2>/dev/null | openssl x509 -outform PEM
+openssl s_client -connect 201.76.14.230:993 -showcerts </dev/null 2>/dev/null | openssl x509 -outform PEM
+```
+
+ou, se estiver usando a porta 143:
+
+```bash
+openssl s_client -connect 201.76.14.230:143 -starttls imap -showcerts </dev/null 2>/dev/null | openssl x509 -outform PEM
 ```
 
 Decisão operacional antes de implementar `importarEmails`:
 
 1. cadastrar o PEM público/CA do Zimbra em um secret, por exemplo `ZIMBRA_CA_CERT`;
-2. repetir `testarConexaoImap` contra `mail.liesch.com.br` na porta 143 com `security: "starttls"` e `ca_cert_secret_name: "ZIMBRA_CA_CERT"`;
-3. se conectar e listar cabeçalhos, seguir pelo Caminho A: cron interno no Base44 usando STARTTLS;
-4. se o certificado não puder ser fornecido ou se STARTTLS ficar instável, seguir pelo Caminho B: relé externo lendo IMAP na rede da Liesch e enviando POST para webhook Base44.
+2. repetir `testarConexaoImap` contra `201.76.14.230` na porta 993 com `security: "tls"`, `tls_hostname: "mail.liesch.com.br"` e `ca_cert_secret_name: "ZIMBRA_CA_CERT"`;
+3. se conectar e listar cabeçalhos, seguir pelo Caminho A: cron interno no Base44 usando TLS 993;
+4. se 993 ficar instável mas 143 funcionar, usar o mesmo certificado com `security: "starttls"` na porta 143;
+5. se o certificado não puder ser fornecido ou se a conectividade ficar instável, seguir pelo Caminho B: relé externo lendo IMAP na rede da Liesch e enviando POST para webhook Base44.
 
 ### 0.2. Validar a Central com canal e-mail
 
@@ -99,13 +107,13 @@ Critério:
 
 ### Caminho A — Cron IMAP interno no Base44
 
-Usar este caminho se o Zimbra aceitar IMAP 143 com STARTTLS e certificado confiável via `ca_cert_secret_name`, ou se a porta 993 for liberada e o novo teste retornar `ok: true`.
+Usar este caminho se o Zimbra aceitar IMAP 993 com TLS e certificado confiável via `ca_cert_secret_name`, ou IMAP 143 com STARTTLS como fallback.
 
 Responsabilidades:
 
 - `EmailAccount` fica no Base44;
 - secrets ficam no cofre do Base44;
-- `importarEmails` conecta direto no IMAP, preferencialmente em `security: "starttls"` na porta 143 para o Zimbra atual;
+- `importarEmails` conecta direto no IMAP, preferencialmente em `security: "tls"` na porta 993 para o Zimbra atual, com `tls_hostname` quando o host for IP;
 - automação agendada chama `importarEmails`;
 - erros de conexão atualizam status da conta.
 
@@ -117,8 +125,8 @@ Vantagens:
 
 Riscos:
 
-- depende do certificado público/CA do Zimbra cadastrado como secret quando usar STARTTLS;
-- se usar 993, depende de firewall/liberação do Zimbra e IP de saída estável ou aceito pelo provedor;
+- depende do certificado público/CA do Zimbra cadastrado como secret;
+- quando o host for IP, depende de `tls_hostname` apontando para o DNS do certificado;
 - SMTP futuro terá exigência semelhante de rede/certificado.
 
 ### Caminho B — Relé externo + webhook Base44
@@ -352,7 +360,7 @@ Melhorias futuras, fora do MVP:
 ## Ordem final recomendada
 
 ```text
-1. Repetir o teste IMAP no Zimbra pela porta 143/STARTTLS com `ca_cert_secret_name` ou decidir formalmente pelo relé.
+1. Repetir o teste IMAP no Zimbra pela porta 993/TLS com `ca_cert_secret_name` e `tls_hostname`, ou decidir formalmente pelo relé.
 2. Validar renderização do canal email na Central.
 3. Criar EmailAccount + campos mínimos em Message/MessageThread.
 4. Criar importarEmails interno ou emailInboundWebhook, conforme Caminho A/B.

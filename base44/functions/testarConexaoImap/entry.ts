@@ -10,6 +10,7 @@ interface ImapConnectOptions {
   port: number;
   timeoutMs: number;
   security: ImapSecurityMode;
+  tlsHostname?: string;
   caCerts?: string[];
 }
 
@@ -55,13 +56,25 @@ function resolveSecurityMode(value: string): ImapSecurityMode {
   throw new Error(`Modo de segurança IMAP inválido: ${value}. Use tls ou starttls.`);
 }
 
-function readCaCerts(secretName: string) {
+function parsePemCertificates(value: string, sourceLabel: string) {
+  const blocks = value.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g) || [];
+  if (blocks.length === 0) {
+    throw new Error(`${sourceLabel} não contém um bloco PEM válido de certificado.`);
+  }
+  return blocks;
+}
+
+function readCaCerts(secretName: string, inlinePem: string) {
+  if (inlinePem) {
+    return parsePemCertificates(inlinePem, 'ca_cert_pem');
+  }
+
   if (!secretName) return undefined;
   const caCert = Deno.env.get(secretName);
   if (!caCert) {
     throw new Error(`Secret de certificado ${secretName} não encontrado ou vazio.`);
   }
-  return [caCert];
+  return parsePemCertificates(caCert, `Secret de certificado ${secretName}`);
 }
 
 function buildErrorHint(errorMessage: string) {
@@ -73,7 +86,11 @@ function buildErrorHint(errorMessage: string) {
     return 'A porta respondeu, mas o upgrade STARTTLS falhou. Confirme se a porta suporta STARTTLS IMAP ou teste security=tls na porta 993.';
   }
 
-  return 'Se o erro for timeout/conexão, o servidor IMAP pode estar bloqueando a origem externa. Se o erro for certificado, cadastre o PEM público/CA no secret e use ca_cert_secret_name.';
+  if (/IP address|not valid for name|certificate is not valid|CertNotValidForName/i.test(errorMessage)) {
+    return 'O certificado não corresponde ao IP usado como host. Envie tls_hostname/server_name com o DNS presente no certificado, por exemplo mail.liesch.com.br, mantendo host como IP se necessário.';
+  }
+
+  return 'Se o erro for timeout/conexão, o servidor IMAP pode estar bloqueando a origem externa. Se o erro for certificado, cadastre o PEM público/CA no secret e use ca_cert_secret_name ou envie ca_cert_pem apenas para diagnóstico.';
 }
 
 function parseHeaderBlocks(lines: string[]) {
@@ -130,7 +147,8 @@ class ImapConnection {
   }
 
   static async connect(options: ImapConnectOptions) {
-    const { hostname, port, timeoutMs, security, caCerts } = options;
+    const { hostname, port, timeoutMs, security, tlsHostname, caCerts } = options;
+    const certificateHostname = tlsHostname || hostname;
 
     if (security === 'starttls') {
       const plainConn = await withTimeout(
@@ -143,7 +161,7 @@ class ImapConnection {
       await imap.command('STARTTLS', timeoutMs);
 
       const tlsConn = await withTimeout(
-        Deno.startTls(plainConn, { hostname, caCerts }),
+        Deno.startTls(plainConn, { hostname: certificateHostname, caCerts }),
         timeoutMs,
         `Upgrade STARTTLS com ${hostname}:${port}`
       );
@@ -152,12 +170,17 @@ class ImapConnection {
       return imap;
     }
 
-    const conn = await withTimeout(
-      Deno.connectTls({ hostname, port, caCerts }),
+    const plainConn = await withTimeout(
+      Deno.connect({ hostname, port }),
       timeoutMs,
-      `Conexão TLS IMAP com ${hostname}:${port}`
+      `Conexão TCP IMAP com ${hostname}:${port}`
     );
-    const imap = new ImapConnection(conn);
+    const tlsConn = await withTimeout(
+      Deno.startTls(plainConn, { hostname: certificateHostname, caCerts }),
+      timeoutMs,
+      `Handshake TLS IMAP com ${hostname}:${port}`
+    );
+    const imap = new ImapConnection(tlsConn);
     imap.greeting = await imap.readGreeting(timeoutMs);
     return imap;
   }
@@ -260,16 +283,19 @@ Deno.serve(async (req) => {
       String(body.security || (port === 143 ? 'starttls' : 'tls')).trim().toLowerCase()
     );
     const caCertSecretName = String(body.ca_cert_secret_name || body.ca_secret_name || '').trim();
-    const caCerts = readCaCerts(caCertSecretName);
+    const inlineCaCertPem = String(body.ca_cert_pem || body.ca_pem || '').trim();
+    const tlsHostname = String(body.tls_hostname || body.server_name || body.sni_hostname || host).trim();
+    const caCerts = readCaCerts(caCertSecretName, inlineCaCertPem);
 
     if (!host || !username || !passwordSecretName) {
       return jsonResponse({
         error: 'Parâmetros obrigatórios ausentes.',
         required: ['host', 'username', 'password_secret_name'],
         example: {
-          host: 'mail.seudominio.com.br',
-          port: 143,
-          security: 'starttls',
+          host: '201.76.14.230',
+          port: 993,
+          security: 'tls',
+          tls_hostname: 'mail.seudominio.com.br',
           username: 'caixa@seudominio.com.br',
           password_secret_name: 'ZIMBRA_PWD_CAIXA_TESTE',
           ca_cert_secret_name: 'ZIMBRA_CA_CERT',
@@ -291,6 +317,7 @@ Deno.serve(async (req) => {
       port,
       timeoutMs,
       security,
+      tlsHostname,
       caCerts
     });
     const greeting = imap.greeting;
@@ -332,7 +359,9 @@ Deno.serve(async (req) => {
       host,
       port,
       security,
-      ca_cert_configured: Boolean(caCertSecretName),
+      tls_hostname: tlsHostname,
+      ca_cert_configured: Boolean(caCertSecretName || inlineCaCertPem),
+      ca_cert_source: inlineCaCertPem ? 'payload' : caCertSecretName ? 'secret' : 'default_trust_store',
       mailbox,
       username,
       greeting: sanitizeLine(greeting),
