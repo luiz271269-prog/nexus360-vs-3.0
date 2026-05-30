@@ -161,6 +161,78 @@
         }
       }
     },
+    "email_account": {
+      "type": "object",
+      "description": "Conta de e-mail do usu\u00e1rio (IMAP/SMTP). A senha N\u00c3O \u00e9 guardada aqui \u2014 fica em um secret cujo nome \u00e9 password_secret_name.",
+      "properties": {
+        "ativo": {
+          "type": "boolean",
+          "default": false,
+          "description": "Se a sincroniza\u00e7\u00e3o de e-mail est\u00e1 ativa para este usu\u00e1rio"
+        },
+        "login": {
+          "type": "string",
+          "description": "Login/e-mail completo da conta (ex: luiz@liesch.com.br)"
+        },
+        "imap_host": {
+          "type": "string",
+          "description": "Servidor IMAP (ex: mail.liesch.com.br)"
+        },
+        "imap_port": {
+          "type": "number",
+          "default": 143,
+          "description": "Porta IMAP (143 STARTTLS, 993 TLS)"
+        },
+        "imap_security": {
+          "type": "string",
+          "enum": [
+            "starttls",
+            "tls",
+            "none"
+          ],
+          "default": "starttls",
+          "description": "Modo de seguran\u00e7a IMAP"
+        },
+        "smtp_host": {
+          "type": "string",
+          "description": "Servidor SMTP para envio (ex: mail.liesch.com.br)"
+        },
+        "smtp_port": {
+          "type": "number",
+          "default": 587,
+          "description": "Porta SMTP (587 STARTTLS, 465 TLS)"
+        },
+        "smtp_security": {
+          "type": "string",
+          "enum": [
+            "starttls",
+            "tls",
+            "none"
+          ],
+          "default": "starttls",
+          "description": "Modo de seguran\u00e7a SMTP"
+        },
+        "password_secret_name": {
+          "type": "string",
+          "description": "Nome do secret onde a senha est\u00e1 guardada (ex: EMAIL_PWD_<userid>)"
+        },
+        "ultima_sincronizacao": {
+          "type": "string",
+          "format": "datetime",
+          "description": "\u00daltima sincroniza\u00e7\u00e3o bem-sucedida"
+        },
+        "status_conexao": {
+          "type": "string",
+          "enum": [
+            "nao_testado",
+            "ok",
+            "erro"
+          ],
+          "default": "nao_testado",
+          "description": "Resultado do \u00faltimo teste de conex\u00e3o"
+        }
+      }
+    },
     "whatsapp_permissions": {
       "type": "array",
       "items": {

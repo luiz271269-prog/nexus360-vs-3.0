@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CheckCircle2, Zap, AlertCircle, Users } from 'lucide-react';
+import SecaoEmailUsuario from './SecaoEmailUsuario';
 
 const AVAILABILITY_STATUSES = [
   { value: 'online', label: '🟢 Online' },
@@ -29,6 +30,12 @@ export default function SecaoComunicacaoUsuario({
 
   return (
     <div className="space-y-4">
+      {/* Conta de E-mail do usuário */}
+      <SecaoEmailUsuario
+        usuarioSelecionado={usuarioSelecionado}
+        atualizarUsuario={atualizarUsuario}
+      />
+
       {/* Atendente WhatsApp */}
        <Card className="border-green-200 bg-green-50">
         <CardHeader>
