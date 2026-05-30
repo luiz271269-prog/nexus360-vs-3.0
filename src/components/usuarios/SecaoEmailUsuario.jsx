@@ -3,43 +3,80 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Mail, Loader2, CheckCircle2, AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
-// Defaults do servidor de e-mail da empresa (Zimbra Liesch).
-// Ficam embutidos — o operador só precisa informar o e-mail do usuário.
-const SERVER_DEFAULTS = {
-  imap_host: 'mail.liesch.com.br',
-  imap_port: 143,
-  imap_security: 'starttls',
-  smtp_host: 'mail.liesch.com.br',
-  smtp_port: 587,
-  smtp_security: 'starttls',
+// Conectores de e-mail suportados.
+// Cada TIPO tem um secret próprio (senha de permissão da conexão), NÃO por usuário.
+// Reaproveita os secrets que já foram testados com sucesso.
+const CONNECTORS = {
+  zimbra: {
+    label: 'Zimbra (Liesch)',
+    imap_host: 'mail.liesch.com.br',
+    imap_port: 143,
+    imap_security: 'starttls',
+    smtp_host: 'mail.liesch.com.br',
+    smtp_port: 587,
+    smtp_security: 'starttls',
+    secret: 'EMAIL_PWD_LUIZ2LIESCH_COM_BR',
+    use_embedded_ca: true,
+  },
+  gmail: {
+    label: 'Gmail',
+    imap_host: 'imap.gmail.com',
+    imap_port: 993,
+    imap_security: 'tls',
+    smtp_host: 'smtp.gmail.com',
+    smtp_port: 465,
+    smtp_security: 'tls',
+    secret: 'EMAIL_PWD_LUIZ271269_GMAIL_COM',
+    use_embedded_ca: false,
+  },
 };
 
-// Nome do secret derivado do e-mail (estável, único por caixa).
-function secretNameFor(login) {
-  const clean = String(login || '').toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-  return clean ? `EMAIL_PWD_${clean}` : 'EMAIL_PWD_NOVO';
+const DEFAULT_TIPO = 'zimbra';
+
+function connectorFor(tipo) {
+  return CONNECTORS[tipo] || CONNECTORS[DEFAULT_TIPO];
 }
 
 function ContaEmailCard({ conta, onChange, onRemove }) {
   const [testando, setTestando] = useState(false);
   const [resultado, setResultado] = useState(null);
-  const secretName = conta.password_secret_name || secretNameFor(conta.login);
+
+  const tipo = conta.tipo_conector || DEFAULT_TIPO;
+  const conn = connectorFor(tipo);
+  const secretName = conn.secret;
+
+  const mudarTipo = (novoTipo) => {
+    const c = connectorFor(novoTipo);
+    onChange({
+      ...conta,
+      tipo_conector: novoTipo,
+      imap_host: c.imap_host,
+      imap_port: c.imap_port,
+      imap_security: c.imap_security,
+      smtp_host: c.smtp_host,
+      smtp_port: c.smtp_port,
+      smtp_security: c.smtp_security,
+      password_secret_name: c.secret,
+    });
+    setResultado(null);
+  };
 
   const testar = async () => {
     setTestando(true);
     setResultado(null);
     try {
       const resp = await base44.functions.invoke('testarConexaoImap', {
-        imap_host: SERVER_DEFAULTS.imap_host,
-        imap_port: SERVER_DEFAULTS.imap_port,
-        security: SERVER_DEFAULTS.imap_security,
+        imap_host: conn.imap_host,
+        imap_port: conn.imap_port,
+        security: conn.imap_security,
         username: conta.login,
         password_secret_name: secretName,
-        use_embedded_ca: true,
+        use_embedded_ca: conn.use_embedded_ca,
       });
       const data = resp?.data || resp;
       if (data?.ok) {
@@ -50,7 +87,6 @@ function ContaEmailCard({ conta, onChange, onRemove }) {
         toast.error('❌ Falha ao conectar');
       }
     } catch (e) {
-      // base44.functions.invoke (axios) lança em status != 2xx — a mensagem real vem no corpo
       const data = e?.response?.data;
       setResultado({ ok: false, msg: data?.error || e.message || 'Erro ao testar', hint: data?.hint });
       toast.error('❌ ' + (data?.error || 'Erro ao testar conexão'));
@@ -71,16 +107,30 @@ function ContaEmailCard({ conta, onChange, onRemove }) {
         </button>
       </div>
 
+      <div className="space-y-1">
+        <label className="text-[11px] font-medium text-slate-500">Tipo de conexão</label>
+        <Select value={tipo} onValueChange={mudarTipo}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(CONNECTORS).map(([key, c]) => (
+              <SelectItem key={key} value={key}>{c.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <Input
         value={conta.login || ''}
-        onChange={(e) => onChange({ ...conta, login: e.target.value, password_secret_name: secretNameFor(e.target.value) })}
-        placeholder="usuario@liesch.com.br"
+        onChange={(e) => onChange({ ...conta, login: e.target.value })}
+        placeholder={tipo === 'gmail' ? 'usuario@gmail.com' : 'usuario@liesch.com.br'}
       />
 
       <p className="text-[11px] text-slate-500 leading-relaxed">
-        🔒 Cadastre um secret chamado{' '}
+        🔒 Usa o secret do conector{' '}
         <code className="bg-slate-100 px-1 rounded break-all">{secretName}</code>{' '}
-        com a senha desta caixa.
+        ({conn.imap_host}:{conn.imap_port}). Um segredo por tipo de conexão.
       </p>
 
       <Button onClick={testar} disabled={testando || !conta.login} variant="outline" className="w-full gap-2 border-indigo-300">
@@ -107,9 +157,22 @@ export default function SecaoEmailUsuario({ usuarioSelecionado, atualizarUsuario
   const contas = usuarioSelecionado.email_accounts || [];
 
   const adicionar = () => {
+    const c = connectorFor(DEFAULT_TIPO);
     atualizarUsuario('email_accounts', [
       ...contas,
-      { id: `mail-${Date.now()}`, login: '', ativo: true, ...SERVER_DEFAULTS, password_secret_name: '' },
+      {
+        id: `mail-${Date.now()}`,
+        login: '',
+        ativo: true,
+        tipo_conector: DEFAULT_TIPO,
+        imap_host: c.imap_host,
+        imap_port: c.imap_port,
+        imap_security: c.imap_security,
+        smtp_host: c.smtp_host,
+        smtp_port: c.smtp_port,
+        smtp_security: c.smtp_security,
+        password_secret_name: c.secret,
+      },
     ]);
   };
 
@@ -128,7 +191,7 @@ export default function SecaoEmailUsuario({ usuarioSelecionado, atualizarUsuario
           <Mail className="w-5 h-5 text-indigo-600" />
           ✉️ Contas de E-mail
         </CardTitle>
-        <CardDescription>E-mails que este usuário usa para enviar e receber na Central. Pode cadastrar vários.</CardDescription>
+        <CardDescription>E-mails que este usuário usa para enviar e receber na Central. Cada tipo de conexão (Zimbra, Gmail) usa um único segredo compartilhado.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {contas.length === 0 && (
