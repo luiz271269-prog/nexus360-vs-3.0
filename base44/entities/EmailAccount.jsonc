@@ -1,0 +1,149 @@
+{
+  "name": "EmailAccount",
+  "type": "object",
+  "description": "Conta de e-mail oficial (caixa). Base estrutural para importa\u00e7\u00e3o, dedup, estado de sincroniza\u00e7\u00e3o e envio pela conta correta. Suporta Zimbra/IMAP (senha por caixa) e Gmail (OAuth).",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "R\u00f3tulo amig\u00e1vel da caixa (ex: 'Luiz - Liesch')"
+    },
+    "email_address": {
+      "type": "string",
+      "description": "Endere\u00e7o completo da caixa (ex: luiz@liesch.com.br)"
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "zimbra",
+        "gmail",
+        "outlook",
+        "imap_custom"
+      ],
+      "default": "zimbra",
+      "description": "Provedor da caixa"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "error",
+        "testing"
+      ],
+      "default": "testing",
+      "description": "Estado operacional da conta"
+    },
+    "auth_type": {
+      "type": "string",
+      "enum": [
+        "password_secret",
+        "oauth"
+      ],
+      "default": "password_secret",
+      "description": "Tipo de autentica\u00e7\u00e3o: senha no cofre (IMAP) ou OAuth (Gmail)"
+    },
+    "password_secret_name": {
+      "type": "string",
+      "description": "Nome do Secret no cofre com a senha desta caixa (ex: EMAIL_PWD_LUIZ2LIESCH_COM_BR)"
+    },
+    "oauth_connection_id": {
+      "type": "string",
+      "description": "ID do conector OAuth (Gmail) \u2014 usado quando auth_type = oauth"
+    },
+    "imap_host": {
+      "type": "string",
+      "description": "Host IMAP (ex: mail.liesch.com.br)"
+    },
+    "imap_port": {
+      "type": "number",
+      "default": 993,
+      "description": "Porta IMAP (993 = TLS, 143 = STARTTLS)"
+    },
+    "imap_security": {
+      "type": "string",
+      "enum": [
+        "tls",
+        "starttls",
+        "none"
+      ],
+      "default": "tls",
+      "description": "Seguran\u00e7a da conex\u00e3o IMAP"
+    },
+    "imap_mailbox": {
+      "type": "string",
+      "default": "INBOX",
+      "description": "Pasta a ler (normalmente INBOX)"
+    },
+    "smtp_host": {
+      "type": "string",
+      "description": "Host SMTP para envio (ex: mail.liesch.com.br)"
+    },
+    "smtp_port": {
+      "type": "number",
+      "default": 587,
+      "description": "Porta SMTP (587 = STARTTLS, 465 = SSL)"
+    },
+    "smtp_security": {
+      "type": "string",
+      "enum": [
+        "tls",
+        "starttls",
+        "none"
+      ],
+      "default": "starttls",
+      "description": "Seguran\u00e7a da conex\u00e3o SMTP"
+    },
+    "smtp_from_name": {
+      "type": "string",
+      "description": "Nome de exibi\u00e7\u00e3o do remetente nos e-mails enviados"
+    },
+    "last_uid_seen": {
+      "type": "number",
+      "default": 0,
+      "description": "\u00daltimo UID IMAP processado (controle incremental \u2014 s\u00f3 busca UID > este)"
+    },
+    "uidvalidity": {
+      "type": "string",
+      "description": "UIDVALIDITY da pasta IMAP (se mudar, last_uid_seen deve ser reiniciado)"
+    },
+    "last_sync_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima tentativa de sincroniza\u00e7\u00e3o"
+    },
+    "last_success_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltima sincroniza\u00e7\u00e3o bem-sucedida"
+    },
+    "last_error_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando ocorreu o \u00faltimo erro"
+    },
+    "last_error": {
+      "type": "string",
+      "description": "Mensagem do \u00faltimo erro (diagn\u00f3stico de sa\u00fade)"
+    },
+    "company_id": {
+      "type": "string",
+      "description": "ID da empresa dona da caixa (multi-empresa futuro)"
+    },
+    "sector_id": {
+      "type": "string",
+      "description": "Setor associado \u00e0 caixa (vendas, assistencia, financeiro, etc)"
+    },
+    "assigned_user_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "IDs dos Users que enxergam/atendem esta caixa na Central"
+    }
+  },
+  "required": [
+    "email_address",
+    "provider"
+  ]
+}
