@@ -1,7 +1,7 @@
 {
   "name": "EmailAccount",
   "type": "object",
-  "description": "Conta de e-mail oficial (caixa). Base estrutural para importa\u00e7\u00e3o, dedup, estado de sincroniza\u00e7\u00e3o e envio pela conta correta. Suporta Zimbra/IMAP (senha por caixa) e Gmail (OAuth).",
+  "description": "Conta de e-mail oficial (caixa). Base estrutural para importa\u00e7\u00e3o, dedup, estado de sincroniza\u00e7\u00e3o e envio pela conta correta. Suporta Zimbra/IMAP (senha por caixa) e Gmail (OAuth). Regra: 1 caixa = 1 EmailAccount = 1 password_secret_name.",
   "properties": {
     "name": {
       "type": "string",
@@ -50,6 +50,10 @@
       "type": "string",
       "description": "ID do conector OAuth (Gmail) \u2014 usado quando auth_type = oauth"
     },
+    "provider_connection_name": {
+      "type": "string",
+      "description": "Nome l\u00f3gico da conex\u00e3o OAuth/integra\u00e7\u00e3o externa quando aplic\u00e1vel (ex: 'Nexus360-Gmail')"
+    },
     "imap_host": {
       "type": "string",
       "description": "Host IMAP (ex: mail.liesch.com.br)"
@@ -97,10 +101,29 @@
       "type": "string",
       "description": "Nome de exibi\u00e7\u00e3o do remetente nos e-mails enviados"
     },
+    "inbound_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Permite ou bloqueia leitura/importa\u00e7\u00e3o desta caixa"
+    },
+    "outbound_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Permite ou bloqueia envio por esta caixa"
+    },
+    "is_default_outbound": {
+      "type": "boolean",
+      "default": false,
+      "description": "Conta remetente padr\u00e3o para envio quando n\u00e3o houver conta expl\u00edcita"
+    },
     "last_uid_seen": {
       "type": "number",
       "default": 0,
       "description": "\u00daltimo UID IMAP processado (controle incremental \u2014 s\u00f3 busca UID > este)"
+    },
+    "last_uidnext": {
+      "type": "number",
+      "description": "UIDNEXT observado no \u00faltimo SELECT/STATUS da pasta"
     },
     "uidvalidity": {
       "type": "string",
