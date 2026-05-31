@@ -137,11 +137,28 @@ Deno.serve(async (req) => {
         const snippet = message.snippet || '';
         const content = bodyText || snippet || subject;
 
-        // Find or create Contact by email
+        // Procurar contato existente: 1) e-mail exato  2) e-mail sem diferenciar maiúsculas  3) nome
         let contact = null;
-        const contatosExistentes = await base44.asServiceRole.entities.Contact.filter({ email: fromEmail }, '-created_date', 1);
-        if (contatosExistentes && contatosExistentes.length > 0) {
-          contact = contatosExistentes[0];
+        let candidatos = await base44.asServiceRole.entities.Contact.filter({ email: fromEmail }, '-created_date', 1);
+
+        if (!candidatos || candidatos.length === 0) {
+          const todos = await base44.asServiceRole.entities.Contact.list('-created_date', 1000);
+          // 2) e-mail igual ignorando maiúsculas/espaços
+          let achado = todos.find(c => (c.email || '').trim().toLowerCase() === fromEmail);
+          // 3) nome igual (quando não achou por e-mail)
+          if (!achado && fromName) {
+            const nomeNorm = fromName.trim().toLowerCase();
+            achado = todos.find(c => (c.nome || '').trim().toLowerCase() === nomeNorm);
+          }
+          if (achado) candidatos = [achado];
+        }
+
+        if (candidatos && candidatos.length > 0) {
+          contact = candidatos[0];
+          // Se o contato existente não tinha e-mail salvo, grava agora
+          if (!contact.email && fromEmail) {
+            await base44.asServiceRole.entities.Contact.update(contact.id, { email: fromEmail });
+          }
         } else {
           contact = await base44.asServiceRole.entities.Contact.create({
             nome: fromName || fromEmail.split('@')[0],
