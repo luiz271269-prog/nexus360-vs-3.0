@@ -270,9 +270,11 @@ Deno.serve(async (req) => {
   }
 
   let imap = null;
+  let emailAccountId = null;
+  let base44 = null;
 
   try {
-    const base44 = createClientFromRequest(req);
+    base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) {
       return jsonResponse({ error: 'Unauthorized' }, 401);
@@ -350,6 +352,25 @@ Deno.serve(async (req) => {
       body.password_secret_name = body.password_secret_name || ec.password_secret_name;
       // CA embutida automática para o Zimbra da Liesch
       if (body.use_embedded_ca === undefined && String(ec.imap_host || '').includes('liesch.com.br')) {
+        body.use_embedded_ca = true;
+      }
+    }
+
+    // Modo oficial: carrega config a partir do EmailAccount cadastrado
+    if (body.email_account_id) {
+      const contas = await base44.asServiceRole.entities.EmailAccount.filter({ id: String(body.email_account_id) });
+      const conta = contas && contas[0];
+      if (!conta) {
+        return jsonResponse({ error: `EmailAccount ${body.email_account_id} não encontrado.` }, 404);
+      }
+      emailAccountId = conta.id;
+      body.host = body.host || conta.imap_host;
+      body.username = body.username || conta.email_address;
+      body.port = body.port || conta.imap_port;
+      body.security = body.security || conta.imap_security;
+      body.mailbox = body.mailbox || conta.imap_mailbox;
+      body.password_secret_name = body.password_secret_name || conta.password_secret_name;
+      if (body.use_embedded_ca === undefined && String(conta.imap_host || '').includes('liesch.com.br')) {
         body.use_embedded_ca = true;
       }
     }
@@ -476,6 +497,19 @@ Deno.serve(async (req) => {
 
     await imap.command('LOGOUT', timeoutMs).catch(() => []);
 
+    if (emailAccountId) {
+      const nowIso = new Date().toISOString();
+      await base44.asServiceRole.entities.EmailAccount.update(emailAccountId, {
+        status: 'active',
+        last_sync_at: nowIso,
+        last_success_at: nowIso,
+        last_error: null,
+        last_error_at: null,
+        ...(uidValidity ? { uidvalidity: String(uidValidity) } : {}),
+        ...(allUids.length ? { last_uid_seen: Math.max(...allUids) } : {})
+      });
+    }
+
     return jsonResponse({
       ok: true,
       checked_at: new Date().toISOString(),
@@ -496,10 +530,22 @@ Deno.serve(async (req) => {
       transcript_preview: imap.transcript.slice(-40)
     });
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    if (emailAccountId && base44) {
+      const nowIso = new Date().toISOString();
+      try {
+        await base44.asServiceRole.entities.EmailAccount.update(emailAccountId, {
+          status: 'error',
+          last_sync_at: nowIso,
+          last_error_at: nowIso,
+          last_error: errMsg.slice(0, 500)
+        });
+      } catch { /* ignore */ }
+    }
     return jsonResponse({
       ok: false,
-      error: error instanceof Error ? error.message : String(error),
-      hint: buildErrorHint(error instanceof Error ? error.message : String(error)),
+      error: errMsg,
+      hint: buildErrorHint(errMsg),
       transcript_preview: imap?.transcript.slice(-40) || []
     }, 500);
   } finally {
