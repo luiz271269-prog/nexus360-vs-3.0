@@ -128,6 +128,17 @@ Deno.serve(async (req) => {
         const subject = getHeader(headers, 'Subject') || '(sem assunto)';
         const { name: fromName, email: fromEmail } = parseFrom(fromHeader);
 
+        // Destinatário = usuário interno dono do e-mail de destino (header To / Delivered-To)
+        const toHeader = getHeader(headers, 'To') || getHeader(headers, 'Delivered-To');
+        const { email: toEmail } = parseFrom(toHeader);
+        let ownerUserId = appUserId || undefined;
+        if (toEmail) {
+          const usuariosDestino = await base44.asServiceRole.entities.User.filter({ email: toEmail }, '-created_date', 1);
+          if (usuariosDestino && usuariosDestino.length > 0) {
+            ownerUserId = usuariosDestino[0].id;
+          }
+        }
+
         if (!fromEmail) {
           skipped.push({ id: messageId, reason: 'no_from_email' });
           continue;
@@ -163,7 +174,7 @@ Deno.serve(async (req) => {
           contact = await base44.asServiceRole.entities.Contact.create({
             nome: fromName || fromEmail.split('@')[0],
             email: fromEmail,
-            tipo_contato: 'novo'
+            tipo_contato: 'email'
           });
         }
 
@@ -183,8 +194,8 @@ Deno.serve(async (req) => {
             channel: 'email',
             is_canonical: true,
             status: 'aberta',
-            assigned_user_id: appUserId || undefined,
-            participants: appUserId ? [appUserId] : [],
+            assigned_user_id: ownerUserId || undefined,
+            participants: ownerUserId ? [ownerUserId] : [],
             last_message_content: subject,
             last_message_at: new Date().toISOString(),
             last_inbound_at: new Date().toISOString(),
@@ -200,7 +211,7 @@ Deno.serve(async (req) => {
           thread_id: thread.id,
           sender_id: contact.id,
           sender_type: 'contact',
-          recipient_id: appUserId,
+          recipient_id: ownerUserId,
           recipient_type: 'user',
           content: `**${subject}**\n\n${content}`,
           channel: 'email',
