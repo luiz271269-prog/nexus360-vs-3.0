@@ -6,6 +6,18 @@
       "type": "string",
       "description": "ID do Contact principal (para threads externas com clientes). NULL para threads internas."
     },
+    "cliente_id": {
+      "type": "string",
+      "description": "ID do Cliente CRM vinculado a esta conversa (preenchido na concilia\u00e7\u00e3o de e-mail/contato)"
+    },
+    "email_account_id": {
+      "type": "string",
+      "description": "ID da EmailAccount (caixa) associada \u00e0 thread quando channel=email"
+    },
+    "email_subject_key": {
+      "type": "string",
+      "description": "Assunto normalizado (sem Re:/Fwd:, lowercase) usado para agrupar e-mails do mesmo assunto por contato (threading D-C)"
+    },
     "thread_type": {
       "type": "string",
       "enum": [

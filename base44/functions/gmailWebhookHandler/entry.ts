@@ -77,6 +77,19 @@ function contactMatchesEmail(c, email) {
   return false;
 }
 
+// Normaliza assunto para threading por contato+assunto (remove Re:/Fwd:/Enc:)
+function normalizeSubject(s) {
+  return String(s || '')
+    .replace(/^((re|res|fwd|fw|enc|encaminhada)\s*:\s*)+/i, '')
+    .trim().toLowerCase().slice(0, 200) || '(sem assunto)';
+}
+
+// Domínios públicos: nunca casam Cliente CRM por domínio (regra D-D)
+const DOMINIOS_PUBLICOS = new Set([
+  'gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'live.com',
+  'icloud.com', 'bol.com.br', 'uol.com.br', 'terra.com.br', 'msn.com'
+]);
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200 });
@@ -168,6 +181,13 @@ Deno.serve(async (req) => {
           if (dono) ownerUserId = dono.id;
         }
 
+        // Caixa interna formal (se cadastrada como EmailAccount) — usada em Message/Thread
+        let emailAccountId = null;
+        if (toEmail) {
+          const eas = await base44.asServiceRole.entities.EmailAccount.filter({ email_address: toEmail }, '-created_date', 1);
+          if (eas && eas.length > 0) emailAccountId = eas[0].id;
+        }
+
         if (!fromEmail) {
           skipped.push({ id: messageId, reason: 'no_from_email' });
           continue;
@@ -244,24 +264,46 @@ Deno.serve(async (req) => {
           null;
         const assignedUserId = responsavelDoContato || ownerUserId || undefined;
 
-        // Find or create MessageThread (canonical) for this contact + email channel
+        // Vínculo com Cliente CRM: usa o do contato; senão e-mail exato; senão domínio (exceto públicos — D-D)
+        let clienteId = contact.cliente_id || null;
+        if (!clienteId && fromEmail) {
+          const cliExato = await base44.asServiceRole.entities.Cliente.filter({ email: fromEmail }, '-created_date', 1);
+          if (cliExato && cliExato.length > 0) {
+            clienteId = cliExato[0].id;
+          } else {
+            const dom = (fromEmail.split('@')[1] || '').toLowerCase();
+            if (dom && !DOMINIOS_PUBLICOS.has(dom)) {
+              const todosCli = await base44.asServiceRole.entities.Cliente.list('-created_date', 1000);
+              const m = todosCli.find(c => ((c.email || '').split('@')[1] || '').toLowerCase() === dom);
+              if (m) clienteId = m.id;
+            }
+          }
+          if (clienteId && !contact.cliente_id) {
+            await base44.asServiceRole.entities.Contact.update(contact.id, { cliente_id: clienteId });
+          }
+        }
+
+        // Threading de e-mail por contato + assunto (D-C). Reaproveita thread do mesmo assunto.
+        const subjectKey = normalizeSubject(subject);
         let thread = null;
-        const threadsExistentes = await base44.asServiceRole.entities.MessageThread.filter({
+        const threadsEmail = await base44.asServiceRole.entities.MessageThread.filter({
           contact_id: contact.id,
-          channel: 'email',
-          is_canonical: true
-        }, '-created_date', 1);
-        if (threadsExistentes && threadsExistentes.length > 0) {
-          thread = threadsExistentes[0];
-        } else {
+          channel: 'email'
+        }, '-created_date', 50);
+        thread = (threadsEmail || []).find(t => (t.email_subject_key || '') === subjectKey)
+          || (threadsEmail || []).find(t => t.is_canonical && !t.email_subject_key);
+        if (!thread) {
           thread = await base44.asServiceRole.entities.MessageThread.create({
             contact_id: contact.id,
             thread_type: 'contact_external',
             channel: 'email',
-            is_canonical: true,
+            is_canonical: (threadsEmail || []).length === 0,
             status: 'aberta',
             assigned_user_id: assignedUserId,
             participants: assignedUserId ? [assignedUserId] : [],
+            cliente_id: clienteId || undefined,
+            email_account_id: emailAccountId || undefined,
+            email_subject_key: subjectKey,
             last_message_content: subject,
             last_message_at: new Date().toISOString(),
             last_inbound_at: new Date().toISOString(),
@@ -283,6 +325,10 @@ Deno.serve(async (req) => {
           channel: 'email',
           provider: 'email_imap',
           email_message_id: messageId,
+          email_account_id: emailAccountId || undefined,
+          from_email: fromEmail,
+          to_email: toEmail || undefined,
+          subject: subject,
           visibility: 'public_to_customer',
           status: 'recebida',
           sent_at: new Date().toISOString(),
