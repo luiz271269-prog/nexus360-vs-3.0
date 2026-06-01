@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Search, UserPlus, User, Users, Phone, Tag, Check, Filter, X, 
   ChevronDown, Building2, Target, Truck, Handshake, HelpCircle, 
-  CheckSquare, AlertCircle, LayoutList, Columns, List
+  CheckSquare, AlertCircle, LayoutList, Columns, List, Mail
 } from 'lucide-react';
 import { normalizarTelefone } from '../lib/phoneUtils';
 import { CATEGORIAS_FIXAS } from './CategorizadorRapido';
@@ -56,7 +56,9 @@ export default function SearchAndFilter({
   isAdmin = false,
   onAbrirDiagnostico,
   // Callback para duplicatas detectadas
-  onDuplicataDetectada
+  onDuplicataDetectada,
+  // Abrir modal de novo e-mail
+  onNovoEmail
 }) {
   const [showFilters, setShowFilters] = React.useState(false);
   const [searchInputValue, setSearchInputValue] = React.useState(searchTerm || '');
@@ -423,6 +425,19 @@ export default function SearchAndFilter({
           >
             <CheckSquare className="w-4 h-4" />
           </Button>
+
+          {/* Botão Novo E-mail */}
+          {onNovoEmail && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onNovoEmail}
+              className="h-10 w-10 p-1.5"
+              title="Novo e-mail"
+            >
+              <Mail className="w-4 h-4" />
+            </Button>
+          )}
           </div>{/* fim dos botões à esquerda */}
 
           {/* Campo de busca - SÓ BUSCA AO PRESSIONAR ENTER */}

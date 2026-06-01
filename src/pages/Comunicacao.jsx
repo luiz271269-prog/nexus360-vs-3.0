@@ -61,6 +61,7 @@ import MobileHeader from "../components/comunicacao/mobile/MobileHeader";
 import MobileChatArea from "../components/comunicacao/mobile/MobileChatArea";
 import ComunicacaoTabs from "../components/comunicacao/ComunicacaoTabs";
 import ComunicacaoTabsContent from "../components/comunicacao/ComunicacaoTabsContent";
+import NovoEmailModal from "../components/comunicacao/NovoEmailModal";
 
 // 🔧 DEBUG_VIS: Desativado em produção para eliminar overhead de logs
 const DEBUG_VIS = false;
@@ -108,6 +109,7 @@ export default function Comunicacao() {
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [contatoPreCarregado, setContatoPreCarregado] = React.useState(null); // ✅ Contato já processado da lista
   const [mostrarInstrucoesWebhook, setMostrarInstrucoesWebhook] = React.useState(false);
+  const [novoEmailAberto, setNovoEmailAberto] = React.useState(false);
 
   // RESTAURADO: Estados para criar novo contato
   const [novoContatoTelefone, setNovoContatoTelefone] = React.useState("");
@@ -1770,7 +1772,8 @@ export default function Comunicacao() {
                     onModoSelecaoMultiplaChange={setModoSelecaoMultipla}
                     isAdmin={usuario?.role === 'admin'}
                     onAbrirDiagnostico={() => toast.info('💡 Use o Unificador Centralizado para corrigir duplicatas')}
-                    onDuplicataDetectada={setDuplicataEncontrada} />
+                    onDuplicataDetectada={setDuplicataEncontrada}
+                    onNovoEmail={() => setNovoEmailAberto(true)} />
 
                   <div className={`flex-1 overflow-hidden transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
                     {sidebarViewMode === 'kanban' ? (
@@ -1911,6 +1914,17 @@ export default function Comunicacao() {
         onIniciarNovaConversa={handleIniciarNovaConversaSemPermissao}
         podeIniciarNova={true} />
 
+      <NovoEmailModal
+        aberto={novoEmailAberto}
+        onClose={() => setNovoEmailAberto(false)}
+        onEnviado={async (threadId) => {
+          await queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+          if (threadId) {
+            const t = await base44.entities.MessageThread.get(threadId).catch(() => null);
+            if (t) setThreadAtiva(t);
+          }
+        }}
+      />
 
       </ErrorBoundary>);
 
