@@ -16,7 +16,42 @@
     },
     "email": {
       "type": "string",
-      "format": "email"
+      "format": "email",
+      "description": "E-mail principal do contato"
+    },
+    "emails": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "principal",
+              "financeiro",
+              "comercial",
+              "pessoal",
+              "outro"
+            ],
+            "default": "outro"
+          },
+          "origem": {
+            "type": "string",
+            "enum": [
+              "gmail",
+              "manual",
+              "assinatura",
+              "crm"
+            ],
+            "default": "gmail"
+          }
+        }
+      },
+      "default": [],
+      "description": "E-mails adicionais conhecidos do mesmo contato (al\u00e9m do email principal). Usado na concilia\u00e7\u00e3o de e-mail inbound para evitar contatos duplicados quando a pessoa usa mais de um endere\u00e7o."
     },
     "empresa": {
       "type": "string"
@@ -50,7 +85,7 @@
         "email"
       ],
       "default": "novo",
-      "description": "Classifica\u00e7\u00e3o do contato: novo=sem defini\u00e7\u00e3o, lead=prospec\u00e7\u00e3o ativa, cliente=recorrente, eventual=compra espor\u00e1dica, ex_cliente=inativo/reativa\u00e7\u00e3o, fornecedor, parceiro, email=criado automaticamente via e-mail recebido sem concilia\u00e7\u00e3o com contato/cliente do CRM"
+      "description": "Classifica\u00e7\u00e3o do contato: novo=sem defini\u00e7\u00e3o, lead=prospec\u00e7\u00e3o ativa, cliente=recorrente, eventual=compra espor\u00e1dica, ex_cliente=inativo/reativa\u00e7\u00e3o, fornecedor, parceiro, email=criado automaticamente por e-mail sem concilia\u00e7\u00e3o CRM"
     },
     "cliente_id": {
       "type": "string",

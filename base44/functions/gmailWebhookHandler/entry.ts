@@ -62,6 +62,21 @@ function parseFrom(fromHeader) {
   return { name: '', email: fromHeader.trim().toLowerCase() };
 }
 
+function normEmail(v) {
+  return String(v || '').trim().toLowerCase();
+}
+
+// Casa um e-mail contra o e-mail principal OU a lista emails[] do contato
+function contactMatchesEmail(c, email) {
+  const e = normEmail(email);
+  if (!e) return false;
+  if (normEmail(c.email) === e) return true;
+  if (Array.isArray(c.emails)) {
+    return c.emails.some(x => normEmail(x?.email || x) === e);
+  }
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200 });
@@ -113,12 +128,18 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Skip messages we already imported (idempotency)
-        const existing = await base44.asServiceRole.entities.Message.filter({
+        // Idempotência: casa por email_message_id (novo) OU metadata.gmail_message_id (histórico)
+        let jaImportado = await base44.asServiceRole.entities.Message.filter({
           channel: 'email',
-          metadata: { gmail_message_id: messageId }
+          email_message_id: messageId
         }, '-created_date', 1);
-        if (existing && existing.length > 0) {
+        if (!jaImportado || jaImportado.length === 0) {
+          jaImportado = await base44.asServiceRole.entities.Message.filter({
+            channel: 'email',
+            metadata: { gmail_message_id: messageId }
+          }, '-created_date', 1);
+        }
+        if (jaImportado && jaImportado.length > 0) {
           skipped.push({ id: messageId, reason: 'already_imported' });
           continue;
         }
@@ -156,14 +177,15 @@ Deno.serve(async (req) => {
         const snippet = message.snippet || '';
         const content = bodyText || snippet || subject;
 
-        // Procurar contato existente: 1) e-mail exato  2) e-mail sem diferenciar maiúsculas  3) nome
+        // Conciliação do remetente — evita contato duplicado quando a pessoa usa vários e-mails.
+        // Ordem: 1) e-mail exato  2) email/emails[]  3) nome  4) Cliente CRM  5) cria novo tipo email
         let contact = null;
         let candidatos = await base44.asServiceRole.entities.Contact.filter({ email: fromEmail }, '-created_date', 1);
 
         if (!candidatos || candidatos.length === 0) {
           const todos = await base44.asServiceRole.entities.Contact.list('-created_date', 1000);
-          // 2) e-mail igual ignorando maiúsculas/espaços
-          let achado = todos.find(c => (c.email || '').trim().toLowerCase() === fromEmail);
+          // 2) e-mail principal OU emails[] (ignora maiúsculas/espaços)
+          let achado = todos.find(c => contactMatchesEmail(c, fromEmail));
           // 3) nome igual (quando não achou por e-mail)
           if (!achado && fromName) {
             const nomeNorm = fromName.trim().toLowerCase();
@@ -174,17 +196,53 @@ Deno.serve(async (req) => {
 
         if (candidatos && candidatos.length > 0) {
           contact = candidatos[0];
-          // Se o contato existente não tinha e-mail salvo, grava agora
-          if (!contact.email && fromEmail) {
-            await base44.asServiceRole.entities.Contact.update(contact.id, { email: fromEmail });
+          // Mantém histórico de e-mails: garante que o remetente esteja em email/emails[]
+          const patch = {};
+          if (!contact.email && fromEmail) patch.email = fromEmail;
+          if (fromEmail && !contactMatchesEmail(contact, fromEmail)) {
+            const lista = Array.isArray(contact.emails) ? [...contact.emails] : [];
+            lista.push({ email: fromEmail, tipo: 'outro', origem: 'gmail' });
+            patch.emails = lista;
+          }
+          if (Object.keys(patch).length > 0) {
+            await base44.asServiceRole.entities.Contact.update(contact.id, patch);
           }
         } else {
-          contact = await base44.asServiceRole.entities.Contact.create({
-            nome: fromName || fromEmail.split('@')[0],
-            email: fromEmail,
-            tipo_contato: 'email'
-          });
+          // 4) concilia com Cliente CRM (e-mail exato) antes de criar contato solto
+          let clienteVinc = null;
+          if (fromEmail) {
+            const cli = await base44.asServiceRole.entities.Cliente.filter({ email: fromEmail }, '-created_date', 1);
+            if (cli && cli.length > 0) clienteVinc = cli[0];
+          }
+          if (clienteVinc) {
+            contact = await base44.asServiceRole.entities.Contact.create({
+              nome: fromName || clienteVinc.nome_fantasia || clienteVinc.razao_social || fromEmail.split('@')[0],
+              email: fromEmail,
+              telefone: clienteVinc.telefone || undefined,
+              empresa: clienteVinc.nome_fantasia || clienteVinc.razao_social || undefined,
+              cliente_id: clienteVinc.id,
+              tipo_contato: 'cliente',
+              emails: [{ email: fromEmail, tipo: 'principal', origem: 'gmail' }]
+            });
+          } else {
+            // 5) cria contato novo tipo email (sem conciliação)
+            contact = await base44.asServiceRole.entities.Contact.create({
+              nome: fromName || fromEmail.split('@')[0],
+              email: fromEmail,
+              tipo_contato: 'email',
+              emails: [{ email: fromEmail, tipo: 'principal', origem: 'gmail' }]
+            });
+          }
         }
+
+        // Regra 3 — responsável do contato (fidelizado) tem prioridade sobre o dono da caixa
+        const responsavelDoContato =
+          contact.atendente_fidelizado_vendas ||
+          contact.atendente_fidelizado_assistencia ||
+          contact.atendente_fidelizado_financeiro ||
+          contact.atendente_fidelizado_fornecedor ||
+          null;
+        const assignedUserId = responsavelDoContato || ownerUserId || undefined;
 
         // Find or create MessageThread (canonical) for this contact + email channel
         let thread = null;
@@ -202,8 +260,8 @@ Deno.serve(async (req) => {
             channel: 'email',
             is_canonical: true,
             status: 'aberta',
-            assigned_user_id: ownerUserId || undefined,
-            participants: ownerUserId ? [ownerUserId] : [],
+            assigned_user_id: assignedUserId,
+            participants: assignedUserId ? [assignedUserId] : [],
             last_message_content: subject,
             last_message_at: new Date().toISOString(),
             last_inbound_at: new Date().toISOString(),
@@ -223,7 +281,8 @@ Deno.serve(async (req) => {
           recipient_type: 'user',
           content: `**${subject}**\n\n${content}`,
           channel: 'email',
-          provider: 'internal_system',
+          provider: 'email_imap',
+          email_message_id: messageId,
           visibility: 'public_to_customer',
           status: 'recebida',
           sent_at: new Date().toISOString(),
