@@ -128,15 +128,23 @@ Deno.serve(async (req) => {
         const subject = getHeader(headers, 'Subject') || '(sem assunto)';
         const { name: fromName, email: fromEmail } = parseFrom(fromHeader);
 
-        // Destinatário = usuário interno dono do e-mail de destino (header To / Delivered-To)
+        // Destinatário = usuário interno dono da CAIXA de destino (header To / Delivered-To).
+        // O vínculo correto está em User.email_accounts[].login (caixas que o usuário atende),
+        // não em User.email (login de acesso ao app). Fallbacks: User.email -> dono da conexão.
         const toHeader = getHeader(headers, 'To') || getHeader(headers, 'Delivered-To');
         const { email: toEmail } = parseFrom(toHeader);
         let ownerUserId = appUserId || undefined;
         if (toEmail) {
-          const usuariosDestino = await base44.asServiceRole.entities.User.filter({ email: toEmail }, '-created_date', 1);
-          if (usuariosDestino && usuariosDestino.length > 0) {
-            ownerUserId = usuariosDestino[0].id;
+          const todosUsuarios = await base44.asServiceRole.entities.User.list('-created_date', 1000);
+          // 1) usuário cuja caixa (email_accounts[].login) bate com o destino
+          let dono = todosUsuarios.find(u =>
+            (u.email_accounts || []).some(c => (c.login || '').trim().toLowerCase() === toEmail)
+          );
+          // 2) fallback: login de acesso ao app igual ao destino
+          if (!dono) {
+            dono = todosUsuarios.find(u => (u.email || '').trim().toLowerCase() === toEmail);
           }
+          if (dono) ownerUserId = dono.id;
         }
 
         if (!fromEmail) {
