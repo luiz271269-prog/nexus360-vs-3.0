@@ -13,59 +13,19 @@ import '@/index.css'
 // vieram de cache antigo. Por isso o boot aguarda a limpeza e força 1 reload
 // controlado quando encontra SW/Cache Storage legado.
 // ═══════════════════════════════════════════════════════════════════
-const CACHE_CLEANUP_RELOAD_KEY = 'nexus360-cache-cleanup-reloaded-v2'
-
-async function cleanupLegacyBrowserCaches() {
-  if (typeof window === 'undefined') return false
-
-  let removedSomething = false
-
-  if ('serviceWorker' in navigator) {
-    try {
-      const regs = await navigator.serviceWorker.getRegistrations()
-      if (regs.length > 0) {
-        console.log('[SW Cleanup] Desregistrando', regs.length, 'service worker(s) antigo(s)')
-        await Promise.all(regs.map((reg) => reg.unregister().catch(() => false)))
-        removedSomething = true
-      }
-    } catch {
-      // best-effort cleanup
-    }
-  }
-
-  if (typeof caches !== 'undefined') {
-    try {
-      const keys = await caches.keys()
-      if (keys.length > 0) {
-        await Promise.all(keys.map((key) => caches.delete(key).catch(() => false)))
-        removedSomething = true
-      }
-    } catch {
-      // best-effort cleanup
-    }
-  }
-
-  return removedSomething
+// Best-effort: desregistra service workers antigos, SEM reload forçado
+// (reload mid-otimização causava o crash de dupla cópia do React).
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations()
+    .then((regs) => regs.forEach((reg) => reg.unregister().catch(() => {})))
+    .catch(() => {});
 }
 
-async function bootstrap() {
-  const removedLegacyCache = await cleanupLegacyBrowserCaches()
-  const alreadyReloaded = sessionStorage.getItem(CACHE_CLEANUP_RELOAD_KEY) === '1'
-
-  if (removedLegacyCache && !alreadyReloaded) {
-    sessionStorage.setItem(CACHE_CLEANUP_RELOAD_KEY, '1')
-    window.location.reload()
-    return
-  }
-
-  ReactDOM.createRoot(document.getElementById('root')).render(
-    // <React.StrictMode>
-    <App />
-    // </React.StrictMode>,
-  )
-}
-
-bootstrap()
+ReactDOM.createRoot(document.getElementById('root')).render(
+  // <React.StrictMode>
+  <App />
+  // </React.StrictMode>,
+)
 
 if (import.meta.hot) {
   import.meta.hot.on('vite:beforeUpdate', () => {
