@@ -83,6 +83,8 @@
         "instagram_api",
         "facebook_graph_api",
         "goto_phone",
+        "email",
+        "email_gmail",
         "email_imap"
       ],
       "default": "whatsapp",
@@ -121,6 +123,24 @@
     "email_account_id": {
       "type": "string",
       "description": "ID da EmailAccount (caixa) que recebeu/enviou esta mensagem de e-mail"
+    },
+    "email_provider": {
+      "type": "string",
+      "enum": [
+        "zimbra",
+        "imap",
+        "gmail",
+        "outlook"
+      ],
+      "description": "Provider de e-mail que originou a mensagem"
+    },
+    "email_uid": {
+      "type": "number",
+      "description": "UID IMAP da mensagem (controle incremental), quando aplic\u00e1vel"
+    },
+    "email_uidvalidity": {
+      "type": "string",
+      "description": "UIDVALIDITY da pasta IMAP, quando aplic\u00e1vel"
     },
     "from_email": {
       "type": "string",

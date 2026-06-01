@@ -6,6 +6,46 @@
       "type": "string",
       "description": "Nome de exibi\u00e7\u00e3o customizado (ex: Rafa, Mari)"
     },
+    "email_accounts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "description": "Endere\u00e7o da caixa atendida pelo usu\u00e1rio"
+          },
+          "tipo_conector": {
+            "type": "string",
+            "enum": [
+              "gmail",
+              "zimbra",
+              "imap",
+              "outlook"
+            ],
+            "description": "Origem/conector da caixa"
+          },
+          "email_account_id": {
+            "type": "string",
+            "description": "V\u00ednculo opcional com EmailAccount oficial"
+          },
+          "ativo": {
+            "type": "boolean",
+            "default": true
+          },
+          "can_receive": {
+            "type": "boolean",
+            "default": true
+          },
+          "can_send": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "default": [],
+      "description": "Caixas de e-mail que este usu\u00e1rio interno atende/envia. Usado para rotear mensagens recebidas pelo header To/Delivered-To."
+    },
     "attendant_sector": {
       "type": "string",
       "enum": [

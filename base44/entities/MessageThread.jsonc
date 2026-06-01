@@ -14,6 +14,18 @@
       "type": "string",
       "description": "ID da EmailAccount (caixa) associada \u00e0 thread quando channel=email"
     },
+    "origin_email_account_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "IDs das EmailAccount que j\u00e1 participaram desta thread (auditoria multi-conta)"
+    },
+    "last_email_message_id": {
+      "type": "string",
+      "description": "\u00daltimo Message-ID de e-mail associado \u00e0 thread (cadeia In-Reply-To/References)"
+    },
     "email_subject_key": {
       "type": "string",
       "description": "Assunto normalizado (sem Re:/Fwd:, lowercase) usado para agrupar e-mails do mesmo assunto por contato (threading D-C)"
