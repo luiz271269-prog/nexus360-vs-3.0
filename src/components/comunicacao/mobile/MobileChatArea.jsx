@@ -30,6 +30,7 @@ export default function MobileChatArea({
   selectedTipoContato, onSelectedTipoContatoChange,
   selectedTagContato, onSelectedTagContatoChange,
   modoSelecaoMultipla, setModoSelecaoMultipla,
+  onNovoEmail,
   // dados
   usuario, threads, threadAtiva,
   threadsParaExibir, loadingTopics,
@@ -93,7 +94,8 @@ export default function MobileChatArea({
             onModoSelecaoMultiplaChange={setModoSelecaoMultipla}
             isAdmin={usuario?.role === 'admin'}
             onAbrirDiagnostico={() => toast.info('💡 Use o Unificador Centralizado para corrigir duplicatas')}
-            onDuplicataDetectada={setDuplicataEncontrada} />
+            onDuplicataDetectada={setDuplicataEncontrada}
+            onNovoEmail={onNovoEmail} />
 
           <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
             {sidebarViewMode === 'kanban' ? (

@@ -1841,6 +1841,7 @@ export default function Comunicacao() {
                 selectedTipoContato={selectedTipoContato} onSelectedTipoContatoChange={setSelectedTipoContato}
                 selectedTagContato={selectedTagContato} onSelectedTagContatoChange={setSelectedTagContato}
                 modoSelecaoMultipla={modoSelecaoMultipla} setModoSelecaoMultipla={setModoSelecaoMultipla}
+                onNovoEmail={() => setNovoEmailAberto(true)}
                 usuario={usuario} threads={threads} threadAtiva={threadAtiva}
                 threadsParaExibir={threadsParaExibir} loadingTopics={loadingTopics}
                 contatos={contatos} contatosSelecionados={contatosSelecionados} setContatosSelecionados={setContatosSelecionados}
