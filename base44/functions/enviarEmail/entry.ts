@@ -88,7 +88,10 @@ Deno.serve(async (req) => {
       secure: smtpSecurity === 'tls' && smtpPort === 465,
       requireTLS: smtpSecurity === 'starttls',
       auth: { user: accountLogin, pass: senha },
-      tls: { rejectUnauthorized: false }
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000
     });
 
     const headers = {};
