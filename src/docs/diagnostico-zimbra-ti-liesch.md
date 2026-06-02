@@ -1,91 +1,112 @@
-# Diagnóstico de Conectividade Zimbra (mail.liesch.com.br) — Para a TI da Liesch
+# Diagnóstico FINAL de Conectividade Zimbra (mail.liesch.com.br) — Para a TI da Liesch
 
 **Data:** 2026-06-02
-**Origem dos testes:** Base44 produção (`test_backend_function`), não sandbox.
-**Conta testada:** `luiz@liesch.com.br`
-**Host:** `mail.liesch.com.br` (IP resolvido: `201.76.14.230`)
+**Conta:** `luiz@liesch.com.br` · **Host:** `mail.liesch.com.br`
+**Fontes:** teste real de IMAP/SMTP feito a partir da plataforma + análise das telas do Zimbra Admin (Configurações globais).
 
 ---
 
-## Resumo executivo
+## ✅ RESUMO EXECUTIVO
 
-A Base44 **alcança** o servidor Zimbra (TCP + TLS funcionam). O problema **NÃO é a rede da Base44**.
-Os bloqueios estão **100% no lado do servidor Zimbra** (autenticação IMAP + portas SMTP fechadas externamente).
+A plataforma **alcança** o servidor (TCP + TLS OK). **Todos os bloqueios estão no servidor Zimbra**, comprovados nas próprias telas do Admin:
 
-| Transporte | Resultado (Base44 → Zimbra) | Diagnóstico |
-|---|---|---|
-| **IMAP 993** | TCP OK, TLS OK, protocolo responde, `LOGIN` retorna `BAD internal server error` | Autenticação/conta/proxy IMAP do Zimbra |
-| **SMTP 587 (STARTTLS)** | `ECONNREFUSED` | Porta não aceita conexão externa |
-| **SMTP 465 (SSL)** | `ECONNREFUSED` | Porta não aceita conexão externa |
+1. **Serviço IMAP DESATIVADO** (Configurações globais → IMAP)
+2. **Serviço POP DESATIVADO** (Configurações globais → POP)
+3. **Portas SMTP de envio (587/465) não expostas** (Configurações globais → MTA → Rede)
 
-Conclusão: o host é alcançável, mas **nenhuma das duas portas de envio aceita conexão externa**, e a **autenticação IMAP falha dentro do próprio Zimbra**.
+> Resumo de 1 linha: *"IMAP e proxy de e-mail estão desligados no Zimbra Admin; por isso a porta 993 aceita conexão mas o LOGIN devolve 'internal server error'. Envio (587/465) também não está exposto. Ativar os serviços e expor as portas resolve."*
 
 ---
 
-## 1. IMAP (recebimento) — porta 993
+## 1. Evidência do teste real (IMAP 993)
 
-**Comportamento observado:**
-- Conexão TCP estabelecida ✅
-- Handshake TLS concluído ✅
-- Servidor responde no protocolo IMAP ✅
-- `LOGIN` / `AUTHENTICATE PLAIN` → `BAD internal server error` ❌
-
-**Interpretação:** rede, porta e TLS estão OK. A falha ocorre dentro da autenticação/serviço IMAP do Zimbra.
-
-**Ações no servidor (TI):**
-```bash
-# Verificar se IMAP está habilitado para a conta
-zmprov ga luiz@liesch.com.br | grep -i zimbraImapEnabled
-zmprov ga luiz@liesch.com.br | grep -i zimbraFeatureImapDataSourceEnabled
-
-# Verificar saúde geral dos serviços Zimbra
-zmcontrol status
 ```
-- Se `zimbraImapEnabled` estiver `FALSE` → ajustar para `TRUE`.
-- Validar a senha usada (secret `EMAIL_PWD_LUIZ2LIESCH_COM_BR` na Base44). Se estiver incorreta, atualizar.
-- Se ambos estiverem corretos, investigar **mailbox / imapd / proxy** e logs do Zimbra:
-  - `/opt/zimbra/log/mailbox.log`
-  - `/opt/zimbra/log/zmmailboxd.out`
-
----
-
-## 2. SMTP (envio) — portas 587 e 465
-
-**Comportamento observado:**
-- Host alcançado (não é timeout, não é bloqueio de saída da Base44)
-- 587 → `ECONNREFUSED`
-- 465 → `ECONNREFUSED`
-
-**Interpretação:** as portas de submissão não estão escutando para conexões externas (postfix em localhost, firewall REJECT, ou serviço submission/smtps não ativo).
-
-**Ações no servidor (TI):**
-```bash
-# Postfix deve escutar em "all", não apenas localhost
-postconf inet_interfaces
-
-# Verificar serviços de submissão
-postconf -M | grep submission   # porta 587
-postconf -M | grep smtps         # porta 465
-
-# Confirmar quem está escutando nas portas
-ss -lntp | grep -E ':587|:465'
+* OK IMAP4rev1 proxy server ready      ← TCP + TLS OK (chegamos no servidor)
+> A0001 CAPABILITY
+* CAPABILITY ... AUTH=PLAIN             ← protocolo responde
+A0001 OK completed
+> A0002 LOGIN "***" "***"
+* BAD internal server error             ← ❌ servidor falha no LOGIN
 ```
-- Garantir que `inet_interfaces = all`.
-- Ativar `submission` (587) e/ou `smtps` (465).
-- Liberar a porta escolhida no firewall para conexões externas.
+Rede, porta e TLS estão OK. A falha é **interna do Zimbra** ao processar o login — porque o serviço IMAP do mailbox está desligado.
 
 ---
 
-## 3. Próximos passos (ordem recomendada)
+## 2. BLOQUEIO #1 — Serviço IMAP desativado (CAUSA RAIZ)
 
-1. **Corrigir SMTP** — expor pelo menos UMA porta de envio (587 ou 465) para conexão externa.
-2. **Corrigir IMAP LOGIN** — habilitar IMAP, validar senha, checar proxy/mailbox.
-3. **Só depois** finalizar o sincronizador IMAP incremental na Base44 (Caminho A — importador interno, que já provou ser viável pois o 993 conecta).
+**Tela:** Configurações globais → **IMAP** → Serviço
+```
+☐ Ativar o serviço IMAP             ← precisa MARCAR
+☐ Ativar SSL para o serviço IMAP    ← precisa MARCAR (porta 993)
+```
+**Ação:** marcar ambos.
+
+Complemento por linha de comando (garantir IMAP na conta):
+```bash
+zmprov ga luiz@liesch.com.br zimbraImapEnabled
+zmprov ms `zmhostname` zimbraReverseProxyMailEnabled TRUE
+```
 
 ---
 
-## 4. Situação atual da plataforma
+## 3. BLOQUEIO #2 — Proxy de e-mail desativado
 
-- Configuração da caixa Zimbra na Base44 **restaurada ao original** (porta 587 / STARTTLS).
-- **Nenhum** sincronizador IMAP ou relé externo foi construído — o bloqueio é server-side.
-- **Gmail (`Nexus360-Gmail`) segue 100% operacional** como canal de e-mail enquanto a TI corrige o Zimbra.
+**Tela:** Configurações globais → **Proxy** → Configuração de Proxy de E-mail
+```
+☐ Ativar proxy de e-mail            ← precisa MARCAR
+Porta IMAPS de proxy: 993           ← já correto
+```
+O servidor no teste se anunciou como "proxy server ready", logo a 993 está atrás do nginx — que precisa do proxy de e-mail ativo para rotear ao mailbox.
+
+---
+
+## 4. BLOQUEIO #3 — SMTP de envio (587 / 465) não exposto
+
+**Teste real:** 587 → `ECONNREFUSED`, 465 → `ECONNREFUSED` (host alcançado, portas recusam).
+**Tela:** Configurações globais → **MTA** → Rede mostra `localhost` / Porta 25.
+
+**Ações no servidor:**
+```bash
+postconf inet_interfaces          # deve ser "all"
+postconf -M | grep submission     # 587 ativo?
+postconf -M | grep smtps          # 465 ativo?
+ss -lntp | grep -E ':587|:465'    # quem escuta?
+```
+Garantir `inet_interfaces = all`, ativar submission (587) ou smtps (465) e liberar no firewall.
+
+---
+
+## 5. Telas que estão CORRETAS (não bloqueiam)
+
+| Tela | Situação |
+|---|---|
+| MTA → Autenticação | ☑ Ativar autenticação + ☑ Apenas TLS ✅ |
+| MTA → Mensagens | Máx 20 MB ✅ |
+| MTA → RBLs / DNS checks | anti-spam de entrada ✅ (não afeta login) |
+| AS/AV | spam 20% / antivírus 2h ✅ |
+| Autenticação | sem restrição de IP de login ✅ |
+| Info gerais | Domínio padrão `liesch.com.br` ✅ |
+| Interoperação / Avançado / Retenção | neutros ✅ |
+
+---
+
+## 6. Procedimento final (ordem exata para a TI)
+
+1. **IMAP** → marcar ☑ Ativar serviço IMAP + ☑ Ativar SSL IMAP
+2. **Proxy** → marcar ☑ Ativar proxy de e-mail
+3. **MTA / firewall** → expor porta 587 (ou 465) externamente
+4. **Reiniciar serviços:**
+   ```bash
+   zmmailboxdctl restart
+   zmproxyctl restart
+   zmmtactl restart
+   ```
+5. Avisar a equipe Nexus360 para reexecutar o teste de conexão.
+
+---
+
+## 7. Situação da plataforma enquanto a TI corrige
+
+- Configuração da caixa Zimbra na plataforma **correta** (IMAP 993 TLS / SMTP 587 STARTTLS / senha no secret `EMAIL_PWD_LUIZ2LIESCH_COM_BR`).
+- **Nenhum** sincronizador/relé externo foi construído — o bloqueio é 100% server-side.
+- **Gmail (`Nexus360-Gmail`) segue operacional** como canal de e-mail até o Zimbra ser corrigido.
