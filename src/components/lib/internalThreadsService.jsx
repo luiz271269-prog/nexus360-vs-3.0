@@ -1,15 +1,16 @@
 import { base44 } from '@/api/base44Client';
+import { listarThreadsInternasUsuario } from '@/functions/listarThreadsInternasUsuario';
 
 /**
- * Carrega apenas threads internas (team_internal e sector_group)
+ * Carrega apenas threads internas (team_internal e sector_group).
+ * Usa função backend (asServiceRole) para respeitar `participants`,
+ * já que a RLS de MessageThread ignora esse campo e bloquearia
+ * mensagens internas para usuários não-admin.
  */
 export async function carregarThreadsInternas() {
   try {
-    return await base44.entities.MessageThread.filter(
-      { thread_type: { $in: ['team_internal', 'sector_group'] } },
-      '-last_message_at',
-      100
-    );
+    const resp = await listarThreadsInternasUsuario({});
+    return resp?.data?.threads || [];
   } catch (error) {
     console.error('[internalThreadsService] Erro ao carregar threads internas:', error);
     return [];
