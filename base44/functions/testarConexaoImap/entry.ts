@@ -160,7 +160,8 @@ class ImapConnection {
   }
 
   static async connect(options) {
-    const { hostname, port, timeoutMs, security, caCerts } = options;
+    const { hostname, port, timeoutMs, security, caCerts, tlsHostname } = options;
+    const certificateHostname = tlsHostname || hostname;
 
     if (security === 'starttls') {
       const plainConn = await withTimeout(
@@ -173,7 +174,7 @@ class ImapConnection {
       await imap.command('STARTTLS', timeoutMs);
 
       const tlsConn = await withTimeout(
-        Deno.startTls(plainConn, { hostname, caCerts }),
+        Deno.startTls(plainConn, { hostname: certificateHostname, caCerts }),
         timeoutMs,
         `Upgrade STARTTLS com ${hostname}:${port}`
       );
@@ -183,7 +184,7 @@ class ImapConnection {
     }
 
     const conn = await withTimeout(
-      Deno.connectTls({ hostname, port, caCerts }),
+      Deno.connectTls({ hostname, port, caCerts, ...(certificateHostname !== hostname ? { hostname: certificateHostname } : {}) }),
       timeoutMs,
       `Conexão TLS IMAP com ${hostname}:${port}`
     );
@@ -386,6 +387,7 @@ Deno.serve(async (req) => {
       String(body.security || (port === 143 ? 'starttls' : 'tls')).trim().toLowerCase()
     );
     const caCertSecretName = String(body.ca_cert_secret_name || body.ca_secret_name || '').trim();
+    const tlsHostname = String(body.tls_hostname || body.server_name || body.sni_hostname || '').trim();
 
     if (body.debug_ca) {
       const raw = caCertSecretName ? Deno.env.get(caCertSecretName) : null;
@@ -435,7 +437,8 @@ Deno.serve(async (req) => {
       port,
       timeoutMs,
       security,
-      caCerts
+      caCerts,
+      tlsHostname
     });
     const greeting = imap.greeting;
 
