@@ -201,7 +201,8 @@ export default function MobileChatArea({
                 contatosSelecionados={contatosSelecionados} broadcastInterno={broadcastInterno}
                 onCancelarSelecao={() => { setModoSelecaoMultipla(false); setContatosSelecionados([]); setBroadcastInterno(null); setMobileView('lista'); }}
                 atendentes={atendentes} filterScope={filterScope} selectedIntegrationId={selectedIntegrationId}
-                selectedAttendantId={selectedAttendantId} contatoAtivo={contatoAtivo} />
+                selectedAttendantId={selectedAttendantId} contatoAtivo={contatoAtivo}
+                onNovoEmail={onNovoEmail} />
             ) : <EmptyState />}
           </div>
         </div>

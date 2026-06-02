@@ -27,6 +27,7 @@ import {
   TrendingUp,
   CheckSquare,
   Bug,
+  Mail,
   ChevronLeft } from
 "lucide-react";
 
@@ -99,7 +100,8 @@ export default function ChatWindow({
   selectedAttendantId = null,
   contatoAtivo = null,
   onFecharChat = null,
-  loadingMensagens = false
+  loadingMensagens = false,
+  onNovoEmail = null
 }) {
   const queryClient = useQueryClient(); // ✅ CRÍTICO: Hook do React Query
 
@@ -1572,6 +1574,16 @@ export default function ChatWindow({
                   usuario={usuario}
                   integracoes={integracoes}
                 />
+              )}
+
+              {/* Botão Responder E-mail (canal email) */}
+              {thread?.channel === 'email' && onNovoEmail && (
+                <button
+                  onClick={onNovoEmail}
+                  className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-1.5 shadow-md flex items-center justify-center hover:from-orange-600 hover:to-orange-700 hover:shadow-lg transition-all"
+                  title="Responder por e-mail">
+                  <Mail className="w-3.5 h-3.5" />
+                </button>
               )}
 
               {/* Botão Ver Detalhes */}

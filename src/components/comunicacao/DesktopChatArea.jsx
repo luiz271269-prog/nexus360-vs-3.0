@@ -30,7 +30,7 @@ export default function DesktopChatArea({
   contatoAtivo, showContactInfo, handleAtualizarContato, novoContatoTelefone, contactInitialData,
   handleCriarNovoContato, setModoEnvioMassa, setContatosParaEnvioMassa, setModoSelecaoMultipla,
   setContatosSelecionados, setBroadcastInterno, setShowContactInfo, setThreadAtiva, sidebarViewMode,
-  instanciaAtivaDesconectada, loadingMensagens,
+  instanciaAtivaDesconectada, loadingMensagens, onNovoEmail,
 }) {
   const isKanban = sidebarViewMode === 'kanban';
   const hasActiveChat = (threadAtiva && !criandoNovoContato) || (modoSelecaoMultipla && (contatosSelecionados.length > 0 || broadcastInterno));
@@ -74,6 +74,7 @@ export default function DesktopChatArea({
             onCancelarSelecao={() => { setModoSelecaoMultipla(false); setContatosSelecionados([]); setBroadcastInterno(null); }}
             atendentes={atendentes} filterScope={filterScope} selectedIntegrationId={selectedIntegrationId}
             selectedAttendantId={selectedAttendantId} contatoAtivo={contatoAtivo}
+            onNovoEmail={onNovoEmail}
             onFecharChat={fecharChat} />
         )}
       </div>
