@@ -13,12 +13,31 @@ import '@/index.css'
 // vieram de cache antigo. Por isso o boot aguarda a limpeza e força 1 reload
 // controlado quando encontra SW/Cache Storage legado.
 // ═══════════════════════════════════════════════════════════════════
-// Best-effort: desregistra service workers antigos, SEM reload forçado
-// (reload mid-otimização causava o crash de dupla cópia do React).
+// Desregistra service workers antigos E limpa o Cache Storage que pode estar
+// servindo chunks JS stale (causa raiz do crash de dupla cópia do React).
+// Só força UM reload controlado quando encontra SW/cache legado de fato —
+// usando sessionStorage como guard para nunca entrar em loop de reload.
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations()
-    .then((regs) => regs.forEach((reg) => reg.unregister().catch(() => {})))
-    .catch(() => {});
+  (async () => {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      const tinhaSW = regs.length > 0;
+      await Promise.all(regs.map((reg) => reg.unregister().catch(() => {})));
+
+      let tinhaCache = false;
+      if (typeof caches !== 'undefined') {
+        const keys = await caches.keys().catch(() => []);
+        tinhaCache = keys.length > 0;
+        await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
+      }
+
+      const jaRecarregou = sessionStorage.getItem('nexus_sw_purged') === '1';
+      if ((tinhaSW || tinhaCache) && !jaRecarregou) {
+        sessionStorage.setItem('nexus_sw_purged', '1');
+        window.location.reload();
+      }
+    } catch (_) { /* best-effort */ }
+  })();
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
