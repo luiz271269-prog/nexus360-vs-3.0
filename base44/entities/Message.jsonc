@@ -142,6 +142,10 @@
       "type": "string",
       "description": "UIDVALIDITY da pasta IMAP, quando aplic\u00e1vel"
     },
+    "email_thread_key": {
+      "type": "string",
+      "description": "Chave de agrupamento de thread de e-mail (pareada com MessageThread.email_subject_key/email_thread_key). Usada para vincular a mensagem \u00e0 conversa de e-mail correta."
+    },
     "from_email": {
       "type": "string",
       "description": "E-mail do remetente (canal email, normalizado lowercase)"
