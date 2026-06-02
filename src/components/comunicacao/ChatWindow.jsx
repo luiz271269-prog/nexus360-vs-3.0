@@ -1576,12 +1576,12 @@ export default function ChatWindow({
                 />
               )}
 
-              {/* Botão Responder E-mail (canal email) */}
-              {thread?.channel === 'email' && onNovoEmail && (
+              {/* Botão E-mail — disponível para qualquer contato com e-mail cadastrado */}
+              {onNovoEmail && (thread?.channel === 'email' || contatoEfetivo?.email) && (
                 <button
                   onClick={onNovoEmail}
                   className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-1.5 shadow-md flex items-center justify-center hover:from-orange-600 hover:to-orange-700 hover:shadow-lg transition-all"
-                  title="Responder por e-mail">
+                  title={thread?.channel === 'email' ? 'Responder por e-mail' : 'Enviar e-mail'}>
                   <Mail className="w-3.5 h-3.5" />
                 </button>
               )}

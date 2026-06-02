@@ -37,8 +37,8 @@ export default function NovoEmailModal({ aberto, thread = null, onClose, onEnvia
       return;
     }
 
-    // Modo novo: carregar caixas remetentes.
-    setPara(''); setAssunto('');
+    // Modo novo: pré-preenche destinatário com o e-mail do contato (se houver).
+    setPara(thread?.contato?.email || ''); setAssunto('');
     base44.entities.EmailAccount.filter({ outbound_enabled: true }, '-is_default_outbound', 50)
       .then((lista) => {
         const ativas = (lista || []).filter((c) => c.status !== 'inactive');
