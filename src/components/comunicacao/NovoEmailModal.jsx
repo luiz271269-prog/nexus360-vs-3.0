@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Mail, Loader2, Send, Reply } from 'lucide-react';
+import { Mail, Loader2, Send, Reply, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Modal ÚNICO de e-mail. Dois modos:
@@ -22,11 +22,13 @@ export default function NovoEmailModal({ aberto, thread = null, onClose, onEnvia
   const [assunto, setAssunto] = useState('');
   const [corpo, setCorpo] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [enviado, setEnviado] = useState(null); // { para, assunto } quando o envio for confirmado
 
   useEffect(() => {
     if (!aberto) return;
 
     setCorpo('');
+    setEnviado(null);
 
     if (isResposta) {
       // Modo resposta: destinatário/assunto vêm da conversa (apenas exibição).
@@ -61,10 +63,8 @@ export default function NovoEmailModal({ aberto, thread = null, onClose, onEnvia
         });
         const data = resp?.data || resp;
         if (data?.success || data?.ok) {
-          toast.success('✅ E-mail enviado!');
-          setCorpo('');
+          setEnviado({ para, assunto });
           onEnviado?.(thread.id);
-          onClose?.();
         } else {
           throw new Error(data?.error || 'Falha ao enviar');
         }
@@ -82,10 +82,8 @@ export default function NovoEmailModal({ aberto, thread = null, onClose, onEnvia
       });
       const data = resp?.data || resp;
       if (data?.ok) {
-        toast.success('✅ E-mail enviado!');
-        setPara(''); setAssunto(''); setCorpo('');
+        setEnviado({ para, assunto });
         onEnviado?.(data.thread_id);
-        onClose?.();
       } else {
         throw new Error(data?.error || 'Falha ao enviar');
       }
@@ -99,6 +97,23 @@ export default function NovoEmailModal({ aberto, thread = null, onClose, onEnvia
   return (
     <Dialog open={aberto} onOpenChange={(o) => !o && onClose?.()}>
       <DialogContent className="max-w-lg">
+        {enviado ? (
+          <div className="py-8 flex flex-col items-center text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircle2 className="w-10 h-10 text-green-600" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold text-slate-800">E-mail enviado com sucesso!</h3>
+              <p className="text-sm text-slate-500">A mensagem saiu corretamente.</p>
+            </div>
+            <div className="w-full text-left bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm space-y-1">
+              <p><span className="text-slate-500">Para:</span> <span className="font-medium text-slate-800">{enviado.para}</span></p>
+              {enviado.assunto && <p><span className="text-slate-500">Assunto:</span> <span className="font-medium text-slate-800">{enviado.assunto}</span></p>}
+            </div>
+            <Button onClick={() => onClose?.()} className="bg-orange-500 hover:bg-orange-600 w-full">Fechar</Button>
+          </div>
+        ) : (
+        <>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {isResposta
@@ -147,6 +162,8 @@ export default function NovoEmailModal({ aberto, thread = null, onClose, onEnvia
             {isResposta ? 'Responder' : 'Enviar'}
           </Button>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );
