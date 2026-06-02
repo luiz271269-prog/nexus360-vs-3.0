@@ -1749,6 +1749,7 @@ export default function Comunicacao() {
                   setModoSelecaoMultipla={setModoSelecaoMultipla} setContatosSelecionados={setContatosSelecionados}
                   setBroadcastInterno={setBroadcastInterno} setShowContactInfo={setShowContactInfo}
                   setThreadAtiva={setThreadAtiva} sidebarViewMode={sidebarViewMode}
+                  onNovoEmail={() => setNovoEmailAberto(true)}
                   instanciaAtivaDesconectada={instanciaAtivaDesconectada} />
               </div>
 
