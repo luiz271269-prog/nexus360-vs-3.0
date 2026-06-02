@@ -1034,7 +1034,7 @@ export default function ChatWindow({
       if (!texto?.trim()) { toast.error('Digite uma mensagem'); return; }
       setEnviando(true); setErro(null);
       try {
-        const resp = await base44.functions.invoke('responderEmailGmail', { thread_id: thread.id, body: texto.trim() });
+        const resp = await base44.functions.invoke('responderEmailGmail', { thread_id: thread.id, content: texto.trim() });
         if (resp.data?.success) {
           toast.success('✅ E-mail enviado!');
           setMensagemResposta(null);
