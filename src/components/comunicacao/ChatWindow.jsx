@@ -1003,51 +1003,10 @@ export default function ChatWindow({
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 🎯 PRIORIDADE 2.5: THREAD DE E-MAIL (channel='email') → responder via Gmail
+    // 🎯 THREAD DE E-MAIL: resposta agora é feita pelo botão "E-mail" no topo
     // ═══════════════════════════════════════════════════════════════════════
     if (thread?.channel === 'email') {
-      if (!texto?.trim()) { toast.error('Digite uma mensagem'); return; }
-      setEnviando(true);
-      try {
-        const resp = await base44.functions.invoke('responderEmailGmail', { thread_id: thread.id, content: texto.trim() });
-        if (resp.data?.success) {
-          toast.success('✅ E-mail enviado!');
-          setMensagemResposta(null);
-          if (onAtualizarMensagens) onAtualizarMensagens();
-        } else {
-          throw new Error(resp.data?.error || 'Falha ao enviar e-mail');
-        }
-      } catch (e) {
-        toast.error('Erro ao enviar e-mail: ' + e.message);
-      } finally {
-        setEnviando(false);
-      }
-      return;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // THREADS EXTERNAS (WhatsApp) - Lógica existente
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // 🎯 THREAD DE E-MAIL (canal email) - Resposta via Gmail
-    if (thread?.channel === 'email') {
-      if (!texto?.trim()) { toast.error('Digite uma mensagem'); return; }
-      setEnviando(true); setErro(null);
-      try {
-        const resp = await base44.functions.invoke('responderEmailGmail', { thread_id: thread.id, content: texto.trim() });
-        if (resp.data?.success) {
-          toast.success('✅ E-mail enviado!');
-          setMensagemResposta(null);
-          if (onAtualizarMensagens) onAtualizarMensagens();
-        } else {
-          throw new Error(resp.data?.error || 'Falha ao enviar e-mail');
-        }
-      } catch (e) {
-        setErro(e.message);
-        toast.error('Erro ao enviar e-mail: ' + e.message);
-      } finally {
-        setEnviando(false);
-      }
+      toast.info('✉️ Use o botão "E-mail" no topo para responder este e-mail');
       return;
     }
 
