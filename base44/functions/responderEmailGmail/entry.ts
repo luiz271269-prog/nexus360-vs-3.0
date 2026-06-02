@@ -40,8 +40,10 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { thread_id, content } = await req.json();
-    if (!thread_id || !content?.trim()) {
+    const payload = await req.json();
+    const thread_id = payload.thread_id;
+    const content = (payload.content ?? payload.body ?? '').toString();
+    if (!thread_id || !content.trim()) {
       return Response.json({ error: 'thread_id e content são obrigatórios' }, { status: 400 });
     }
 
