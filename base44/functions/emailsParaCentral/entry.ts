@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 // Ponte: pega e-mails já sincronizados (EmailSincronizado) que estão vinculados
 // a um Contact e ainda não foram levados para a Central de Comunicação,

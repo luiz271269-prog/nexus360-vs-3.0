@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const GMAIL_CONNECTOR_ID = '6a14df6da76515d039e6833c';
 
@@ -283,92 +283,41 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Threading de e-mail por contato + assunto (D-C). Reaproveita thread do mesmo assunto.
-        const subjectKey = normalizeSubject(subject);
-        let thread = null;
-        const threadsEmail = await base44.asServiceRole.entities.MessageThread.filter({
-          contact_id: contact.id,
-          channel: 'email'
-        }, '-created_date', 50);
-        thread = (threadsEmail || []).find(t => (t.email_subject_key || '') === subjectKey)
-          || (threadsEmail || []).find(t => t.is_canonical && !t.email_subject_key);
-        if (!thread) {
-          thread = await base44.asServiceRole.entities.MessageThread.create({
-            contact_id: contact.id,
-            thread_type: 'contact_external',
-            channel: 'email',
-            is_canonical: (threadsEmail || []).length === 0,
-            status: 'aberta',
-            assigned_user_id: assignedUserId,
-            participants: assignedUserId ? [assignedUserId] : [],
-            cliente_id: clienteId || undefined,
-            email_account_id: emailAccountId || undefined,
-            email_subject_key: subjectKey,
-            last_message_content: subject,
-            last_message_at: new Date().toISOString(),
-            last_inbound_at: new Date().toISOString(),
-            last_message_sender: 'contact',
-            last_message_sender_name: fromName || fromEmail,
-            total_mensagens: 0,
-            unread_count: 0
-          });
+        // FILA DE APROVAÇÃO (unificado com o fluxo Zimbra/IMAP):
+        // grava em EmailSincronizado com status de aprovação. A ponte emailsParaCentral
+        // leva à Central apenas os APROVADOS (remetente conhecido = auto_aprovado).
+        const remetenteConhecido = !!(contact && (contact.cliente_id || clienteId)) ||
+          (candidatos && candidatos.length > 0);
+
+        // Dedup por (account_login + message_uid=gmail messageId)
+        const accountLogin = toEmail || (await base44.auth.me().catch(() => null))?.email || 'gmail';
+        const jaSync = await base44.asServiceRole.entities.EmailSincronizado.filter({
+          account_login: accountLogin,
+          message_uid: messageId
+        }, '-created_date', 1);
+        if (jaSync && jaSync.length > 0) {
+          skipped.push({ id: messageId, reason: 'already_synced' });
+          continue;
         }
 
-        // Create Message
-        const createdMessage = await base44.asServiceRole.entities.Message.create({
-          thread_id: thread.id,
-          sender_id: contact.id,
-          sender_type: 'contact',
-          recipient_id: ownerUserId,
-          recipient_type: 'user',
-          content: `**${subject}**\n\n${content}`,
-          channel: 'email',
-          provider: 'email_imap',
+        await base44.asServiceRole.entities.EmailSincronizado.create({
+          account_login: accountLogin,
+          account_tipo: 'gmail',
+          owner_user_id: assignedUserId || ownerUserId || undefined,
+          message_uid: messageId,
           email_message_id: messageId,
-          email_account_id: emailAccountId || undefined,
-          from_email: fromEmail,
-          to_email: toEmail || undefined,
-          subject: subject,
-          visibility: 'public_to_customer',
-          status: 'recebida',
-          sent_at: new Date().toISOString(),
-          media_type: 'none',
-          metadata: {
-            gmail_message_id: messageId,
-            gmail_thread_id: message.threadId,
-            email_from: fromEmail,
-            email_from_name: fromName,
-            email_subject: subject,
-            email_snippet: snippet
-          }
+          remetente_email: fromEmail,
+          remetente_nome: fromName,
+          assunto: subject,
+          corpo_preview: content.slice(0, 500),
+          data_email: getHeader(headers, 'Date'),
+          contact_id: contact.id,
+          cliente_id: clienteId || undefined,
+          vinculo_tipo: clienteId ? (candidatos && candidatos.length > 0 ? 'ambos' : 'cliente') : (candidatos && candidatos.length > 0 ? 'contact' : undefined),
+          status_aprovacao: remetenteConhecido ? 'auto_aprovado' : 'pendente'
         });
 
-        // Update thread tail
-        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-          last_message_content: subject,
-          last_message_at: new Date().toISOString(),
-          last_inbound_at: new Date().toISOString(),
-          last_message_sender: 'contact',
-          last_message_sender_name: fromName || fromEmail,
-          total_mensagens: (thread.total_mensagens || 0) + 1,
-          unread_count: (thread.unread_count || 0) + 1
-        });
-
-        // Wake-Up Push: avisa o atendente responsável mesmo com o app fechado
-        if (assignedUserId) {
-          await base44.asServiceRole.functions.invoke('enviarWakeUpPush', {
-            target_user_id: assignedUserId,
-            tipo: 'message',
-            title: fromName || fromEmail || 'Novo e-mail',
-            body: subject || snippet || 'Novo e-mail recebido',
-            thread_id: thread.id,
-            message_id: createdMessage.id,
-            action_url: '/Comunicacao',
-            metadata: { channel: 'email', provider: 'gmail', email_account_id: emailAccountId || null }
-          }).catch((pushErr) => console.warn('[GMAIL_WEBHOOK] Wake-Up push falhou:', pushErr.message));
-        }
-
-        created.push({ messageId, threadId: thread.id, contactId: contact.id });
+        created.push({ messageId, contactId: contact.id, status: remetenteConhecido ? 'auto_aprovado' : 'pendente' });
       } catch (innerErr) {
         skipped.push({ id: messageId, reason: 'error', error: innerErr.message });
       }

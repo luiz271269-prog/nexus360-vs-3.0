@@ -87,7 +87,7 @@ export default function MinhaCaixaZimbra({ usuario }) {
       };
       let salva;
       if (conta) {
-        salva = await base44.entities.EmailAccount.update(conta.id, dados);
+        await base44.entities.EmailAccount.update(conta.id, dados);
         salva = { ...conta, ...dados };
       } else {
         salva = await base44.entities.EmailAccount.create(dados);

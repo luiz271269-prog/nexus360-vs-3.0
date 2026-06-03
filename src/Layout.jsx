@@ -25,7 +25,8 @@ import {
   Workflow,
   Shield,
   FileText,
-  ShoppingCart
+  ShoppingCart,
+  Mail
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -301,6 +302,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Telemetria Pré-Atendimento", icon: Activity, page: "TelemetriaPreAtendimento" },
     { name: "Configuração do Sistema", icon: Settings, page: "ConfiguracaoIA" },
     { name: "Notas Fiscais", icon: FileText, page: "NotasFiscais" },
+    { name: "Minha Caixa de E-mail", icon: Mail, page: "MinhaCaixaEmail" },
     { name: "Super Agente", icon: Zap, page: "SuperAgente" },
     { name: "Compras", icon: ShoppingCart, page: "Compras" }
     // ⚠️ DEPRECATED: TagManager removido do menu - usar GerenciadorEtiquetasUnificado em Automações
@@ -410,7 +412,13 @@ export default function Layout({ children, currentPageName }) {
   };
 
   // Aplicar filtro de perfil
-  const baseMenuItems = getMenuItemsParaPerfil(globalUsuario);
+  let baseMenuItems = getMenuItemsParaPerfil(globalUsuario);
+
+  // "Minha Caixa de E-mail" é uma tela pessoal — disponível para qualquer usuário logado
+  if (globalUsuario && !baseMenuItems.some(item => item.page === 'MinhaCaixaEmail')) {
+    const itemEmail = todosMenuItems.find(item => item.page === 'MinhaCaixaEmail');
+    if (itemEmail) baseMenuItems = [...baseMenuItems, itemEmail];
+  }
 
   const checkAgentHealth = async () => {
     // L-2: pausa polling se aba está oculta (economiza pressão 429)
