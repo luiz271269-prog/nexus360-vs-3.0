@@ -15,7 +15,7 @@ export default function ConfiguracaoPermissoesEmail({ usuarioSelecionado, atuali
   useEffect(() => {
     (async () => {
       try {
-        const lista = await base44.entities.EmailAccount.list('-created_date', 200);
+        const lista = await base44.entities.EmailAccount.list('email_address', 500);
         setContas(lista || []);
       } catch {
         setContas([]);
