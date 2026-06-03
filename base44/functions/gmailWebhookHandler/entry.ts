@@ -315,7 +315,7 @@ Deno.serve(async (req) => {
         }
 
         // Create Message
-        await base44.asServiceRole.entities.Message.create({
+        const createdMessage = await base44.asServiceRole.entities.Message.create({
           thread_id: thread.id,
           sender_id: contact.id,
           sender_type: 'contact',
@@ -353,6 +353,20 @@ Deno.serve(async (req) => {
           total_mensagens: (thread.total_mensagens || 0) + 1,
           unread_count: (thread.unread_count || 0) + 1
         });
+
+        // Wake-Up Push: avisa o atendente responsável mesmo com o app fechado
+        if (assignedUserId) {
+          await base44.asServiceRole.functions.invoke('enviarWakeUpPush', {
+            target_user_id: assignedUserId,
+            tipo: 'message',
+            title: fromName || fromEmail || 'Novo e-mail',
+            body: subject || snippet || 'Novo e-mail recebido',
+            thread_id: thread.id,
+            message_id: createdMessage.id,
+            action_url: '/Comunicacao',
+            metadata: { channel: 'email', provider: 'gmail', email_account_id: emailAccountId || null }
+          }).catch((pushErr) => console.warn('[GMAIL_WEBHOOK] Wake-Up push falhou:', pushErr.message));
+        }
 
         created.push({ messageId, threadId: thread.id, contactId: contact.id });
       } catch (innerErr) {

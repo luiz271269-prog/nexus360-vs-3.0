@@ -108,6 +108,21 @@ Deno.serve(async (req) => {
       await criarMensagem(base44, threadDM.id, conteudo, { ...metadata, is_1on1: true });
       enviados.push({ destino: `dm:${vendedor_responsavel_id}`, thread_id: threadDM.id });
       console.log(`[NEXUS_NOTIFICAR] ✅ DM para vendedor ${vendedor_responsavel_id}`);
+
+      try {
+        await base44.asServiceRole.functions.invoke('enviarWakeUpPush', {
+          target_user_id: vendedor_responsavel_id,
+          tipo: 'message',
+          title: 'Nexus360',
+          body: conteudo,
+          thread_id: threadDM.id,
+          sender_user_id: SYSTEM_ID,
+          action_url: '/Comunicacao',
+          metadata: { origem: 'nexusNotificar', ...metadata }
+        });
+      } catch (pushErr) {
+        console.warn(`[NEXUS_NOTIFICAR] ⚠️ Wake-Up push falhou:`, pushErr.message);
+      }
     }
 
     return Response.json({ success: true, enviados });
