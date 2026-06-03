@@ -87,6 +87,11 @@
     "central_message_id": {
       "type": "string",
       "description": "ID da Message (canal email) criada na Central. Preenchido => j\u00e1 levado pra Central (evita duplicar)"
+    },
+    "confirmacao_enviada": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a confirma\u00e7\u00e3o autom\u00e1tica de recebimento j\u00e1 foi enviada ao remetente (idempot\u00eancia da automa\u00e7\u00e3o enviarConfirmacaoRecebimentoEmail)"
     }
   },
   "required": [
