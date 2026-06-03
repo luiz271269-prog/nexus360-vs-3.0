@@ -80,6 +80,7 @@ export default function ConfiguracaoPermissoesEmail({ usuarioSelecionado, atuali
 
   return (
     <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
       {contas.map((conta) => {
         const perm = findPerm(conta.id);
         const habilitado = !!perm;
@@ -130,6 +131,7 @@ export default function ConfiguracaoPermissoesEmail({ usuarioSelecionado, atuali
           </div>
         );
       })}
+      </div>
 
       <p className="text-[11px] text-slate-500 leading-relaxed pt-1">
         ℹ️ A <strong>resposta</strong> sempre sai pela caixa que recebeu o e-mail. A ⭐ caixa padrão é usada apenas para e-mails <strong>novos</strong>.
