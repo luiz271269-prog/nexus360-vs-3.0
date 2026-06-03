@@ -71,6 +71,35 @@
       "default": "pendente",
       "description": "auto_aprovado = remetente j\u00e1 era cliente/contato (entra direto na Central). pendente = remetente desconhecido, aguarda decis\u00e3o. aprovado = liberado manualmente. rejeitado = descartado pelo operador."
     },
+    "urgencia": {
+      "type": "string",
+      "enum": [
+        "alta",
+        "media",
+        "baixa"
+      ],
+      "description": "Urg\u00eancia classificada automaticamente pela IA com base no assunto/corpo/remetente"
+    },
+    "setor_classificado": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "financeiro",
+        "assistencia",
+        "fornecedor",
+        "geral"
+      ],
+      "description": "Setor classificado automaticamente pela IA com base no conte\u00fado do e-mail"
+    },
+    "motivo_classificacao": {
+      "type": "string",
+      "description": "Justificativa curta da IA para a urg\u00eancia e o setor atribu\u00eddos"
+    },
+    "classificado_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a classifica\u00e7\u00e3o autom\u00e1tica foi aplicada (idempot\u00eancia da automa\u00e7\u00e3o)"
+    },
     "aprovado_por": {
       "type": "string",
       "description": "ID/email do User que aprovou ou rejeitou (quando manual)"
