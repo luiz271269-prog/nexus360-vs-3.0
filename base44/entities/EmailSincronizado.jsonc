@@ -92,6 +92,11 @@
       "type": "boolean",
       "default": false,
       "description": "Se a confirma\u00e7\u00e3o autom\u00e1tica de recebimento j\u00e1 foi enviada ao remetente (idempot\u00eancia da automa\u00e7\u00e3o enviarConfirmacaoRecebimentoEmail)"
+    },
+    "confirmacao_enviada_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Timestamp em que a confirma\u00e7\u00e3o autom\u00e1tica de recebimento foi enviada"
     }
   },
   "required": [

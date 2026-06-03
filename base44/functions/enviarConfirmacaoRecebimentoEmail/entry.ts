@@ -45,12 +45,18 @@ Deno.serve(async (req) => {
     const event = body?.event || {};
     let data = body?.data || null;
 
-    if (!data && event?.entity_id) {
-      data = await base44.asServiceRole.entities.EmailSincronizado.get(event.entity_id).catch(() => null);
+    const entityId = event?.entity_id || data?.id || null;
+    if (!data && entityId) {
+      data = await base44.asServiceRole.entities.EmailSincronizado.get(entityId).catch(() => null);
     }
 
     if (!data) {
       return Response.json({ skipped: true, reason: 'sem_dados' });
+    }
+
+    // GUARD idempotência: não reenviar se já confirmou
+    if (data.confirmacao_recebimento_enviada === true) {
+      return Response.json({ skipped: true, reason: 'ja_confirmado' });
     }
 
     if (data.status_aprovacao !== 'auto_aprovado') {
@@ -60,6 +66,13 @@ Deno.serve(async (req) => {
     const destino = (data.remetente_email || '').trim().toLowerCase();
     if (!destino) {
       return Response.json({ skipped: true, reason: 'sem_email_remetente' });
+    }
+
+    // GUARD no-reply: nunca confirmar para caixas automáticas
+    const localPart = destino.split('@')[0] || '';
+    const padroesNoReply = ['noreply', 'no-reply', 'no_reply', 'mailer-daemon', 'postmaster', 'donotreply', 'do-not-reply', 'bounce'];
+    if (padroesNoReply.some(p => localPart.includes(p))) {
+      return Response.json({ skipped: true, reason: 'remetente_no_reply' });
     }
 
     const contaRecebeu = (data.account_login || '').toLowerCase();
@@ -125,6 +138,14 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: `Gmail recusou: ${erroTxt}` }, { status: 502 });
     }
     const sent = await sendRes.json();
+
+    // Marca idempotência (evita reenvio em reprocessamento da automação)
+    if (entityId) {
+      await base44.asServiceRole.entities.EmailSincronizado.update(entityId, {
+        confirmacao_recebimento_enviada: true,
+        confirmacao_recebimento_em: new Date().toISOString()
+      }).catch(() => { /* envio já ocorreu; falha de update não deve quebrar */ });
+    }
 
     return Response.json({ success: true, enviado_para: destino, gmail_id: sent.id });
   } catch (error) {
