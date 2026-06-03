@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { registrarUserDevice } from '@/functions/registrarUserDevice';
-import { enviarWakeUpPush } from '@/functions/enviarWakeUpPush';
+import { getVapidPublicKey } from '@/functions/getVapidPublicKey';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -40,15 +40,13 @@ export default function WakeUpManager({ usuario }) {
     if (!usuario?.id || jaRegistrou.current) return;
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
-    jaRegistrou.current = true;
-
     const registrar = async () => {
       try {
         const registration = await navigator.serviceWorker.register('/sw.js');
         await navigator.serviceWorker.ready;
 
-        // Busca a chave pública VAPID do backend
-        const resp = await enviarWakeUpPush({ action: 'get_public_key' });
+        // Busca a chave pública VAPID do backend (função leve, sem web-push)
+        const resp = await getVapidPublicKey();
         const VAPID_PUBLIC_KEY = resp?.data?.publicKey;
         if (!VAPID_PUBLIC_KEY) {
           console.warn('[WakeUp] chave VAPID pública indisponível');
@@ -86,6 +84,7 @@ export default function WakeUpManager({ usuario }) {
           user_agent: navigator.userAgent
         });
 
+        jaRegistrou.current = true;
         console.log('[WakeUp] ✅ Device registrado para notificações push');
       } catch (err) {
         console.error('[WakeUp] ❌ Erro ao registrar push:', err);

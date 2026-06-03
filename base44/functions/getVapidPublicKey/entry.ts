@@ -1,3 +1,4 @@
+// Função leve: retorna apenas a chave pública VAPID (sem dependência de web-push)
 Deno.serve(async () => {
   const publicKey = Deno.env.get('VAPID_PUBLIC_KEY');
   if (!publicKey) {
