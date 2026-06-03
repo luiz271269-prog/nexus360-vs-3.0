@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     }
 
     // GUARD idempotência: não reenviar se já confirmou
-    if (data.confirmacao_recebimento_enviada === true) {
+    if (data.confirmacao_enviada === true) {
       return Response.json({ skipped: true, reason: 'ja_confirmado' });
     }
 
@@ -142,8 +142,8 @@ Deno.serve(async (req) => {
     // Marca idempotência (evita reenvio em reprocessamento da automação)
     if (entityId) {
       await base44.asServiceRole.entities.EmailSincronizado.update(entityId, {
-        confirmacao_recebimento_enviada: true,
-        confirmacao_recebimento_em: new Date().toISOString()
+        confirmacao_enviada: true,
+        confirmacao_enviada_em: new Date().toISOString()
       }).catch(() => { /* envio já ocorreu; falha de update não deve quebrar */ });
     }
 
