@@ -40,6 +40,7 @@ import UserAuthWidget from "@/components/global/UserAuthWidget";
 import { calcularLembretesGlobal } from "@/components/global/MotorLembretesGlobal";
 import NovasMensagensAlert from "@/components/global/NovasMensagensAlert";
 import IncomingCallAlert from "@/components/comunicacao/IncomingCallAlert";
+import WakeUpManager from "@/components/global/WakeUpManager";
 
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
   const isActive = window.location.pathname === new URL(href, window.location.origin).pathname;
@@ -561,6 +562,7 @@ export default function Layout({ children, currentPageName }) {
       <DeploymentBanner />
 
       {globalUsuario && <NotificationSystem usuario={globalUsuario} />}
+      {globalUsuario && <WakeUpManager usuario={globalUsuario} />}
 
       {/* Header mobile fixo no topo */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-lg">
