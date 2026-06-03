@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { base44 } from '@/api/base44Client';
 import { aprovarEmailPendente } from '@/functions/aprovarEmailPendente';
+import { listarEmailsPendentes } from '@/functions/listarEmailsPendentes';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,12 +14,9 @@ export default function CaixaAprovacaoEmails() {
   const carregar = async () => {
     setLoading(true);
     try {
-      const lista = await base44.entities.EmailSincronizado.filter(
-        { status_aprovacao: 'pendente' },
-        '-created_date',
-        100
-      );
-      setPendentes(lista || []);
+      const resp = await listarEmailsPendentes({});
+      const data = resp?.data || resp;
+      setPendentes(data?.pendentes || []);
     } catch (e) {
       console.error('Erro ao carregar pendentes:', e);
       setPendentes([]);
