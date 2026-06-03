@@ -6,6 +6,23 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, X, RefreshCw, Inbox, MailQuestion } from 'lucide-react';
 
+const URGENCIA_STYLE = {
+  alta: 'bg-red-100 text-red-700 border-red-200',
+  media: 'bg-amber-100 text-amber-700 border-amber-200',
+  baixa: 'bg-slate-100 text-slate-600 border-slate-200',
+};
+const SETOR_STYLE = {
+  vendas: 'bg-blue-100 text-blue-700 border-blue-200',
+  financeiro: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  assistencia: 'bg-purple-100 text-purple-700 border-purple-200',
+  fornecedor: 'bg-orange-100 text-orange-700 border-orange-200',
+  geral: 'bg-slate-100 text-slate-600 border-slate-200',
+};
+const SETOR_LABEL = {
+  vendas: 'Vendas', financeiro: 'Financeiro', assistencia: 'Assistência',
+  fornecedor: 'Fornecedor', geral: 'Geral',
+};
+
 export default function CaixaAprovacaoEmails() {
   const [pendentes, setPendentes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -72,6 +89,20 @@ export default function CaixaAprovacaoEmails() {
                     </p>
                     <p className="text-xs text-slate-500 truncate">{e.remetente_email}</p>
                     <p className="text-sm text-slate-600 mt-1 truncate">{e.assunto || '(sem assunto)'}</p>
+                    {(e.urgencia || e.setor_classificado) && (
+                      <div className="flex flex-wrap gap-1.5 mt-1.5" title={e.motivo_classificacao || ''}>
+                        {e.urgencia && (
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${URGENCIA_STYLE[e.urgencia] || URGENCIA_STYLE.baixa}`}>
+                            {e.urgencia === 'alta' ? '🔴 Alta' : e.urgencia === 'media' ? '🟡 Média' : '⚪ Baixa'}
+                          </Badge>
+                        )}
+                        {e.setor_classificado && (
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${SETOR_STYLE[e.setor_classificado] || SETOR_STYLE.geral}`}>
+                            {SETOR_LABEL[e.setor_classificado] || e.setor_classificado}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                     <p className="text-xs text-slate-400 mt-1">Caixa: {e.account_login} · {e.data_email}</p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
