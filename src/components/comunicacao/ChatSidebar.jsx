@@ -1,34 +1,34 @@
 import React from "react";
-import { 
-  CheckCheck, 
+import {
+  CheckCheck,
   Check,
-  Clock, 
-  User, 
-  Users, 
-  AlertCircle, 
+  Clock,
+  User,
+  Users,
+  AlertCircle,
   AlertTriangle,
-  Image, 
-  Video, 
-  Mic, 
-  FileText, 
-  MapPin, 
-  Phone as PhoneIcon, 
-  Tag, 
+  Image,
+  Video,
+  Mic,
+  FileText,
+  MapPin,
+  Phone as PhoneIcon,
+  Tag,
   Building2,
-  Target, 
-  Truck, 
-  Handshake, 
-  HelpCircle, 
-  UserCheck, 
-  Send, 
-  X, 
-  CheckSquare, 
-  Square, 
-  MessagesSquare, 
-  ArrowRightLeft, 
+  Target,
+  Truck,
+  Handshake,
+  HelpCircle,
+  UserCheck,
+  Send,
+  X,
+  CheckSquare,
+  Square,
+  MessagesSquare,
+  ArrowRightLeft,
   Plus,
-  CalendarCheck
-} from "lucide-react";
+  CalendarCheck } from
+"lucide-react";
 import InternalMessageComposer from "./InternalMessageComposer";
 import ContadorNaoAtribuidas from "./ContadorNaoAtribuidas";
 import ContatosRequerendoAtencao from "./ContatosRequerendoAtencao";
@@ -58,11 +58,11 @@ import {
 import { useEtiquetasContato } from "./SeletorEtiquetasContato";
 import { filtrarThreadsInternasValidas } from "../lib/threadFilterUtils";
 import { Button } from "@/components/ui/button";
-import { 
-  contatoFidelizadoAoUsuario, 
-  contatoFidelizadoAOutro, 
-  getAtendenteFidelizadoAtualizado 
-} from "../lib/userMatcher";
+import {
+  contatoFidelizadoAoUsuario,
+  contatoFidelizadoAOutro,
+  getAtendenteFidelizadoAtualizado } from
+"../lib/userMatcher";
 import { getUserDisplayName } from "../lib/userHelpers";
 import UsuarioDisplay from "./UsuarioDisplay";
 import { canUserSeeThreadBase } from "../lib/threadVisibility";
@@ -75,12 +75,12 @@ import MensagemReativacaoRapida from './MensagemReativacaoRapida';
 // ═══════════════════════════════════════════════════════════════════════════════
 const getUnreadCount = (thread, currentUserId) => {
   if (!thread) return 0;
-  
+
   // INTERNO: usar unread_by[userId]
   if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
     return thread.unread_by?.[currentUserId] || 0;
   }
-  
+
   // EXTERNO: usar unread_count
   return thread.unread_count || 0;
 };
@@ -90,44 +90,44 @@ const getUnreadCount = (thread, currentUserId) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 const resolveThreadUI = (thread, currentUser, atendentes = []) => {
   // ✅ USUÁRIOS INTERNOS
-    if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
-      // 1:1 interno: buscar o outro usuario participante
+  if (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group') {
+    // 1:1 interno: buscar o outro usuario participante
     if (thread.thread_type === 'team_internal' && !thread.is_group_chat) {
-      const outroUserId = thread.participants?.find(id => id !== currentUser?.id);
+      const outroUserId = thread.participants?.find((id) => id !== currentUser?.id);
 
       // ✅ FIX: Usuários internos podem não ter outros participants (group chats) ou estar incompletos
       // Mostrar thread mesmo sem encontrar o outro usuario
-    if (outroUserId) {
-    const outroUser = atendentes.find(a => a.id === outroUserId);
-    const nome = outroUser?.full_name || outroUser?.email || 'Usuário';
-    const avatar = outroUser?.full_name?.charAt(0)?.toUpperCase() || outroUser?.email?.charAt(0)?.toUpperCase() || 'U';
+      if (outroUserId) {
+        const outroUser = atendentes.find((a) => a.id === outroUserId);
+        const nome = outroUser?.full_name || outroUser?.email || 'Usuário';
+        const avatar = outroUser?.full_name?.charAt(0)?.toUpperCase() || outroUser?.email?.charAt(0)?.toUpperCase() || 'U';
 
-    // ✅ CORREÇÃO: Usar foto_perfil_url do User quando disponível
-    const avatarUrl = outroUser?.foto_perfil_url || null;
+        // ✅ CORREÇÃO: Usar foto_perfil_url do User quando disponível
+        const avatarUrl = outroUser?.foto_perfil_url || null;
 
-    return {
-      isInternal: true,
-      title: nome,
-      badge: '',
-      avatar: avatar,
-      avatarUrl: avatarUrl,
-      subtitle: '1:1 interno',
-      setorCor: outroUser?.attendant_sector || 'geral'
-    };
+        return {
+          isInternal: true,
+          title: nome,
+          badge: '',
+          avatar: avatar,
+          avatarUrl: avatarUrl,
+          subtitle: '1:1 interno',
+          setorCor: outroUser?.attendant_sector || 'geral'
+        };
+      }
+
+      // ✅ Se não encontrou outro usuario, mostrar como incompleto
+      return {
+        isInternal: true,
+        title: 'Chat Interno',
+        badge: '',
+        avatar: 'C',
+        avatarUrl: null,
+        subtitle: '1:1 usuario interno (incompleto)',
+        setorCor: 'geral'
+      };
     }
 
-    // ✅ Se não encontrou outro usuario, mostrar como incompleto
-    return {
-      isInternal: true,
-      title: 'Chat Interno',
-      badge: '',
-      avatar: 'C',
-      avatarUrl: null,
-      subtitle: '1:1 usuario interno (incompleto)',
-      setorCor: 'geral'
-    };
-    }
-    
     // Grupo de setor
     if (thread.thread_type === 'sector_group') {
       const setor = thread.sector_key?.replace('sector:', '') || 'geral';
@@ -140,7 +140,7 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
         setorCor: setor
       };
     }
-    
+
     // Grupo customizado
     if (thread.is_group_chat) {
       return {
@@ -153,19 +153,19 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
       };
     }
   }
-  
+
   // ✅ THREADS EXTERNAS (manter compatibilidade)
   return {
     isInternal: false
   };
 };
 
-export default function ChatSidebar({ 
-  threads, 
-  threadAtiva, 
-  onSelecionarThread, 
-  loading, 
-  usuarioAtual, 
+export default function ChatSidebar({
+  threads,
+  threadAtiva,
+  onSelecionarThread,
+  loading,
+  usuarioAtual,
   integracoes = [],
   atendentes = [], // Lista de Users para buscar nomes atualizados
   // Props para seleção múltipla (controlados pelo pai)
@@ -210,7 +210,7 @@ export default function ChatSidebar({
     // A lista de threads que chega já foi filtrada pela lógica de `Comunicacao.jsx`.
     // O filtro aqui foi removido para evitar duplicidade e conflitos.
     // ✅ CORREÇÃO: Excluir threads internas incompletas (sem mensagens + sem participants válidos)
-    return threads.filter(t => {
+    return threads.filter((t) => {
       if (!t) return false;
 
       // ✅ sector_group: mostrar na sidebar apenas se o usuário é participante OU tem mensagens não lidas
@@ -218,7 +218,7 @@ export default function ChatSidebar({
         const parts = t.participants || [];
         const unreadBy = t.unread_by || {};
         const userId = usuarioAtual?.id;
-        return parts.includes(userId) || (userId && userId in unreadBy && unreadBy[userId] > 0);
+        return parts.includes(userId) || userId && userId in unreadBy && unreadBy[userId] > 0;
       }
 
       // Threads 1:1 internas: EXIGIR pelo menos uma mensagem
@@ -243,14 +243,14 @@ export default function ChatSidebar({
 
   // 🚀 PERF: Indexar atendentes e integrações em Map (O(1) lookup)
   const atendentesMap = React.useMemo(
-    () => new Map((atendentes || []).map(a => [a.id, a])),
+    () => new Map((atendentes || []).map((a) => [a.id, a])),
     [atendentes]
   );
   const integracoesMap = React.useMemo(
-    () => new Map((integracoes || []).map(i => [i.id, i])),
+    () => new Map((integracoes || []).map((i) => [i.id, i])),
     [integracoes]
   );
-  
+
   // Verificar se houve transferência recente (últimos 10 segundos)
   const foiTransferidaRecentemente = (thread) => {
     const transferencia = thread.metadata?.transferencia_recente;
@@ -346,7 +346,7 @@ export default function ChatSidebar({
     let threadParaAbrir = thread;
     if (thread.status === 'merged' && thread.merged_into) {
       console.log(`[ChatSidebar] 🔀 Auto-redirecionando thread merged ${thread.id} → ${thread.merged_into}`);
-      const threadCanonica = threads.find(t => t.id === thread.merged_into);
+      const threadCanonica = threads.find((t) => t.id === thread.merged_into);
       if (threadCanonica) {
         threadParaAbrir = threadCanonica;
       }
@@ -359,11 +359,11 @@ export default function ChatSidebar({
   // Toggle seleção de contato
   const toggleSelecaoContato = (contato) => {
     if (!contato || !setContatosSelecionados) return;
-    
-    setContatosSelecionados(prev => {
-      const jaExiste = prev.find(c => c.id === contato.id);
+
+    setContatosSelecionados((prev) => {
+      const jaExiste = prev.find((c) => c.id === contato.id);
       if (jaExiste) {
-        return prev.filter(c => c.id !== contato.id);
+        return prev.filter((c) => c.id !== contato.id);
       } else {
         return [...prev, contato];
       }
@@ -379,9 +379,9 @@ export default function ChatSidebar({
   // Selecionar todos visíveis
   const selecionarTodos = () => {
     if (!setContatosSelecionados) return;
-    const todosContatos = threadsSorted
-      .map(t => t.contato)
-      .filter(c => c && c.telefone);
+    const todosContatos = threadsSorted.
+    map((t) => t.contato).
+    filter((c) => c && c.telefone);
     setContatosSelecionados(todosContatos);
   };
 
@@ -393,15 +393,15 @@ export default function ChatSidebar({
   return (
     <div className="relative">
       {/* Barra de Ações de Seleção Múltipla */}
-      {modoSelecao ? (
-        <div className="sticky top-0 z-10 bg-gradient-to-r from-orange-500 to-amber-500 p-2 flex items-center justify-between gap-2 shadow-md">
+      {modoSelecao ?
+      <div className="sticky top-0 z-10 bg-gradient-to-r from-orange-500 to-amber-500 p-2 flex items-center justify-between gap-2 shadow-md">
           <div className="flex items-center gap-2">
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={cancelarSelecao}
-              className="text-white hover:bg-white/20 h-8 px-2"
-            >
+            variant="ghost"
+            size="sm"
+            onClick={cancelarSelecao}
+            className="text-white hover:bg-white/20 h-8 px-2">
+            
               <X className="w-4 h-4" />
             </Button>
             <span className="text-white text-sm font-medium">
@@ -410,22 +410,22 @@ export default function ChatSidebar({
           </div>
           <div className="flex items-center gap-1">
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={selecionarTodos}
-              className="text-white hover:bg-white/20 h-8 px-2 text-xs"
-            >
+            variant="ghost"
+            size="sm"
+            onClick={selecionarTodos}
+            className="text-white hover:bg-white/20 h-8 px-2 text-xs">
+            
               Todos
             </Button>
           </div>
-        </div>
-      ) : null}
+        </div> :
+      null}
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* SUPER CONTATO FIXO - EQUIPE INTERNA / SETOR */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {!modoSelecao && (
-        <div className="sticky top-0 z-10 bg-purple-50/80 backdrop-blur-sm border-b border-purple-200 px-2 py-1.5 space-y-1.5">
+      {!modoSelecao &&
+      <div className="sticky top-0 z-10 bg-purple-50/80 backdrop-blur-sm border-b border-purple-200 space-y-1.5 px-2 mx-1">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm bg-gradient-to-br from-purple-500 to-indigo-600">
               <MessagesSquare className="w-4 h-4" />
@@ -442,27 +442,27 @@ export default function ChatSidebar({
           
           <div className="grid grid-cols-4 gap-1">
             <Button
-              onClick={() => { setDelegateMode(false); setInternalComposerOpen(true); }}
-              variant="outline" size="sm"
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-8 text-[10px] px-1">
+            onClick={() => {setDelegateMode(false);setInternalComposerOpen(true);}}
+            variant="outline" size="sm"
+            className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 h-8 text-[10px] px-1">
               <Send className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Enviar</span>
             </Button>
             <Button
-              onClick={() => { setDelegateMode(true); setInternalComposerOpen(true); }}
-              variant="outline" size="sm"
-              className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-8 text-[10px] px-1">
+            onClick={() => {setDelegateMode(true);setInternalComposerOpen(true);}}
+            variant="outline" size="sm"
+            className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 h-8 text-[10px] px-1">
               <ArrowRightLeft className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Transfer</span>
             </Button>
             <Button
-              onClick={() => setCriarGrupoOpen(true)}
-              variant="outline" size="sm"
-              className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-8 text-[10px] px-1">
+            onClick={() => setCriarGrupoOpen(true)}
+            variant="outline" size="sm"
+            className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white border-0 h-8 text-[10px] px-1">
               <Plus className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Grupo</span>
             </Button>
             <Button
-              onClick={() => setAgendaIAOpen(true)}
-              variant="outline" size="sm"
-              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-0 h-8 text-[10px] px-1">
+            onClick={() => setAgendaIAOpen(true)}
+            variant="outline" size="sm"
+            className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-0 h-8 text-[10px] px-1">
               <CalendarCheck className="w-3 h-3 mr-0.5 flex-shrink-0" /><span>Agenda</span>
             </Button>
           </div>
@@ -472,65 +472,65 @@ export default function ChatSidebar({
           {/* ✅ BOTÕES AÇÃO - Não Atribuídos + Contatos Parados */}
            <div className="grid grid-cols-2 gap-1">
              {onOpenKanbanNaoAtribuidos && (() => {
-               // ✅ FONTE ÚNICA: mesma regra do Kanban + skillNaoAtribuidas
-               // (fidelização + janela 3d + cliente voltou após atendimento)
-               const contatosPorId = {};
-               (contatos || []).forEach(c => { if (c?.id) contatosPorId[c.id] = c; });
-               const naoAtribuidos = (threads || []).filter(t =>
-                 isThreadRealmenteNaoAtribuida(t, contatosPorId[t.contact_id])
-               ).length;
-               return (
-                 <Button
-                   onClick={() => onOpenKanbanNaoAtribuidos()}
-                   className="w-full bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-9 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md"
-                 >
+            // ✅ FONTE ÚNICA: mesma regra do Kanban + skillNaoAtribuidas
+            // (fidelização + janela 3d + cliente voltou após atendimento)
+            const contatosPorId = {};
+            (contatos || []).forEach((c) => {if (c?.id) contatosPorId[c.id] = c;});
+            const naoAtribuidos = (threads || []).filter((t) =>
+            isThreadRealmenteNaoAtribuida(t, contatosPorId[t.contact_id])
+            ).length;
+            return (
+              <Button
+                onClick={() => onOpenKanbanNaoAtribuidos()}
+                className="w-full bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 text-white border-0 h-9 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md">
+                
                    <span className="flex items-center gap-1">
                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
                      <span className="truncate">Não Atribuídos</span>
                    </span>
-                   {naoAtribuidos > 0 && (
-                     <Badge className="bg-white text-red-600 text-[9px] font-bold px-1 h-5 min-w-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">
+                   {naoAtribuidos > 0 &&
+                <Badge className="bg-white text-red-600 text-[9px] font-bold px-1 h-5 min-w-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">
                        {naoAtribuidos}
                      </Badge>
-                   )}
-                 </Button>
-               );
-             })()}
-             {onOpenKanbanRequerAtencao && (() => {
-               // ✅ CORRIGIDO: filtrar apenas threads EXTERNAS (excluir grupos internos de setor)
-               const threadsComProblema = threads?.filter(t => {
-                 // Excluir threads internas (team_internal e sector_group)
-                 if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return false;
-                 // Exigir que tenha contact_id (thread externa)
-                 if (!t.contact_id) return false;
-                 const contato = t.contato;
-                 return contato && 
-                   (contato.days_inactive_inbound >= 2 || 
-                    contato.deal_risk > 0 || 
-                    contato.prioridadeLabel === 'CRITICO' || 
-                    contato.prioridadeLabel === 'ALTO');
-               }).length || 0;
+                }
+                 </Button>);
 
-               return (
-                 <Button
-                   onClick={() => onOpenKanbanRequerAtencao()}
-                   className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border-0 h-9 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md"
-                 >
+          })()}
+             {onOpenKanbanRequerAtencao && (() => {
+            // ✅ CORRIGIDO: filtrar apenas threads EXTERNAS (excluir grupos internos de setor)
+            const threadsComProblema = threads?.filter((t) => {
+              // Excluir threads internas (team_internal e sector_group)
+              if (t.thread_type === 'team_internal' || t.thread_type === 'sector_group') return false;
+              // Exigir que tenha contact_id (thread externa)
+              if (!t.contact_id) return false;
+              const contato = t.contato;
+              return contato && (
+              contato.days_inactive_inbound >= 2 ||
+              contato.deal_risk > 0 ||
+              contato.prioridadeLabel === 'CRITICO' ||
+              contato.prioridadeLabel === 'ALTO');
+            }).length || 0;
+
+            return (
+              <Button
+                onClick={() => onOpenKanbanRequerAtencao()}
+                className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border-0 h-9 text-[10px] px-2 flex items-center justify-between font-semibold shadow-md">
+                
                    <span className="flex items-center gap-1">
                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
                      <span className="truncate">Parados</span>
                    </span>
-                   {threadsComProblema > 0 && (
-                     <Badge className="bg-white text-amber-700 text-[9px] font-bold px-1 h-5 min-w-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">
+                   {threadsComProblema > 0 &&
+                <Badge className="bg-white text-amber-700 text-[9px] font-bold px-1 h-5 min-w-5 flex items-center justify-center rounded-full ml-1 flex-shrink-0">
                        {threadsComProblema}
                      </Badge>
-                   )}
-                 </Button>
-               );
-             })()}
+                }
+                 </Button>);
+
+          })()}
            </div>
         </div>
-      )}
+      }
 
       {/* Seletor de Destinatários Internos */}
       <InternalMessageComposer
@@ -548,8 +548,8 @@ export default function ChatSidebar({
           if (onSelectInternalDestinations) {
             onSelectInternalDestinations(selection);
           }
-        }}
-      />
+        }} />
+      
 
       {/* Modal de Criar Grupo */}
       <CriarGrupoModal
@@ -560,15 +560,15 @@ export default function ChatSidebar({
         onSuccess={() => {
           setCriarGrupoOpen(false);
           toast.success('✅ Grupo criado!');
-        }}
-      />
+        }} />
+      
 
       {/* Modal Agenda IA Unificada */}
       <AgendaIAUnificada
         open={agendaIAOpen}
         onClose={() => setAgendaIAOpen(false)}
-        usuario={usuarioAtual}
-      />
+        usuario={usuarioAtual} />
+      
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* LISTA NORMAL DE THREADS */}
@@ -582,7 +582,7 @@ export default function ChatSidebar({
         // ✅ USUÁRIOS INTERNOS - Renderizar com UI resolvida
         if (isThreadInterna) {
           const threadUI = resolveThreadUI(thread, usuarioAtual, atendentes);
-          const isSelected = contatosSelecionados.find(c => c.id === thread.id);
+          const isSelected = contatosSelecionados.find((c) => c.id === thread.id);
           const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
           const setorConfig = {
             'vendas': { cor: 'bg-emerald-500' },
@@ -592,12 +592,12 @@ export default function ChatSidebar({
             'geral': { cor: 'bg-slate-500' }
           };
           const corAvatar = setorConfig[threadUI.setorCor || 'geral']?.cor || 'bg-indigo-500';
-          
+
           // ✅ Usar getUserDisplayName para exibir nome do outro participante
-          const outroUserId = thread.participants?.find(id => id !== usuarioAtual?.id);
-          const nomeExibicao = outroUserId 
-            ? getUserDisplayName(outroUserId, atendentes) 
-            : threadUI.title;
+          const outroUserId = thread.participants?.find((id) => id !== usuarioAtual?.id);
+          const nomeExibicao = outroUserId ?
+          getUserDisplayName(outroUserId, atendentes) :
+          threadUI.title;
 
           return (
             <motion.div
@@ -605,31 +605,31 @@ export default function ChatSidebar({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              onClick={(e) => handleClick(thread, e)} 
-              className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-purple-100 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 ${isAtiva ? 'bg-purple-100' : ''} ${isSelected ? 'bg-purple-100 border-l-4 border-l-purple-500' : ''}`}
-            >
-              {modoSelecao && (
-                <div className="flex-shrink-0">
-                  {isSelected ? (
-                    <CheckSquare className="w-5 h-5 text-purple-500" />
-                  ) : (
-                    <Square className="w-5 h-5 text-slate-400" />
-                  )}
+              onClick={(e) => handleClick(thread, e)}
+              className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-purple-100 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 ${isAtiva ? 'bg-purple-100' : ''} ${isSelected ? 'bg-purple-100 border-l-4 border-l-purple-500' : ''}`}>
+              
+              {modoSelecao &&
+              <div className="flex-shrink-0">
+                  {isSelected ?
+                <CheckSquare className="w-5 h-5 text-purple-500" /> :
+
+                <Square className="w-5 h-5 text-slate-400" />
+                }
                 </div>
-              )}
+              }
 
               <div className="relative flex-shrink-0">
                 <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${corAvatar}`}>
-                  {threadUI.avatarUrl ? (
-                    <img 
-                      src={threadUI.avatarUrl} 
-                      alt={threadUI.title} 
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  ) : (
-                    threadUI.avatar
-                  )}
+                  {threadUI.avatarUrl ?
+                  <img
+                    src={threadUI.avatarUrl}
+                    alt={threadUI.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {e.target.style.display = 'none';}} /> :
+
+
+                  threadUI.avatar
+                  }
                 </div>
               </div>
 
@@ -637,30 +637,30 @@ export default function ChatSidebar({
                 <div className="flex items-center justify-between mb-0.5">
                   <div className="flex items-center gap-1 min-w-0 flex-1">
                     <h3 className={`font-semibold truncate text-sm ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
-                      {threadUI.badge} {thread.thread_type === 'team_internal' && !thread.is_group_chat ? (
-                        <>
+                      {threadUI.badge} {thread.thread_type === 'team_internal' && !thread.is_group_chat ?
+                      <>
                           {nomeExibicao}
                           {(() => {
-                            const outroUserId = thread.participants?.find(id => id !== usuarioAtual?.id);
-                            const outroUser = atendentes.find(a => a.id === outroUserId);
-                            if (outroUser?.attendant_sector) {
-                              return (
-                                <>
+                          const outroUserId = thread.participants?.find((id) => id !== usuarioAtual?.id);
+                          const outroUser = atendentes.find((a) => a.id === outroUserId);
+                          if (outroUser?.attendant_sector) {
+                            return (
+                              <>
                                   <span className="text-slate-400 mx-1">•</span>
                                   <span className="text-slate-600 font-normal text-xs">{outroUser.attendant_sector}</span>
-                                </>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </>
-                      ) : threadUI.title}
+                                </>);
+
+                          }
+                          return null;
+                        })()}
+                        </> :
+                      threadUI.title}
                     </h3>
-                    {hasUnread && (
-                      <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-purple-400 via-indigo-500 to-blue-500 text-white text-[10px] font-bold border-0 shadow-lg">
+                    {hasUnread &&
+                    <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-purple-400 via-indigo-500 to-blue-500 text-white text-[10px] font-bold border-0 shadow-lg">
                         {getUnreadCount(thread, usuarioAtual?.id)}
                       </Badge>
-                    )}
+                    }
                   </div>
                   <span className={`text-[10px] flex-shrink-0 ml-2 ${hasUnread ? 'text-purple-600 font-medium' : 'text-slate-400'}`}>
                     {formatarHorario(thread.last_message_at)}
@@ -677,11 +677,11 @@ export default function ChatSidebar({
                   <span className="truncate">
                     {thread.last_message_content || "💬 Sem mensagens"}
                   </span>
-                  {thread.last_message_sender_name && (
-                    <span className="text-[9px] text-indigo-400 italic">
+                  {thread.last_message_sender_name &&
+                  <span className="text-[9px] text-indigo-400 italic">
                       ~ {thread.last_message_sender_name.split(' ')[0]}
                     </span>
-                  )}
+                  }
                 </p>
 
                 <div className="flex items-center gap-1 mt-1 overflow-hidden">
@@ -690,8 +690,8 @@ export default function ChatSidebar({
                   </span>
                 </div>
               </div>
-            </motion.div>
-          );
+            </motion.div>);
+
         }
 
         // ✅ THREADS EXTERNAS (WhatsApp Z-API, W-API, etc.) - PADRÃO
@@ -723,8 +723,8 @@ export default function ChatSidebar({
                     </div>
                     <p className="text-sm text-slate-600">Clique para cadastrar</p>
                   </div>
-                </motion.div>
-              );
+                </motion.div>);
+
             }
 
             const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
@@ -746,8 +746,8 @@ export default function ChatSidebar({
                   <p className="text-xs text-slate-600">Clique para preencher dados</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">ID: {thread.contact_id?.substring(0, 16)}...</p>
                 </div>
-              </motion.div>
-            );
+              </motion.div>);
+
           }
 
           // Nome formatado: Empresa + Cargo + Nome
@@ -761,7 +761,7 @@ export default function ChatSidebar({
             nomeExibicao = contato.telefone || "Sem Nome";
           }
 
-          const isSelected = contatosSelecionados.find(c => c.id === contato?.id);
+          const isSelected = contatosSelecionados.find((c) => c.id === contato?.id);
           const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
 
           return (
@@ -770,19 +770,19 @@ export default function ChatSidebar({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              onClick={(e) => handleClick(thread, e)} 
-              className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${thread.is_contact_only ? 'bg-slate-50/50' : ''} ${isAtiva ? 'bg-blue-50' : ''} ${isSelected ? 'bg-orange-100 border-l-4 border-l-orange-500' : ''}`}
-            >
+              onClick={(e) => handleClick(thread, e)}
+              className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${thread.is_contact_only ? 'bg-slate-50/50' : ''} ${isAtiva ? 'bg-blue-50' : ''} ${isSelected ? 'bg-orange-100 border-l-4 border-l-orange-500' : ''}`}>
+              
               {/* Checkbox em modo seleção */}
-              {modoSelecao && (
-                <div className="flex-shrink-0">
-                  {isSelected ? (
-                    <CheckSquare className="w-5 h-5 text-orange-500" />
-                  ) : (
-                    <Square className="w-5 h-5 text-slate-400" />
-                  )}
+              {modoSelecao &&
+              <div className="flex-shrink-0">
+                  {isSelected ?
+                <CheckSquare className="w-5 h-5 text-orange-500" /> :
+
+                <Square className="w-5 h-5 text-slate-400" />
+                }
                 </div>
-              )}
+              }
 
               {/* Avatar */}
               <div className="relative flex-shrink-0">
@@ -791,26 +791,26 @@ export default function ChatSidebar({
                 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' :
                 'bg-gradient-to-br from-slate-400 to-slate-500'}`
                 }>
-                  {contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ? (
-                    <img
-                      src={contato.foto_perfil_url}
-                      alt={nomeExibicao}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.parentElement.textContent = nomeExibicao.charAt(0).toUpperCase();
-                      }}
-                    />
-                  ) : (
-                    nomeExibicao.charAt(0).toUpperCase()
-                  )}
+                  {contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ?
+                  <img
+                    src={contato.foto_perfil_url}
+                    alt={nomeExibicao}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.parentElement.textContent = nomeExibicao.charAt(0).toUpperCase();
+                    }} /> :
+
+
+                  nomeExibicao.charAt(0).toUpperCase()
+                  }
                 </div>
               </div>
 
               <div className="flex-1 min-w-0">
                 {/* ⭐ AVISO DE TRANSFERÊNCIA RECENTE */}
-                {foiTransferidaRecentemente(thread) && (
-                  <div className="bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-300 rounded-md px-2 py-1 mb-1 animate-pulse">
+                {foiTransferidaRecentemente(thread) &&
+                <div className="bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-300 rounded-md px-2 py-1 mb-1 animate-pulse">
                     <div className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-800">
                       <ArrowRightLeft className="w-3 h-3 text-amber-600" />
                       <span>
@@ -818,7 +818,7 @@ export default function ChatSidebar({
                       </span>
                     </div>
                   </div>
-                )}
+                }
                 
                 {/* Linha 1: Nome + Número Conexão + Horário */}
                 <div className="flex items-center justify-between mb-0.5">
@@ -826,11 +826,11 @@ export default function ChatSidebar({
                       <h3 className={`font-semibold truncate text-sm ${hasUnread ? 'text-slate-900' : 'text-slate-700'}`}>
                         {nomeExibicao}
                       </h3>
-                      {hasUnread && (
-                        <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-[10px] font-bold border-0 shadow-lg">
+                      {hasUnread &&
+                    <Badge className="rounded-full min-w-[18px] h-4 flex items-center justify-center p-0 px-1 bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-white text-[10px] font-bold border-0 shadow-lg">
                           {getUnreadCount(thread, usuarioAtual?.id)}
                         </Badge>
-                      )}
+                    }
                     {(() => {
                       const info = getIntegracaoInfo(thread);
                       if (!info) return null;
@@ -839,8 +839,8 @@ export default function ChatSidebar({
                       return (
                         <span className="text-[9px] text-slate-400 ml-1 flex-shrink-0" title={`Canal: ${info.nome} (${info.numero})`}>
                           #{ultimos4}
-                        </span>
-                      );
+                        </span>);
+
                     })()}
                     </div>
                   <span className={`text-[10px] flex-shrink-0 ml-2 ${
@@ -852,20 +852,20 @@ export default function ChatSidebar({
 
                 {/* ✅ LINHA 2: Preview mensagem - LÓGICA SEPARADA (interno vs externo) */}
                 <p className={`text-xs truncate flex items-center gap-1 ${hasUnread ? 'text-slate-800' : 'text-slate-500'}`}>
-                  {thread.is_contact_only ? (
-                    <span className="text-slate-400 italic">Sem conversa ativa</span>
-                  ) : (
-                    <>
+                  {thread.is_contact_only ?
+                  <span className="text-slate-400 italic">Sem conversa ativa</span> :
+
+                  <>
                       {thread.last_message_sender === 'user' && (() => {
-                        const status = thread.last_message_status;
-                        if (status === 'lida') return <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />;
-                        if (status === 'entregue') return <CheckCheck className="w-3 h-3 text-slate-400 flex-shrink-0" />;
-                        if (status === 'enviada') return <Check className="w-3 h-3 text-slate-400 flex-shrink-0" />;
-                        if (status === 'enviando') return <Clock className="w-3 h-3 text-slate-300 flex-shrink-0" />;
-                        if (status === 'falhou') return <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0" />;
-                        // fallback: duplo check padrão
-                        return <CheckCheck className="w-3 h-3 text-slate-400 flex-shrink-0" />;
-                      })()}
+                      const status = thread.last_message_status;
+                      if (status === 'lida') return <CheckCheck className="w-3 h-3 text-blue-500 flex-shrink-0" />;
+                      if (status === 'entregue') return <CheckCheck className="w-3 h-3 text-slate-400 flex-shrink-0" />;
+                      if (status === 'enviada') return <Check className="w-3 h-3 text-slate-400 flex-shrink-0" />;
+                      if (status === 'enviando') return <Clock className="w-3 h-3 text-slate-300 flex-shrink-0" />;
+                      if (status === 'falhou') return <AlertCircle className="w-3 h-3 text-red-500 flex-shrink-0" />;
+                      // fallback: duplo check padrão
+                      return <CheckCheck className="w-3 h-3 text-slate-400 flex-shrink-0" />;
+                    })()}
                       {thread.last_media_type === 'image' && <Image className="w-3 h-3 text-blue-500 flex-shrink-0" />}
                       {thread.last_media_type === 'video' && <Video className="w-3 h-3 text-purple-500 flex-shrink-0" />}
                       {thread.last_media_type === 'audio' && <Mic className="w-3 h-3 text-green-500 flex-shrink-0" />}
@@ -874,40 +874,40 @@ export default function ChatSidebar({
                       {thread.last_media_type === 'contact' && <PhoneIcon className="w-3 h-3 text-cyan-500 flex-shrink-0" />}
                       <span className="truncate">
                         {(() => {
-                          let content = thread.last_message_content;
-                          
-                          // ✅ THREADS EXTERNAS: Filtros agressivos de limpeza
-                          // Suprimir conteúdos de sistema (⏰, mensagens de controle interno)
-                          if (content && /^(⏰|✅ Tarefa|💬 Lembrete|🔔 Lembrete|🤖 Sistema|📊)/.test(content)) {
-                            return "Nova mensagem";
-                          }
-                          // ✅ Remover prefixo [Broadcast] do preview da mensagem
-                          if (content) {
-                            content = content.replace(/^\[Broadcast\]\s*/i, '');
-                          }
-                          if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
-                            if (thread.last_media_type === 'image') return "[Imagem]";
-                            if (thread.last_media_type === 'video') return "[Video]";
-                            if (thread.last_media_type === 'audio') return "[Audio]";
-                            if (thread.last_media_type === 'document') return "[Documento]";
-                            if (thread.last_media_type === 'location') return "[Localizacao]";
-                            if (thread.last_media_type === 'contact') return "[Contato]";
-                            if (thread.last_media_type === 'sticker') return "[Sticker]";
-                            return "Nova mensagem";
-                          }
-                          
-                          return content;
-                        })()}
+                        let content = thread.last_message_content;
+
+                        // ✅ THREADS EXTERNAS: Filtros agressivos de limpeza
+                        // Suprimir conteúdos de sistema (⏰, mensagens de controle interno)
+                        if (content && /^(⏰|✅ Tarefa|💬 Lembrete|🔔 Lembrete|🤖 Sistema|📊)/.test(content)) {
+                          return "Nova mensagem";
+                        }
+                        // ✅ Remover prefixo [Broadcast] do preview da mensagem
+                        if (content) {
+                          content = content.replace(/^\[Broadcast\]\s*/i, '');
+                        }
+                        if (!content || content === '[No content]' || /^[\+\d]+@(lid|s\.whatsapp\.net|c\.us)/.test(content)) {
+                          if (thread.last_media_type === 'image') return "[Imagem]";
+                          if (thread.last_media_type === 'video') return "[Video]";
+                          if (thread.last_media_type === 'audio') return "[Audio]";
+                          if (thread.last_media_type === 'document') return "[Documento]";
+                          if (thread.last_media_type === 'location') return "[Localizacao]";
+                          if (thread.last_media_type === 'contact') return "[Contato]";
+                          if (thread.last_media_type === 'sticker') return "[Sticker]";
+                          return "Nova mensagem";
+                        }
+
+                        return content;
+                      })()}
                       </span>
                       {thread.last_message_sender_name && (() => {
-                        const nome = thread.last_message_sender_name;
-                        // Suprimir nomes técnicos internos (sem espaço, padrão slug/username)
-                        const ehNomeTecnico = /^[a-z0-9_-]+$/i.test(nome) && !nome.includes(' ');
-                        if (ehNomeTecnico) return null;
-                        return <span className="text-[9px] text-slate-400 italic">~ {nome.split(' ')[0]}</span>;
-                      })()}
+                      const nome = thread.last_message_sender_name;
+                      // Suprimir nomes técnicos internos (sem espaço, padrão slug/username)
+                      const ehNomeTecnico = /^[a-z0-9_-]+$/i.test(nome) && !nome.includes(' ');
+                      if (ehNomeTecnico) return null;
+                      return <span className="text-[9px] text-slate-400 italic">~ {nome.split(' ')[0]}</span>;
+                    })()}
                     </>
-                  )}
+                  }
                 </p>
 
                 {/* Linha 3: TIPO + DESTAQUE + ATENDENTE (horizontal compacto com labels) */}
@@ -926,15 +926,15 @@ export default function ChatSidebar({
                     return (
                       <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.bg} shadow-sm`}>
                         {cfg.emoji} {cfg.label}
-                      </span>
-                    );
+                      </span>);
+
                   })()}
 
                  {/* ✅ MENSAGEM REATIVAÇÃO RÁPIDA */}
                   {(() => {
                     const analise = thread._analiseComportamental;
                     const diasInativo = analise?.days_inactive_inbound || 0;
-                    
+
                     // Mostrar sugestão rápida se inativo 30+ dias
                     if (diasInativo >= 30) {
                       return (
@@ -945,11 +945,11 @@ export default function ChatSidebar({
                           onUsarMensagem={(msg) => {
                             // Abrir conversa e preparar mensagem
                             handleClick(thread);
-                          }}
-                        />
-                      );
+                          }} />);
+
+
                     }
-                    
+
                     // Senão, mostrar análise de prioridade
                     if (analise?.priority_label) {
                       const badgeConfig = {
@@ -958,119 +958,119 @@ export default function ChatSidebar({
                         'MEDIO': { emoji: '🟡', label: 'Médio', bg: 'bg-yellow-500' },
                         'BAIXO': { emoji: '🟢', label: 'Baixo', bg: 'bg-green-500' }
                       };
-                      
+
                       const cfg = badgeConfig[analise.priority_label] || badgeConfig['MEDIO'];
-                      
+
                       return (
-                        <span 
+                        <span
                           className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.bg} shadow-sm`}
-                          title={`${diasInativo} dias sem responder`}
-                        >
+                          title={`${diasInativo} dias sem responder`}>
+                          
                           {cfg.emoji} {cfg.label}
-                        </span>
-                      );
+                        </span>);
+
                     }
-                    
+
                     return null;
                   })()}
 
                   {/* DESTAQUES (max 2) - DINÂMICO */}
                   {contato?.tags && contato.tags.length > 0 && (() => {
                     // Buscar etiquetas de destaque do banco
-                    const etiquetasDestaqueDB = etiquetasDB.filter(e => e.destaque === true);
-                    const nomesDestaque = etiquetasDestaqueDB.map(e => e.nome);
+                    const etiquetasDestaqueDB = etiquetasDB.filter((e) => e.destaque === true);
+                    const nomesDestaque = etiquetasDestaqueDB.map((e) => e.nome);
 
-                    const tagsOrdenadas = contato.tags
-                      .filter(t => nomesDestaque.includes(t))
-                      .sort((a, b) => {
-                        const ordemA = etiquetasDestaqueDB.find(e => e.nome === a)?.ordem || 100;
-                        const ordemB = etiquetasDestaqueDB.find(e => e.nome === b)?.ordem || 100;
-                        return ordemA - ordemB;
-                      })
-                      .slice(0, 1); // ✅ Reduzido para 1 (espaço para análise IA)
+                    const tagsOrdenadas = contato.tags.
+                    filter((t) => nomesDestaque.includes(t)).
+                    sort((a, b) => {
+                      const ordemA = etiquetasDestaqueDB.find((e) => e.nome === a)?.ordem || 100;
+                      const ordemB = etiquetasDestaqueDB.find((e) => e.nome === b)?.ordem || 100;
+                      return ordemA - ordemB;
+                    }).
+                    slice(0, 1); // ✅ Reduzido para 1 (espaço para análise IA)
 
-                    return tagsOrdenadas.map(etq => {
+                    return tagsOrdenadas.map((etq) => {
                       const cfg = getEtiquetaConfigDinamico(etq);
                       return (
                         <span key={etq} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.cor || 'bg-slate-500'} shadow-sm`}>
                           {cfg.emoji || '🏷️'} {cfg.label?.substring(0, 6) || etq}
-                        </span>
-                      );
+                        </span>);
+
                     });
                   })()}
 
                   {/* FIDELIZADO - Mostra se contato tem atendente fidelizado */}
-                  {contato?.is_cliente_fidelizado && (
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm" title="Cliente Fidelizado">
+                  {contato?.is_cliente_fidelizado &&
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm" title="Cliente Fidelizado">
                       VIP
                     </span>
-                  )}
+                  }
                   
                   {/* ATENDENTE: Badge compacto com UsuarioDisplay no tooltip */}
-                  {thread.assigned_user_id ? (
-                    (() => {
-                      const nomeAtendente = getUserDisplayName(thread.assigned_user_id, atendentes);
-                      const isCarregando = nomeAtendente === 'Carregando...' || nomeAtendente === 'Usuário não encontrado';
-                      
-                      if (isCarregando) {
-                        return (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm" title="Atendente não visível">
+                  {thread.assigned_user_id ?
+                  (() => {
+                    const nomeAtendente = getUserDisplayName(thread.assigned_user_id, atendentes);
+                    const isCarregando = nomeAtendente === 'Carregando...' || nomeAtendente === 'Usuário não encontrado';
+
+                    if (isCarregando) {
+                      return (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm" title="Atendente não visível">
                             <UserCheck className="w-3 h-3" />
                             Restrito
-                          </span>
-                        );
-                      }
-                      
-                      return (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm">
+                          </span>);
+
+                    }
+
+                    return (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-indigo-500 shadow-sm">
                           <UserCheck className="w-3 h-3" />
                           {nomeAtendente.split(' ')[0]}
-                        </span>
-                      );
-                    })()
-                  ) : getAtendenteFidelizado(contato)?.id ? (
-                    (() => {
-                      const atendenteFidelizado = getAtendenteFidelizado(contato);
-                      const nomeFidelizado = getUserDisplayName(atendenteFidelizado.id, atendentes);
-                      const isCarregando = nomeFidelizado === 'Carregando...' || nomeFidelizado === 'Usuário não encontrado';
-                      
-                      if (isCarregando) {
-                        return (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm" title="Atendente fidelizado não visível">
-                            VIP Restrito
-                          </span>
-                        );
-                      }
-                      
+                        </span>);
+
+                  })() :
+                  getAtendenteFidelizado(contato)?.id ?
+                  (() => {
+                    const atendenteFidelizado = getAtendenteFidelizado(contato);
+                    const nomeFidelizado = getUserDisplayName(atendenteFidelizado.id, atendentes);
+                    const isCarregando = nomeFidelizado === 'Carregando...' || nomeFidelizado === 'Usuário não encontrado';
+
+                    if (isCarregando) {
                       return (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm">
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm" title="Atendente fidelizado não visível">
+                            VIP Restrito
+                          </span>);
+
+                    }
+
+                    return (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-amber-700 bg-amber-100 shadow-sm">
                           VIP {nomeFidelizado.split(' ')[0]}
-                        </span>
-                      );
-                    })()
-                  ) : thread.is_contact_only ? (
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm">
+                        </span>);
+
+                  })() :
+                  thread.is_contact_only ?
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-500 bg-slate-100 shadow-sm">
                       S/atend.
-                    </span>
-                  ) : (
-                    <AtribuidorAtendenteRapido
-                      contato={contato}
-                      thread={thread}
-                      tipoContato={contato?.tipo_contato || 'novo'}
-                      setorAtual={thread?.sector_id || 'geral'}
-                      variant="mini"
-                    />
-                  )}
+                    </span> :
+
+                  <AtribuidorAtendenteRapido
+                    contato={contato}
+                    thread={thread}
+                    tipoContato={contato?.tipo_contato || 'novo'}
+                    setorAtual={thread?.sector_id || 'geral'}
+                    variant="mini" />
+
+                  }
                 </div>
               </div>
-            </motion.div>
-          );
+            </motion.div>);
+
         }
 
         return null; // Fallback para casos não tratados
       })}
 
-    </div>
-  );
+    </div>);
+
 
 }
