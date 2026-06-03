@@ -63,9 +63,10 @@ function escapeImapString(value) {
 }
 
 function sanitizeLine(line) {
-  return line
+  return String(line || '')
     .replace(/LOGIN\s+"[^"]*"\s+"[^"]*"/gi, 'LOGIN "***" "***"')
-    .replace(/AUTHENTICATE\s+\S+/gi, 'AUTHENTICATE ***');
+    // Apaga TODO o resto da linha após AUTHENTICATE (cobre o payload base64 SASL)
+    .replace(/AUTHENTICATE\b.*$/gi, 'AUTHENTICATE ***');
 }
 
 function resolveSecurityMode(value) {
@@ -259,6 +260,46 @@ class ImapConnection {
       }
     }
   }
+
+  // AUTHENTICATE PLAIN no modo challenge "+": envia o comando sem payload,
+  // aguarda o servidor responder com "+ " e só então envia o base64 numa linha própria.
+  // Nunca registra o payload no transcript.
+  async authenticatePlainChallenge(saslPlainBase64, timeoutMs) {
+    const tag = `A${String(this.tagCounter++).padStart(4, '0')}`;
+    const fullCommand = `${tag} AUTHENTICATE PLAIN\r\n`;
+    this.transcript.push(`> ${tag} AUTHENTICATE ***`);
+    await withTimeout(
+      this.conn.write(this.encoder.encode(fullCommand)),
+      timeoutMs,
+      'Envio do comando AUTHENTICATE PLAIN'
+    );
+
+    // Espera o challenge "+"
+    const challenge = await this.readLine(timeoutMs);
+    if (challenge === null) throw new Error(`Conexão encerrada antes do challenge de ${tag}`);
+    if (!/^\+/.test(challenge)) {
+      throw new Error(`Servidor não enviou challenge SASL ("+"): ${sanitizeLine(challenge)}`);
+    }
+
+    // Envia o payload base64 numa linha própria (não registrado no transcript)
+    await withTimeout(
+      this.conn.write(this.encoder.encode(`${saslPlainBase64}\r\n`)),
+      timeoutMs,
+      'Envio do payload SASL'
+    );
+    this.transcript.push('> <sasl-payload omitido>');
+
+    while (true) {
+      const line = await this.readLine(timeoutMs);
+      if (line === null) throw new Error(`Conexão encerrada antes de finalizar ${tag}`);
+      if (line.startsWith(`${tag} `)) {
+        if (!new RegExp(`^${tag}\\s+OK\\b`, 'i').test(line)) {
+          throw new Error(`AUTHENTICATE PLAIN falhou: ${sanitizeLine(line)}`);
+        }
+        return;
+      }
+    }
+  }
 }
 
 Deno.serve(async (req) => {
@@ -412,7 +453,11 @@ Deno.serve(async (req) => {
       ? [normalizeToPem(inlineCaPem)]
       : readCaCerts(caCertSecretName, body.use_embedded_ca === true);
 
-    const inlinePassword = typeof body.password === 'string' ? body.password : '';
+    // body.password em texto puro só é aceito em diagnóstico controlado (allow_inline_password: true).
+    // Por padrão, exige password_secret_name (cofre).
+    const inlinePassword = (body.allow_inline_password === true && typeof body.password === 'string')
+      ? body.password
+      : '';
     if (!host || !username || (!passwordSecretName && !inlinePassword)) {
       return jsonResponse({
         error: 'Parâmetros obrigatórios ausentes.',
@@ -447,13 +492,15 @@ Deno.serve(async (req) => {
     });
     const greeting = imap.greeting;
 
-    await imap.command('CAPABILITY', timeoutMs);
+    const capabilityLines = await imap.command('CAPABILITY', timeoutMs);
+    const capabilityText = capabilityLines.join(' ');
+    const supportsSaslIr = /\bSASL-IR\b/i.test(capabilityText);
 
-    // Autenticação com fallback automático: tenta AUTHENTICATE PLAIN; se falhar,
-    // reconecta e tenta o comando LOGIN clássico (alguns Zimbra recusam SASL-IR com BAD)
+    // Autenticação com fallback automático: tenta AUTHENTICATE PLAIN (modo challenge "+",
+    // que é seguro mesmo sem SASL-IR); se falhar, reconecta e tenta o LOGIN clássico.
     const authMethod = String(body.auth_method || 'auto').toLowerCase();
     const saslPlain = btoa(`\u0000${username}\u0000${password}`);
-    const tryPlain = async (c) => { await c.command(`AUTHENTICATE PLAIN ${saslPlain}`, timeoutMs); return 'AUTHENTICATE PLAIN'; };
+    const tryPlain = async (c) => { await c.authenticatePlainChallenge(saslPlain, timeoutMs); return 'AUTHENTICATE PLAIN (challenge)'; };
     const tryLogin = async (c) => { await c.command(`LOGIN "${escapeImapString(username)}" "${escapeImapString(password)}"`, timeoutMs); return 'LOGIN'; };
     let authUsed = null;
 
@@ -466,7 +513,7 @@ Deno.serve(async (req) => {
         authUsed = await tryPlain(imap);
       } catch (plainErr) {
         try { imap.close(); } catch { /* ignore */ }
-        imap = await ImapConnection.connect({ hostname: host, port, timeoutMs, security, caCerts });
+        imap = await ImapConnection.connect({ hostname: host, port, timeoutMs, security, caCerts, tlsHostname });
         await imap.command('CAPABILITY', timeoutMs);
         try {
           authUsed = await tryLogin(imap);
@@ -492,6 +539,8 @@ Deno.serve(async (req) => {
       .map((uid) => Number(uid))
       .filter((uid) => Number.isFinite(uid));
 
+    // Maior UID via reduce (Math.max(...arr) estoura o stack em mailbox grande)
+    const maxUid = allUids.length ? allUids.reduce((m, u) => (u > m ? u : m), allUids[0]) : null;
     const lastUids = allUids.slice(-maxMessages);
     let previews = [];
 
@@ -505,6 +554,9 @@ Deno.serve(async (req) => {
 
     await imap.command('LOGOUT', timeoutMs).catch(() => []);
 
+    // Só avança o cursor de produção (last_uid_seen) se explicitamente solicitado.
+    // O teste de conexão NÃO deve marcar e-mails como "já vistos" antes da importação real.
+    const advanceCursor = body.advance_cursor === true;
     if (emailAccountId) {
       const nowIso = new Date().toISOString();
       await base44.asServiceRole.entities.EmailAccount.update(emailAccountId, {
@@ -514,7 +566,7 @@ Deno.serve(async (req) => {
         last_error: null,
         last_error_at: null,
         ...(uidValidity ? { uidvalidity: String(uidValidity) } : {}),
-        ...(allUids.length ? { last_uid_seen: Math.max(...allUids) } : {})
+        ...(advanceCursor && maxUid !== null ? { last_uid_seen: maxUid } : {})
       });
     }
 
@@ -531,8 +583,10 @@ Deno.serve(async (req) => {
       auth_method_used: authUsed,
       greeting: sanitizeLine(greeting),
       uidvalidity: uidValidity,
+      sasl_ir_supported: supportsSaslIr,
+      cursor_advanced: advanceCursor,
       total_uids_found: allUids.length,
-      last_uid_seen: allUids.length ? Math.max(...allUids) : null,
+      last_uid_seen: maxUid,
       preview_count: previews.length,
       previews,
       transcript_preview: imap.transcript.slice(-40)
