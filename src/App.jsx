@@ -170,6 +170,14 @@ const AuthenticatedApp = () => {
             </LayoutWrapper>
           } 
         />
+        <Route 
+          path="/MinhaCaixaEmail" 
+          element={
+            <LayoutWrapper currentPageName="MinhaCaixaEmail">
+              <MinhaCaixaEmail />
+            </LayoutWrapper>
+          } 
+        />
         <Route path="/orcamentos" element={<Navigate to="/LeadsQualificados" replace />} />
         <Route path="*" element={<PageNotFound />} />
       </Routes>
