@@ -405,7 +405,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const caCerts = readCaCerts(caCertSecretName, body.use_embedded_ca === true);
+    const inlineCaPem = typeof body.ca_cert_pem === 'string' && body.ca_cert_pem.trim()
+      ? body.ca_cert_pem.trim()
+      : null;
+    const caCerts = inlineCaPem
+      ? [normalizeToPem(inlineCaPem)]
+      : readCaCerts(caCertSecretName, body.use_embedded_ca === true);
 
     const inlinePassword = typeof body.password === 'string' ? body.password : '';
     if (!host || !username || (!passwordSecretName && !inlinePassword)) {
