@@ -60,6 +60,26 @@
       ],
       "description": "Tipo de v\u00ednculo encontrado no CRM"
     },
+    "status_aprovacao": {
+      "type": "string",
+      "enum": [
+        "auto_aprovado",
+        "pendente",
+        "aprovado",
+        "rejeitado"
+      ],
+      "default": "pendente",
+      "description": "auto_aprovado = remetente j\u00e1 era cliente/contato (entra direto na Central). pendente = remetente desconhecido, aguarda decis\u00e3o. aprovado = liberado manualmente. rejeitado = descartado pelo operador."
+    },
+    "aprovado_por": {
+      "type": "string",
+      "description": "ID/email do User que aprovou ou rejeitou (quando manual)"
+    },
+    "aprovado_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi aprovado/rejeitado manualmente"
+    },
     "central_thread_id": {
       "type": "string",
       "description": "ID da MessageThread (canal email) criada/atualizada na Central a partir deste e-mail"

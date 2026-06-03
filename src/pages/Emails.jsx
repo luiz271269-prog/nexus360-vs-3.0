@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mail, RefreshCw, AlertCircle, Inbox } from 'lucide-react';
+import CaixaAprovacaoEmails from '@/components/emails/CaixaAprovacaoEmails';
 
 // Inventário de contas Zimbra (planilha). Senha digitada na hora (não fica salva).
 const CONTAS = [
@@ -140,6 +141,10 @@ export default function Emails() {
       {!loading && !erro && emails.length === 0 && info && (
         <p className="text-center text-slate-400 py-8">Nenhum e-mail encontrado.</p>
       )}
+
+      <div className="mt-8">
+        <CaixaAprovacaoEmails />
+      </div>
     </div>
   );
 }

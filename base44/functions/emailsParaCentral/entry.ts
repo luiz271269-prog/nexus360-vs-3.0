@@ -23,7 +23,12 @@ Deno.serve(async (req) => {
       100
     );
 
-    const elegiveis = (pendentes || []).filter(e => e.contact_id && !e.central_message_id);
+    // Só leva pra Central e-mails APROVADOS (remetente já conhecido = auto_aprovado,
+    // ou liberado manualmente = aprovado). Pendentes/rejeitados ficam de fora.
+    const STATUS_OK = ['auto_aprovado', 'aprovado'];
+    const elegiveis = (pendentes || []).filter(
+      e => e.contact_id && !e.central_message_id && STATUS_OK.includes(e.status_aprovacao)
+    );
 
     let criadas = 0;
     const detalhes = [];
