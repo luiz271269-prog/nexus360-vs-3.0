@@ -63,6 +63,12 @@ Deno.serve(async (req) => {
       return Response.json({ skipped: true, reason: 'remetente_nao_aprovado' });
     }
 
+    // GUARD CRM: só confirma para remetentes já cadastrados (contato OU cliente).
+    // Evita auto-reply a newsletters/marketing/robôs e loops de mensagem automática.
+    if (!data.contact_id && !data.cliente_id) {
+      return Response.json({ skipped: true, reason: 'remetente_fora_do_crm' });
+    }
+
     const destino = (data.remetente_email || '').trim().toLowerCase();
     if (!destino) {
       return Response.json({ skipped: true, reason: 'sem_email_remetente' });
