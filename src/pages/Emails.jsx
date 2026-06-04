@@ -1,14 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Mail, Inbox, MailQuestion, Send } from 'lucide-react';
-import AbaCaixaEntradaImap from '@/components/emails/AbaCaixaEntradaImap';
+import { Mail, Inbox, Send, Server, Loader2 } from 'lucide-react';
 import CaixaAprovacaoEmails from '@/components/emails/CaixaAprovacaoEmails';
 import AbaNovoEmail from '@/components/emails/AbaNovoEmail';
+import GmailConnectionCard from '@/components/configuracao/GmailConnectionCard';
+import MinhaCaixaZimbra from '@/components/emails/MinhaCaixaZimbra';
 
-// Central de E-mail — 3 abas:
-// 1) Caixa de entrada (IMAP) · 2) Pendentes de aprovação · 3) Novo e-mail
+// Central de E-mail unificada — 4 abas:
+// 1) Caixa de entrada (recebidos/pendentes) · 2) Novo e-mail · 3) Conectar Gmail · 4) Conta Zimbra/IMAP
 export default function Emails() {
   const [aba, setAba] = useState('entrada');
+  const [usuario, setUsuario] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    base44.auth.me()
+      .then(setUsuario)
+      .catch(() => setUsuario(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-slate-500">
+        <Loader2 className="h-6 w-6 animate-spin mr-2" /> Carregando...
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
@@ -18,33 +37,43 @@ export default function Emails() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Central de E-mail</h1>
-          <p className="text-sm text-slate-500">Caixa de entrada, aprovações e envio de e-mails.</p>
+          <p className="text-sm text-slate-500">
+            Receba, aprove e envie e-mails, e conecte sua própria caixa. Os e-mails recebidos
+            aparecem na Central de Comunicação para os atendentes do seu setor.
+          </p>
         </div>
       </div>
 
       <Tabs value={aba} onValueChange={setAba}>
-        <TabsList className="mb-6">
+        <TabsList className="mb-6 flex-wrap h-auto">
           <TabsTrigger value="entrada" className="gap-2">
             <Inbox className="w-4 h-4" /> Caixa de entrada
-          </TabsTrigger>
-          <TabsTrigger value="pendentes" className="gap-2">
-            <MailQuestion className="w-4 h-4" /> Pendentes de aprovação
           </TabsTrigger>
           <TabsTrigger value="novo" className="gap-2">
             <Send className="w-4 h-4" /> Novo e-mail
           </TabsTrigger>
+          <TabsTrigger value="gmail" className="gap-2">
+            <Mail className="w-4 h-4" /> Conectar Gmail
+          </TabsTrigger>
+          <TabsTrigger value="zimbra" className="gap-2">
+            <Server className="w-4 h-4" /> Conta Zimbra/IMAP
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="entrada">
-          <AbaCaixaEntradaImap />
-        </TabsContent>
-
-        <TabsContent value="pendentes">
           <CaixaAprovacaoEmails />
         </TabsContent>
 
         <TabsContent value="novo">
           <AbaNovoEmail />
+        </TabsContent>
+
+        <TabsContent value="gmail">
+          <GmailConnectionCard />
+        </TabsContent>
+
+        <TabsContent value="zimbra">
+          <MinhaCaixaZimbra usuario={usuario} />
         </TabsContent>
       </Tabs>
     </div>

@@ -19,7 +19,6 @@ import TelemetriaPreAtendimento from '@/pages/TelemetriaPreAtendimento';
 import CentralSaneamento from '@/pages/CentralSaneamento';
 import MonitorWAL from '@/pages/MonitorWAL';
 import Emails from '@/pages/Emails';
-import MinhaCaixaEmail from '@/pages/MinhaCaixaEmail';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -162,22 +161,7 @@ const AuthenticatedApp = () => {
             </LayoutWrapper>
           } 
         />
-        <Route 
-          path="/MinhaCaixaEmail" 
-          element={
-            <LayoutWrapper currentPageName="MinhaCaixaEmail">
-              <MinhaCaixaEmail />
-            </LayoutWrapper>
-          } 
-        />
-        <Route 
-          path="/MinhaCaixaEmail" 
-          element={
-            <LayoutWrapper currentPageName="MinhaCaixaEmail">
-              <MinhaCaixaEmail />
-            </LayoutWrapper>
-          } 
-        />
+        <Route path="/MinhaCaixaEmail" element={<Navigate to="/Emails" replace />} />
         <Route path="/orcamentos" element={<Navigate to="/LeadsQualificados" replace />} />
         <Route path="*" element={<PageNotFound />} />
       </Routes>

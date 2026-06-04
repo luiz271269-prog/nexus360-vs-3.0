@@ -302,7 +302,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Telemetria Pré-Atendimento", icon: Activity, page: "TelemetriaPreAtendimento" },
     { name: "Configuração do Sistema", icon: Settings, page: "ConfiguracaoIA" },
     { name: "Notas Fiscais", icon: FileText, page: "NotasFiscais" },
-    { name: "Minha Caixa de E-mail", icon: Mail, page: "MinhaCaixaEmail" },
+    { name: "Central de E-mail", icon: Mail, page: "Emails" },
     { name: "Super Agente", icon: Zap, page: "SuperAgente" },
     { name: "Compras", icon: ShoppingCart, page: "Compras" }
     // ⚠️ DEPRECATED: TagManager removido do menu - usar GerenciadorEtiquetasUnificado em Automações
@@ -414,9 +414,9 @@ export default function Layout({ children, currentPageName }) {
   // Aplicar filtro de perfil
   let baseMenuItems = getMenuItemsParaPerfil(globalUsuario);
 
-  // "Minha Caixa de E-mail" é uma tela pessoal — disponível para qualquer usuário logado
-  if (globalUsuario && !baseMenuItems.some(item => item.page === 'MinhaCaixaEmail')) {
-    const itemEmail = todosMenuItems.find(item => item.page === 'MinhaCaixaEmail');
+  // "Central de E-mail" é uma tela pessoal/operacional — disponível para qualquer usuário logado
+  if (globalUsuario && !baseMenuItems.some(item => item.page === 'Emails')) {
+    const itemEmail = todosMenuItems.find(item => item.page === 'Emails');
     if (itemEmail) baseMenuItems = [...baseMenuItems, itemEmail];
   }
 
