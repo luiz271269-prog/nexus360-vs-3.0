@@ -42,7 +42,7 @@ export default function WakeUpManager({ usuario }) {
 
     const registrar = async () => {
       try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
+        const registration = await navigator.serviceWorker.register('/nexus-sw.js');
         await navigator.serviceWorker.ready;
 
         // Busca a chave pública VAPID do backend (função leve, sem web-push)
