@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Mail, Inbox, Send, Server, Loader2 } from 'lucide-react';
+import { Mail, Inbox, Send, Loader2 } from 'lucide-react';
 import CaixaAprovacaoEmails from '@/components/emails/CaixaAprovacaoEmails';
 import AbaNovoEmail from '@/components/emails/AbaNovoEmail';
 import GmailConnectionCard from '@/components/configuracao/GmailConnectionCard';
-import MinhaCaixaZimbra from '@/components/emails/MinhaCaixaZimbra';
 
-// Central de E-mail unificada — 4 abas:
-// 1) Caixa de entrada (recebidos/pendentes) · 2) Novo e-mail · 3) Conectar Gmail · 4) Conta Zimbra/IMAP
+// Central de E-mail unificada — 3 abas:
+// 1) Caixa de entrada (recebidos/pendentes) · 2) Novo e-mail · 3) Conectar Gmail
+// A configuração de caixa (Zimbra/IMAP) é feita no cadastro do usuário (Contas de E-mail Permitidas).
 export default function Emails() {
   const [aba, setAba] = useState('entrada');
   const [usuario, setUsuario] = useState(null);
@@ -55,9 +55,6 @@ export default function Emails() {
           <TabsTrigger value="gmail" className="gap-2">
             <Mail className="w-4 h-4" /> Conectar Gmail
           </TabsTrigger>
-          <TabsTrigger value="zimbra" className="gap-2">
-            <Server className="w-4 h-4" /> Conta Zimbra/IMAP
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="entrada">
@@ -70,10 +67,6 @@ export default function Emails() {
 
         <TabsContent value="gmail">
           <GmailConnectionCard />
-        </TabsContent>
-
-        <TabsContent value="zimbra">
-          <MinhaCaixaZimbra usuario={usuario} />
         </TabsContent>
       </Tabs>
     </div>
