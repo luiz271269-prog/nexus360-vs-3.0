@@ -43,6 +43,18 @@ function escapeImapString(value) {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
+// Decifra a senha cifrada (AES-GCM) gravada no banco no formato "iv_base64:ciphertext_base64"
+async function decryptPassword(encrypted, masterKey) {
+  const [ivB64, cipherB64] = String(encrypted).split(':');
+  if (!ivB64 || !cipherB64) throw new Error('Formato de senha cifrada inválido.');
+  const fromB64 = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.digest('SHA-256', enc.encode(masterKey));
+  const key = await crypto.subtle.importKey('raw', keyMaterial, { name: 'AES-GCM' }, false, ['decrypt']);
+  const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(ivB64) }, key, fromB64(cipherB64));
+  return new TextDecoder().decode(plainBuf);
+}
+
 // Decodifica cabeçalhos MIME "encoded-word" (RFC 2047): =?charset?B/Q?texto?=
 function decodeMimeWords(str) {
   if (!str || !str.includes('=?')) return String(str || '');
@@ -231,11 +243,19 @@ Deno.serve(async (req) => {
     const maxMessages = Math.min(Number(body.max_messages || MAX_MESSAGES), MAX_MESSAGES);
     const timeoutMs = DEFAULT_TIMEOUT_MS;
 
-    // Senha: secret da conta OU senha inline (somente para teste manual)
+    // Senha — prioridade: cifrada no banco > secret legado > inline (teste manual)
     const inlinePassword = typeof body.password === 'string' ? body.password : '';
-    const password = inlinePassword || (conta.password_secret_name ? Deno.env.get(conta.password_secret_name) : null);
+    let password = inlinePassword;
+    if (!password && conta.password_encrypted) {
+      const masterKey = Deno.env.get('EMAIL_ENCRYPTION_KEY');
+      if (!masterKey) return Response.json({ error: 'EMAIL_ENCRYPTION_KEY não configurada no app.' }, { status: 500 });
+      password = await decryptPassword(conta.password_encrypted, masterKey);
+    }
+    if (!password && conta.password_secret_name) {
+      password = Deno.env.get(conta.password_secret_name);
+    }
     if (!password) {
-      return Response.json({ error: `Senha indisponível. Defina password_secret_name na conta ou envie password no payload.` }, { status: 400 });
+      return Response.json({ error: `Senha indisponível. Cadastre a senha da caixa na tela (será cifrada no banco).` }, { status: 400 });
     }
 
     const useEmbeddedCa = String(host || '').includes('liesch.com.br');
