@@ -35,9 +35,12 @@ export default function Emails() {
     { value: 'gmail', label: 'Conectar Gmail', icon: Mail },
   ];
 
+  // Caixa de entrada (Kanban) usa largura total; demais abas ficam estreitas
+  const containerWidth = aba === 'entrada' ? 'max-w-full' : 'max-w-2xl';
+
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
-      <div className="max-w-2xl mx-auto px-3 md:px-4 pt-4 pb-10">
+      <div className={`${containerWidth} mx-auto px-3 md:px-4 pt-4 pb-10`}>
         {/* Header limpo estilo Gmail/Superhuman */}
         <div className="flex items-center gap-2 mb-0.5">
           <h1 className="text-xl font-bold tracking-tight text-slate-900">Central de E-mail</h1>

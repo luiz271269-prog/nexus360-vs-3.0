@@ -132,7 +132,7 @@ export default function CaixaAprovacaoEmails() {
         // Kanban: colunas horizontais por domínio
         <div className="flex gap-4 overflow-x-auto pb-3 kanban-scroll">
           {colunas.map(([dominio, lista]) => (
-            <div key={dominio} className="flex-shrink-0 w-[340px] bg-slate-50 rounded-2xl border border-slate-200">
+            <div key={dominio} className="flex-shrink-0 w-[300px] bg-slate-50 rounded-2xl border border-slate-200">
               {/* Cabeçalho da coluna */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 sticky top-0 bg-slate-50 rounded-t-2xl">
                 <Server className="w-4 h-4 text-slate-400" />
@@ -147,22 +147,30 @@ export default function CaixaAprovacaoEmails() {
                 {lista.map((e) => (
                   <div
                     key={e.id}
-                    className="group bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-3"
+                    className="group relative bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-3"
                   >
+                    {/* Botão fechar (descartar visualmente da fila) */}
+                    <button
+                      onClick={() => setPendentes((prev) => prev.filter((x) => x.id !== e.id))}
+                      title="Fechar (remover da lista sem decidir)"
+                      className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors z-10"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                     <div className="flex items-start gap-2.5">
                       <div className={`flex-shrink-0 w-9 h-9 rounded-full ${corAvatar(e.remetente_email)} flex items-center justify-center text-white font-semibold text-xs shadow-sm`}>
                         {iniciais(e.remetente_nome, e.remetente_email)}
                       </div>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                      <div className="min-w-0 flex-1 pr-5">
+                        <div className="flex items-center gap-2">
                           <span className="font-semibold text-slate-900 text-[13px] truncate">
                             {e.remetente_nome || e.remetente_email}
                           </span>
                           {e.urgencia && (
                             <span
                               title={e.motivo_classificacao || ''}
-                              className={`ml-auto text-[9px] font-bold tracking-wide px-2 py-0.5 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}
+                              className={`flex-shrink-0 text-[9px] font-bold tracking-wide px-2 py-0.5 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}
                             >
                               {URGENCIA_LABEL[e.urgencia] || 'NORMAL'}
                             </span>
