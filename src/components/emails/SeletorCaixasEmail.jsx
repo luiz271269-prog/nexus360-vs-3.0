@@ -36,7 +36,7 @@ export default function SeletorCaixasEmail({ caixas, ativa, onSelecionar }) {
           }`}
         >
           <Server className="w-4 h-4" />
-          @{c.dominio}
+          {c.dominio}
           <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold ${
             ativa === c.dominio ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
           }`}>
