@@ -42,6 +42,7 @@ import { calcularLembretesGlobal } from "@/components/global/MotorLembretesGloba
 import NovasMensagensAlert from "@/components/global/NovasMensagensAlert";
 import IncomingCallAlert from "@/components/comunicacao/IncomingCallAlert";
 import WakeUpManager from "@/components/global/WakeUpManager";
+import EmailsPendentesBadge from "@/components/global/EmailsPendentesBadge";
 
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
   const isActive = window.location.pathname === new URL(href, window.location.origin).pathname;
@@ -257,6 +258,7 @@ export default function Layout({ children, currentPageName }) {
   const [badges, setBadges] = useState({});
   const [unreadTotal, setUnreadTotal] = useState(0);
   const [contadoresLembretes, setContadoresLembretes] = useState({});
+  const [emailsPendentes, setEmailsPendentes] = useState(0);
   const [agentSession, setAgentSession] = useState({
     status: 'online',
     mode: 'assistente',
@@ -563,6 +565,12 @@ export default function Layout({ children, currentPageName }) {
     badgeColor: badges[item.name]?.color
   }));
 
+  // Soma e-mails pendentes ao contador (badge) do item "Central de Comunicacao"
+  const contadoresComEmail = {
+    ...contadoresLembretes,
+    Comunicacao: (contadoresLembretes.Comunicacao || 0) + emailsPendentes
+  };
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gradient-to-br from-amber-50 via-orange-50/30 to-red-50/20" translate="no">
       <InitializadorSistema />
@@ -571,6 +579,7 @@ export default function Layout({ children, currentPageName }) {
 
       {globalUsuario && <NotificationSystem usuario={globalUsuario} />}
       {globalUsuario && <WakeUpManager usuario={globalUsuario} />}
+      {globalUsuario && <EmailsPendentesBadge usuario={globalUsuario} onCount={setEmailsPendentes} />}
 
       {/* Header mobile fixo no topo */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-lg">
@@ -587,7 +596,7 @@ export default function Layout({ children, currentPageName }) {
       <SideBar
         isOpen={sidebarOpen}
         menuItems={menuItems}
-        contadoresLembretes={contadoresLembretes}
+        contadoresLembretes={contadoresComEmail}
         usuario={globalUsuario}
         loadingUsuario={loadingUsuario}
         onLogout={handleLogout}
