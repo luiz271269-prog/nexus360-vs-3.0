@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Check, X, RefreshCw, Inbox, MailQuestion, Ban, Server } from 'lucide-react';
 import PainelLeituraEmail from '@/components/emails/PainelLeituraEmail';
+import SeletorCaixasEmail from '@/components/emails/SeletorCaixasEmail';
 
 const URGENCIA_BADGE = {
   alta: 'bg-red-500 text-white',
@@ -62,6 +63,7 @@ export default function CaixaAprovacaoEmails() {
   const [processando, setProcessando] = useState(null);
   const [emailRejeitar, setEmailRejeitar] = useState(null);
   const [emailSelecionado, setEmailSelecionado] = useState(null);
+  const [caixaAtiva, setCaixaAtiva] = useState('todas');
 
   const carregar = async () => {
     setLoading(true);
@@ -103,7 +105,15 @@ export default function CaixaAprovacaoEmails() {
     const dom = dominioDe(e.account_login);
     (grupos[dom] = grupos[dom] || []).push(e);
   }
-  const colunas = Object.entries(grupos).sort((a, b) => b[1].length - a[1].length);
+  const todasColunas = Object.entries(grupos).sort((a, b) => b[1].length - a[1].length);
+
+  // Caixas disponíveis para o seletor do topo (já filtradas por acesso no backend)
+  const caixasDisponiveis = todasColunas.map(([dominio, lista]) => ({ dominio, total: lista.length }));
+
+  // Aplica filtro da caixa ativa selecionada no topo
+  const colunas = caixaAtiva === 'todas'
+    ? todasColunas
+    : todasColunas.filter(([dominio]) => dominio === caixaAtiva);
 
   return (
     <div className="space-y-3">
@@ -122,6 +132,15 @@ export default function CaixaAprovacaoEmails() {
         </Button>
       </div>
 
+      {/* Seletor de caixas (filtra por domínio que o usuário tem acesso) */}
+      {!loading && caixasDisponiveis.length > 1 && (
+        <SeletorCaixasEmail
+          caixas={caixasDisponiveis}
+          ativa={caixaAtiva}
+          onSelecionar={setCaixaAtiva}
+        />
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-12 text-slate-400">
           <RefreshCw className="w-5 h-5 animate-spin" /> Carregando...
@@ -132,13 +151,11 @@ export default function CaixaAprovacaoEmails() {
           <p className="text-sm">Nenhum e-mail aguardando aprovação.</p>
         </div>
       ) : (
-        // Reduz a proporção visual em 20% (scale 0.8) e compensa a largura
-        <div className="origin-top-left scale-[0.8] w-[125%]">
         <div className="flex gap-4 items-start">
         {/* Kanban: colunas horizontais por domínio */}
         <div className="flex gap-4 overflow-x-auto pb-3 kanban-scroll">
           {colunas.map(([dominio, lista]) => (
-            <div key={dominio} className="flex-shrink-0 w-[300px] bg-slate-50 rounded-2xl border border-slate-200">
+            <div key={dominio} className="flex-shrink-0 w-[320px] bg-slate-50 rounded-2xl border border-slate-200">
               {/* Cabeçalho da coluna */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 sticky top-0 bg-slate-50 rounded-t-2xl">
                 <Server className="w-4 h-4 text-slate-400" />
@@ -242,7 +259,6 @@ export default function CaixaAprovacaoEmails() {
             onRejeitar={(em) => setEmailRejeitar(em)}
             processando={processando}
           />
-        </div>
         </div>
         </div>
       )}
