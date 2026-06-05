@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Mail, CheckCircle2, AlertCircle, Loader2, LinkIcon, Unlink } from 'lucide-react';
@@ -57,54 +56,51 @@ export default function GmailConnectionCard() {
   };
 
   return (
-    <Card className="shadow-sm border border-gray-200">
-      <CardHeader className="pb-3 border-b border-gray-100">
-        <CardTitle className="text-base font-semibold text-gray-800 flex items-center gap-2">
-          <Mail className="h-5 w-5 text-red-500" />
-          📧 Gmail — Tickets automáticos
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-4 space-y-3">
-        <p className="text-xs text-gray-500">
-          Conecte sua conta do Gmail para que novos e-mails recebidos na caixa de entrada
-          (excluindo spam e promoções) sejam transformados automaticamente em conversas
-          na Central de Comunicação no canal email.
-        </p>
+    <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Mail className="h-4 w-4 text-red-500" />
+        <span className="font-semibold text-slate-800 text-sm">Gmail — Tickets automáticos</span>
+      </div>
 
-        {loading ? (
-          <div className="flex items-center gap-2 text-gray-500 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin" /> Verificando conexão...
-          </div>
-        ) : status.connected ? (
-          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-              <div>
-                <div className="text-sm font-medium text-green-800">Conectado</div>
-                {status.email && <div className="text-xs text-green-700">{status.email}</div>}
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleDisconnect}>
-              <Unlink className="h-4 w-4 mr-1" /> Desconectar
-            </Button>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-600" />
-              <span className="text-sm text-amber-800">Sua conta do Gmail não está conectada</span>
-            </div>
-            <Button onClick={handleConnect} disabled={connecting} size="sm" className="bg-red-600 hover:bg-red-700 text-white">
-              {connecting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <LinkIcon className="h-4 w-4 mr-1" />}
-              Conectar Gmail
-            </Button>
-          </div>
-        )}
+      <p className="text-xs text-slate-500">
+        Conecte sua conta do Gmail para que novos e-mails recebidos na caixa de entrada
+        (excluindo spam e promoções) sejam transformados automaticamente em conversas
+        na Central de Comunicação no canal email.
+      </p>
 
-        <Badge variant="outline" className="text-xs text-gray-500">
-          Conector individual por usuário — cada atendente conecta sua própria conta
-        </Badge>
-      </CardContent>
-    </Card>
+      {loading ? (
+        <div className="flex items-center gap-2 text-slate-500 text-xs">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Verificando conexão...
+        </div>
+      ) : status.connected ? (
+        <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-2.5">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <div>
+              <div className="text-xs font-medium text-green-800">Conectado</div>
+              {status.email && <div className="text-[11px] text-green-700">{status.email}</div>}
+            </div>
+          </div>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleDisconnect}>
+            <Unlink className="h-3.5 w-3.5 mr-1" /> Desconectar
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <span className="text-xs text-amber-800">Sua conta do Gmail não está conectada</span>
+          </div>
+          <Button onClick={handleConnect} disabled={connecting} size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700 text-white">
+            {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <LinkIcon className="h-3.5 w-3.5 mr-1" />}
+            Conectar Gmail
+          </Button>
+        </div>
+      )}
+
+      <Badge variant="outline" className="text-[11px] text-slate-500">
+        Conector individual por usuário — cada atendente conecta sua própria conta
+      </Badge>
+    </div>
   );
 }
