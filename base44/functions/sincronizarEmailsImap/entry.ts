@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: `Senha indisponível. Cadastre a senha da caixa na tela (será cifrada no banco).` }, { status: 400 });
     }
 
-    const useEmbeddedCa = String(host || '').includes('liesch.com.br');
+    const useEmbeddedCa = ['liesch.com.br', 'lieschnet.com.br', 'neuraltec360.com.br'].some((d) => String(host || '').includes(d));
     const caCerts = useEmbeddedCa ? [ZIMBRA_CA_PEM] : undefined;
 
     imap = await ImapConnection.connect({ hostname: host, port, timeoutMs, security, caCerts });
