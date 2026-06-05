@@ -1,7 +1,7 @@
 {
   "name": "EmailAccount",
   "type": "object",
-  "description": "Conta de e-mail oficial (caixa). Base estrutural para importa\u00e7\u00e3o, dedup, estado de sincroniza\u00e7\u00e3o e envio pela conta correta. Suporta Zimbra/IMAP (senha por caixa) e Gmail (OAuth). Regra: 1 caixa = 1 EmailAccount = 1 password_secret_name.",
+  "description": "Conta de e-mail oficial (caixa). Base estrutural para importa\u00e7\u00e3o, dedup, estado de sincroniza\u00e7\u00e3o e envio pela conta correta. Suporta Zimbra/IMAP (senha por caixa) e Gmail (OAuth). Regra: 1 caixa = 1 EmailAccount.",
   "properties": {
     "name": {
       "type": "string",
@@ -37,14 +37,19 @@
       "type": "string",
       "enum": [
         "password_secret",
+        "password_encrypted",
         "oauth"
       ],
-      "default": "password_secret",
-      "description": "Tipo de autentica\u00e7\u00e3o: senha no cofre (IMAP) ou OAuth (Gmail)"
+      "default": "password_encrypted",
+      "description": "Tipo de autentica\u00e7\u00e3o: senha cifrada no banco (IMAP), secret no cofre (legado) ou OAuth (Gmail)"
+    },
+    "password_encrypted": {
+      "type": "string",
+      "description": "Senha da caixa cifrada (AES-GCM) com a chave-mestra EMAIL_ENCRYPTION_KEY. Formato: iv_base64:ciphertext_base64. NUNCA exibir no frontend."
     },
     "password_secret_name": {
       "type": "string",
-      "description": "Nome do Secret no cofre com a senha desta caixa (ex: EMAIL_PWD_LUIZ2LIESCH_COM_BR)"
+      "description": "[LEGADO] Nome do Secret no cofre com a senha desta caixa. Mantido para compatibilidade."
     },
     "oauth_connection_id": {
       "type": "string",
