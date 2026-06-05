@@ -40,6 +40,25 @@ export default function WakeUpManager({ usuario }) {
     if (!usuario?.id || jaRegistrou.current) return;
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
+    // Em DEV / preview-sandbox: NÃO registrar SW (evita cache-first servir
+    // chunks JS quebrados → React duplicado → "Cannot read properties of null").
+    // Também desregistra qualquer SW existente e limpa caches nesses ambientes.
+    const host = window.location.hostname;
+    const isDevLike = import.meta.env.DEV
+      || host === 'localhost'
+      || host === '127.0.0.1'
+      || host.includes('preview-sandbox')
+      || host.includes('base44.app') === false && host.includes('-preview');
+    if (isDevLike) {
+      navigator.serviceWorker.getRegistrations?.()
+        .then(regs => regs.forEach(r => r.unregister()))
+        .catch(() => {});
+      if (window.caches?.keys) {
+        caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
+      }
+      return;
+    }
+
     const registrar = async () => {
       try {
         const registration = await navigator.serviceWorker.register('/nexus-sw.js');
