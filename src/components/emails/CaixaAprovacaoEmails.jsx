@@ -8,6 +8,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { Check, X, RefreshCw, Inbox, MailQuestion, Ban, Server } from 'lucide-react';
+import PainelLeituraEmail from '@/components/emails/PainelLeituraEmail';
 
 const URGENCIA_BADGE = {
   alta: 'bg-red-500 text-white',
@@ -60,6 +61,7 @@ export default function CaixaAprovacaoEmails() {
   const [loading, setLoading] = useState(true);
   const [processando, setProcessando] = useState(null);
   const [emailRejeitar, setEmailRejeitar] = useState(null);
+  const [emailSelecionado, setEmailSelecionado] = useState(null);
 
   const carregar = async () => {
     setLoading(true);
@@ -87,6 +89,7 @@ export default function CaixaAprovacaoEmails() {
       } else {
         setPendentes((prev) => prev.filter((e) => e.id !== email_id));
       }
+      setEmailSelecionado((prev) => (prev?.id === email_id ? null : prev));
     } catch (e) {
       console.error('Erro ao decidir:', e);
     } finally {
@@ -129,7 +132,10 @@ export default function CaixaAprovacaoEmails() {
           <p className="text-sm">Nenhum e-mail aguardando aprovação.</p>
         </div>
       ) : (
-        // Kanban: colunas horizontais por domínio
+        // Reduz a proporção visual em 20% (scale 0.8) e compensa a largura
+        <div className="origin-top-left scale-[0.8] w-[125%]">
+        <div className="flex gap-4 items-start">
+        {/* Kanban: colunas horizontais por domínio */}
         <div className="flex gap-4 overflow-x-auto pb-3 kanban-scroll">
           {colunas.map(([dominio, lista]) => (
             <div key={dominio} className="flex-shrink-0 w-[300px] bg-slate-50 rounded-2xl border border-slate-200">
@@ -147,11 +153,12 @@ export default function CaixaAprovacaoEmails() {
                 {lista.map((e) => (
                   <div
                     key={e.id}
-                    className="group relative bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-3"
+                    onClick={() => setEmailSelecionado(e)}
+                    className={`group relative bg-white rounded-xl border shadow-sm hover:shadow-md transition-shadow p-3 cursor-pointer ${emailSelecionado?.id === e.id ? 'border-blue-400 ring-1 ring-blue-200' : 'border-slate-100'}`}
                   >
                     {/* Botão fechar (descartar visualmente da fila) */}
                     <button
-                      onClick={() => setPendentes((prev) => prev.filter((x) => x.id !== e.id))}
+                      onClick={(ev) => { ev.stopPropagation(); setPendentes((prev) => prev.filter((x) => x.id !== e.id)); }}
                       title="Fechar (remover da lista sem decidir)"
                       className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors z-10"
                     >
@@ -201,7 +208,7 @@ export default function CaixaAprovacaoEmails() {
                         <div className="flex gap-1.5 mt-2">
                           <Button
                             size="sm"
-                            onClick={() => decidir(e.id, 'aprovar')}
+                            onClick={(ev) => { ev.stopPropagation(); decidir(e.id, 'aprovar'); }}
                             disabled={processando === e.id}
                             className="gap-1 h-7 px-2.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 flex-1"
                           >
@@ -210,7 +217,7 @@ export default function CaixaAprovacaoEmails() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setEmailRejeitar(e)}
+                            onClick={(ev) => { ev.stopPropagation(); setEmailRejeitar(e); }}
                             disabled={processando === e.id}
                             className="gap-1 h-7 px-2.5 text-xs rounded-lg text-red-600 border-red-200 hover:bg-red-50 flex-1"
                           >
@@ -224,6 +231,19 @@ export default function CaixaAprovacaoEmails() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Painel de leitura do e-mail selecionado */}
+        <div className="flex-1 min-w-[320px] sticky top-0 h-[calc(100vh-240px)]">
+          <PainelLeituraEmail
+            email={emailSelecionado}
+            onFechar={() => setEmailSelecionado(null)}
+            onAprovar={(id) => decidir(id, 'aprovar')}
+            onRejeitar={(em) => setEmailRejeitar(em)}
+            processando={processando}
+          />
+        </div>
+        </div>
         </div>
       )}
 
