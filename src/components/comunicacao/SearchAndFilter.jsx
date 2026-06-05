@@ -70,6 +70,24 @@ export default function SearchAndFilter({
     staleTime: 5 * 60 * 1000
   });
 
+  // Contar e-mails pendentes/não lidos (badge do ícone de e-mail)
+  const { data: emailsPendentes = 0 } = useQuery({
+    queryKey: ['emails-pendentes-count'],
+    queryFn: async () => {
+      try {
+        const res = await base44.functions.invoke('listarEmailsPendentes', {});
+        const lista = res?.data?.emails || res?.data || [];
+        return Array.isArray(lista) ? lista.length : 0;
+      } catch {
+        return 0;
+      }
+    },
+    staleTime: 60 * 1000,
+    refetchInterval: 120 * 1000,
+    refetchOnWindowFocus: false,
+    enabled: !!onNovoEmail
+  });
+
   // Buscar etiquetas de contato dinâmicas
   const { data: etiquetasDB = [] } = useQuery({
     queryKey: ['etiquetas-contato'],
@@ -426,16 +444,21 @@ export default function SearchAndFilter({
             <CheckSquare className="w-4 h-4" />
           </Button>
 
-          {/* Botão Novo E-mail */}
+          {/* Botão Novo E-mail (com badge de não lidos) */}
           {onNovoEmail && (
             <Button
               variant="outline"
               size="icon"
               onClick={onNovoEmail}
-              className="h-10 w-10 p-1.5"
-              title="Novo e-mail"
+              className="relative h-10 w-10 p-1.5"
+              title={emailsPendentes > 0 ? `${emailsPendentes} e-mail(s) aguardando` : 'Novo e-mail'}
             >
               <Mail className="w-4 h-4" />
+              {emailsPendentes > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow animate-pulse">
+                  {emailsPendentes > 99 ? '99+' : emailsPendentes}
+                </span>
+              )}
             </Button>
           )}
           </div>{/* fim dos botões à esquerda */}
