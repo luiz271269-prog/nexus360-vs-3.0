@@ -198,13 +198,20 @@ Deno.serve(async (req) => {
   let imap = null;
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me().catch(() => null);
-    if (user && user.role !== 'admin') {
-      return Response.json({ error: 'Forbidden: admin only' }, { status: 403 });
+    const body = await req.json().catch(() => ({}));
+
+    // Chamada interna confiável (orquestrador/automação) usa internal_secret = BASE44_APP_ID.
+    const appId = Deno.env.get('BASE44_APP_ID');
+    const chamadaInterna = !!body.internal_secret && body.internal_secret === appId;
+
+    if (!chamadaInterna) {
+      const user = await base44.auth.me().catch(() => null);
+      if (user && user.role !== 'admin') {
+        return Response.json({ error: 'Forbidden: admin only' }, { status: 403 });
+      }
     }
 
     const db = base44.asServiceRole.entities;
-    const body = await req.json().catch(() => ({}));
 
     // Resolve a conta a sincronizar (por id ou por email_address)
     let conta = null;
