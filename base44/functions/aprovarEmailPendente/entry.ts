@@ -27,7 +27,9 @@ Deno.serve(async (req) => {
       let bloqueados = 0;
       const remetente = (email.remetente_email || '').toLowerCase().trim();
 
-      // Bloquear o remetente: adiciona à blocklist e rejeita TODOS os pendentes dele
+      let apagados_zimbra = 0;
+
+      // Bloquear o remetente: adiciona à blocklist, rejeita E APAGA no Zimbra todos os pendentes dele
       if (bloquear_remetente && remetente) {
         const jaBloqueado = await db.EmailRemetenteBloqueado.filter({ remetente_email: remetente }, '-created_date', 1).catch(() => []);
         if (!jaBloqueado || jaBloqueado.length === 0) {
@@ -41,6 +43,7 @@ Deno.serve(async (req) => {
 
         // Rejeita em lote todos os pendentes/aguardando do mesmo remetente
         const doRemetente = await db.EmailSincronizado.filter({ remetente_email: remetente }, '-created_date', 200).catch(() => []);
+        const uidsPorConta = {}; // account_login -> Set de UIDs a apagar no Zimbra
         for (const item of (doRemetente || [])) {
           if (['pendente', 'aprovado'].includes(item.status_aprovacao)) {
             await db.EmailSincronizado.update(item.id, {
@@ -50,6 +53,30 @@ Deno.serve(async (req) => {
             });
             bloqueados++;
           }
+          // junta UIDs por caixa (mesmo já rejeitados antes) para apagar no servidor
+          const login = item.account_login;
+          const uidNum = Number(item.message_uid);
+          if (login && Number.isFinite(uidNum)) {
+            (uidsPorConta[login] = uidsPorConta[login] || new Set()).add(uidNum);
+          }
+        }
+
+        // Apaga DE VERDADE no Zimbra (por caixa)
+        const appId = Deno.env.get('BASE44_APP_ID');
+        for (const [login, uidSet] of Object.entries(uidsPorConta)) {
+          const uids = Array.from(uidSet);
+          if (uids.length === 0) continue;
+          try {
+            const resp = await base44.asServiceRole.functions.invoke('apagarEmailZimbraImap', {
+              email_address: login,
+              uids,
+              internal_secret: appId
+            });
+            const data = resp?.data || resp;
+            if (data?.ok) apagados_zimbra += data.apagados || uids.length;
+          } catch (err) {
+            console.error('[aprovarEmailPendente] Falha ao apagar no Zimbra:', login, err?.message || err);
+          }
         }
       }
 
@@ -58,7 +85,7 @@ Deno.serve(async (req) => {
         aprovado_por: user.email,
         aprovado_em: agora
       });
-      return Response.json({ ok: true, acao: 'rejeitado', email_id, remetente_bloqueado: !!bloquear_remetente, emails_limpos: bloqueados });
+      return Response.json({ ok: true, acao: 'rejeitado', email_id, remetente_bloqueado: !!bloquear_remetente, emails_limpos: bloqueados, apagados_zimbra });
     }
 
     // Aprovar: garantir um Contact vinculado

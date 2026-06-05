@@ -204,7 +204,7 @@ export default function CaixaAprovacaoEmails() {
             <AlertDialogTitle>Rejeitar este e-mail?</AlertDialogTitle>
             <AlertDialogDescription>
               Remetente: <strong>{emailRejeitar?.remetente_email}</strong>.<br />
-              Escolha como deseja proceder. <span className="text-slate-500">Nada é apagado no servidor Zimbra — apenas na sua caixa de aprovação.</span>
+              Escolha como deseja proceder. <span className="text-slate-500">Ao bloquear, os e-mails deste remetente são <strong>apagados de verdade no servidor Zimbra</strong> e ele não envia mais lixo para sua caixa.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-col gap-2">
@@ -212,7 +212,7 @@ export default function CaixaAprovacaoEmails() {
               onClick={() => { const id = emailRejeitar.id; setEmailRejeitar(null); decidir(id, 'rejeitar', true); }}
               className="w-full gap-2 bg-red-600 hover:bg-red-700"
             >
-              <Ban className="w-4 h-4" /> Rejeitar e bloquear este remetente
+              <Ban className="w-4 h-4" /> Bloquear e apagar no Zimbra
             </AlertDialogAction>
             <Button
               variant="outline"
