@@ -51,8 +51,11 @@ const iniciais = (nome = '', email = '') => {
   return ((partes[0]?.[0] || '') + (partes[1]?.[0] || '')).toUpperCase() || base[0]?.toUpperCase() || '?';
 };
 
-// Conta de e-mail de destino (account_login completo, ex: luiz@liesch.com.br)
-const contaDe = (login = '') => (login || '').toLowerCase().trim() || 'outros';
+// Extrai o domínio da caixa de destino (account_login)
+const dominioDe = (login = '') => {
+  const at = (login || '').toLowerCase().split('@');
+  return at[1] || 'outros';
+};
 
 export default function CaixaAprovacaoEmails() {
   const [pendentes, setPendentes] = useState([]);
@@ -96,21 +99,21 @@ export default function CaixaAprovacaoEmails() {
     }
   };
 
-  // Agrupa por CONTA de e-mail de destino (uma coluna por caixa)
+  // Agrupa por domínio da caixa de destino (uma coluna por empresa)
   const grupos = {};
   for (const e of pendentes) {
-    const conta = contaDe(e.account_login);
-    (grupos[conta] = grupos[conta] || []).push(e);
+    const dom = dominioDe(e.account_login);
+    (grupos[dom] = grupos[dom] || []).push(e);
   }
   const todasColunas = Object.entries(grupos).sort((a, b) => b[1].length - a[1].length);
 
   // Caixas disponíveis para o seletor do topo (já filtradas por acesso no backend)
-  const caixasDisponiveis = todasColunas.map(([conta, lista]) => ({ dominio: conta, total: lista.length }));
+  const caixasDisponiveis = todasColunas.map(([dominio, lista]) => ({ dominio, total: lista.length }));
 
   // Aplica filtro da caixa ativa selecionada no topo
   const colunas = caixaAtiva === 'todas'
     ? todasColunas
-    : todasColunas.filter(([conta]) => conta === caixaAtiva);
+    : todasColunas.filter(([dominio]) => dominio === caixaAtiva);
 
   return (
     <div className="space-y-3">
@@ -151,12 +154,12 @@ export default function CaixaAprovacaoEmails() {
         <div className="flex gap-4 items-start">
         {/* Kanban: colunas horizontais por domínio */}
         <div className="flex gap-4 overflow-x-auto pb-3 kanban-scroll">
-          {colunas.map(([conta, lista]) => (
-            <div key={conta} className="flex-shrink-0 w-[320px] bg-slate-50 rounded-2xl border border-slate-200">
+          {colunas.map(([dominio, lista]) => (
+            <div key={dominio} className="flex-shrink-0 w-[320px] bg-slate-50 rounded-2xl border border-slate-200">
               {/* Cabeçalho da coluna */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 sticky top-0 bg-slate-50 rounded-t-2xl">
                 <Server className="w-4 h-4 text-slate-400" />
-                <span className="font-semibold text-slate-700 text-sm truncate" title={conta}>{conta}</span>
+                <span className="font-semibold text-slate-700 text-sm truncate" title={dominio}>@{dominio}</span>
                 <span className="ml-auto inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-slate-200 text-slate-600 text-xs font-bold">
                   {lista.length}
                 </span>
