@@ -18,8 +18,27 @@ Deno.serve(async (req) => {
       200
     );
 
+    // Enriquecer cada e-mail com o tipo_contato do remetente (lookup no CRM por e-mail)
+    // Otimizado: 1 única query com $in (evita 429 por excesso de chamadas)
+    const enriquecer = async (lista) => {
+      const emails = [...new Set((lista || []).map((e) => (e.remetente_email || '').toLowerCase()).filter(Boolean))];
+      const mapaTipo = {};
+      if (emails.length > 0) {
+        const contatos = await db.Contact.filter({ email: { $in: emails } }, '-created_date', 500).catch(() => []);
+        for (const c of (contatos || [])) {
+          const em = (c.email || '').toLowerCase();
+          if (em && !mapaTipo[em]) mapaTipo[em] = c.tipo_contato || 'novo';
+        }
+      }
+      return (lista || []).map((e) => ({
+        ...e,
+        tipo_contato_remetente: mapaTipo[(e.remetente_email || '').toLowerCase()] || 'desconhecido',
+      }));
+    };
+
     if (user.role === 'admin') {
-      return Response.json({ ok: true, admin: true, pendentes: pendentes || [] });
+      const enriquecidos = await enriquecer(pendentes);
+      return Response.json({ ok: true, admin: true, pendentes: enriquecidos });
     }
 
     // Caixas atribuídas a este usuário
@@ -33,7 +52,8 @@ Deno.serve(async (req) => {
       meusLogins.has((e.account_login || '').toLowerCase())
     );
 
-    return Response.json({ ok: true, admin: false, pendentes: visiveis });
+    const enriquecidos = await enriquecer(visiveis);
+    return Response.json({ ok: true, admin: false, pendentes: enriquecidos });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

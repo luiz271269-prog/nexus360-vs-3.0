@@ -7,14 +7,8 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
-import { Check, X, RefreshCw, Inbox, MailQuestion, Ban } from 'lucide-react';
+import { Check, X, RefreshCw, Inbox, MailQuestion, Ban, Server } from 'lucide-react';
 
-const URGENCIA_STYLE = {
-  alta: 'bg-red-100 text-red-700 border-red-200',
-  media: 'bg-amber-100 text-amber-700 border-amber-200',
-  baixa: 'bg-slate-100 text-slate-600 border-slate-200',
-};
-// Badge sólido estilo Gmail/Superhuman (pílula no canto do card)
 const URGENCIA_BADGE = {
   alta: 'bg-red-500 text-white',
   media: 'bg-amber-400 text-white',
@@ -22,7 +16,24 @@ const URGENCIA_BADGE = {
 };
 const URGENCIA_LABEL = { alta: 'URGENT', media: 'ATENÇÃO', baixa: 'NORMAL' };
 
-// Cor determinística do avatar a partir do e-mail
+// Tipo de contato do remetente (vindo do CRM)
+const TIPO_CONTATO_STYLE = {
+  cliente: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  lead: 'bg-blue-100 text-blue-700 border-blue-200',
+  fornecedor: 'bg-orange-100 text-orange-700 border-orange-200',
+  parceiro: 'bg-purple-100 text-purple-700 border-purple-200',
+  eventual: 'bg-teal-100 text-teal-700 border-teal-200',
+  ex_cliente: 'bg-rose-100 text-rose-700 border-rose-200',
+  novo: 'bg-slate-100 text-slate-600 border-slate-200',
+  email: 'bg-slate-100 text-slate-600 border-slate-200',
+  desconhecido: 'bg-slate-100 text-slate-500 border-slate-200',
+};
+const TIPO_CONTATO_LABEL = {
+  cliente: 'Cliente', lead: 'Lead', fornecedor: 'Fornecedor', parceiro: 'Parceiro',
+  eventual: 'Eventual', ex_cliente: 'Ex-cliente', novo: 'Novo', email: 'E-mail',
+  desconhecido: 'Desconhecido',
+};
+
 const AVATAR_COLORS = [
   'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-orange-500',
   'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-rose-500',
@@ -37,23 +48,18 @@ const iniciais = (nome = '', email = '') => {
   const partes = base.split(/\s+/);
   return ((partes[0]?.[0] || '') + (partes[1]?.[0] || '')).toUpperCase() || base[0]?.toUpperCase() || '?';
 };
-const SETOR_STYLE = {
-  vendas: 'bg-blue-100 text-blue-700 border-blue-200',
-  financeiro: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  assistencia: 'bg-purple-100 text-purple-700 border-purple-200',
-  fornecedor: 'bg-orange-100 text-orange-700 border-orange-200',
-  geral: 'bg-slate-100 text-slate-600 border-slate-200',
-};
-const SETOR_LABEL = {
-  vendas: 'Vendas', financeiro: 'Financeiro', assistencia: 'Assistência',
-  fornecedor: 'Fornecedor', geral: 'Geral',
+
+// Extrai o domínio da caixa de destino (account_login)
+const dominioDe = (login = '') => {
+  const at = (login || '').toLowerCase().split('@');
+  return at[1] || 'outros';
 };
 
 export default function CaixaAprovacaoEmails() {
   const [pendentes, setPendentes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processando, setProcessando] = useState(null);
-  const [emailRejeitar, setEmailRejeitar] = useState(null); // e-mail aguardando decisão de rejeição
+  const [emailRejeitar, setEmailRejeitar] = useState(null);
 
   const carregar = async () => {
     setLoading(true);
@@ -76,7 +82,6 @@ export default function CaixaAprovacaoEmails() {
     try {
       await aprovarEmailPendente({ email_id, acao, bloquear_remetente });
       if (acao === 'rejeitar' && bloquear_remetente) {
-        // remove da lista todos os pendentes do mesmo remetente
         const rem = pendentes.find((e) => e.id === email_id)?.remetente_email;
         setPendentes((prev) => prev.filter((e) => e.remetente_email !== rem));
       } else {
@@ -89,9 +94,17 @@ export default function CaixaAprovacaoEmails() {
     }
   };
 
+  // Agrupa por domínio da caixa de destino
+  const grupos = {};
+  for (const e of pendentes) {
+    const dom = dominioDe(e.account_login);
+    (grupos[dom] = grupos[dom] || []).push(e);
+  }
+  const colunas = Object.entries(grupos).sort((a, b) => b[1].length - a[1].length);
+
   return (
     <div className="space-y-3">
-      {/* Barra de status discreta */}
+      {/* Barra de status */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <MailQuestion className="w-4 h-4 text-amber-500" />
@@ -116,88 +129,97 @@ export default function CaixaAprovacaoEmails() {
           <p className="text-sm">Nenhum e-mail aguardando aprovação.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {pendentes.map((e) => (
-            <div
-              key={e.id}
-              className="group bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-3"
-            >
-              <div className="flex items-start gap-2.5">
-                {/* Avatar circular */}
-                <div className={`flex-shrink-0 w-9 h-9 rounded-full ${corAvatar(e.remetente_email)} flex items-center justify-center text-white font-semibold text-xs shadow-sm`}>
-                  {iniciais(e.remetente_nome, e.remetente_email)}
-                </div>
+        // Kanban: colunas horizontais por domínio
+        <div className="flex gap-4 overflow-x-auto pb-3 kanban-scroll">
+          {colunas.map(([dominio, lista]) => (
+            <div key={dominio} className="flex-shrink-0 w-[340px] bg-slate-50 rounded-2xl border border-slate-200">
+              {/* Cabeçalho da coluna */}
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 sticky top-0 bg-slate-50 rounded-t-2xl">
+                <Server className="w-4 h-4 text-slate-400" />
+                <span className="font-semibold text-slate-700 text-sm truncate">@{dominio}</span>
+                <span className="ml-auto inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-slate-200 text-slate-600 text-xs font-bold">
+                  {lista.length}
+                </span>
+              </div>
 
-                <div className="min-w-0 flex-1">
-                  {/* Linha 1: nome + badge urgência + tempo */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-slate-900 text-[13px] truncate">
-                      {e.remetente_nome || e.remetente_email}
-                    </span>
-                    <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-                      {e.urgencia && (
-                        <span
-                          title={e.motivo_classificacao || ''}
-                          className={`text-[9px] font-bold tracking-wide px-2 py-0.5 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}
-                        >
-                          {URGENCIA_LABEL[e.urgencia] || 'NORMAL'}
-                        </span>
-                      )}
-                      {e.data_email && (
-                        <span className="text-[11px] text-slate-400 whitespace-nowrap">{e.data_email}</span>
-                      )}
+              {/* Cards da coluna */}
+              <div className="p-2.5 space-y-2.5 max-h-[calc(100vh-280px)] overflow-y-auto">
+                {lista.map((e) => (
+                  <div
+                    key={e.id}
+                    className="group bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-3"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className={`flex-shrink-0 w-9 h-9 rounded-full ${corAvatar(e.remetente_email)} flex items-center justify-center text-white font-semibold text-xs shadow-sm`}>
+                        {iniciais(e.remetente_nome, e.remetente_email)}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-slate-900 text-[13px] truncate">
+                            {e.remetente_nome || e.remetente_email}
+                          </span>
+                          {e.urgencia && (
+                            <span
+                              title={e.motivo_classificacao || ''}
+                              className={`ml-auto text-[9px] font-bold tracking-wide px-2 py-0.5 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}
+                            >
+                              {URGENCIA_LABEL[e.urgencia] || 'NORMAL'}
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="font-semibold text-slate-800 text-[13px] mt-0.5 truncate">
+                          {e.assunto || '(sem assunto)'}
+                        </p>
+
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                          {e.corpo_preview?.trim() || e.remetente_email}
+                        </p>
+
+                        {/* Tags: tipo de contato + setor */}
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 rounded-full font-medium ${TIPO_CONTATO_STYLE[e.tipo_contato_remetente] || TIPO_CONTATO_STYLE.desconhecido}`}>
+                            {TIPO_CONTATO_LABEL[e.tipo_contato_remetente] || 'Desconhecido'}
+                          </Badge>
+                          {e.setor_classificado && (
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-full font-normal bg-slate-50 text-slate-500 border-slate-200">
+                              {e.setor_classificado}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Ações */}
+                        <div className="flex gap-1.5 mt-2">
+                          <Button
+                            size="sm"
+                            onClick={() => decidir(e.id, 'aprovar')}
+                            disabled={processando === e.id}
+                            className="gap-1 h-7 px-2.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 flex-1"
+                          >
+                            <Check className="w-3.5 h-3.5" /> Aprovar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEmailRejeitar(e)}
+                            disabled={processando === e.id}
+                            className="gap-1 h-7 px-2.5 text-xs rounded-lg text-red-600 border-red-200 hover:bg-red-50 flex-1"
+                          >
+                            <X className="w-3.5 h-3.5" /> Rejeitar
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Linha 2: assunto em destaque */}
-                  <p className="font-semibold text-slate-800 text-[13px] mt-0.5 truncate">
-                    {e.assunto || '(sem assunto)'}
-                  </p>
-
-                  {/* Linha 3: preview cinza */}
-                  <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
-                    {e.corpo_preview?.trim() || e.remetente_email}
-                  </p>
-
-                  {/* Tags + ações */}
-                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                    {e.setor_classificado && (
-                      <Badge variant="outline" className={`text-[9px] px-1.5 py-0 rounded-full font-medium ${SETOR_STYLE[e.setor_classificado] || SETOR_STYLE.geral}`}>
-                        {SETOR_LABEL[e.setor_classificado] || e.setor_classificado}
-                      </Badge>
-                    )}
-                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-full font-normal bg-slate-50 text-slate-500 border-slate-200">
-                      {e.account_login}
-                    </Badge>
-
-                    <div className="ml-auto flex gap-1.5">
-                      <Button
-                        size="sm"
-                        onClick={() => decidir(e.id, 'aprovar')}
-                        disabled={processando === e.id}
-                        className="gap-1 h-7 px-2.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700"
-                      >
-                        <Check className="w-3.5 h-3.5" /> Aprovar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEmailRejeitar(e)}
-                        disabled={processando === e.id}
-                        className="gap-1 h-7 px-2.5 text-xs rounded-lg text-red-600 border-red-200 hover:bg-red-50"
-                      >
-                        <X className="w-3.5 h-3.5" /> Rejeitar
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Diálogo: rejeitar e perguntar se bloqueia o remetente */}
+      {/* Diálogo de rejeição */}
       <AlertDialog open={!!emailRejeitar} onOpenChange={(o) => !o && setEmailRejeitar(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
