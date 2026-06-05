@@ -356,6 +356,13 @@ Deno.serve(async (req) => {
 
       novos++;
       if (conhecido) autoAprovados++; else pendentes++;
+
+      // Salva o ponteiro a CADA e-mail processado. Assim, se bater rate limit
+      // no meio do backlog, o progresso é preservado e a próxima execução continua.
+      await db.EmailAccount.update(conta.id, {
+        last_uid_seen: maiorUid,
+        last_sync_at: new Date().toISOString()
+      }).catch(() => {});
     }
 
     // Atualiza ponteiro incremental da conta
