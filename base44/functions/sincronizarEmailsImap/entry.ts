@@ -43,6 +43,32 @@ function escapeImapString(value) {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
+// Decodifica cabeçalhos MIME "encoded-word" (RFC 2047): =?charset?B/Q?texto?=
+function decodeMimeWords(str) {
+  if (!str || !str.includes('=?')) return String(str || '');
+  try {
+    return String(str).replace(/=\?([^?]+)\?([bBqQ])\?([^?]*)\?=/g, (_, charset, enc, text) => {
+      const cs = (charset || 'utf-8').toLowerCase();
+      let bytes;
+      if (enc.toUpperCase() === 'B') {
+        const bin = atob(text.replace(/\s+/g, ''));
+        bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+      } else {
+        // Quoted-printable: _ vira espaço, =XX vira byte
+        const qp = text.replace(/_/g, ' ').replace(/=([0-9A-Fa-f]{2})/g, (_m, hex) => String.fromCharCode(parseInt(hex, 16)));
+        bytes = Uint8Array.from(qp, (c) => c.charCodeAt(0));
+      }
+      try {
+        return new TextDecoder(cs).decode(bytes);
+      } catch {
+        return new TextDecoder('utf-8').decode(bytes);
+      }
+    }).replace(/\?=\s+=\?/g, '').trim();
+  } catch {
+    return String(str);
+  }
+}
+
 function normalizarAssunto(assunto) {
   return String(assunto || '')
     .replace(/^(\s*(re|fwd|fw|enc|res)\s*:\s*)+/gi, '')
@@ -238,8 +264,8 @@ Deno.serve(async (req) => {
       );
       emails = parseHeaderBlocks(fetchLines, maxMessages).map((m) => ({
         uid: m.uid,
-        from: m.from || '',
-        subject: m.subject || '(sem assunto)',
+        from: decodeMimeWords(m.from || ''),
+        subject: decodeMimeWords(m.subject) || '(sem assunto)',
         date: m.date || '',
         message_id: (m['message-id'] || '').replace(/[<>]/g, '').trim()
       }));
