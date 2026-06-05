@@ -53,20 +53,29 @@ async function decryptPassword(encrypted, masterKey) {
   return new TextDecoder().decode(plainBuf);
 }
 
-// Decodifica quoted-printable
+// Converte uma string "binária" (cada char = 1 byte) em texto, respeitando o charset
+function bytesParaTexto(binStr, charset) {
+  const cs = (charset || 'utf-8').toLowerCase().replace('windows-1252', 'iso-8859-1');
+  const bytes = Uint8Array.from(String(binStr), (c) => c.charCodeAt(0));
+  try {
+    return new TextDecoder(cs).decode(bytes);
+  } catch {
+    try { return new TextDecoder('utf-8').decode(bytes); } catch { return String(binStr); }
+  }
+}
+
+// Decodifica quoted-printable para string binária (bytes brutos)
 function decodeQuotedPrintable(str) {
   return String(str)
     .replace(/=\r?\n/g, '')
     .replace(/=([0-9A-Fa-f]{2})/g, (_m, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
 
-// Decodifica base64 para texto UTF-8
-function decodeBase64Utf8(str) {
+// Decodifica base64 para string binária (bytes brutos)
+function decodeBase64Bin(str) {
   try {
     const clean = String(str).replace(/\s+/g, '');
-    const bin = atob(clean);
-    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-    return new TextDecoder('utf-8').decode(bytes);
+    return atob(clean);
   } catch {
     return String(str);
   }
@@ -112,11 +121,14 @@ function extrairCorpoLegivel(raw) {
     if (sepIdx === -1) continue;
     let conteudo = parte.slice(sepIdx).trim();
 
+    const charsetMatch = parte.match(/charset="?([^"\r\n;]+)"?/i);
+    const charset = charsetMatch ? charsetMatch[1].trim() : 'utf-8';
     const isBase64 = /content-transfer-encoding:\s*base64/i.test(parte);
     const isQP = /content-transfer-encoding:\s*quoted-printable/i.test(parte);
 
-    if (isBase64) conteudo = decodeBase64Utf8(conteudo);
-    else if (isQP) conteudo = decodeQuotedPrintable(conteudo);
+    // Decodifica transfer-encoding -> bytes brutos -> texto pelo charset
+    if (isBase64) conteudo = bytesParaTexto(decodeBase64Bin(conteudo), charset);
+    else if (isQP) conteudo = bytesParaTexto(decodeQuotedPrintable(conteudo), charset);
 
     if (/content-type:\s*text\/plain/i.test(lower) && !plainText) {
       plainText = conteudo;
