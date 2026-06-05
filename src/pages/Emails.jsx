@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Mail, Inbox, Send, Loader2, KeyRound } from 'lucide-react';
+import { Mail, Inbox, Send, Loader2 } from 'lucide-react';
 import CaixaAprovacaoEmails from '@/components/emails/CaixaAprovacaoEmails';
 import AbaNovoEmail from '@/components/emails/AbaNovoEmail';
 import GmailConnectionCard from '@/components/configuracao/GmailConnectionCard';
-import CaixasImapSenhas from '@/components/emails/CaixasImapSenhas';
 
 // Central de E-mail unificada — 3 abas:
 // 1) Caixa de entrada (recebidos/pendentes) · 2) Novo e-mail · 3) Conectar Gmail
@@ -33,7 +32,6 @@ export default function Emails() {
   const TABS = [
     { value: 'entrada', label: 'Caixa de entrada', icon: Inbox },
     { value: 'novo', label: 'Novo e-mail', icon: Send },
-    { value: 'caixas', label: 'Caixas IMAP', icon: KeyRound },
     { value: 'gmail', label: 'Conectar Gmail', icon: Mail },
   ];
 
@@ -70,10 +68,6 @@ export default function Emails() {
 
           <TabsContent value="novo" className="mt-0">
             <AbaNovoEmail />
-          </TabsContent>
-
-          <TabsContent value="caixas" className="mt-0">
-            <CaixasImapSenhas />
           </TabsContent>
 
           <TabsContent value="gmail" className="mt-0">

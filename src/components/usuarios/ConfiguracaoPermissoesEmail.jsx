@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Star, Mail } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Loader2, Star, Mail, KeyRound, Check, Eye, EyeOff } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import { salvarSenhaEmailAccount } from '@/functions/salvarSenhaEmailAccount';
 
 // Espelho do padrão "Conexões WhatsApp Permitidas".
 // Lista as EmailAccount cadastradas; o usuário marca Ver/Receber/Enviar
@@ -11,19 +14,40 @@ import { base44 } from '@/api/base44Client';
 export default function ConfiguracaoPermissoesEmail({ usuarioSelecionado, atualizarUsuario }) {
   const [contas, setContas] = useState([]);
   const [carregando, setCarregando] = useState(true);
+  const [senhas, setSenhas] = useState({});
+  const [mostrar, setMostrar] = useState({});
+  const [salvando, setSalvando] = useState({});
+  const [salvo, setSalvo] = useState({});
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const lista = await base44.entities.EmailAccount.list('email_address', 500);
-        setContas(lista || []);
-      } catch {
-        setContas([]);
-      } finally {
-        setCarregando(false);
-      }
-    })();
-  }, []);
+  const carregarContas = async () => {
+    try {
+      const lista = await base44.entities.EmailAccount.list('email_address', 500);
+      setContas(lista || []);
+    } catch {
+      setContas([]);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  useEffect(() => { carregarContas(); }, []);
+
+  const salvarSenha = async (conta) => {
+    const senha = senhas[conta.id];
+    if (!senha) return;
+    setSalvando((s) => ({ ...s, [conta.id]: true }));
+    try {
+      await salvarSenhaEmailAccount({ email_account_id: conta.id, password: senha });
+      setSalvo((s) => ({ ...s, [conta.id]: true }));
+      setSenhas((s) => ({ ...s, [conta.id]: '' }));
+      setTimeout(() => setSalvo((s) => ({ ...s, [conta.id]: false })), 2500);
+      carregarContas();
+    } catch (e) {
+      alert('Erro ao salvar senha: ' + (e?.response?.data?.error || e.message));
+    } finally {
+      setSalvando((s) => ({ ...s, [conta.id]: false }));
+    }
+  };
 
   const perms = usuarioSelecionado.email_accounts || [];
   const findPerm = (id) => perms.find((p) => p.email_account_id === id);
@@ -126,6 +150,50 @@ export default function ConfiguracaoPermissoesEmail({ usuarioSelecionado, atuali
                   <Star className={`w-3 h-3 ${perm?.is_default_send ? 'fill-amber-400 text-amber-500' : ''}`} />
                   {perm?.is_default_send ? 'Caixa padrão de envio' : 'Definir como padrão de envio'}
                 </button>
+
+                {conta.provider === 'zimbra' && (
+                  <div className="pt-1">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <KeyRound className="w-3 h-3 text-slate-400" />
+                      <span className="text-[11px] text-slate-500">
+                        Senha da caixa {conta.password_encrypted ? '(salva)' : '(não cadastrada)'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="relative flex-1">
+                        <Input
+                          type={mostrar[conta.id] ? 'text' : 'password'}
+                          placeholder={conta.password_encrypted ? 'Alterar senha' : 'Digite a senha'}
+                          value={senhas[conta.id] || ''}
+                          onChange={(e) => setSenhas((s) => ({ ...s, [conta.id]: e.target.value }))}
+                          className="h-8 pr-8 text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setMostrar((m) => ({ ...m, [conta.id]: !m[conta.id] }))}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          {mostrar[conta.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => salvarSenha(conta)}
+                        disabled={!senhas[conta.id] || salvando[conta.id]}
+                        className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3"
+                      >
+                        {salvando[conta.id] ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : salvo[conta.id] ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          'Salvar'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
