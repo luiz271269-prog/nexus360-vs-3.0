@@ -32,7 +32,8 @@ Deno.serve(async (req) => {
       smtp_port: smtpPortParam,
       smtp_security: smtpSecurityParam,
       in_reply_to,
-      references
+      references,
+      attachments
     } = body;
 
     if (!to) {
@@ -98,12 +99,20 @@ Deno.serve(async (req) => {
     if (in_reply_to) headers['In-Reply-To'] = in_reply_to;
     if (references) headers['References'] = references;
 
+    // Anexos: nodemailer baixa cada URL e anexa ao e-mail
+    const mailAttachments = Array.isArray(attachments)
+      ? attachments
+          .filter((a) => a && a.url)
+          .map((a) => ({ filename: a.filename || 'anexo', path: a.url }))
+      : [];
+
     const info = await transporter.sendMail({
       from: remetenteNome ? `"${remetenteNome}" <${accountLogin}>` : accountLogin,
       to,
       subject: subject || '(sem assunto)',
       text: texto || '',
-      headers
+      headers,
+      attachments: mailAttachments
     });
 
     // Registra a mensagem outbound na conversa (se thread informada)

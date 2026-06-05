@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Mail, Loader2, Send, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import AnexosEmail from './AnexosEmail';
 
 // Aba "Novo e-mail" — compõe e envia via iniciarEmailNovo (mesma lógica do NovoEmailModal, sem dialog).
 export default function AbaNovoEmail() {
@@ -16,6 +17,7 @@ export default function AbaNovoEmail() {
   const [para, setPara] = useState('');
   const [assunto, setAssunto] = useState('');
   const [corpo, setCorpo] = useState('');
+  const [anexos, setAnexos] = useState([]);
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(null);
 
@@ -31,7 +33,7 @@ export default function AbaNovoEmail() {
   }, []);
 
   const limpar = () => {
-    setPara(''); setAssunto(''); setCorpo(''); setEnviado(null);
+    setPara(''); setAssunto(''); setCorpo(''); setAnexos([]); setEnviado(null);
   };
 
   const handleEnviar = async () => {
@@ -45,7 +47,8 @@ export default function AbaNovoEmail() {
         email_account_id: contaId,
         to: para.trim(),
         subject: assunto,
-        body: corpo
+        body: corpo,
+        attachments: anexos.map((a) => ({ url: a.url, filename: a.filename }))
       });
       const data = resp?.data || resp;
       if (data?.ok) {
@@ -116,6 +119,11 @@ export default function AbaNovoEmail() {
         <div className="space-y-1.5">
           <Label>Mensagem</Label>
           <Textarea rows={6} value={corpo} onChange={(e) => setCorpo(e.target.value)} placeholder="Escreva a mensagem..." />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Anexos</Label>
+          <AnexosEmail anexos={anexos} onChange={setAnexos} />
         </div>
 
         <div className="flex justify-end">

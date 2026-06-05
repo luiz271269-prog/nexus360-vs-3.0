@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { email_account_id, to, subject, body } = await req.json().catch(() => ({}));
+    const { email_account_id, to, subject, body, attachments } = await req.json().catch(() => ({}));
 
     if (!email_account_id || !to) {
       return Response.json({ error: 'Campos obrigatórios: email_account_id e to' }, { status: 400 });
@@ -79,7 +79,8 @@ Deno.serve(async (req) => {
       email_account_id: conta.id,
       to: destinoEmail,
       subject: subject || '(sem assunto)',
-      body: body || ''
+      body: body || '',
+      attachments: Array.isArray(attachments) ? attachments : []
     });
 
     const data = resp?.data || resp;
