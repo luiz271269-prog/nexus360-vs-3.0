@@ -258,10 +258,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: `Senha indisponível. Cadastre a senha da caixa na tela (será cifrada no banco).` }, { status: 400 });
     }
 
-    const useEmbeddedCa = ['liesch.com.br', 'lieschnet.com.br', 'neuraltec360.com.br'].some((d) => String(host || '').includes(d));
+    const dominiosZimbraLiesch = ['liesch.com.br', 'lieschnet.com.br', 'neuraltec360.com.br'];
+    const useEmbeddedCa = dominiosZimbraLiesch.some((d) => String(host || '').includes(d));
     const caCerts = useEmbeddedCa ? [ZIMBRA_CA_PEM] : undefined;
 
-    imap = await ImapConnection.connect({ hostname: host, port, timeoutMs, security, caCerts });
+    // Os domínios da Liesch/Neuraltec compartilham o mesmo servidor Zimbra,
+    // cujo certificado TLS é emitido para mail.liesch.com.br. Conectamos por
+    // esse hostname (evita NotValidForName) mas autenticamos com o e-mail completo.
+    const connectHost = useEmbeddedCa ? 'mail.liesch.com.br' : host;
+
+    imap = await ImapConnection.connect({ hostname: connectHost, port, timeoutMs, security, caCerts });
     await imap.command('CAPABILITY', timeoutMs);
 
     const saslPlain = btoa(`\u0000${username}\u0000${password}`);
@@ -269,7 +275,7 @@ Deno.serve(async (req) => {
       await imap.command(`AUTHENTICATE PLAIN ${saslPlain}`, timeoutMs);
     } catch {
       try { imap.close(); } catch { /* ignore */ }
-      imap = await ImapConnection.connect({ hostname: host, port, timeoutMs, security, caCerts });
+      imap = await ImapConnection.connect({ hostname: connectHost, port, timeoutMs, security, caCerts });
       await imap.command('CAPABILITY', timeoutMs);
       await imap.command(`LOGIN "${escapeImapString(username)}" "${escapeImapString(password)}"`, timeoutMs);
     }
