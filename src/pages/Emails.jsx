@@ -29,46 +29,52 @@ export default function Emails() {
     );
   }
 
+  const TABS = [
+    { value: 'entrada', label: 'Caixa de entrada', icon: Inbox },
+    { value: 'novo', label: 'Novo e-mail', icon: Send },
+    { value: 'gmail', label: 'Conectar Gmail', icon: Mail },
+  ];
+
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center shadow-lg">
-          <Mail className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-[#F8FAFC]">
+      <div className="max-w-3xl mx-auto px-4 md:px-6 pt-6 pb-16">
+        {/* Header limpo estilo Gmail/Superhuman */}
+        <div className="flex items-center gap-3 mb-1">
+          <h1 className="text-[26px] font-bold tracking-tight text-slate-900">Central de E-mail</h1>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Central de E-mail</h1>
-          <p className="text-sm text-slate-500">
-            Receba, aprove e envie e-mails, e conecte sua própria caixa. Os e-mails recebidos
-            aparecem na Central de Comunicação para os atendentes do seu setor.
-          </p>
-        </div>
+        <p className="text-sm text-slate-500 mb-5 max-w-xl">
+          Receba, aprove e envie e-mails. Os recebidos aparecem na Central de Comunicação para o seu setor.
+        </p>
+
+        <Tabs value={aba} onValueChange={setAba}>
+          {/* Abas com underline ativo (estilo Gmail) */}
+          <div className="border-b border-slate-200 mb-6">
+            <TabsList className="bg-transparent p-0 h-auto gap-1">
+              {TABS.map(({ value, label, icon: Icon }) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="relative gap-2 rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-slate-500 shadow-none data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-700 data-[state=active]:shadow-none hover:text-slate-700 transition-colors"
+                >
+                  <Icon className="w-[18px] h-[18px]" /> {label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+
+          <TabsContent value="entrada" className="mt-0">
+            <CaixaAprovacaoEmails />
+          </TabsContent>
+
+          <TabsContent value="novo" className="mt-0">
+            <AbaNovoEmail />
+          </TabsContent>
+
+          <TabsContent value="gmail" className="mt-0">
+            <GmailConnectionCard />
+          </TabsContent>
+        </Tabs>
       </div>
-
-      <Tabs value={aba} onValueChange={setAba}>
-        <TabsList className="mb-6 flex-wrap h-auto">
-          <TabsTrigger value="entrada" className="gap-2">
-            <Inbox className="w-4 h-4" /> Caixa de entrada
-          </TabsTrigger>
-          <TabsTrigger value="novo" className="gap-2">
-            <Send className="w-4 h-4" /> Novo e-mail
-          </TabsTrigger>
-          <TabsTrigger value="gmail" className="gap-2">
-            <Mail className="w-4 h-4" /> Conectar Gmail
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="entrada">
-          <CaixaAprovacaoEmails />
-        </TabsContent>
-
-        <TabsContent value="novo">
-          <AbaNovoEmail />
-        </TabsContent>
-
-        <TabsContent value="gmail">
-          <GmailConnectionCard />
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }

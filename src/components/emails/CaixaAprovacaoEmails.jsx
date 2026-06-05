@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { aprovarEmailPendente } from '@/functions/aprovarEmailPendente';
 import { listarEmailsPendentes } from '@/functions/listarEmailsPendentes';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, X, RefreshCw, Inbox, MailQuestion } from 'lucide-react';
@@ -10,6 +9,29 @@ const URGENCIA_STYLE = {
   alta: 'bg-red-100 text-red-700 border-red-200',
   media: 'bg-amber-100 text-amber-700 border-amber-200',
   baixa: 'bg-slate-100 text-slate-600 border-slate-200',
+};
+// Badge sólido estilo Gmail/Superhuman (pílula no canto do card)
+const URGENCIA_BADGE = {
+  alta: 'bg-red-500 text-white',
+  media: 'bg-amber-400 text-white',
+  baixa: 'bg-slate-400 text-white',
+};
+const URGENCIA_LABEL = { alta: 'URGENT', media: 'ATENÇÃO', baixa: 'NORMAL' };
+
+// Cor determinística do avatar a partir do e-mail
+const AVATAR_COLORS = [
+  'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-orange-500',
+  'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-rose-500',
+];
+const corAvatar = (str = '') => {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+};
+const iniciais = (nome = '', email = '') => {
+  const base = (nome || email || '?').trim();
+  const partes = base.split(/\s+/);
+  return ((partes[0]?.[0] || '') + (partes[1]?.[0] || '')).toUpperCase() || base[0]?.toUpperCase() || '?';
 };
 const SETOR_STYLE = {
   vendas: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -57,79 +79,112 @@ export default function CaixaAprovacaoEmails() {
   };
 
   return (
-    <Card>
-      <CardContent className="p-0">
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-2">
-            <MailQuestion className="w-5 h-5 text-amber-600" />
-            <span className="font-semibold text-slate-800">Caixa de aprovação</span>
-            <Badge variant="secondary">{pendentes.length}</Badge>
-          </div>
-          <Button variant="ghost" size="sm" onClick={carregar} disabled={loading} className="gap-2">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Atualizar
-          </Button>
+    <div className="space-y-3">
+      {/* Barra de status discreta */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <MailQuestion className="w-4 h-4 text-amber-500" />
+          <span className="font-medium text-slate-700">Aguardando aprovação</span>
+          <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-slate-200 text-slate-600 text-xs font-semibold">
+            {pendentes.length}
+          </span>
         </div>
+        <Button variant="ghost" size="sm" onClick={carregar} disabled={loading} className="gap-2 text-slate-500 hover:text-slate-700">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Atualizar
+        </Button>
+      </div>
 
-        {loading ? (
-          <div className="p-8 text-center text-slate-400">Carregando...</div>
-        ) : pendentes.length === 0 ? (
-          <div className="p-10 text-center text-slate-400">
-            <Inbox className="w-10 h-10 mx-auto mb-2 opacity-40" />
-            Nenhum e-mail aguardando aprovação.
-          </div>
-        ) : (
-          <div className="divide-y">
-            {pendentes.map((e) => (
-              <div key={e.id} className="p-4 hover:bg-slate-50 transition-colors">
-                <div className="flex justify-between items-start gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium text-slate-800 text-sm truncate">
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-12 text-slate-400">
+          <RefreshCw className="w-5 h-5 animate-spin" /> Carregando...
+        </div>
+      ) : pendentes.length === 0 ? (
+        <div className="py-16 text-center text-slate-400 bg-white rounded-2xl border border-slate-100">
+          <Inbox className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">Nenhum e-mail aguardando aprovação.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {pendentes.map((e) => (
+            <div
+              key={e.id}
+              className="group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-4"
+            >
+              <div className="flex items-start gap-3">
+                {/* Avatar circular */}
+                <div className={`flex-shrink-0 w-11 h-11 rounded-full ${corAvatar(e.remetente_email)} flex items-center justify-center text-white font-semibold text-sm shadow-sm`}>
+                  {iniciais(e.remetente_nome, e.remetente_email)}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  {/* Linha 1: nome + badge urgência + tempo */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-slate-900 text-[15px] truncate">
                       {e.remetente_nome || e.remetente_email}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">{e.remetente_email}</p>
-                    <p className="text-sm text-slate-600 mt-1 truncate">{e.assunto || '(sem assunto)'}</p>
-                    {(e.urgencia || e.setor_classificado) && (
-                      <div className="flex flex-wrap gap-1.5 mt-1.5" title={e.motivo_classificacao || ''}>
-                        {e.urgencia && (
-                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${URGENCIA_STYLE[e.urgencia] || URGENCIA_STYLE.baixa}`}>
-                            {e.urgencia === 'alta' ? '🔴 Alta' : e.urgencia === 'media' ? '🟡 Média' : '⚪ Baixa'}
-                          </Badge>
-                        )}
-                        {e.setor_classificado && (
-                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${SETOR_STYLE[e.setor_classificado] || SETOR_STYLE.geral}`}>
-                            {SETOR_LABEL[e.setor_classificado] || e.setor_classificado}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                    <p className="text-xs text-slate-400 mt-1">Caixa: {e.account_login} · {e.data_email}</p>
+                    </span>
+                    <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+                      {e.urgencia && (
+                        <span
+                          title={e.motivo_classificacao || ''}
+                          className={`text-[10px] font-bold tracking-wide px-2.5 py-1 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}
+                        >
+                          {URGENCIA_LABEL[e.urgencia] || 'NORMAL'}
+                        </span>
+                      )}
+                      {e.data_email && (
+                        <span className="text-xs text-slate-400 whitespace-nowrap">{e.data_email}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <Button
-                      size="sm"
-                      onClick={() => decidir(e.id, 'aprovar')}
-                      disabled={processando === e.id}
-                      className="gap-1 bg-green-600 hover:bg-green-700"
-                    >
-                      <Check className="w-4 h-4" /> Aprovar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => decidir(e.id, 'rejeitar')}
-                      disabled={processando === e.id}
-                      className="gap-1 text-red-600 border-red-200 hover:bg-red-50"
-                    >
-                      <X className="w-4 h-4" /> Rejeitar
-                    </Button>
+
+                  {/* Linha 2: assunto em destaque */}
+                  <p className="font-semibold text-slate-800 text-[15px] mt-0.5 truncate">
+                    {e.assunto || '(sem assunto)'}
+                  </p>
+
+                  {/* Linha 3: preview cinza */}
+                  <p className="text-sm text-slate-500 mt-1 line-clamp-2">
+                    {e.corpo_preview?.trim() || e.remetente_email}
+                  </p>
+
+                  {/* Tags + ações */}
+                  <div className="flex items-center gap-2 mt-3 flex-wrap">
+                    {e.setor_classificado && (
+                      <Badge variant="outline" className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${SETOR_STYLE[e.setor_classificado] || SETOR_STYLE.geral}`}>
+                        {SETOR_LABEL[e.setor_classificado] || e.setor_classificado}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 rounded-full font-normal bg-slate-50 text-slate-500 border-slate-200">
+                      {e.account_login}
+                    </Badge>
+
+                    <div className="ml-auto flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => decidir(e.id, 'aprovar')}
+                        disabled={processando === e.id}
+                        className="gap-1 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        <Check className="w-4 h-4" /> Aprovar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => decidir(e.id, 'rejeitar')}
+                        disabled={processando === e.id}
+                        className="gap-1 h-8 rounded-lg text-red-600 border-red-200 hover:bg-red-50"
+                      >
+                        <X className="w-4 h-4" /> Rejeitar
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
