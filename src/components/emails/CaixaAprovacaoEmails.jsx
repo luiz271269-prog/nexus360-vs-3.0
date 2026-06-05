@@ -56,6 +56,8 @@ const dominioDe = (login = '') => {
   const at = (login || '').toLowerCase().split('@');
   return at[1] || 'outros';
 };
+// Conta de e-mail completa (ex: luiz@liesch.com.br)
+const contaDe = (login = '') => (login || '').toLowerCase().trim() || 'outros';
 
 export default function CaixaAprovacaoEmails() {
   const [pendentes, setPendentes] = useState([]);
@@ -99,21 +101,28 @@ export default function CaixaAprovacaoEmails() {
     }
   };
 
-  // Agrupa por domínio da caixa de destino (uma coluna por empresa)
-  const grupos = {};
+  // Seletor do topo: 1 opção por DOMÍNIO (empresa)
+  const gruposDominio = {};
   for (const e of pendentes) {
     const dom = dominioDe(e.account_login);
-    (grupos[dom] = grupos[dom] || []).push(e);
+    (gruposDominio[dom] = gruposDominio[dom] || []).push(e);
   }
-  const todasColunas = Object.entries(grupos).sort((a, b) => b[1].length - a[1].length);
+  const caixasDisponiveis = Object.entries(gruposDominio)
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([dominio, lista]) => ({ dominio, total: lista.length }));
 
-  // Caixas disponíveis para o seletor do topo (já filtradas por acesso no backend)
-  const caixasDisponiveis = todasColunas.map(([dominio, lista]) => ({ dominio, total: lista.length }));
+  // E-mails do domínio ativo (ou todos)
+  const pendentesFiltrados = caixaAtiva === 'todas'
+    ? pendentes
+    : pendentes.filter((e) => dominioDe(e.account_login) === caixaAtiva);
 
-  // Aplica filtro da caixa ativa selecionada no topo
-  const colunas = caixaAtiva === 'todas'
-    ? todasColunas
-    : todasColunas.filter(([dominio]) => dominio === caixaAtiva);
+  // Colunas: 1 por CONTA de e-mail (ex: luiz@..., comercial@...) dentro do domínio selecionado
+  const gruposConta = {};
+  for (const e of pendentesFiltrados) {
+    const conta = contaDe(e.account_login);
+    (gruposConta[conta] = gruposConta[conta] || []).push(e);
+  }
+  const colunas = Object.entries(gruposConta).sort((a, b) => b[1].length - a[1].length);
 
   return (
     <div className="space-y-3">
@@ -154,12 +163,12 @@ export default function CaixaAprovacaoEmails() {
         <div className="flex gap-4 items-start">
         {/* Kanban: colunas horizontais por domínio */}
         <div className="flex gap-4 overflow-x-auto pb-3 kanban-scroll">
-          {colunas.map(([dominio, lista]) => (
-            <div key={dominio} className="flex-shrink-0 w-[320px] bg-slate-50 rounded-2xl border border-slate-200">
+          {colunas.map(([conta, lista]) => (
+            <div key={conta} className="flex-shrink-0 w-[320px] bg-slate-50 rounded-2xl border border-slate-200">
               {/* Cabeçalho da coluna */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 sticky top-0 bg-slate-50 rounded-t-2xl">
                 <Server className="w-4 h-4 text-slate-400" />
-                <span className="font-semibold text-slate-700 text-sm truncate" title={dominio}>@{dominio}</span>
+                <span className="font-semibold text-slate-700 text-sm truncate" title={conta}>{conta}</span>
                 <span className="ml-auto inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-slate-200 text-slate-600 text-xs font-bold">
                   {lista.length}
                 </span>
