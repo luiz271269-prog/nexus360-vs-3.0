@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, X, Mail, Server, Clock } from 'lucide-react';
+import { Check, X, Mail, Server, Clock, Loader2 } from 'lucide-react';
+import { buscarCorpoEmailImap } from '@/functions/buscarCorpoEmailImap';
 
 const URGENCIA_BADGE = {
   alta: 'bg-red-500 text-white',
@@ -12,6 +13,34 @@ const URGENCIA_LABEL = { alta: 'URGENTE', media: 'ATENÇÃO', baixa: 'NORMAL' };
 
 // Painel lateral de leitura do e-mail selecionado
 export default function PainelLeituraEmail({ email, onFechar, onAprovar, onRejeitar, processando }) {
+  const [corpo, setCorpo] = useState('');
+  const [carregandoCorpo, setCarregandoCorpo] = useState(false);
+  const [erroCorpo, setErroCorpo] = useState('');
+
+  // Carrega o corpo completo do servidor IMAP ao selecionar um e-mail
+  useEffect(() => {
+    if (!email?.id) return;
+    let ativo = true;
+    setCorpo('');
+    setErroCorpo('');
+    // Se já veio corpo persistido, usa direto
+    if (email.corpo_preview && email.corpo_preview.trim().length > 0) {
+      setCorpo(email.corpo_preview);
+      return;
+    }
+    setCarregandoCorpo(true);
+    buscarCorpoEmailImap({ email_id: email.id })
+      .then((res) => {
+        if (!ativo) return;
+        const data = res?.data || res;
+        if (data?.ok) setCorpo(data.corpo || '');
+        else setErroCorpo(data?.error || 'Falha ao carregar o conteúdo.');
+      })
+      .catch((e) => { if (ativo) setErroCorpo(e?.message || 'Falha ao carregar o conteúdo.'); })
+      .finally(() => { if (ativo) setCarregandoCorpo(false); });
+    return () => { ativo = false; };
+  }, [email?.id]);
+
   if (!email) {
     return (
       <div className="flex-1 min-w-[320px] flex flex-col items-center justify-center text-slate-300 bg-white rounded-2xl border border-slate-100">
@@ -69,9 +98,17 @@ export default function PainelLeituraEmail({ email, onFechar, onAprovar, onRejei
 
       {/* Corpo */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
-        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-          {email.corpo_preview?.trim() || 'Sem prévia de conteúdo disponível.'}
-        </p>
+        {carregandoCorpo ? (
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <Loader2 className="w-4 h-4 animate-spin" /> Carregando conteúdo do e-mail...
+          </div>
+        ) : erroCorpo ? (
+          <p className="text-sm text-red-500">{erroCorpo}</p>
+        ) : (
+          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+            {corpo?.trim() || 'Sem conteúdo disponível.'}
+          </p>
+        )}
       </div>
 
       {/* Ações */}
