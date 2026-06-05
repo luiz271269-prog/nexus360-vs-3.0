@@ -1698,7 +1698,7 @@ export default function Comunicacao() {
                     isAdmin={usuario?.role === 'admin'}
                     onAbrirDiagnostico={() => toast.info('💡 Use o Unificador Centralizado para corrigir duplicatas')}
                     onDuplicataDetectada={setDuplicataEncontrada}
-                    onNovoEmail={() => setNovoEmailAberto(true)} />
+                    onNovoEmail={() => navigate(createPageUrl('Emails'))} />
 
                   <div className={`flex-1 overflow-hidden transition-opacity duration-200 ${isPendingFilter ? 'opacity-50' : 'opacity-100'}`}>
                     {sidebarViewMode === 'kanban' ? (
@@ -1749,7 +1749,7 @@ export default function Comunicacao() {
                   setModoSelecaoMultipla={setModoSelecaoMultipla} setContatosSelecionados={setContatosSelecionados}
                   setBroadcastInterno={setBroadcastInterno} setShowContactInfo={setShowContactInfo}
                   setThreadAtiva={setThreadAtiva} sidebarViewMode={sidebarViewMode}
-                  onNovoEmail={() => setNovoEmailAberto(true)}
+                  onNovoEmail={() => navigate(createPageUrl('Emails'))}
                   instanciaAtivaDesconectada={instanciaAtivaDesconectada} />
               </div>
 
@@ -1767,7 +1767,7 @@ export default function Comunicacao() {
                 selectedTipoContato={selectedTipoContato} onSelectedTipoContatoChange={setSelectedTipoContato}
                 selectedTagContato={selectedTagContato} onSelectedTagContatoChange={setSelectedTagContato}
                 modoSelecaoMultipla={modoSelecaoMultipla} setModoSelecaoMultipla={setModoSelecaoMultipla}
-                onNovoEmail={() => setNovoEmailAberto(true)}
+                onNovoEmail={() => navigate(createPageUrl('Emails'))}
                 usuario={usuario} threads={threads} threadAtiva={threadAtiva}
                 threadsParaExibir={threadsParaExibir} loadingTopics={loadingTopics}
                 contatos={contatos} contatosSelecionados={contatosSelecionados} setContatosSelecionados={setContatosSelecionados}
