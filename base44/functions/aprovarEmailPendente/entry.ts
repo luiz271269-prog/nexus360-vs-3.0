@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
     const db = base44.asServiceRole.entities;
     const body = await req.json().catch(() => ({}));
-    const { email_id, acao } = body; // acao: 'aprovar' | 'rejeitar'
+    const { email_id, acao, bloquear_remetente } = body; // acao: 'aprovar' | 'rejeitar'
 
     if (!email_id || !['aprovar', 'rejeitar'].includes(acao)) {
       return Response.json({ error: 'Parâmetros: email_id e acao ("aprovar" ou "rejeitar").' }, { status: 400 });
@@ -23,12 +23,42 @@ Deno.serve(async (req) => {
     if (!email) return Response.json({ error: 'E-mail não encontrado.' }, { status: 404 });
 
     if (acao === 'rejeitar') {
+      const agora = new Date().toISOString();
+      let bloqueados = 0;
+      const remetente = (email.remetente_email || '').toLowerCase().trim();
+
+      // Bloquear o remetente: adiciona à blocklist e rejeita TODOS os pendentes dele
+      if (bloquear_remetente && remetente) {
+        const jaBloqueado = await db.EmailRemetenteBloqueado.filter({ remetente_email: remetente }, '-created_date', 1).catch(() => []);
+        if (!jaBloqueado || jaBloqueado.length === 0) {
+          await db.EmailRemetenteBloqueado.create({
+            remetente_email: remetente,
+            remetente_nome: email.remetente_nome || '',
+            motivo: 'Rejeitado na caixa de aprovação',
+            bloqueado_por: user.email
+          });
+        }
+
+        // Rejeita em lote todos os pendentes/aguardando do mesmo remetente
+        const doRemetente = await db.EmailSincronizado.filter({ remetente_email: remetente }, '-created_date', 200).catch(() => []);
+        for (const item of (doRemetente || [])) {
+          if (['pendente', 'aprovado'].includes(item.status_aprovacao)) {
+            await db.EmailSincronizado.update(item.id, {
+              status_aprovacao: 'rejeitado',
+              aprovado_por: user.email,
+              aprovado_em: agora
+            });
+            bloqueados++;
+          }
+        }
+      }
+
       await db.EmailSincronizado.update(email_id, {
         status_aprovacao: 'rejeitado',
         aprovado_por: user.email,
-        aprovado_em: new Date().toISOString()
+        aprovado_em: agora
       });
-      return Response.json({ ok: true, acao: 'rejeitado', email_id });
+      return Response.json({ ok: true, acao: 'rejeitado', email_id, remetente_bloqueado: !!bloquear_remetente, emails_limpos: bloqueados });
     }
 
     // Aprovar: garantir um Contact vinculado

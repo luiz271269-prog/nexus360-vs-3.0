@@ -318,6 +318,12 @@ Deno.serve(async (req) => {
       const remetenteEmail = extrairEmail(e.from);
       const remetenteNome = extrairNome(e.from);
 
+      // Blocklist: descarta e-mails de remetentes bloqueados (não entram na aprovação)
+      if (remetenteEmail) {
+        const bloqueado = await db.EmailRemetenteBloqueado.filter({ remetente_email: remetenteEmail.toLowerCase().trim() }, '-created_date', 1).catch(() => []);
+        if (bloqueado && bloqueado.length > 0) { duplicados++; continue; }
+      }
+
       // Match no CRM: Contact (email principal) e Cliente
       let contactMatch = null;
       let clienteMatch = null;

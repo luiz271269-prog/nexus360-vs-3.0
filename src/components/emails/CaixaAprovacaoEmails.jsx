@@ -3,7 +3,11 @@ import { aprovarEmailPendente } from '@/functions/aprovarEmailPendente';
 import { listarEmailsPendentes } from '@/functions/listarEmailsPendentes';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, X, RefreshCw, Inbox, MailQuestion } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from '@/components/ui/alert-dialog';
+import { Check, X, RefreshCw, Inbox, MailQuestion, Ban } from 'lucide-react';
 
 const URGENCIA_STYLE = {
   alta: 'bg-red-100 text-red-700 border-red-200',
@@ -49,6 +53,7 @@ export default function CaixaAprovacaoEmails() {
   const [pendentes, setPendentes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processando, setProcessando] = useState(null);
+  const [emailRejeitar, setEmailRejeitar] = useState(null); // e-mail aguardando decisão de rejeição
 
   const carregar = async () => {
     setLoading(true);
@@ -66,11 +71,17 @@ export default function CaixaAprovacaoEmails() {
 
   useEffect(() => { carregar(); }, []);
 
-  const decidir = async (email_id, acao) => {
+  const decidir = async (email_id, acao, bloquear_remetente = false) => {
     setProcessando(email_id);
     try {
-      await aprovarEmailPendente({ email_id, acao });
-      setPendentes((prev) => prev.filter((e) => e.id !== email_id));
+      await aprovarEmailPendente({ email_id, acao, bloquear_remetente });
+      if (acao === 'rejeitar' && bloquear_remetente) {
+        // remove da lista todos os pendentes do mesmo remetente
+        const rem = pendentes.find((e) => e.id === email_id)?.remetente_email;
+        setPendentes((prev) => prev.filter((e) => e.remetente_email !== rem));
+      } else {
+        setPendentes((prev) => prev.filter((e) => e.id !== email_id));
+      }
     } catch (e) {
       console.error('Erro ao decidir:', e);
     } finally {
@@ -171,7 +182,7 @@ export default function CaixaAprovacaoEmails() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => decidir(e.id, 'rejeitar')}
+                        onClick={() => setEmailRejeitar(e)}
                         disabled={processando === e.id}
                         className="gap-1 h-7 px-2.5 text-xs rounded-lg text-red-600 border-red-200 hover:bg-red-50"
                       >
@@ -185,6 +196,35 @@ export default function CaixaAprovacaoEmails() {
           ))}
         </div>
       )}
+
+      {/* Diálogo: rejeitar e perguntar se bloqueia o remetente */}
+      <AlertDialog open={!!emailRejeitar} onOpenChange={(o) => !o && setEmailRejeitar(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rejeitar este e-mail?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remetente: <strong>{emailRejeitar?.remetente_email}</strong>.<br />
+              Escolha como deseja proceder. <span className="text-slate-500">Nada é apagado no servidor Zimbra — apenas na sua caixa de aprovação.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-col gap-2">
+            <AlertDialogAction
+              onClick={() => { const id = emailRejeitar.id; setEmailRejeitar(null); decidir(id, 'rejeitar', true); }}
+              className="w-full gap-2 bg-red-600 hover:bg-red-700"
+            >
+              <Ban className="w-4 h-4" /> Rejeitar e bloquear este remetente
+            </AlertDialogAction>
+            <Button
+              variant="outline"
+              onClick={() => { const id = emailRejeitar.id; setEmailRejeitar(null); decidir(id, 'rejeitar', false); }}
+              className="w-full"
+            >
+              Apenas rejeitar este e-mail
+            </Button>
+            <AlertDialogCancel className="w-full mt-0">Cancelar</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
