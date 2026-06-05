@@ -109,73 +109,73 @@ export default function CaixaAprovacaoEmails() {
           {pendentes.map((e) => (
             <div
               key={e.id}
-              className="group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-4"
+              className="group bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-3"
             >
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-2.5">
                 {/* Avatar circular */}
-                <div className={`flex-shrink-0 w-11 h-11 rounded-full ${corAvatar(e.remetente_email)} flex items-center justify-center text-white font-semibold text-sm shadow-sm`}>
+                <div className={`flex-shrink-0 w-9 h-9 rounded-full ${corAvatar(e.remetente_email)} flex items-center justify-center text-white font-semibold text-xs shadow-sm`}>
                   {iniciais(e.remetente_nome, e.remetente_email)}
                 </div>
 
                 <div className="min-w-0 flex-1">
                   {/* Linha 1: nome + badge urgência + tempo */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-slate-900 text-[15px] truncate">
+                    <span className="font-semibold text-slate-900 text-[13px] truncate">
                       {e.remetente_nome || e.remetente_email}
                     </span>
-                    <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+                    <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
                       {e.urgencia && (
                         <span
                           title={e.motivo_classificacao || ''}
-                          className={`text-[10px] font-bold tracking-wide px-2.5 py-1 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}
+                          className={`text-[9px] font-bold tracking-wide px-2 py-0.5 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}
                         >
                           {URGENCIA_LABEL[e.urgencia] || 'NORMAL'}
                         </span>
                       )}
                       {e.data_email && (
-                        <span className="text-xs text-slate-400 whitespace-nowrap">{e.data_email}</span>
+                        <span className="text-[11px] text-slate-400 whitespace-nowrap">{e.data_email}</span>
                       )}
                     </div>
                   </div>
 
                   {/* Linha 2: assunto em destaque */}
-                  <p className="font-semibold text-slate-800 text-[15px] mt-0.5 truncate">
+                  <p className="font-semibold text-slate-800 text-[13px] mt-0.5 truncate">
                     {e.assunto || '(sem assunto)'}
                   </p>
 
                   {/* Linha 3: preview cinza */}
-                  <p className="text-sm text-slate-500 mt-1 line-clamp-2">
+                  <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
                     {e.corpo_preview?.trim() || e.remetente_email}
                   </p>
 
                   {/* Tags + ações */}
-                  <div className="flex items-center gap-2 mt-3 flex-wrap">
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                     {e.setor_classificado && (
-                      <Badge variant="outline" className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${SETOR_STYLE[e.setor_classificado] || SETOR_STYLE.geral}`}>
+                      <Badge variant="outline" className={`text-[9px] px-1.5 py-0 rounded-full font-medium ${SETOR_STYLE[e.setor_classificado] || SETOR_STYLE.geral}`}>
                         {SETOR_LABEL[e.setor_classificado] || e.setor_classificado}
                       </Badge>
                     )}
-                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 rounded-full font-normal bg-slate-50 text-slate-500 border-slate-200">
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-full font-normal bg-slate-50 text-slate-500 border-slate-200">
                       {e.account_login}
                     </Badge>
 
-                    <div className="ml-auto flex gap-2">
+                    <div className="ml-auto flex gap-1.5">
                       <Button
                         size="sm"
                         onClick={() => decidir(e.id, 'aprovar')}
                         disabled={processando === e.id}
-                        className="gap-1 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700"
+                        className="gap-1 h-7 px-2.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700"
                       >
-                        <Check className="w-4 h-4" /> Aprovar
+                        <Check className="w-3.5 h-3.5" /> Aprovar
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => decidir(e.id, 'rejeitar')}
                         disabled={processando === e.id}
-                        className="gap-1 h-8 rounded-lg text-red-600 border-red-200 hover:bg-red-50"
+                        className="gap-1 h-7 px-2.5 text-xs rounded-lg text-red-600 border-red-200 hover:bg-red-50"
                       >
-                        <X className="w-4 h-4" /> Rejeitar
+                        <X className="w-3.5 h-3.5" /> Rejeitar
                       </Button>
                     </div>
                   </div>
