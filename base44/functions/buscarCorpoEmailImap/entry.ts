@@ -83,7 +83,7 @@ function decodeBase64Bin(str) {
 
 // Remove tags HTML, converte entidades comuns e limpa o texto
 function htmlParaTexto(html) {
-  return String(html)
+  return limparTexto(String(html)
     .replace(/<style[\s\S]*?<\/style>/gi, '')
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<head[\s\S]*?<\/head>/gi, '')
@@ -95,7 +95,20 @@ function htmlParaTexto(html) {
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
+    .replace(/&#39;/gi, "'"));
+}
+
+// Limpa o texto final: remove URLs longas de rastreamento e ruído visual
+function limparTexto(txt) {
+  return String(txt)
+    // Remove blocos "[ http...longo... ]" de rastreamento
+    .replace(/\[\s*https?:\/\/[^\]]{60,}\]/gi, '')
+    // Remove URLs de rastreamento soltas muito longas
+    .replace(/https?:\/\/\S{80,}/gi, '')
+    // Remove o caractere "Â" residual (artefato de nbsp em latin1)
+    .replace(/\u00C2(?=\s|$)/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
@@ -131,17 +144,24 @@ function extrairCorpoLegivel(raw) {
     else if (isQP) conteudo = bytesParaTexto(decodeQuotedPrintable(conteudo), charset);
 
     if (/content-type:\s*text\/plain/i.test(lower) && !plainText) {
-      plainText = conteudo;
+      plainText = limparTexto(conteudo);
     } else if (/content-type:\s*text\/html/i.test(lower) && !htmlText) {
       htmlText = htmlParaTexto(conteudo);
     } else if (!boundaryMatch && !plainText) {
       // Sem multipart: usa o conteúdo direto (pode ser HTML ou texto)
-      plainText = /<html|<body|<div|<table/i.test(conteudo) ? htmlParaTexto(conteudo) : conteudo;
+      plainText = /<html|<body|<div|<table/i.test(conteudo) ? htmlParaTexto(conteudo) : limparTexto(conteudo);
     }
   }
 
-  const resultado = (plainText || htmlText || htmlParaTexto(texto)).trim();
-  return resultado;
+  // Decide a melhor fonte: se o text/plain ficou muito curto após limpar
+  // (era quase só links de rastreamento), prefere o HTML formatado.
+  let resultado;
+  if (htmlText && (!plainText || plainText.length < htmlText.length * 0.5)) {
+    resultado = htmlText;
+  } else {
+    resultado = plainText || htmlText || htmlParaTexto(texto);
+  }
+  return String(resultado).trim();
 }
 
 function parseFetchBodyText(lines) {
