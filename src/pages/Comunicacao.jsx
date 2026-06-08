@@ -56,10 +56,12 @@ import { createPageUrl } from "@/utils";
 import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/internalThreadsService";
 import { aplicarFiltroEscopo, calcularThreadsFiltradas, calcularListaRecentes, calcularListaBusca } from "../components/comunicacao/threadFiltering";
 import { useDelegacoesRecebidas } from "../components/comunicacao/useDelegacoesRecebidas";
-import { useAutoAbrirChatMobileNaSelecao } from "../components/comunicacao/skills/mobileSelecaoMassaSkill";
-import { useMobileBackButton } from "../hooks/useMobileBackButton";
-import MobileHeader from "../components/comunicacao/mobile/MobileHeader";
-import MobileChatArea from "../components/comunicacao/mobile/MobileChatArea";
+import {
+  useAutoAbrirChatMobileNaSelecao,
+  useMobileBackButton,
+  MobileHeader,
+  MobileChatArea,
+} from "../components/comunicacao/skills/mobileSkill";
 import ComunicacaoTabs from "../components/comunicacao/ComunicacaoTabs";
 import ComunicacaoTabsContent from "../components/comunicacao/ComunicacaoTabsContent";
 import NovoEmailModal from "../components/comunicacao/NovoEmailModal";
