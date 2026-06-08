@@ -142,6 +142,35 @@ export default function SecaoComunicacaoUsuario({
             </CardContent>
           </Card>
 
+          {/* Permissões de Contatos */}
+          <Card className="border-purple-200 bg-purple-50">
+            <CardHeader>
+              <CardTitle className="text-base">👤 Permissões de Contatos</CardTitle>
+              <CardDescription>Controlar o que o atendente pode fazer com os contatos</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[
+                { key: 'pode_editar_contatos', label: 'Editar contatos', desc: 'Alterar dados, classificação e atribuição' },
+                { key: 'pode_bloquear_contatos', label: 'Bloquear contatos', desc: 'Bloquear/desbloquear contatos' },
+                { key: 'pode_deletar_contatos', label: 'Deletar contatos', desc: 'Excluir contatos permanentemente' }
+              ].map(({ key, label, desc }) => (
+                <div key={key} className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium">{label}</span>
+                    <p className="text-[10px] text-slate-500">{desc}</p>
+                  </div>
+                  <Switch
+                    checked={usuarioSelecionado.permissoes_comunicacao?.[key] !== false}
+                    onCheckedChange={(v) => atualizarUsuario("permissoes_comunicacao", {
+                      ...usuarioSelecionado.permissoes_comunicacao,
+                      [key]: v
+                    })}
+                  />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
           {/* Conexões WhatsApp */}
           {integracoesWhatsApp.length > 0 && (
             <Card className="border-blue-200 bg-blue-50">
