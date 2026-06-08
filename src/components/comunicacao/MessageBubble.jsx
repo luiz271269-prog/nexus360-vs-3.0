@@ -1127,7 +1127,7 @@ export default React.memo(function MessageBubble({
             :
               isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200",
             selecionada ? 'ring-2 ring-blue-500' : '',
-            message.media_url && message.media_type !== 'none' ? '' : 'px-3 py-1.5'
+            message.media_url && message.media_type !== 'none' ? '' : 'px-3.5 py-2 sm:px-3 sm:py-1.5'
           )}
           style={{
             borderRadius: isOwn ? '8px 0 8px 8px' : '0 8px 8px 8px'
@@ -1592,9 +1592,9 @@ export default React.memo(function MessageBubble({
                 <div className={cn(
                 "break-words whitespace-pre-wrap",
                 // 🎨 TEXTO ESCURO HARMONIOSO em fundos claros
-                "text-[#111b21]"
+                "text-[#111b21] py-0.5"
               )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                  <p className="text-[14.2px] leading-[20px] sm:leading-[19px]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
+                  <p className="text-[13.5px] sm:text-[14.2px] leading-[20px] tracking-[0.01em]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
                     {(() => {
                       const content = String(message.content || '');
                       const urlRegex = /(https?:\/\/[^\s]+)/gi;
