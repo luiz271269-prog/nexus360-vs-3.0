@@ -1033,7 +1033,7 @@ export default React.memo(function MessageBubble({
         }
 
         <div className={cn(
-          "max-w-[78%] sm:max-w-[72%] md:max-w-[68%]",
+          "max-w-[85%] sm:max-w-[72%] md:max-w-[68%]",
           "flex flex-col group relative"
         )}>
           {!isOwn && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
@@ -1594,7 +1594,7 @@ export default React.memo(function MessageBubble({
                 // 🎨 TEXTO ESCURO HARMONIOSO em fundos claros
                 "text-[#111b21]"
               )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                  <p className="text-[14.2px] leading-[19px]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
+                  <p className="text-[14.2px] leading-[20px] sm:leading-[19px]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
                     {(() => {
                       const content = String(message.content || '');
                       const urlRegex = /(https?:\/\/[^\s]+)/gi;
