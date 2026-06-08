@@ -1,44 +1,62 @@
+/* Nexus360 Service Worker — Web Push (Wake-Up) */
+
 self.addEventListener('push', (event) => {
-  let payload = {};
+  let data = {};
   try {
-    payload = event.data ? event.data.json() : {};
-  } catch (_error) {
-    payload = { title: 'Nexus360', body: event.data ? event.data.text() : 'Nova atividade' };
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: 'Nexus360', body: event.data ? event.data.text() : '' };
   }
 
-  const title = payload.title || 'Nexus360';
-  const options = {
-    body: payload.body || 'Nova atividade no Nexus360',
-    tag: payload.tag || `nexus-${Date.now()}`,
-    renotify: payload.renotify !== false,
-    requireInteraction: payload.requireInteraction !== false,
-    silent: payload.silent === true,
-    vibrate: payload.vibrate || [200, 100, 200],
-    data: payload.data || {},
-    actions: payload.actions || [{ action: 'open', title: 'Abrir' }]
-  };
+  const title = data.title || 'Nexus360';
+  const tipo = data.tipo || 'message';
 
-  if (payload.icon) options.icon = payload.icon;
-  if (payload.badge) options.badge = payload.badge;
+  // Vibração: usa a do payload; senão um padrão forte. Internas mandam o "dobro".
+  const vibrate = Array.isArray(data.vibrate) && data.vibrate.length > 0
+    ? data.vibrate
+    : (tipo === 'call' ? [600, 200, 600, 200, 600] : [300, 120, 300]);
+
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/icon-192.png',
+    badge: '/badge-72.png',
+    tag: data.tag || `nexus-${tipo}`,
+    renotify: data.renotify !== undefined ? data.renotify : true,
+    vibrate,
+    requireInteraction: tipo === 'call',
+    data: {
+      action_url: data.action_url || '/',
+      tipo,
+    },
+    actions: [
+      { action: 'open', title: 'Abrir' },
+    ],
+  };
 
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const data = event.notification.data || {};
-  const actionUrl = data.action_url || data.url || '/Comunicacao';
-  const targetUrl = new URL(actionUrl, self.location.origin).href;
+  const url = (event.notification.data && event.notification.data.action_url) || '/';
 
-  event.waitUntil((async () => {
-    const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const client of clientsList) {
-      if ('focus' in client) {
-        await client.focus();
-        if ('navigate' in client) await client.navigate(targetUrl);
-        return;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.focus();
+          if ('navigate' in client) {
+            try { client.navigate(url); } catch { /* ignore */ }
+          }
+          return;
+        }
       }
-    }
-    if (self.clients.openWindow) await self.clients.openWindow(targetUrl);
-  })());
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(url);
+      }
+    })
+  );
 });
+
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));

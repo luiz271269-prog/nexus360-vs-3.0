@@ -27,23 +27,95 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, skipped: 'sem_thread' });
     }
 
-    // ── Mesmos guards do NovasMensagensAlert ──────────────────────────
-    // 1) Só mensagens de CONTATO (não de atendente)
-    if (thread.last_message_sender !== 'contact') {
-      return Response.json({ success: true, skipped: 'nao_eh_contato' });
-    }
-    // 2) Só threads externas (ignora internas team/sector)
-    if (thread.thread_type && thread.thread_type !== 'contact_external') {
-      return Response.json({ success: true, skipped: 'thread_interna' });
-    }
-    // 3) Precisa ter timestamp da última mensagem
+    const isInterna = thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group';
+
+    // Vibração REFORÇADA ("dobro") usada nas internas e também nas externas.
+    const VIBRATE_DOBRO = [500, 200, 500, 200, 500];
+
+    // ── Guards comuns ─────────────────────────────────────────────────
     if (!thread.last_message_at) {
       return Response.json({ success: true, skipped: 'sem_timestamp' });
     }
-    // 4) Em update, só dispara se a última mensagem REALMENTE mudou
-    //    (evita push em updates de outros campos da thread)
     if (evt?.type === 'update' && oldData && oldData.last_message_at === thread.last_message_at) {
       return Response.json({ success: true, skipped: 'mensagem_nao_mudou' });
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // CAMINHO INTERNO (usuário → usuário / grupo de setor)
+    // Notifica os participants EXCETO o remetente, com vibração dobrada.
+    // ══════════════════════════════════════════════════════════════════
+    if (isInterna) {
+      // Em internas, a última mensagem foi enviada por um USER (não contato)
+      if (thread.last_message_sender === 'contact') {
+        return Response.json({ success: true, skipped: 'interna_sem_remetente_user' });
+      }
+
+      // A thread não guarda o ID do remetente da última msg → busca a última Message
+      let remetenteId = null;
+      try {
+        const ultimas = await base44.asServiceRole.entities.Message.filter(
+          { thread_id: thread.id }, '-created_date', 1
+        );
+        if (ultimas?.length > 0 && ultimas[0].sender_type === 'user') {
+          remetenteId = ultimas[0].sender_id || null;
+        }
+      } catch { /* sem remetente identificado, notifica todos */ }
+
+      const participantes = (thread.participants || []).filter((id) => id && id !== remetenteId);
+      if (participantes.length === 0) {
+        return Response.json({ success: true, skipped: 'interna_sem_destinatarios' });
+      }
+
+      const remetenteNome = thread.last_message_sender_name || 'Mensagem interna';
+      const tituloInterno = thread.is_group_chat
+        ? `${thread.group_name || 'Grupo'} • ${remetenteNome}`
+        : remetenteNome;
+
+      let previewInt = thread.last_message_content || '';
+      const mtInt = thread.last_media_type;
+      if (mtInt === 'audio') previewInt = '🎤 Mensagem de voz';
+      else if (mtInt === 'image') previewInt = '📷 Imagem';
+      else if (mtInt === 'video') previewInt = '🎥 Vídeo';
+      else if (mtInt === 'document') previewInt = '📄 Documento';
+      else if (previewInt.length > 60) previewInt = previewInt.substring(0, 60) + '…';
+      if (!previewInt) previewInt = 'Nova mensagem interna';
+
+      const resultadosInt = [];
+      for (const userId of participantes) {
+        try {
+          const res = await base44.asServiceRole.functions.invoke('enviarWakeUpPush', {
+            target_user_id: userId,
+            sender_user_id: remetenteId,
+            tipo: 'message',
+            title: tituloInterno,
+            body: previewInt,
+            action_url: `/Comunicacao?thread_id=${thread.id}`,
+            thread_id: thread.id,
+            vibrate: VIBRATE_DOBRO,
+            renotify: true,
+          });
+          resultadosInt.push({ userId, ok: true, res: res?.data || res });
+        } catch (e) {
+          resultadosInt.push({ userId, ok: false, error: e.message });
+        }
+      }
+
+      return Response.json({
+        success: true,
+        canal: 'interno',
+        remetente: remetenteNome,
+        preview: previewInt,
+        destinatarios: participantes.length,
+        resultados: resultadosInt,
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // CAMINHO EXTERNO (contato → atendentes) — comportamento original
+    // ══════════════════════════════════════════════════════════════════
+    // Só mensagens de CONTATO (não de atendente)
+    if (thread.last_message_sender !== 'contact') {
+      return Response.json({ success: true, skipped: 'nao_eh_contato' });
     }
 
     // ── Destinatários: mesmo critério do alerta interno ───────────────
@@ -103,6 +175,8 @@ Deno.serve(async (req) => {
           action_url,
           icon: fotoUrl || null,
           thread_id: thread.id,
+          vibrate: VIBRATE_DOBRO,
+          renotify: true,
         });
         resultados.push({ userId, ok: true, res: res?.data || res });
       } catch (e) {
