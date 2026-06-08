@@ -1016,7 +1016,7 @@ export default React.memo(function MessageBubble({
   return (
     <>
       <div className={cn(
-        "flex w-full px-[5%]",
+        "flex w-full px-2 sm:px-[5%]",
         isOwn ? "justify-end" : "justify-start"
       )}
       onClick={() => modoSelecao && onToggleSelecao?.(message.id)}>
@@ -1033,7 +1033,7 @@ export default React.memo(function MessageBubble({
         }
 
         <div className={cn(
-          "max-w-[85%] sm:max-w-[72%] md:max-w-[68%]",
+          "max-w-[92%] sm:max-w-[72%] md:max-w-[68%]",
           "flex flex-col group relative"
         )}>
           {!isOwn && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
