@@ -45,10 +45,11 @@ function tocarSomNotificacao() {
 }
 
 // Vibrar o celular (se suportado)
-function vibrar() {
+function vibrar(forte = false) {
   try {
     if (navigator.vibrate) {
-      navigator.vibrate([200, 100, 200]); // vibra-pausa-vibra
+      // "Dobro": padrão reforçado e mais longo
+      navigator.vibrate(forte ? [500, 200, 500, 200, 500] : [300, 120, 300]);
     }
   } catch {}
 }
