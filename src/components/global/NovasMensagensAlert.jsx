@@ -134,12 +134,19 @@ export default function NovasMensagensAlert({ usuario, currentPageName }) {
         content: (thread.last_message_content || '').substring(0, 30)
       });
 
-      // Só notifica mensagens de CONTATOS (não de atendentes)
-      if (thread.last_message_sender !== 'contact') return;
-      
-      // Ignorar threads internas
-      if (thread.thread_type && thread.thread_type !== 'contact_external') return;
-      
+      const isInterna = thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group';
+
+      if (isInterna) {
+        // Threads internas: notifica participantes (exceto quem enviou)
+        const participantes = thread.participants || [];
+        if (!participantes.includes(usuario.id)) return;
+        // Não notifica o próprio remetente da última mensagem
+        if (thread.last_message_sender_name && thread.last_message_sender_name === usuario.full_name) return;
+      } else {
+        // Threads externas: só notifica mensagens de CONTATOS (não de atendentes)
+        if (thread.last_message_sender !== 'contact') return;
+      }
+
       if (!thread.last_message_at) return;
 
       // Ignorar se estiver na Comunicacao
@@ -150,20 +157,24 @@ export default function NovasMensagensAlert({ usuario, currentPageName }) {
       if (processadosRef.current.has(chave)) return;
       processadosRef.current.add(chave);
 
-      // Filtro de permissão
-      const isAdmin = usuario.role === 'admin';
-      const assignedToMe = thread.assigned_user_id === usuario.id;
-      const sharedWithMe = (thread.shared_with_users || []).includes(usuario.id);
-      const inHistorico = (thread.atendentes_historico || []).includes(usuario.id);
-      if (!isAdmin && !assignedToMe && !sharedWithMe && !inHistorico) {
-        processadosRef.current.delete(chave);
-        return;
+      // Filtro de permissão (apenas externas; internas já validadas por participants)
+      if (!isInterna) {
+        const isAdmin = usuario.role === 'admin';
+        const assignedToMe = thread.assigned_user_id === usuario.id;
+        const sharedWithMe = (thread.shared_with_users || []).includes(usuario.id);
+        const inHistorico = (thread.atendentes_historico || []).includes(usuario.id);
+        if (!isAdmin && !assignedToMe && !sharedWithMe && !inHistorico) {
+          processadosRef.current.delete(chave);
+          return;
+        }
       }
 
-      // Dados do contato
-      let contactName = thread.last_message_sender_name || 'Contato';
+      // Dados do contato/remetente
+      let contactName = isInterna
+        ? (thread.group_name || thread.last_message_sender_name || 'Mensagem interna')
+        : (thread.last_message_sender_name || 'Contato');
       let fotoUrl = null;
-      if (thread.contact_id) {
+      if (!isInterna && thread.contact_id) {
         try {
           const contatos = await base44.entities.Contact.filter({ id: thread.contact_id });
           if (contatos?.length > 0) {
