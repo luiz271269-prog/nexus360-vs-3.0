@@ -160,11 +160,11 @@ export default function CaixaAprovacaoEmails() {
           <p className="text-sm">Nenhum e-mail aguardando aprovação.</p>
         </div>
       ) : (
-        <div className="flex gap-4 items-start">
+        <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-start">
         {/* Kanban: colunas horizontais por domínio */}
-        <div className="flex gap-4 overflow-x-auto pb-3 kanban-scroll">
+        <div className="flex gap-4 overflow-x-auto pb-3 kanban-scroll w-full md:w-auto">
           {colunas.map(([conta, lista]) => (
-            <div key={conta} className="flex-shrink-0 w-[320px] bg-slate-50 rounded-2xl border border-slate-200">
+            <div key={conta} className="flex-shrink-0 w-[85vw] sm:w-[320px] bg-slate-50 rounded-2xl border border-slate-200">
               {/* Cabeçalho da coluna */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 sticky top-0 bg-slate-50 rounded-t-2xl">
                 <Server className="w-4 h-4 text-slate-400" />
@@ -259,8 +259,8 @@ export default function CaixaAprovacaoEmails() {
           ))}
         </div>
 
-        {/* Painel de leitura do e-mail selecionado */}
-        <div className="flex-1 min-w-[320px] sticky top-0 h-[calc(100vh-240px)]">
+        {/* Painel de leitura — DESKTOP: lado a lado (sticky) */}
+        <div className="hidden md:block flex-1 min-w-[320px] sticky top-0 h-[calc(100vh-240px)]">
           <PainelLeituraEmail
             email={emailSelecionado}
             onFechar={() => setEmailSelecionado(null)}
@@ -269,6 +269,19 @@ export default function CaixaAprovacaoEmails() {
             processando={processando}
           />
         </div>
+
+        {/* Painel de leitura — MOBILE: overlay full-screen quando há e-mail selecionado */}
+        {emailSelecionado && (
+          <div className="md:hidden fixed inset-0 z-50 bg-white">
+            <PainelLeituraEmail
+              email={emailSelecionado}
+              onFechar={() => setEmailSelecionado(null)}
+              onAprovar={(id) => decidir(id, 'aprovar')}
+              onRejeitar={(em) => setEmailRejeitar(em)}
+              processando={processando}
+            />
+          </div>
+        )}
         </div>
       )}
 

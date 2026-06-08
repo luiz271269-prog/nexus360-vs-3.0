@@ -43,7 +43,7 @@ export default function PainelLeituraEmail({ email, onFechar, onAprovar, onRejei
 
   if (!email) {
     return (
-      <div className="flex-1 min-w-[320px] flex flex-col items-center justify-center text-slate-300 bg-white rounded-2xl border border-slate-100">
+      <div className="h-full w-full flex-1 min-w-0 flex flex-col items-center justify-center text-slate-300 bg-white md:rounded-2xl border border-slate-100">
         <Mail className="w-14 h-14 mb-3 opacity-30" />
         <p className="text-sm text-slate-400">Selecione um e-mail para ler o conteúdo</p>
       </div>
@@ -51,7 +51,7 @@ export default function PainelLeituraEmail({ email, onFechar, onAprovar, onRejei
   }
 
   return (
-    <div className="flex-1 min-w-[320px] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="h-full w-full flex-1 min-w-0 flex flex-col bg-white md:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       {/* Cabeçalho */}
       <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-100">
         <div className="min-w-0 flex-1">
