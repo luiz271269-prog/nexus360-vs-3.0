@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import webpush from 'npm:web-push@3.6.7';
 
 /**
  * notificarWakeUpMensagem — gatilho de automação (entity MessageThread / update+create)
@@ -9,11 +10,81 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
  * interno (NovasMensagensAlert) que aparece dentro do app.
  *
  * Funciona mesmo com o app FECHADO (via Service Worker + Web Push).
+ *
+ * IMPORTANTE: o push é enviado INLINE (web-push direto), NÃO via
+ * functions.invoke('enviarWakeUpPush'). A invocação função→função a partir
+ * de uma automação (sem token de usuário) é barrada pelo Base44 com 403.
  */
+
+// Envia Web Push diretamente para todos os devices ativos de um usuário.
+// Registra cada tentativa no WakeUpLog (mesma auditoria do enviarWakeUpPush).
+async function enviarPushDireto(base44, { target_user_id, sender_user_id = null, tipo = 'message', title, body, action_url, icon = null, thread_id = null }) {
+  if (sender_user_id && sender_user_id === target_user_id) {
+    return { sent: 0, reason: 'sender_excluded' };
+  }
+
+  const devices = await base44.asServiceRole.entities.UserDevice.filter({
+    user_id: target_user_id,
+    is_active: true,
+    push_provider: 'web_push'
+  });
+  const elegiveis = devices.filter((d) => (tipo === 'call' ? d.can_wake_call !== false : d.can_wake_message !== false));
+
+  if (elegiveis.length === 0) {
+    await registrarLog(base44, { tipo, target_user_id, status: 'skipped', reason: 'no_active_device', title, body, action_url, sender_user_id, thread_id });
+    return { sent: 0, reason: 'no_active_device' };
+  }
+
+  const pushPayload = JSON.stringify({ title, body, tipo, action_url, icon, tag: thread_id ? `thread-${thread_id}` : `nexus-${tipo}` });
+  let sent = 0;
+  let failed = 0;
+
+  for (const dev of elegiveis) {
+    if (!dev.push_endpoint) continue;
+    const subscription = { endpoint: dev.push_endpoint, keys: { p256dh: dev.push_keys_p256dh, auth: dev.push_keys_auth } };
+    const inicio = Date.now();
+    try {
+      await webpush.sendNotification(subscription, pushPayload);
+      sent++;
+      await base44.asServiceRole.entities.UserDevice.update(dev.id, { last_success_at: new Date().toISOString(), failure_count: 0, last_failure_reason: null });
+      await registrarLog(base44, { tipo, target_user_id, device_id: dev.device_id, platform: dev.platform, status: 'sent', reason: 'ok', title, body, action_url, sender_user_id, thread_id, duration_ms: Date.now() - inicio });
+    } catch (err) {
+      failed++;
+      const code = err.statusCode || err.status || 0;
+      const morto = code === 410 || code === 404;
+      await base44.asServiceRole.entities.UserDevice.update(dev.id, {
+        is_active: morto ? false : dev.is_active,
+        revoked_at: morto ? new Date().toISOString() : dev.revoked_at,
+        last_failure_at: new Date().toISOString(),
+        failure_count: (dev.failure_count || 0) + 1,
+        last_failure_reason: morto ? `endpoint_gone_${code}` : `provider_error_${code}`
+      });
+      await registrarLog(base44, { tipo, target_user_id, device_id: dev.device_id, platform: dev.platform, status: 'failed', reason: morto ? `endpoint_gone_${code}` : 'provider_error', title, body, action_url, sender_user_id, thread_id, provider_status_code: code, error_message: String(err.message || err), duration_ms: Date.now() - inicio });
+    }
+  }
+  return { sent, failed };
+}
+
+async function registrarLog(base44, data) {
+  try {
+    await base44.asServiceRole.entities.WakeUpLog.create({ provider: 'web_push', ...data });
+  } catch (e) {
+    console.error('[notificarWakeUpMensagem] falha ao registrar WakeUpLog:', e.message);
+  }
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const payload = await req.json();
+
+    const VAPID_PUBLIC = Deno.env.get('VAPID_PUBLIC_KEY');
+    const VAPID_PRIVATE = Deno.env.get('VAPID_PRIVATE_KEY');
+    const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:contato@nexus360.com';
+    if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+      return Response.json({ success: false, error: 'VAPID não configurado' }, { status: 500 });
+    }
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 
     const evt = payload?.event || {};
     let thread = payload?.data || null;
@@ -83,7 +154,7 @@ Deno.serve(async (req) => {
       const resultadosInt = [];
       for (const userId of participantes) {
         try {
-          const res = await base44.asServiceRole.functions.invoke('enviarWakeUpPush', {
+          const res = await enviarPushDireto(base44, {
             target_user_id: userId,
             sender_user_id: remetenteId,
             tipo: 'message',
@@ -91,10 +162,8 @@ Deno.serve(async (req) => {
             body: previewInt,
             action_url: `/Comunicacao?thread_id=${thread.id}`,
             thread_id: thread.id,
-            vibrate: VIBRATE_DOBRO,
-            renotify: true,
           });
-          resultadosInt.push({ userId, ok: true, res: res?.data || res });
+          resultadosInt.push({ userId, ok: true, res });
         } catch (e) {
           resultadosInt.push({ userId, ok: false, error: e.message });
         }
@@ -167,7 +236,7 @@ Deno.serve(async (req) => {
     const resultados = [];
     for (const userId of destinatarios) {
       try {
-        const res = await base44.asServiceRole.functions.invoke('enviarWakeUpPush', {
+        const res = await enviarPushDireto(base44, {
           target_user_id: userId,
           tipo: 'message',
           title: contactName,
@@ -175,10 +244,8 @@ Deno.serve(async (req) => {
           action_url,
           icon: fotoUrl || null,
           thread_id: thread.id,
-          vibrate: VIBRATE_DOBRO,
-          renotify: true,
         });
-        resultados.push({ userId, ok: true, res: res?.data || res });
+        resultados.push({ userId, ok: true, res });
       } catch (e) {
         resultados.push({ userId, ok: false, error: e.message });
       }
