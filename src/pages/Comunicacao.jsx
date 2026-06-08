@@ -268,6 +268,10 @@ export default function Comunicacao() {
     queryFn: async () => {
       if (!usuario) return [];
       try {
+        // ✅ FIX: função backend (asServiceRole) que filtra por participants.
+        // A RLS direta ignora participants e escondia a thread do destinatário.
+        const resp = await base44.functions.invoke('listarThreadsInternasUsuario', {});
+        if (resp?.data?.threads) return resp.data.threads;
         return await base44.entities.MessageThread.filter(
           { thread_type: { $in: ['team_internal', 'sector_group'] } },
           '-last_message_at',
@@ -625,8 +629,17 @@ export default function Comunicacao() {
       if (!threadAtiva || isRateLimited) return [];
 
       try {
-        // BRANCH INTERNO: Busca simples, SEM merge
+        // BRANCH INTERNO: usar função backend (asServiceRole) — a RLS de Message
+        // bloqueia mensagens de grupo (recipient_id=null) para quem não é o sender,
+        // escondendo a resposta do outro participante.
         if (isThreadInterna) {
+          const resp = await base44.functions.invoke('getInternalMessages', {
+            thread_id: threadAtiva.id,
+            limit: 20
+          });
+          if (resp?.data?.success && Array.isArray(resp.data.messages)) {
+            return resp.data.messages.reverse();
+          }
           const ultimasMensagens = await base44.entities.Message.filter(
             { thread_id: threadAtiva.id },
             '-sent_at',
