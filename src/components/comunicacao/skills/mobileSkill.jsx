@@ -51,13 +51,51 @@ export { default as MobileHeader } from '../mobile/MobileHeader';
 export { default as MobileChatArea } from '../mobile/MobileChatArea';
 
 // ── CAMADA 3: ESTILO (tokens responsivos da bolha de mensagem) ───────────────
-export const mobileEstiloMensagem = {
-  // Margem lateral da linha da mensagem (mobile 8px / desktop 5%)
-  linha: 'flex w-full px-2 sm:px-[5%]',
-  // Largura máxima da bolha (mobile / tablet / desktop)
-  bolha: 'max-w-[92%] sm:max-w-[72%] md:max-w-[68%]',
-  // Padding interno da bolha quando é texto (mobile / desktop)
-  paddingBolha: 'px-3.5 py-2 sm:px-3 sm:py-1.5',
-  // Tipografia do corpo do texto (mobile / desktop)
-  textoCorpo: 'text-[13.5px] sm:text-[14.2px] leading-[20px] tracking-[0.01em]',
+//
+// Como funciona / como editar (à prova de erro):
+//   • Cada token guarda { mobile, desktop } separados + a string `full` pronta.
+//   • A MessageBubble SEMPRE consome a propriedade `.full`. Não consome mobile/
+//     desktop direto, então você ajusta os breakpoints aqui sem tocar na bolha.
+//   • Para mudar só o mobile: edite o campo `mobile` e mantenha o `full` coerente.
+//   • Nunca remova o `full` — é o contrato que a bolha lê.
+//
+// IMPORTANTE (Tailwind): as classes precisam existir literais no código para o
+// build não purgar. Por isso o `full` é escrito por extenso (não concatenado).
+const TOKENS = {
+  // Margem lateral da linha da mensagem
+  linha: {
+    mobile: 'px-2',          // 8px nas bordas no celular
+    desktop: 'sm:px-[5%]',   // 5% nas bordas no desktop
+    full: 'flex w-full px-2 sm:px-[5%]',
+  },
+  // Largura máxima da bolha
+  bolha: {
+    mobile: 'max-w-[92%]',           // quase tela cheia no celular
+    desktop: 'sm:max-w-[72%] md:max-w-[68%]',
+    full: 'max-w-[92%] sm:max-w-[72%] md:max-w-[68%]',
+  },
+  // Padding interno da bolha (apenas quando é texto)
+  paddingBolha: {
+    mobile: 'px-3.5 py-2',
+    desktop: 'sm:px-3 sm:py-1.5',
+    full: 'px-3.5 py-2 sm:px-3 sm:py-1.5',
+  },
+  // Tipografia do corpo do texto
+  textoCorpo: {
+    mobile: 'text-[13.5px]',
+    desktop: 'sm:text-[14.2px]',
+    full: 'text-[13.5px] sm:text-[14.2px] leading-[20px] tracking-[0.01em]',
+  },
 };
+
+// API consumida pela MessageBubble: cada chave devolve a string `full`.
+// (mantém compatibilidade total: mobileEstiloMensagem.linha continua sendo string)
+export const mobileEstiloMensagem = {
+  linha: TOKENS.linha.full,
+  bolha: TOKENS.bolha.full,
+  paddingBolha: TOKENS.paddingBolha.full,
+  textoCorpo: TOKENS.textoCorpo.full,
+};
+
+// Acesso granular opcional (mobile/desktop separados) para ajustes futuros.
+export const mobileEstiloMensagemTokens = TOKENS;
