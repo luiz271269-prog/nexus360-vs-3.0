@@ -57,6 +57,7 @@ import { carregarTodasThreads, podeVerThreadInterna } from "../components/lib/in
 import { aplicarFiltroEscopo, calcularThreadsFiltradas, calcularListaRecentes, calcularListaBusca } from "../components/comunicacao/threadFiltering";
 import { useDelegacoesRecebidas } from "../components/comunicacao/useDelegacoesRecebidas";
 import { useAutoAbrirChatMobileNaSelecao } from "../components/comunicacao/skills/mobileSelecaoMassaSkill";
+import { useMobileBackButton } from "../hooks/useMobileBackButton";
 import MobileHeader from "../components/comunicacao/mobile/MobileHeader";
 import MobileChatArea from "../components/comunicacao/mobile/MobileChatArea";
 import ComunicacaoTabs from "../components/comunicacao/ComunicacaoTabs";
@@ -1609,6 +1610,22 @@ export default function Comunicacao() {
   const handleVoltarListaMobile = React.useCallback(() => {
     setMobileView('lista');
   }, []);
+
+  // 📱 Botão "voltar" físico do Android sincroniza com as sub-telas mobile
+  useMobileBackButton({
+    mobileView,
+    mostrarKanbanRequerAtencao,
+    mostrarKanbanNaoAtribuidos,
+    criandoNovoContato,
+    showContactInfo,
+    onBack: () => {
+      if (mostrarKanbanRequerAtencao) { setMostrarKanbanRequerAtencao(false); return; }
+      if (mostrarKanbanNaoAtribuidos) { setMostrarKanbanNaoAtribuidos(false); return; }
+      if (criandoNovoContato) { setCriandoNovoContato(false); setShowContactInfo(false); setMobileView('lista'); return; }
+      if (showContactInfo) { setShowContactInfo(false); return; }
+      if (mobileView === 'chat') { setMobileView('lista'); return; }
+    }
+  });
 
   if (isLoadingUsuario) {
     return (
