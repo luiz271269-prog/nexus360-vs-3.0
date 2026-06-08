@@ -43,6 +43,7 @@ import VincularPromocaoDialog from './VincularPromocaoDialog';
 import ComentariosInternos from './ComentariosInternos';
 import { useMessageStatus } from './useMessageStatus';
 import { renderInternalDispatchLog } from './skills/internalDispatchLogSkill';
+import { mobileEstiloMensagem } from './skills/mobileSkill';
 
 // Player de áudio: nativo + botão de velocidade (v2) — memoizado para não remontar <audio> em re-render
 const AudioPlayer = React.memo(({ src }) => {
@@ -1016,7 +1017,7 @@ export default React.memo(function MessageBubble({
   return (
     <>
       <div className={cn(
-        "flex w-full px-2 sm:px-[5%]",
+        mobileEstiloMensagem.linha,
         isOwn ? "justify-end" : "justify-start"
       )}
       onClick={() => modoSelecao && onToggleSelecao?.(message.id)}>
@@ -1033,7 +1034,7 @@ export default React.memo(function MessageBubble({
         }
 
         <div className={cn(
-          "max-w-[92%] sm:max-w-[72%] md:max-w-[68%]",
+          mobileEstiloMensagem.bolha,
           "flex flex-col group relative"
         )}>
           {!isOwn && (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' || message.channel === 'interno') && (() => {
@@ -1127,7 +1128,7 @@ export default React.memo(function MessageBubble({
             :
               isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200",
             selecionada ? 'ring-2 ring-blue-500' : '',
-            message.media_url && message.media_type !== 'none' ? '' : 'px-3.5 py-2 sm:px-3 sm:py-1.5'
+            message.media_url && message.media_type !== 'none' ? '' : mobileEstiloMensagem.paddingBolha
           )}
           style={{
             borderRadius: isOwn ? '8px 0 8px 8px' : '0 8px 8px 8px'
@@ -1594,7 +1595,7 @@ export default React.memo(function MessageBubble({
                 // 🎨 TEXTO ESCURO HARMONIOSO em fundos claros
                 "text-[#111b21] py-0.5"
               )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                  <p className="text-[13.5px] sm:text-[14.2px] leading-[20px] tracking-[0.01em]" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
+                  <p className={mobileEstiloMensagem.textoCorpo} style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
                     {(() => {
                       const content = String(message.content || '');
                       const urlRegex = /(https?:\/\/[^\s]+)/gi;
