@@ -828,7 +828,7 @@ export default function ChatSidebar({
                         {nomeExibicao}
                       </h3>
                       {thread.channel === 'email' &&
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white bg-gradient-to-r from-sky-500 to-blue-600 shadow-sm flex-shrink-0" title="Conversa por E-mail">
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[9px] font-medium border bg-blue-100 text-blue-700 border-blue-200 flex-shrink-0" title="Conversa por E-mail">
                           <Mail className="w-2.5 h-2.5" />
                           E-mail
                         </span>
