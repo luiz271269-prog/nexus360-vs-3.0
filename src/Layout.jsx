@@ -218,11 +218,11 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
            target="_blank"
            rel="noopener noreferrer"
            className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 shadow-lg shadow-blue-500/25 transition-all duration-300 hover:scale-105 group relative mt-2"
-           title="Gestão de Compras"
+           title="RH Nexus"
           >
-           <ShoppingCart className="h-6 w-6 text-white" />
+           <UserCog className="h-6 w-6 text-white" />
            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
-             🛒 Gestão de Compras{isAdmin && <span className="ml-1 text-amber-400">(Admin)</span>}
+             👥 RH Nexus{isAdmin && <span className="ml-1 text-amber-400">(Admin)</span>}
            </div>
           </a>}
 
@@ -232,11 +232,11 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
            target="_blank"
            rel="noopener noreferrer"
            className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-purple-600 to-pink-700 hover:from-purple-500 hover:to-pink-600 shadow-lg shadow-purple-500/25 transition-all duration-300 hover:scale-105 group relative mt-2"
-           title="RH Nexus"
+           title="Gestão de Compras"
           >
-           <UserCog className="h-6 w-6 text-white" />
+           <ShoppingCart className="h-6 w-6 text-white" />
            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
-             👥 RH Nexus{isAdmin && <span className="ml-1 text-amber-400">(Admin)</span>}
+             🛒 Gestão de Compras{isAdmin && <span className="ml-1 text-amber-400">(Admin)</span>}
            </div>
           </a>}
 
