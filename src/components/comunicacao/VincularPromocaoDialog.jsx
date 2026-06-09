@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, CheckCircle2, Loader2, Image as ImageIcon, Link2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePromocoesUnificadas } from "@/components/hooks/usePromocoesUnificadas";
 
 /**
  * Dialog para vincular uma mensagem a uma Promotion existente.
@@ -24,11 +25,11 @@ export default function VincularPromocaoDialog({ aberto, onFechar, mensagem }) {
   const [salvando, setSalvando] = React.useState(false);
   const queryClient = useQueryClient();
 
-  const { data: promocoesAtivas = [], isLoading } = useQuery({
-    queryKey: ['promocoes-ativas-vincular'],
-    queryFn: () => base44.entities.Promotion.filter({ ativo: true }, '-priority', 100),
-    enabled: aberto,
-    staleTime: 60 * 1000,
+  // Fonte única compartilhada — só Promotions oficiais (não etiquetadas) para vincular
+  const { data: promocoesAtivas = [], isLoading } = usePromocoesUnificadas({
+    apenasAtivas: true,
+    incluirEtiquetadas: false,
+    enabled: aberto
   });
 
   React.useEffect(() => {

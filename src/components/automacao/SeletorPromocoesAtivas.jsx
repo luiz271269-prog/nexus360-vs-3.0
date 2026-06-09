@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -13,80 +12,17 @@ import {
   List
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePromocoesUnificadas } from '@/components/hooks/usePromocoesUnificadas';
 
 export default function SeletorPromocoesAtivas({ onSelecionarPromocao, onClose }) {
-  const [promocoes, setPromocoes] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [selecionadas, setSelecionadas] = useState([]);
   const [agrupado, setAgrupado] = useState(false);
 
-  useEffect(() => {
-    carregarPromocoesAtivas();
-  }, []);
-
-  const carregarPromocoesAtivas = async () => {
-    try {
-      setLoading(true);
-      // Carrega em paralelo: Promotions ativas + mensagens etiquetadas como "promocao"
-      const [promos, msgsEtiquetadas] = await Promise.all([
-        base44.entities.Promotion.filter({ ativo: true }, '-created_date', 50),
-        base44.entities.Message.filter({ categorias: 'promocao' }, '-created_date', 50)
-      ]);
-
-      // Normaliza mensagens etiquetadas para o mesmo "shape" das promoções
-      const iconePorTipo = {
-        video: '🎥 Vídeo etiquetado',
-        audio: '🎤 Áudio etiquetado',
-        document: '📄 Documento etiquetado',
-        image: '🖼️ Imagem etiquetada',
-        sticker: '🎨 Sticker etiquetado'
-      };
-      const msgsComoPromos = (msgsEtiquetadas || [])
-        .filter(m => m.media_url || (m.content && !m.content.startsWith('[')))
-        .map(m => {
-          const tituloLimpo = m.content && !m.content.startsWith('[')
-            ? m.content.substring(0, 60)
-            : (iconePorTipo[m.media_type] || 'Mensagem etiquetada');
-          // Imagem do card: usa imagem direto ou thumbnail de vídeo
-          const imagemCard = m.media_type === 'image'
-            ? m.media_url
-            : (m.metadata?.thumbnail_url || m.metadata?.jpegThumbnail || null);
-          return {
-            id: `msg_${m.id}`,
-            _origem: 'mensagem',
-            _message_id: m.id,
-            _media_type: m.media_type,
-            _media_url: m.media_url,
-            _created_at: m.created_date || m.sent_at,
-            titulo: tituloLimpo,
-            descricao: m.media_caption || (m.content && !m.content.startsWith('[') ? m.content : ''),
-            imagem_url: imagemCard,
-            categoria: 'etiquetada',
-            ativo: true
-          };
-        });
-
-      // Anexa _created_at em Promotions para ordenação unificada
-      const promosComData = (promos || []).map(p => ({
-        ...p,
-        _created_at: p.created_date
-      }));
-
-      // Ordena tudo por data desc (mais recentes primeiro)
-      const todas = [...promosComData, ...msgsComoPromos].sort((a, b) => {
-        const ta = new Date(a._created_at || 0).getTime();
-        const tb = new Date(b._created_at || 0).getTime();
-        return tb - ta;
-      });
-
-      setPromocoes(todas);
-    } catch (error) {
-      console.error('[SeletorPromocoesAtivas] Erro ao carregar promoções:', error);
-      toast.error('Erro ao carregar promoções');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fonte única compartilhada (Promotion ativas + Message etiquetada)
+  const { data: promocoes = [], isLoading: loading } = usePromocoesUnificadas({
+    apenasAtivas: true,
+    incluirEtiquetadas: true
+  });
 
   const toggleSelecao = (promoId) => {
     setSelecionadas(prev => 
