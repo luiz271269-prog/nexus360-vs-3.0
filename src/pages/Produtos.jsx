@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { Plus, Upload, ShoppingCart, Loader2, Calculator, DollarSign, X, CheckCircle, ListFilter, Columns, FileDown, Search } from "lucide-react";
@@ -12,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Package, Tag } from "lucide-react";
 
 import ProdutoFiltros from "../components/produtos/ProdutoFiltros";
 import ProdutoTable from "../components/produtos/ProdutoTable";
@@ -20,6 +21,8 @@ import ProdutoFormModal from "../components/produtos/ProdutoFormModal";
 import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
 import LembretesIAContextualizados from '../components/global/LembretesIAContextualizados';
 import PainelAlertasQualidade from '../components/global/PainelAlertasQualidade';
+import GerenciadorPromocoes from '../components/automacao/GerenciadorPromocoes';
+import VisaoCombinadaPromocoes from '../components/automacao/VisaoCombinadaPromocoes';
 
 export default function Produtos() {
   const [produtos, setProdutos] = useState([]);
@@ -434,7 +437,17 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
   }, [produtosComAnalise]);
 
   return (
-    <div className="flex h-screen bg-transparent">
+    <Tabs defaultValue="catalogo" className="h-screen flex flex-col bg-transparent">
+      <TabsList className="mx-4 mt-3 self-start bg-white/80 border border-orange-200 shadow-sm">
+        <TabsTrigger value="catalogo" className="gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+          <Package className="w-4 h-4" /> Catálogo
+        </TabsTrigger>
+        <TabsTrigger value="promocoes" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
+          <Tag className="w-4 h-4" /> Promoções
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="catalogo" className="flex-1 overflow-hidden m-0 flex">
       <aside className="bg-gradient-to-br from-amber-100 via-orange-100 to-red-100 backdrop-blur-lg w-[280px] min-w-[280px] max-w-[280px] border-r border-orange-200/50 shadow-lg overflow-hidden">
         <div className="h-full flex flex-col">
           <ProdutoFiltros
@@ -645,6 +658,22 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
           </div>
         </div>
       </main>
+      </TabsContent>
+
+      <TabsContent value="promocoes" className="flex-1 overflow-y-auto m-0 p-4">
+        <Tabs defaultValue="gestao" className="w-full">
+          <TabsList className="mb-4 bg-white border border-slate-200 shadow-sm">
+            <TabsTrigger value="gestao">Gestão</TabsTrigger>
+            <TabsTrigger value="combinada">Visão Combinada</TabsTrigger>
+          </TabsList>
+          <TabsContent value="gestao" className="m-0">
+            <GerenciadorPromocoes />
+          </TabsContent>
+          <TabsContent value="combinada" className="m-0">
+            <VisaoCombinadaPromocoes />
+          </TabsContent>
+        </Tabs>
+      </TabsContent>
 
       {showFormModal && (
         <ProdutoFormModal
@@ -731,6 +760,6 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
           </motion.div>
         </div>
       )}
-    </div>
+    </Tabs>
   );
 }

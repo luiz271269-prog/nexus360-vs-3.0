@@ -110,7 +110,6 @@ import PlanoImplementacao from './pages/PlanoImplementacao';
 import PlaybooksAutomacao from './pages/PlaybooksAutomacao';
 import Precificacao from './pages/Precificacao';
 import Produtos from './pages/Produtos';
-import Promocoes from './pages/Promocoes';
 import RoteamentoInteligente from './pages/RoteamentoInteligente';
 import SetupWizard from './pages/SetupWizard';
 import SuperAgente from './pages/SuperAgente';
@@ -196,7 +195,6 @@ export const PAGES = {
     "PlaybooksAutomacao": PlaybooksAutomacao,
     "Precificacao": Precificacao,
     "Produtos": Produtos,
-    "Promocoes": Promocoes,
     "RoteamentoInteligente": RoteamentoInteligente,
     "SetupWizard": SetupWizard,
     "SuperAgente": SuperAgente,

@@ -1,10 +1,9 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Workflow, Tag, MessageSquare, Zap, BarChart3, Activity } from "lucide-react";
+import { Workflow, MessageSquare, Zap, BarChart3, Activity } from "lucide-react";
 import PlaybookManagerURA from "./PlaybookManagerURA";
 import PlaybookManager from "./PlaybookManager";
 import QuickRepliesManager from "../comunicacao/QuickRepliesManager";
-import GerenciadorPromocoes from "./GerenciadorPromocoes";
 import CustoAutomacoesTab from "./CustoAutomacoesTab";
 import HubBroadcast from "./HubBroadcast";
 
@@ -30,7 +29,7 @@ export default function BibliotecaAutomacoes() {
         setCategoriaFiltro("all");
         setSearchTerm("");
       }} className="space-y-6">
-        <TabsList className="flex md:grid md:grid-cols-6 w-full overflow-x-auto md:overflow-visible no-scrollbar bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200 h-auto p-1 gap-1">
+        <TabsList className="flex md:grid md:grid-cols-5 w-full overflow-x-auto md:overflow-visible no-scrollbar bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200 h-auto p-1 gap-1">
           <TabsTrigger 
             value="ura" 
             className="shrink-0 gap-1.5 px-3 text-xs md:text-sm whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
@@ -44,13 +43,6 @@ export default function BibliotecaAutomacoes() {
           >
             <Workflow className="w-4 h-4" />
             Playbooks
-          </TabsTrigger>
-          <TabsTrigger 
-            value="promocoes" 
-            className="shrink-0 gap-1.5 px-3 text-xs md:text-sm whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg"
-          >
-            <Tag className="w-4 h-4" />
-            Promoções
           </TabsTrigger>
           <TabsTrigger 
             value="respostas" 
@@ -83,11 +75,6 @@ export default function BibliotecaAutomacoes() {
         {/* TAB 2: PLAYBOOKS GENÉRICOS */}
         <TabsContent value="playbooks" className="space-y-6 m-0">
           <PlaybookManager />
-        </TabsContent>
-
-        {/* TAB 3: PROMOÇÕES & OFERTAS */}
-        <TabsContent value="promocoes" className="m-0">
-          <GerenciadorPromocoes />
         </TabsContent>
 
         {/* TAB 4: RESPOSTAS RÁPIDAS */}
