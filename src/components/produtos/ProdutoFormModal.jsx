@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -88,8 +87,8 @@ export default function ProdutoFormModal({ produto, onSave, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex justify-center items-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-slate-700 text-white">
+    <div className="fixed inset-0 bg-black/80 z-50 flex justify-center items-center p-2 md:p-4">
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-lg shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col border border-slate-700 text-white">
         <div className="flex justify-between items-center p-4 border-b border-slate-700">
           <h2 className="text-xl font-semibold bg-gradient-to-r from-amber-400 via-orange-400 to-orange-500 bg-clip-text text-transparent">{produto ? 'Editar Produto' : 'Novo Produto'}</h2>
           <Button variant="ghost" size="icon" onClick={onClose} className="hover:bg-slate-700">
@@ -107,7 +106,7 @@ export default function ProdutoFormModal({ produto, onSave, onClose }) {
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="basico" className="p-6">
+            <TabsContent value="basico" className="p-3 md:p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -192,7 +191,7 @@ export default function ProdutoFormModal({ produto, onSave, onClose }) {
               </form>
             </TabsContent>
             
-            <TabsContent value="precificacao" className="p-6">
+            <TabsContent value="precificacao" className="p-3 md:p-6">
               <SimuladorPrecificacao 
                 produto={formData}
                 onPriceUpdate={handlePriceUpdate}

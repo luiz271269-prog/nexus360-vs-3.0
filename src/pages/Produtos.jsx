@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { Plus, Upload, ShoppingCart, Loader2, Calculator, DollarSign, X, CheckCircle, ListFilter, Columns, FileDown, Search } from "lucide-react";
+import { Plus, Upload, ShoppingCart, Loader2, Calculator, DollarSign, X, CheckCircle, ListFilter, Columns, FileDown, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
@@ -451,7 +451,8 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
 
       <TabsContent value="catalogo" className="flex-1 min-h-0 m-0">
         <div className="flex h-full bg-transparent">
-          <aside className="bg-gradient-to-br from-amber-100 via-orange-100 to-red-100 backdrop-blur-lg w-[280px] min-w-[280px] max-w-[280px] border-r border-orange-200/50 shadow-lg overflow-hidden">
+          {/* Sidebar de filtros - fixa apenas no desktop */}
+          <aside className="hidden md:block bg-gradient-to-br from-amber-100 via-orange-100 to-red-100 backdrop-blur-lg w-[280px] min-w-[280px] max-w-[280px] border-r border-orange-200/50 shadow-lg overflow-hidden">
             <div className="h-full flex flex-col">
               <ProdutoFiltros
                 produtos={produtos}
@@ -461,25 +462,25 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
             </div>
           </aside>
 
-          <main className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 flex flex-col p-4 gap-3 overflow-hidden">
+          <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col p-2 md:p-4 gap-3 overflow-hidden">
               {/* HEADER COMPACTO NO TOPO */}
               <div className="bg-gradient-to-br from-amber-400/20 via-orange-400/20 to-red-500/20 rounded-xl shadow-xl border-2 border-orange-300 backdrop-blur-sm relative overflow-hidden p-3 flex-shrink-0">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-amber-400/20 to-orange-500/20 rounded-full blur-3xl"></div>
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-orange-400/20 to-red-500/20 rounded-full blur-3xl"></div>
 
-                <div className="flex items-center justify-between relative z-10">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 relative z-10">
                   {/* TÍTULO COMPACTO */}
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/50">
-                      <ShoppingCart className="w-6 h-6 text-white" />
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/50 flex-shrink-0">
+                      <ShoppingCart className="w-5 h-5 md:w-6 md:h-6 text-white" />
                     </div>
-                    <div>
-                      <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 bg-clip-text text-transparent">
+                    <div className="min-w-0">
+                      <h1 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 bg-clip-text text-transparent truncate">
                         Catálogo de Produtos
                       </h1>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-sm text-slate-600">{produtosFiltrados.length} produtos</p>
+                        <p className="text-xs md:text-sm text-slate-600">{produtosFiltrados.length} produtos</p>
                         {modoCorrecao && (
                           <Badge className="bg-orange-500 text-white font-bold text-xs">
                             Modo Correção
@@ -491,6 +492,23 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
 
                   {/* BOTÕES COMPACTOS LADO A LADO */}
                   <div className="flex gap-2 flex-wrap">
+                    {/* Botão Filtros - apenas mobile (sidebar vira drawer) */}
+                    <Sheet>
+                      <SheetTrigger asChild>
+                        <Button variant="outline" size="sm" className="md:hidden bg-white border-2 border-orange-300 h-9 text-xs">
+                          <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
+                          Filtros
+                        </Button>
+                      </SheetTrigger>
+                      <SheetContent side="left" className="w-[300px] sm:max-w-[300px] p-0 bg-gradient-to-br from-amber-100 via-orange-100 to-red-100 overflow-y-auto">
+                        <ProdutoFiltros
+                          produtos={produtos}
+                          filtros={filtros}
+                          onFiltrosChange={handleFiltrosChange}
+                        />
+                      </SheetContent>
+                    </Sheet>
+
                     {modoCorrecao && (
                       <Button
                         onClick={() => setModoCorrecao(false)}
