@@ -3,6 +3,7 @@ import { X, Brain, Send, Loader2, Trash2, Paperclip, Image as ImageIcon, FileTex
 import { base44 } from '@/api/base44Client';
 import ReactMarkdown from 'react-markdown';
 import CopilotCard from '@/components/comunicacao/CopilotCard';
+import BuscaGlobalJarvis from '@/components/global/BuscaGlobalJarvis';
 
 const PERSONA_SISTEMA = `🤖 SUPER AGENTE JARVIS - COPILOTO IA (Modo: Assistência Operacional)
 ================================================================================
@@ -376,6 +377,9 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
             </button>
           </div>
         </div>
+
+        {/* Busca global: CRM + Contatos */}
+        <BuscaGlobalJarvis onNavigate={onClose} />
 
         {/* Barra de contexto ativo */}
         {contextoAtivo && (
