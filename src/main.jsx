@@ -40,11 +40,38 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   })();
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  // <React.StrictMode>
-  <App />
-  // </React.StrictMode>,
-)
+// Boot com guarda anti-stale: se o bundle em cache estiver corrompido
+// (ex.: React resolvido como null → "Cannot read properties of null (reading 'useState')"),
+// limpa caches/SW e força UM reload controlado para baixar o bundle fresco.
+try {
+  if (!React || typeof React.useState !== 'function') {
+    throw new Error('React runtime inválido (bundle stale)');
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    // <React.StrictMode>
+    <App />
+    // </React.StrictMode>,
+  );
+} catch (bootErr) {
+  console.error('[BOOT] Falha ao iniciar — purgando cache e recarregando:', bootErr);
+  const jaPurgou = sessionStorage.getItem('nexus_boot_purged') === '1';
+  if (!jaPurgou) {
+    sessionStorage.setItem('nexus_boot_purged', '1');
+    (async () => {
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister().catch(() => {})));
+        }
+        if (typeof caches !== 'undefined') {
+          const keys = await caches.keys().catch(() => []);
+          await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
+        }
+      } catch (_) { /* best-effort */ }
+      window.location.reload();
+    })();
+  }
+}
 
 if (import.meta.hot) {
   import.meta.hot.on('vite:beforeUpdate', () => {
