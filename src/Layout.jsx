@@ -104,7 +104,7 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
 
 
 
-function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, onOpenCopiloto, agentSession, onToggle, isAdmin, podeVerNeuralFin, podeVerCompras, podeVerRH }) {
+function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, onOpenCopiloto, agentSession, onToggle, isAdmin, podeVerNeuralFin, podeVerCompras, podeVerRH, podeVerNeuralSite }) {
   return (
     <aside
         className={`fixed inset-y-0 left-0 z-50 w-20 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transform ${
@@ -237,6 +237,20 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
            <UserCog className="h-6 w-6 text-white" />
            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
              👥 RH Nexus{isAdmin && <span className="ml-1 text-amber-400">(Admin)</span>}
+           </div>
+          </a>}
+
+          {/* Atalho Site Neural */}
+          {podeVerNeuralSite && <a
+           href="https://app.base44.com/apps/6a08dab417f09f078780ca60"
+           target="_blank"
+           rel="noopener noreferrer"
+           className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-cyan-600 to-sky-700 hover:from-cyan-500 hover:to-sky-600 shadow-lg shadow-cyan-500/25 transition-all duration-300 hover:scale-105 group relative mt-2"
+           title="Site Neural"
+          >
+           <Sparkles className="h-6 w-6 text-white" />
+           <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
+             🌐 Site Neural
            </div>
           </a>}
           </nav>
@@ -608,6 +622,7 @@ export default function Layout({ children, currentPageName }) {
         podeVerNeuralFin={globalUsuario?.role === 'admin' || (globalUsuario?.paginas_acesso || []).includes('NeuralFinFlow')}
         podeVerCompras={globalUsuario?.role === 'admin' || (globalUsuario?.paginas_acesso || []).includes('Compras')}
         podeVerRH={globalUsuario?.role === 'admin' || (globalUsuario?.paginas_acesso || []).includes('RHNexus')}
+        podeVerNeuralSite={globalUsuario?.role === 'admin' || (globalUsuario?.paginas_acesso || []).includes('NeuralSite')}
       />
 
       {sidebarOpen && (
