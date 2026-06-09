@@ -14,7 +14,8 @@ import {
   File,
   FileText,
   Video,
-  Camera
+  Camera,
+  Database
 } from 'lucide-react';
 
 // Logos SVG inline para cada canal
@@ -48,6 +49,7 @@ import EmojiPickerButton from './EmojiPickerButton';
 import { useClipboardPaste } from './useClipboardPaste';
 import SeletorPromocoesAtivas from '../automacao/SeletorPromocoesAtivas';
 import AIResponseAssistant from './AIResponseAssistant';
+import PerguntarSobreContato from './PerguntarSobreContato';
 
 export default function MessageInput({
   onSendMessage,
@@ -88,6 +90,7 @@ export default function MessageInput({
   const [pastedImagePreview, setPastedImagePreview] = useState(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showPromocoesMenu, setShowPromocoesMenu] = useState(false);
+  const [showPerguntar, setShowPerguntar] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]); // array de {file, type, preview}
   const [recordingTime, setRecordingTime] = useState(0);
   
@@ -345,6 +348,10 @@ export default function MessageInput({
         onSugestaoSelecionada={(texto) => setMensagemTexto(texto)}
         onClose={onToggleSugestor}
       />
+      {/* Painel: perguntar sobre o cliente com respostas exatas (dados reais) */}
+      {showPerguntar && (
+        <PerguntarSobreContato thread={thread} onClose={() => setShowPerguntar(false)} />
+      )}
       <div className="px-2 md:px-3">
       {/* Inputs ocultos para arquivos */}
       <input
@@ -569,6 +576,26 @@ export default function MessageInput({
           onEmojiSelect={handleEmojiSelect}
           disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens}
         />
+
+        {/* 🔎 BOTÃO PERGUNTAR — respostas exatas com dados reais do cliente */}
+        {thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group' && (
+          <Button
+            type="button"
+            onClick={() => setShowPerguntar(v => !v)}
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-8 w-8 md:h-9 md:w-9 flex-shrink-0",
+              showPerguntar
+                ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 shadow-lg"
+                : "text-indigo-600 hover:bg-indigo-50"
+            )}
+            title="Perguntar sobre o cliente (respostas exatas com dados reais)"
+            disabled={gravandoAudio || modoSelecao}
+          >
+            <Database className="w-4 h-4 md:w-5 md:h-5" />
+          </Button>
+        )}
 
         {/* 📷 BOTÃO CÂMERA - Apenas mobile (hidden no desktop via CSS) */}
         {podeEnviarMidias && (
