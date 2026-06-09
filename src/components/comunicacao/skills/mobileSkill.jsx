@@ -43,8 +43,10 @@
  */
 
 // ── CAMADA 1: COMPORTAMENTO ──────────────────────────────────────────────────
+// Re-exporta do núcleo GLOBAL (fonte única de verdade do app inteiro).
+// Esta skill é a especialização mobile da Central de Comunicação.
+export { useIsMobile, useMobileBackButton, MobileDrawer, mobileTokensLayout } from '../../mobile/mobileSkillGlobal';
 export { useAutoAbrirChatMobileNaSelecao } from './mobileSelecaoMassaSkill';
-export { useMobileBackButton } from '../../../hooks/useMobileBackButton';
 
 // ── CAMADA 2: LAYOUT ─────────────────────────────────────────────────────────
 export { default as MobileHeader } from '../mobile/MobileHeader';

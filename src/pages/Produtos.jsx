@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { Plus, Upload, ShoppingCart, Loader2, Calculator, DollarSign, X, CheckCircle, ListFilter, Columns, FileDown, Search, SlidersHorizontal } from "lucide-react";
+import { Plus, Upload, ShoppingCart, Loader2, Calculator, DollarSign, X, CheckCircle, ListFilter, Columns, FileDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ import LembretesIAContextualizados from '../components/global/LembretesIAContext
 import PainelAlertasQualidade from '../components/global/PainelAlertasQualidade';
 import GerenciadorPromocoes from '../components/automacao/GerenciadorPromocoes';
 import VisaoCombinadaPromocoes from '../components/automacao/VisaoCombinadaPromocoes';
+import { MobileDrawer } from '../components/mobile/mobileSkillGlobal';
 
 export default function Produtos() {
   const [produtos, setProdutos] = useState([]);
@@ -492,22 +493,14 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
 
                   {/* BOTÕES COMPACTOS LADO A LADO */}
                   <div className="flex gap-2 flex-wrap">
-                    {/* Botão Filtros - apenas mobile (sidebar vira drawer) */}
-                    <Sheet>
-                      <SheetTrigger asChild>
-                        <Button variant="outline" size="sm" className="md:hidden bg-white border-2 border-orange-300 h-9 text-xs">
-                          <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
-                          Filtros
-                        </Button>
-                      </SheetTrigger>
-                      <SheetContent side="left" className="w-[300px] sm:max-w-[300px] p-0 bg-gradient-to-br from-amber-100 via-orange-100 to-red-100 overflow-y-auto">
-                        <ProdutoFiltros
-                          produtos={produtos}
-                          filtros={filtros}
-                          onFiltrosChange={handleFiltrosChange}
-                        />
-                      </SheetContent>
-                    </Sheet>
+                    {/* Filtros mobile: gaveta padrão da Skill Mobile Global (sidebar vira drawer) */}
+                    <MobileDrawer triggerLabel="Filtros" className="bg-gradient-to-br from-amber-100 via-orange-100 to-red-100">
+                      <ProdutoFiltros
+                        produtos={produtos}
+                        filtros={filtros}
+                        onFiltrosChange={handleFiltrosChange}
+                      />
+                    </MobileDrawer>
 
                     {modoCorrecao && (
                       <Button
