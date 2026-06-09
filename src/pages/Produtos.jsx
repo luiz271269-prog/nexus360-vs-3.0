@@ -437,239 +437,243 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
   }, [produtosComAnalise]);
 
   return (
-    <Tabs defaultValue="catalogo" className="h-screen flex flex-col bg-transparent">
-      <TabsList className="mx-4 mt-3 self-start bg-white/80 border border-orange-200 shadow-sm">
-        <TabsTrigger value="catalogo" className="gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-          <Package className="w-4 h-4" /> Catálogo
-        </TabsTrigger>
-        <TabsTrigger value="promocoes" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
-          <Tag className="w-4 h-4" /> Promoções
-        </TabsTrigger>
-      </TabsList>
+    <Tabs defaultValue="catalogo" className="flex flex-col h-screen bg-transparent">
+      <div className="px-4 pt-3 flex-shrink-0">
+        <TabsList className="bg-white/70 border border-orange-200 shadow-sm">
+          <TabsTrigger value="catalogo" className="gap-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+            <Package className="w-4 h-4" /> Catálogo
+          </TabsTrigger>
+          <TabsTrigger value="promocoes" className="gap-2 data-[state=active]:bg-green-500 data-[state=active]:text-white">
+            <Tag className="w-4 h-4" /> Promoções
+          </TabsTrigger>
+        </TabsList>
+      </div>
 
-      <TabsContent value="catalogo" className="flex-1 overflow-hidden m-0 flex">
-      <aside className="bg-gradient-to-br from-amber-100 via-orange-100 to-red-100 backdrop-blur-lg w-[280px] min-w-[280px] max-w-[280px] border-r border-orange-200/50 shadow-lg overflow-hidden">
-        <div className="h-full flex flex-col">
-          <ProdutoFiltros
-            produtos={produtos}
-            filtros={filtros}
-            onFiltrosChange={handleFiltrosChange}
-          />
-        </div>
-      </aside>
+      <TabsContent value="catalogo" className="flex-1 min-h-0 m-0">
+        <div className="flex h-full bg-transparent">
+          <aside className="bg-gradient-to-br from-amber-100 via-orange-100 to-red-100 backdrop-blur-lg w-[280px] min-w-[280px] max-w-[280px] border-r border-orange-200/50 shadow-lg overflow-hidden">
+            <div className="h-full flex flex-col">
+              <ProdutoFiltros
+                produtos={produtos}
+                filtros={filtros}
+                onFiltrosChange={handleFiltrosChange}
+              />
+            </div>
+          </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 flex flex-col p-4 gap-3 overflow-hidden">
-          {/* HEADER COMPACTO NO TOPO */}
-          <div className="bg-gradient-to-br from-amber-400/20 via-orange-400/20 to-red-500/20 rounded-xl shadow-xl border-2 border-orange-300 backdrop-blur-sm relative overflow-hidden p-3 flex-shrink-0">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-amber-400/20 to-orange-500/20 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-orange-400/20 to-red-500/20 rounded-full blur-3xl"></div>
-            
-            <div className="flex items-center justify-between relative z-10">
-              {/* TÍTULO COMPACTO */}
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/50">
-                  <ShoppingCart className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 bg-clip-text text-transparent">
-                    Catálogo de Produtos
-                  </h1>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-sm text-slate-600">{produtosFiltrados.length} produtos</p>
-                    {modoCorrecao && (
-                      <Badge className="bg-orange-500 text-white font-bold text-xs">
-                        Modo Correção
-                      </Badge>
-                    )}
+          <main className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col p-4 gap-3 overflow-hidden">
+              {/* HEADER COMPACTO NO TOPO */}
+              <div className="bg-gradient-to-br from-amber-400/20 via-orange-400/20 to-red-500/20 rounded-xl shadow-xl border-2 border-orange-300 backdrop-blur-sm relative overflow-hidden p-3 flex-shrink-0">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-amber-400/20 to-orange-500/20 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-orange-400/20 to-red-500/20 rounded-full blur-3xl"></div>
+
+                <div className="flex items-center justify-between relative z-10">
+                  {/* TÍTULO COMPACTO */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/50">
+                      <ShoppingCart className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 bg-clip-text text-transparent">
+                        Catálogo de Produtos
+                      </h1>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-sm text-slate-600">{produtosFiltrados.length} produtos</p>
+                        {modoCorrecao && (
+                          <Badge className="bg-orange-500 text-white font-bold text-xs">
+                            Modo Correção
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              
-              {/* BOTÕES COMPACTOS LADO A LADO */}
-              <div className="flex gap-2 flex-wrap">
-                {modoCorrecao && (
-                  <Button
-                    onClick={() => setModoCorrecao(false)}
-                    variant="outline"
-                    size="sm"
-                    className="bg-white hover:bg-slate-100 border-2 border-slate-300 h-9 text-xs"
-                  >
-                    Sair Correção
-                  </Button>
-                )}
-                
-                <Sheet>
-                  <SheetTrigger asChild>
-                    <Button variant="outline" size="sm" className="bg-white hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 border-2 border-orange-300 hover:border-orange-500 h-9 text-xs">
-                      <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                      Carrinho ({carrinho.length})
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent className="w-[500px] sm:max-w-[500px] bg-gradient-to-br from-slate-900 to-slate-800 p-0 border-l-slate-700">
-                    <SheetHeader className="p-6 bg-slate-900/50">
-                      <SheetTitle className="text-xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-orange-500 bg-clip-text text-transparent">
-                        Carrinho de Cotações
-                      </SheetTitle>
-                    </SheetHeader>
-                    <CarrinhoCotacoes
-                      carrinho={carrinho}
-                      onRemove={handleRemoveFromCart}
-                      onClear={handleClearCart}
-                    />
-                  </SheetContent>
-                </Sheet>
-                
-                <Popover>
-                  <PopoverTrigger asChild>
+
+                  {/* BOTÕES COMPACTOS LADO A LADO */}
+                  <div className="flex gap-2 flex-wrap">
+                    {modoCorrecao && (
+                      <Button
+                        onClick={() => setModoCorrecao(false)}
+                        variant="outline"
+                        size="sm"
+                        className="bg-white hover:bg-slate-100 border-2 border-slate-300 h-9 text-xs"
+                      >
+                        Sair Correção
+                      </Button>
+                    )}
+
+                    <Sheet>
+                      <SheetTrigger asChild>
+                        <Button variant="outline" size="sm" className="bg-white hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 border-2 border-orange-300 hover:border-orange-500 h-9 text-xs">
+                          <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
+                          Carrinho ({carrinho.length})
+                        </Button>
+                      </SheetTrigger>
+                      <SheetContent className="w-[500px] sm:max-w-[500px] bg-gradient-to-br from-slate-900 to-slate-800 p-0 border-l-slate-700">
+                        <SheetHeader className="p-6 bg-slate-900/50">
+                          <SheetTitle className="text-xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-orange-500 bg-clip-text text-transparent">
+                            Carrinho de Cotações
+                          </SheetTitle>
+                        </SheetHeader>
+                        <CarrinhoCotacoes
+                          carrinho={carrinho}
+                          onRemove={handleRemoveFromCart}
+                          onClear={handleClearCart}
+                        />
+                      </SheetContent>
+                    </Sheet>
+
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-white hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 border-2 border-orange-300 hover:border-orange-500 h-9 text-xs"
+                        >
+                          <Columns className="mr-1.5 h-3.5 w-3.5" />
+                          Colunas
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 bg-white p-4 shadow-lg rounded-lg">
+                        <div className="grid gap-2">
+                          {Object.keys(columnVisibility).map((key) => (
+                            <div key={key} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={key}
+                                checked={columnVisibility[key]}
+                                onCheckedChange={(checked) =>
+                                  setColumnVisibility((prev) => ({ ...prev, [key]: checked }))
+                                }
+                              />
+                              <label htmlFor={key} className="text-sm font-medium leading-none">
+                                {key === 'precoVenda' && 'Preço Venda'}
+                                {key === 'acoes' && 'Ações'}
+                                {key === 'produto' && 'Produto'}
+                                {key === 'marca' && 'Marca'}
+                                {key === 'modelo' && 'Modelo'}
+                                {key === 'fornecedor' && 'Fornecedor'}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+
                     <Button
+                      onClick={() => navigate(createPageUrl('Precificacao'))}
                       variant="outline"
                       size="sm"
                       className="bg-white hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 border-2 border-orange-300 hover:border-orange-500 h-9 text-xs"
                     >
-                      <Columns className="mr-1.5 h-3.5 w-3.5" />
-                      Colunas
+                      <Upload className="mr-1.5 h-3.5 w-3.5" />
+                      Importar (IA)
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-48 bg-white p-4 shadow-lg rounded-lg">
-                    <div className="grid gap-2">
-                      {Object.keys(columnVisibility).map((key) => (
-                        <div key={key} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={key}
-                            checked={columnVisibility[key]}
-                            onCheckedChange={(checked) =>
-                              setColumnVisibility((prev) => ({ ...prev, [key]: checked }))
-                            }
-                          />
-                          <label htmlFor={key} className="text-sm font-medium leading-none">
-                            {key === 'precoVenda' && 'Preço Venda'}
-                            {key === 'acoes' && 'Ações'}
-                            {key === 'produto' && 'Produto'}
-                            {key === 'marca' && 'Marca'}
-                            {key === 'modelo' && 'Modelo'}
-                            {key === 'fornecedor' && 'Fornecedor'}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
 
-                <Button
-                  onClick={() => navigate(createPageUrl('Precificacao'))}
-                  variant="outline"
-                  size="sm"
-                  className="bg-white hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 border-2 border-orange-300 hover:border-orange-500 h-9 text-xs"
-                >
-                  <Upload className="mr-1.5 h-3.5 w-3.5" />
-                  Importar (IA)
-                </Button>
-                
-                <Button
-                  onClick={handleNew}
-                  size="sm"
-                  className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 text-white font-semibold shadow-lg shadow-orange-500/50 transition-all transform hover:scale-105 h-9 text-xs"
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1.5" />
-                  Novo
-                </Button>
-              </div>
-            </div>
-
-            {selectedProductIds.length > 0 && (
-              <div className="flex justify-end gap-2 mt-3">
-                <Button
-                  onClick={handleExcludeSelected}
-                  variant="destructive"
-                  size="sm"
-                  className="gap-1.5 h-8 text-xs"
-                >
-                  <X className="w-3.5 h-3.5" /> Excluir ({selectedProductIds.length})
-                </Button>
-                <Button
-                  onClick={handleCotarSelected}
-                  variant="secondary"
-                  size="sm"
-                  className="gap-1.5 h-8 text-xs"
-                >
-                  <DollarSign className="w-3.5 h-3.5" /> Cotar ({selectedProductIds.length})
-                </Button>
-              </div>
-            )}
-          </div>
-
-          <BotaoNexusFlutuante
-            contadorLembretes={lembretesIA.length + alertasQualidade.length}
-            onClick={() => {
-              if (alertasQualidade.length > 0) {
-                toast.info(`📊 ${alertasQualidade.length} produtos precisam de atenção`);
-              }
-            }}
-          />
-
-          <LembretesIAContextualizados
-            lembretes={lembretesIA}
-            statsQualidade={statsQualidade}
-            insightsIA={insightsIA}
-            onQualidadeClick={handleQualidadeClick}
-            onInsightsClick={handleInsightsClick}
-            onAcaoExecutada={(lembrete) => {
-              if (lembrete.id === 'fechar_tudo') {
-                setLembretesIA([]);
-                return;
-              }
-              setLembretesIA((prev) => prev.filter((l) => l.id !== lembrete.id));
-            }}
-          />
-
-          {analisandoIA && (
-            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-3">
-              <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
-                <div>
-                  <p className="font-semibold text-purple-900 text-sm">IA Analisando...</p>
-                  <p className="text-xs text-purple-700">Gerando insights de precificação</p>
+                    <Button
+                      onClick={handleNew}
+                      size="sm"
+                      className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 text-white font-semibold shadow-lg shadow-orange-500/50 transition-all transform hover:scale-105 h-9 text-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1.5" />
+                      Novo
+                    </Button>
+                  </div>
                 </div>
+
+                {selectedProductIds.length > 0 && (
+                  <div className="flex justify-end gap-2 mt-3">
+                    <Button
+                      onClick={handleExcludeSelected}
+                      variant="destructive"
+                      size="sm"
+                      className="gap-1.5 h-8 text-xs"
+                    >
+                      <X className="w-3.5 h-3.5" /> Excluir ({selectedProductIds.length})
+                    </Button>
+                    <Button
+                      onClick={handleCotarSelected}
+                      variant="secondary"
+                      size="sm"
+                      className="gap-1.5 h-8 text-xs"
+                    >
+                      <DollarSign className="w-3.5 h-3.5" /> Cotar ({selectedProductIds.length})
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <BotaoNexusFlutuante
+                contadorLembretes={lembretesIA.length + alertasQualidade.length}
+                onClick={() => {
+                  if (alertasQualidade.length > 0) {
+                    toast.info(`📊 ${alertasQualidade.length} produtos precisam de atenção`);
+                  }
+                }}
+              />
+
+              <LembretesIAContextualizados
+                lembretes={lembretesIA}
+                statsQualidade={statsQualidade}
+                insightsIA={insightsIA}
+                onQualidadeClick={handleQualidadeClick}
+                onInsightsClick={handleInsightsClick}
+                onAcaoExecutada={(lembrete) => {
+                  if (lembrete.id === 'fechar_tudo') {
+                    setLembretesIA([]);
+                    return;
+                  }
+                  setLembretesIA((prev) => prev.filter((l) => l.id !== lembrete.id));
+                }}
+              />
+
+              {analisandoIA && (
+                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-3">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
+                    <div>
+                      <p className="font-semibold text-purple-900 text-sm">IA Analisando...</p>
+                      <p className="text-xs text-purple-700">Gerando insights de precificação</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* GRADE COM ALTURA TOTAL */}
+              <div className="flex-1 overflow-hidden">
+                {loading ? (
+                  <div className="flex justify-center items-center h-full">
+                    <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+                  </div>
+                ) : (
+                  <ProdutoTable
+                    produtos={produtosFiltrados}
+                    onEdit={handleEdit}
+                    onAddToCart={handleAddToCart}
+                    onSugerirPreco={handleSugerirPreco}
+                    analisandoIA={analisandoIA}
+                    selectedProductIds={selectedProductIds}
+                    onSelectProduct={handleSelectProduct}
+                    onSelectAllProducts={handleSelectAllProducts}
+                    allProductsSelected={selectedProductIds.length === produtosFiltrados.length && produtosFiltrados.length > 0}
+                    columnVisibility={columnVisibility}
+                  />
+                )}
               </div>
             </div>
-          )}
-
-          {/* GRADE COM ALTURA TOTAL */}
-          <div className="flex-1 overflow-hidden">
-            {loading ? (
-              <div className="flex justify-center items-center h-full">
-                <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-              </div>
-            ) : (
-              <ProdutoTable
-                produtos={produtosFiltrados}
-                onEdit={handleEdit}
-                onAddToCart={handleAddToCart}
-                onSugerirPreco={handleSugerirPreco}
-                analisandoIA={analisandoIA}
-                selectedProductIds={selectedProductIds}
-                onSelectProduct={handleSelectProduct}
-                onSelectAllProducts={handleSelectAllProducts}
-                allProductsSelected={selectedProductIds.length === produtosFiltrados.length && produtosFiltrados.length > 0}
-                columnVisibility={columnVisibility}
-              />
-            )}
-          </div>
+          </main>
         </div>
-      </main>
       </TabsContent>
 
-      <TabsContent value="promocoes" className="flex-1 overflow-y-auto m-0 p-4">
+      <TabsContent value="promocoes" className="flex-1 min-h-0 overflow-y-auto m-0 p-4">
         <Tabs defaultValue="gestao" className="w-full">
-          <TabsList className="mb-4 bg-white border border-slate-200 shadow-sm">
+          <TabsList className="mb-4">
             <TabsTrigger value="gestao">Gestão</TabsTrigger>
             <TabsTrigger value="combinada">Visão Combinada</TabsTrigger>
           </TabsList>
-          <TabsContent value="gestao" className="m-0">
+          <TabsContent value="gestao" className="mt-0">
             <GerenciadorPromocoes />
           </TabsContent>
-          <TabsContent value="combinada" className="m-0">
+          <TabsContent value="combinada" className="mt-0">
             <VisaoCombinadaPromocoes />
           </TabsContent>
         </Tabs>
