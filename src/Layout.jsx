@@ -44,6 +44,40 @@ import IncomingCallAlert from "@/components/comunicacao/IncomingCallAlert";
 import WakeUpManager from "@/components/global/WakeUpManager";
 import EmailsPendentesBadge from "@/components/global/EmailsPendentesBadge";
 
+const USUARIO_SESSION_CACHE_KEY = 'nexus360:globalUsuario';
+
+const lerUsuarioDaSessao = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const usuarioCacheado = window.sessionStorage.getItem(USUARIO_SESSION_CACHE_KEY);
+    return usuarioCacheado ? JSON.parse(usuarioCacheado) : null;
+  } catch (error) {
+    console.warn('[LAYOUT] Não foi possível ler o usuário em cache:', error);
+    window.sessionStorage.removeItem(USUARIO_SESSION_CACHE_KEY);
+    return null;
+  }
+};
+
+const salvarUsuarioNaSessao = (usuario) => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (usuario) {
+      window.sessionStorage.setItem(USUARIO_SESSION_CACHE_KEY, JSON.stringify(usuario));
+    } else {
+      window.sessionStorage.removeItem(USUARIO_SESSION_CACHE_KEY);
+    }
+  } catch (error) {
+    console.warn('[LAYOUT] Não foi possível atualizar o usuário em cache:', error);
+  }
+};
+
+const isErroAutenticacao = (error) => (
+  error?.status === 401 ||
+  error?.status === 403 ||
+  error?.message?.includes('privado') ||
+  error?.message?.toLowerCase().includes('auth')
+);
+
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
   const isActive = window.location.pathname === new URL(href, window.location.origin).pathname;
 
@@ -267,10 +301,9 @@ export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [nexusOpen, setNexusOpen] = useState(false);
   const [copilotoOpen, setCopilotoOpen] = useState(false);
-  const [globalUsuario, setGlobalUsuario] = useState(null);
+  const [globalUsuario, setGlobalUsuario] = useState(lerUsuarioDaSessao);
   const [loadingUsuario, setLoadingUsuario] = useState(true);
   const [badges, setBadges] = useState({});
-  const [unreadTotal, setUnreadTotal] = useState(0);
   const [contadoresLembretes, setContadoresLembretes] = useState({});
   const [emailsPendentes, setEmailsPendentes] = useState(0);
   const [agentSession, setAgentSession] = useState({
@@ -467,6 +500,7 @@ export default function Layout({ children, currentPageName }) {
     } catch (error) {
       console.error('[LAYOUT] Erro ao fazer logout:', error);
     } finally {
+      salvarUsuarioNaSessao(null);
       setGlobalUsuario(null);
       setLoadingUsuario(false);
       window.location.reload();
@@ -484,15 +518,17 @@ export default function Layout({ children, currentPageName }) {
     ultimaAtualizacaoRef.current = agora;
 
     try {
-      const user = await base44.auth.me().catch(e => {
-        // Sessão expirada ou não autenticado — silencioso, não polui logs
-        if (e?.status === 403 || e?.message?.includes('privado') || e?.message?.includes('auth')) {
+      const user = await base44.auth.me().catch(error => {
+        // Sessão expirada ou não autenticado — remove também o perfil em cache.
+        if (isErroAutenticacao(error)) {
+          salvarUsuarioNaSessao(null);
           setGlobalUsuario(null);
           return null;
         }
-        throw e;
+        throw error;
       });
       if (!user) { setLoadingUsuario(false); return; }
+      salvarUsuarioNaSessao(user);
       setGlobalUsuario(user);
 
       if (user) {
@@ -522,10 +558,9 @@ export default function Layout({ children, currentPageName }) {
 
     } catch (error) {
       console.error("[LAYOUT] Erro ao carregar dados globais:", error);
-      
-      // Força estado deslogado em caso de erro de autenticação
-      setGlobalUsuario(null);
-      
+
+      // Em falhas transitórias, mantém o último perfil validado para evitar menu parcial.
+      // Erros explícitos de autenticação já limpam estado e cache acima.
       if (error.message?.includes('Rate limit') || error.message?.includes('429')) {
         console.warn('[LAYOUT] ⚠️ Rate limit atingido nos dados globais.');
       }
@@ -538,7 +573,6 @@ export default function Layout({ children, currentPageName }) {
   useEffect(() => {
     const isMobile = window.innerWidth < 768;
     const currentPath = window.location.pathname;
-    const comunicacaoPath = new URL(createPageUrl("Comunicacao"), window.location.origin).pathname;
     const rootOrDashboard = currentPath === '/' || currentPath === new URL(createPageUrl("Dashboard"), window.location.origin).pathname;
     if (isMobile && rootOrDashboard) {
       navigate(createPageUrl("Comunicacao"), { replace: true });
