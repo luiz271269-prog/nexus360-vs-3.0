@@ -25,17 +25,28 @@ export default function BotaoPostarInstagram({ item }) {
 
   const postar = async (e) => {
     e.stopPropagation();
+
+    // Controle de deduplicação: confirma antes de repostar
+    let force = false;
+    if (jaPostada) {
+      const dataPost = new Date(item.instagram_posted_at).toLocaleString('pt-BR');
+      if (!window.confirm(`⚠️ Esta promoção já foi publicada em ${dataPost}.\n\nDeseja publicar NOVAMENTE no Instagram?`)) {
+        return;
+      }
+      force = true;
+    }
+
     setPosting(true);
     try {
       let res;
       if (item._origem === 'promotion') {
-        res = await instagramPostarPromocao({ promotion_id: item.id });
+        res = await instagramPostarPromocao({ promotion_id: item.id, force });
       } else {
         const caption = `🔥 ${item.titulo || 'Oferta NeuralTec'}\n\n📲 Chama no direct ou WhatsApp!\n#neuraltec #tecnologia #ofertas`;
         res = await instagramPublicarCarrossel(
           isVideo
-            ? { video_url: mediaUrl, caption, message_id: item._message_id }
-            : { image_urls: [mediaUrl], caption, message_id: item._message_id }
+            ? { video_url: mediaUrl, caption, message_id: item._message_id, force }
+            : { image_urls: [mediaUrl], caption, message_id: item._message_id, force }
         );
       }
       if (res.data?.success) {

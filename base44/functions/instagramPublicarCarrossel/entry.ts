@@ -29,7 +29,22 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { image_urls = [], video_url = null, caption = '', message_id = null } = await req.json();
+    const { image_urls = [], video_url = null, caption = '', message_id = null, force = false } = await req.json();
+
+    // Deduplicação: mensagem etiquetada já postada → bloqueia a menos que force=true
+    if (message_id && !force) {
+      const msgCheck = await base44.asServiceRole.entities.Message.get(message_id);
+      if (msgCheck?.metadata?.instagram_posted_at) {
+        const dataPost = new Date(msgCheck.metadata.instagram_posted_at).toLocaleString('pt-BR');
+        return Response.json({
+          success: false,
+          skipped: true,
+          duplicada: true,
+          motivo: `Já publicada em ${dataPost}. Confirme a repostagem para publicar novamente.`,
+          permalink: msgCheck.metadata.instagram_permalink || null
+        });
+      }
+    }
 
     if (!video_url && (!Array.isArray(image_urls) || image_urls.length === 0)) {
       return Response.json({ error: 'Selecione ao menos 1 promoção com imagem ou vídeo' }, { status: 400 });

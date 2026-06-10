@@ -62,8 +62,16 @@ Deno.serve(async (req) => {
     if (isAutomation && !promo.ativo) {
       return Response.json({ success: false, skipped: true, motivo: 'Promoção inativa' });
     }
-    if (isAutomation && promo.instagram_posted_at) {
-      return Response.json({ success: false, skipped: true, motivo: 'Já postada anteriormente' });
+    // Deduplicação: bloqueia repost a menos que force=true (manual confirmado)
+    if (promo.instagram_posted_at && !payload?.force) {
+      const dataPost = new Date(promo.instagram_posted_at).toLocaleString('pt-BR');
+      return Response.json({
+        success: false,
+        skipped: true,
+        duplicada: true,
+        motivo: `Já publicada em ${dataPost}. Confirme a repostagem para publicar novamente.`,
+        permalink: promo.instagram_permalink || null
+      });
     }
 
     // Montar legenda (remove placeholders {{nome}} etc)
