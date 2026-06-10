@@ -157,6 +157,43 @@ export function useMessageHandlers({
 
     const { texto, integrationId, replyToMessage, mediaUrl, mediaType, mediaCaption, isAudio } = dadosEnvio;
 
+    // 🟣 Thread de comentário do Instagram → responder publicamente via API de comentários
+    if (threadAtiva.channel === 'instagram') {
+      if (!texto?.trim()) {
+        toast.error('Digite uma mensagem para responder o comentário');
+        return;
+      }
+      const msgTempIg = {
+        id: `temp-ig-${Date.now()}`,
+        thread_id: threadAtiva.id,
+        sender_id: usuario.id,
+        sender_type: "user",
+        content: texto.trim(),
+        channel: "instagram",
+        status: "enviando",
+        sent_at: new Date().toISOString(),
+        media_type: 'none',
+        metadata: { optimistic: true, user_name: usuario.full_name }
+      };
+      queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => [...antigas, msgTempIg]);
+      try {
+        const r = await base44.functions.invoke('instagramResponderComentario', {
+          thread_id: threadAtiva.id,
+          texto: texto.trim()
+        });
+        if (!r.data.success) throw new Error(r.data.error || 'Erro ao responder comentário');
+        queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => antigas.filter((m) => m.id !== msgTempIg.id));
+        queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+        queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+        toast.success('✅ Resposta publicada no Instagram!');
+      } catch (error) {
+        console.error('[IG REPLY] Erro:', error);
+        queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => antigas.filter((m) => m.id !== msgTempIg.id));
+        toast.error(`❌ ${error.response?.data?.error || error.message}`);
+      }
+      return;
+    }
+
     if (usuario.role !== 'admin') {
       const whatsappPerms = usuario.whatsapp_permissions || [];
       if (whatsappPerms.length > 0) {
