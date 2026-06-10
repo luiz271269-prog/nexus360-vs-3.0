@@ -1012,6 +1012,24 @@ export default function ChatWindow({
       return;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🟣 THREAD DO INSTAGRAM (comentários): responder via API de comentários
+    // ═══════════════════════════════════════════════════════════════════════
+    if (thread?.channel === 'instagram') {
+      if (!texto?.trim()) {
+        toast.error('Digite uma mensagem para responder o comentário');
+        return;
+      }
+      marcarLidaAoResponder();
+      setMensagemResposta(null);
+      if (onSendMessageOptimistic) {
+        onSendMessageOptimistic({ texto: texto.trim() });
+      } else {
+        toast.error('Nenhum método de envio configurado.');
+      }
+      return;
+    }
+
     // Se tem arquivo anexado, processar upload e envio
     if (attachedFile) {
       await enviarArquivoAnexado(attachedFile, attachedFileType, texto);
