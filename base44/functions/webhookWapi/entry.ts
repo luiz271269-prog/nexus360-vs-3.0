@@ -259,6 +259,8 @@ function deveIgnorar(payload, classification) {
   const isGroup = payload.isGroup === true || phone.includes('@g.us');
 
   if (
+    payload.broadcast === true ||
+    phone.includes('-broadcast') ||
     phone.includes('status@') ||
     phone.includes('@broadcast') ||
     phone.includes('@lid') ||
