@@ -56,7 +56,13 @@ export default function BotaoPostarInstagram({ item }) {
   };
 
   return (
-    <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-100">
+    <div className="mt-2 pt-2 border-t border-slate-100">
+      {jaPostada && (
+        <div className="flex items-center gap-1 mb-1.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 w-fit">
+          ✅ Publicado em {new Date(item.instagram_posted_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </div>
+      )}
+      <div className="flex items-center gap-1.5">
       <Button
         size="sm"
         variant="outline"
@@ -83,6 +89,7 @@ export default function BotaoPostarInstagram({ item }) {
           <ExternalLink className="w-3 h-3" />
         </a>
       )}
+      </div>
     </div>
   );
 }

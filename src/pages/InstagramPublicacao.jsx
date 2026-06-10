@@ -193,6 +193,11 @@ export default function InstagramPublicacao() {
                         {p.price_info && (
                           <p className="text-xs text-pink-600 font-semibold mt-0.5">{p.price_info}</p>
                         )}
+                        {p.instagram_posted_at && (
+                          <p className="text-[10px] text-green-700 font-semibold mt-0.5">
+                            ✅ Publicado {new Date(p.instagram_posted_at).toLocaleDateString('pt-BR')} {new Date(p.instagram_posted_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
                       </div>
                     </button>
                   );
