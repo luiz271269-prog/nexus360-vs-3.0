@@ -6,12 +6,15 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 Deno.serve(async (req) => {
   try {
-    const tokenEsperado = Deno.env.get('NEXUS_PROMO_TOKEN');
+    const tokensValidos = [
+      (Deno.env.get('NEXUS_PROMO_TOKEN') || '').trim(),
+      (Deno.env.get('NEXUS_PROMOCAO_TOKEN') || '').trim()
+    ].filter(Boolean);
     let body = {};
     try { body = await req.json(); } catch (_) { /* sem body */ }
 
-    const tokenRecebido = req.headers.get('x-promo-token') || body?.token || '';
-    if (!tokenEsperado || tokenRecebido !== tokenEsperado) {
+    const tokenRecebido = (req.headers.get('x-promo-token') || body?.token || '').trim();
+    if (tokensValidos.length === 0 || !tokensValidos.includes(tokenRecebido)) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

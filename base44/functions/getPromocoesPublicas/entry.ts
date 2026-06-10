@@ -7,17 +7,20 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 Deno.serve(async (req) => {
   try {
-    const tokenEsperado = Deno.env.get('NEXUS_PROMO_TOKEN');
+    const tokensValidos = [
+      (Deno.env.get('NEXUS_PROMO_TOKEN') || '').trim(),
+      (Deno.env.get('NEXUS_PROMOCAO_TOKEN') || '').trim()
+    ].filter(Boolean);
 
-    if (tokenEsperado) {
-      let tokenRecebido = req.headers.get('x-promo-token') || '';
+    if (tokensValidos.length > 0) {
+      let tokenRecebido = (req.headers.get('x-promo-token') || '').trim();
       if (!tokenRecebido) {
         try {
           const body = await req.clone().json();
-          tokenRecebido = body?.token || '';
+          tokenRecebido = (body?.token || '').trim();
         } catch (_) { /* sem body JSON */ }
       }
-      if (tokenRecebido !== tokenEsperado) {
+      if (!tokensValidos.includes(tokenRecebido)) {
         return Response.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
