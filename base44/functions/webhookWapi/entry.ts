@@ -258,6 +258,12 @@ function deveIgnorar(payload, classification) {
 
   const isGroup = payload.isGroup === true || phone.includes('@g.us');
 
+  // ✅ Status do WhatsApp (W-API): chega com chat.id === 'status' e sender.id = LID numérico
+  const chatId = String(payload.chat?.id ?? '').toLowerCase();
+  if (chatId === 'status' || chatId.startsWith('status@')) {
+    return 'jid_sistema';
+  }
+
   if (
     payload.broadcast === true ||
     phone.includes('-broadcast') ||
