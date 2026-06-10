@@ -193,6 +193,8 @@ function deveIgnorar(payload) {
   }
 
   if (
+    payload.broadcast === true ||
+    phone.includes('-broadcast') ||
     phone.includes('status@') ||
     phone.includes('@broadcast') ||
     phone.includes('@g.us') ||
