@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { usePromocoesUnificadas } from '@/components/hooks/usePromocoesUnificadas';
 import { instagramPublicarCarrossel } from '@/functions/instagramPublicarCarrossel';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,28 +7,35 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
-import { Instagram, Loader2, Send, ExternalLink, ImageOff, Search, CheckCircle2 } from 'lucide-react';
+import { Instagram, Loader2, Send, ExternalLink, ImageOff, Search, CheckCircle2, Tag, Megaphone } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function InstagramPublicacao() {
   const [selecionados, setSelecionados] = useState([]);
   const [legenda, setLegenda] = useState('');
   const [busca, setBusca] = useState('');
+  const [filtroOrigem, setFiltroOrigem] = useState('todas'); // todas | promotion | mensagem
   const [publicando, setPublicando] = useState(false);
   const [resultado, setResultado] = useState(null);
 
-  const { data: produtos = [], isLoading } = useQuery({
-    queryKey: ['produtos-instagram'],
-    queryFn: () => base44.entities.Produto.filter({ ativo: true }, '-updated_date', 200),
-    refetchOnWindowFocus: false
+  const { data: promocoes = [], isLoading } = usePromocoesUnificadas({
+    apenasAtivas: true,
+    incluirEtiquetadas: true
   });
 
-  const produtosComImagem = produtos.filter(p => p.imagem_url);
-  const produtosFiltrados = produtosComImagem.filter(p =>
-    !busca || p.nome?.toLowerCase().includes(busca.toLowerCase()) || p.marca?.toLowerCase().includes(busca.toLowerCase())
-  );
+  // Apenas itens com imagem publicável
+  const comImagem = promocoes.filter(p => p.imagem_url);
 
-  const toggleProduto = (id) => {
+  const filtradas = comImagem.filter(p => {
+    if (filtroOrigem !== 'todas' && p._origem !== filtroOrigem) return false;
+    if (!busca) return true;
+    const termo = busca.toLowerCase();
+    return p.titulo?.toLowerCase().includes(termo) || p.descricao?.toLowerCase().includes(termo);
+  });
+
+  const itensSelecionados = comImagem.filter(p => selecionados.includes(p.id));
+
+  const toggleItem = (id) => {
     setSelecionados(prev => {
       if (prev.includes(id)) return prev.filter(x => x !== id);
       if (prev.length >= 10) {
@@ -41,24 +47,23 @@ export default function InstagramPublicacao() {
   };
 
   const gerarLegenda = () => {
-    const itens = produtosComImagem.filter(p => selecionados.includes(p.id));
-    const linhas = itens.map(p => {
-      const preco = p.preco_venda ? ` — R$ ${Number(p.preco_venda).toFixed(2)}` : '';
-      return `✅ ${p.nome}${preco}`;
+    const linhas = itensSelecionados.map(p => {
+      const preco = p.price_info ? ` — ${p.price_info}` : '';
+      return `✅ ${p.titulo}${preco}`;
     });
     setLegenda(`🔥 Ofertas NeuralTec Distribuição\n\n${linhas.join('\n')}\n\n📲 Chama no direct ou WhatsApp!\n#neuraltec #tecnologia #ofertas`);
   };
 
   const publicar = async () => {
-    if (selecionados.length === 0) {
-      toast.error('Selecione ao menos 1 produto');
+    if (itensSelecionados.length === 0) {
+      toast.error('Selecione ao menos 1 promoção');
       return;
     }
     setPublicando(true);
     setResultado(null);
     try {
       const res = await instagramPublicarCarrossel({
-        produto_ids: selecionados,
+        image_urls: itensSelecionados.map(p => p.imagem_url),
         caption: legenda
       });
       if (res.data?.success) {
@@ -85,7 +90,7 @@ export default function InstagramPublicacao() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Publicar no Instagram</h1>
-          <p className="text-sm text-slate-500">Carrossel de produtos do CRM → @neuraltec.distribuicao</p>
+          <p className="text-sm text-slate-500">Promoções e etiquetadas → @neuraltec.distribuicao</p>
         </div>
       </div>
 
@@ -104,22 +109,41 @@ export default function InstagramPublicacao() {
       )}
 
       <div className="grid md:grid-cols-3 gap-6">
-        {/* Seleção de produtos */}
+        {/* Seleção de promoções */}
         <Card className="md:col-span-2">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <CardTitle className="text-base">
-                Produtos com imagem
-                <Badge className="ml-2 bg-pink-100 text-pink-800">{selecionados.length}/10 selecionados</Badge>
+                Promoções com imagem
+                <Badge className="ml-2 bg-pink-100 text-pink-800">{selecionados.length}/10 selecionadas</Badge>
               </CardTitle>
-              <div className="relative w-56">
-                <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" />
-                <Input
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                  placeholder="Buscar produto..."
-                  className="pl-8 h-9"
-                />
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                  {[
+                    { v: 'todas', label: 'Todas' },
+                    { v: 'promotion', label: '📢 Oficiais' },
+                    { v: 'mensagem', label: '🏷️ Etiquetadas' }
+                  ].map(f => (
+                    <button
+                      key={f.v}
+                      onClick={() => setFiltroOrigem(f.v)}
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                        filtroOrigem === f.v ? 'bg-pink-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="relative w-44">
+                  <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" />
+                  <Input
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder="Buscar..."
+                    className="pl-8 h-9"
+                  />
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -128,34 +152,46 @@ export default function InstagramPublicacao() {
               <div className="py-12 flex justify-center">
                 <Loader2 className="w-6 h-6 animate-spin text-pink-500" />
               </div>
-            ) : produtosFiltrados.length === 0 ? (
+            ) : filtradas.length === 0 ? (
               <div className="py-12 text-center text-slate-500">
                 <ImageOff className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                <p className="text-sm">Nenhum produto ativo com imagem encontrado</p>
+                <p className="text-sm">Nenhuma promoção ativa com imagem encontrada</p>
+                <p className="text-xs text-slate-400 mt-1">Crie promoções na tela de Produtos ou etiquete mensagens como "promoção"</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[60vh] overflow-y-auto pr-1">
-                {produtosFiltrados.map((p) => {
+                {filtradas.map((p) => {
                   const sel = selecionados.includes(p.id);
                   const ordem = selecionados.indexOf(p.id) + 1;
                   return (
                     <button
                       key={p.id}
-                      onClick={() => toggleProduto(p.id)}
+                      onClick={() => toggleItem(p.id)}
                       className={`relative text-left rounded-xl border-2 overflow-hidden transition-all ${
                         sel ? 'border-pink-500 ring-2 ring-pink-200' : 'border-slate-200 hover:border-pink-300'
                       }`}
                     >
-                      <img src={p.imagem_url} alt={p.nome} className="w-full h-28 object-cover bg-slate-100" loading="lazy" />
+                      <img src={p.imagem_url} alt={p.titulo} className="w-full h-28 object-cover bg-slate-100" loading="lazy" />
                       {sel && (
                         <span className="absolute top-1.5 right-1.5 w-6 h-6 bg-pink-500 text-white text-xs font-bold rounded-full flex items-center justify-center shadow">
                           {ordem}
                         </span>
                       )}
+                      <span className="absolute top-1.5 left-1.5">
+                        {p._origem === 'promotion' ? (
+                          <Badge className="bg-purple-600 text-white text-[9px] px-1.5 py-0 h-5">
+                            <Megaphone className="w-2.5 h-2.5 mr-0.5" /> Oficial
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-amber-500 text-white text-[9px] px-1.5 py-0 h-5">
+                            <Tag className="w-2.5 h-2.5 mr-0.5" /> Etiquetada
+                          </Badge>
+                        )}
+                      </span>
                       <div className="p-2">
-                        <p className="text-xs font-medium text-slate-800 line-clamp-2">{p.nome}</p>
-                        {p.preco_venda && (
-                          <p className="text-xs text-pink-600 font-semibold mt-0.5">R$ {Number(p.preco_venda).toFixed(2)}</p>
+                        <p className="text-xs font-medium text-slate-800 line-clamp-2">{p.titulo}</p>
+                        {p.price_info && (
+                          <p className="text-xs text-pink-600 font-semibold mt-0.5">{p.price_info}</p>
                         )}
                       </div>
                     </button>
@@ -175,7 +211,7 @@ export default function InstagramPublicacao() {
             <Textarea
               value={legenda}
               onChange={(e) => setLegenda(e.target.value)}
-              placeholder="Escreva a legenda ou gere automaticamente a partir dos produtos selecionados..."
+              placeholder="Escreva a legenda ou gere automaticamente a partir das promoções selecionadas..."
               className="h-48 text-sm"
             />
             <Button
@@ -185,7 +221,7 @@ export default function InstagramPublicacao() {
               disabled={selecionados.length === 0}
               className="w-full"
             >
-              ✨ Gerar legenda dos produtos
+              ✨ Gerar legenda das promoções
             </Button>
             <Button
               onClick={publicar}
