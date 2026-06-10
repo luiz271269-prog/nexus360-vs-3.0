@@ -50,8 +50,7 @@ export default function WakeUpManager({ usuario }) {
     return import.meta.env.DEV
       || host === 'localhost'
       || host === '127.0.0.1'
-      || host.includes('preview-sandbox')
-      || (host.includes('base44.app') === false && host.includes('-preview'));
+      || host.includes('preview');
   })();
 
   // Faz o registro completo (SW + push + device). Só efetiva se permission=granted.
