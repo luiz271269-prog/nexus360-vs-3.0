@@ -62,7 +62,10 @@ export function usePromocoesUnificadas({ apenasAtivas = true, incluirEtiquetadas
             descricao: m.media_caption || (m.content && !m.content.startsWith('[') ? m.content : ''),
             imagem_url: imagemCard,
             categoria: 'etiquetada',
-            ativo: true
+            ativo: true,
+            instagram_posted_at: m.metadata?.instagram_posted_at || null,
+            instagram_permalink: m.metadata?.instagram_permalink || null,
+            instagram_post_tipo: m.metadata?.instagram_post_tipo || null
           };
         });
 

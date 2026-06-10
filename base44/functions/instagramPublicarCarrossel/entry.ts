@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { image_urls = [], video_url = null, caption = '' } = await req.json();
+    const { image_urls = [], video_url = null, caption = '', message_id = null } = await req.json();
 
     if (!video_url && (!Array.isArray(image_urls) || image_urls.length === 0)) {
       return Response.json({ error: 'Selecione ao menos 1 promoção com imagem ou vídeo' }, { status: 400 });
@@ -128,9 +128,30 @@ Deno.serve(async (req) => {
     const linkRes = await fetch(`${GRAPH}/${pubData.id}?fields=permalink&access_token=${accessToken}`);
     const linkData = await linkRes.json();
 
+    const tipoPost = video_url ? 'reels' : (image_urls.length > 1 ? 'carrossel' : 'imagem');
+
+    // Registrar rastreio na Message etiquetada (se origem for mensagem)
+    if (message_id) {
+      try {
+        const msg = await base44.asServiceRole.entities.Message.get(message_id);
+        await base44.asServiceRole.entities.Message.update(message_id, {
+          metadata: {
+            ...(msg?.metadata || {}),
+            instagram_media_id: pubData.id,
+            instagram_permalink: linkData.permalink || null,
+            instagram_posted_at: new Date().toISOString(),
+            instagram_post_tipo: tipoPost
+          }
+        });
+      } catch (e) {
+        console.error('[INSTAGRAM PUBLISH] Falha ao registrar rastreio na Message:', e.message);
+      }
+    }
+
     return Response.json({
       success: true,
       media_id: pubData.id,
+      tipo_post: tipoPost,
       permalink: linkData.permalink || null,
       username: me.username,
       total_imagens: video_url ? 1 : image_urls.length,

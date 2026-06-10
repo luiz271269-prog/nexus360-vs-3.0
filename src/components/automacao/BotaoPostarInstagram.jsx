@@ -19,7 +19,9 @@ export default function BotaoPostarInstagram({ item }) {
   const mediaUrl = item._media_url || item.imagem_url;
   if (!mediaUrl) return null;
 
-  const jaPostada = item._origem === 'promotion' && !!item.instagram_posted_at;
+  const jaPostada = !!item.instagram_posted_at;
+  const tipoPost = item.instagram_post_tipo
+    || (item._origem === 'promotion' ? (item.tipo_midia === 'video' ? 'reels' : 'imagem') : null);
 
   const postar = async (e) => {
     e.stopPropagation();
@@ -32,8 +34,8 @@ export default function BotaoPostarInstagram({ item }) {
         const caption = `🔥 ${item.titulo || 'Oferta NeuralTec'}\n\n📲 Chama no direct ou WhatsApp!\n#neuraltec #tecnologia #ofertas`;
         res = await instagramPublicarCarrossel(
           isVideo
-            ? { video_url: mediaUrl, caption }
-            : { image_urls: [mediaUrl], caption }
+            ? { video_url: mediaUrl, caption, message_id: item._message_id }
+            : { image_urls: [mediaUrl], caption, message_id: item._message_id }
         );
       }
       if (res.data?.success) {
@@ -59,7 +61,7 @@ export default function BotaoPostarInstagram({ item }) {
     <div className="mt-2 pt-2 border-t border-slate-100">
       {jaPostada && (
         <div className="flex items-center gap-1 mb-1.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 w-fit">
-          ✅ Publicado em {new Date(item.instagram_posted_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          ✅ Publicado{tipoPost ? ` (${tipoPost})` : ''} em {new Date(item.instagram_posted_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </div>
       )}
       <div className="flex items-center gap-1.5">
