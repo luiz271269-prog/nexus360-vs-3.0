@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sparkles, Loader2, Tag } from 'lucide-react';
 import { usePromocoesUnificadas } from '@/components/hooks/usePromocoesUnificadas';
+import BotaoPostarInstagram from '@/components/automacao/BotaoPostarInstagram';
 
 /**
  * Visão COMBINADA das duas fontes de promoção num só lugar:
@@ -105,6 +106,7 @@ export default function VisaoCombinadaPromocoes() {
                   </Badge>
                 )}
               </div>
+              <BotaoPostarInstagram item={item} />
             </CardContent>
           </Card>
         ))}

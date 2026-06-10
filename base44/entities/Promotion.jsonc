@@ -231,6 +231,19 @@
           "format": "datetime"
         }
       }
+    },
+    "instagram_media_id": {
+      "type": "string",
+      "description": "ID da m\u00eddia publicada no Instagram (\u00faltima postagem)"
+    },
+    "instagram_permalink": {
+      "type": "string",
+      "description": "Link da publica\u00e7\u00e3o no Instagram (\u00faltima postagem)"
+    },
+    "instagram_posted_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando foi postada no Instagram pela \u00faltima vez (controle do auto-post)"
     }
   },
   "required": [
