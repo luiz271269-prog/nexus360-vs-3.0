@@ -35,13 +35,8 @@ const AuthenticatedApp = () => {
   // Show animated logo while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <img
-          src="https://base44.app/api/apps/69b2fc6e5d83e60566460a2d/files/mp/public/69b2fc6e5d83e60566460a2d/8ffaca6b4_logo_sticker_opt.webp"
-          alt="Nexus360"
-          className="w-64 h-64 object-contain"
-        />
-        <div className="mt-6 w-8 h-8 border-4 border-slate-700 border-t-amber-400 rounded-full animate-spin"></div>
+      <div className="fixed inset-0 flex items-center justify-center bg-black">
+        <div className="w-10 h-10 border-4 border-slate-700 border-t-amber-400 rounded-full animate-spin"></div>
       </div>
     );
   }
