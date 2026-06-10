@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Brain, Calculator, Loader2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -94,6 +93,15 @@ export default function Precificacao() {
   const [dadosOriginais, setDadosOriginais] = useState(null);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [usuario, setUsuario] = useState(null);
+
+  useEffect(() => {
+    import('@/api/base44Client').then(({ base44 }) =>
+      base44.auth.me().then(setUsuario).catch(() => setUsuario(null))
+    );
+  }, []);
+
+  const podeImportar = usuario?.role === 'admin' || usuario?.attendant_sector === 'compras';
 
   useEffect(() => {
     localStorage.setItem('configPrecificacao', JSON.stringify(configPrecificacao));
@@ -164,7 +172,7 @@ export default function Precificacao() {
   useEffect(() => {
     const handlePaste = async (e) => {
       const items = e.clipboardData?.items;
-      if (!items || loading) return;
+      if (!items || loading || !podeImportar) return;
 
       for (const item of items) {
         if (item.type.indexOf('image') !== -1) {
@@ -189,7 +197,7 @@ export default function Precificacao() {
 
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
-  }, [loading, handleProcessAI]);
+  }, [loading, handleProcessAI, podeImportar]);
 
   const handleConfirmImport = async () => {
     if (!processedProducts || processedProducts.length === 0) {
@@ -284,7 +292,7 @@ export default function Precificacao() {
               onConfigChange={setConfigPrecificacao}
             />
           </div>
-          <div className="bg-gradient-to-br from-white via-indigo-50/30 to-purple-50/50 rounded-md border-2 border-white/50 shadow-lg relative overflow-hidden">
+          {podeImportar && <div className="bg-gradient-to-br from-white via-indigo-50/30 to-purple-50/50 rounded-md border-2 border-white/50 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-400/20 to-purple-500/20 rounded-full blur-2xl"></div>
             <div className="p-1 relative z-10">
               <div className="flex items-center gap-1 mb-1">
@@ -298,14 +306,14 @@ export default function Precificacao() {
               </div>
               <UploadPrecificacao onProcess={handleProcessAI} loading={loading} />
             </div>
-          </div>
+          </div>}
         </div>
 
-        <div className="text-center bg-blue-50 border border-blue-200 rounded px-2 py-1">
+        {podeImportar && <div className="text-center bg-blue-50 border border-blue-200 rounded px-2 py-1">
           <p className="text-xs text-blue-700">
             💡 <strong>Ctrl+V:</strong> Cole imagens diretamente na tela para análise automática
           </p>
-        </div>
+        </div>}
 
         {processedProducts.length > 0 && (
           <div className="bg-white/90 backdrop-blur rounded-md border border-slate-200 shadow-sm">

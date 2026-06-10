@@ -2,6 +2,7 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calculator, DollarSign, TrendingUp, Truck, Percent } from 'lucide-react';
+import SeletorContatoFornecedor from './SeletorContatoFornecedor';
 
 export default function ConfiguracaoPrecificacaoHeader({ config, onConfigChange }) {
 
@@ -25,7 +26,7 @@ export default function ConfiguracaoPrecificacaoHeader({ config, onConfigChange 
       </div>
 
       {/* Grade Horizontal Moderna */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-10 gap-3">
         {/* Fornecedor */}
         <div className="lg:col-span-2">
           <Label className="text-xs font-semibold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent leading-none flex items-center gap-1 mb-2">
@@ -109,6 +110,14 @@ export default function ConfiguracaoPrecificacaoHeader({ config, onConfigChange 
             value={config.linkPagina}
             onChange={(e) => handleChange('linkPagina', e.target.value)}
             className="h-8 text-xs px-2 py-1 bg-slate-800/50 border-teal-500/30 focus:border-teal-400 focus:ring-teal-400/50 text-white placeholder:text-slate-400" />
+        </div>
+
+        {/* Contato vinculado (fornecedor) */}
+        <div className="lg:col-span-2">
+          <SeletorContatoFornecedor
+            contato={config.contatoFornecedor || null}
+            onSelect={(c) => onConfigChange((prev) => ({ ...prev, contatoFornecedor: c }))}
+          />
         </div>
       </div>
     </div>);
