@@ -49,7 +49,7 @@ export default function UsuariosPage() {
     console.log('[Usuarios] 💾 Salvando usuário:', usuario.email);
     
     // IMPORTANTE: paginas_acesso armazena tanto permissões de menu QUANTO atalhos externos
-    const ATALHOS_EXTERNOS = ['NeuralFinFlow', 'Compras', 'RHNexus'];
+    const ATALHOS_EXTERNOS = ['NeuralFinFlow', 'Compras', 'RHNexus', 'NeuralSite'];
     const permissoesMenu = (usuario.permissoes || []).filter(p => !ATALHOS_EXTERNOS.includes(p));
     const atalhosAtivos = (usuario.paginas_acesso || []).filter(p => ATALHOS_EXTERNOS.includes(p));
     const permissoesParaSalvar = [...new Set([...permissoesMenu, ...atalhosAtivos])];
@@ -134,7 +134,7 @@ export default function UsuariosPage() {
   }
 
   async function salvarPermissoes(usuarioId, permissoes) {
-    await base44.entities.User.update(usuarioId, { permissoes });
+    await base44.entities.User.update(usuarioId, { paginas_acesso: permissoes });
   }
 
   return (

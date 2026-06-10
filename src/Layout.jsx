@@ -477,7 +477,7 @@ export default function Layout({ children, currentPageName }) {
     // L-2: pausa polling se aba está oculta (economiza pressão 429)
     if (typeof document !== 'undefined' && document.hidden) return;
     const agora = Date.now();
-    if (agora - ultimaAtualizacaoRef.current < 120000) { // Aumentado para 2min
+    if (agora - ultimaAtualizacaoRef.current < 60000) { // 1min — permissões refletem mais rápido
       console.log('[LAYOUT] ⏭️ Pulando atualização (muito recente)');
       return;
     }
@@ -565,7 +565,7 @@ export default function Layout({ children, currentPageName }) {
     carregarDadosGlobais();
     checkAgentHealth();
 
-    const intervalDados = setInterval(carregarDadosGlobais, 15 * 60 * 1000); // ✅ Poll a cada 15min (reduz ruído 403 no painel)
+    const intervalDados = setInterval(carregarDadosGlobais, 5 * 60 * 1000); // ✅ Poll a cada 5min (permissões atualizam mais rápido)
     const intervalAgent = setInterval(checkAgentHealth, 10 * 60 * 1000); // L-1: 10 minutos (reduz pressão 429 ~70%)
 
     return () => {
