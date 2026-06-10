@@ -1,7 +1,8 @@
 import React from 'react';
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Edit, Brain, History, Trash2 } from "lucide-react";
+import { ShoppingCart, Edit, Brain, History, Trash2, AlertTriangle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -18,9 +19,18 @@ export default function ProdutoTable({
   columnVisibility
 }) {
 
+  const navigate = useNavigate();
+
   const calculateMargin = (venda, custo) => {
     if (!venda || venda === 0) return 0;
     return ((venda - custo) / venda * 100).toFixed(1);
+  };
+
+  // Preço desatualizado: última cotação (ou cadastro) há mais de 30 dias
+  const isPrecoDesatualizado = (produto) => {
+    const ref = produto.data_ultima_cotacao || produto.updated_date || produto.created_date;
+    if (!ref) return true;
+    return (Date.now() - new Date(ref).getTime()) > 30 * 24 * 60 * 60 * 1000;
   };
 
   return (
@@ -122,10 +132,20 @@ export default function ProdutoTable({
                   
                   {/* PREÇO VENDA - FONTE 12px */}
                   {columnVisibility.precoVenda &&
-                    <td className="bg-slate-100 py-2 text-right rounded-sm align-top">
-                      <div className="font-mono text-[12px] font-bold text-slate-900">
+                    <td className="bg-slate-100 py-2 px-2 text-right rounded-sm align-top">
+                      <div className={`font-mono text-[12px] font-bold ${isPrecoDesatualizado(produto) ? 'text-red-600 line-through decoration-red-400' : 'text-slate-900'}`}>
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produto.preco_venda || 0)}
                       </div>
+                      {isPrecoDesatualizado(produto) && (
+                        <button
+                          onClick={() => navigate('/Comunicacao')}
+                          title="Preço com mais de 30 dias — clique para falar com os vendedores"
+                          className="mt-1 inline-flex items-center gap-1 bg-red-100 hover:bg-red-200 text-red-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-full transition-colors"
+                        >
+                          <AlertTriangle className="w-2.5 h-2.5" />
+                          Preço desatualizado
+                        </button>
+                      )}
                     </td>
                   }
                   
