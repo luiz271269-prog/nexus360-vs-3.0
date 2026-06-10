@@ -19,6 +19,7 @@ import TelemetriaPreAtendimento from '@/pages/TelemetriaPreAtendimento';
 import CentralSaneamento from '@/pages/CentralSaneamento';
 import MonitorWAL from '@/pages/MonitorWAL';
 import Emails from '@/pages/Emails';
+import InstagramPublicacao from '@/pages/InstagramPublicacao';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -158,6 +159,14 @@ const AuthenticatedApp = () => {
           element={
             <LayoutWrapper currentPageName="Emails">
               <Emails />
+            </LayoutWrapper>
+          } 
+        />
+        <Route 
+          path="/InstagramPublicacao" 
+          element={
+            <LayoutWrapper currentPageName="InstagramPublicacao">
+              <InstagramPublicacao />
             </LayoutWrapper>
           } 
         />

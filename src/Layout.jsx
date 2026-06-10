@@ -320,6 +320,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Notas Fiscais", icon: FileText, page: "NotasFiscais" },
     { name: "Central de E-mail", icon: Mail, page: "Emails" },
     { name: "Super Agente", icon: Zap, page: "SuperAgente" },
+    { name: "Publicar no Instagram", icon: Sparkles, page: "InstagramPublicacao" },
     { name: "Compras", icon: ShoppingCart, page: "Compras" }
     // ⚠️ DEPRECATED: TagManager removido do menu - usar GerenciadorEtiquetasUnificado em Automações
   ];
