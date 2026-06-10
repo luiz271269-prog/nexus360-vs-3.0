@@ -69,7 +69,17 @@ export default function VisaoCombinadaPromocoes() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {itens.map((item) => (
           <Card key={item.id} className={`overflow-hidden border-l-4 ${item._origem === 'mensagem' ? 'border-l-blue-500' : 'border-l-orange-500'}`}>
-            {item.imagem_url ? (
+            {(item._media_type === 'video' || item.tipo_midia === 'video') && (item._media_url || item.imagem_url) ? (
+              <div className="w-full h-40 bg-black overflow-hidden">
+                <video
+                  src={item._media_url || item.imagem_url}
+                  controls
+                  preload="metadata"
+                  playsInline
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ) : item.imagem_url ? (
               <div className="w-full h-40 bg-slate-100 overflow-hidden">
                 <img src={item.imagem_url} alt={item.titulo} className="w-full h-full object-cover" />
               </div>

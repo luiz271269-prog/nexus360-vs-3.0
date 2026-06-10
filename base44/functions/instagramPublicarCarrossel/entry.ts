@@ -8,13 +8,13 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const GRAPH = 'https://graph.instagram.com';
 
-async function aguardarContainer(containerId, accessToken) {
-  for (let i = 0; i < 15; i++) {
+async function aguardarContainer(containerId, accessToken, maxTentativas = 15) {
+  for (let i = 0; i < maxTentativas; i++) {
     const r = await fetch(`${GRAPH}/${containerId}?fields=status_code&access_token=${accessToken}`);
     const d = await r.json();
     if (d.status_code === 'FINISHED') return;
     if (d.status_code === 'ERROR') {
-      throw new Error('Instagram rejeitou a mídia (verifique se a imagem é JPEG pública)');
+      throw new Error('Instagram rejeitou a mídia (verifique se o arquivo é público e em formato suportado: JPEG para foto, MP4/MOV para vídeo)');
     }
     await new Promise(res => setTimeout(res, 2000));
   }
@@ -29,10 +29,10 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { image_urls = [], caption = '' } = await req.json();
+    const { image_urls = [], video_url = null, caption = '' } = await req.json();
 
-    if (!Array.isArray(image_urls) || image_urls.length === 0) {
-      return Response.json({ error: 'Selecione ao menos 1 promoção com imagem' }, { status: 400 });
+    if (!video_url && (!Array.isArray(image_urls) || image_urls.length === 0)) {
+      return Response.json({ error: 'Selecione ao menos 1 promoção com imagem ou vídeo' }, { status: 400 });
     }
     if (image_urls.length > 10) {
       return Response.json({ error: 'Máximo de 10 imagens por carrossel' }, { status: 400 });
@@ -52,7 +52,22 @@ Deno.serve(async (req) => {
 
     let creationId;
 
-    if (image_urls.length === 1) {
+    if (video_url) {
+      // Vídeo único → publicado como REELS (formato exigido pela API para vídeo no feed)
+      const url = new URL(`${GRAPH}/${me.id}/media`);
+      url.searchParams.set('media_type', 'REELS');
+      url.searchParams.set('video_url', video_url);
+      url.searchParams.set('caption', legendaFinal);
+      url.searchParams.set('access_token', accessToken);
+      const r = await fetch(url, { method: 'POST' });
+      const d = await r.json();
+      if (!d.id) {
+        return Response.json({ error: 'Falha ao criar mídia de vídeo', details: d }, { status: 500 });
+      }
+      // Vídeo demora mais para processar
+      await aguardarContainer(d.id, accessToken, 45);
+      creationId = d.id;
+    } else if (image_urls.length === 1) {
       // Post de imagem única
       const url = new URL(`${GRAPH}/${me.id}/media`);
       url.searchParams.set('image_url', image_urls[0]);
@@ -118,7 +133,8 @@ Deno.serve(async (req) => {
       media_id: pubData.id,
       permalink: linkData.permalink || null,
       username: me.username,
-      total_imagens: image_urls.length
+      total_imagens: video_url ? 1 : image_urls.length,
+      tipo: video_url ? 'video' : 'imagem'
     });
 
   } catch (error) {

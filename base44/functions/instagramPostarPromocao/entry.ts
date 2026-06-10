@@ -12,13 +12,13 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const GRAPH = 'https://graph.instagram.com';
 
-async function aguardarContainer(containerId, accessToken) {
-  for (let i = 0; i < 15; i++) {
+async function aguardarContainer(containerId, accessToken, maxTentativas = 15) {
+  for (let i = 0; i < maxTentativas; i++) {
     const r = await fetch(`${GRAPH}/${containerId}?fields=status_code&access_token=${accessToken}`);
     const d = await r.json();
     if (d.status_code === 'FINISHED') return;
     if (d.status_code === 'ERROR') {
-      throw new Error('Instagram rejeitou a mídia (verifique se a imagem é JPEG pública)');
+      throw new Error('Instagram rejeitou a mídia (verifique se o arquivo é público e em formato suportado: JPEG para foto, MP4/MOV para vídeo)');
     }
     await new Promise(res => setTimeout(res, 2000));
   }
@@ -88,9 +88,15 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Falha ao identificar conta Instagram', details: me }, { status: 500 });
     }
 
-    // Criar container da imagem
+    // Criar container da mídia (imagem ou vídeo/Reels)
+    const isVideo = promo.tipo_midia === 'video';
     const mediaUrl = new URL(`${GRAPH}/${me.id}/media`);
-    mediaUrl.searchParams.set('image_url', promo.imagem_url);
+    if (isVideo) {
+      mediaUrl.searchParams.set('media_type', 'REELS');
+      mediaUrl.searchParams.set('video_url', promo.imagem_url);
+    } else {
+      mediaUrl.searchParams.set('image_url', promo.imagem_url);
+    }
     mediaUrl.searchParams.set('caption', caption);
     mediaUrl.searchParams.set('access_token', accessToken);
     const mediaRes = await fetch(mediaUrl, { method: 'POST' });
@@ -98,7 +104,8 @@ Deno.serve(async (req) => {
     if (!mediaData.id) {
       return Response.json({ error: 'Falha ao criar mídia', details: mediaData }, { status: 500 });
     }
-    await aguardarContainer(mediaData.id, accessToken);
+    // Vídeo demora mais para processar no Instagram
+    await aguardarContainer(mediaData.id, accessToken, isVideo ? 45 : 15);
 
     // Publicar
     const pubUrl = new URL(`${GRAPH}/${me.id}/media_publish`);

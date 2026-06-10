@@ -15,7 +15,9 @@ export default function BotaoPostarInstagram({ item }) {
   const [posting, setPosting] = useState(false);
   const queryClient = useQueryClient();
 
-  if (!item.imagem_url) return null;
+  const isVideo = item._media_type === 'video' || item.tipo_midia === 'video';
+  const mediaUrl = item._media_url || item.imagem_url;
+  if (!mediaUrl) return null;
 
   const jaPostada = item._origem === 'promotion' && !!item.instagram_posted_at;
 
@@ -28,7 +30,11 @@ export default function BotaoPostarInstagram({ item }) {
         res = await instagramPostarPromocao({ promotion_id: item.id });
       } else {
         const caption = `🔥 ${item.titulo || 'Oferta NeuralTec'}\n\n📲 Chama no direct ou WhatsApp!\n#neuraltec #tecnologia #ofertas`;
-        res = await instagramPublicarCarrossel({ image_urls: [item.imagem_url], caption });
+        res = await instagramPublicarCarrossel(
+          isVideo
+            ? { video_url: mediaUrl, caption }
+            : { image_urls: [mediaUrl], caption }
+        );
       }
       if (res.data?.success) {
         toast.success(`✅ Publicado no Instagram!`, {
