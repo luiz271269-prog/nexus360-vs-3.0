@@ -323,9 +323,6 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     setSavingId(draggableId);
     try {
       await base44.entities.Orcamento.update(draggableId, { status: novoStatus });
-      if (typeof onUpdateStatus === 'function') {
-        await onUpdateStatus(draggableId, novoStatus);
-      }
       toast.success(`Movido para "${statusLabels[novoStatus] || novoStatus}"`);
     } catch (error) {
       console.error('Erro ao mover orçamento:', error);
