@@ -1,9 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// Atualiza o status de um Orcamento com validação de papel:
-// - admin: sempre pode
-// - gerente/coordenador/senior (gestão/supervisão): pode mover qualquer orçamento
-// - usuário comum: só pode mover os próprios (usuario_id ou vendedor_id)
+// Atualiza o status de um Orcamento. Qualquer usuário autenticado
+// com acesso ao Kanban pode mover cards (sem restrição por dono/papel).
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -27,14 +25,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Orçamento não encontrado' }, { status: 404 });
     }
 
-    const isAdmin = user.role === 'admin';
-    const isGestao = ['gerente', 'coordenador', 'senior'].includes(user.attendant_role);
-    const isDono = orcamento.usuario_id === user.id || orcamento.vendedor_id === user.id;
-
-    if (!isAdmin && !isGestao && !isDono) {
-      return Response.json({ error: 'Sem permissão para mover este orçamento' }, { status: 403 });
-    }
-
+    // Sem restrição adicional: quem tem acesso ao Kanban pode mover qualquer card
     await base44.asServiceRole.entities.Orcamento.update(orcamento_id, { status: novo_status });
 
     return Response.json({ success: true, orcamento_id, status: novo_status });
