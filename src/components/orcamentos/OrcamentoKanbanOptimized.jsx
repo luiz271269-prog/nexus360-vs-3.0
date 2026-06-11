@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, DollarSign, User, Brain, Send, Building2, Handshake, Tags, PenLine, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
+import { atualizarStatusOrcamento } from '@/functions/atualizarStatusOrcamento';
 import OrcamentoTagModal from './OrcamentoTagModal';
 import OrcamentoChatDrawer from './OrcamentoChatDrawer';
 
@@ -345,15 +346,15 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
 
     setSavingId(draggableId);
     try {
-      // Backend valida permissão (dono, gestão ou admin) e grava com service role
-      // — evita falha silenciosa de RLS quando gerente move card de outro vendedor.
-      const resp = await base44.functions.invoke('atualizarStatusOrcamento', {
+      // Backend grava com service role — evita falha silenciosa de RLS
+      // quando gerente move card de outro vendedor.
+      const resp = await atualizarStatusOrcamento({
         orcamento_id: draggableId,
         novo_status: novoStatus,
         kanban_order: novaOrdem
       });
-      if (resp?.data?.error || resp?.data?.success === false) {
-        throw new Error(resp?.data?.error || 'Falha ao salvar');
+      if (resp?.data?.error || resp?.data?.success !== true) {
+        throw new Error(resp?.data?.error || 'Falha ao salvar no servidor');
       }
       toast.success(`Movido para "${statusLabels[novoStatus] || novoStatus}"`);
     } catch (error) {
