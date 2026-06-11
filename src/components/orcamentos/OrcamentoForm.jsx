@@ -93,8 +93,24 @@ export default function OrcamentoForm({ orcamento, onSave, onClose }) {
     e.preventDefault();
     setLoading(true);
     try {
+      // Verifica itens de catálogo de fornecedor para informar prazo de entrega
+      let observacoesFinal = formData.observacoes || "";
+      const nomesProdutos = formData.produtos.map(p => (p.nome || "").trim()).filter(Boolean);
+      if (nomesProdutos.length > 0 && !observacoesFinal.includes("Prazo estimado de entrega")) {
+        const catalogo = await base44.entities.Produto.filter({ origem_item: "catalogo_fornecedor" });
+        const prazos = catalogo
+          .filter(prod => nomesProdutos.some(n => prod.nome?.toLowerCase().includes(n.toLowerCase()) || n.toLowerCase().includes(prod.nome?.toLowerCase() || "")))
+          .map(prod => Number(prod.tempo_entrega_fornecedor_dias) || 0)
+          .filter(d => d > 0);
+        if (prazos.length > 0) {
+          const maiorPrazo = Math.max(...prazos);
+          observacoesFinal = `${observacoesFinal}${observacoesFinal ? "\n" : ""}Prazo estimado de entrega: ${maiorPrazo} dias úteis (itens sob encomenda do fornecedor).`;
+        }
+      }
+
       const dataToSave = {
         ...formData,
+        observacoes: observacoesFinal,
         valor_total: Number(formData.valor_total),
         produtos: formData.produtos.map(p => ({
           ...p,
