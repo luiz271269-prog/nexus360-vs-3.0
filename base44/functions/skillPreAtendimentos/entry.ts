@@ -1342,7 +1342,17 @@ Deno.serve(async (req) => {
           // Caminho B: ACK personalizado vai PURO. Promo sai em mensagem
           // separada chamando enviarPromocao DIRETO (skillPromocoes era apenas
           // adaptador que adicionava um hop server-to-server passível de 403).
-          msgFinal = saudacaoComNome + ack.msg;
+          // Evita redundância: remove saudação duplicada do início do ACK
+          // (ex: "👋 Olá Fulano!" / "Olá!" / "Oi Fulano,") já que a saudação
+          // do dia ("Bom dia, Fulano!") será o prefixo da mensagem.
+          const nomeEsc = primeiroNome ? primeiroNome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+          const regexSaudacaoAck = new RegExp(
+            `^[\\s👋☀️🌙😊]*((ol[áa]|oi|bom\\s*dia|boa\\s*tarde|boa\\s*noite)[,!\\s]*(${nomeEsc}|${(contact?.nome || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})?[,!.\\s]*)+`,
+            'i'
+          );
+          const ackSemSaudacao = ack.msg.replace(regexSaudacaoAck, '').trim();
+          const corpoAck = ackSemSaudacao.length >= 10 ? ackSemSaudacao : ack.msg;
+          msgFinal = corpoAck === ack.msg ? saudacaoComNome + ack.msg : `${saudacaoComNome.trim()} ${corpoAck.charAt(0).toUpperCase()}${corpoAck.slice(1)}`;
           console.log('[SKILL-PRE-ATEND] 🌅 1º contato do dia: ACK personalizado (promo via enviarPromocao em msg separada)');
 
           if (integ?.id) {
