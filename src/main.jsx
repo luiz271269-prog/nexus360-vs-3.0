@@ -40,6 +40,34 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   })();
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// GUARDA RUNTIME — o boot pode passar e ainda assim um chunk stale do Vite
+// (hash ?v= antigo) carregar uma 2ª cópia do React durante o render,
+// causando "Cannot read properties of null (reading 'useState')".
+// Detecta esse erro em runtime e força UMA recarga limpa (guard anti-loop).
+// ═══════════════════════════════════════════════════════════════════
+window.addEventListener('error', (event) => {
+  const msg = event?.error?.message || event?.message || '';
+  if (/Cannot read properties of null \(reading 'use[A-Z]/.test(msg)) {
+    const jaPurgou = sessionStorage.getItem('nexus_runtime_purged') === '1';
+    if (jaPurgou) return;
+    sessionStorage.setItem('nexus_runtime_purged', '1');
+    (async () => {
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister().catch(() => {})));
+        }
+        if (typeof caches !== 'undefined') {
+          const keys = await caches.keys().catch(() => []);
+          await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
+        }
+      } catch (_) { /* best-effort */ }
+      window.location.reload();
+    })();
+  }
+});
+
 // Boot com guarda anti-stale: se o bundle em cache estiver corrompido
 // (ex.: React resolvido como null → "Cannot read properties of null (reading 'useState')"),
 // limpa caches/SW e força UM reload controlado para baixar o bundle fresco.
