@@ -327,6 +327,11 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   }, [orcamentos]);
 
   const onDragEnd = useCallback(async (result) => {
+    // Remove o foco do card ao soltar — a lib devolve o foco para o drag handle,
+    // o que deixa o card "marcado/focado" até clicar em outro lugar.
+    requestAnimationFrame(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
     const { source, destination, draggableId } = result;
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
