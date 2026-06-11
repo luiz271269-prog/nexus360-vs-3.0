@@ -36,7 +36,8 @@ export default function ProdutoFormModal({ produto, onSave, onClose }) {
     ativo: true,
     imagem_url: '',
     origem_item: 'estoque_proprio',
-    validade_pauta_ate: ''
+    validade_pauta_ate: '',
+    tempo_entrega_fornecedor_dias: ''
   });
 
   useEffect(() => {
@@ -106,7 +107,8 @@ export default function ProdutoFormModal({ produto, onSave, onClose }) {
       preco_venda: parseFloat(formData.preco_venda) || 0,
       margem_lucro: parseFloat(formData.margem_lucro) || 0,
       estoque_atual: parseFloat(formData.estoque_atual) || 0,
-      estoque_minimo: parseFloat(formData.estoque_minimo) || 0
+      estoque_minimo: parseFloat(formData.estoque_minimo) || 0,
+      tempo_entrega_fornecedor_dias: formData.tempo_entrega_fornecedor_dias === '' || formData.tempo_entrega_fornecedor_dias == null ? null : parseFloat(formData.tempo_entrega_fornecedor_dias)
     };
     onSave(payload);
   };
@@ -275,10 +277,16 @@ export default function ProdutoFormModal({ produto, onSave, onClose }) {
                     </Select>
                   </div>
                   {formData.origem_item === 'catalogo_fornecedor' && (
-                    <div>
-                      <Label htmlFor="validade_pauta_ate" className="text-slate-400">Validade na Pauta</Label>
-                      <Input id="validade_pauta_ate" name="validade_pauta_ate" type="date" value={formData.validade_pauta_ate || ''} onChange={handleChange} className={inputClass} />
-                    </div>
+                    <>
+                      <div>
+                        <Label htmlFor="validade_pauta_ate" className="text-slate-400">Validade na Pauta</Label>
+                        <Input id="validade_pauta_ate" name="validade_pauta_ate" type="date" value={formData.validade_pauta_ate || ''} onChange={handleChange} className={inputClass} />
+                      </div>
+                      <div>
+                        <Label htmlFor="tempo_entrega_fornecedor_dias" className="text-slate-400">Prazo Entrega (dias úteis)</Label>
+                        <Input id="tempo_entrega_fornecedor_dias" name="tempo_entrega_fornecedor_dias" type="number" min="0" value={formData.tempo_entrega_fornecedor_dias ?? ''} onChange={handleChange} className={inputClass} placeholder="Ex: 5" />
+                      </div>
+                    </>
                   )}
                   <div>
                     <Label htmlFor="estoque_atual" className="text-slate-400">Estoque Atual</Label>
