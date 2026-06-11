@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -274,6 +275,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   const [localOrcamentos, setLocalOrcamentos] = useState(null);
   const [savingId, setSavingId] = useState(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     base44.entities.EtiquetaOrcamento.list().then((data) => setEtiquetas(data || [])).catch(() => {});
@@ -356,6 +358,14 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
       if (resp?.data?.error || resp?.data?.success !== true) {
         throw new Error(resp?.data?.error || 'Falha ao salvar no servidor');
       }
+      // Grava o novo status direto no cache do React Query — assim qualquer
+      // re-render/refetch da página já reflete a posição salva imediatamente,
+      // sem o card "voltar" até o próximo fetch.
+      queryClient.setQueryData(['orcamentos'], (old) =>
+        Array.isArray(old)
+          ? old.map((o) => o.id === draggableId ? { ...o, status: novoStatus, kanban_order: novaOrdem } : o)
+          : old
+      );
       toast.success(`Movido para "${statusLabels[novoStatus] || novoStatus}"`);
     } catch (error) {
       console.error('Erro ao mover orçamento:', error);
@@ -367,7 +377,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     } finally {
       setSavingId(null);
     }
-  }, [onUpdateStatus, orcamentosProps, orcamentosPorStatus]);
+  }, [onUpdateStatus, orcamentosProps, orcamentosPorStatus, queryClient]);
 
   const onAtendido = useCallback(async (orcamento) => {
     const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;
