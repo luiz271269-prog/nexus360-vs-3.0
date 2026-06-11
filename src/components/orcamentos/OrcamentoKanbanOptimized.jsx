@@ -73,10 +73,15 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
           {...provided.dragHandleProps}
           style={{
             ...provided.draggableProps.style,
-            transition: snapshot.isDragging ? 'none' : provided.draggableProps.style?.transition
+            // ⚠️ NÃO desligar a transition durante o drop: a lib espera o
+            // evento transitionend para finalizar o drop. Sem transition,
+            // o card fica "pendurado" até a próxima interação.
+            transition: (snapshot.isDragging && !snapshot.isDropAnimating)
+              ? 'none'
+              : provided.draggableProps.style?.transition
           }}
           className={`bg-white rounded-lg border ${gradient.border} hover:shadow-md cursor-grab active:cursor-grabbing group relative ${
-            snapshot.isDragging ? 'shadow-2xl ring-2 ' + gradient.ring + ' rotate-1 opacity-95 scale-105 z-50' : ''
+            snapshot.isDragging && !snapshot.isDropAnimating ? 'shadow-2xl ring-2 ' + gradient.ring + ' rotate-1 opacity-95 scale-105 z-50' : ''
           }`}
         >
           {isSaving &&
