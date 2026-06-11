@@ -322,7 +322,15 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
 
     setSavingId(draggableId);
     try {
-      await base44.entities.Orcamento.update(draggableId, { status: novoStatus });
+      // Backend valida permissão (dono, gestão ou admin) e grava com service role
+      // — evita falha silenciosa de RLS quando gerente move card de outro vendedor.
+      const resp = await base44.functions.invoke('atualizarStatusOrcamento', {
+        orcamento_id: draggableId,
+        novo_status: novoStatus
+      });
+      if (resp?.data?.error || resp?.data?.success === false) {
+        throw new Error(resp?.data?.error || 'Falha ao salvar');
+      }
       toast.success(`Movido para "${statusLabels[novoStatus] || novoStatus}"`);
     } catch (error) {
       console.error('Erro ao mover orçamento:', error);
