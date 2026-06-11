@@ -84,7 +84,9 @@ export default function Precificacao() {
       percentualImpostos: 35,
       margemLucro: 40,
       custoOperacional: 8,
-      segmentoCliente: 'varejo'
+      segmentoCliente: 'varejo',
+      origemItem: 'catalogo_fornecedor',
+      validadePautaDias: 30
     };
   });
 
@@ -221,6 +223,10 @@ export default function Precificacao() {
         codigo_fornecedor: p.codigo || '',
         link_origem: configPrecificacao.linkPagina || dadosOriginais?.origem || '',
         data_ultima_cotacao: new Date().toISOString().slice(0, 10),
+        origem_item: configPrecificacao.origemItem || 'catalogo_fornecedor',
+        validade_pauta_ate: (configPrecificacao.origemItem || 'catalogo_fornecedor') === 'catalogo_fornecedor'
+          ? new Date(Date.now() + (configPrecificacao.validadePautaDias || 30) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+          : null,
         configuracao_precificacao: {
           taxa_cambio: configPrecificacao.taxaCambio,
           percentual_frete: configPrecificacao.percentualFrete,
@@ -303,6 +309,30 @@ export default function Precificacao() {
                   Importação & Análise
                 </h3>
                 <span className="text-xs text-slate-600">Cole dados ou Ctrl+V</span>
+              </div>
+              <div className="flex items-center gap-1 mb-1">
+                <select
+                  value={configPrecificacao.origemItem || 'catalogo_fornecedor'}
+                  onChange={(e) => setConfigPrecificacao(prev => ({ ...prev, origemItem: e.target.value }))}
+                  className="text-xs border border-slate-300 rounded px-1 py-0.5 bg-white text-slate-700"
+                  title="Origem dos itens importados (controle interno)"
+                >
+                  <option value="catalogo_fornecedor">📦 Catálogo Fornecedor</option>
+                  <option value="estoque_proprio">🏠 Estoque Próprio</option>
+                </select>
+                {(configPrecificacao.origemItem || 'catalogo_fornecedor') === 'catalogo_fornecedor' && (
+                  <label className="flex items-center gap-1 text-xs text-slate-600">
+                    Validade:
+                    <input
+                      type="number"
+                      min="1"
+                      value={configPrecificacao.validadePautaDias ?? 30}
+                      onChange={(e) => setConfigPrecificacao(prev => ({ ...prev, validadePautaDias: parseInt(e.target.value) || 30 }))}
+                      className="w-12 text-xs border border-slate-300 rounded px-1 py-0.5 bg-white text-slate-700"
+                    />
+                    dias
+                  </label>
+                )}
               </div>
               <UploadPrecificacao onProcess={handleProcessAI} loading={loading} />
             </div>

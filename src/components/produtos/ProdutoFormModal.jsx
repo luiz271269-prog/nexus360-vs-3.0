@@ -34,7 +34,9 @@ export default function ProdutoFormModal({ produto, onSave, onClose }) {
     moeda_original: 'BRL',
     observacoes: '',
     ativo: true,
-    imagem_url: ''
+    imagem_url: '',
+    origem_item: 'estoque_proprio',
+    validade_pauta_ate: ''
   });
 
   useEffect(() => {
@@ -258,8 +260,26 @@ export default function ProdutoFormModal({ produto, onSave, onClose }) {
                   )}
                 </div>
 
-                {/* Estoque */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* Estoque e Origem */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <Label className="text-slate-400">Origem do Item</Label>
+                    <Select value={formData.origem_item} onValueChange={(v) => handleSelectChange('origem_item', v)}>
+                      <SelectTrigger className="bg-slate-800 border-slate-600">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600 text-white">
+                        <SelectItem value="estoque_proprio">🏠 Estoque Próprio</SelectItem>
+                        <SelectItem value="catalogo_fornecedor">📦 Catálogo Fornecedor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {formData.origem_item === 'catalogo_fornecedor' && (
+                    <div>
+                      <Label htmlFor="validade_pauta_ate" className="text-slate-400">Validade na Pauta</Label>
+                      <Input id="validade_pauta_ate" name="validade_pauta_ate" type="date" value={formData.validade_pauta_ate || ''} onChange={handleChange} className={inputClass} />
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="estoque_atual" className="text-slate-400">Estoque Atual</Label>
                     <Input id="estoque_atual" name="estoque_atual" type="number" min="0" value={formData.estoque_atual} onChange={handleChange} className={inputClass} />
@@ -269,6 +289,9 @@ export default function ProdutoFormModal({ produto, onSave, onClose }) {
                     <Input id="estoque_minimo" name="estoque_minimo" type="number" min="0" value={formData.estoque_minimo} onChange={handleChange} className={inputClass} />
                   </div>
                 </div>
+                {formData.origem_item === 'catalogo_fornecedor' && formData.validade_pauta_ate && new Date(formData.validade_pauta_ate) < new Date() && (
+                  <p className="text-xs text-red-400">⚠️ Item de catálogo com pauta vencida — requer recotação.</p>
+                )}
 
                 <div>
                   <Label htmlFor="observacoes" className="text-slate-400">Observações</Label>
