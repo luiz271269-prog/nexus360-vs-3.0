@@ -302,7 +302,9 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   const orcamentosPorStatus = useMemo(() => {
     const todos = Object.values(etapasFluxo).flatMap((e) => e.statuses);
     return todos.reduce((acc, status) => {
-      acc[status] = orcamentos.filter((o) => o.status === status);
+      acc[status] = orcamentos
+        .filter((o) => o.status === status)
+        .sort((a, b) => (a.kanban_order ?? Infinity) - (b.kanban_order ?? Infinity));
       return acc;
     }, {});
   }, [orcamentos]);
@@ -315,9 +317,21 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     const novoStatus = destination.droppableId;
     const statusAnterior = source.droppableId;
 
+    // Calcula a posição (kanban_order) com base nos vizinhos no ponto do drop
+    const colDestino = (orcamentosPorStatus[novoStatus] || []).filter((o) => o.id !== draggableId);
+    const prevCard = colDestino[destination.index - 1];
+    const nextCard = colDestino[destination.index];
+    const ordPrev = prevCard?.kanban_order;
+    const ordNext = nextCard?.kanban_order;
+    let novaOrdem;
+    if (typeof ordPrev === 'number' && typeof ordNext === 'number') novaOrdem = (ordPrev + ordNext) / 2;
+    else if (typeof ordPrev === 'number') novaOrdem = ordPrev + 1000;
+    else if (typeof ordNext === 'number') novaOrdem = ordNext - 1000;
+    else novaOrdem = destination.index * 1000;
+
     setLocalOrcamentos((prev) => {
       const base = prev ?? orcamentosProps;
-      return base.map((o) => o.id === draggableId ? { ...o, status: novoStatus } : o);
+      return base.map((o) => o.id === draggableId ? { ...o, status: novoStatus, kanban_order: novaOrdem } : o);
     });
 
     setSavingId(draggableId);
@@ -326,7 +340,8 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
       // — evita falha silenciosa de RLS quando gerente move card de outro vendedor.
       const resp = await base44.functions.invoke('atualizarStatusOrcamento', {
         orcamento_id: draggableId,
-        novo_status: novoStatus
+        novo_status: novoStatus,
+        kanban_order: novaOrdem
       });
       if (resp?.data?.error || resp?.data?.success === false) {
         throw new Error(resp?.data?.error || 'Falha ao salvar');
@@ -342,7 +357,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     } finally {
       setSavingId(null);
     }
-  }, [onUpdateStatus, orcamentosProps]);
+  }, [onUpdateStatus, orcamentosProps, orcamentosPorStatus]);
 
   const onAtendido = useCallback(async (orcamento) => {
     const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;

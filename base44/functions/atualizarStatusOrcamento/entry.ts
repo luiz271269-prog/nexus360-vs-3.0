@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { orcamento_id, novo_status } = await req.json();
+    const { orcamento_id, novo_status, kanban_order } = await req.json();
     if (!orcamento_id || !novo_status) {
       return Response.json({ error: 'orcamento_id e novo_status são obrigatórios' }, { status: 400 });
     }
@@ -26,7 +26,9 @@ Deno.serve(async (req) => {
     }
 
     // Sem restrição adicional: quem tem acesso ao Kanban pode mover qualquer card
-    await base44.asServiceRole.entities.Orcamento.update(orcamento_id, { status: novo_status });
+    const updateData = { status: novo_status };
+    if (typeof kanban_order === 'number') updateData.kanban_order = kanban_order;
+    await base44.asServiceRole.entities.Orcamento.update(orcamento_id, updateData);
 
     return Response.json({ success: true, orcamento_id, status: novo_status });
   } catch (error) {

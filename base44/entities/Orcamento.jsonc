@@ -96,6 +96,10 @@
       "default": "rascunho",
       "description": "Status do or\u00e7amento no pipeline"
     },
+    "kanban_order": {
+      "type": "number",
+      "description": "Posi\u00e7\u00e3o do card dentro da coluna do Kanban (menor = mais acima)"
+    },
     "probabilidade": {
       "type": "string",
       "enum": [
