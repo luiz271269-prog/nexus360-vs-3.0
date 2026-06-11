@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Badge } from '@/components/ui/badge';
@@ -295,8 +295,17 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
 
   const orcamentos = localOrcamentos ?? orcamentosProps;
 
+  const prevOrcamentosRef = useRef(orcamentosProps);
   useEffect(() => {
-    setLocalOrcamentos(null);
+    // Só limpa o estado otimista se os dados do servidor REALMENTE mudaram (IDs ou status),
+    // não apenas por troca de referência do array.
+    const mudou = orcamentosProps.length !== prevOrcamentosRef.current.length ||
+      orcamentosProps.some((o, i) => {
+        const prev = prevOrcamentosRef.current[i];
+        return !prev || prev.id !== o.id || prev.status !== o.status || prev.kanban_order !== o.kanban_order;
+      });
+    prevOrcamentosRef.current = orcamentosProps;
+    if (mudou) setLocalOrcamentos(null);
   }, [orcamentosProps]);
 
   const orcamentosPorStatus = useMemo(() => {

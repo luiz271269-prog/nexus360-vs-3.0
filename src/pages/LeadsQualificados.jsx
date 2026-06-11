@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -456,14 +456,13 @@ export default function LeadsQualificados() {
     return true;
   });
 
-  const orcamentosFiltrados = orcamentos.filter(orcamento => {
+  const orcamentosFiltrados = useMemo(() => orcamentos.filter(orcamento => {
     // Aguarda carregar usuário
     if (!usuarioAtual) return false;
 
     // ── FILTRO DE PROPRIEDADE ──
     if (!podeVerTodos) {
       // Usuário comum: só vê os seus
-      // Verifica por vendedor_id (preferência), nome (fallback legado) ou criador (fallback importação)
       const ehSeu = orcamento.vendedor_id
         ? orcamento.vendedor_id === usuarioAtual.id
         : orcamento.vendedor === vendedorDoUsuario || orcamento.created_by === usuarioAtual.email;
@@ -491,7 +490,7 @@ export default function LeadsQualificados() {
 
     const matchesStatus = filterStatus === 'all' || orcamento.status === filterStatus;
     return matchesSearch && matchesStatus;
-  });
+  }), [orcamentos, usuarioAtual, podeVerTodos, vendedorDoUsuario, filtroVendedorGlobal, atendentes, searchTerm, filterStatus]);
 
   const scoresParaKanban = clientesScores || [];
 
