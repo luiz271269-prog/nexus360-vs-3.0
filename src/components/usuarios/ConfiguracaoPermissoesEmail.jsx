@@ -103,26 +103,26 @@ export default function ConfiguracaoPermissoesEmail({ usuarioSelecionado, atuali
   }
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+    <div className="space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-1.5">
       {contas.map((conta) => {
         const perm = findPerm(conta.id);
         const habilitado = !!perm;
 
         return (
-          <div key={conta.id} className="p-3 bg-white rounded-lg border border-indigo-200">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Checkbox checked={habilitado} onCheckedChange={() => toggleConta(conta)} />
-                <Mail className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-                <span className="text-sm font-medium truncate">{conta.email_address}</span>
-              </div>
-              <Badge variant="outline" className="text-[9px] flex-shrink-0">{conta.provider}</Badge>
+          <div key={conta.id} className={`px-2 py-1.5 bg-white rounded-md border border-indigo-200 ${habilitado ? '' : ''}`}>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-1.5 min-w-0 cursor-pointer">
+                <Checkbox checked={habilitado} onCheckedChange={() => toggleConta(conta)} className="h-3.5 w-3.5" />
+                <Mail className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                <span className="text-xs font-medium truncate">{conta.email_address}</span>
+              </label>
+              <Badge variant="outline" className="text-[8px] px-1 py-0 flex-shrink-0">{conta.provider}</Badge>
             </div>
 
             {habilitado && (
-              <div className="space-y-3 pl-6 mt-2">
-                <div className="flex gap-3 text-xs">
+              <div className="space-y-1.5 pl-5 mt-1.5">
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
                   {[
                     { key: 'can_view', label: 'Ver' },
                     { key: 'can_receive', label: 'Receber' },
@@ -132,6 +132,7 @@ export default function ConfiguracaoPermissoesEmail({ usuarioSelecionado, atuali
                       <Checkbox
                         checked={perm?.[key] !== false}
                         onCheckedChange={(v) => updatePerm(conta.id, key, v)}
+                        className="h-3.5 w-3.5"
                       />
                       <span>{label}</span>
                     </label>
@@ -141,7 +142,7 @@ export default function ConfiguracaoPermissoesEmail({ usuarioSelecionado, atuali
                 <button
                   type="button"
                   onClick={() => setDefaultSend(conta.id)}
-                  className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded transition-all ${
+                  className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded transition-all ${
                     perm?.is_default_send
                       ? 'bg-amber-100 text-amber-700 border border-amber-300'
                       : 'bg-slate-50 text-slate-500 border border-slate-200 hover:border-amber-300'
