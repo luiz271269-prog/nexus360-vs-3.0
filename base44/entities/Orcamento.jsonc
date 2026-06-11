@@ -285,6 +285,9 @@
           "data.usuario_id": "{{user.id}}"
         },
         {
+          "data.vendedor_id": "{{user.id}}"
+        },
+        {
           "user_condition": {
             "role": "admin"
           }
