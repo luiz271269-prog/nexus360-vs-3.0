@@ -49,17 +49,17 @@ export default function SecaoDadosUsuario({
   if (!usuarioSelecionado) return null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Dados Básicos */}
       <Card>
-        <CardHeader>
+        <CardHeader className="py-3">
           <CardTitle className="text-base flex items-center gap-2">
             <User className="w-5 h-5" />
             Informações Básicas
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <CardContent className="space-y-2 pb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="text-xs font-medium text-slate-700 mb-1 block">Nome Completo</label>
               <Input
@@ -81,7 +81,7 @@ export default function SecaoDadosUsuario({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="text-xs font-medium text-slate-700 mb-1 block">Setor</label>
               <Select value={usuarioSelecionado.setor || "geral"} onValueChange={(v) => atualizarUsuario("setor", v)}>
@@ -112,7 +112,7 @@ export default function SecaoDadosUsuario({
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
+          <div className="flex items-center justify-between px-2 py-1.5 bg-slate-50 rounded-lg border">
             <div>
               <p className="text-sm font-medium text-slate-800">Status do Usuário</p>
               <p className="text-xs text-slate-500">Inativos não acessam o sistema</p>
@@ -129,7 +129,7 @@ export default function SecaoDadosUsuario({
 
       {/* Perfis Rápidos */}
       <Card>
-        <CardHeader>
+        <CardHeader className="py-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Shield className="w-5 h-5" />
             Perfis de Acesso Rápido

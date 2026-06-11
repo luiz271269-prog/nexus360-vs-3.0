@@ -29,7 +29,7 @@ export default function SecaoComunicacaoUsuario({
   if (!usuarioSelecionado) return null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Conta de E-mail do usuário */}
       <SecaoEmailUsuario
         usuarioSelecionado={usuarioSelecionado}
@@ -38,7 +38,7 @@ export default function SecaoComunicacaoUsuario({
 
       {/* Atendente WhatsApp */}
        <Card className="border-green-200 bg-green-50">
-        <CardHeader>
+        <CardHeader className="py-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Users className="w-5 h-5 text-green-600" />
             📱 Atendente WhatsApp
@@ -127,7 +127,7 @@ export default function SecaoComunicacaoUsuario({
         <>
           {/* Pode Transferir */}
           <Card className="border-amber-200 bg-amber-50">
-            <CardHeader>
+            <CardHeader className="py-3">
               <CardTitle className="text-base">🔄 Pode Transferir Conversas</CardTitle>
               <CardDescription>Permitir transferir conversas para outros atendentes</CardDescription>
             </CardHeader>
@@ -144,7 +144,7 @@ export default function SecaoComunicacaoUsuario({
 
           {/* Permissões de Contatos */}
           <Card className="border-purple-200 bg-purple-50">
-            <CardHeader>
+            <CardHeader className="py-3">
               <CardTitle className="text-base">👤 Permissões de Contatos</CardTitle>
               <CardDescription>Controlar o que o atendente pode fazer com os contatos</CardDescription>
             </CardHeader>
@@ -174,7 +174,7 @@ export default function SecaoComunicacaoUsuario({
           {/* Conexões WhatsApp */}
           {integracoesWhatsApp.length > 0 && (
             <Card className="border-blue-200 bg-blue-50">
-              <CardHeader>
+              <CardHeader className="py-3">
                 <CardTitle className="text-base">📞 Conexões WhatsApp Permitidas</CardTitle>
                 <CardDescription>Selecione quais conexões este usuário pode acessar</CardDescription>
               </CardHeader>
@@ -222,7 +222,7 @@ export default function SecaoComunicacaoUsuario({
                   };
                   
                   return (
-                    <div key={int.id} className="p-3 bg-white rounded-lg border border-blue-200">
+                    <div key={int.id} className="px-2 py-1.5 bg-white rounded-md border border-blue-200">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Checkbox
@@ -237,7 +237,7 @@ export default function SecaoComunicacaoUsuario({
                         </Badge>
                       </div>
                       {habilitado && (
-                         <div className="space-y-3 pl-6 mt-2">
+                         <div className="space-y-1.5 pl-5 mt-1.5">
                            {/* Permissões: Ver/Receber/Enviar/Transferir */}
                            <div className="flex gap-3 text-xs">
                              {[

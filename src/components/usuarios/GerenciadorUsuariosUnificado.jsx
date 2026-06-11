@@ -736,15 +736,15 @@ export default function GerenciadorUsuariosUnificado({
                     {recursoSelecionado.acoes.map(acao => (
                       <label
                         key={acao.id}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                        className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-slate-50 cursor-pointer transition-colors"
                       >
                         <Checkbox
                           checked={temPermissao(acao.id)}
                           onCheckedChange={() => togglePermissao(acao.id)}
                           disabled={!temPermissao(recursoSelecionado.id)}
                         />
-                        <div className="flex-1">
-                          <span className="text-sm font-medium text-slate-800">{acao.nome}</span>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-medium text-slate-800">{acao.nome}</span>
                           <Badge variant="outline" className="ml-2 text-[9px]">{acao.tipo}</Badge>
                         </div>
                       </label>

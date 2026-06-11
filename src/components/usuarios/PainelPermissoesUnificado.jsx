@@ -174,13 +174,13 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
   }, [usuario, configuracao, permissoesAcoes, diagnostico, integracoes]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {/* GUIA P1-P12 */}
       <GuiaRegraP1P12 />
 
       {/* Header com modo Nexus360 */}
        <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
-        <CardHeader>
+        <CardHeader className="py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-600 rounded-lg">
@@ -202,7 +202,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
 
       {/* SEÇÃO 1: Perfil Rápido */}
       <Card>
-            <CardHeader>
+            <CardHeader className="py-3">
               <CardTitle>
                 <Users className="w-5 h-5 inline mr-2" />
                 Aplicar Perfil Predefinido
@@ -218,10 +218,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                     key={key}
                     variant={presetSelecionado === key ? 'default' : 'outline'}
                     onClick={() => aplicarPreset(key)}
-                    className="h-auto flex-col items-start p-4"
+                    className="h-auto flex-col items-start p-2"
                   >
                     <span className="font-semibold capitalize">{key}</span>
-                    <span className="text-xs text-muted-foreground mt-1">
+                    <span className="text-[10px] text-muted-foreground leading-tight">
                       {key === 'admin' && 'Acesso total'}
                       {key === 'gerente' && 'Visão ampla + gestão'}
                       {key === 'coordenador' && 'Supervisão setorial'}
@@ -265,7 +265,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
 
       {/* SEÇÃO 2: Bloqueios (Escopo de Acesso) */}
       <Card>
-            <CardHeader>
+            <CardHeader className="py-3">
               <CardTitle>
                 <Lock className="w-5 h-5 inline mr-2 text-red-600" />
                 Escopo de Acesso - Bloqueios Explícitos
@@ -423,7 +423,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
 
       {/* SEÇÃO 3: Liberações (Redes de Segurança) */}
       <Card>
-            <CardHeader>
+            <CardHeader className="py-3">
               <CardTitle>
                 <Unlock className="w-5 h-5 inline mr-2 text-green-600" />
                 Redes de Segurança - Liberações Especiais
@@ -519,7 +519,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
 
       {/* SEÇÃO 4: Ações Granulares */}
       <Card>
-            <CardHeader>
+            <CardHeader className="py-3">
               <CardTitle>
                 <Shield className="w-5 h-5 inline mr-2 text-purple-600" />
                 Permissões Granulares de Ações
@@ -561,18 +561,18 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </AlertDescription>
                 </Alert>
 
-                <div className="mb-6 p-4 border-2 border-purple-200 rounded-lg bg-purple-50/30">
-                  <h4 className="text-sm font-semibold text-purple-700 mb-3 flex items-center gap-2">
+                <div className="mb-3 p-2 border border-purple-200 rounded-lg bg-purple-50/30">
+                  <h4 className="text-xs font-semibold text-purple-700 mb-1.5 flex items-center gap-2">
                     🎯 Regras de Visibilidade (P1-P12)
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
-                    <div className="flex items-start justify-between p-3 border rounded-lg bg-white hover:bg-purple-50/50 transition-colors">
-                      <div className="flex-1 mr-4">
-                        <div className="text-sm font-medium">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
+                    <div className="flex items-start justify-between px-2 py-1.5 border rounded-lg bg-white hover:bg-purple-50/50 transition-colors">
+                      <div className="flex-1 mr-2 min-w-0">
+                        <div className="text-xs font-medium">
                           <Badge variant="outline" className="mr-2 text-xs">P7</Badge>
                           Ver todas conversas (Admin/Gerente)
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">
+                        <div className="text-[10px] text-muted-foreground leading-tight">
                           Acesso total - vê threads atribuídas a outros (sobrescreve P6)
                         </div>
                       </div>
@@ -582,13 +582,13 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                       />
                     </div>
 
-                    <div className="flex items-start justify-between p-3 border rounded-lg bg-white hover:bg-green-50/50 transition-colors">
-                      <div className="flex-1 mr-4">
-                        <div className="text-sm font-medium">
+                    <div className="flex items-start justify-between px-2 py-1.5 border rounded-lg bg-white hover:bg-green-50/50 transition-colors">
+                      <div className="flex-1 mr-2 min-w-0">
+                        <div className="text-xs font-medium">
                           <Badge variant="outline" className="mr-2 text-xs bg-green-50">P5</Badge>
                           Janela 24h (regra de liberação)
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">
+                        <div className="text-[10px] text-muted-foreground leading-tight">
                           Vê threads com msg do cliente {'<'} {configuracao.regras_liberacao.find(r => r.tipo === 'janela_24h')?.configuracao?.horas || 24}h
                         </div>
                       </div>
@@ -605,13 +605,13 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                       />
                     </div>
 
-                    <div className="flex items-start justify-between p-3 border rounded-lg bg-white hover:bg-green-50/50 transition-colors">
-                      <div className="flex-1 mr-4">
-                        <div className="text-sm font-medium">
+                    <div className="flex items-start justify-between px-2 py-1.5 border rounded-lg bg-white hover:bg-green-50/50 transition-colors">
+                      <div className="flex-1 mr-2 min-w-0">
+                        <div className="text-xs font-medium">
                           <Badge variant="outline" className="mr-2 text-xs bg-green-50">P8</Badge>
                           Supervisão Gerencial
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">
+                        <div className="text-[10px] text-muted-foreground leading-tight">
                           Gerente vê threads sem resposta há {configuracao.regras_liberacao.find(r => r.tipo === 'gerente_supervisao')?.configuracao?.minutos_sem_resposta || 30}+ min
                         </div>
                       </div>
@@ -628,13 +628,13 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                       />
                     </div>
 
-                    <div className="flex items-start justify-between p-3 border-2 border-red-300 rounded-lg bg-red-50 hover:bg-red-100/50 transition-colors">
-                      <div className="flex-1 mr-4">
-                        <div className="text-sm font-medium">
+                    <div className="flex items-start justify-between px-2 py-1.5 border-2 border-red-300 rounded-lg bg-red-50 hover:bg-red-100/50 transition-colors">
+                      <div className="flex-1 mr-2 min-w-0">
+                        <div className="text-xs font-medium">
                           <Badge variant="destructive" className="mr-2 text-xs">STRICT</Badge>
                           Strict Mode (desativa P5/P8)
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">
+                        <div className="text-[10px] text-muted-foreground leading-tight">
                           Modo restrito - zero exceções (estagiários/teste)
                         </div>
                       </div>
@@ -646,14 +646,14 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-              <Separator className="my-6" />
+              <Separator className="my-2" />
 
                 {/* CATEGORIA 1: ENVIO DE MENSAGENS */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
                     📤 Envio de Mensagens e Conteúdo
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {[
                       { 
                         key: 'podeEnviarMensagens', 
@@ -681,10 +681,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Acessar biblioteca de respostas prontas para agilizar atendimento'
                       }
                     ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                      <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-2 min-w-0">
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
@@ -695,14 +695,14 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
 
                 {/* CATEGORIA 2: GESTÃO DE CONVERSAS */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
                     💬 Gestão de Conversas
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {[
                       { 
                         key: 'podeTransferirConversa', 
@@ -755,10 +755,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: '🚨 PRIVACIDADE: Forward de mensagens entre conversas'
                       }
                     ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                      <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-2 min-w-0">
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
@@ -769,14 +769,14 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
 
                 {/* CATEGORIA 3: GESTÃO DE CONTATOS */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
                     👤 Gestão de Contatos
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {[
                       { 
                         key: 'podeVerDetalhesContato', 
@@ -829,10 +829,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Acesso a todas as interações passadas (ligações, emails, visitas)'
                       }
                     ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                      <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-2 min-w-0">
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
@@ -843,16 +843,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
 
 
 
                 {/* CATEGORIA 5: AUTOMAÇÃO E PLAYBOOKS */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
                     ⚡ Automação e Fluxos
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {[
                       { 
                         key: 'podeCriarPlaybooks', 
@@ -905,10 +905,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Remover Quick Replies da biblioteca'
                       }
                     ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                      <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-2 min-w-0">
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
@@ -919,14 +919,14 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
 
                 {/* CATEGORIA 6: CONFIGURAÇÕES E SISTEMA */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
                     ⚙️ Configurações e Sistema
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {[
                       { 
                         key: 'podeGerenciarConexoes', 
@@ -959,10 +959,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Baixar CSVs, PDFs e planilhas de dados do sistema'
                       }
                     ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                      <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-2 min-w-0">
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
@@ -973,14 +973,14 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
 
                 {/* CATEGORIA 7: BROADCAST E ENVIOS EM MASSA */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
                     📢 Envios em Massa e Broadcast
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {[
                       { 
                         key: 'podeUsarBroadcastExterno', 
@@ -1003,10 +1003,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Broadcast para todos do setor de uma vez'
                       }
                     ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                      <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-2 min-w-0">
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
@@ -1017,14 +1017,14 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
 
                 {/* CATEGORIA 8: MENSAGENS INTERNAS */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
                     🔵 Chat Interno (Team)
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {[
                       { 
                         key: 'podeEnviarMensagensInternas', 
@@ -1062,10 +1062,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Acessar lista completa de participantes'
                       }
                     ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                      <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-2 min-w-0">
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
@@ -1076,14 +1076,14 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
 
                 {/* CATEGORIA 9: INTELIGÊNCIA E IA */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
                     🤖 Inteligência Artificial
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {[
                       { 
                         key: 'podeUsarSugestorRespostas', 
@@ -1111,10 +1111,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Adicionar tags em mensagens específicas (menu contexto)'
                       }
                     ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                      <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-2 min-w-0">
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
@@ -1125,14 +1125,14 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
 
                 {/* CATEGORIA 10: TELEFONIA (GoTo Integration) */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
                     📞 Telefonia e Chamadas
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {[
                       { 
                         key: 'podeRealizarChamadas', 
@@ -1155,10 +1155,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Dashboard de performance de chamadas'
                       }
                     ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                      <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-2 min-w-0">
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
@@ -1169,14 +1169,14 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
 
                 {/* CATEGORIA 11: ANALYTICS E MÉTRICAS */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
                     📊 Analytics e Métricas
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {[
                       { 
                         key: 'podeVerMetricasIndividuais', 
@@ -1209,10 +1209,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Gerar CSVs/PDFs com filtros personalizados'
                       }
                     ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                      <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-2 min-w-0">
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
@@ -1223,14 +1223,14 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
 
                 {/* CATEGORIA 12: CONFIGURAÇÕES AVANÇADAS */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
                     🎛️ Configurações Avançadas do Sistema
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {[
                       { 
                         key: 'podeConfigurarURA', 
@@ -1258,10 +1258,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Tempo máximo de resposta, escalação automática'
                       }
                     ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                      <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-2 min-w-0">
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
@@ -1272,14 +1272,14 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                   </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
 
                 {/* CATEGORIA 13: INTEGRAÇÃO COM OUTROS MÓDULOS */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
                     🔗 Integração com Outros Módulos
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                     {[
                       { 
                         key: 'podeCriarOrcamentoDeChat', 
@@ -1302,10 +1302,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                         desc: 'Ver e criar lembretes/tarefas a partir de conversas'
                       }
                     ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                        <div className="flex-1 mr-4">
-                          <div className="text-sm font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                      <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex-1 mr-2 min-w-0">
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
                           checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
@@ -1321,7 +1321,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
 
       {/* SEÇÃO ATALHOS EXTERNOS */}
       <Card className="border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50">
-        <CardHeader>
+        <CardHeader className="py-3">
           <CardTitle className="flex items-center gap-2">
             <ExternalLink className="w-5 h-5 text-emerald-600" />
             Atalhos de Aplicativos Externos
@@ -1336,10 +1336,10 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
             { key: 'Compras', label: 'Gestão de Compras', desc: 'Atalho para o sistema de gestão de compras', emoji: '🛒', cor: 'text-blue-700' },
             { key: 'RHNexus', label: 'RH Nexus', desc: 'Atalho para o sistema de RH', emoji: '👥', cor: 'text-purple-700' },
           ].map(({ key, label, desc, emoji, cor }) => (
-            <div key={key} className="flex items-start justify-between p-3 border rounded-lg bg-white hover:bg-slate-50 transition-colors">
-              <div className="flex-1 mr-4">
+            <div key={key} className="flex items-start justify-between px-2 py-1.5 border rounded-lg bg-white hover:bg-slate-50 transition-colors">
+              <div className="flex-1 mr-2 min-w-0">
                 <div className={`text-sm font-medium ${cor}`}>{emoji} {label}</div>
-                <div className="text-xs text-muted-foreground mt-1">{desc}</div>
+                <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
               </div>
               <Switch
                 checked={paginasAcesso.includes(key)}
@@ -1356,7 +1356,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
 
       {/* SEÇÃO 5: Preview Consolidado */}
       <Card className="border-slate-300 bg-slate-50">
-            <CardHeader>
+            <CardHeader className="py-3">
               <CardTitle>
                 <Eye className="w-5 h-5 inline mr-2 text-slate-600" />
                 Preview das Permissões Processadas

@@ -10,7 +10,7 @@ export default function SecaoEmailUsuario({ usuarioSelecionado, atualizarUsuario
 
   return (
     <Card className="border-indigo-200 bg-indigo-50">
-      <CardHeader>
+      <CardHeader className="py-3">
         <CardTitle className="text-base flex items-center gap-2">
           <Mail className="w-5 h-5 text-indigo-600" />
           ✉️ Contas de E-mail Permitidas
