@@ -185,11 +185,7 @@ function App() {
   if (!splashDone) {
     return (
       <SplashScreen
-        durationMs={3500}
-        onFinish={() => {
-          sessionStorage.setItem('nexus_splash_done', '1');
-          setSplashDone(true);
-        }}
+        onFinish={() => setSplashDone(true)}
       />
     );
   }

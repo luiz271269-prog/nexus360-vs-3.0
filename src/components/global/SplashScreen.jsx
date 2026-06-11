@@ -18,6 +18,9 @@ export default function SplashScreen({ onFinish, durationMs = 8000 }) {
   };
 
   useEffect(() => {
+    // Marca como exibido JÁ NO INÍCIO — se a página recarregar durante o
+    // vídeo (purge de SW/cache no boot), ele não roda uma segunda vez.
+    sessionStorage.setItem('nexus_splash_done', '1');
     const video = videoRef.current;
     if (video) {
       video.muted = false;
