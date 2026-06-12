@@ -119,10 +119,10 @@ Deno.serve(async (req) => {
     const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
       integration_id: integration.id,
       numero_destino: contact.telefone,
-      mensagem: `${saudacao}Já recebemos sua mensagem e em breve um atendente vai falar com você. 😊\n\nEnquanto isso, toque no botão abaixo para visitar nossos canais (site, Instagram, Pix, vendas e mais).`,
+      mensagem: `${saudacao}Já recebemos sua mensagem e em breve um atendente vai falar com você. 😊\n\nVisite nossos canais enquanto aguarda o atendimento.`,
       interactive_list: {
-        title: 'NEURALTEC — Cartão de visitas',
-        button_label: 'Ver acessos ⚡',
+        title: 'NEURALTEC — Acessos rápidos',
+        button_label: 'Visite nossos canais',
         options: opcoesLista
       }
     });
