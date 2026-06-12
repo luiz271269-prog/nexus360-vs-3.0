@@ -10,7 +10,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 // ============================================================================
 
 // URL pública do painel de acesso (cada ícone é clicável dentro da página)
-const PORTAL_URL = Deno.env.get('PORTAL_CLIENTE_URL') || 'https://nexus360.base44.app/PortalCliente';
+const PORTAL_URL = 'https://nexus360.base44.app/PortalCliente';
 
 const CARTAO_TEXTO = `⚡ *NEURALTEC TECNOLOGIA* ⚡
 
