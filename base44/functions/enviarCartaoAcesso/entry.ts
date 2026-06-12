@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
     const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
       integration_id: integration.id,
       numero_destino: contact.telefone,
-      mensagem: 'Toque abaixo para acessar nossos canais',
+      mensagem: '',
       interactive_list: {
         title: 'NEURALTEC — Acessos rápidos',
         button_label: 'Abrir acessos',
