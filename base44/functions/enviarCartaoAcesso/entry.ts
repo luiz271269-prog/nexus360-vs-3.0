@@ -125,14 +125,6 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Nenhum acesso rápido cadastrado' });
     }
 
-    // ── URL da imagem do cartão (asset visual já existente) ──
-    etapa = 'carregar_imagem_cartao';
-    let cardImageUrl = null;
-    const cfgImg = await base44.asServiceRole.entities.ConfiguracaoSistema.filter({
-      chave: 'acessos_rapidos_card_image_url', ativa: true
-    }).catch(() => []);
-    cardImageUrl = cfgImg?.[0]?.valor?.value || null;
-
     // ── Selecionar integração ──
     etapa = 'selecionar_integracao';
     let integration = null;
@@ -147,33 +139,13 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Nenhuma integração WhatsApp conectada' });
     }
 
-    // ── Enviar via gateway: imagem visual + lista interativa nativa ──
+    // ── Enviar UMA única mensagem interativa nativa (texto mínimo) ──
     etapa = 'enviar_whatsapp';
-    console.log('[enviarCartaoAcesso] enviando cartão via', integration.nome_instancia, '| imagem:', !!cardImageUrl);
+    console.log('[enviarCartaoAcesso] enviando cartão via', integration.nome_instancia);
 
-    const primeiroNome = (contact.nome || '').trim().split(/\s+/)[0] || '';
-
-    // 1) Imagem visual compacta do cartão (asset reutilizado). Best-effort:
-    //    se falhar, segue para a lista interativa (não bloqueia o fluxo).
-    let imgMessageId = null;
-    if (cardImageUrl) {
-      const respImg = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
-        integration_id: integration.id,
-        numero_destino: contact.telefone,
-        media_url: cardImageUrl,
-        media_type: 'image',
-        media_caption: 'NEURALTEC — Acessos rápidos'
-      }).catch((e) => ({ data: { success: false, error: e?.message } }));
-      if (respImg?.data?.success) {
-        imgMessageId = respImg.data.message_id;
-      } else {
-        console.warn('[enviarCartaoAcesso] ⚠️ falha ao enviar imagem:', respImg?.data?.error);
-      }
-    }
-
-    // 2) Lista interativa nativa compacta (texto mínimo + label "Abrir acessos").
-    //    id rastreável (acesso_rapido:ID) — o conteúdo (URL/Pix/setor) é resolvido
-    //    pelo handler responderAcessoRapido quando o contato toca na opção.
+    // Lista interativa nativa compacta. id rastreável (acesso_rapido:ID) — o
+    // conteúdo (URL/Pix/setor) é resolvido pelo handler responderAcessoRapido
+    // quando o contato toca na opção.
     const opcoesLista = itens.map(i => ({
       id: `acesso_rapido:${i.id}`,
       title: `${i.emoji || '🔗'} ${i.titulo}`.slice(0, 24),
@@ -183,10 +155,10 @@ Deno.serve(async (req) => {
     const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
       integration_id: integration.id,
       numero_destino: contact.telefone,
-      mensagem: '',
+      mensagem: 'Acessos rápidos enquanto você aguarda:',
       interactive_list: {
         title: 'NEURALTEC — Acessos rápidos',
-        button_label: 'Abrir acessos',
+        button_label: 'Acessos',
         options: opcoesLista
       }
     });
@@ -194,34 +166,9 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: resp?.data?.error || 'erro_envio' });
     }
 
-    // ── Persistir Message(s) na thread ──
+    // ── Persistir Message na thread ──
     const now = new Date().toISOString();
     if (thread) {
-      // Imagem do cartão (quando enviada com sucesso)
-      if (imgMessageId) {
-        await base44.asServiceRole.entities.Message.create({
-          thread_id: thread.id,
-          sender_id: 'system',
-          sender_type: 'user',
-          recipient_id: contact.id,
-          recipient_type: 'contact',
-          content: 'NEURALTEC — Acessos rápidos',
-          media_url: cardImageUrl,
-          media_type: 'image',
-          media_caption: 'NEURALTEC — Acessos rápidos',
-          channel: 'whatsapp',
-          status: 'enviada',
-          whatsapp_message_id: imgMessageId,
-          sent_at: now,
-          metadata: {
-            whatsapp_integration_id: integration.id,
-            is_system_message: trigger !== 'manual',
-            message_type: 'acessos_rapidos_imagem',
-            trigger
-          }
-        });
-      }
-
       // Lista interativa nativa
       await base44.asServiceRole.entities.Message.create({
         thread_id: thread.id,
@@ -229,7 +176,7 @@ Deno.serve(async (req) => {
         sender_type: 'user',
         recipient_id: contact.id,
         recipient_type: 'contact',
-        content: 'Toque abaixo para acessar nossos canais (lista interativa enviada)',
+        content: 'Acessos rápidos enquanto você aguarda: (lista interativa enviada)',
         channel: 'whatsapp',
         status: 'enviada',
         whatsapp_message_id: resp.data.message_id,
