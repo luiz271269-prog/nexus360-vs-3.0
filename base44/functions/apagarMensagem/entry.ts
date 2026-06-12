@@ -42,45 +42,78 @@ Deno.serve(async (req) => {
       throw new Error('Sem permissão para apagar esta mensagem');
     }
 
-    // Se delete_for_everyone e a mensagem é recente (< 15 minutos), tentar apagar no WhatsApp
+    // Se delete_for_everyone, tentar apagar no WhatsApp (janela do WhatsApp: ~48h)
+    let apagadaNoWhatsApp = false;
+    let motivoFalhaWhatsApp = null;
+
     if (delete_for_everyone && mensagem.whatsapp_message_id) {
       const mensagemData = new Date(mensagem.sent_at || mensagem.created_date);
-      const agora = new Date();
-      const diffMinutos = (agora - mensagemData) / (1000 * 60);
+      const diffHoras = (Date.now() - mensagemData.getTime()) / (1000 * 60 * 60);
 
-      if (diffMinutos <= 15) {
+      if (diffHoras > 48) {
+        motivoFalhaWhatsApp = 'Mensagem com mais de 48h — o WhatsApp não permite mais apagar para todos';
+      } else {
         try {
-          // Buscar thread para pegar integração
           const thread = await base44.asServiceRole.entities.MessageThread.get(mensagem.thread_id);
-          
-          if (thread && thread.whatsapp_integration_id) {
-            const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(thread.whatsapp_integration_id);
-            
-            if (integracao) {
-              // Tentar apagar no WhatsApp via Z-API
-              const endpoint = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/delete-message`;
-              
-              const response = await fetch(endpoint, {
+          const integrationId = mensagem.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
+          const integracao = integrationId
+            ? await base44.asServiceRole.entities.WhatsAppIntegration.get(integrationId).catch(() => null)
+            : null;
+
+          // Telefone do contato é OBRIGATÓRIO para apagar para todos
+          const contactId = thread?.contact_id || mensagem.recipient_id;
+          const contact = contactId
+            ? await base44.asServiceRole.entities.Contact.get(contactId).catch(() => null)
+            : null;
+          let phone = (contact?.telefone || contact?.telefone_canonico || '').replace(/\D/g, '');
+          if (phone && phone.length <= 11 && !phone.startsWith('55')) phone = '55' + phone;
+
+          if (!integracao) {
+            motivoFalhaWhatsApp = 'Integração WhatsApp não encontrada';
+          } else if (!phone) {
+            motivoFalhaWhatsApp = 'Telefone do contato não encontrado';
+          } else {
+            const isWAPI = integracao.api_provider === 'w_api';
+            let endpoint, fetchOptions;
+
+            if (isWAPI) {
+              // W-API: DELETE /message/delete-message?instanceId=...
+              const baseUrl = integracao.base_url_provider || 'https://api.w-api.app/v1';
+              endpoint = `${baseUrl}/message/delete-message?instanceId=${integracao.instance_id_provider}&phone=${phone}&messageId=${encodeURIComponent(mensagem.whatsapp_message_id)}`;
+              fetchOptions = {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${integracao.api_key_provider}`
+                }
+              };
+            } else {
+              // Z-API: DELETE /messages?messageId=...&phone=...&owner=true (owner=true = apagar para todos)
+              endpoint = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/messages?messageId=${encodeURIComponent(mensagem.whatsapp_message_id)}&phone=${phone}&owner=true`;
+              fetchOptions = {
                 method: 'DELETE',
                 headers: {
                   'Content-Type': 'application/json',
                   'Client-Token': integracao.security_client_token_header || ''
-                },
-                body: JSON.stringify({
-                  messageId: mensagem.whatsapp_message_id
-                })
-              });
+                }
+              };
+            }
 
-              if (response.ok) {
-                console.log('[APAGAR] ✅ Mensagem apagada no WhatsApp');
-              } else {
-                console.log('[APAGAR] ⚠️ Não foi possível apagar no WhatsApp:', await response.text());
-              }
+            console.log('[APAGAR] 🌐 Endpoint delete:', endpoint);
+            const response = await fetch(endpoint, fetchOptions);
+            const respText = await response.text();
+
+            if (response.ok) {
+              apagadaNoWhatsApp = true;
+              console.log('[APAGAR] ✅ Mensagem apagada no WhatsApp (para todos)');
+            } else {
+              motivoFalhaWhatsApp = `Provedor retornou erro: ${respText.substring(0, 200)}`;
+              console.log('[APAGAR] ⚠️ Não foi possível apagar no WhatsApp:', respText);
             }
           }
         } catch (error) {
+          motivoFalhaWhatsApp = error.message;
           console.error('[APAGAR] ⚠️ Erro ao tentar apagar no WhatsApp:', error);
-          // Continua e marca como deletada no sistema
         }
       }
     }
