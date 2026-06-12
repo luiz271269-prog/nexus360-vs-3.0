@@ -441,6 +441,18 @@ function normalizarPayload(payload) {
     } else if (msgContent.conversation) {
       conteudo = msgContent.conversation;
 
+    // ✅ Seleção de Lista Interativa / Botão (Acessos Rápidos)
+    // W-API entrega a escolha sem texto; usamos o rowId como conteúdo para o
+    // processInbound rotear ao responderAcessoRapido (envia link/Pix/wa.me).
+    } else if (msgContent.listResponseMessage || msgContent.buttonsResponseMessage || msgContent.templateButtonReplyMessage) {
+      conteudo = String(
+        msgContent.listResponseMessage?.singleSelectReply?.selectedRowId ||
+        msgContent.listResponseMessage?.selectedRowId ||
+        msgContent.buttonsResponseMessage?.selectedButtonId ||
+        msgContent.templateButtonReplyMessage?.selectedId ||
+        ''
+      );
+
     // ✅ REAÇÃO: ignorar silenciosamente (não salvar como mensagem)
     } else if (msgContent.reactionMessage) {
       console.log('[WAPI-NORM] ⏭️ reactionMessage ignorada | msgId=' + (payload.messageId || 'N/A'));

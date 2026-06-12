@@ -334,6 +334,21 @@ function normalizarPayload(payload) {
     payload.caption ??
     '';
 
+  // ── Seleção de Lista Interativa / Botão (Acessos Rápidos) ──
+  // A Z-API entrega a escolha sem campo de texto; extraímos o rowId/buttonId
+  // e o usamos como conteúdo para que o processInbound possa rotear ao
+  // responderAcessoRapido (que envia o link/Pix correspondente).
+  const _selRow =
+    payload.listResponseMessage?.selectedRowId ||
+    payload.listResponseMessage?.singleSelectReply?.selectedRowId ||
+    payload.buttonsResponseMessage?.buttonId ||
+    payload.selectedRowId ||
+    payload.selectedId ||
+    null;
+  if (!conteudo && _selRow) {
+    conteudo = String(_selRow);
+  }
+
   const mediaFields = ['image', 'video', 'audio', 'document', 'sticker', 'imageUrl', 'videoUrl', 'audioUrl', 'documentUrl', 'mediaUrl', 'forwardedFrom'];
   const presentMediaFields = mediaFields.filter(f => payload[f]);
   if (presentMediaFields.length > 0) {
