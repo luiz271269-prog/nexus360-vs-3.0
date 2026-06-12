@@ -1,34 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// ── Envio direto ao provedor (Z-API/W-API). NÃO usar invoke('enviarWhatsApp')
-// server-to-server: esse hop retorna 403 Forbidden. Chamamos a API direto,
-// igual ao skillPreAtendimentos. ──
-async function enviarTextoWhatsApp(integ, telefone, mensagem) {
-  const tel = (telefone || '').replace(/\D/g, '');
-  const phone = tel.startsWith('55') ? tel : '55' + tel;
-
-  if (integ.api_provider === 'w_api') {
-    const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
-      + `/message/send-text?instanceId=${integ.instance_id_provider}`;
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
-      body: JSON.stringify({ phone, message: mensagem, delayMessage: 1 })
-    });
-    const resp = await r.json().catch(() => ({}));
-    const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
-    return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp };
-  }
-  const url = (integ.base_url_provider || 'https://api.z-api.io')
-    + `/instances/${integ.instance_id_provider}/token/${integ.api_key_provider}/send-text`;
-  const headers = { 'Content-Type': 'application/json' };
-  if (integ.security_client_token_header) headers['Client-Token'] = integ.security_client_token_header;
-  const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ phone, message: mensagem }) });
-  const resp = await r.json().catch(() => ({}));
-  const msgId = resp.messageId || resp.key?.id || resp.id || null;
-  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp };
-}
-
 // ============================================================================
 // ACESSOS RÁPIDOS NEURALTEC — cartão compacto, itens lidos do cadastro
 // ============================================================================
@@ -138,42 +109,52 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Nenhuma integração WhatsApp conectada' });
     }
 
-    // ── Enviar cartão como TEXTO simples (links clicáveis) ──
-    // Lista interativa nativa retorna 403 do provedor (recurso não habilitado),
-    // então montamos uma mensagem de texto com emoji + título + link/chave.
+    // ── Enviar UMA única mensagem interativa nativa (texto mínimo) ──
     etapa = 'enviar_whatsapp';
-    console.log('[enviarCartaoAcesso] enviando cartão (texto) via', integration.nome_instancia);
+    console.log('[enviarCartaoAcesso] enviando cartão via', integration.nome_instancia);
 
-    const linhas = itens.map(i => {
-      const emoji = i.emoji || '🔗';
-      if (i.tipo === 'pix') return `${emoji} *${i.titulo}* (Pix): ${i.url}`;
-      return `${emoji} *${i.titulo}*: ${i.url}`;
+    // Lista interativa nativa compacta. id rastreável (acesso_rapido:ID) — o
+    // conteúdo (URL/Pix/setor) é resolvido pelo handler responderAcessoRapido
+    // quando o contato toca na opção.
+    const opcoesLista = itens.map(i => ({
+      id: `acesso_rapido:${i.id}`,
+      title: `${i.emoji || '🔗'} ${i.titulo}`.slice(0, 24),
+      description: (i.descricao || i.categoria || 'Toque para acessar').slice(0, 72)
+    }));
+
+    const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+      integration_id: integration.id,
+      numero_destino: contact.telefone,
+      mensagem: 'Acessos rápidos enquanto você aguarda:',
+      interactive_list: {
+        title: 'NEURALTEC — Acessos rápidos',
+        button_label: 'Acessos',
+        options: opcoesLista
+      }
     });
-    const mensagemCartao = `*NEURALTEC — Acessos rápidos*\n\n${linhas.join('\n')}`;
-
-    const resp = await enviarTextoWhatsApp(integration, contact.telefone, mensagemCartao);
-    if (!resp.ok) {
-      return Response.json({ success: false, error: 'erro_envio', detalhe: resp.raw });
+    if (!resp?.data?.success) {
+      return Response.json({ success: false, error: resp?.data?.error || 'erro_envio' });
     }
 
     // ── Persistir Message na thread ──
     const now = new Date().toISOString();
     if (thread) {
+      // Lista interativa nativa
       await base44.asServiceRole.entities.Message.create({
         thread_id: thread.id,
         sender_id: 'system',
         sender_type: 'user',
         recipient_id: contact.id,
         recipient_type: 'contact',
-        content: mensagemCartao,
+        content: 'Acessos rápidos enquanto você aguarda: (lista interativa enviada)',
         channel: 'whatsapp',
         status: 'enviada',
-        whatsapp_message_id: resp.msgId,
+        whatsapp_message_id: resp.data.message_id,
         sent_at: now,
         metadata: {
           whatsapp_integration_id: integration.id,
           is_system_message: trigger !== 'manual',
-          message_type: 'acessos_rapidos_texto',
+          message_type: 'acessos_rapidos_lista',
           trigger
         }
       });
@@ -189,7 +170,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[enviarCartaoAcesso] ✅ ${contact.nome} (trigger=${trigger}, itens=${itens.length})`);
-    return Response.json({ success: true, message_id: resp.msgId, trigger });
+    return Response.json({ success: true, message_id: resp.data.message_id, trigger });
 
   } catch (error) {
     console.error('[enviarCartaoAcesso] ❌ etapa=' + etapa, error.message);
