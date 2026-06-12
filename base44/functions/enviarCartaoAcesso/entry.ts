@@ -9,24 +9,19 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 //     (máx 1x por dia por contato, com guards de bloqueio/opt-out)
 // ============================================================================
 
+// URL pública do painel de acesso (cada ícone é clicável dentro da página)
+const PORTAL_URL = Deno.env.get('PORTAL_CLIENTE_URL') || 'https://nexus360.base44.app/PortalCliente';
+
 const CARTAO_TEXTO = `⚡ *NEURALTEC TECNOLOGIA* ⚡
 
-      💬          🛒          💰
-  _Vendas_   _Compras_  _Financeiro_
+🎯 *Painel de Atendimento Digital*
 
-      🛠️          📦          ⚡
- _Suporte_  _Catálogo_     _Pix_
+Toque no link e acesse tudo com 1 clique:
+💬 Vendas • 🛒 Compras • 💰 Financeiro
+🛠️ Suporte • 📦 Catálogo • ⚡ Pix com QR Code
 
-━━━━━━━━━━━━━━━━━
-👇 _Toque no link do acesso:_
-
-💬 wa.me/554830452076
-🛒 wa.me/554830452078
-💰 wa.me/554830452079
-🛠️ wa.me/554830452076
-📦 neuraltec360.com.br
-📸 instagram.com/neuraltec.tecnologia
-⚡ Pix (CNPJ): *62.982.374/0001-07*
+👇 *ACESSE AQUI:*
+${PORTAL_URL}
 
 _Salve para acessar quando precisar!_ ✨`;
 
