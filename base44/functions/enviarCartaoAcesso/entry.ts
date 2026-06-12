@@ -111,15 +111,26 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Nenhuma integração WhatsApp conectada' });
     }
 
-    // ── Enviar via gateway ──
+    // ── Enviar via gateway (Lista Interativa nativa) ──
     etapa = 'enviar_whatsapp';
-    console.log('[enviarCartaoAcesso] enviando via', integration.nome_instancia);
+    console.log('[enviarCartaoAcesso] enviando lista via', integration.nome_instancia);
+
+    // id rastreável (acesso_rapido:ID) — URL/Pix ficam no cadastro, nunca embutidos no botão
+    const opcoesLista = itens.map(i => ({
+      id: `acesso_rapido:${i.id}`,
+      title: `${i.emoji || '🔗'} ${i.titulo}`.slice(0, 24),
+      description: (i.descricao || i.categoria || 'Toque para acessar').slice(0, 72)
+    }));
+
     const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
       integration_id: integration.id,
       numero_destino: contact.telefone,
-      media_url: CARD_IMAGE_URL,
-      media_type: 'image',
-      media_caption: textoEnvio
+      mensagem: '⚡ *NEURALTEC — Acessos rápidos*\n\nToque no botão abaixo para ver nossos canais.',
+      interactive_list: {
+        title: 'NEURALTEC — Acessos rápidos',
+        button_label: 'Ver acessos ⚡',
+        options: opcoesLista
+      }
     });
     if (!resp?.data?.success) {
       return Response.json({ success: false, error: resp?.data?.error || 'erro_envio' });
@@ -134,9 +145,7 @@ Deno.serve(async (req) => {
         sender_type: 'user',
         recipient_id: contact.id,
         recipient_type: 'contact',
-        content: textoEnvio,
-        media_url: CARD_IMAGE_URL,
-        media_type: 'image',
+        content: '⚡ NEURALTEC — Acessos rápidos (lista interativa enviada)',
         channel: 'whatsapp',
         status: 'enviada',
         whatsapp_message_id: resp.data.message_id,
@@ -144,7 +153,7 @@ Deno.serve(async (req) => {
         metadata: {
           whatsapp_integration_id: integration.id,
           is_system_message: trigger !== 'manual',
-          message_type: 'acessos_rapidos',
+          message_type: 'acessos_rapidos_lista',
           trigger
         }
       });

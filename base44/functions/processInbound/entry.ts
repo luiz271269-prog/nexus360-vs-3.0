@@ -117,6 +117,31 @@ Deno.serve(async (req) => {
 
   console.log(`[${VERSION}] 📩 Message: ${message?.id} | Contact: ${contact?.nome} | Thread: ${thread?.id}`);
 
+  // ════════════════════════════════════════════════════════════════
+  // [ACESSO RÁPIDO] Captura da escolha na Lista Interativa.
+  // Se o cliente tocou numa opção (list_reply id="acesso_rapido:ID"),
+  // entrega o link/Pix correspondente e encerra o pipeline (não vira URA).
+  // ════════════════════════════════════════════════════════════════
+  const listReplyId =
+    rawPayload?.list_reply?.id ||
+    rawPayload?.listResponseMessage?.selectedRowId ||
+    rawPayload?.message?.list_reply?.id ||
+    null;
+  if (listReplyId && String(listReplyId).startsWith('acesso_rapido:')) {
+    console.log(`[${VERSION}] ⚡ ACESSO RÁPIDO escolhido: ${listReplyId}`);
+    try {
+      await base44.asServiceRole.functions.invoke('responderAcessoRapido', {
+        selected_row_id: listReplyId,
+        thread_id: thread?.id,
+        contact_id: contact?.id,
+        integration_id: integration?.id || thread?.whatsapp_integration_id
+      });
+    } catch (e) {
+      console.error(`[${VERSION}] ❌ Erro ao responder acesso rápido:`, e.message);
+    }
+    return Response.json({ success: true, handled: 'acesso_rapido', selected: listReplyId });
+  }
+
   const result = { pipeline: [], actions: [] };
   const now = new Date();
 
