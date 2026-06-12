@@ -35,7 +35,12 @@ www.neuraltec360.com.br
 
 📸 Instagram: instagram.com/neuraltec.tecnologia
 
-_Salve esta mensagem para acessar quando precisar!_ ✨`;
+_Salve esta mensagem para acessar quando precisar!_ ✨
+
+➡️ *Responda com o número para atalho rápido:*
+*1* — 💰 Financeiro
+*2* — 📦 Catálogo
+*3* — 🛠️ Suporte`;
 
 // Seções avulsas para atalhos rápidos (barra abaixo da mensagem)
 const SECOES = {
@@ -91,7 +96,8 @@ Deno.serve(async (req) => {
       const MAPA_BOTOES = {
         '💰 financeiro': 'financeiro', 'financeiro': 'financeiro',
         '📦 catálogo': 'catalogo', 'catálogo': 'catalogo', 'catalogo': 'catalogo',
-        '🛠️ suporte': 'suporte', 'suporte': 'suporte'
+        '🛠️ suporte': 'suporte', 'suporte': 'suporte',
+        '1': 'financeiro', '2': 'catalogo', '3': 'suporte'
       };
       var secao = MAPA_BOTOES[conteudoMsg] || null;
       trigger = secao ? 'botao_cartao' : 'auto_primeira_msg';
