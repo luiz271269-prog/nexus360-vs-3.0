@@ -31,6 +31,35 @@
         }
       })();
     </script>
+    <script>
+      // SW-Guard: em dev/preview, remove service workers e caches ANTES do app
+      // carregar (evita chunks JS antigos → "Cannot read properties of null (reading 'useState')")
+      (function () {
+        try {
+          var host = window.location.hostname;
+          var isDevLike = host === 'localhost' || host === '127.0.0.1' || host.indexOf('preview') !== -1;
+          if (!isDevLike || !('serviceWorker' in navigator)) return;
+          var wasControlled = !!navigator.serviceWorker.controller;
+          var limpezas = [];
+          limpezas.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(regs.map(function (r) { return r.unregister(); }));
+          }));
+          if (window.caches && caches.keys) {
+            limpezas.push(caches.keys().then(function (keys) {
+              return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+            }));
+          }
+          Promise.all(limpezas).then(function () {
+            // Se um SW estava controlando esta página, os chunks podem ter vindo do cache.
+            // Recarrega UMA vez para garantir bundle consistente.
+            if (wasControlled && !sessionStorage.getItem('sw_guard_reloaded')) {
+              sessionStorage.setItem('sw_guard_reloaded', '1');
+              window.location.reload();
+            }
+          }).catch(function () {});
+        } catch (e) {}
+      })();
+    </script>
     <title>Base44 APP</title>
   </head>
   <body translate="no" class="notranslate">
