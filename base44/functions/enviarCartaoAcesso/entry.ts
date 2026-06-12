@@ -10,6 +10,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 // ============================================================================
 
 Deno.serve(async (req) => {
+  let etapa = 'inicio';
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
@@ -26,7 +27,7 @@ Deno.serve(async (req) => {
       contactId = msg.sender_id;
       trigger = 'auto_primeira_msg';
     } else {
-      const user = await base44.auth.me();
+      const user = await base44.auth.me().catch(() => null);
       if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
       threadId = body.thread_id;
       contactId = body.contact_id;
@@ -39,6 +40,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Carregar thread + contato ──
+    etapa = 'carregar_thread_contato';
     let thread = null;
     if (threadId) {
       thread = await base44.asServiceRole.entities.MessageThread.get(threadId).catch(() => null);
@@ -61,6 +63,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    etapa = 'carregar_contact';
     const contact = await base44.asServiceRole.entities.Contact.get(contactId).catch(() => null);
     if (!contact?.telefone) {
       return Response.json({ success: false, skipped: 'sem_telefone' });
@@ -77,7 +80,10 @@ Deno.serve(async (req) => {
     }
 
     // ── Itens do cadastro ──
+    etapa = 'carregar_itens';
+    console.log('[enviarCartaoAcesso] carregando itens AcessoRapido...');
     const itens = await base44.asServiceRole.entities.AcessoRapido.filter({ ativo: true }, 'ordem');
+    console.log('[enviarCartaoAcesso] itens:', itens.length);
     if (!itens.length) {
       return Response.json({ success: false, error: 'Nenhum acesso rápido cadastrado' });
     }
@@ -91,6 +97,7 @@ Deno.serve(async (req) => {
     const textoEnvio = `⚡ *NEURALTEC — Acessos rápidos*\n\n${linhas.join('\n')}`;
 
     // ── Selecionar integração ──
+    etapa = 'selecionar_integracao';
     let integration = null;
     if (integrationId) {
       integration = await base44.asServiceRole.entities.WhatsAppIntegration.get(integrationId).catch(() => null);
@@ -104,6 +111,8 @@ Deno.serve(async (req) => {
     }
 
     // ── Enviar via gateway ──
+    etapa = 'enviar_whatsapp';
+    console.log('[enviarCartaoAcesso] enviando via', integration.nome_instancia);
     const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
       integration_id: integration.id,
       numero_destino: contact.telefone,
@@ -148,7 +157,7 @@ Deno.serve(async (req) => {
     return Response.json({ success: true, message_id: resp.data.message_id, trigger });
 
   } catch (error) {
-    console.error('[enviarCartaoAcesso] ❌', error.message);
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[enviarCartaoAcesso] ❌ etapa=' + etapa, error.message);
+    return Response.json({ success: false, error: error.message, etapa }, { status: 500 });
   }
 });
