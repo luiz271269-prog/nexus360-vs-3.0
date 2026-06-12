@@ -196,20 +196,14 @@ Deno.serve(async (req) => {
       numero_destino: contact.telefone,
       mensagem: textoEnvio
     };
-    // Cartão completo vai com MENU DE LISTA NATIVO (botão "Ver acessos" → opções com descrição)
+    // Cartão completo vai com BOTÕES DE ACESSO DIRETO abaixo da mensagem
+    // URL = abre direto ao tocar | REPLY = automação responde com a seção
     if (typeof secao === 'undefined' || !secao) {
-      payloadEnvio.interactive_list = {
-        title: 'Acessos NeuralTec',
-        button_label: '⚡ Ver acessos',
-        options: [
-          { id: 'cartao_vendas', title: '💬 Vendas', description: 'Orçamentos e vendas' },
-          { id: 'cartao_financeiro', title: '💰 Financeiro', description: '2ª via de boleto e Pix' },
-          { id: 'cartao_suporte', title: '🛠️ Suporte', description: 'Assistência técnica' },
-          { id: 'cartao_catalogo', title: '📦 Catálogo', description: 'Todos os produtos' },
-          { id: 'cartao_compras', title: '🛒 Compras / Fornecedor', description: 'Canal para fornecedores' },
-          { id: 'cartao_pix', title: '⚡ Pix', description: 'Chave CNPJ para pagamento' }
-        ]
-      };
+      payloadEnvio.interactive_buttons = [
+        { id: 'cartao_financeiro', text: '💰 Financeiro', url: 'https://wa.me/554830452079' },
+        { id: 'cartao_suporte', text: '🛠️ Suporte', url: 'https://wa.me/554830452076' },
+        { id: 'cartao_catalogo', text: '📦 Catálogo', url: 'https://www.neuraltec360.com.br' }
+      ];
     }
     const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', payloadEnvio);
     if (!resp?.data?.success) {

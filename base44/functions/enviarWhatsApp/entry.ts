@@ -395,11 +395,11 @@ Deno.serve(async (req) => {
         body = {
           phone: numeroFormatado,
           message: bodyText,
-          buttonActions: buttons.map(btn => ({
-            id: btn.id,
-            type: 'REPLY',
-            label: btn.text
-          }))
+          buttonActions: buttons.map(btn => {
+            if (btn.url) return { id: btn.id, type: 'URL', url: btn.url, label: btn.text };
+            if (btn.phone) return { id: btn.id, type: 'CALL', phone: btn.phone, label: btn.text };
+            return { id: btn.id, type: 'REPLY', label: btn.text };
+          })
         };
       }
       
