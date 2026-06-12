@@ -25,6 +25,9 @@ wa.me/554830452078
 💰 *Financeiro / 2ª via de boleto*
 wa.me/554830452079
 
+🛠️ *Suporte / Assistência Técnica*
+wa.me/554830452076
+
 📦 *Catálogo de Produtos*
 www.neuraltec360.com.br
 

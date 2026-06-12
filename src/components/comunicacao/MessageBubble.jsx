@@ -43,7 +43,6 @@ import VincularPromocaoDialog from './VincularPromocaoDialog';
 import ComentariosInternos from './ComentariosInternos';
 import { useMessageStatus } from './useMessageStatus';
 import { renderInternalDispatchLog } from './skills/internalDispatchLogSkill';
-import CartaoAtalhosBar from './CartaoAtalhosBar';
 import { mobileEstiloMensagem } from './skills/mobileSkill';
 
 // Player de áudio: nativo + botão de velocidade (v2) — memoizado para não remontar <audio> em re-render
@@ -1764,11 +1763,6 @@ export default React.memo(function MessageBubble({
               </div>
             }
           </div>
-
-          {/* 📇 BARRA NEO-BRUTALISTA DE ATALHOS — abaixo de mensagens recebidas */}
-          {!isOwn && !isThreadInterna && !modoSelecao && thread?.contact_id &&
-            <CartaoAtalhosBar thread={thread} message={message} />
-          }
         </div>
       </div>
 
