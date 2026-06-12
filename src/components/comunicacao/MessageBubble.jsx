@@ -979,7 +979,8 @@ export default React.memo(function MessageBubble({
   if (_internalLog) return _internalLog;
 
   // ⚡ ACESSOS RÁPIDOS — cartão compacto no lugar do texto
-  if (message?.metadata?.message_type === 'acessos_rapidos') {
+  // Aceita variações: 'acessos_rapidos', 'acessos_rapidos_texto', 'acessos_rapidos_lista'
+  if (String(message?.metadata?.message_type || '').startsWith('acessos_rapidos')) {
     return <AcessosRapidosCard message={message} />;
   }
 
