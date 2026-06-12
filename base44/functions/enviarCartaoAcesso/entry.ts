@@ -95,7 +95,6 @@ Deno.serve(async (req) => {
       return `${emoji} ${i.titulo}: ${valor}`;
     });
     const textoEnvio = `⚡ *NEURALTEC — Acessos rápidos*\n\n${linhas.join('\n')}`;
-    const CARD_IMAGE_URL = 'https://media.base44.com/images/public/68a7d067890527304dbe8477/2267d82af_generated_image.png';
 
     // ── Selecionar integração ──
     etapa = 'selecionar_integracao';
@@ -117,9 +116,7 @@ Deno.serve(async (req) => {
     const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
       integration_id: integration.id,
       numero_destino: contact.telefone,
-      media_url: CARD_IMAGE_URL,
-      media_type: 'image',
-      media_caption: textoEnvio
+      mensagem: textoEnvio
     });
     if (!resp?.data?.success) {
       return Response.json({ success: false, error: resp?.data?.error || 'erro_envio' });
@@ -135,8 +132,6 @@ Deno.serve(async (req) => {
         recipient_id: contact.id,
         recipient_type: 'contact',
         content: textoEnvio,
-        media_url: CARD_IMAGE_URL,
-        media_type: 'image',
         channel: 'whatsapp',
         status: 'enviada',
         whatsapp_message_id: resp.data.message_id,
