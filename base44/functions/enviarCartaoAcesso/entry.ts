@@ -56,10 +56,26 @@ Deno.serve(async (req) => {
     }
 
     // ── Guards (modo automático) ──
+    // Regra: enviar o cartão a cada NOVO INÍCIO de conversa quando o contato
+    // manda uma SAUDAÇÃO (bom dia, oi, olá...). Reenvia se já passou o
+    // cooldown desde o último envio (conversa "fria"), em vez de travar 1x/thread.
+    const COOLDOWN_CARTAO_MS = 6 * 60 * 60 * 1000; // 6h
     if (trigger === 'auto_primeira_msg') {
-      // Só 1x por conversa
-      if (thread?.campos_personalizados?.acessos_rapidos_enviado) {
-        return Response.json({ success: true, skipped: 'ja_enviado_nesta_conversa' });
+      const texto = String(body?.data?.content || '').toLowerCase().trim();
+      const ehSaudacao = /\b(bom dia|boa tarde|boa noite|oi+|ol[aá]+|opa|hey|hi|e a[ií]|al[oô]|menu|in[ií]cio)\b/.test(texto)
+        || (texto.length > 0 && texto.length <= 15 && /^[a-zà-ú\s!.?,]+$/.test(texto));
+
+      if (!ehSaudacao) {
+        return Response.json({ success: true, skipped: 'nao_eh_saudacao' });
+      }
+
+      // Cooldown: não reenviar se já enviou recentemente nesta thread
+      const enviadoEm = thread?.campos_personalizados?.acessos_rapidos_enviado_em;
+      if (enviadoEm) {
+        const decorrido = Date.now() - new Date(enviadoEm).getTime();
+        if (decorrido < COOLDOWN_CARTAO_MS) {
+          return Response.json({ success: true, skipped: 'cooldown_ativo' });
+        }
       }
     }
 
@@ -156,7 +172,8 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         campos_personalizados: {
           ...(thread.campos_personalizados || {}),
-          acessos_rapidos_enviado: true
+          acessos_rapidos_enviado: true,
+          acessos_rapidos_enviado_em: now
         }
       });
     }
