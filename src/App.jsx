@@ -20,6 +20,7 @@ import CentralSaneamento from '@/pages/CentralSaneamento';
 import MonitorWAL from '@/pages/MonitorWAL';
 import Emails from '@/pages/Emails';
 import InstagramPublicacao from '@/pages/InstagramPublicacao';
+import PortalCliente from '@/pages/PortalCliente';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -165,6 +166,7 @@ const AuthenticatedApp = () => {
             </LayoutWrapper>
           } 
         />
+        <Route path="/PortalCliente" element={<PortalCliente />} />
         <Route path="/MinhaCaixaEmail" element={<Navigate to="/Emails" replace />} />
         <Route path="/orcamentos" element={<Navigate to="/LeadsQualificados" replace />} />
         <Route path="*" element={<PageNotFound />} />
