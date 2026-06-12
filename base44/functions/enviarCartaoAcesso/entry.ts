@@ -55,48 +55,18 @@ Deno.serve(async (req) => {
       thread = threads[0] || null;
     }
 
-    // ── Guards (modo automático) ──
-    // Regra do cartão de visitas:
-    //  - Disparar SOMENTE em mensagens inbound (recebidas do contato).
-    //    Mensagens outbound e a própria mensagem do cartão já são barradas
-    //    no topo (sender_type !== 'contact' → skip 'nao_inbound_whatsapp'),
-    //    evitando loops.
-    //  - Disparar SOMENTE quando o texto for uma saudação de início/retomada
-    //    (oi, olá, ola, bom dia, boa tarde, boa noite, e aí, opa).
-    //  - Enviar no início da conversa; NÃO repetir durante conversa ativa.
-    //  - Reenviar quando o contato retorna com saudação após a conversa
-    //    ter ficado fria/inativa.
-    const JANELA_CONVERSA_ATIVA_MS = 6 * 60 * 60 * 1000; // 6h sem atividade = conversa fria
-
+    // ── Guard (modo automático) ──
+    // Regra do cartão de visitas (simplificada):
+    //  - Disparar SOMENTE em mensagens inbound (recebidas do contato) — já
+    //    barrado no topo (sender_type !== 'contact' → skip).
+    //  - Disparar SEMPRE que o texto for uma saudação (oi, olá, bom dia,
+    //    boa tarde, boa noite, e aí, opa). SEM janela de horário/período e
+    //    SEM trava de conversa ativa: toda saudação recebe o cartão.
     if (trigger === 'auto_primeira_msg') {
       const texto = String(body?.data?.content || '').toLowerCase().trim();
-
-      // Saudação estrita de início/retomada de conversa
       const ehSaudacao = /(^|\b)(oi+|ol[aá]+|opa|bom\s*dia|boa\s*tarde|boa\s*noite|e\s*a[ií]|eai)(\b|$|[\s!.,?])/.test(texto);
       if (!ehSaudacao) {
         return Response.json({ success: true, skipped: 'nao_eh_saudacao' });
-      }
-
-      // Distinguir conversa ATIVA de RETOMADA usando o último envio do cartão
-      // e a última atividade da conversa.
-      const enviadoEm = thread?.campos_personalizados?.acessos_rapidos_enviado_em;
-      const ultimaAtividade = thread?.last_message_at || thread?.last_inbound_at || null;
-
-      if (enviadoEm) {
-        const desdeUltimoCartao = Date.now() - new Date(enviadoEm).getTime();
-
-        // Considera a conversa ainda ATIVA se houve atividade recente
-        // (dentro da janela) depois do último cartão.
-        let conversaAtiva = desdeUltimoCartao < JANELA_CONVERSA_ATIVA_MS;
-        if (ultimaAtividade) {
-          const desdeUltimaAtividade = Date.now() - new Date(ultimaAtividade).getTime();
-          conversaAtiva = conversaAtiva && desdeUltimaAtividade < JANELA_CONVERSA_ATIVA_MS;
-        }
-
-        if (conversaAtiva) {
-          return Response.json({ success: true, skipped: 'conversa_ativa_nao_repete' });
-        }
-        // Caso contrário, conversa esfriou → permite reenvio (retomada).
       }
     }
 
