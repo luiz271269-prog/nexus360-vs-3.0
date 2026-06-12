@@ -106,19 +106,22 @@ Deno.serve(async (req) => {
     etapa = 'enviar_whatsapp';
     console.log('[enviarCartaoAcesso] enviando lista via', integration.nome_instancia);
 
-    // id pix:<chave> | link:<url> — title com emoji+título, description com a chave/URL
+    // id rastreável (acesso_rapido:ID) — o conteúdo (URL/Pix/setor) é resolvido
+    // pelo handler responderAcessoRapido quando o contato toca na opção
+    const primeiroNome = (contact.nome || '').trim().split(/\s+/)[0] || '';
     const opcoesLista = itens.map(i => ({
-      id: i.tipo === 'pix' ? `pix:${i.url}` : `link:${i.url}`,
+      id: `acesso_rapido:${i.id}`,
       title: `${i.emoji || '🔗'} ${i.titulo}`.slice(0, 24),
-      description: String(i.url || '').slice(0, 72)
+      description: (i.descricao || i.categoria || 'Toque para acessar').slice(0, 72)
     }));
 
+    const saudacao = primeiroNome ? `Olá, ${primeiroNome}! ` : 'Olá! ';
     const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
       integration_id: integration.id,
       numero_destino: contact.telefone,
-      mensagem: '⚡ *NEURALTEC — Acessos rápidos*\n\nToque no botão abaixo para ver nossos canais.',
+      mensagem: `${saudacao}Já recebemos sua mensagem e em breve um atendente vai falar com você. 😊\n\nEnquanto isso, toque no botão abaixo para visitar nossos canais (site, Instagram, Pix, vendas e mais).`,
       interactive_list: {
-        title: 'NEURALTEC — Acessos rápidos',
+        title: 'NEURALTEC — Cartão de visitas',
         button_label: 'Ver acessos ⚡',
         options: opcoesLista
       }
