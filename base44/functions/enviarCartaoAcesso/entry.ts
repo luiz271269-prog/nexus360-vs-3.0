@@ -60,6 +60,24 @@ www.neuraltec360.com.br
 💬 Orçamentos: wa.me/554830452076
 
 _Salve este link para acessar quando precisar!_ ✨`,
+  vendas: `💬 *NEURALTEC — VENDAS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+Orçamentos e vendas:
+wa.me/554830452076
+
+_Fale com nossa equipe!_ ✨`,
+  compras: `🛒 *NEURALTEC — COMPRAS / FORNECEDOR*
+━━━━━━━━━━━━━━━━━━━━━━━━
+Canal direto com nosso setor de compras:
+wa.me/554830452078
+
+_Aguardamos seu contato!_ ✨`,
+  pix: `⚡ *NEURALTEC — PIX*
+━━━━━━━━━━━━━━━━━━━━━━━━
+Chave Pix (CNPJ):
+*62.982.374/0001-07*
+
+_Envie o comprovante por aqui!_ ✨`,
   suporte: `🛠️ *NEURALTEC — SUPORTE*
 ━━━━━━━━━━━━━━━━━━━━━━━━
 Atendimento e assistência técnica:
@@ -97,6 +115,9 @@ Deno.serve(async (req) => {
         '💰 financeiro': 'financeiro', 'financeiro': 'financeiro',
         '📦 catálogo': 'catalogo', 'catálogo': 'catalogo', 'catalogo': 'catalogo',
         '🛠️ suporte': 'suporte', 'suporte': 'suporte',
+        '💬 vendas': 'vendas', 'vendas': 'vendas',
+        '🛒 compras / fornecedor': 'compras', 'compras': 'compras', 'fornecedor': 'compras',
+        '⚡ pix': 'pix', 'pix': 'pix',
         '1': 'financeiro', '2': 'catalogo', '3': 'suporte'
       };
       var secao = MAPA_BOTOES[conteudoMsg] || null;
@@ -175,13 +196,20 @@ Deno.serve(async (req) => {
       numero_destino: contact.telefone,
       mensagem: textoEnvio
     };
-    // Cartão completo vai com BOTÕES NATIVOS do WhatsApp abaixo da mensagem
+    // Cartão completo vai com MENU DE LISTA NATIVO (botão "Ver acessos" → opções com descrição)
     if (typeof secao === 'undefined' || !secao) {
-      payloadEnvio.interactive_buttons = [
-        { id: 'cartao_financeiro', text: '💰 Financeiro' },
-        { id: 'cartao_catalogo', text: '📦 Catálogo' },
-        { id: 'cartao_suporte', text: '🛠️ Suporte' }
-      ];
+      payloadEnvio.interactive_list = {
+        title: 'Acessos NeuralTec',
+        button_label: '⚡ Ver acessos',
+        options: [
+          { id: 'cartao_vendas', title: '💬 Vendas', description: 'Orçamentos e vendas' },
+          { id: 'cartao_financeiro', title: '💰 Financeiro', description: '2ª via de boleto e Pix' },
+          { id: 'cartao_suporte', title: '🛠️ Suporte', description: 'Assistência técnica' },
+          { id: 'cartao_catalogo', title: '📦 Catálogo', description: 'Todos os produtos' },
+          { id: 'cartao_compras', title: '🛒 Compras / Fornecedor', description: 'Canal para fornecedores' },
+          { id: 'cartao_pix', title: '⚡ Pix', description: 'Chave CNPJ para pagamento' }
+        ]
+      };
     }
     const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', payloadEnvio);
     if (!resp?.data?.success) {

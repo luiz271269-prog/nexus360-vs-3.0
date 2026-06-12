@@ -316,8 +316,44 @@ Deno.serve(async (req) => {
     let body;
     let tipoMidiaReal = null; // Declarar no escopo principal para o fallback de documento funcionar
 
+    // ========== LISTA INTERATIVA (menu nativo com título + descrição) ==========
+    const interactive_list = payload.interactive_list;
+    if (interactive_list?.options?.length) {
+      if (isWAPI) {
+        endpoint = `${baseUrl}/message/send-list-message?instanceId=${instanceId}`;
+        body = {
+          phone: numeroFormatado,
+          title: interactive_list.title || 'Menu',
+          buttonText: interactive_list.button_label || 'Ver opções',
+          description: mensagem || '',
+          sections: [{
+            title: interactive_list.title || 'Opções',
+            rows: interactive_list.options.map(o => ({
+              id: o.id, title: o.title, description: o.description || ''
+            }))
+          }],
+          delayMessage: 1
+        };
+      } else {
+        // Z-API: send-option-list
+        endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-option-list`;
+        body = {
+          phone: numeroFormatado,
+          message: mensagem || '',
+          optionList: {
+            title: interactive_list.title || 'Menu',
+            buttonLabel: interactive_list.button_label || 'Ver opções',
+            options: interactive_list.options.map(o => ({
+              id: o.id, title: o.title, description: o.description || ''
+            }))
+          }
+        };
+      }
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📋 Enviando lista interativa (${providerName})`);
+    }
+
     // ========== BOTÕES INTERATIVOS ==========
-    if (message_type === 'interactive_buttons' || interactive_buttons) {
+    else if (message_type === 'interactive_buttons' || interactive_buttons) {
       const buttons = interactive_buttons || [];
       const bodyText = mensagem || '';
       
@@ -354,17 +390,16 @@ Deno.serve(async (req) => {
           delayMessage: 1
         };
       } else {
-        // Z-API: Botões interativos
+        // Z-API: Botões interativos (formato oficial: array com type REPLY)
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-button-actions`;
         body = {
           phone: numeroFormatado,
           message: bodyText,
-          buttonActions: {
-            buttons: buttons.map(btn => ({
-              id: btn.id,
-              label: btn.text
-            }))
-          }
+          buttonActions: buttons.map(btn => ({
+            id: btn.id,
+            type: 'REPLY',
+            label: btn.text
+          }))
         };
       }
       
