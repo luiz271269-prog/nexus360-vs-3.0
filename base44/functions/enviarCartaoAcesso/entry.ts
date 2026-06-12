@@ -34,6 +34,34 @@ www.neuraltec360.com.br
 
 _Salve esta mensagem para acessar quando precisar!_ ✨`;
 
+// Seções avulsas para atalhos rápidos (barra abaixo da mensagem)
+const SECOES = {
+  financeiro: `💰 *NEURALTEC — FINANCEIRO*
+━━━━━━━━━━━━━━━━━━━━━━━━
+2ª via de boleto e pagamentos:
+wa.me/554830452079
+
+⚡ *Pix (CNPJ):* 62.982.374/0001-07
+
+_Qualquer dúvida, é só chamar!_ ✨`,
+  catalogo: `📦 *NEURALTEC — CATÁLOGO*
+━━━━━━━━━━━━━━━━━━━━━━━━
+Confira todos os nossos produtos:
+www.neuraltec360.com.br
+
+💬 Orçamentos: wa.me/554830452076
+
+_Salve este link para acessar quando precisar!_ ✨`,
+  suporte: `🛠️ *NEURALTEC — SUPORTE*
+━━━━━━━━━━━━━━━━━━━━━━━━
+Atendimento e assistência técnica:
+wa.me/554830452076
+
+🕐 Seg-Sex 08h-12h e 13h30-18h
+
+_Estamos à disposição!_ ✨`
+};
+
 function hojeStr() {
   return new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 }
@@ -63,6 +91,7 @@ Deno.serve(async (req) => {
       contactId = body.contact_id;
       integrationId = body.integration_id || null;
       trigger = 'manual';
+      var secao = body.secao && SECOES[body.secao] ? body.secao : null;
     }
 
     if (!threadId && !contactId) {
@@ -123,10 +152,11 @@ Deno.serve(async (req) => {
     }
 
     // ── Enviar via gateway ──
+    const textoEnvio = (typeof secao !== 'undefined' && secao) ? SECOES[secao] : CARTAO_TEXTO;
     const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
       integration_id: integration.id,
       numero_destino: contact.telefone,
-      mensagem: CARTAO_TEXTO
+      mensagem: textoEnvio
     });
     if (!resp?.data?.success) {
       return Response.json({ success: false, error: resp?.data?.error || 'erro_envio' });
@@ -141,7 +171,7 @@ Deno.serve(async (req) => {
         sender_type: 'user',
         recipient_id: contact.id,
         recipient_type: 'contact',
-        content: CARTAO_TEXTO,
+        content: textoEnvio,
         channel: 'whatsapp',
         status: 'enviada',
         whatsapp_message_id: resp.data.message_id,
@@ -155,8 +185,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Marcar envio do dia no contato ──
-    await base44.asServiceRole.entities.Contact.update(contact.id, {
+    // ── Marcar envio do dia no contato (apenas cartão completo) ──
+    if (typeof secao === 'undefined' || !secao) await base44.asServiceRole.entities.Contact.update(contact.id, {
       campos_personalizados: {
         ...(contact.campos_personalizados || {}),
         cartao_acesso_enviado_em: hojeStr()
