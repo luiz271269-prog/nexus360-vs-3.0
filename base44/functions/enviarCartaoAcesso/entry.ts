@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
     return Response.json({ success: true, message_id: resp.data.message_id, trigger });
 
   } catch (error) {
-    console.error('[enviarCartaoAcesso] ❌', error);
+    console.error('[enviarCartaoAcesso] ❌', error.message, '| detalhe:', JSON.stringify(error.response?.data || null), '| url:', error.config?.url);
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 });
