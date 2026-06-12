@@ -107,6 +107,23 @@ export default function MessageInput({
   // Detectar se é mobile
   const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
+  // 🔐 Instâncias disponíveis conforme o cadastro/configurações do usuário
+  // - admin vê todas
+  // - blocked_integrations (permissoes_nexus) remove a instância
+  // - whatsapp_permissions: can_view=false ou can_send=false remove do "Enviar por"
+  // - sem entrada de permissão = liberado (padrão)
+  const integracoesPermitidas = React.useMemo(() => {
+    if (!usuario || usuario.role === 'admin') return integracoes;
+    const blocked = usuario.permissoes_nexus?.blocked_integrations || [];
+    const perms = usuario.whatsapp_permissions || [];
+    return integracoes.filter(int => {
+      if (blocked.includes(int.id)) return false;
+      const p = perms.find(pp => pp.integration_id === int.id);
+      if (p && (p.can_view === false || p.can_send === false)) return false;
+      return true;
+    });
+  }, [integracoes, usuario]);
+
   const handleImageDetected = useCallback((file) => {
     setPastedImage(file);
     const previewUrl = URL.createObjectURL(file);
@@ -431,7 +448,7 @@ export default function MessageInput({
         </div>
       )}
 
-      {integracoes.length > 1 && !modoSelecaoMultipla && thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group' && (
+      {integracoesPermitidas.length > 1 && !modoSelecaoMultipla && thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group' && (
         <div className="mb-1 flex items-center gap-1 flex-wrap">
           <label className="text-gray-900 text-xs font-medium whitespace-nowrap">Enviar por:</label>
           <select
@@ -439,7 +456,7 @@ export default function MessageInput({
             onChange={(e) => onCanalChange(e.target.value)}
             className="bg-[#778ca6] text-slate-50 px-1.5 py-0.5 text-xs rounded border border-slate-300 min-w-0 flex-1 truncate"
           >
-            {integracoes.map((int) => {
+            {integracoesPermitidas.map((int) => {
               const channelLogos = { z_api: '🟢', w_api: '🟢', instagram_api: '📸', facebook_graph_api: '📘', goto_phone: '📞' };
               const emoji = channelLogos[int.api_provider] || '📱';
               return (
@@ -452,15 +469,15 @@ export default function MessageInput({
         </div>
       )}
 
-      {integracoes.length > 0 && modoSelecaoMultipla && contatosSelecionados.length > 0 && (
+      {integracoesPermitidas.length > 0 && modoSelecaoMultipla && contatosSelecionados.length > 0 && (
         <div className="mb-1 flex items-center gap-1 flex-wrap">
           <label className="text-gray-900 text-xs font-medium whitespace-nowrap">Enviar por:</label>
           <select
-            value={canalSelecionado || integracoes.find(i => i.status === 'conectado')?.id || ''}
+            value={canalSelecionado || integracoesPermitidas.find(i => i.status === 'conectado')?.id || ''}
             onChange={(e) => onCanalChange(e.target.value)}
             className="bg-[#778ca6] text-slate-50 px-1.5 py-0.5 text-xs rounded border border-slate-300 min-w-0 flex-1 truncate"
           >
-            {integracoes.filter(i => i.status === 'conectado').map((int) => {
+            {integracoesPermitidas.filter(i => i.status === 'conectado').map((int) => {
               const channelLogos = { z_api: '🟢', w_api: '🟢', instagram_api: '📸', facebook_graph_api: '📘', goto_phone: '📞' };
               const emoji = channelLogos[int.api_provider] || '📱';
               return (
