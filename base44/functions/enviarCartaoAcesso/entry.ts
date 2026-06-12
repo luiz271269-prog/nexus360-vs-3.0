@@ -9,38 +9,26 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 //     (máx 1x por dia por contato, com guards de bloqueio/opt-out)
 // ============================================================================
 
-const CARTAO_TEXTO = `━━━━━━━━━━━━━━━━━━━━━━━━
-⚡ *NEURALTEC TECNOLOGIA*
-_Cartão de Acesso Rápido_
-━━━━━━━━━━━━━━━━━━━━━━━━
+const CARTAO_TEXTO = `⚡ *NEURALTEC TECNOLOGIA* ⚡
 
-Fale direto com o setor certo, sem espera:
+      💬          🛒          💰
+  _Vendas_   _Compras_  _Financeiro_
 
-💬 *Vendas e Orçamentos*
-wa.me/554830452076
+      🛠️          📦          ⚡
+ _Suporte_  _Catálogo_     _Pix_
 
-🛒 *Compras / Fornecedor*
-wa.me/554830452078
+━━━━━━━━━━━━━━━━━
+👇 _Toque no link do acesso:_
 
-💰 *Financeiro / 2ª via de boleto*
-wa.me/554830452079
+💬 wa.me/554830452076
+🛒 wa.me/554830452078
+💰 wa.me/554830452079
+🛠️ wa.me/554830452076
+📦 neuraltec360.com.br
+📸 instagram.com/neuraltec.tecnologia
+⚡ Pix (CNPJ): *62.982.374/0001-07*
 
-🛠️ *Suporte / Assistência Técnica*
-wa.me/554830452076
-
-📦 *Catálogo de Produtos*
-www.neuraltec360.com.br
-
-⚡ *Pix (CNPJ):* 62.982.374/0001-07
-
-📸 Instagram: instagram.com/neuraltec.tecnologia
-
-_Salve esta mensagem para acessar quando precisar!_ ✨
-
-➡️ *Responda com o número para atalho rápido:*
-*1* — 💰 Financeiro
-*2* — 📦 Catálogo
-*3* — 🛠️ Suporte`;
+_Salve para acessar quando precisar!_ ✨`;
 
 // Seções avulsas para atalhos rápidos (barra abaixo da mensagem)
 const SECOES = {
@@ -196,15 +184,7 @@ Deno.serve(async (req) => {
       numero_destino: contact.telefone,
       mensagem: textoEnvio
     };
-    // Cartão completo vai com BOTÕES DE ACESSO DIRETO abaixo da mensagem
-    // URL = abre direto ao tocar | REPLY = automação responde com a seção
-    if (typeof secao === 'undefined' || !secao) {
-      payloadEnvio.interactive_buttons = [
-        { id: 'cartao_financeiro', text: '💰 Financeiro', url: 'https://wa.me/554830452079' },
-        { id: 'cartao_suporte', text: '🛠️ Suporte', url: 'https://wa.me/554830452076' },
-        { id: 'cartao_catalogo', text: '📦 Catálogo', url: 'https://www.neuraltec360.com.br' }
-      ];
-    }
+    // Cartão completo: painel de emojis/ícones com links clicáveis (sem botões)
     const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', payloadEnvio);
     if (!resp?.data?.success) {
       return Response.json({ success: false, error: resp?.data?.error || 'erro_envio' });
