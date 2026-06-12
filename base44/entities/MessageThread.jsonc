@@ -190,6 +190,26 @@
       "type": "string",
       "description": "ID da GoToIntegration usada"
     },
+    "email_account_id": {
+      "type": "string",
+      "description": "ID da EmailAccount usada para receber/enviar nesta thread"
+    },
+    "origin_email_account_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "IDs das EmailAccount que j\u00e1 participaram desta thread"
+    },
+    "email_thread_key": {
+      "type": "string",
+      "description": "Chave can\u00f4nica de agrupamento de conversa de e-mail"
+    },
+    "last_email_message_id": {
+      "type": "string",
+      "description": "\u00daltimo Message-ID de e-mail associado \u00e0 thread"
+    },
     "categorias": {
       "type": "array",
       "items": {

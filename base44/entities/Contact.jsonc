@@ -18,6 +18,39 @@
       "type": "string",
       "format": "email"
     },
+    "emails": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "principal": {
+            "type": "boolean",
+            "default": false
+          },
+          "origem": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "email",
+              "gmail",
+              "zimbra",
+              "crm",
+              "importacao"
+            ],
+            "default": "manual"
+          },
+          "observacao": {
+            "type": "string"
+          }
+        }
+      },
+      "default": [],
+      "description": "Lista de e-mails conhecidos do mesmo contato para concilia\u00e7\u00e3o e anti-duplicidade. O campo email continua sendo o principal."
+    },
     "empresa": {
       "type": "string"
     },
@@ -46,10 +79,11 @@
         "eventual",
         "ex_cliente",
         "fornecedor",
-        "parceiro"
+        "parceiro",
+        "email"
       ],
       "default": "novo",
-      "description": "Classifica\u00e7\u00e3o do contato: novo=sem defini\u00e7\u00e3o, lead=prospec\u00e7\u00e3o ativa, cliente=recorrente, eventual=compra espor\u00e1dica, ex_cliente=inativo/reativa\u00e7\u00e3o, fornecedor, parceiro"
+      "description": "Classifica\u00e7\u00e3o do contato: novo=sem defini\u00e7\u00e3o, lead=prospec\u00e7\u00e3o ativa, cliente=recorrente, eventual=compra espor\u00e1dica, ex_cliente=inativo/reativa\u00e7\u00e3o, fornecedor, parceiro, email=criado automaticamente por e-mail sem concilia\u00e7\u00e3o CRM"
     },
     "cliente_id": {
       "type": "string",

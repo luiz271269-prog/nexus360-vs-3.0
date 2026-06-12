@@ -1,0 +1,234 @@
+{
+  "name": "EmailAccount",
+  "type": "object",
+  "properties": {
+    "nome_conta": {
+      "type": "string",
+      "description": "Nome amigável da caixa de e-mail"
+    },
+    "email_address": {
+      "type": "string",
+      "description": "Endereço da caixa de e-mail"
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "zimbra",
+        "imap",
+        "gmail",
+        "outlook"
+      ],
+      "default": "zimbra",
+      "description": "Provedor da caixa"
+    },
+    "auth_type": {
+      "type": "string",
+      "enum": [
+        "imap_secret",
+        "gmail_oauth",
+        "outlook_oauth",
+        "relay"
+      ],
+      "default": "imap_secret",
+      "description": "Modelo de autenticação/conexão da caixa"
+    },
+    "owner_user_id": {
+      "type": "string",
+      "description": "ID do atendente responsável/dono operacional da caixa"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a caixa está ativa para sincronização"
+    },
+    "sync_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o importador pode buscar novos e-mails desta caixa"
+    },
+    "can_receive": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a caixa pode receber/importar e-mails"
+    },
+    "can_send": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a caixa pode enviar respostas pela Central"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "conectado",
+        "erro",
+        "inativo",
+        "credencial_pendente"
+      ],
+      "default": "pendente",
+      "description": "Status operacional da conta"
+    },
+    "imap_host": {
+      "type": "string",
+      "description": "Host ou IP IMAP para Zimbra/IMAP"
+    },
+    "imap_port": {
+      "type": "number",
+      "default": 993,
+      "description": "Porta IMAP"
+    },
+    "imap_security": {
+      "type": "string",
+      "enum": [
+        "tls",
+        "starttls",
+        "none"
+      ],
+      "default": "tls",
+      "description": "Modo de segurança IMAP"
+    },
+    "imap_tls_hostname": {
+      "type": "string",
+      "description": "Hostname usado para SNI/validação TLS quando imap_host for IP"
+    },
+    "smtp_host": {
+      "type": "string",
+      "description": "Host SMTP para envio"
+    },
+    "smtp_port": {
+      "type": "number",
+      "description": "Porta SMTP"
+    },
+    "smtp_security": {
+      "type": "string",
+      "enum": [
+        "tls",
+        "starttls",
+        "none"
+      ],
+      "default": "tls",
+      "description": "Modo de segurança SMTP"
+    },
+    "smtp_tls_hostname": {
+      "type": "string",
+      "description": "Hostname usado para SNI/validação TLS no SMTP quando smtp_host for IP"
+    },
+    "smtp_from_name": {
+      "type": "string",
+      "description": "Nome de remetente usado ao responder pela Central"
+    },
+    "smtp_ca_cert_secret_name": {
+      "type": "string",
+      "description": "Secret com certificado público/CA PEM específico para SMTP, quando diferente do IMAP"
+    },
+    "password_secret_name": {
+      "type": "string",
+      "description": "Nome do secret que guarda a senha/app password desta caixa. Nunca gravar senha em entidade."
+    },
+    "ca_cert_secret_name": {
+      "type": "string",
+      "description": "Nome do secret com certificado público/CA PEM do servidor, quando necessário"
+    },
+    "oauth_connector_id": {
+      "type": "string",
+      "description": "ID do conector OAuth para Gmail/Outlook"
+    },
+    "oauth_connection_id": {
+      "type": "string",
+      "description": "Identificador da conexão OAuth vinculada, quando disponível"
+    },
+    "last_uid_seen": {
+      "type": "number",
+      "description": "Último UID IMAP processado"
+    },
+    "uidvalidity": {
+      "type": "string",
+      "description": "UIDVALIDITY da pasta IMAP monitorada"
+    },
+    "last_history_id": {
+      "type": "string",
+      "description": "History ID para provedores OAuth como Gmail"
+    },
+    "last_sync_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Última sincronização executada"
+    },
+    "last_error": {
+      "type": "string",
+      "description": "Último erro de sincronização/conexão"
+    },
+    "last_error_at": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando ocorreu o último erro"
+    },
+    "setores_atendidos": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "vendas",
+          "assistencia",
+          "financeiro",
+          "fornecedor",
+          "geral"
+        ]
+      },
+      "default": [
+        "geral"
+      ],
+      "description": "Setores atendidos pela caixa"
+    },
+    "setor_principal": {
+      "type": "string",
+      "enum": [
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "geral"
+      ],
+      "default": "geral",
+      "description": "Setor principal da caixa"
+    },
+    "estatisticas": {
+      "type": "object",
+      "default": {},
+      "description": "Contadores operacionais da caixa"
+    }
+  },
+  "required": [
+    "email_address",
+    "provider"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.owner_user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

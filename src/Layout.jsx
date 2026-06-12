@@ -40,6 +40,7 @@ import UserAuthWidget from "@/components/global/UserAuthWidget";
 import { calcularLembretesGlobal } from "@/components/global/MotorLembretesGlobal";
 import NovasMensagensAlert from "@/components/global/NovasMensagensAlert";
 import IncomingCallAlert from "@/components/comunicacao/IncomingCallAlert";
+import WakeUpManager from "@/components/global/WakeUpManager";
 
 function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount }) {
   const isActive = window.location.pathname === new URL(href, window.location.origin).pathname;
@@ -646,6 +647,9 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Alerta flutuante de novas mensagens (só aparece fora da Central de Comunicação) */}
       {globalUsuario && <NovasMensagensAlert usuario={globalUsuario} currentPageName={currentPageName} />}
+
+      {/* Registro de Wake-Up Push para notificações com app fechado */}
+      {globalUsuario && <WakeUpManager usuario={globalUsuario} />}
 
       {/* Alertas de chamada WebRTC entrante (global para todos os atendentes) */}
       {globalUsuario && <IncomingCallAlert usuario={globalUsuario} />}

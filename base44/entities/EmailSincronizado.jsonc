@@ -1,0 +1,164 @@
+{
+  "name": "EmailSincronizado",
+  "type": "object",
+  "properties": {
+    "email_account_id": {
+      "type": "string",
+      "description": "ID da EmailAccount de origem"
+    },
+    "email_address": {
+      "type": "string",
+      "description": "Endereço da caixa que recebeu/enviou"
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "zimbra",
+        "imap",
+        "gmail",
+        "outlook"
+      ],
+      "description": "Provedor de origem"
+    },
+    "owner_user_id": {
+      "type": "string",
+      "description": "Atendente dono da caixa no momento da sincronização"
+    },
+    "direction": {
+      "type": "string",
+      "enum": [
+        "inbound",
+        "outbound"
+      ],
+      "default": "inbound"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "processado",
+        "erro",
+        "ignorado"
+      ],
+      "default": "pendente",
+      "description": "Status da ponte para a Central"
+    },
+    "dedup_key": {
+      "type": "string",
+      "description": "Chave lógica única para idempotência"
+    },
+    "provider_message_id": {
+      "type": "string",
+      "description": "ID bruto do provedor"
+    },
+    "email_message_id": {
+      "type": "string",
+      "description": "Message-ID ou chave equivalente do e-mail"
+    },
+    "imap_uid": {
+      "type": "number",
+      "description": "UID IMAP"
+    },
+    "uidvalidity": {
+      "type": "string",
+      "description": "UIDVALIDITY IMAP"
+    },
+    "gmail_thread_id": {
+      "type": "string",
+      "description": "Thread ID do Gmail, quando aplicável"
+    },
+    "from_email": {
+      "type": "string"
+    },
+    "from_name": {
+      "type": "string"
+    },
+    "to": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "cc": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "bcc": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "subject": {
+      "type": "string"
+    },
+    "body_text": {
+      "type": "string"
+    },
+    "body_html": {
+      "type": "string"
+    },
+    "received_at": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "central_thread_id": {
+      "type": "string",
+      "description": "MessageThread criada/reutilizada"
+    },
+    "central_message_id": {
+      "type": "string",
+      "description": "Message criada na Central"
+    },
+    "error_message": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object",
+      "default": {}
+    }
+  },
+  "required": [
+    "email_account_id",
+    "email_message_id",
+    "direction"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.owner_user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

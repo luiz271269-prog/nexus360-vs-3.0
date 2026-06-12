@@ -82,7 +82,10 @@
         "internal_system",
         "instagram_api",
         "facebook_graph_api",
-        "goto_phone"
+        "goto_phone",
+        "email",
+        "email_gmail",
+        "email_imap"
       ],
       "default": "whatsapp",
       "description": "Provedor que originou a mensagem"
@@ -124,6 +127,36 @@
     "goto_message_id": {
       "type": "string",
       "description": "ID \u00fanico da mensagem/SMS no GoTo"
+    },
+    "email_account_id": {
+      "type": "string",
+      "description": "ID da EmailAccount de origem/destino da mensagem de e-mail"
+    },
+    "email_message_id": {
+      "type": "string",
+      "description": "Message-ID/chave \u00fanica do e-mail para deduplica\u00e7\u00e3o"
+    },
+    "email_provider": {
+      "type": "string",
+      "enum": [
+        "zimbra",
+        "imap",
+        "gmail",
+        "outlook"
+      ],
+      "description": "Provider de e-mail que originou a mensagem"
+    },
+    "email_uid": {
+      "type": "number",
+      "description": "UID IMAP da mensagem, quando aplic\u00e1vel"
+    },
+    "email_uidvalidity": {
+      "type": "string",
+      "description": "UIDVALIDITY da pasta IMAP, quando aplic\u00e1vel"
+    },
+    "email_thread_key": {
+      "type": "string",
+      "description": "Chave de agrupamento de thread de e-mail"
     },
     "sent_at": {
       "type": "string",

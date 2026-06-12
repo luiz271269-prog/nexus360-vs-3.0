@@ -1328,6 +1328,80 @@ export default function Comunicacao() {
 
     const { texto, integrationId, replyToMessage, mediaUrl, mediaType, mediaCaption, isAudio, contatoCompleto } = dadosEnvio;
 
+    // ✉️ CANAL E-MAIL: responder pela caixa vinculada sem mexer no fluxo WhatsApp abaixo.
+    if (threadAtiva.channel === 'email') {
+      const tempIdEmail = `temp-email-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      try {
+        if (!threadAtiva.email_account_id) {
+          toast.error('❌ Conversa sem caixa de e-mail vinculada');
+          return;
+        }
+
+        const msgsCache = queryClient.getQueryData(['mensagens', threadAtiva.id]) || [];
+        const ultimoInbound = [...msgsCache].reverse().find((m) =>
+          m.sender_type === 'contact' && (m.metadata?.email_from || m.email_from || m.from_email)
+        );
+        const contatoAtual = contatos.find((c) => c.id === threadAtiva.contact_id) || contatoPreCarregado;
+        const destino = ultimoInbound?.metadata?.email_from || ultimoInbound?.email_from || ultimoInbound?.from_email || contatoAtual?.email;
+
+        if (!destino) {
+          toast.error('❌ Sem e-mail de destino');
+          return;
+        }
+
+        const assuntoBase = ultimoInbound?.metadata?.email_subject || threadAtiva.last_message_content || '(sem assunto)';
+        const assunto = /^re:/i.test(assuntoBase) ? assuntoBase : `Re: ${assuntoBase}`;
+        const ultimaComId = [...msgsCache].reverse().find((m) => m.email_message_id || m.metadata?.email_rfc_message_id);
+        const referenciaEmail = ultimaComId?.metadata?.email_rfc_message_id || ultimaComId?.email_message_id;
+
+        const msgTempEmail = {
+          id: tempIdEmail,
+          thread_id: threadAtiva.id,
+          sender_id: usuario.id,
+          sender_type: 'user',
+          recipient_id: threadAtiva.contact_id,
+          recipient_type: 'contact',
+          content: texto || '',
+          channel: 'email',
+          provider: 'email',
+          status: 'enviando',
+          sent_at: new Date().toISOString(),
+          email_account_id: threadAtiva.email_account_id,
+          metadata: { optimistic: true, email_to: destino, email_subject: assunto }
+        };
+
+        queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => [...antigas, msgTempEmail]);
+
+        const envioPromise = base44.functions.invoke('enviarEmail', {
+          thread_id: threadAtiva.id,
+          email_account_id: threadAtiva.email_account_id,
+          to: destino,
+          subject: assunto,
+          body: texto,
+          from_name: usuario.full_name || usuario.nome || usuario.email,
+          in_reply_to: referenciaEmail || undefined,
+          references: referenciaEmail || undefined
+        });
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Tempo limite ao enviar e-mail. Verifique SMTP/Gmail e tente novamente.')), 25000)
+        );
+        const resp = await Promise.race([envioPromise, timeoutPromise]);
+
+        if (resp?.data?.ok) {
+          queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => antigas.filter((m) => m.id !== tempIdEmail));
+          queryClient.invalidateQueries({ queryKey: ['mensagens', threadAtiva.id] });
+          queryClient.invalidateQueries({ queryKey: ['threads-externas'] });
+          toast.success('✅ E-mail enviado!');
+        } else {
+          throw new Error(resp?.data?.error || 'Falha ao enviar e-mail');
+        }
+      } catch (error) {
+        queryClient.setQueryData(['mensagens', threadAtiva.id], (antigas = []) => antigas.filter((m) => m.id !== tempIdEmail));
+        toast.error(`❌ Erro ao enviar e-mail: ${error.message}`);
+      }
+      return;
+    }
+
     // ✅ CIRÚRGICA P1.5: Validar can_send ANTES de enviar
     if (usuario.role !== 'admin') {
       const whatsappPerms = usuario.whatsapp_permissions || [];
