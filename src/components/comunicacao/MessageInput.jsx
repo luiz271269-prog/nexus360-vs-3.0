@@ -51,6 +51,7 @@ import { useClipboardPaste } from './useClipboardPaste';
 import SeletorPromocoesAtivas from '../automacao/SeletorPromocoesAtivas';
 import AIResponseAssistant from './AIResponseAssistant';
 import PerguntarSobreContato from './PerguntarSobreContato';
+import BotoesAberturaConversa from './BotoesAberturaConversa';
 
 export default function MessageInput({
   onSendMessage,
@@ -477,6 +478,20 @@ export default function MessageInput({
       )}
 
 
+
+      {/* Faixa de saudações rápidas — preenche o campo sem enviar */}
+      {podeEnviarMensagens && !modoSelecao && !gravandoAudio && thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group' && (
+        <BotoesAberturaConversa
+          disabled={enviando || carregandoContato || uploadingPastedFile}
+          onSelecionar={(texto) => {
+            setMensagemTexto((prev) => {
+              const atual = (prev || '').trim();
+              return atual ? `${texto} ${atual}` : texto;
+            });
+            setTimeout(() => inputRef.current?.focus(), 0);
+          }}
+        />
+      )}
 
       <div className="flex items-end gap-1 md:gap-2 relative">
         {/* Botão Anexar com Menu */}
