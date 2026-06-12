@@ -88,15 +88,6 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Nenhum acesso rápido cadastrado' });
     }
 
-    // ── Mensagem compacta ──
-    const linhas = itens.map(i => {
-      const emoji = i.emoji || '🔗';
-      const valor = i.tipo === 'pix' ? `*${i.url}*` : i.url;
-      return `${emoji} ${i.titulo}: ${valor}`;
-    });
-    const textoEnvio = `⚡ *NEURALTEC — Acessos rápidos*\n\n${linhas.join('\n')}`;
-    const CARD_IMAGE_URL = 'https://media.base44.com/images/public/68a7d067890527304dbe8477/8931d4ec3_generated_image.png';
-
     // ── Selecionar integração ──
     etapa = 'selecionar_integracao';
     let integration = null;
@@ -115,11 +106,11 @@ Deno.serve(async (req) => {
     etapa = 'enviar_whatsapp';
     console.log('[enviarCartaoAcesso] enviando lista via', integration.nome_instancia);
 
-    // id rastreável (acesso_rapido:ID) — URL/Pix ficam no cadastro, nunca embutidos no botão
+    // id pix:<chave> | link:<url> — title com emoji+título, description com a chave/URL
     const opcoesLista = itens.map(i => ({
-      id: `acesso_rapido:${i.id}`,
+      id: i.tipo === 'pix' ? `pix:${i.url}` : `link:${i.url}`,
       title: `${i.emoji || '🔗'} ${i.titulo}`.slice(0, 24),
-      description: (i.descricao || i.categoria || 'Toque para acessar').slice(0, 72)
+      description: String(i.url || '').slice(0, 72)
     }));
 
     const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
