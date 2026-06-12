@@ -6,7 +6,7 @@ import {
   CheckCheck, Check, Forward, Trash2, Loader2, Copy,
   Zap, CheckCircle2, AlertCircle, ChevronRight, Clock, Search, ArrowRight,
   Reply, Target, Play, FileIcon, Download, ImageIcon, User, Tag, Mic, UserCheck,
-  Building, Users } from
+  Building, Users, CreditCard } from
 'lucide-react';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -363,6 +363,28 @@ export default React.memo(function MessageBubble({
   const [categorizando, setCategorizando] = React.useState(false);
   const [etiquetaFaseDialog, setEtiquetaFaseDialog] = React.useState(null); // { nome, label, emoji, kanban_fase_padrao }
   const [vincularPromocaoAberto, setVincularPromocaoAberto] = React.useState(false);
+  const [enviandoCartao, setEnviandoCartao] = React.useState(false);
+
+  const handleEnviarCartao = async () => {
+    if (enviandoCartao || !thread?.contact_id) return;
+    setEnviandoCartao(true);
+    try {
+      const res = await base44.functions.invoke('enviarCartaoAcesso', {
+        thread_id: thread.id,
+        contact_id: thread.contact_id,
+        integration_id: message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id || null
+      });
+      if (res?.data?.success) {
+        toast.success('📇 Cartão de Acesso enviado!');
+      } else {
+        throw new Error(res?.data?.error || 'Falha no envio');
+      }
+    } catch (error) {
+      toast.error(`Erro: ${error.message}`);
+    } finally {
+      setEnviandoCartao(false);
+    }
+  };
 
   const [contatosSelecionados, setContatosSelecionados] = React.useState([]);
   const [buscaContato, setBuscaContato] = React.useState("");
@@ -1159,6 +1181,24 @@ export default React.memo(function MessageBubble({
                       hasPermission={usuarioAtual?.role === 'admin' || ['gerente', 'coordenador'].includes(usuarioAtual?.attendant_role)}
                     />
                   )}
+
+                  {/* 📇 CARTÃO DE ACESSO - atalho rápido em mensagens recebidas */}
+                  {!isOwn && !isThreadInterna && thread?.contact_id &&
+                <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Enviar Cartão de Acesso"
+                      onClick={handleEnviarCartao}
+                      disabled={enviandoCartao}
+                      className={cn(
+                        "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                        "bg-white/90 hover:bg-teal-50 border border-slate-200"
+                      )}>
+                          {enviandoCartao
+                            ? <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin" />
+                            : <CreditCard className="w-3.5 h-3.5 text-teal-600" />}
+                        </Button>
+                }
 
                   {/* ✅ NEXUS360: Encaminhar validado */}
                   {podeEncaminhar &&
