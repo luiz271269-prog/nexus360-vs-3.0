@@ -785,9 +785,11 @@ export default React.memo(function MessageBubble({
 
       if (resultado.data.success) {
         if (resultado.data.deleted_from_whatsapp) {
-          toast.success("✅ Mensagem apagada para todos!");
+          toast.success("✅ Mensagem apagada para todos (também no WhatsApp do cliente)!");
+        } else if (resultado.data.whatsapp_error) {
+          toast.warning(`⚠️ Apagada no sistema, mas NÃO no WhatsApp do cliente: ${resultado.data.whatsapp_error}`, { duration: 8000 });
         } else {
-          toast.warning(`⚠️ Apagada no sistema, mas não no WhatsApp do cliente${resultado.data.whatsapp_error ? `: ${resultado.data.whatsapp_error}` : ''}`, { duration: 8000 });
+          toast.success("✅ Mensagem apagada!");
         }
       } else {
         throw new Error(resultado.data.error || "Erro ao apagar");

@@ -139,7 +139,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        deleted_from_whatsapp: delete_for_everyone
+        deleted_from_whatsapp: apagadaNoWhatsApp,
+        whatsapp_error: motivoFalhaWhatsApp
       }),
       { status: 200, headers }
     );
