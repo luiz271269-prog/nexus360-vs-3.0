@@ -71,11 +71,11 @@ Deno.serve(async (req) => {
 
     if (trigger === 'auto_primeira_msg') {
       const tipo = String(contact.tipo_contato || '').toLowerCase();
-      if (['fornecedor', 'parceiro'].includes(tipo)) {
+      if (tipo === 'fornecedor') {
         return Response.json({ success: true, skipped: 'tipo_contato_excluido' });
       }
-      if (contact.bloqueado || contact.whatsapp_optin === false) {
-        return Response.json({ success: true, skipped: 'bloqueado_ou_optout' });
+      if (contact.bloqueado) {
+        return Response.json({ success: true, skipped: 'bloqueado' });
       }
     }
 
