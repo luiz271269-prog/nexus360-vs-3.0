@@ -86,7 +86,15 @@ Deno.serve(async (req) => {
       }
       threadId = msg.thread_id;
       contactId = msg.sender_id;
-      trigger = 'auto_primeira_msg';
+      // Clique em botão do cartão → responder com a seção correspondente
+      const conteudoMsg = String(msg.content || '').trim().toLowerCase();
+      const MAPA_BOTOES = {
+        '💰 financeiro': 'financeiro', 'financeiro': 'financeiro',
+        '📦 catálogo': 'catalogo', 'catálogo': 'catalogo', 'catalogo': 'catalogo',
+        '🛠️ suporte': 'suporte', 'suporte': 'suporte'
+      };
+      var secao = MAPA_BOTOES[conteudoMsg] || null;
+      trigger = secao ? 'botao_cartao' : 'auto_primeira_msg';
     } else {
       const user = await base44.auth.me();
       if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -156,11 +164,20 @@ Deno.serve(async (req) => {
 
     // ── Enviar via gateway ──
     const textoEnvio = (typeof secao !== 'undefined' && secao) ? SECOES[secao] : CARTAO_TEXTO;
-    const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
+    const payloadEnvio = {
       integration_id: integration.id,
       numero_destino: contact.telefone,
       mensagem: textoEnvio
-    });
+    };
+    // Cartão completo vai com BOTÕES NATIVOS do WhatsApp abaixo da mensagem
+    if (typeof secao === 'undefined' || !secao) {
+      payloadEnvio.interactive_buttons = [
+        { id: 'cartao_financeiro', text: '💰 Financeiro' },
+        { id: 'cartao_catalogo', text: '📦 Catálogo' },
+        { id: 'cartao_suporte', text: '🛠️ Suporte' }
+      ];
+    }
+    const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', payloadEnvio);
     if (!resp?.data?.success) {
       return Response.json({ success: false, error: resp?.data?.error || 'erro_envio' });
     }
