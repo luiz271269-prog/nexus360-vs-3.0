@@ -4,7 +4,32 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="https://base44.com/logo_v2.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="google" content="notranslate" />
     <link rel="manifest" href="/manifest.json" />
+    <script>
+      // Guard contra crash "removeChild/insertBefore: node is not a child"
+      // causado por tradutores automáticos/extensões que alteram o DOM fora do React.
+      (function () {
+        if (typeof Node === 'function' && Node.prototype) {
+          var originalRemoveChild = Node.prototype.removeChild;
+          Node.prototype.removeChild = function (child) {
+            if (child.parentNode !== this) {
+              console.warn('[DOM-Guard] removeChild ignorado: nó não é filho deste elemento.');
+              return child;
+            }
+            return originalRemoveChild.apply(this, arguments);
+          };
+          var originalInsertBefore = Node.prototype.insertBefore;
+          Node.prototype.insertBefore = function (newNode, referenceNode) {
+            if (referenceNode && referenceNode.parentNode !== this) {
+              console.warn('[DOM-Guard] insertBefore ignorado: referência não é filha deste elemento.');
+              return this.appendChild(newNode);
+            }
+            return originalInsertBefore.apply(this, arguments);
+          };
+        }
+      })();
+    </script>
     <title>Base44 APP</title>
   </head>
   <body translate="no" class="notranslate">
