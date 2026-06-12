@@ -15,7 +15,8 @@ import {
   FileText,
   Video,
   Camera,
-  Database
+  Database,
+  CreditCard
 } from 'lucide-react';
 
 // Logos SVG inline para cada canal
@@ -538,6 +539,36 @@ export default function MessageInput({
                 </div>
                 <span className="text-sm font-medium text-slate-800">Promoções</span>
               </button>
+
+              {thread?.contact_id && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setShowAttachMenu(false);
+                    toast.info('📇 Enviando Cartão de Acesso...');
+                    try {
+                      const res = await base44.functions.invoke('enviarCartaoAcesso', {
+                        thread_id: thread.id,
+                        contact_id: thread.contact_id,
+                        integration_id: canalSelecionado || thread.whatsapp_integration_id || null
+                      });
+                      if (res?.data?.success) {
+                        toast.success('✅ Cartão de Acesso enviado!');
+                      } else {
+                        throw new Error(res?.data?.error || 'Falha no envio');
+                      }
+                    } catch (err) {
+                      toast.error('Erro: ' + err.message);
+                    }
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-teal-50 transition-colors text-left"
+                >
+                  <div className="w-11 h-11 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-full flex items-center justify-center shadow-sm">
+                    <CreditCard className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-slate-800">Cartão de Acesso</span>
+                </button>
+              )}
             </div>
           )}
 
