@@ -85,7 +85,10 @@ export default function Comunicacao() {
   // ✅ Carregar integrações PRIMEIRO (necessário para buildUserPermissions)
   const { data: todasIntegracoes = [] } = useQuery({
     queryKey: ['integracoes'],
-    queryFn: () => base44.entities.WhatsAppIntegration.list(),
+    queryFn: async () => {
+      const res = await base44.functions.invoke('listarIntegracoesVisiveis', {});
+      return res?.data?.integracoes || [];
+    },
     staleTime: 10 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
     retry: 2,
