@@ -1,110 +1,30 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 // ============================================================================
-// CARTÃO DE ACESSO NEURALTEC — motor único de envio
+// ACESSOS RÁPIDOS NEURALTEC — cartão compacto, itens lidos do cadastro
 // ============================================================================
-// Dois modos:
-//  1. manual           → atendente anexa o cartão no chat (sem cooldown)
-//  2. auto_primeira_msg → automação na primeira mensagem inbound do dia
-//     (máx 1x por dia por contato, com guards de bloqueio/opt-out)
+// Modos:
+//  1. manual → atendente envia pelo chat (sem trava)
+//  2. automacao → primeira mensagem inbound da conversa (1x por thread,
+//     marcado em thread.campos_personalizados.acessos_rapidos_enviado)
 // ============================================================================
-
-// URL pública do painel de acesso (cada ícone é clicável dentro da página)
-const PORTAL_URL = 'https://nexus360.base44.app/PortalCliente';
-
-const CARTAO_TEXTO = `⚡ *NEURALTEC TECNOLOGIA* ⚡
-
-🎯 *Painel de Atendimento Digital*
-
-Toque no link e acesse tudo com 1 clique:
-💬 Vendas • 🛒 Compras • 💰 Financeiro
-🛠️ Suporte • 📦 Catálogo • ⚡ Pix com QR Code
-
-👇 *ACESSE AQUI:*
-${PORTAL_URL}
-
-_Salve para acessar quando precisar!_ ✨`;
-
-// Seções avulsas para atalhos rápidos (barra abaixo da mensagem)
-const SECOES = {
-  financeiro: `💰 *NEURALTEC — FINANCEIRO*
-━━━━━━━━━━━━━━━━━━━━━━━━
-2ª via de boleto e pagamentos:
-wa.me/554830452079
-
-⚡ *Pix (CNPJ):* 62.982.374/0001-07
-
-_Qualquer dúvida, é só chamar!_ ✨`,
-  catalogo: `📦 *NEURALTEC — CATÁLOGO*
-━━━━━━━━━━━━━━━━━━━━━━━━
-Confira todos os nossos produtos:
-www.neuraltec360.com.br
-
-💬 Orçamentos: wa.me/554830452076
-
-_Salve este link para acessar quando precisar!_ ✨`,
-  vendas: `💬 *NEURALTEC — VENDAS*
-━━━━━━━━━━━━━━━━━━━━━━━━
-Orçamentos e vendas:
-wa.me/554830452076
-
-_Fale com nossa equipe!_ ✨`,
-  compras: `🛒 *NEURALTEC — COMPRAS / FORNECEDOR*
-━━━━━━━━━━━━━━━━━━━━━━━━
-Canal direto com nosso setor de compras:
-wa.me/554830452078
-
-_Aguardamos seu contato!_ ✨`,
-  pix: `⚡ *NEURALTEC — PIX*
-━━━━━━━━━━━━━━━━━━━━━━━━
-Chave Pix (CNPJ):
-*62.982.374/0001-07*
-
-_Envie o comprovante por aqui!_ ✨`,
-  suporte: `🛠️ *NEURALTEC — SUPORTE*
-━━━━━━━━━━━━━━━━━━━━━━━━
-Atendimento e assistência técnica:
-wa.me/554830452076
-
-🕐 Seg-Sex 08h-12h e 13h30-18h
-
-_Estamos à disposição!_ ✨`
-};
-
-function hojeStr() {
-  return new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-}
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
 
-    // ── Detectar modo: automação (payload de entidade) ou manual ──
     const isAutomacao = !!body?.event;
     let threadId, contactId, integrationId, trigger;
 
     if (isAutomacao) {
       const msg = body.data;
-      // Guards do gatilho: só inbound de contato via WhatsApp
       if (!msg || msg.sender_type !== 'contact' || msg.channel !== 'whatsapp') {
         return Response.json({ success: true, skipped: 'nao_inbound_whatsapp' });
       }
       threadId = msg.thread_id;
       contactId = msg.sender_id;
-      // Clique em botão do cartão → responder com a seção correspondente
-      const conteudoMsg = String(msg.content || '').trim().toLowerCase();
-      const MAPA_BOTOES = {
-        '💰 financeiro': 'financeiro', 'financeiro': 'financeiro',
-        '📦 catálogo': 'catalogo', 'catálogo': 'catalogo', 'catalogo': 'catalogo',
-        '🛠️ suporte': 'suporte', 'suporte': 'suporte',
-        '💬 vendas': 'vendas', 'vendas': 'vendas',
-        '🛒 compras / fornecedor': 'compras', 'compras': 'compras', 'fornecedor': 'compras',
-        '⚡ pix': 'pix', 'pix': 'pix',
-        '1': 'financeiro', '2': 'catalogo', '3': 'suporte'
-      };
-      var secao = MAPA_BOTOES[conteudoMsg] || null;
-      trigger = secao ? 'botao_cartao' : 'auto_primeira_msg';
+      trigger = 'auto_primeira_msg';
     } else {
       const user = await base44.auth.me();
       if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -112,7 +32,6 @@ Deno.serve(async (req) => {
       contactId = body.contact_id;
       integrationId = body.integration_id || null;
       trigger = 'manual';
-      var secao = body.secao && SECOES[body.secao] ? body.secao : null;
     }
 
     if (!threadId && !contactId) {
@@ -127,12 +46,26 @@ Deno.serve(async (req) => {
     if (!contactId && thread?.contact_id) contactId = thread.contact_id;
     if (!contactId) return Response.json({ success: false, error: 'Contato não identificado' });
 
+    if (!thread && contactId) {
+      const threads = await base44.asServiceRole.entities.MessageThread.filter({
+        contact_id: contactId, is_canonical: true
+      });
+      thread = threads[0] || null;
+    }
+
+    // ── Guards (modo automático) ──
+    if (trigger === 'auto_primeira_msg') {
+      // Só 1x por conversa
+      if (thread?.campos_personalizados?.acessos_rapidos_enviado) {
+        return Response.json({ success: true, skipped: 'ja_enviado_nesta_conversa' });
+      }
+    }
+
     const contact = await base44.asServiceRole.entities.Contact.get(contactId).catch(() => null);
     if (!contact?.telefone) {
       return Response.json({ success: false, skipped: 'sem_telefone' });
     }
 
-    // ── Guards (modo automático) ──
     if (trigger === 'auto_primeira_msg') {
       const tipo = String(contact.tipo_contato || '').toLowerCase();
       if (['fornecedor', 'parceiro'].includes(tipo)) {
@@ -141,23 +74,21 @@ Deno.serve(async (req) => {
       if (contact.bloqueado || contact.whatsapp_optin === false) {
         return Response.json({ success: true, skipped: 'bloqueado_ou_optout' });
       }
-      const tags = (contact.tags || []).map(t => String(t).toLowerCase());
-      if (tags.includes('opt_out')) {
-        return Response.json({ success: true, skipped: 'opt_out_tag' });
-      }
-      // Regra "1x por dia": já recebeu o cartão hoje?
-      const ultimoEnvio = contact.campos_personalizados?.cartao_acesso_enviado_em;
-      if (ultimoEnvio === hojeStr()) {
-        return Response.json({ success: true, skipped: 'ja_enviado_hoje' });
-      }
     }
 
-    if (!thread && contactId) {
-      const threads = await base44.asServiceRole.entities.MessageThread.filter({
-        contact_id: contactId, is_canonical: true
-      });
-      thread = threads[0] || null;
+    // ── Itens do cadastro ──
+    const itens = await base44.asServiceRole.entities.AcessoRapido.filter({ ativo: true }, 'ordem');
+    if (!itens.length) {
+      return Response.json({ success: false, error: 'Nenhum acesso rápido cadastrado' });
     }
+
+    // ── Mensagem compacta ──
+    const linhas = itens.map(i => {
+      const emoji = i.emoji || '🔗';
+      const valor = i.tipo === 'pix' ? `*${i.url}*` : i.url;
+      return `${emoji} ${i.titulo}: ${valor}`;
+    });
+    const textoEnvio = `⚡ *NEURALTEC — Acessos rápidos*\n\n${linhas.join('\n')}`;
 
     // ── Selecionar integração ──
     let integration = null;
@@ -173,14 +104,11 @@ Deno.serve(async (req) => {
     }
 
     // ── Enviar via gateway ──
-    const textoEnvio = (typeof secao !== 'undefined' && secao) ? SECOES[secao] : CARTAO_TEXTO;
-    const payloadEnvio = {
+    const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', {
       integration_id: integration.id,
       numero_destino: contact.telefone,
       mensagem: textoEnvio
-    };
-    // Cartão completo: painel de emojis/ícones com links clicáveis (sem botões)
-    const resp = await base44.asServiceRole.functions.invoke('enviarWhatsApp', payloadEnvio);
+    });
     if (!resp?.data?.success) {
       return Response.json({ success: false, error: resp?.data?.error || 'erro_envio' });
     }
@@ -202,25 +130,25 @@ Deno.serve(async (req) => {
         metadata: {
           whatsapp_integration_id: integration.id,
           is_system_message: trigger !== 'manual',
-          message_type: 'cartao_acesso',
+          message_type: 'acessos_rapidos',
           trigger
+        }
+      });
+
+      // ── Marcar envio na thread (não repetir na conversa) ──
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        campos_personalizados: {
+          ...(thread.campos_personalizados || {}),
+          acessos_rapidos_enviado: true
         }
       });
     }
 
-    // ── Marcar envio do dia no contato (apenas cartão completo) ──
-    if (typeof secao === 'undefined' || !secao) await base44.asServiceRole.entities.Contact.update(contact.id, {
-      campos_personalizados: {
-        ...(contact.campos_personalizados || {}),
-        cartao_acesso_enviado_em: hojeStr()
-      }
-    });
-
-    console.log(`[enviarCartaoAcesso] ✅ ${contact.nome} (trigger=${trigger})`);
+    console.log(`[enviarCartaoAcesso] ✅ ${contact.nome} (trigger=${trigger}, itens=${itens.length})`);
     return Response.json({ success: true, message_id: resp.data.message_id, trigger });
 
   } catch (error) {
-    console.error('[enviarCartaoAcesso] ❌', error.message, '| detalhe:', JSON.stringify(error.response?.data || null), '| url:', error.config?.url);
+    console.error('[enviarCartaoAcesso] ❌', error.message);
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 });

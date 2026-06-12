@@ -1,0 +1,46 @@
+{
+  "name": "AcessoRapido",
+  "type": "object",
+  "description": "Itens do cart\u00e3o de Acessos R\u00e1pidos NeuralTec (cadastr\u00e1vel). Usado pelo cart\u00e3o enviado ao cliente na primeira mensagem e pelo render compacto na Central.",
+  "properties": {
+    "titulo": {
+      "type": "string",
+      "description": "Nome exibido (ex: Site, Pix, Vendas)"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "link",
+        "pix",
+        "setor"
+      ],
+      "default": "link",
+      "description": "link = abre URL | pix = copia chave | setor = link wa.me do setor"
+    },
+    "icone": {
+      "type": "string",
+      "description": "Nome do \u00edcone lucide (Globe, Tag, Instagram, Linkedin, Zap, TrendingUp, Headphones, DollarSign, ShoppingCart)"
+    },
+    "emoji": {
+      "type": "string",
+      "description": "Emoji usado na mensagem de WhatsApp (ex: \ud83c\udf10, \u26a1, \ud83d\uded2)"
+    },
+    "url": {
+      "type": "string",
+      "description": "URL do link / wa.me \u2014 ou a chave Pix quando tipo=pix"
+    },
+    "ordem": {
+      "type": "number",
+      "default": 10,
+      "description": "Ordem de exibi\u00e7\u00e3o (menor primeiro)"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "titulo",
+    "url"
+  ]
+}

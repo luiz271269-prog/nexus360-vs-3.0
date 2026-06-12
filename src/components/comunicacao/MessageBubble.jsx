@@ -43,6 +43,7 @@ import VincularPromocaoDialog from './VincularPromocaoDialog';
 import ComentariosInternos from './ComentariosInternos';
 import { useMessageStatus } from './useMessageStatus';
 import { renderInternalDispatchLog } from './skills/internalDispatchLogSkill';
+import AcessosRapidosCard from './AcessosRapidosCard';
 import { mobileEstiloMensagem } from './skills/mobileSkill';
 
 // Player de áudio: nativo + botão de velocidade (v2) — memoizado para não remontar <audio> em re-render
@@ -976,6 +977,11 @@ export default React.memo(function MessageBubble({
   // 🎁 LOG INTERNO via skill (promoção/campanha/sequência)
   const _internalLog = renderInternalDispatchLog(message);
   if (_internalLog) return _internalLog;
+
+  // ⚡ ACESSOS RÁPIDOS — cartão compacto no lugar do texto
+  if (message?.metadata?.message_type === 'acessos_rapidos') {
+    return <AcessosRapidosCard message={message} />;
+  }
 
   // 🔔 MENSAGEM DE TRANSFERÊNCIA
   if (isTransferMessage) {
