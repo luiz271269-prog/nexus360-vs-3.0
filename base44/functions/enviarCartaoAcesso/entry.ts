@@ -29,6 +29,42 @@ async function enviarTextoWhatsApp(integ, telefone, mensagem) {
   return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp };
 }
 
+// ── Lista interativa nativa do W-API: o cliente vê só o TÍTULO de cada item
+// (sem URL visível) e toca para abrir/copiar. Só funciona no provedor w_api. ──
+async function enviarListaWapi(integ, telefone, titulo, descricao, itens) {
+  const tel = (telefone || '').replace(/\D/g, '');
+  const phone = tel.startsWith('55') ? tel : '55' + tel;
+  const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
+    + `/message/send-option-list?instanceId=${integ.instance_id_provider}`;
+
+  // Monta as seções da lista. Cada item vira uma opção com título limpo;
+  // a URL/chave fica na descrição curta (o cliente toca para abrir/copiar).
+  const rows = itens.map(i => ({
+    title: `${i.emoji || '🔗'} ${i.titulo}`.slice(0, 24),
+    description: i.tipo === 'pix' ? 'Toque para copiar a chave Pix' : 'Toque para abrir',
+    rowId: i.tipo === 'pix' ? `acesso_pix:${i.id}` : `acesso_link:${i.id}`
+  }));
+
+  const body = {
+    phone,
+    title: titulo,
+    description: descricao,
+    buttonText: 'Ver opções',
+    footer: 'NEURALTEC',
+    sections: [{ title: 'Acessos rápidos', rows }],
+    delayMessage: 1
+  };
+
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
+    body: JSON.stringify(body)
+  });
+  const resp = await r.json().catch(() => ({}));
+  const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
+  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp };
+}
+
 // ============================================================================
 // ACESSOS RÁPIDOS NEURALTEC — cartão compacto, itens lidos do cadastro
 // ============================================================================
@@ -161,7 +197,26 @@ Deno.serve(async (req) => {
     });
     const mensagemCartao = `*NEURALTEC — Acessos rápidos*\n_Toque em um link para abrir_\n\n${linhas.join('\n\n')}`;
 
-    const resp = await enviarTextoWhatsApp(integration, contact.telefone, mensagemCartao);
+    // W-API: tenta a lista interativa nativa (cliente vê só o título, sem URL).
+    // Se a lista falhar, cai no texto. Z-API segue direto no texto.
+    let resp;
+    let formato = 'texto';
+    if (integration.api_provider === 'w_api') {
+      const respLista = await enviarListaWapi(
+        integration,
+        contact.telefone,
+        'NEURALTEC — Acessos rápidos',
+        'Selecione uma opção abaixo',
+        itens
+      );
+      if (respLista.ok) {
+        resp = respLista;
+        formato = 'lista_interativa';
+      }
+    }
+    if (!resp) {
+      resp = await enviarTextoWhatsApp(integration, contact.telefone, mensagemCartao);
+    }
     if (!resp.ok) {
       return Response.json({ success: false, error: 'erro_envio', detalhe: resp.raw });
     }
@@ -183,7 +238,8 @@ Deno.serve(async (req) => {
         metadata: {
           whatsapp_integration_id: integration.id,
           is_system_message: trigger !== 'manual',
-          message_type: 'acessos_rapidos_texto',
+          message_type: formato === 'lista_interativa' ? 'acessos_rapidos_lista' : 'acessos_rapidos_texto',
+          formato,
           trigger
         }
       });
