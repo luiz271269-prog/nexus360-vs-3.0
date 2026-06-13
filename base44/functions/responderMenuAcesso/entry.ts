@@ -103,13 +103,17 @@ function agrupar(itens) {
   return g;
 }
 
-// ── Interpreta a escolha (número OU palavra) dado o nível atual ──
+// ── Interpreta a escolha (número, palavra OU id da lista W-API) dado o nível atual ──
+// A W-API pode devolver o rowId ('acesso_menu:setores'), o título ('🏢 Setores') ou o texto.
 function escolherCategoria(conteudo) {
-  const t = String(conteudo || '').trim().toLowerCase();
-  if (t === '1' || t.includes('setor')) return 'setores';
-  if (t === '2' || t.includes('midia') || t.includes('mídia')) return 'midias';
-  if (t === '3' || t.includes('promo')) return 'promocoes';
-  if (t === '4' || t.includes('pix')) return 'pix';
+  const t = String(conteudo || '')
+    .trim()
+    .toLowerCase()
+    .replace('acesso_menu:', ''); // normaliza id da lista interativa
+  if (t === '1' || t === 'setores' || t.includes('setor')) return 'setores';
+  if (t === '2' || t === 'midias' || t.includes('midia') || t.includes('mídia')) return 'midias';
+  if (t === '3' || t === 'promocoes' || t.includes('promo')) return 'promocoes';
+  if (t === '4' || t === 'pix' || t.includes('pix')) return 'pix';
   return null;
 }
 

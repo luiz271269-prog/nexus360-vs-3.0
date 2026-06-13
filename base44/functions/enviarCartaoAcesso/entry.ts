@@ -35,21 +35,21 @@ async function enviarListaCategoriasWapi(integ, telefone) {
   const tel = (telefone || '').replace(/\D/g, '');
   const phone = tel.startsWith('55') ? tel : '55' + tel;
   const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
-    + `/message/send-option-list?instanceId=${integ.instance_id_provider}`;
+    + `/message/send-list-message?instanceId=${integ.instance_id_provider}`;
 
   const rows = [
-    { title: '🏢 Setores',   description: 'Vendas, Assistência, Financeiro, Compras', rowId: 'acesso_menu:setores' },
-    { title: '📱 Mídias',    description: 'Site, Instagram, LinkedIn',                 rowId: 'acesso_menu:midias' },
-    { title: '🏷️ Promoções', description: 'Nossas promoções atuais',                   rowId: 'acesso_menu:promocoes' },
-    { title: '⚡ Pix',        description: 'Chave Pix para pagamento',                  rowId: 'acesso_menu:pix' }
+    { id: 'acesso_menu:setores',   title: '🏢 Setores',   description: 'Vendas, Assistência, Financeiro, Compras' },
+    { id: 'acesso_menu:midias',    title: '📱 Mídias',    description: 'Site, Instagram, LinkedIn' },
+    { id: 'acesso_menu:promocoes', title: '🏷️ Promoções', description: 'Nossas promoções atuais' },
+    { id: 'acesso_menu:pix',       title: '⚡ Pix',        description: 'Chave Pix para pagamento' }
   ];
 
+  // Body idêntico ao contrato validado em enviarWhatsApp (send-list-message)
   const body = {
     phone,
-    title: 'NEURALTEC — Acessos rápidos',
-    description: 'Como podemos te ajudar? Escolha uma opção.',
+    title: 'Menu',
     buttonText: 'Ver opções',
-    footer: 'NEURALTEC',
+    description: 'NEURALTEC — Acessos rápidos. Escolha uma opção.',
     sections: [{ title: 'Categorias', rows }],
     delayMessage: 1
   };
