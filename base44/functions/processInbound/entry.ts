@@ -621,6 +621,30 @@ Deno.serve(async (req) => {
     console.warn(`[${VERSION}] ⚠️ Erro ao re-buscar thread fresca (prosseguindo):`, e.message);
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // MENU DE ACESSOS RÁPIDOS — Níveis 2/3 (intercepta ANTES da URA).
+  // Se a thread tem um menu de acessos aberto e o cliente respondeu um
+  // número, responder o submenu/link e encerrar (não aciona pré-atendimento).
+  // ════════════════════════════════════════════════════════════════
+  if (message?.sender_type === 'contact' && thread?.campos_personalizados?.acessos_menu_nivel) {
+    const respNum = String(messageContent || '').trim();
+    if (/^[0-9]{1,2}$/.test(respNum)) {
+      try {
+        await base44.asServiceRole.functions.invoke('responderMenuAcesso', {
+          thread_id: thread.id,
+          contact_id: contact.id,
+          integration_id: integration?.id || thread.whatsapp_integration_id,
+          resposta: respNum
+        });
+        result.actions.push('acessos_menu_respondido');
+        return Response.json({ success: true, handled_by: 'responderMenuAcesso', pipeline: result.pipeline, actions: result.actions });
+      } catch (e) {
+        console.warn(`[${VERSION}] ⚠️ responderMenuAcesso falhou (prosseguindo):`, e.message);
+        result.actions.push('acessos_menu_falhou');
+      }
+    }
+  }
+
   // [PATCH B2] Dispatch UNIFICADO — toda mensagem inbound válida executa a skill.
   // A skill é o árbitro único: decide se responde / só notifica / aciona playbook etc.
   // Lock pre_atendimento_ativo continua sendo gravado pra proteger contra dupla execução.
