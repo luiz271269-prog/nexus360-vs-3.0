@@ -29,29 +29,28 @@ async function enviarTextoWhatsApp(integ, telefone, mensagem) {
   return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp };
 }
 
-// ── Lista interativa nativa do W-API: o cliente vê só o TÍTULO de cada item
-// (sem URL visível) e toca para abrir/copiar. Só funciona no provedor w_api. ──
-async function enviarListaWapi(integ, telefone, titulo, descricao, itens) {
+// ── Lista interativa nativa do W-API: o cliente vê só as 4 CATEGORIAS
+// (sem URL, sem lista gigante) e toca para abrir o submenu. Só funciona no w_api. ──
+async function enviarListaCategoriasWapi(integ, telefone) {
   const tel = (telefone || '').replace(/\D/g, '');
   const phone = tel.startsWith('55') ? tel : '55' + tel;
   const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
     + `/message/send-option-list?instanceId=${integ.instance_id_provider}`;
 
-  // Monta as seções da lista. Cada item vira uma opção com título limpo;
-  // a URL/chave fica na descrição curta (o cliente toca para abrir/copiar).
-  const rows = itens.map(i => ({
-    title: `${i.emoji || '🔗'} ${i.titulo}`.slice(0, 24),
-    description: i.tipo === 'pix' ? 'Toque para copiar a chave Pix' : 'Toque para abrir',
-    rowId: i.tipo === 'pix' ? `acesso_pix:${i.id}` : `acesso_link:${i.id}`
-  }));
+  const rows = [
+    { title: '🏢 Setores',   description: 'Vendas, Assistência, Financeiro, Compras', rowId: 'acesso_menu:setores' },
+    { title: '📱 Mídias',    description: 'Site, Instagram, LinkedIn',                 rowId: 'acesso_menu:midias' },
+    { title: '🏷️ Promoções', description: 'Nossas promoções atuais',                   rowId: 'acesso_menu:promocoes' },
+    { title: '⚡ Pix',        description: 'Chave Pix para pagamento',                  rowId: 'acesso_menu:pix' }
+  ];
 
   const body = {
     phone,
-    title: titulo,
-    description: descricao,
+    title: 'NEURALTEC — Acessos rápidos',
+    description: 'Como podemos te ajudar? Escolha uma opção.',
     buttonText: 'Ver opções',
     footer: 'NEURALTEC',
-    sections: [{ title: 'Acessos rápidos', rows }],
+    sections: [{ title: 'Categorias', rows }],
     delayMessage: 1
   };
 
@@ -65,13 +64,23 @@ async function enviarListaWapi(integ, telefone, titulo, descricao, itens) {
   return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp };
 }
 
+// ── Menu numérico curto (fallback universal Z-API e W-API) ──
+function montarMenuNumerico() {
+  return `⚡ *NEURALTEC — Acessos rápidos*\n\nEscolha uma opção digitando o número:\n\n1️⃣ Setores\n2️⃣ Mídias\n3️⃣ Promoções\n4️⃣ Pix`;
+}
+
 // ============================================================================
-// ACESSOS RÁPIDOS NEURALTEC — cartão compacto, itens lidos do cadastro
+// ACESSOS RÁPIDOS NEURALTEC — MENU EM 3 NÍVEIS
 // ============================================================================
+// Nível 1 (este arquivo): saudação → menu CURTO de 4 categorias.
+//   W-API: lista interativa nativa (4 categorias) → fallback menu numérico.
+//   Z-API: menu numérico direto.
+//   NÃO envia mais a lista gigante com todos os links abertos.
+// Nível 2 (responderMenuAcesso): cliente escolhe categoria → recebe submenu.
+//
 // Modos:
 //  1. manual → atendente envia pelo chat (sem trava)
-//  2. automacao → primeira mensagem inbound da conversa (1x por thread,
-//     marcado em thread.campos_personalizados.acessos_rapidos_enviado)
+//  2. automacao → primeira saudação inbound da conversa
 // ============================================================================
 
 Deno.serve(async (req) => {
@@ -120,13 +129,7 @@ Deno.serve(async (req) => {
       thread = threads[0] || null;
     }
 
-    // ── Guard (modo automático) ──
-    // Regra do cartão de visitas (simplificada):
-    //  - Disparar SOMENTE em mensagens inbound (recebidas do contato) — já
-    //    barrado no topo (sender_type !== 'contact' → skip).
-    //  - Disparar SEMPRE que o texto for uma saudação (oi, olá, bom dia,
-    //    boa tarde, boa noite, e aí, opa). SEM janela de horário/período e
-    //    SEM trava de conversa ativa: toda saudação recebe o cartão.
+    // ── Guard (modo automático): só dispara em SAUDAÇÃO ──
     if (trigger === 'auto_primeira_msg') {
       const texto = String(body?.data?.content || '').toLowerCase().trim();
       const ehSaudacao = /(^|\b)(oi+|ol[aá]+|opa|bom\s*dia|boa\s*tarde|boa\s*noite|e\s*a[ií]|eai)(\b|$|[\s!.,?])/.test(texto);
@@ -143,8 +146,6 @@ Deno.serve(async (req) => {
 
     if (trigger === 'auto_primeira_msg') {
       const tipo = String(contact.tipo_contato || '').toLowerCase();
-      // Envia o cartão para leads, clientes, parceiros e contatos novos/eventuais.
-      // Fornecedor segue excluído (não recebe cartão de visitas comercial).
       const tiposPermitidos = ['novo', 'lead', 'cliente', 'eventual', 'ex_cliente', 'parceiro'];
       if (tipo === 'fornecedor') {
         return Response.json({ success: true, skipped: 'tipo_contato_fornecedor' });
@@ -155,15 +156,6 @@ Deno.serve(async (req) => {
       if (contact.bloqueado) {
         return Response.json({ success: true, skipped: 'bloqueado' });
       }
-    }
-
-    // ── Itens do cadastro ──
-    etapa = 'carregar_itens';
-    console.log('[enviarCartaoAcesso] carregando itens AcessoRapido...');
-    const itens = await base44.asServiceRole.entities.AcessoRapido.filter({ ativo: true }, 'ordem');
-    console.log('[enviarCartaoAcesso] itens:', itens.length);
-    if (!itens.length) {
-      return Response.json({ success: false, error: 'Nenhum acesso rápido cadastrado' });
     }
 
     // ── Selecionar integração ──
@@ -180,49 +172,31 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Nenhuma integração WhatsApp conectada' });
     }
 
-    // ── Enviar cartão como TEXTO simples (links clicáveis) ──
-    // A lista interativa nativa via invoke('enviarWhatsApp') retorna 403 e NUNCA
-    // chega. O texto direto ao provedor é o único formato comprovadamente entregue.
-    etapa = 'enviar_whatsapp';
-    console.log('[enviarCartaoAcesso] enviando cartão (texto) via', integration.nome_instancia);
-
-    // Formato "botão" limpo: emoji + nome em negrito, link discreto na linha de baixo.
-    // Pix copia a chave; setores/links viram um toque ("👉 Toque para abrir").
-    const linhas = itens.map(i => {
-      const emoji = i.emoji || '🔗';
-      if (i.tipo === 'pix') {
-        return `${emoji} *${i.titulo}*\n     \`${i.url}\``;
-      }
-      return `${emoji} *${i.titulo}*\n     ↳ ${i.url}`;
-    });
-    const mensagemCartao = `*NEURALTEC — Acessos rápidos*\n_Toque em um link para abrir_\n\n${linhas.join('\n\n')}`;
-
-    // W-API: tenta a lista interativa nativa (cliente vê só o título, sem URL).
-    // Se a lista falhar, cai no texto. Z-API segue direto no texto.
+    // ── Enviar MENU CURTO (4 categorias) ──
+    // W-API: tenta lista interativa nativa → fallback menu numérico.
+    // Z-API: menu numérico direto.
+    etapa = 'enviar_menu';
+    const menuNumerico = montarMenuNumerico();
     let resp;
-    let formato = 'texto';
+    let formato = 'menu_numerico';
+
     if (integration.api_provider === 'w_api') {
-      const respLista = await enviarListaWapi(
-        integration,
-        contact.telefone,
-        'NEURALTEC — Acessos rápidos',
-        'Selecione uma opção abaixo',
-        itens
-      );
+      const respLista = await enviarListaCategoriasWapi(integration, contact.telefone);
       if (respLista.ok) {
         resp = respLista;
-        formato = 'lista_interativa';
+        formato = 'lista_categorias';
       }
     }
     if (!resp) {
-      resp = await enviarTextoWhatsApp(integration, contact.telefone, mensagemCartao);
+      resp = await enviarTextoWhatsApp(integration, contact.telefone, menuNumerico);
     }
     if (!resp.ok) {
       return Response.json({ success: false, error: 'erro_envio', detalhe: resp.raw });
     }
 
-    // ── Persistir Message na thread ──
+    // ── Persistir Message + marcar thread aguardando escolha ──
     const now = new Date().toISOString();
+    const expira = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min
     if (thread) {
       await base44.asServiceRole.entities.Message.create({
         thread_id: thread.id,
@@ -230,7 +204,7 @@ Deno.serve(async (req) => {
         sender_type: 'user',
         recipient_id: contact.id,
         recipient_type: 'contact',
-        content: mensagemCartao,
+        content: menuNumerico,
         channel: 'whatsapp',
         status: 'enviada',
         whatsapp_message_id: resp.msgId,
@@ -238,24 +212,25 @@ Deno.serve(async (req) => {
         metadata: {
           whatsapp_integration_id: integration.id,
           is_system_message: trigger !== 'manual',
-          message_type: formato === 'lista_interativa' ? 'acessos_rapidos_lista' : 'acessos_rapidos_texto',
+          message_type: 'acessos_menu_categorias',
           formato,
           trigger
         }
       });
 
-      // ── Marcar envio na thread (não repetir na conversa) ──
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         campos_personalizados: {
           ...(thread.campos_personalizados || {}),
+          acesso_menu_aguardando: true,
+          acesso_menu_aguardando_ate: expira,
           acessos_rapidos_enviado: true,
           acessos_rapidos_enviado_em: now
         }
       });
     }
 
-    console.log(`[enviarCartaoAcesso] ✅ ${contact.nome} (trigger=${trigger}, itens=${itens.length})`);
-    return Response.json({ success: true, message_id: resp.msgId, trigger });
+    console.log(`[enviarCartaoAcesso] ✅ menu (${formato}) → ${contact.nome} (trigger=${trigger})`);
+    return Response.json({ success: true, message_id: resp.msgId, formato, trigger });
 
   } catch (error) {
     console.error('[enviarCartaoAcesso] ❌ etapa=' + etapa, error.message);
