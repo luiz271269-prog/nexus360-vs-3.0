@@ -107,8 +107,14 @@ Deno.serve(async (req) => {
 
     if (trigger === 'auto_primeira_msg') {
       const tipo = String(contact.tipo_contato || '').toLowerCase();
+      // Envia o cartão para leads, clientes, parceiros e contatos novos/eventuais.
+      // Fornecedor segue excluído (não recebe cartão de visitas comercial).
+      const tiposPermitidos = ['novo', 'lead', 'cliente', 'eventual', 'ex_cliente', 'parceiro'];
       if (tipo === 'fornecedor') {
-        return Response.json({ success: true, skipped: 'tipo_contato_excluido' });
+        return Response.json({ success: true, skipped: 'tipo_contato_fornecedor' });
+      }
+      if (tipo && !tiposPermitidos.includes(tipo)) {
+        return Response.json({ success: true, skipped: 'tipo_contato_nao_permitido', tipo });
       }
       if (contact.bloqueado) {
         return Response.json({ success: true, skipped: 'bloqueado' });
