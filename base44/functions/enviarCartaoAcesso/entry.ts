@@ -66,7 +66,7 @@ async function enviarListaCategoriasWapi(integ, telefone) {
 
 // ── Menu numérico curto (fallback universal Z-API e W-API) ──
 function montarMenuNumerico() {
-  return `⚡ *NEURALTEC — Acessos rápidos*\n\nEscolha uma opção digitando o número:\n\n1️⃣ Setores\n2️⃣ Mídias\n3️⃣ Promoções\n4️⃣ Pix`;
+  return `⚡ *NEURALTEC — Acessos rápidos*\n\nComo podemos te ajudar?\n\n1️⃣ Setores\n2️⃣ Mídias\n3️⃣ Promoções\n4️⃣ Pix`;
 }
 
 // ============================================================================
