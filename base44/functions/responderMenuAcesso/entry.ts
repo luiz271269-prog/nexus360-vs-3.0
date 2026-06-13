@@ -260,12 +260,12 @@ Deno.serve(async (req) => {
       }
     });
 
+    // Campo único de estado: acesso_menu_nivel (+ timestamp para timeout de 30min)
     await base44.asServiceRole.entities.MessageThread.update(thread.id, {
       campos_personalizados: {
         ...cp,
-        acesso_menu_aguardando: true,
-        acesso_menu_aguardando_ate: expira,
-        acesso_menu_nivel: novoNivel || 'principal'
+        acesso_menu_nivel: novoNivel || 'principal',
+        acesso_menu_updated_at: now
       }
     });
 
