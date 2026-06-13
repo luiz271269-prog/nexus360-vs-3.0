@@ -196,7 +196,6 @@ Deno.serve(async (req) => {
 
     // ── Persistir Message + marcar thread aguardando escolha ──
     const now = new Date().toISOString();
-    const expira = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min
     if (thread) {
       await base44.asServiceRole.entities.Message.create({
         thread_id: thread.id,
@@ -218,11 +217,12 @@ Deno.serve(async (req) => {
         }
       });
 
+      // Estado do menu: nível atual + timestamp (timeout de 30min no gate do inbound)
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         campos_personalizados: {
           ...(thread.campos_personalizados || {}),
-          acesso_menu_aguardando: true,
-          acesso_menu_aguardando_ate: expira,
+          acesso_menu_nivel: 'principal',
+          acesso_menu_updated_at: now,
           acessos_rapidos_enviado: true,
           acessos_rapidos_enviado_em: now
         }

@@ -417,7 +417,21 @@ Deno.serve(async (req) => {
   // e o cliente respondeu um NÚMERO, roteia para responderMenuAcesso e
   // encerra — não deixa a escolha numérica cair na URA/skill.
   // ════════════════════════════════════════════════════════════════
-  if (message?.sender_type === 'contact' && thread?.campos_personalizados?.acessos_menu_nivel) {
+  if (message?.sender_type === 'contact' && thread?.campos_personalizados?.acesso_menu_nivel) {
+    const cpMenu = thread.campos_personalizados;
+    const menuIdadeMs = cpMenu.acesso_menu_updated_at
+      ? Date.now() - new Date(cpMenu.acesso_menu_updated_at).getTime()
+      : Infinity;
+    const menuExpirado = menuIdadeMs > 30 * 60 * 1000; // 30 min
+
+    if (menuExpirado) {
+      // Menu antigo → limpa e deixa a mensagem seguir para a URA normalmente
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        campos_personalizados: { ...cpMenu, acesso_menu_nivel: null, acesso_menu_aguardando: false }
+      }).catch(() => {});
+      thread = { ...thread, campos_personalizados: { ...cpMenu, acesso_menu_nivel: null, acesso_menu_aguardando: false } };
+      result.actions.push('acesso_menu_expirado_limpo');
+    } else {
     const respNum = String(messageContent || '').trim();
     if (/^[0-9]{1,2}$/.test(respNum)) {
       result.pipeline.push('acessos_menu_gate');
@@ -434,6 +448,7 @@ Deno.serve(async (req) => {
         result.actions.push('acessos_menu_falhou');
       }
       return Response.json({ success: true, handled: 'acessos_menu', pipeline: result.pipeline, actions: result.actions });
+    }
     }
   }
 

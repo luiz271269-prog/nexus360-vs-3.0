@@ -122,24 +122,25 @@ Deno.serve(async (req) => {
     const msg = isAutomacao ? body.data : body;
 
     if (!msg) return Response.json({ success: true, skipped: 'sem_payload' });
-    if (isAutomacao && (msg.sender_type !== 'contact' || msg.channel !== 'whatsapp')) {
-      return Response.json({ success: true, skipped: 'nao_inbound_whatsapp' });
-    }
-    const threadId = msg.thread_id;
+
+    // Aceita resposta vinda de: invoke (resposta), chamada direta (content) ou automação (data.content)
+    const respostaCliente = body?.resposta || body?.content || body?.data?.content || msg?.content || '';
+    const threadId = body?.thread_id || msg?.thread_id;
     if (!threadId) return Response.json({ success: true, skipped: 'sem_thread' });
 
-    // ── Carregar thread + validar estado aguardando ──
+    // ── Carregar thread + validar estado do menu ──
     etapa = 'carregar_thread';
     const thread = await base44.asServiceRole.entities.MessageThread.get(threadId).catch(() => null);
     if (!thread) return Response.json({ success: true, skipped: 'thread_nao_encontrada' });
 
     const cp = thread.campos_personalizados || {};
-    if (!cp.acesso_menu_aguardando) {
-      return Response.json({ success: true, skipped: 'menu_nao_aguardando' });
+    if (!cp.acesso_menu_nivel) {
+      return Response.json({ success: true, skipped: 'menu_nao_aberto' });
     }
-    if (cp.acesso_menu_aguardando_ate && new Date(cp.acesso_menu_aguardando_ate) < new Date()) {
+    // Timeout de 30min: menu antigo é limpo e ignorado
+    if (cp.acesso_menu_updated_at && (Date.now() - new Date(cp.acesso_menu_updated_at).getTime()) > 30 * 60 * 1000) {
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        campos_personalizados: { ...cp, acesso_menu_aguardando: false }
+        campos_personalizados: { ...cp, acesso_menu_nivel: null }
       });
       return Response.json({ success: true, skipped: 'menu_expirado' });
     }
@@ -164,8 +165,7 @@ Deno.serve(async (req) => {
     if (!integration) return Response.json({ success: false, error: 'sem_integracao_conectada' });
 
     const nivel = cp.acesso_menu_nivel || 'principal';
-    const escolha = String(msg.content || '').trim();
-    const expira = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const escolha = String(respostaCliente || '').trim();
     let textoResposta = null;
     let novoNivel = null; // se setado, mantém menu aguardando neste nível
     let enviarQrPix = false;
@@ -211,7 +211,8 @@ Deno.serve(async (req) => {
       } else if (categoria === 'pix') {
         const pix = grupos.pix[0];
         if (!pix) return Response.json({ success: true, skipped: 'sem_pix' });
-        textoResposta = `⚡ *Pix NeuralTec*\n\nChave Pix (CNPJ):\n${pix.url}\n\nSegue o QR Code para pagamento 👇`;
+        // Texto SEMPRE primeiro (essencial). QR Code é opcional (best-effort).
+        textoResposta = `⚡ *Pix NeuralTec*\n\nChave Pix (CNPJ):\n${pix.url}`;
         enviarQrPix = pix;
         novoNivel = 'principal';
       }
@@ -224,12 +225,16 @@ Deno.serve(async (req) => {
     const resp = await enviarTextoWhatsApp(integration, contato.telefone, textoResposta);
     if (!resp.ok) return Response.json({ success: false, error: 'erro_envio', detalhe: resp.raw });
 
-    // ── Enviar QR Code do Pix (imagem) ──
+    // ── QR Code do Pix (OPCIONAL — best-effort, nunca quebra o atendimento) ──
     if (enviarQrPix) {
       etapa = 'enviar_qr_pix';
-      const copiaCola = gerarPixCopiaECola(String(enviarQrPix.url).replace(/\D/g, ''));
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(copiaCola)}`;
-      await enviarImagemWhatsApp(integration, contato.telefone, qrUrl, '⚡ Pix NeuralTec — escaneie para pagar').catch(() => {});
+      try {
+        const copiaCola = gerarPixCopiaECola(String(enviarQrPix.url).replace(/\D/g, ''));
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(copiaCola)}`;
+        await enviarImagemWhatsApp(integration, contato.telefone, qrUrl, '⚡ Pix NeuralTec — escaneie para pagar');
+      } catch (e) {
+        console.warn('[responderMenuAcesso] QR Pix falhou (texto já enviado):', e.message);
+      }
     }
 
     // ── Persistir + atualizar nível de navegação ──
