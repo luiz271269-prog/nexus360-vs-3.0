@@ -59,9 +59,12 @@ async function enviarListaCategoriasWapi(integ, telefone) {
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
     body: JSON.stringify(body)
   });
-  const resp = await r.json().catch(() => ({}));
+  // DIAGNÓSTICO: ler corpo bruto como texto + status HTTP (a W-API pode não devolver JSON em erro)
+  const rawText = await r.text().catch(() => '');
+  let resp = {};
+  try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
   const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
-  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp };
+  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText, sentUrl: url, sentBody: body };
 }
 
 // ── Menu numérico curto (fallback universal Z-API e W-API) ──
@@ -180,11 +183,29 @@ Deno.serve(async (req) => {
     let resp;
     let formato = 'menu_numerico';
 
+    let diagLista = null;
     if (integration.api_provider === 'w_api') {
       const respLista = await enviarListaCategoriasWapi(integration, contact.telefone);
+      // DIAGNÓSTICO: capturar o retorno bruto da W-API para entender por que cai no fallback
+      diagLista = {
+        endpoint: '/message/send-list-message',
+        provider: integration.api_provider,
+        base_url: integration.base_url_provider || 'https://api.w-api.app/v1',
+        instance_id: integration.instance_id_provider,
+        ok: respLista.ok,
+        msgId: respLista.msgId,
+        httpStatus: respLista.httpStatus,
+        rawText: respLista.rawText,
+        sentUrl: respLista.sentUrl,
+        sentBody: respLista.sentBody,
+        raw: respLista.raw
+      };
+      console.log('[enviarCartaoAcesso] 🔎 W-API send-list-message →', JSON.stringify(diagLista));
       if (respLista.ok) {
         resp = respLista;
         formato = 'lista_categorias';
+      } else {
+        console.warn('[enviarCartaoAcesso] ⚠️ lista FALHOU, caindo no fallback numérico. raw:', JSON.stringify(respLista.raw));
       }
     }
     if (!resp) {
@@ -230,7 +251,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[enviarCartaoAcesso] ✅ menu (${formato}) → ${contact.nome} (trigger=${trigger})`);
-    return Response.json({ success: true, message_id: resp.msgId, formato, trigger });
+    return Response.json({ success: true, message_id: resp.msgId, formato, trigger, diag_lista: diagLista });
 
   } catch (error) {
     console.error('[enviarCartaoAcesso] ❌ etapa=' + etapa, error.message);
