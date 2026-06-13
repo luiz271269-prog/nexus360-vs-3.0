@@ -433,7 +433,8 @@ Deno.serve(async (req) => {
       result.actions.push('acesso_menu_expirado_limpo');
     } else {
     const respNum = String(messageContent || '').trim();
-    if (/^[0-9]{1,2}$/.test(respNum)) {
+    // Aceita número digitado (fallback) OU clique da lista interativa W-API ('acesso_menu:setores')
+    if (/^[0-9]{1,2}$/.test(respNum) || /^acesso_menu:/i.test(respNum)) {
       result.pipeline.push('acessos_menu_gate');
       try {
         await base44.asServiceRole.functions.invoke('responderMenuAcesso', {
