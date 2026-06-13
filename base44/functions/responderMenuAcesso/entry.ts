@@ -127,6 +127,14 @@ Deno.serve(async (req) => {
 
     if (!msg) return Response.json({ success: true, skipped: 'sem_payload' });
 
+    // ⛔ GUARD PREVENTIVO: o dono único do fluxo de menu é o gate do processInbound (invoke direto).
+    // Se a automação de entidade for reativada no futuro, este guard impede que a Message do
+    // próprio sistema (sender_type='user') seja interpretada como escolha do cliente — evitando
+    // o submenu disparado sozinho (loop). Só mensagens REAIS do contato passam.
+    if (isAutomacao && msg?.sender_type !== 'contact') {
+      return Response.json({ success: true, skipped: 'nao_eh_mensagem_do_contato' });
+    }
+
     // Aceita resposta vinda de: invoke (resposta), chamada direta (content) ou automação (data.content)
     const respostaCliente = body?.resposta || body?.content || body?.data?.content || msg?.content || '';
     const threadId = body?.thread_id || msg?.thread_id;
