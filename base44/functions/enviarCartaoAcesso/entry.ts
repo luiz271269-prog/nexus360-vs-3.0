@@ -144,12 +144,16 @@ Deno.serve(async (req) => {
     etapa = 'enviar_whatsapp';
     console.log('[enviarCartaoAcesso] enviando cartão (texto) via', integration.nome_instancia);
 
+    // Formato "botão" limpo: emoji + nome em negrito, link discreto na linha de baixo.
+    // Pix copia a chave; setores/links viram um toque ("👉 Toque para abrir").
     const linhas = itens.map(i => {
       const emoji = i.emoji || '🔗';
-      if (i.tipo === 'pix') return `${emoji} *${i.titulo}* (Pix): ${i.url}`;
-      return `${emoji} *${i.titulo}*: ${i.url}`;
+      if (i.tipo === 'pix') {
+        return `${emoji} *${i.titulo}*\n     \`${i.url}\``;
+      }
+      return `${emoji} *${i.titulo}*\n     ↳ ${i.url}`;
     });
-    const mensagemCartao = `*NEURALTEC — Acessos rápidos*\n\n${linhas.join('\n')}`;
+    const mensagemCartao = `*NEURALTEC — Acessos rápidos*\n_Toque em um link para abrir_\n\n${linhas.join('\n\n')}`;
 
     const resp = await enviarTextoWhatsApp(integration, contact.telefone, mensagemCartao);
     if (!resp.ok) {
