@@ -34,22 +34,25 @@ async function enviarTextoWhatsApp(integ, telefone, mensagem) {
 async function enviarListaCategoriasWapi(integ, telefone) {
   const tel = (telefone || '').replace(/\D/g, '');
   const phone = tel.startsWith('55') ? tel : '55' + tel;
+  // Endpoint oficial W-API: /message/send-list (NÃO /send-list-message — esse retorna 404).
   const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
-    + `/message/send-list-message?instanceId=${integ.instance_id_provider}`;
+    + `/message/send-list?instanceId=${integ.instance_id_provider}`;
 
+  // W-API exige rowId (não id) em cada linha.
   const rows = [
-    { id: 'acesso_menu:setores',   title: '🏢 Setores',   description: 'Vendas, Assistência, Financeiro, Compras' },
-    { id: 'acesso_menu:midias',    title: '📱 Mídias',    description: 'Site, Instagram, LinkedIn' },
-    { id: 'acesso_menu:promocoes', title: '🏷️ Promoções', description: 'Nossas promoções atuais' },
-    { id: 'acesso_menu:pix',       title: '⚡ Pix',        description: 'Chave Pix para pagamento' }
+    { rowId: 'acesso_menu:setores',   title: '🏢 Setores',   description: 'Vendas, Assistência, Financeiro, Compras' },
+    { rowId: 'acesso_menu:midias',    title: '📱 Mídias',    description: 'Site, Instagram, LinkedIn' },
+    { rowId: 'acesso_menu:promocoes', title: '🏷️ Promoções', description: 'Nossas promoções atuais' },
+    { rowId: 'acesso_menu:pix',       title: '⚡ Pix',        description: 'Chave Pix para pagamento' }
   ];
 
-  // Body idêntico ao contrato validado em enviarWhatsApp (send-list-message)
+  // Contrato oficial /message/send-list: footerText é obrigatório.
   const body = {
     phone,
-    title: 'Menu',
+    title: 'NEURALTEC — Acessos rápidos',
+    description: 'Escolha uma opção abaixo.',
     buttonText: 'Ver opções',
-    description: 'NEURALTEC — Acessos rápidos. Escolha uma opção.',
+    footerText: 'NEURALTEC',
     sections: [{ title: 'Categorias', rows }],
     delayMessage: 1
   };
@@ -188,7 +191,7 @@ Deno.serve(async (req) => {
       const respLista = await enviarListaCategoriasWapi(integration, contact.telefone);
       // DIAGNÓSTICO: capturar o retorno bruto da W-API para entender por que cai no fallback
       diagLista = {
-        endpoint: '/message/send-list-message',
+        endpoint: '/message/send-list',
         provider: integration.api_provider,
         base_url: integration.base_url_provider || 'https://api.w-api.app/v1',
         instance_id: integration.instance_id_provider,
