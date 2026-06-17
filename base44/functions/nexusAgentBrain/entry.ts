@@ -342,7 +342,8 @@ REGRAS OBRIGATÓRIAS:
 3. Negociação / cobrança / reclamação / urgência: sempre escalate_to_human
 4. Se o contato já tem atendente e é trigger inbound: prefira suggest_reply
 5. Responda sempre em português brasileiro, tom profissional mas humano
-6. Obedeça o ESTADO OPERACIONAL: não recomende ações listadas em "ações descartadas" e respeite "outputs permitidos"`;
+6. Obedeça o ESTADO OPERACIONAL: não recomende ações listadas em "ações descartadas" e respeite "outputs permitidos"
+7. 🚫 NUNCA invente nem cite nome, modelo, código ou SKU de produto. Só mencione um produto específico se ele apareceu em search_knowledge ou query_database NESTA execução. Se o cliente pediu cotação de um item, NÃO afirme qual produto será cotado — confirme o item com o cliente (ex.: "Vou verificar a cotação do notebook com as specs que você passou") e, se precisar consultar catálogo, escale para o atendente. Citar um produto não verificado é erro grave.`;
 
     // ── STEP 5: Claude com tool_use (fallback Base44 IA) ────────────
     let acao, params;
