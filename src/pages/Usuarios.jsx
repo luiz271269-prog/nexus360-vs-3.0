@@ -42,6 +42,13 @@ export default function UsuariosPage() {
       email_accounts: u.email_accounts || [],
       // IMPORTANTE: Campo de permissões de páginas/recursos
       permissoes: u.paginas_acesso || [],
+      // NEXUS360: permissões granulares e visibilidade (sem isto, switches voltam desligados ao reabrir)
+      configuracao_visibilidade_nexus: u.configuracao_visibilidade_nexus || null,
+      permissoes_acoes_nexus: u.permissoes_acoes_nexus || null,
+      diagnostico_nexus: u.diagnostico_nexus || null,
+      // Campos brutos usados pelo preset/hidratação do painel
+      role: u.role || 'user',
+      attendant_role: u.attendant_role || 'pleno',
     }));
   }
 
