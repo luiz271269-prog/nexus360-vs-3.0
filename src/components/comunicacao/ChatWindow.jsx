@@ -55,7 +55,6 @@ import CentralInteligenciaContato, {
 import MessageInput from './MessageInput';
 import AlertaPedidoTransferencia from './AlertaPedidoTransferencia';
 import useScrollPaginacao from './useScrollPaginacao';
-import AISuggestionsPanel from './AISuggestionsPanel';
 import { useAudioRecorder } from './useAudioRecorder';
 import FloatingConversationBubble from './FloatingConversationBubble';
 import BotaoVideochamada from './BotaoVideochamada';
@@ -1905,17 +1904,6 @@ export default function ChatWindow({
           progressoBroadcast={progressoBroadcast}
         />
 
-
-      {/* 🧠 SUGESTÕES DE IA — painel unificado (Camada Cérebro / nexusAgentBrain) */}
-      {!mostrarInterfaceBroadcast && thread?.thread_type === 'contact_external' && (
-        <AISuggestionsPanel
-          thread={thread}
-          onUsar={(texto) => {
-            // Injeta o texto sugerido no MessageInput via evento customizado
-            window.dispatchEvent(new CustomEvent('nexus:inject_reply', { detail: { texto } }));
-          }}
-        />
-      )}
 
       {/* 🎯 SISTEMA INTELIGENTE DE SUGESTÕES */}
       <ChatSuggestions
