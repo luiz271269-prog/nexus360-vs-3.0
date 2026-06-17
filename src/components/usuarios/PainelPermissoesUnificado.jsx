@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 import { Button } from '@/components/ui/button';
@@ -35,15 +35,23 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
   const [permissoesAcoes, setPermissoesAcoes] = useState({});
   const [diagnostico, setDiagnostico] = useState({ ativo: false, log_level: 'info' });
   const [presetSelecionado, setPresetSelecionado] = useState(null);
+  const [autoSalvando, setAutoSalvando] = useState(false);
+
+  // Ignora o 1º ciclo após carregar o usuário (evita auto-save logo na montagem)
+  const hidratandoRef = useRef(true);
+  const autoSaveRef = useRef(null);
 
   // Carregar configuração atual do usuário
   useEffect(() => {
+    hidratandoRef.current = true; // bloqueia auto-save enquanto recarrega do banco
     if (usuario?.configuracao_visibilidade_nexus) {
       setConfiguracao(usuario.configuracao_visibilidade_nexus);
     }
     
     if (usuario?.permissoes_acoes_nexus) {
       setPermissoesAcoes(usuario.permissoes_acoes_nexus);
+    } else {
+      setPermissoesAcoes({});
     }
     
     if (usuario?.diagnostico_nexus) {
@@ -60,7 +68,35 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
     } else if (usuario?.role === 'admin') {
       setPresetSelecionado('admin');
     }
-  }, [usuario]);
+
+    // Libera o auto-save após o estado hidratar
+    const t = setTimeout(() => { hidratandoRef.current = false; }, 50);
+    return () => clearTimeout(t);
+  }, [usuario?.id]);
+
+  // ── AUTO-SAVE com debounce: persiste qualquer mudança de switch sem exigir
+  // clique no botão "Salvar" (alinha com o auto-save das outras abas da tela). ──
+  useEffect(() => {
+    if (hidratandoRef.current || !usuario?.id) return;
+    if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
+    autoSaveRef.current = setTimeout(async () => {
+      try {
+        setAutoSalvando(true);
+        await onSalvar(usuario.id, {
+          configuracao_visibilidade_nexus: configuracao,
+          permissoes_acoes_nexus: permissoesAcoes,
+          diagnostico_nexus: diagnostico,
+          paginas_acesso: paginasAcesso
+        });
+      } catch (error) {
+        console.error('[PainelPermissoesUnificado] Erro no auto-save:', error);
+        toast.error('❌ Erro ao salvar: ' + error.message);
+      } finally {
+        setAutoSalvando(false);
+      }
+    }, 1000);
+    return () => { if (autoSaveRef.current) clearTimeout(autoSaveRef.current); };
+  }, [permissoesAcoes, configuracao, diagnostico, paginasAcesso, usuario?.id]);
 
   const handleSalvar = async () => {
     try {
@@ -1482,7 +1518,12 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
             </Card>
 
             {/* Botões de Ação */}
-      <div className="flex justify-end gap-3">
+      <div className="flex items-center justify-end gap-3">
+        <span className="text-xs text-muted-foreground mr-auto">
+          {autoSalvando
+            ? '💾 Salvando automaticamente...'
+            : '✅ As alterações são salvas automaticamente'}
+        </span>
         <Button variant="outline" onClick={() => window.location.reload()}>
           Cancelar
         </Button>
