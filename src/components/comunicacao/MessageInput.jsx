@@ -51,6 +51,8 @@ import { useClipboardPaste } from './useClipboardPaste';
 import SeletorPromocoesAtivas from '../automacao/SeletorPromocoesAtivas';
 import AIResponseAssistant from './AIResponseAssistant';
 import PerguntarSobreContato from './PerguntarSobreContato';
+import { PixDialog, LocalizacaoDialog } from './PixLocalizacaoMenu';
+import { QrCode, MapPin } from 'lucide-react';
 
 export default function MessageInput({
   onSendMessage,
@@ -92,6 +94,8 @@ export default function MessageInput({
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showPromocoesMenu, setShowPromocoesMenu] = useState(false);
   const [showPerguntar, setShowPerguntar] = useState(false);
+  const [showPixDialog, setShowPixDialog] = useState(false);
+  const [showLocalizacaoDialog, setShowLocalizacaoDialog] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]); // array de {file, type, preview}
   const [recordingTime, setRecordingTime] = useState(0);
   
@@ -356,6 +360,21 @@ export default function MessageInput({
       {showPerguntar && (
         <PerguntarSobreContato thread={thread} onClose={() => setShowPerguntar(false)} />
       )}
+      {showPixDialog && (
+        <PixDialog
+          thread={thread}
+          integrationId={canalSelecionado}
+          onClose={() => setShowPixDialog(false)}
+        />
+      )}
+      {showLocalizacaoDialog && (
+        <LocalizacaoDialog
+          thread={thread}
+          integrationId={canalSelecionado}
+          onClose={() => setShowLocalizacaoDialog(false)}
+          onEnviarTexto={async (texto) => { await onSendMessage({ texto }); }}
+        />
+      )}
       <div className="px-2 md:px-3">
       {/* Inputs ocultos para arquivos */}
       <input
@@ -570,6 +589,32 @@ export default function MessageInput({
                     <CreditCard className="w-5 h-5 text-white" />
                   </div>
                   <span className="text-sm font-medium text-slate-800">Cartão de Acesso</span>
+                </button>
+              )}
+
+              {thread?.contact_id && (
+                <button
+                  type="button"
+                  onClick={() => { setShowAttachMenu(false); setShowPixDialog(true); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-emerald-50 transition-colors text-left"
+                >
+                  <div className="w-11 h-11 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center shadow-sm">
+                    <QrCode className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-slate-800">Pix</span>
+                </button>
+              )}
+
+              {thread?.contact_id && (
+                <button
+                  type="button"
+                  onClick={() => { setShowAttachMenu(false); setShowLocalizacaoDialog(true); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-rose-50 transition-colors text-left"
+                >
+                  <div className="w-11 h-11 bg-gradient-to-br from-rose-500 to-red-600 rounded-full flex items-center justify-center shadow-sm">
+                    <MapPin className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-slate-800">Localização</span>
                 </button>
               )}
             </div>
