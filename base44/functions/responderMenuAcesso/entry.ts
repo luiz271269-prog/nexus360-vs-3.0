@@ -85,6 +85,52 @@ async function enviarImagemWhatsApp(integ, telefone, imageUrl, caption) {
   return { ok: r.ok && !resp.error, raw: resp };
 }
 
+// ── Botões de URL com link EMBUTIDO (W-API CALL_TO_ACTION / Z-API send-button-actions URL) ──
+// O cliente toca no botão e o navegador abre direto — o link NÃO aparece escrito na tela.
+// botoes: [{ buttonText, url }]  |  Retorna { ok, msgId, raw, httpStatus, rawText }
+async function enviarBotoesUrlWhatsApp(integ, telefone, titulo, mensagem, botoes, rodape) {
+  const tel = (telefone || '').replace(/\D/g, '');
+  const phone = tel.startsWith('55') ? tel : '55' + tel;
+
+  if (integ.api_provider === 'w_api') {
+    const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
+      + `/message/send-button-actions?instanceId=${integ.instance_id_provider}`;
+    const body = {
+      phone,
+      message: mensagem,
+      title: titulo,
+      footer: rodape || 'NEURALTEC',
+      buttonActions: botoes.map(b => ({ type: 'CALL', buttonText: b.buttonText, url: b.url })),
+      delayMessage: 1
+    };
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
+      body: JSON.stringify(body)
+    });
+    const rawText = await r.text().catch(() => '');
+    let resp = {}; try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
+    const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
+    return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText };
+  }
+
+  // Z-API: send-button-actions com type URL
+  const url = (integ.base_url_provider || 'https://api.z-api.io')
+    + `/instances/${integ.instance_id_provider}/token/${integ.api_key_provider}/send-button-actions`;
+  const headers = { 'Content-Type': 'application/json' };
+  if (integ.security_client_token_header) headers['Client-Token'] = integ.security_client_token_header;
+  const body = {
+    phone,
+    message: `*${titulo}*\n${mensagem}`,
+    buttonActions: botoes.map((b, i) => ({ id: String(i + 1), type: 'URL', label: b.buttonText, url: b.url }))
+  };
+  const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  const rawText = await r.text().catch(() => '');
+  let resp = {}; try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
+  const msgId = resp.messageId || resp.id || resp.key?.id || null;
+  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText };
+}
+
 const NUM = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
 // ── Agrupa itens em 3 categorias: Setores / Promoções e Web Site / Redes Sociais ──
@@ -193,21 +239,19 @@ Deno.serve(async (req) => {
       promocoes: '🏷️ *Promoções e Web Site*',
       redes: '📱 *Redes Sociais*'
     };
-    if (nivel === 'setores' || nivel === 'promocoes' || nivel === 'redes') {
+    if (nivel === 'setores') {
+      // Setores continua com menu numérico (escolha do setor final)
       const lista = grupos[nivel];
       const idx = parseInt(escolha, 10) - 1;
       const item = (idx >= 0 && idx < lista.length) ? lista[idx]
         : lista.find(i => String(i.titulo || '').toLowerCase() === escolha.toLowerCase());
       if (!item) {
-        // não reconheceu — reapresenta o submenu
         const linhas = lista.map((it, i) => `${NUM[i]} ${it.titulo}`);
         const tit = TITULOS_GRUPO[nivel] || '*NeuralTec*';
         textoResposta = `${tit}\n\nNão entendi. Responda com o número:\n\n${linhas.join('\n')}`;
         novoNivel = nivel;
       } else {
-        const emoji = item.emoji || (nivel === 'setores' ? '💬' : '🔗');
-        textoResposta = `${emoji} *${item.titulo} NeuralTec*\n${item.url}`;
-        // volta ao topo: cliente pode pedir outra categoria
+        textoResposta = `${item.emoji || '💬'} *${item.titulo} NeuralTec*\n${item.url}`;
         novoNivel = 'principal';
       }
     } else {
@@ -217,18 +261,54 @@ Deno.serve(async (req) => {
         return Response.json({ success: true, skipped: 'escolha_nao_reconhecida' });
       }
 
-      // Os 3 grupos abrem submenu com os itens listados por número (botões diretos)
-      const TITULOS_GRUPO = {
-        setores: '💬 *Setores da Empresa*',
-        promocoes: '🏷️ *Promoções e Web Site*',
-        redes: '📱 *Redes Sociais*'
-      };
       const lista = grupos[categoria];
       if (!lista || !lista.length) return Response.json({ success: true, skipped: 'categoria_vazia', categoria });
-      const linhas = lista.map((it, i) => `${NUM[i]} ${it.titulo}`);
-      const tit = TITULOS_GRUPO[categoria] || '*NeuralTec*';
-      textoResposta = `${tit}\n\nResponda com o número:\n\n${linhas.join('\n')}`;
-      novoNivel = categoria; // abre sub-submenu
+
+      if (categoria === 'setores') {
+        // Setores → menu numérico (cliente escolhe o setor)
+        const linhas = lista.map((it, i) => `${NUM[i]} ${it.titulo}`);
+        textoResposta = `💬 *Setores da Empresa*\n\nResponda com o número:\n\n${linhas.join('\n')}`;
+        novoNivel = 'setores';
+      } else {
+        // Promoções e Redes → BOTÕES DE URL com link embutido (clica e abre direto)
+        const isRedes = categoria === 'redes';
+        const titulo = isRedes ? '📱 Redes Sociais' : '🏷️ Promoções e Web Site';
+        const mensagem = isRedes
+          ? 'Toque para acessar nossas redes:'
+          : 'Toque para ver nossas promoções e o site:';
+
+        // Instagram ativo; Facebook/LinkedIn ainda não integrados → "em breve" no rodapé
+        const botoes = isRedes
+          ? lista.filter(it => String(it.titulo || '').toLowerCase().includes('instagram'))
+                 .map(it => ({ buttonText: it.titulo, url: it.url }))
+          : lista.map(it => ({ buttonText: it.titulo, url: it.url }));
+
+        const rodape = isRedes ? '🔜 Facebook e LinkedIn em breve' : 'NEURALTEC';
+
+        if (!botoes.length) {
+          // sem item elegível → link clicável em texto (garante resposta)
+          const linhas = lista.map(it => `🔗 ${it.titulo}: ${it.url}`);
+          textoResposta = `*${titulo}*\n${mensagem}\n\n${linhas.join('\n')}`;
+          novoNivel = 'principal';
+        } else {
+          const respBtn = await enviarBotoesUrlWhatsApp(integration, contato.telefone, titulo, mensagem, botoes, rodape);
+          console.log(`[responderMenuAcesso] 🔎 botões URL ${categoria} →`, JSON.stringify({ ok: respBtn.ok, httpStatus: respBtn.httpStatus, rawText: respBtn.rawText }));
+          if (respBtn.ok) {
+            // Botões enviados diretamente — persiste estado e encerra (não cai no envio de texto)
+            const nowB = new Date().toISOString();
+            await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+              campos_personalizados: { ...cp, acesso_menu_nivel: 'principal', acesso_menu_updated_at: nowB }
+            });
+            return Response.json({ success: true, message_id: respBtn.msgId, categoria, formato: 'botoes_url' });
+          }
+          // Fallback: botão de URL falhou → link clicável em texto
+          console.warn('[responderMenuAcesso] ⚠️ botões URL falharam, fallback texto. raw:', respBtn.rawText);
+          const linhas = botoes.map(b => `🔗 ${b.buttonText}: ${b.url}`);
+          const extra = isRedes ? `\n\n${rodape}` : '';
+          textoResposta = `*${titulo}*\n${mensagem}\n\n${linhas.join('\n')}${extra}`;
+          novoNivel = 'principal';
+        }
+      }
       // ⛔ Categoria 'pix' removida do menu automático (envio manual via anexos)
     }
 
