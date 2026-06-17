@@ -61,18 +61,26 @@ export function PixDialog({ thread, integrationId, onClose, onSent }) {
  * LocalizacaoDialog — envia uma localização como link do Google Maps.
  * Opções: usar localização atual (GPS) ou colar um link/coordenadas.
  */
-export function LocalizacaoDialog({ thread, integrationId, onEnviarTexto, onClose }) {
+export function LocalizacaoDialog({ thread, integrationId, onClose }) {
   const [enviando, setEnviando] = useState(false);
   const [link, setLink] = useState('');
 
-  const montarMensagem = (mapsUrl) => `📍 *Localização*\n${mapsUrl}`;
-
   const enviarTexto = async (mapsUrl) => {
+    if (!thread?.contact_id) { toast.error('Conversa sem contato'); return; }
     setEnviando(true);
     try {
-      await onEnviarTexto(montarMensagem(mapsUrl));
-      toast.success('✅ Localização enviada');
-      onClose();
+      const res = await base44.functions.invoke('enviarLocalizacaoChat', {
+        thread_id: thread.id,
+        contact_id: thread.contact_id,
+        integration_id: integrationId || thread.whatsapp_integration_id || null,
+        maps_url: mapsUrl
+      });
+      if (res?.data?.success) {
+        toast.success('✅ Localização enviada');
+        onClose();
+      } else {
+        throw new Error(res?.data?.error || 'Falha ao enviar localização');
+      }
     } catch (err) {
       toast.error('Erro: ' + err.message);
     } finally {

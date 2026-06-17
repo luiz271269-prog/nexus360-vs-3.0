@@ -372,7 +372,6 @@ export default function MessageInput({
           thread={thread}
           integrationId={canalSelecionado}
           onClose={() => setShowLocalizacaoDialog(false)}
-          onEnviarTexto={async (texto) => { await onSendMessage({ texto }); }}
         />
       )}
       <div className="px-2 md:px-3">

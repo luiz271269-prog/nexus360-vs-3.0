@@ -130,10 +130,19 @@ Deno.serve(async (req) => {
       metadata: { whatsapp_integration_id: integration.id, message_type: 'pix' }
     });
 
-    // QR Code (best-effort)
+    // QR Code — gera no qrserver, faz upload no storage Base44 (URL confiável
+    // media.base44.com), e envia. Provedores WhatsApp recusam baixar de domínios
+    // externos como qrserver.com, por isso re-hospedamos.
     etapa = 'enviar_qr';
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(copiaCola)}`;
     try {
+      const qrExternoUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=10&data=${encodeURIComponent(copiaCola)}`;
+      const qrResp = await fetch(qrExternoUrl);
+      if (!qrResp.ok) throw new Error('qrserver retornou ' + qrResp.status);
+      const qrBlob = await qrResp.blob();
+      const qrFile = new File([qrBlob], 'pix-qrcode.png', { type: 'image/png' });
+      const uploadResp = await base44.asServiceRole.integrations.Core.UploadFile({ file: qrFile });
+      const qrUrl = uploadResp.file_url;
+
       const respImg = await enviarImagemWhatsApp(integration, contato.telefone, qrUrl, '⚡ Pix NeuralTec — escaneie para pagar');
       if (respImg.ok) {
         await base44.asServiceRole.entities.Message.create({
@@ -144,6 +153,8 @@ Deno.serve(async (req) => {
           media_url: qrUrl, media_type: 'image',
           metadata: { whatsapp_integration_id: integration.id, message_type: 'pix_qr' }
         });
+      } else {
+        console.warn('[enviarPixChat] QR recusado pelo provedor:', JSON.stringify(respImg.raw));
       }
     } catch (e) {
       console.warn('[enviarPixChat] QR falhou (texto já enviado):', e.message);
