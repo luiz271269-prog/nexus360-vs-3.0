@@ -55,7 +55,7 @@ import CentralInteligenciaContato, {
 import MessageInput from './MessageInput';
 import AlertaPedidoTransferencia from './AlertaPedidoTransferencia';
 import useScrollPaginacao from './useScrollPaginacao';
-import NexusBrainSuggestions from './NexusBrainSuggestions';
+import AISuggestionsPanel from './AISuggestionsPanel';
 import { useAudioRecorder } from './useAudioRecorder';
 import FloatingConversationBubble from './FloatingConversationBubble';
 import BotaoVideochamada from './BotaoVideochamada';
@@ -1906,9 +1906,9 @@ export default function ChatWindow({
         />
 
 
-      {/* 🧠 NEXUS BRAIN SUGGESTIONS — sugestões copilot do agente */}
+      {/* 🧠 SUGESTÕES DE IA — painel unificado (Camada Cérebro / nexusAgentBrain) */}
       {!mostrarInterfaceBroadcast && thread?.thread_type === 'contact_external' && (
-        <NexusBrainSuggestions
+        <AISuggestionsPanel
           thread={thread}
           onUsar={(texto) => {
             // Injeta o texto sugerido no MessageInput via evento customizado
