@@ -1430,6 +1430,20 @@ Deno.serve(async (req) => {
           whatsapp_msg_id: msgId
         });
         console.log(`[SKILL-PRE-ATEND] ✅ Camada 1 OK — ACK enviado (${ack.tipo}/${horarioInfo.motivo}${videoConfig ? ' + video' : ''})`);
+
+        // ── SAUDAÇÃO+CARTÃO DETERMINÍSTICO ──
+        // A skill é a dona única. Após o ACK, dispara o cartão de Acessos Rápidos
+        // EM SEQUÊNCIA (fire-and-forget). Só na 1ª saudação do ciclo e se ainda
+        // não foi enviado nesta thread. Substitui a automação paralela (desligada)
+        // que competia com este ACK via GUARD OUTBOUND 30s.
+        const jaEnviouCartao = thread?.campos_personalizados?.acessos_rapidos_enviado === true;
+        const textoSaud = (message_content || '').toLowerCase().trim();
+        const ehSaudacaoCartao = /(^|\b)(oi+|ol[aá]+|opa|bom\s*dia|boa\s*tarde|boa\s*noite|e\s*a[ií]|eai)(\b|$|[\s!.,?])/.test(textoSaud);
+        if (horarioInfo.dentro && ehSaudacaoCartao && !jaEnviouCartao && integ?.id) {
+          base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
+            thread_id, contact_id, integration_id: integ.id
+          }).catch(e => console.warn('[SKILL-PRE-ATEND] cartão acesso falhou (não-crítico):', e.message));
+        }
       }
     } catch (e) {
       if (e.message !== '__skip_ack') {
