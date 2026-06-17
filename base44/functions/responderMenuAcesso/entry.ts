@@ -113,7 +113,9 @@ function escolherCategoria(conteudo) {
   if (t === '1' || t === 'setores' || t.includes('setor')) return 'setores';
   if (t === '2' || t === 'midias' || t.includes('midia') || t.includes('mídia')) return 'midias';
   if (t === '3' || t === 'promocoes' || t.includes('promo')) return 'promocoes';
-  if (t === '4' || t === 'pix' || t.includes('pix')) return 'pix';
+  // Pix REMOVIDO do menu automático: deve sair exclusivamente por ação manual
+  // do atendente no menu de anexos (enviarPixChat). Evita disparo sozinho quando
+  // o cliente escreve qualquer frase contendo "pix".
   return null;
 }
 
@@ -220,14 +222,8 @@ Deno.serve(async (req) => {
         if (!p) return Response.json({ success: true, skipped: 'sem_promocao' });
         textoResposta = `🏷️ *Promoções NeuralTec*\n\nAcesse nossas promoções:\n${p.url}`;
         novoNivel = 'principal';
-      } else if (categoria === 'pix') {
-        const pix = grupos.pix[0];
-        if (!pix) return Response.json({ success: true, skipped: 'sem_pix' });
-        // Texto SEMPRE primeiro (essencial). QR Code é opcional (best-effort).
-        textoResposta = `⚡ *Pix NeuralTec*\n\nChave Pix (CNPJ):\n${pix.url}`;
-        enviarQrPix = pix;
-        novoNivel = 'principal';
       }
+      // ⛔ Categoria 'pix' removida do menu automático (envio manual via anexos)
     }
 
     if (!textoResposta) return Response.json({ success: true, skipped: 'sem_resposta' });
