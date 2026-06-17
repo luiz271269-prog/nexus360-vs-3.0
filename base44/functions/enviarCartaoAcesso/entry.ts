@@ -29,7 +29,44 @@ async function enviarTextoWhatsApp(integ, telefone, mensagem) {
   return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp };
 }
 
-// ── Lista interativa nativa do W-API: o cliente vê só as 4 CATEGORIAS
+// ── Botões de resposta rápida nativos do W-API: o cliente vê os 3 grupos
+// como BOTÕES diretos na tela (sem "Ver opções"). Limite WhatsApp = 3 botões.
+// Endpoint: /message/send-button-list. Só funciona no w_api. ──
+async function enviarBotoesCategoriasWapi(integ, telefone) {
+  const tel = (telefone || '').replace(/\D/g, '');
+  const phone = tel.startsWith('55') ? tel : '55' + tel;
+  const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
+    + `/message/send-button-list?instanceId=${integ.instance_id_provider}`;
+
+  // W-API: buttons[] com buttonId + buttonText. WhatsApp limita a 3 botões.
+  const buttons = [
+    { buttonId: 'acesso_menu:setores',   buttonText: { displayText: '🏢 Setores da Empresa' } },
+    { buttonId: 'acesso_menu:promocoes', buttonText: { displayText: '🏷️ Promoções e Web Site' } },
+    { buttonId: 'acesso_menu:redes',     buttonText: { displayText: '📱 Redes Sociais' } }
+  ];
+
+  const body = {
+    phone,
+    title: 'NEURALTEC — Acessos rápidos',
+    description: 'Escolha uma opção abaixo:',
+    footerText: 'NEURALTEC',
+    buttons,
+    delayMessage: 1
+  };
+
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
+    body: JSON.stringify(body)
+  });
+  const rawText = await r.text().catch(() => '');
+  let resp = {};
+  try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
+  const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
+  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText, sentUrl: url, sentBody: body };
+}
+
+// ── Lista interativa nativa do W-API: o cliente vê só as CATEGORIAS
 // (sem URL, sem lista gigante) e toca para abrir o submenu. Só funciona no w_api. ──
 async function enviarListaCategoriasWapi(integ, telefone) {
   const tel = (telefone || '').replace(/\D/g, '');
@@ -187,6 +224,19 @@ Deno.serve(async (req) => {
 
     let diagLista = null;
     if (integration.api_provider === 'w_api') {
+      // 1ª tentativa: BOTÕES diretos (sem "Ver opções"). Se falhar, cai na lista.
+      const respBotoes = await enviarBotoesCategoriasWapi(integration, contact.telefone);
+      console.log('[enviarCartaoAcesso] 🔎 W-API send-button-list →', JSON.stringify({
+        ok: respBotoes.ok, msgId: respBotoes.msgId, httpStatus: respBotoes.httpStatus, rawText: respBotoes.rawText
+      }));
+      if (respBotoes.ok) {
+        resp = respBotoes;
+        formato = 'botoes_categorias';
+      } else {
+        console.warn('[enviarCartaoAcesso] ⚠️ botões FALHARAM, tentando lista. raw:', JSON.stringify(respBotoes.raw));
+      }
+    }
+    if (!resp && integration.api_provider === 'w_api') {
       const respLista = await enviarListaCategoriasWapi(integration, contact.telefone);
       // DIAGNÓSTICO: capturar o retorno bruto da W-API para entender por que cai no fallback
       diagLista = {
