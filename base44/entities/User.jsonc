@@ -6,6 +6,49 @@
       "type": "string",
       "description": "Nome de exibi\u00e7\u00e3o customizado (ex: Rafa, Mari)"
     },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o usu\u00e1rio est\u00e1 ativo no sistema"
+    },
+    "is_whatsapp_attendant": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o usu\u00e1rio atende WhatsApp"
+    },
+    "whatsapp_setores": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Setores de WhatsApp que o usu\u00e1rio atende"
+    },
+    "max_concurrent_conversations": {
+      "type": "number",
+      "default": 5,
+      "description": "M\u00e1ximo de conversas simult\u00e2neas que o atendente pode ter"
+    },
+    "sistema_permissoes_ativo": {
+      "type": "string",
+      "default": "nexus360",
+      "description": "Motor de permiss\u00f5es ativo para o usu\u00e1rio (ex: nexus360)"
+    },
+    "permissoes_comunicacao": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Permiss\u00f5es de comunica\u00e7\u00e3o por canal/integra\u00e7\u00e3o (mapa flex\u00edvel)"
+    },
+    "configuracao_visibilidade_nexus": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Configura\u00e7\u00e3o de visibilidade Nexus360 (modo, regras de bloqueio/libera\u00e7\u00e3o, deduplica\u00e7\u00e3o). Mapa flex\u00edvel para gravar qualquer regra dinamicamente."
+    },
+    "permissoes_acoes_nexus": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Permiss\u00f5es granulares de a\u00e7\u00f5es Nexus360 (mapa { chave: boolean }). Grava dinamicamente qualquer switch/flag do painel de permiss\u00f5es."
+    },
     "email_accounts": {
       "type": "array",
       "items": {
