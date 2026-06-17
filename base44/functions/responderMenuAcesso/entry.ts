@@ -87,18 +87,20 @@ async function enviarImagemWhatsApp(integ, telefone, imageUrl, caption) {
 
 const NUM = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
-// ── Agrupa itens em categorias ──
+// ── Agrupa itens em 3 categorias: Setores / Promoções e Web Site / Redes Sociais ──
 function agrupar(itens) {
-  const g = { setores: [], midias: [], promocoes: [], pix: [] };
+  const g = { setores: [], promocoes: [], redes: [] };
+  const ehRedeSocial = (t) =>
+    t.includes('instagram') || t.includes('linkedin') || t.includes('facebook') ||
+    t.includes('youtube') || t.includes('tiktok') || t.includes('twitter') ||
+    t.includes('rede social') || t.includes('redes');
   for (const it of itens) {
     const tipo = String(it.tipo || 'link').toLowerCase();
     const t = String(it.titulo || '').toLowerCase();
+    if (tipo === 'pix') continue; // Pix sai só por ação manual do atendente
     if (tipo === 'setor') g.setores.push(it);
-    else if (tipo === 'pix') g.pix.push(it);
-    else if (t.includes('site') || t.includes('promo') || t.includes('localiza')) {
-      if (t.includes('promo')) g.promocoes.push(it);
-      else g.midias.push(it); // Site, Localização ficam em Mídias
-    } else g.midias.push(it); // Instagram, LinkedIn
+    else if (ehRedeSocial(t)) g.redes.push(it);
+    else g.promocoes.push(it); // Site, loja, promoções e localização
   }
   return g;
 }
@@ -111,8 +113,8 @@ function escolherCategoria(conteudo) {
     .toLowerCase()
     .replace('acesso_menu:', ''); // normaliza id da lista interativa
   if (t === '1' || t === 'setores' || t.includes('setor')) return 'setores';
-  if (t === '2' || t === 'midias' || t.includes('midia') || t.includes('mídia')) return 'midias';
-  if (t === '3' || t === 'promocoes' || t.includes('promo')) return 'promocoes';
+  if (t === '2' || t === 'promocoes' || t.includes('promo') || t.includes('site') || t.includes('web')) return 'promocoes';
+  if (t === '3' || t === 'redes' || t.includes('rede') || t.includes('social') || t.includes('instagram')) return 'redes';
   // Pix REMOVIDO do menu automático: deve sair exclusivamente por ação manual
   // do atendente no menu de anexos (enviarPixChat). Evita disparo sozinho quando
   // o cliente escreve qualquer frase contendo "pix".
@@ -186,7 +188,12 @@ Deno.serve(async (req) => {
 
     // ── NÍVEL 2: dentro de Setores ou Mídias (escolha do item final) ──
     etapa = 'resolver_nivel';
-    if (nivel === 'setores' || nivel === 'midias') {
+    const TITULOS_GRUPO = {
+      setores: '💬 *Setores da Empresa*',
+      promocoes: '🏷️ *Promoções e Web Site*',
+      redes: '📱 *Redes Sociais*'
+    };
+    if (nivel === 'setores' || nivel === 'promocoes' || nivel === 'redes') {
       const lista = grupos[nivel];
       const idx = parseInt(escolha, 10) - 1;
       const item = (idx >= 0 && idx < lista.length) ? lista[idx]
@@ -194,7 +201,7 @@ Deno.serve(async (req) => {
       if (!item) {
         // não reconheceu — reapresenta o submenu
         const linhas = lista.map((it, i) => `${NUM[i]} ${it.titulo}`);
-        const tit = nivel === 'setores' ? '💬 *Setores NeuralTec*' : '🌐 *Mídias NeuralTec*';
+        const tit = TITULOS_GRUPO[nivel] || '*NeuralTec*';
         textoResposta = `${tit}\n\nNão entendi. Responda com o número:\n\n${linhas.join('\n')}`;
         novoNivel = nivel;
       } else {
@@ -210,19 +217,18 @@ Deno.serve(async (req) => {
         return Response.json({ success: true, skipped: 'escolha_nao_reconhecida' });
       }
 
-      if (categoria === 'setores' || categoria === 'midias') {
-        const lista = grupos[categoria];
-        if (!lista.length) return Response.json({ success: true, skipped: 'categoria_vazia', categoria });
-        const linhas = lista.map((it, i) => `${NUM[i]} ${it.titulo}`);
-        const tit = categoria === 'setores' ? '💬 *Setores NeuralTec*' : '🌐 *Mídias NeuralTec*';
-        textoResposta = `${tit}\n\nResponda com o número:\n\n${linhas.join('\n')}`;
-        novoNivel = categoria; // abre sub-submenu
-      } else if (categoria === 'promocoes') {
-        const p = grupos.promocoes[0] || grupos.midias.find(i => String(i.titulo).toLowerCase().includes('site'));
-        if (!p) return Response.json({ success: true, skipped: 'sem_promocao' });
-        textoResposta = `🏷️ *Promoções NeuralTec*\n\nAcesse nossas promoções:\n${p.url}`;
-        novoNivel = 'principal';
-      }
+      // Os 3 grupos abrem submenu com os itens listados por número (botões diretos)
+      const TITULOS_GRUPO = {
+        setores: '💬 *Setores da Empresa*',
+        promocoes: '🏷️ *Promoções e Web Site*',
+        redes: '📱 *Redes Sociais*'
+      };
+      const lista = grupos[categoria];
+      if (!lista || !lista.length) return Response.json({ success: true, skipped: 'categoria_vazia', categoria });
+      const linhas = lista.map((it, i) => `${NUM[i]} ${it.titulo}`);
+      const tit = TITULOS_GRUPO[categoria] || '*NeuralTec*';
+      textoResposta = `${tit}\n\nResponda com o número:\n\n${linhas.join('\n')}`;
+      novoNivel = categoria; // abre sub-submenu
       // ⛔ Categoria 'pix' removida do menu automático (envio manual via anexos)
     }
 

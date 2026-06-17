@@ -40,10 +40,9 @@ async function enviarListaCategoriasWapi(integ, telefone) {
 
   // W-API exige rowId (não id) em cada linha.
   const rows = [
-    { rowId: 'acesso_menu:setores',   title: '🏢 Setores',   description: 'Vendas, Assistência, Financeiro, Compras' },
-    { rowId: 'acesso_menu:midias',    title: '📱 Mídias',    description: 'Site, Instagram, LinkedIn' },
-    { rowId: 'acesso_menu:promocoes', title: '🏷️ Promoções', description: 'Nossas promoções atuais' },
-    { rowId: 'acesso_menu:pix',       title: '⚡ Pix',        description: 'Chave Pix para pagamento' }
+    { rowId: 'acesso_menu:setores',   title: '🏢 Setores da Empresa',   description: 'Vendas, Assistência, Financeiro, Compras' },
+    { rowId: 'acesso_menu:promocoes', title: '🏷️ Promoções e Web Site', description: 'Site, loja e promoções atuais' },
+    { rowId: 'acesso_menu:redes',     title: '📱 Redes Sociais',        description: 'Instagram, LinkedIn e mais' }
   ];
 
   // Contrato oficial /message/send-list: footerText é obrigatório.
@@ -72,7 +71,7 @@ async function enviarListaCategoriasWapi(integ, telefone) {
 
 // ── Menu numérico curto (fallback universal Z-API e W-API) ──
 function montarMenuNumerico() {
-  return `⚡ *NEURALTEC — Acessos rápidos*\n\nComo podemos te ajudar?\n\n1️⃣ Setores\n2️⃣ Mídias\n3️⃣ Promoções\n4️⃣ Pix`;
+  return `⚡ *NEURALTEC — Acessos rápidos*\n\nComo podemos te ajudar?\n\n1️⃣ Setores da Empresa\n2️⃣ Promoções e Web Site\n3️⃣ Redes Sociais`;
 }
 
 // ============================================================================
