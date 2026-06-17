@@ -723,7 +723,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                           <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
-                          checked={permissoesAcoes[key] === true}
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
                         />
                       </div>
@@ -797,7 +797,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                           <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
-                          checked={permissoesAcoes[key] === true}
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
                         />
                       </div>
@@ -871,7 +871,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                           <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
-                          checked={permissoesAcoes[key] === true}
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
                         />
                       </div>
@@ -947,7 +947,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                           <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
-                          checked={permissoesAcoes[key] === true}
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
                         />
                       </div>
@@ -1001,7 +1001,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                           <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
-                          checked={permissoesAcoes[key] === true}
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
                         />
                       </div>
@@ -1045,7 +1045,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                           <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
-                          checked={permissoesAcoes[key] === true}
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
                         />
                       </div>
@@ -1104,7 +1104,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                           <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
-                          checked={permissoesAcoes[key] === true}
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
                         />
                       </div>
@@ -1153,7 +1153,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                           <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
-                          checked={permissoesAcoes[key] === true}
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
                         />
                       </div>
@@ -1197,7 +1197,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                           <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
-                          checked={permissoesAcoes[key] === true}
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
                         />
                       </div>
@@ -1251,7 +1251,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                           <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
-                          checked={permissoesAcoes[key] === true}
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
                         />
                       </div>
@@ -1300,7 +1300,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                           <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
-                          checked={permissoesAcoes[key] === true}
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
                         />
                       </div>
@@ -1344,7 +1344,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
                           <div className="text-[10px] text-muted-foreground leading-tight">{desc}</div>
                         </div>
                         <Switch
-                          checked={permissoesAcoes[key] === true}
+                          checked={permissoesAcoes[key] ?? (previewPermissoes?.[key] ?? true)}
                           onCheckedChange={(checked) => setPermissoesAcoes(prev => ({ ...prev, [key]: checked }))}
                         />
                       </div>
