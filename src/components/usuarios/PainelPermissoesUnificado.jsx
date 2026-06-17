@@ -40,6 +40,8 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
   // Ignora o 1º ciclo após carregar o usuário (evita auto-save logo na montagem)
   const hidratandoRef = useRef(true);
   const autoSaveRef = useRef(null);
+  // Quando true, força o auto-save a persistir os defaults do preset (usuário novo)
+  const persistirDefaultsRef = useRef(false);
 
   // Carregar configuração atual do usuário
   useEffect(() => {
@@ -48,10 +50,16 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
       setConfiguracao(usuario.configuracao_visibilidade_nexus);
     }
     
-    if (usuario?.permissoes_acoes_nexus) {
+    if (usuario?.permissoes_acoes_nexus && Object.keys(usuario.permissoes_acoes_nexus).length > 0) {
       setPermissoesAcoes(usuario.permissoes_acoes_nexus);
+      persistirDefaultsRef.current = false;
     } else {
-      setPermissoesAcoes({});
+      // Primeira vez sem permissões salvas: materializa os defaults do preset
+      // (padrão liberado por nível) no estado, para que o auto-save os grave no banco.
+      const nivel = usuario?.role === 'admin' ? 'admin' : (usuario?.attendant_role || 'pleno');
+      const presetDefaults = PERMISSIONS_PRESETS[nivel] || PERMISSIONS_PRESETS.pleno || {};
+      setPermissoesAcoes({ ...presetDefaults });
+      persistirDefaultsRef.current = true; // sinaliza para o auto-save gravar os defaults
     }
     
     if (usuario?.diagnostico_nexus) {
@@ -77,7 +85,9 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
   // ── AUTO-SAVE com debounce: persiste qualquer mudança de switch sem exigir
   // clique no botão "Salvar" (alinha com o auto-save das outras abas da tela). ──
   useEffect(() => {
-    if (hidratandoRef.current || !usuario?.id) return;
+    // Bloqueia durante hidratação, EXCETO quando há defaults do preset a persistir (usuário novo)
+    if ((hidratandoRef.current && !persistirDefaultsRef.current) || !usuario?.id) return;
+    if (!permissoesAcoes || Object.keys(permissoesAcoes).length === 0) return;
     if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
     autoSaveRef.current = setTimeout(async () => {
       try {
@@ -88,6 +98,7 @@ export default function PainelPermissoesUnificado({ usuario, integracoes = [], o
           diagnostico_nexus: diagnostico,
           paginas_acesso: paginasAcesso
         });
+        persistirDefaultsRef.current = false; // defaults já persistidos
       } catch (error) {
         console.error('[PainelPermissoesUnificado] Erro no auto-save:', error);
         toast.error('❌ Erro ao salvar: ' + error.message);
