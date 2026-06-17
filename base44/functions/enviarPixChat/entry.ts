@@ -111,11 +111,11 @@ Deno.serve(async (req) => {
     }
     if (!integration) return Response.json({ success: false, error: 'sem_integracao_conectada' });
 
-    // Texto com chave + copia-e-cola
+    // Texto enxuto: apenas chave Pix (CNPJ). O copia-e-cola vai na legenda do QR.
     etapa = 'gerar_pix';
     const chaveLimpa = String(pix.url).replace(/\D/g, '') || String(pix.url);
     const copiaCola = gerarPixCopiaECola(chaveLimpa);
-    const textoResposta = `⚡ *Pix NeuralTec*\n\nChave Pix (CNPJ):\n${pix.url}\n\n📋 *Copia e Cola:*\n${copiaCola}`;
+    const textoResposta = `⚡ *Pix NeuralTec*\n\n*Chave Pix (CNPJ):*\n${pix.url}`;
 
     etapa = 'enviar_texto';
     const resp = await enviarTextoWhatsApp(integration, contato.telefone, textoResposta);
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
     // externos como qrserver.com, por isso re-hospedamos.
     etapa = 'enviar_qr';
     try {
-      const qrExternoUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=10&data=${encodeURIComponent(copiaCola)}`;
+      const qrExternoUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(copiaCola)}`;
       const qrResp = await fetch(qrExternoUrl);
       if (!qrResp.ok) throw new Error('qrserver retornou ' + qrResp.status);
       const qrBlob = await qrResp.blob();
@@ -143,12 +143,14 @@ Deno.serve(async (req) => {
       const uploadResp = await base44.asServiceRole.integrations.Core.UploadFile({ file: qrFile });
       const qrUrl = uploadResp.file_url;
 
-      const respImg = await enviarImagemWhatsApp(integration, contato.telefone, qrUrl, '⚡ Pix NeuralTec — escaneie para pagar');
+      // Legenda do QR carrega o copia-e-cola — o cliente copia direto da imagem.
+      const captionQr = `⚡ *Pix NeuralTec* — escaneie ou copie e cole:\n${copiaCola}`;
+      const respImg = await enviarImagemWhatsApp(integration, contato.telefone, qrUrl, captionQr);
       if (respImg.ok) {
         await base44.asServiceRole.entities.Message.create({
           thread_id, sender_id: user.id, sender_type: 'user',
           recipient_id: contato.id, recipient_type: 'contact',
-          content: '[QR Code Pix]', channel: 'whatsapp', status: 'enviada',
+          content: captionQr, channel: 'whatsapp', status: 'enviada',
           whatsapp_message_id: respImg.msgId, sent_at: new Date().toISOString(),
           media_url: qrUrl, media_type: 'image',
           metadata: { whatsapp_integration_id: integration.id, message_type: 'pix_qr' }
