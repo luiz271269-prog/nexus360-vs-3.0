@@ -29,28 +29,30 @@ async function enviarTextoWhatsApp(integ, telefone, mensagem) {
   return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp };
 }
 
-// ── Botões de resposta rápida nativos do W-API: o cliente vê os 3 grupos
-// como BOTÕES diretos na tela (sem "Ver opções"). Limite WhatsApp = 3 botões.
-// Endpoint: /message/send-button-list. Só funciona no w_api. ──
+// Texto/título/rodapé compartilhado pelos botões dos dois provedores.
+const MENU_TITULO = 'NEURALTEC — Acessos rápidos';
+const MENU_MENSAGEM = 'Escolha uma opção abaixo:';
+const MENU_RODAPE = 'NEURALTEC';
+const MENU_BOTOES = [
+  { id: 'acesso_menu:setores',   label: '🏢 Setores da Empresa' },
+  { id: 'acesso_menu:promocoes', label: '🏷️ Promoções e Web Site' },
+  { id: 'acesso_menu:redes',     label: '📱 Redes Sociais' }
+];
+
+// ── Botões de resposta rápida nativos do W-API (plano PRO). 3 botões diretos.
+// Endpoint VALIDADO: /message/send-button-actions com buttonActions[] type REPLAY. ──
 async function enviarBotoesCategoriasWapi(integ, telefone) {
   const tel = (telefone || '').replace(/\D/g, '');
   const phone = tel.startsWith('55') ? tel : '55' + tel;
   const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
-    + `/message/send-button-list?instanceId=${integ.instance_id_provider}`;
-
-  // W-API: buttons[] com buttonId + buttonText. WhatsApp limita a 3 botões.
-  const buttons = [
-    { buttonId: 'acesso_menu:setores',   buttonText: { displayText: '🏢 Setores da Empresa' } },
-    { buttonId: 'acesso_menu:promocoes', buttonText: { displayText: '🏷️ Promoções e Web Site' } },
-    { buttonId: 'acesso_menu:redes',     buttonText: { displayText: '📱 Redes Sociais' } }
-  ];
+    + `/message/send-button-actions?instanceId=${integ.instance_id_provider}`;
 
   const body = {
     phone,
-    title: 'NEURALTEC — Acessos rápidos',
-    description: 'Escolha uma opção abaixo:',
-    footerText: 'NEURALTEC',
-    buttons,
+    message: MENU_MENSAGEM,
+    title: MENU_TITULO,
+    footer: MENU_RODAPE,
+    buttonActions: MENU_BOTOES.map(b => ({ type: 'REPLAY', buttonText: b.label, id: b.id })),
     delayMessage: 1
   };
 
@@ -63,6 +65,30 @@ async function enviarBotoesCategoriasWapi(integ, telefone) {
   let resp = {};
   try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
   const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
+  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText, sentUrl: url, sentBody: body };
+}
+
+// ── Botões de resposta rápida nativos do Z-API. 3 botões diretos.
+// Endpoint: /send-button-list com buttonList.buttons[] (label + id). ──
+async function enviarBotoesCategoriasZapi(integ, telefone) {
+  const tel = (telefone || '').replace(/\D/g, '');
+  const phone = tel.startsWith('55') ? tel : '55' + tel;
+  const url = (integ.base_url_provider || 'https://api.z-api.io')
+    + `/instances/${integ.instance_id_provider}/token/${integ.api_key_provider}/send-button-list`;
+  const headers = { 'Content-Type': 'application/json' };
+  if (integ.security_client_token_header) headers['Client-Token'] = integ.security_client_token_header;
+
+  const body = {
+    phone,
+    message: `*${MENU_TITULO}*\n${MENU_MENSAGEM}`,
+    buttonList: { buttons: MENU_BOTOES.map(b => ({ id: b.id, label: b.label })) }
+  };
+
+  const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  const rawText = await r.text().catch(() => '');
+  let resp = {};
+  try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
+  const msgId = resp.messageId || resp.id || resp.key?.id || null;
   return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText, sentUrl: url, sentBody: body };
 }
 
@@ -223,17 +249,19 @@ Deno.serve(async (req) => {
     let formato = 'menu_numerico';
 
     let diagLista = null;
-    if (integration.api_provider === 'w_api') {
-      // 1ª tentativa: BOTÕES diretos (sem "Ver opções"). Se falhar, cai na lista.
-      const respBotoes = await enviarBotoesCategoriasWapi(integration, contact.telefone);
-      console.log('[enviarCartaoAcesso] 🔎 W-API send-button-list →', JSON.stringify({
+    // 1ª tentativa (AMBAS as integrações): BOTÕES diretos de resposta rápida.
+    {
+      const respBotoes = integration.api_provider === 'w_api'
+        ? await enviarBotoesCategoriasWapi(integration, contact.telefone)
+        : await enviarBotoesCategoriasZapi(integration, contact.telefone);
+      console.log(`[enviarCartaoAcesso] 🔎 ${integration.api_provider} send-button →`, JSON.stringify({
         ok: respBotoes.ok, msgId: respBotoes.msgId, httpStatus: respBotoes.httpStatus, rawText: respBotoes.rawText
       }));
       if (respBotoes.ok) {
         resp = respBotoes;
         formato = 'botoes_categorias';
       } else {
-        console.warn('[enviarCartaoAcesso] ⚠️ botões FALHARAM, tentando lista. raw:', JSON.stringify(respBotoes.raw));
+        console.warn('[enviarCartaoAcesso] ⚠️ botões FALHARAM, tentando fallback. raw:', JSON.stringify(respBotoes.raw));
       }
     }
     if (!resp && integration.api_provider === 'w_api') {
