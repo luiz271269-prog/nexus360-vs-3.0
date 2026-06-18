@@ -92,13 +92,29 @@ Deno.serve(async (req) => {
   // espera um tempo aleatório diferente, evitando o thundering herd
   // que causa cascata de erros 429.
   // ════════════════════════════════════════════════════════════════
-  const jitter = Math.floor(Math.random() * 700); // 0~700ms
-  if (jitter > 50) {
-    await new Promise(r => setTimeout(r, jitter));
+  // Escolha de menu pula o jitter — navegação não dispara thundering herd.
+  if (!_ehEscolhaMenuFast) {
+    const jitter = Math.floor(Math.random() * 700); // 0~700ms
+    if (jitter > 50) {
+      await new Promise(r => setTimeout(r, jitter));
+    }
   }
 
   const { message, integration, provider, messageContent, rawPayload } = payload;
   let { contact, thread } = payload;
+
+  // ════════════════════════════════════════════════════════════════
+  // [MENU FAST-PATH] Clique de categoria/submenu é NAVEGAÇÃO, não conversa.
+  // Detecta cedo se a mensagem é uma escolha de menu (número, id da lista
+  // interativa ou label do botão REPLAY) com um menu de Acessos aberto na
+  // thread. Se for, pula o jitter e o batch window (atrasos de ~3,7s) — a
+  // navegação precisa abrir o submenu na hora. O roteamento continua no
+  // [ACESSOS-MENU GATE] mais abaixo, que faz o invoke do responderMenuAcesso.
+  // ════════════════════════════════════════════════════════════════
+  const _respMenu = String(messageContent || '').trim();
+  const _ehEscolhaMenuFast = thread?.campos_personalizados?.acesso_menu_nivel
+    && message?.sender_type === 'contact'
+    && (/^[0-9]{1,2}$/.test(_respMenu) || /^acesso_menu:/i.test(_respMenu) || /(setor|promo[cç]|web\s*site|rede|social)/i.test(_respMenu));
 
   // ════════════════════════════════════════════════════════════════
   // GUARD ECHO: Bloquear mensagens enviadas pelo próprio sistema.
@@ -253,7 +269,8 @@ Deno.serve(async (req) => {
   const lastInboundMs = hasLastInbound
     ? Date.now() - new Date(thread.last_inbound_at).getTime()
     : null;
-  if (contact?.id && (!hasLastInbound || lastInboundMs <= 10_000)) {
+  // Escolha de menu pula o batch window de 3s — submenu deve abrir na hora.
+  if (!_ehEscolhaMenuFast && contact?.id && (!hasLastInbound || lastInboundMs <= 10_000)) {
     try {
       const dezSegAtras = new Date(Date.now() - 10_000).toISOString();
       const msgRecentes = await base44.asServiceRole.entities.Message.filter({
