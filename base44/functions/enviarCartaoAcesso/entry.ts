@@ -31,31 +31,25 @@ async function enviarTextoWhatsApp(integ, telefone, mensagem) {
 
 // Texto/título/rodapé compartilhado pelos botões dos dois provedores.
 const MENU_TITULO = 'NEURALTEC — Acessos rápidos';
-const MENU_MENSAGEM = 'Escolha uma opção abaixo:';
+const MENU_MENSAGEM = 'Toque em uma opção para abrir direto:';
 const MENU_RODAPE = 'NEURALTEC';
-const MENU_BOTOES = [
-  { id: 'acesso_menu:setores',   label: '🏢 Setores da Empresa' },
-  { id: 'acesso_menu:promocoes', label: '🏷️ Promoções e Web Site' },
-  { id: 'acesso_menu:redes',     label: '📱 Redes Sociais' }
-];
 
-// ── Botões de resposta rápida nativos do W-API (plano PRO). 3 botões diretos.
-// Endpoint VALIDADO: /message/send-button-actions com buttonActions[] type REPLAY. ──
-async function enviarBotoesCategoriasWapi(integ, telefone) {
+// ── Botões de URL embutidos: cada destino abre o link DIRETO ao toque,
+// sem mensagem intermediária e sem responderMenuAcesso. ──
+// titulos/links espelham os AcessoRapido cadastrados (Pix e LinkedIn de fora).
+async function enviarBotoesUrlWapi(integ, telefone, titulo, mensagem, botoes, rodape) {
   const tel = (telefone || '').replace(/\D/g, '');
   const phone = tel.startsWith('55') ? tel : '55' + tel;
   const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
     + `/message/send-button-actions?instanceId=${integ.instance_id_provider}`;
-
   const body = {
     phone,
-    message: MENU_MENSAGEM,
-    title: MENU_TITULO,
-    footer: MENU_RODAPE,
-    buttonActions: MENU_BOTOES.map(b => ({ type: 'REPLAY', buttonText: b.label, id: b.id })),
+    message: mensagem,
+    title: titulo,
+    footer: rodape || MENU_RODAPE,
+    buttonActions: botoes.map(b => ({ type: 'URL', buttonText: b.buttonText, url: b.url })),
     delayMessage: 1
   };
-
   const r = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
@@ -65,86 +59,40 @@ async function enviarBotoesCategoriasWapi(integ, telefone) {
   let resp = {};
   try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
   const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
-  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText, sentUrl: url, sentBody: body };
+  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText };
 }
 
-// ── Botões de resposta rápida nativos do Z-API. 3 botões diretos.
-// Endpoint: /send-button-list com buttonList.buttons[] (label + id). ──
-async function enviarBotoesCategoriasZapi(integ, telefone) {
-  const tel = (telefone || '').replace(/\D/g, '');
-  const phone = tel.startsWith('55') ? tel : '55' + tel;
-  const url = (integ.base_url_provider || 'https://api.z-api.io')
-    + `/instances/${integ.instance_id_provider}/token/${integ.api_key_provider}/send-button-list`;
-  const headers = { 'Content-Type': 'application/json' };
-  if (integ.security_client_token_header) headers['Client-Token'] = integ.security_client_token_header;
-
-  const body = {
-    phone,
-    message: `*${MENU_TITULO}*\n${MENU_MENSAGEM}`,
-    buttonList: { buttons: MENU_BOTOES.map(b => ({ id: b.id, label: b.label })) }
-  };
-
-  const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
-  const rawText = await r.text().catch(() => '');
-  let resp = {};
-  try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
-  const msgId = resp.messageId || resp.id || resp.key?.id || null;
-  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText, sentUrl: url, sentBody: body };
+// ── Monta os botões de URL a partir dos AcessoRapido cadastrados.
+// Cada item vira um botão que abre o link DIRETO ao toque. Exclui Pix
+// (tipo=pix, envio manual). LinkedIn fica de fora (ainda não usado). ──
+function montarBotoesUrl(acessos) {
+  const ordemPreferida = ['Site', 'Promoções', 'Instagram', 'Vendas', 'Assistência', 'Financeiro', 'Compras'];
+  const elegiveis = (acessos || [])
+    .filter(a => a.tipo !== 'pix' && a.url && /^https?:\/\//i.test(a.url) && a.titulo !== 'LinkedIn')
+    .sort((a, b) => {
+      const ia = ordemPreferida.indexOf(a.titulo); const ib = ordemPreferida.indexOf(b.titulo);
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
+  return elegiveis.map(a => ({
+    buttonText: `${a.emoji ? a.emoji + ' ' : ''}${a.titulo}`.trim(),
+    url: a.url
+  }));
 }
 
-// ── Lista interativa nativa do W-API: o cliente vê só as CATEGORIAS
-// (sem URL, sem lista gigante) e toca para abrir o submenu. Só funciona no w_api. ──
-async function enviarListaCategoriasWapi(integ, telefone) {
-  const tel = (telefone || '').replace(/\D/g, '');
-  const phone = tel.startsWith('55') ? tel : '55' + tel;
-  // Endpoint oficial W-API: /message/send-list (NÃO /send-list-message — esse retorna 404).
-  const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
-    + `/message/send-list?instanceId=${integ.instance_id_provider}`;
-
-  // W-API exige rowId (não id) em cada linha.
-  const rows = [
-    { rowId: 'acesso_menu:setores',   title: '🏢 Setores da Empresa',   description: 'Vendas, Assistência, Financeiro, Compras' },
-    { rowId: 'acesso_menu:promocoes', title: '🏷️ Promoções e Web Site', description: 'Site, loja e promoções atuais' },
-    { rowId: 'acesso_menu:redes',     title: '📱 Redes Sociais',        description: 'Instagram, LinkedIn e mais' }
-  ];
-
-  // Contrato oficial /message/send-list: footerText é obrigatório.
-  const body = {
-    phone,
-    title: 'NEURALTEC — Acessos rápidos',
-    description: 'Escolha uma opção abaixo.',
-    buttonText: 'Ver opções',
-    footerText: 'NEURALTEC',
-    sections: [{ title: 'Categorias', rows }],
-    delayMessage: 1
-  };
-
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
-    body: JSON.stringify(body)
-  });
-  // DIAGNÓSTICO: ler corpo bruto como texto + status HTTP (a W-API pode não devolver JSON em erro)
-  const rawText = await r.text().catch(() => '');
-  let resp = {};
-  try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
-  const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
-  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText, sentUrl: url, sentBody: body };
-}
-
-// ── Menu numérico curto (fallback universal Z-API e W-API) ──
-function montarMenuNumerico() {
-  return `⚡ *NEURALTEC — Acessos rápidos*\n\nComo podemos te ajudar?\n\n1️⃣ Setores da Empresa\n2️⃣ Promoções e Web Site\n3️⃣ Redes Sociais`;
+// ── Fallback texto com links clicáveis (se botões de URL falharem) ──
+function montarTextoLinks(botoes) {
+  const linhas = botoes.map(b => `${b.buttonText}: ${b.url}`);
+  return `⚡ *${MENU_TITULO}*\n${MENU_MENSAGEM}\n\n${linhas.join('\n')}`;
 }
 
 // ============================================================================
-// ACESSOS RÁPIDOS NEURALTEC — MENU EM 3 NÍVEIS
+// ACESSOS RÁPIDOS NEURALTEC — BOTÕES DE URL DIRETOS
 // ============================================================================
-// Nível 1 (este arquivo): saudação → menu CURTO de 4 categorias.
-//   W-API: lista interativa nativa (4 categorias) → fallback menu numérico.
-//   Z-API: menu numérico direto.
-//   NÃO envia mais a lista gigante com todos os links abertos.
-// Nível 2 (responderMenuAcesso): cliente escolhe categoria → recebe submenu.
+// A saudação envia botões de URL: cada destino (Site, Promoções, Instagram,
+// Vendas, Assistência, Financeiro, Compras) abre o link DIRETO ao toque.
+// Sem menu numérico, sem lista interativa, sem responderMenuAcesso.
+// Como o WhatsApp aceita até 3 botões de URL por card, os destinos são
+// enviados em lotes de 3.
 //
 // Modos:
 //  1. manual → atendente envia pelo chat (sem trava)
@@ -240,62 +188,41 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Nenhuma integração WhatsApp conectada' });
     }
 
-    // ── Enviar MENU CURTO (4 categorias) ──
-    // W-API: tenta lista interativa nativa → fallback menu numérico.
-    // Z-API: menu numérico direto.
-    etapa = 'enviar_menu';
-    const menuNumerico = montarMenuNumerico();
-    let resp;
-    let formato = 'menu_numerico';
-
-    let diagLista = null;
-    // 1ª tentativa (AMBAS as integrações): BOTÕES diretos de resposta rápida.
-    {
-      const respBotoes = integration.api_provider === 'w_api'
-        ? await enviarBotoesCategoriasWapi(integration, contact.telefone)
-        : await enviarBotoesCategoriasZapi(integration, contact.telefone);
-      console.log(`[enviarCartaoAcesso] 🔎 ${integration.api_provider} send-button →`, JSON.stringify({
-        ok: respBotoes.ok, msgId: respBotoes.msgId, httpStatus: respBotoes.httpStatus, rawText: respBotoes.rawText
-      }));
-      if (respBotoes.ok) {
-        resp = respBotoes;
-        formato = 'botoes_categorias';
-      } else {
-        console.warn('[enviarCartaoAcesso] ⚠️ botões FALHARAM, tentando fallback. raw:', JSON.stringify(respBotoes.raw));
-      }
-    }
-    if (!resp && integration.api_provider === 'w_api') {
-      const respLista = await enviarListaCategoriasWapi(integration, contact.telefone);
-      // DIAGNÓSTICO: capturar o retorno bruto da W-API para entender por que cai no fallback
-      diagLista = {
-        endpoint: '/message/send-list',
-        provider: integration.api_provider,
-        base_url: integration.base_url_provider || 'https://api.w-api.app/v1',
-        instance_id: integration.instance_id_provider,
-        ok: respLista.ok,
-        msgId: respLista.msgId,
-        httpStatus: respLista.httpStatus,
-        rawText: respLista.rawText,
-        sentUrl: respLista.sentUrl,
-        sentBody: respLista.sentBody,
-        raw: respLista.raw
-      };
-      console.log('[enviarCartaoAcesso] 🔎 W-API send-list-message →', JSON.stringify(diagLista));
-      if (respLista.ok) {
-        resp = respLista;
-        formato = 'lista_categorias';
-      } else {
-        console.warn('[enviarCartaoAcesso] ⚠️ lista FALHOU, caindo no fallback numérico. raw:', JSON.stringify(respLista.raw));
-      }
-    }
-    if (!resp) {
-      resp = await enviarTextoWhatsApp(integration, contact.telefone, menuNumerico);
-    }
-    if (!resp.ok) {
-      return Response.json({ success: false, error: 'erro_envio', detalhe: resp.raw });
+    // ── Montar botões de URL a partir dos AcessoRapido cadastrados ──
+    etapa = 'montar_botoes';
+    const acessos = await base44.asServiceRole.entities.AcessoRapido.filter({ ativo: true });
+    const botoes = montarBotoesUrl(acessos);
+    if (!botoes.length) {
+      return Response.json({ success: false, error: 'sem_acessos_cadastrados' });
     }
 
-    // ── Persistir Message + marcar thread aguardando escolha ──
+    // ── Enviar botões de URL em lotes de 3 (limite do WhatsApp). W-API only;
+    // Z-API não suporta botão de URL nativo → fallback texto com links. ──
+    etapa = 'enviar_botoes';
+    let formato = 'botoes_url';
+    let primeiroMsgId = null;
+    let algumOk = false;
+
+    if (integration.api_provider === 'w_api') {
+      for (let i = 0; i < botoes.length; i += 3) {
+        const lote = botoes.slice(i, i + 3);
+        const r = await enviarBotoesUrlWapi(integration, contact.telefone, MENU_TITULO, MENU_MENSAGEM, lote, MENU_RODAPE);
+        console.log(`[enviarCartaoAcesso] 🔎 botões URL lote ${i / 3 + 1} →`, JSON.stringify({ ok: r.ok, httpStatus: r.httpStatus, rawText: r.rawText }));
+        if (r.ok) { algumOk = true; if (!primeiroMsgId) primeiroMsgId = r.msgId; }
+      }
+    }
+
+    // Fallback (Z-API ou botões falharam): texto com links clicáveis.
+    if (!algumOk) {
+      formato = 'texto_links';
+      const respTexto = await enviarTextoWhatsApp(integration, contact.telefone, montarTextoLinks(botoes));
+      if (!respTexto.ok) {
+        return Response.json({ success: false, error: 'erro_envio', detalhe: respTexto.raw });
+      }
+      primeiroMsgId = respTexto.msgId;
+    }
+
+    // ── Persistir Message (sem estado de menu — não há mais navegação) ──
     const now = new Date().toISOString();
     if (thread) {
       await base44.asServiceRole.entities.Message.create({
@@ -304,34 +231,34 @@ Deno.serve(async (req) => {
         sender_type: 'user',
         recipient_id: contact.id,
         recipient_type: 'contact',
-        content: menuNumerico,
+        content: montarTextoLinks(botoes),
         channel: 'whatsapp',
         status: 'enviada',
-        whatsapp_message_id: resp.msgId,
+        whatsapp_message_id: primeiroMsgId,
         sent_at: now,
         metadata: {
           whatsapp_integration_id: integration.id,
           is_system_message: trigger !== 'manual',
-          message_type: 'acessos_menu_categorias',
+          message_type: 'acessos_botoes_url',
           formato,
           trigger
         }
       });
 
-      // Estado do menu: nível atual + timestamp (timeout de 30min no gate do inbound)
+      // Limpa qualquer estado de menu antigo (não há mais responderMenuAcesso)
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         campos_personalizados: {
           ...(thread.campos_personalizados || {}),
-          acesso_menu_nivel: 'principal',
-          acesso_menu_updated_at: now,
+          acesso_menu_nivel: null,
+          acesso_menu_aguardando: false,
           acessos_rapidos_enviado: true,
           acessos_rapidos_enviado_em: now
         }
       });
     }
 
-    console.log(`[enviarCartaoAcesso] ✅ menu (${formato}) → ${contact.nome} (trigger=${trigger})`);
-    return Response.json({ success: true, message_id: resp.msgId, formato, trigger, diag_lista: diagLista });
+    console.log(`[enviarCartaoAcesso] ✅ botões URL (${formato}) → ${contact.nome} (trigger=${trigger})`);
+    return Response.json({ success: true, message_id: primeiroMsgId, formato, trigger });
 
   } catch (error) {
     console.error('[enviarCartaoAcesso] ❌ etapa=' + etapa, error.message);
