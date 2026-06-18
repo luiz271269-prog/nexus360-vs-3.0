@@ -1079,7 +1079,7 @@ export default React.memo(function MessageBubble({
               <div className="mb-0.5">
                 <UsuarioDisplay
                   usuario={atendenteRemetente}
-                  className="text-[11px] font-semibold text-cyan-600"
+                  className="text-[13px] font-semibold text-cyan-600"
                   variant="compact" />
 
               </div>);

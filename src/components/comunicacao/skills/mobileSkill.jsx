@@ -78,15 +78,15 @@ const TOKENS = {
   },
   // Padding interno da bolha (apenas quando é texto)
   paddingBolha: {
-    mobile: 'px-3.5 py-2',
-    desktop: 'sm:px-3 sm:py-1.5',
-    full: 'px-3.5 py-2 sm:px-3 sm:py-1.5',
+    mobile: 'px-4 py-2.5',
+    desktop: 'sm:px-4 sm:py-2.5',
+    full: 'px-4 py-2.5 sm:px-4 sm:py-2.5',
   },
   // Tipografia do corpo do texto
   textoCorpo: {
-    mobile: 'text-[13.5px]',
-    desktop: 'sm:text-[14.2px]',
-    full: 'text-[13.5px] sm:text-[14.2px] leading-[20px] tracking-[0.01em]',
+    mobile: 'text-[15px]',
+    desktop: 'sm:text-[15px]',
+    full: 'text-[15px] sm:text-[15px] leading-[21px] tracking-[0.005em]',
   },
 };
 
