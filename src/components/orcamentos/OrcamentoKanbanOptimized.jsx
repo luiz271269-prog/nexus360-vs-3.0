@@ -63,7 +63,7 @@ const formatDate = (dateString) => {
 };
 
 // ─── Card memorizado ──────────────────────────────────────────────────────────
-const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, isSaving }) => {
+const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, isSaving, fotoVendedor }) => {
   return (
     <Draggable draggableId={orcamento.id} index={index}>
       {(provided, snapshot) =>
@@ -108,7 +108,11 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
             <div className="flex items-center justify-between text-[10px] text-slate-500">
               {orcamento.vendedor &&
                 <div className="flex items-center gap-0.5">
-                  <User className="w-2.5 h-2.5" />
+                  {fotoVendedor ? (
+                    <img src={fotoVendedor} alt={orcamento.vendedor} className="w-4 h-4 rounded-full object-cover flex-shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+                  ) : (
+                    <User className="w-2.5 h-2.5" />
+                  )}
                   <span className="truncate max-w-[60px]">{(orcamento.vendedor || '').split(' ')[0]}</span>
                 </div>
               }
@@ -211,7 +215,14 @@ const ColunasEmptyState = () =>
   </div>;
 
 // ─── Coluna Droppable memorizada ──────────────────────────────────────────────
-const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamentos, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, savingId }) => {
+const resolverFotoVendedor = (orcamento, fotosVendedorMap) => {
+  if (!fotosVendedorMap) return null;
+  if (orcamento.vendedor_id && fotosVendedorMap.byId[orcamento.vendedor_id]) return fotosVendedorMap.byId[orcamento.vendedor_id];
+  const nome = (orcamento.vendedor || '').trim().toLowerCase();
+  return nome ? (fotosVendedorMap.byName[nome] || null) : null;
+};
+
+const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamentos, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, savingId, fotosVendedorMap }) => {
   const gradient = statusGradients[status];
   const totalValor = useMemo(() => colOrcamentos.reduce((s, o) => s + (o.valor_total || 0), 0), [colOrcamentos]);
 
@@ -261,6 +272,7 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
                   onAtendido={onAtendido}
                   etiquetasMap={etiquetasMap}
                   isSaving={savingId === orc.id}
+                  fotoVendedor={resolverFotoVendedor(orc, fotosVendedorMap)}
               />
             )}
             {provided.placeholder}
@@ -273,7 +285,7 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
 KanbanColumn.displayName = 'KanbanColumn';
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
-export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, onUpdateStatus, usuario, onEdit, onMostrarInsightsIA, etapasVisiveis }) {
+export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, onUpdateStatus, usuario, onEdit, onMostrarInsightsIA, etapasVisiveis, atendentes = [] }) {
   const [tagModalOrcamento, setTagModalOrcamento] = useState(null);
   const [chatOrcamento, setChatOrcamento] = useState(null);
   const [etiquetas, setEtiquetas] = useState([]);
@@ -289,6 +301,17 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   const etiquetasMap = useMemo(() => {
     return etiquetas.reduce((acc, et) => { acc[et.id] = et; return acc; }, {});
   }, [etiquetas]);
+
+  // Mapa de fotos de vendedores (por id e por nome) para o avatar do card
+  const fotosVendedorMap = useMemo(() => {
+    const byId = {}, byName = {};
+    (atendentes || []).forEach((a) => {
+      if (!a?.foto_url) return;
+      if (a.value) byId[a.value] = a.foto_url;
+      if (a.label) byName[a.label.trim().toLowerCase()] = a.foto_url;
+    });
+    return { byId, byName };
+  }, [atendentes]);
 
   const handleTagSave = useCallback(async (orcamentoAtualizado) => {
     setLocalOrcamentos((prev) => {
@@ -485,6 +508,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
                       onAtendido={onAtendido}
                       etiquetasMap={etiquetasMap}
                       savingId={savingId}
+                      fotosVendedorMap={fotosVendedorMap}
                     />
                   )}
                 </div>

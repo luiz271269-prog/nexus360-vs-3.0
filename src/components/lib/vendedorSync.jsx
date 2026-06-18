@@ -215,7 +215,8 @@ export async function listarVendedoresParaSelect() {
         value: u.id,
         label: getNomeExibicao(u),
         email: u.email,
-        codigo: u.codigo
+        codigo: u.codigo,
+        foto_url: u.foto_url || u.foto_perfil_url || null
       }));
   } catch (error) {
     console.error('Erro ao listar vendedores:', error);
