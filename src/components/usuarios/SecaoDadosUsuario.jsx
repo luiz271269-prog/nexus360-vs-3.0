@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { User, Shield, Lock } from 'lucide-react';
 import CardRegraFixaHardCore from './CardRegraFixaHardCore';
+import UploadFotoPerfil from './UploadFotoPerfil';
 
 const SETORES = [
   { value: "vendas", label: "Vendas" },
@@ -59,6 +60,15 @@ export default function SecaoDadosUsuario({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 pb-3">
+          <div>
+            <label className="text-xs font-medium text-slate-700 mb-1 block">Foto de Perfil</label>
+            <UploadFotoPerfil
+              value={usuarioSelecionado.foto_url || ""}
+              nome={usuarioSelecionado.nome || usuarioSelecionado.email}
+              onChange={(url) => atualizarUsuario("foto_url", url)}
+            />
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="text-xs font-medium text-slate-700 mb-1 block">Nome Completo</label>

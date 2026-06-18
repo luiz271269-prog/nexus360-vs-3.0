@@ -31,6 +31,7 @@ export default function UsuariosPage() {
       funcao: u.attendant_role || 'pleno',
       tipoAcesso: u.role || 'user',
       ativo: u.is_active !== false,
+      foto_url: u.foto_url || '',
       // Campos adicionais para edição completa
       is_whatsapp_attendant: u.is_whatsapp_attendant || false,
       whatsapp_setores: u.whatsapp_setores || [],
@@ -67,6 +68,7 @@ export default function UsuariosPage() {
       attendant_role: usuario.funcao || 'pleno',
       role: usuario.tipoAcesso || 'user',
       is_active: usuario.ativo !== false,
+      foto_url: usuario.foto_url || '',
       is_whatsapp_attendant: usuario.is_whatsapp_attendant || false,
       whatsapp_setores: usuario.whatsapp_setores || [],
       whatsapp_permissions: usuario.whatsapp_permissions || [],
@@ -113,6 +115,7 @@ export default function UsuariosPage() {
           funcao: encontrado.attendant_role,
           tipoAcesso: encontrado.role,
           ativo: encontrado.is_active,
+          foto_url: encontrado.foto_url || '',
           is_whatsapp_attendant: encontrado.is_whatsapp_attendant,
           whatsapp_setores: encontrado.whatsapp_setores,
           whatsapp_permissions: encontrado.whatsapp_permissions,
