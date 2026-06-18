@@ -1,19 +1,45 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, Loader2, X, ImageIcon } from 'lucide-react';
+import { UploadCloud, Loader2, X, ImageIcon, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
 /**
  * Uploader de foto de perfil do usuário.
- * Aceita: clique para escolher arquivo, arrastar-soltar e COLAR (Ctrl+V) um print.
- * Ao concluir o upload, chama onChange(url) com a URL permanente.
+ * Aceita: clique para escolher arquivo, arrastar-soltar, COLAR (Ctrl+V) um print
+ * e BUSCAR a foto direto do WhatsApp pelo número do atendente.
+ * Ao concluir, chama onChange(url) com a URL permanente.
  */
-export default function UploadFotoPerfil({ value, onChange, nome = '' }) {
+export default function UploadFotoPerfil({ value, onChange, nome = '', telefone = '', integracoesWhatsApp = [] }) {
   const [enviando, setEnviando] = useState(false);
+  const [buscando, setBuscando] = useState(false);
   const [arrastando, setArrastando] = useState(false);
   const inputRef = useRef(null);
 
   const inicial = (nome || '?').trim().charAt(0).toUpperCase() || '?';
+
+  const buscarDoWhatsApp = async () => {
+    const numero = (telefone || '').trim() || (window.prompt('Número de WhatsApp do atendente (com DDD):') || '').trim();
+    if (!numero) return;
+    const integracao = integracoesWhatsApp.find((i) => i.status === 'conectado') || integracoesWhatsApp[0];
+    if (!integracao) {
+      toast.error('Nenhuma conexão WhatsApp disponível para buscar a foto');
+      return;
+    }
+    setBuscando(true);
+    try {
+      const { data } = await base44.functions.invoke('buscarFotoPerfilWhatsApp', { integration_id: integracao.id, phone: numero });
+      if (data?.profilePictureUrl) {
+        onChange(data.profilePictureUrl);
+        toast.success('📸 Foto encontrada no WhatsApp!');
+      } else {
+        toast.error('Nenhuma foto de perfil encontrada para esse número');
+      }
+    } catch (e) {
+      toast.error('Erro ao buscar foto: ' + (e.message || 'falha'));
+    } finally {
+      setBuscando(false);
+    }
+  };
 
   const enviarArquivo = async (file) => {
     if (!file || !file.type?.startsWith('image/')) {
@@ -91,6 +117,18 @@ export default function UploadFotoPerfil({ value, onChange, nome = '' }) {
           </div>
         )}
       </div>
+
+      {/* Buscar foto direto do WhatsApp */}
+      <button
+        type="button"
+        onClick={buscarDoWhatsApp}
+        disabled={buscando}
+        title="Buscar foto do WhatsApp pelo número"
+        className="flex-shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium border border-green-200 disabled:opacity-50"
+      >
+        {buscando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+        <span className="hidden sm:inline">WhatsApp</span>
+      </button>
 
       <input
         ref={inputRef}

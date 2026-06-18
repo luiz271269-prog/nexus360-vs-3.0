@@ -65,6 +65,7 @@ export default function SecaoDadosUsuario({
             <UploadFotoPerfil
               value={usuarioSelecionado.foto_url || ""}
               nome={usuarioSelecionado.nome || usuarioSelecionado.email}
+              integracoesWhatsApp={integracoesWhatsApp}
               onChange={(url) => atualizarUsuario("foto_url", url)}
             />
           </div>
