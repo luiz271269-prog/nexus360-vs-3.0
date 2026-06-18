@@ -1080,6 +1080,8 @@ export default React.memo(function MessageBubble({
                 <UsuarioDisplay
                   usuario={atendenteRemetente}
                   className="text-[13px] font-semibold text-cyan-600"
+                  showFoto
+                  fotoSize={22}
                   variant="compact" />
 
               </div>);
