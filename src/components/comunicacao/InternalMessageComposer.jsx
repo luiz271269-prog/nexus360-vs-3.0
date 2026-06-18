@@ -515,9 +515,13 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                           <div className="flex-shrink-0">
                             {isSelected ? <CheckSquare className="w-4 h-4 text-cyan-600" /> : <Square className="w-4 h-4 text-slate-300" />}
                           </div>
-                          <div className={`w-8 h-8 rounded-full ${setorCfg.cor} flex items-center justify-center text-white shadow-sm text-xs font-bold`}>
-                            {setorCfg.emoji}
-                          </div>
+                          {usuariosDoSetor.length > 0 ? (
+                            <GroupAvatars participantIds={usuariosDoSetor.map(u => u.id)} />
+                          ) : (
+                            <div className={`w-8 h-8 rounded-full ${setorCfg.cor} flex items-center justify-center text-white shadow-sm text-xs font-bold flex-shrink-0`}>
+                              {setorCfg.emoji}
+                            </div>
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-slate-700 truncate text-xs">{setorCfg.emoji} {setorCfg.label}</div>
                             <div className="flex items-center gap-1 mt-0.5">
@@ -705,9 +709,13 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                               <div className="flex-shrink-0">
                                 {isSelected ? <CheckSquare className="w-3 h-3 text-cyan-600" /> : <Square className="w-3 h-3 text-slate-300" />}
                               </div>
-                              <div className={`w-7 h-7 rounded-full ${setorCfg.cor} flex items-center justify-center text-white shadow-sm text-xs font-bold flex-shrink-0`}>
-                                {setorCfg.emoji}
-                              </div>
+                              {usuariosDoSetor.length > 0 ? (
+                                <GroupAvatars participantIds={usuariosDoSetor.map(u => u.id)} />
+                              ) : (
+                                <div className={`w-7 h-7 rounded-full ${setorCfg.cor} flex items-center justify-center text-white shadow-sm text-xs font-bold flex-shrink-0`}>
+                                  {setorCfg.emoji}
+                                </div>
+                              )}
                               <div className="flex-1 min-w-0">
                                 <div className="font-medium text-slate-700 truncate text-xs">{setorCfg.emoji} {setorCfg.label}</div>
                                 <div className="text-[10px] text-slate-500">{usuariosDoSetor.length} {usuariosDoSetor.length === 1 ? 'membro' : 'membros'}</div>
