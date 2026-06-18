@@ -124,6 +124,14 @@ Deno.serve(async (req) => {
       threadId = msg.thread_id;
       contactId = msg.sender_id;
       trigger = 'auto_primeira_msg';
+    } else if (body?.source === 'skill_saudacao') {
+      // Disparo automático vindo do skillPreAtendimentos (saudação pura). Roda
+      // como serviço (sem auth de usuário) e aplica o guard temporal de 30min,
+      // igual ao trigger automático — evita reenvio em rajada.
+      threadId = body.thread_id;
+      contactId = body.contact_id;
+      integrationId = body.integration_id || null;
+      trigger = 'auto_primeira_msg';
     } else {
       const user = await base44.auth.me().catch(() => null);
       if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -154,7 +162,9 @@ Deno.serve(async (req) => {
     }
 
     // ── Guard (modo automático): só dispara em SAUDAÇÃO ──
-    if (trigger === 'auto_primeira_msg') {
+    // Quando vem da skill (source=skill_saudacao) a saudação já foi confirmada
+    // lá — não há body.data para reavaliar, então pula este check.
+    if (trigger === 'auto_primeira_msg' && body?.source !== 'skill_saudacao') {
       const texto = String(body?.data?.content || '').toLowerCase().trim();
       const ehSaudacao = /(^|\b)(oi+|ol[aá]+|opa|bom\s*dia|boa\s*tarde|boa\s*noite|e\s*a[ií]|eai)(\b|$|[\s!.,?])/.test(texto);
       if (!ehSaudacao) {
@@ -162,13 +172,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Guard ANTI-REENVIO: o menu principal só sai 1x por ciclo. Sem isso, cada
-    // toque numa categoria reativava esta função e reenviava o card "Escolha uma
-    // opção abaixo: 1/2/3" (mensagem com ✓✓ verde repetida no chat do cliente).
-    // Modo manual (atendente) é isento. Cliente reaberto após >12h reseta o flag
-    // no processInbound, então um novo ciclo legítimo volta a enviar o menu.
-    if (trigger === 'auto_primeira_msg' && thread?.campos_personalizados?.acessos_rapidos_enviado === true) {
-      return Response.json({ success: true, skipped: 'menu_ja_enviado_neste_ciclo' });
+    // ── Guard ANTI-REENVIO TEMPORAL (30 min): o menu principal não reenvia em
+    // rajada. Cada toque numa categoria (ou saudações em sequência em poucos
+    // minutos) NÃO reenvia o card "Escolha uma opção abaixo". Mas uma saudação
+    // nova passados 30 min volta a trazer o menu junto — que é o comportamento
+    // desejado ("toda saudação vem com o menu"). Modo manual é isento.
+    // Janela curta em vez de flag permanente: o booleano travava o menu para
+    // sempre depois do 1º envio.
+    if (trigger === 'auto_primeira_msg') {
+      const enviadoEm = thread?.campos_personalizados?.acessos_rapidos_enviado_em;
+      const MENU_REENVIO_GAP_MS = 30 * 60 * 1000; // 30 min
+      if (enviadoEm && (Date.now() - new Date(enviadoEm).getTime() < MENU_REENVIO_GAP_MS)) {
+        return Response.json({ success: true, skipped: 'menu_enviado_recentemente_30min' });
+      }
     }
 
     etapa = 'carregar_contact';

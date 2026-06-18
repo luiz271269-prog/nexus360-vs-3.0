@@ -1081,6 +1081,18 @@ Deno.serve(async (req) => {
 
                 resultado.camadas.dedup.micro_intent = { tipo: microIntent.tipo, action: 'responded', style_profile_used: !!styleProfile };
                 console.log(`[CAMADA-0-MICRO] ✅ Respondido ${microIntent.tipo} ${styleProfile ? 'no estilo ' + styleProfile.display_name : '(genérico)'}`);
+
+                // CARTÃO DE ACESSOS RÁPIDOS junto da saudação: mesmo em thread já
+                // atribuída, toda saudação pura deve trazer o menu de categorias
+                // logo após o ACK. O enviarCartaoAcesso tem guard temporal de 30min
+                // próprio, então toques de categoria / saudações em rajada não
+                // reenviam. Fire-and-forget (não bloqueia o retorno).
+                if (microIntent.tipo === 'saudacao_pura' && integration_id) {
+                  base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
+                    thread_id, contact_id, integration_id, source: 'skill_saudacao'
+                  }).catch(e => console.warn('[CAMADA-0-MICRO] cartão acesso (saudação) falhou:', e.message));
+                }
+
                 await liberarEstadoThread(base44, thread, 'early_return_camada4_micro_intent_responded');
                 await gravarLogFinal(base44, thread_id, contact_id, resultado, tsInicio, 'micro_intent_responded');
                 marcarFimCamada(4, 'ok', { reason: 'micro_intent_responded', micro_intent_tipo: microIntent.tipo, style_profile_used: !!styleProfile });
