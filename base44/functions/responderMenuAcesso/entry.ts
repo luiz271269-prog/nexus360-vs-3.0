@@ -266,9 +266,9 @@ Deno.serve(async (req) => {
       const lista = grupos[categoria];
       if (!lista || !lista.length) return Response.json({ success: true, skipped: 'categoria_vazia', categoria });
 
-      // TODAS as categorias (Setores, Promoções, Redes) → LINKS CLICÁVEIS EM TEXTO.
-      // Link escrito no corpo da mensagem abre com um toque, SEM o popup nativo
-      // "Deseja abrir o link?" do WhatsApp (que só aparece em botões type:URL).
+      // TODAS as categorias (Setores, Promoções, Redes) → BOTÕES DE URL com link
+      // embutido. Setores leva ao wa.me de cada setor, sem menu numérico — acaba
+      // com o eco do número e o loop "Não entendi".
       {
         const isRedes = categoria === 'redes';
         const isSetores = categoria === 'setores';
@@ -279,16 +279,58 @@ Deno.serve(async (req) => {
           : isSetores ? 'Toque no setor desejado:'
           : 'Toque para ver nossas promoções e o site:';
 
-        // Instagram ativo; Facebook/LinkedIn ainda não integrados → filtrar só Instagram nas redes
-        const itensLink = isRedes
+        // Instagram ativo; Facebook/LinkedIn ainda não integrados → "em breve" no rodapé
+        const botoes = isRedes
           ? lista.filter(it => String(it.titulo || '').toLowerCase().includes('instagram'))
-          : lista;
+                 .map(it => ({ buttonText: it.titulo, url: it.url }))
+          : lista.map(it => ({ buttonText: it.titulo, url: it.url }));
 
         const rodape = isRedes ? '🔜 Facebook e LinkedIn em breve' : 'NEURALTEC';
-        const linhas = itensLink.map(it => `${it.titulo}\n${it.url}`);
-        const extra = isRedes ? `\n\n${rodape}` : '';
-        textoResposta = `*${titulo}*\n${mensagem}\n\n${linhas.join('\n\n')}${extra}`;
-        novoNivel = 'principal';
+
+        if (!botoes.length) {
+          // sem item elegível → link clicável em texto (garante resposta)
+          const linhas = lista.map(it => `🔗 ${it.titulo}: ${it.url}`);
+          textoResposta = `*${titulo}*\n${mensagem}\n\n${linhas.join('\n')}`;
+          novoNivel = 'principal';
+        } else if (botoes.length > 3) {
+          // WhatsApp aceita até 3 botões de URL por card → envia em lotes de 3
+          // (Setores tem 4: Vendas, Assistência, Financeiro, Compras).
+          const nowB = new Date().toISOString();
+          let algumOk = false; let primeiroMsgId = null;
+          for (let i = 0; i < botoes.length; i += 3) {
+            const lote = botoes.slice(i, i + 3);
+            const r = await enviarBotoesUrlWhatsApp(integration, contato.telefone, titulo, mensagem, lote, rodape);
+            console.log(`[responderMenuAcesso] 🔎 botões URL ${categoria} lote ${i / 3 + 1} →`, JSON.stringify({ ok: r.ok, httpStatus: r.httpStatus, rawText: r.rawText }));
+            if (r.ok) { algumOk = true; if (!primeiroMsgId) primeiroMsgId = r.msgId; }
+          }
+          if (algumOk) {
+            await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+              campos_personalizados: { ...cp, acesso_menu_nivel: 'principal', acesso_menu_updated_at: nowB }
+            });
+            return Response.json({ success: true, message_id: primeiroMsgId, categoria, formato: 'botoes_url_multi' });
+          }
+          // Todos os lotes falharam → fallback texto
+          const linhas = botoes.map(b => `🔗 ${b.buttonText}: ${b.url}`);
+          textoResposta = `*${titulo}*\n${mensagem}\n\n${linhas.join('\n')}`;
+          novoNivel = 'principal';
+        } else {
+          const respBtn = await enviarBotoesUrlWhatsApp(integration, contato.telefone, titulo, mensagem, botoes, rodape);
+          console.log(`[responderMenuAcesso] 🔎 botões URL ${categoria} →`, JSON.stringify({ ok: respBtn.ok, httpStatus: respBtn.httpStatus, rawText: respBtn.rawText }));
+          if (respBtn.ok) {
+            // Botões enviados diretamente — persiste estado e encerra (não cai no envio de texto)
+            const nowB = new Date().toISOString();
+            await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+              campos_personalizados: { ...cp, acesso_menu_nivel: 'principal', acesso_menu_updated_at: nowB }
+            });
+            return Response.json({ success: true, message_id: respBtn.msgId, categoria, formato: 'botoes_url' });
+          }
+          // Fallback: botão de URL falhou → link clicável em texto
+          console.warn('[responderMenuAcesso] ⚠️ botões URL falharam, fallback texto. raw:', respBtn.rawText);
+          const linhas = botoes.map(b => `🔗 ${b.buttonText}: ${b.url}`);
+          const extra = isRedes ? `\n\n${rodape}` : '';
+          textoResposta = `*${titulo}*\n${mensagem}\n\n${linhas.join('\n')}${extra}`;
+          novoNivel = 'principal';
+        }
       }
       // ⛔ Categoria 'pix' removida do menu automático (envio manual via anexos)
     }
