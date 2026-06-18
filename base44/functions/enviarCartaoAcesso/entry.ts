@@ -43,19 +43,26 @@ const MENU_CATEGORIAS = [
   { id: 'acesso_menu:redes',     label: '📱 Redes Sociais' }
 ];
 
-// ── Primeiro menu: 3 botões de RESPOSTA (REPLAY). O cliente toca numa
-// categoria e o responderMenuAcesso devolve só os sub-destinos dela. ──
+// ── Primeiro menu: LISTA INTERATIVA (send-list). O cliente escolhe uma linha
+// e o responderMenuAcesso devolve só os sub-destinos dela. Usamos lista (não
+// botões REPLAY) porque o reply de lista devolve APENAS o título da linha —
+// sem repetir "NEURALTEC — Acessos rápidos / Escolha uma opção abaixo:" como
+// fazia o botão REPLAY (eco verde duplicado no chat do cliente). ──
 async function enviarCategoriasWapi(integ, telefone) {
   const tel = (telefone || '').replace(/\D/g, '');
   const phone = tel.startsWith('55') ? tel : '55' + tel;
   const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
-    + `/message/send-button-actions?instanceId=${integ.instance_id_provider}`;
+    + `/message/send-list?instanceId=${integ.instance_id_provider}`;
   const body = {
     phone,
-    message: MENU_MENSAGEM,
     title: MENU_TITULO,
+    description: MENU_MENSAGEM,
+    buttonText: 'Ver opções',
     footer: MENU_RODAPE,
-    buttonActions: MENU_CATEGORIAS.map(c => ({ type: 'REPLAY', buttonText: c.label, id: c.id })),
+    sections: [{
+      title: 'Categorias',
+      rows: MENU_CATEGORIAS.map(c => ({ rowId: c.id, title: c.label, description: ' ' }))
+    }],
     delayMessage: 1
   };
   const r = await fetch(url, {
