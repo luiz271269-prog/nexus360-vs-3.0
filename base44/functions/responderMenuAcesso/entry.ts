@@ -252,30 +252,12 @@ Deno.serve(async (req) => {
     let novoNivel = null; // se setado, mantém menu aguardando neste nível
     let enviarQrPix = false;
 
-    // ── NÍVEL 2: dentro de Setores ou Mídias (escolha do item final) ──
     etapa = 'resolver_nivel';
-    const TITULOS_GRUPO = {
-      setores: '💬 *Setores da Empresa*',
-      promocoes: '🏷️ *Promoções e Web Site*',
-      redes: '📱 *Redes Sociais*'
-    };
-    if (nivel === 'setores') {
-      // Setores continua com menu numérico (escolha do setor final)
-      const lista = grupos[nivel];
-      const idx = parseInt(escolha, 10) - 1;
-      const item = (idx >= 0 && idx < lista.length) ? lista[idx]
-        : lista.find(i => String(i.titulo || '').toLowerCase() === escolha.toLowerCase());
-      if (!item) {
-        const linhas = lista.map((it, i) => `${NUM[i]} ${it.titulo}`);
-        const tit = TITULOS_GRUPO[nivel] || '*NeuralTec*';
-        textoResposta = `${tit}\n\nNão entendi. Responda com o número:\n\n${linhas.join('\n')}`;
-        novoNivel = nivel;
-      } else {
-        textoResposta = `${item.emoji || '💬'} *${item.titulo} NeuralTec*\n${item.url}`;
-        novoNivel = 'principal';
-      }
-    } else {
-      // ── NÍVEL 1: escolha da categoria ──
+    {
+      // FLUXO ÚNICO: toda escolha resolve a categoria e entrega BOTÕES DE URL.
+      // Não há mais nível 'setores' (menu numérico) — eliminado para acabar com o
+      // "Não entendi" e o eco do número. Threads presas no estado 'setores' antigo
+      // também caem aqui e recebem os botões de URL corretamente.
       const categoria = escolherCategoria(escolha);
       if (!categoria) {
         return Response.json({ success: true, skipped: 'escolha_nao_reconhecida' });
