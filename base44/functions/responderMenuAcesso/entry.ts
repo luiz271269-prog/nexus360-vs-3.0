@@ -266,17 +266,17 @@ Deno.serve(async (req) => {
       const lista = grupos[categoria];
       if (!lista || !lista.length) return Response.json({ success: true, skipped: 'categoria_vazia', categoria });
 
-      if (categoria === 'setores') {
-        // Setores → menu numérico (cliente escolhe o setor)
-        const linhas = lista.map((it, i) => `${NUM[i]} ${it.titulo}`);
-        textoResposta = `💬 *Setores da Empresa*\n\nResponda com o número:\n\n${linhas.join('\n')}`;
-        novoNivel = 'setores';
-      } else {
-        // Promoções e Redes → BOTÕES DE URL com link embutido (clica e abre direto)
+      // TODAS as categorias (Setores, Promoções, Redes) → BOTÕES DE URL com link
+      // embutido. Setores leva ao wa.me de cada setor, sem menu numérico — acaba
+      // com o eco do número e o loop "Não entendi".
+      {
         const isRedes = categoria === 'redes';
-        const titulo = isRedes ? '📱 Redes Sociais' : '🏷️ Promoções e Web Site';
-        const mensagem = isRedes
-          ? 'Toque para acessar nossas redes:'
+        const isSetores = categoria === 'setores';
+        const titulo = isRedes ? '📱 Redes Sociais'
+          : isSetores ? '💬 Setores da Empresa'
+          : '🏷️ Promoções e Web Site';
+        const mensagem = isRedes ? 'Toque para acessar nossas redes:'
+          : isSetores ? 'Toque no setor desejado:'
           : 'Toque para ver nossas promoções e o site:';
 
         // Instagram ativo; Facebook/LinkedIn ainda não integrados → "em breve" no rodapé
@@ -290,6 +290,27 @@ Deno.serve(async (req) => {
         if (!botoes.length) {
           // sem item elegível → link clicável em texto (garante resposta)
           const linhas = lista.map(it => `🔗 ${it.titulo}: ${it.url}`);
+          textoResposta = `*${titulo}*\n${mensagem}\n\n${linhas.join('\n')}`;
+          novoNivel = 'principal';
+        } else if (botoes.length > 3) {
+          // WhatsApp aceita até 3 botões de URL por card → envia em lotes de 3
+          // (Setores tem 4: Vendas, Assistência, Financeiro, Compras).
+          const nowB = new Date().toISOString();
+          let algumOk = false; let primeiroMsgId = null;
+          for (let i = 0; i < botoes.length; i += 3) {
+            const lote = botoes.slice(i, i + 3);
+            const r = await enviarBotoesUrlWhatsApp(integration, contato.telefone, titulo, mensagem, lote, rodape);
+            console.log(`[responderMenuAcesso] 🔎 botões URL ${categoria} lote ${i / 3 + 1} →`, JSON.stringify({ ok: r.ok, httpStatus: r.httpStatus, rawText: r.rawText }));
+            if (r.ok) { algumOk = true; if (!primeiroMsgId) primeiroMsgId = r.msgId; }
+          }
+          if (algumOk) {
+            await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+              campos_personalizados: { ...cp, acesso_menu_nivel: 'principal', acesso_menu_updated_at: nowB }
+            });
+            return Response.json({ success: true, message_id: primeiroMsgId, categoria, formato: 'botoes_url_multi' });
+          }
+          // Todos os lotes falharam → fallback texto
+          const linhas = botoes.map(b => `🔗 ${b.buttonText}: ${b.url}`);
           textoResposta = `*${titulo}*\n${mensagem}\n\n${linhas.join('\n')}`;
           novoNivel = 'principal';
         } else {
