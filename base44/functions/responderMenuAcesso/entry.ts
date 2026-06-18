@@ -131,6 +131,63 @@ async function enviarBotoesUrlWhatsApp(integ, telefone, titulo, mensagem, botoes
   return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText };
 }
 
+// ── Lista interativa de RESPOSTA (sem URL embutida) ──
+// Cada linha carrega rowId = "acesso_rapido:<AcessoRapido.id>". O toque NÃO abre
+// link (sem pop-up do WhatsApp); o webhook volta com o rowId e o processInbound
+// roteia para responderAcessoRapido, que busca a entidade ativa e responde.
+// itens: [{ id, titulo }]  |  Retorna { ok, msgId, raw, httpStatus, rawText }
+async function enviarListaDestinos(integ, telefone, titulo, descricao, itens, rodape) {
+  const tel = (telefone || '').replace(/\D/g, '');
+  const phone = tel.startsWith('55') ? tel : '55' + tel;
+  const rows = itens.map(it => ({
+    rowId: `acesso_rapido:${it.id}`,
+    title: String(it.titulo || '').slice(0, 24),
+    description: ''
+  }));
+
+  if (integ.api_provider === 'w_api') {
+    const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
+      + `/message/send-option-list?instanceId=${integ.instance_id_provider}`;
+    const body = {
+      phone,
+      title: titulo,
+      description: descricao,
+      buttonText: 'Ver opções',
+      footer: rodape || 'NEURALTEC',
+      sections: [{ title: titulo, rows }],
+      delayMessage: 1
+    };
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
+      body: JSON.stringify(body)
+    });
+    const rawText = await r.text().catch(() => '');
+    let resp = {}; try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
+    const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
+    return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText };
+  }
+
+  // Z-API: send-option-list
+  const url = (integ.base_url_provider || 'https://api.z-api.io')
+    + `/instances/${integ.instance_id_provider}/token/${integ.api_key_provider}/send-option-list`;
+  const headers = { 'Content-Type': 'application/json' };
+  if (integ.security_client_token_header) headers['Client-Token'] = integ.security_client_token_header;
+  const body = {
+    phone,
+    message: `*${titulo}*\n${descricao}`,
+    optionList: {
+      title: 'Ver opções',
+      options: rows.map(rw => ({ id: rw.rowId, title: rw.title, description: rw.description }))
+    }
+  };
+  const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  const rawText = await r.text().catch(() => '');
+  let resp = {}; try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
+  const msgId = resp.messageId || resp.id || resp.key?.id || null;
+  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText };
+}
+
 const NUM = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
 // ── Agrupa itens em 3 categorias: Setores / Promoções e Web Site / Redes Sociais ──
@@ -266,67 +323,48 @@ Deno.serve(async (req) => {
       const lista = grupos[categoria];
       if (!lista || !lista.length) return Response.json({ success: true, skipped: 'categoria_vazia', categoria });
 
-      // TODAS as categorias (Setores, Promoções, Redes) → BOTÕES DE URL com link
-      // embutido. Setores leva ao wa.me de cada setor, sem menu numérico — acaba
-      // com o eco do número e o loop "Não entendi".
+      // TODAS as categorias (Setores, Promoções, Redes) → LISTA INTERATIVA de
+      // RESPOSTA. Cada linha carrega rowId = "acesso_rapido:<id>" (SEM URL). O
+      // toque na lista não dispara o pop-up de "abrir link" do WhatsApp; o
+      // webhook devolve o rowId e o processInbound roteia para responderAcessoRapido,
+      // que busca o AcessoRapido ativo pelo ID e entrega o conteúdo. Fonte única
+      // de verdade: o cliente nunca envia a URL, só o ID interno do destino.
       {
         const isRedes = categoria === 'redes';
         const isSetores = categoria === 'setores';
         const titulo = isRedes ? '📱 Redes Sociais'
           : isSetores ? '💬 Setores da Empresa'
           : '🏷️ Promoções e Web Site';
-        const mensagem = isRedes ? 'Toque para acessar nossas redes:'
-          : isSetores ? 'Toque no setor desejado:'
-          : 'Toque para ver nossas promoções e o site:';
+        const mensagem = isRedes ? 'Escolha a rede desejada:'
+          : isSetores ? 'Escolha o setor desejado:'
+          : 'Escolha uma opção:';
 
         // Instagram ativo; Facebook/LinkedIn ainda não integrados → "em breve" no rodapé
-        const botoes = isRedes
+        const itensDestino = isRedes
           ? lista.filter(it => String(it.titulo || '').toLowerCase().includes('instagram'))
-                 .map(it => ({ buttonText: it.titulo, url: it.url }))
-          : lista.map(it => ({ buttonText: it.titulo, url: it.url }));
+          : lista;
 
         const rodape = isRedes ? '🔜 Facebook e LinkedIn em breve' : 'NEURALTEC';
 
-        if (!botoes.length) {
+        if (!itensDestino.length) {
           // sem item elegível → link clicável em texto (garante resposta)
           const linhas = lista.map(it => `🔗 ${it.titulo}: ${it.url}`);
           textoResposta = `*${titulo}*\n${mensagem}\n\n${linhas.join('\n')}`;
           novoNivel = 'principal';
-        } else if (botoes.length > 3) {
-          // WhatsApp aceita até 3 botões de URL por card → envia em lotes de 3
-          // (Setores tem 4: Vendas, Assistência, Financeiro, Compras).
-          const nowB = new Date().toISOString();
-          let algumOk = false; let primeiroMsgId = null;
-          for (let i = 0; i < botoes.length; i += 3) {
-            const lote = botoes.slice(i, i + 3);
-            const r = await enviarBotoesUrlWhatsApp(integration, contato.telefone, titulo, mensagem, lote, rodape);
-            console.log(`[responderMenuAcesso] 🔎 botões URL ${categoria} lote ${i / 3 + 1} →`, JSON.stringify({ ok: r.ok, httpStatus: r.httpStatus, rawText: r.rawText }));
-            if (r.ok) { algumOk = true; if (!primeiroMsgId) primeiroMsgId = r.msgId; }
-          }
-          if (algumOk) {
-            await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-              campos_personalizados: { ...cp, acesso_menu_nivel: 'principal', acesso_menu_updated_at: nowB }
-            });
-            return Response.json({ success: true, message_id: primeiroMsgId, categoria, formato: 'botoes_url_multi' });
-          }
-          // Todos os lotes falharam → fallback texto
-          const linhas = botoes.map(b => `🔗 ${b.buttonText}: ${b.url}`);
-          textoResposta = `*${titulo}*\n${mensagem}\n\n${linhas.join('\n')}`;
-          novoNivel = 'principal';
         } else {
-          const respBtn = await enviarBotoesUrlWhatsApp(integration, contato.telefone, titulo, mensagem, botoes, rodape);
-          console.log(`[responderMenuAcesso] 🔎 botões URL ${categoria} →`, JSON.stringify({ ok: respBtn.ok, httpStatus: respBtn.httpStatus, rawText: respBtn.rawText }));
-          if (respBtn.ok) {
-            // Botões enviados diretamente — persiste estado e encerra (não cai no envio de texto)
+          const respLista = await enviarListaDestinos(integration, contato.telefone, titulo, mensagem, itensDestino, rodape);
+          console.log(`[responderMenuAcesso] 🔎 lista destinos ${categoria} →`, JSON.stringify({ ok: respLista.ok, httpStatus: respLista.httpStatus, rawText: respLista.rawText }));
+          if (respLista.ok) {
+            // Lista enviada — persiste estado e encerra (não cai no envio de texto)
             const nowB = new Date().toISOString();
             await base44.asServiceRole.entities.MessageThread.update(thread.id, {
               campos_personalizados: { ...cp, acesso_menu_nivel: 'principal', acesso_menu_updated_at: nowB }
             });
-            return Response.json({ success: true, message_id: respBtn.msgId, categoria, formato: 'botoes_url' });
+            return Response.json({ success: true, message_id: respLista.msgId, categoria, formato: 'lista_destinos' });
           }
-          // Fallback: botão de URL falhou → link clicável em texto
-          console.warn('[responderMenuAcesso] ⚠️ botões URL falharam, fallback texto. raw:', respBtn.rawText);
-          const linhas = botoes.map(b => `🔗 ${b.buttonText}: ${b.url}`);
+          // Fallback: lista falhou → link clicável em texto
+          console.warn('[responderMenuAcesso] ⚠️ lista de destinos falhou, fallback texto. raw:', respLista.rawText);
+          const linhas = itensDestino.map(it => `🔗 ${it.titulo}: ${it.url}`);
           const extra = isRedes ? `\n\n${rodape}` : '';
           textoResposta = `*${titulo}*\n${mensagem}\n\n${linhas.join('\n')}${extra}`;
           novoNivel = 'principal';
