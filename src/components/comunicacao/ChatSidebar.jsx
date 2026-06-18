@@ -607,7 +607,7 @@ export default function ChatSidebar({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               onClick={(e) => handleClick(thread, e)}
-              className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-purple-100 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 ${isAtiva ? 'bg-purple-100' : ''} ${isSelected ? 'bg-purple-100 border-l-4 border-l-purple-500' : ''}`}>
+              className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-purple-100 border-l-4 border-l-purple-400 bg-purple-50/40 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 ${isAtiva ? 'bg-purple-100' : ''} ${isSelected ? 'bg-purple-100 border-l-purple-500' : ''}`}>
               
               {modoSelecao &&
               <div className="flex-shrink-0">
@@ -765,6 +765,15 @@ export default function ChatSidebar({
           const isSelected = contatosSelecionados.find((c) => c.id === contato?.id);
           const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
 
+          // 🎨 Cor de fundo + borda esquerda por canal da conversa
+          const canalStyle = thread.channel === 'email'
+            ? { bg: 'bg-blue-50/50', border: 'border-l-blue-400' }
+            : thread.channel === 'instagram'
+            ? { bg: 'bg-pink-50/50', border: 'border-l-pink-400' }
+            : thread.channel === 'facebook'
+            ? { bg: 'bg-sky-50/50', border: 'border-l-sky-500' }
+            : { bg: '', border: 'border-l-green-400' }; // whatsapp/padrão
+
           return (
             <motion.div
               key={thread.id}
@@ -772,7 +781,7 @@ export default function ChatSidebar({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               onClick={(e) => handleClick(thread, e)}
-              className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${thread.is_contact_only ? 'bg-slate-50/50' : ''} ${isAtiva ? 'bg-blue-50' : ''} ${isSelected ? 'bg-orange-100 border-l-4 border-l-orange-500' : ''}`}>
+              className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 border-l-4 ${canalStyle.border} ${canalStyle.bg} hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${thread.is_contact_only ? 'bg-slate-50/50' : ''} ${isAtiva ? 'bg-blue-50' : ''} ${isSelected ? 'bg-orange-100 border-l-orange-500' : ''}`}>
               
               {/* Checkbox em modo seleção */}
               {modoSelecao &&
