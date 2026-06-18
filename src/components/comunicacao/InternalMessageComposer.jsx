@@ -352,9 +352,13 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                           : 'bg-white border-slate-200 hover:border-orange-300 hover:bg-orange-50/50'
                       }`}
                     >
-                      <div className={`w-7 h-7 ${corAvatar} rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
-                        {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
-                      </div>
+                      {usuario.foto_url ? (
+                        <img src={usuario.foto_url} alt={usuario.full_name} className="w-7 h-7 rounded-full object-cover flex-shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+                      ) : (
+                        <div className={`w-7 h-7 ${corAvatar} rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
+                          {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <UsuarioDisplay
                           usuario={usuario}
@@ -412,9 +416,13 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                           <div className="flex-shrink-0">
                             {isSelected ? <CheckSquare className="w-4 h-4 text-cyan-600" /> : <Square className="w-4 h-4 text-slate-300" />}
                           </div>
-                          <div className={`w-8 h-8 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm`}>
-                            {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
-                          </div>
+                          {usuario.foto_url ? (
+                            <img src={usuario.foto_url} alt={usuario.full_name} className="w-8 h-8 rounded-full object-cover shadow-sm flex-shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+                          ) : (
+                            <div className={`w-8 h-8 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm`}>
+                              {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
+                            </div>
+                          )}
                           <div className="flex-1 min-w-0">
                             <UsuarioDisplay usuario={usuario} showRole={false} showSector={false} showAvatar={false} variant="name-only" className="text-xs font-medium text-slate-700 truncate" />
                             <div className="flex items-center gap-1 flex-wrap mt-0.5">
@@ -608,9 +616,13 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                               <div className="flex-shrink-0">
                                 {isSelected ? <CheckSquare className="w-3 h-3 text-cyan-600" /> : <Square className="w-3 h-3 text-slate-300" />}
                               </div>
-                              <div className={`w-7 h-7 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold text-[10px] shadow-sm flex-shrink-0`}>
-                                {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
-                              </div>
+                              {usuario.foto_url ? (
+                                <img src={usuario.foto_url} alt={usuario.full_name} className="w-7 h-7 rounded-full object-cover shadow-sm flex-shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+                              ) : (
+                                <div className={`w-7 h-7 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold text-[10px] shadow-sm flex-shrink-0`}>
+                                  {(usuario.full_name || usuario.email || '?').charAt(0).toUpperCase()}
+                                </div>
+                              )}
                               <div className="flex-1 min-w-0">
                                 <UsuarioDisplay usuario={usuario} showRole={false} showSector={false} showAvatar={false} variant="name-only" className="text-xs font-medium text-slate-700 truncate" />
                                 <div className="flex items-center gap-1 flex-wrap mt-0.5">
