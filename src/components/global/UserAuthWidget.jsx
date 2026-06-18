@@ -60,7 +60,18 @@ export default function UserAuthWidget({ usuario, loadingUsuario, onLogout }) {
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center justify-center p-3 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 transition-all group relative">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                {(usuario.foto_url || usuario.foto_perfil_url) ? (
+                  <img
+                    src={usuario.foto_url || usuario.foto_perfil_url}
+                    alt={usuario.full_name || 'Usuário'}
+                    className="w-10 h-10 rounded-full object-cover shadow-lg"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling.style.display = 'flex'; }}
+                  />
+                ) : null}
+                <div
+                  className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-sm shadow-lg"
+                  style={{ display: (usuario.foto_url || usuario.foto_perfil_url) ? 'none' : 'flex' }}
+                >
                   {usuario.full_name ? usuario.full_name.substring(0, 2).toUpperCase() : '?'}
                 </div>
                 {usuario.role === 'admin' && (
@@ -81,9 +92,22 @@ export default function UserAuthWidget({ usuario, loadingUsuario, onLogout }) {
       >
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-2">
-            <p className="text-sm font-semibold text-white leading-none">
-              {usuario.full_name || 'Usuário'}
-            </p>
+            <div className="flex items-center gap-2">
+              {(usuario.foto_url || usuario.foto_perfil_url) ? (
+                <img
+                  src={usuario.foto_url || usuario.foto_perfil_url}
+                  alt={usuario.full_name || 'Usuário'}
+                  className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  {usuario.full_name ? usuario.full_name.substring(0, 2).toUpperCase() : '?'}
+                </div>
+              )}
+              <p className="text-sm font-semibold text-white leading-none">
+                {usuario.full_name || 'Usuário'}
+              </p>
+            </div>
             <p className="text-xs leading-none text-slate-400">
               {usuario.email}
             </p>
