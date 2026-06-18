@@ -80,6 +80,16 @@ try {
     <App />
     // </React.StrictMode>,
   );
+  // Boot bem-sucedido: zera os guards anti-loop para que um novo episódio de
+  // cache stale numa próxima navegação possa disparar seu próprio reload de
+  // recuperação (sem isso, o 1º reload "queima" os flags para a sessão toda).
+  setTimeout(() => {
+    try {
+      sessionStorage.removeItem('nexus_sw_purged');
+      sessionStorage.removeItem('nexus_runtime_purged');
+      sessionStorage.removeItem('nexus_boot_purged');
+    } catch (_) { /* best-effort */ }
+  }, 4000);
 } catch (bootErr) {
   console.error('[BOOT] Falha ao iniciar — purgando cache e recarregando:', bootErr);
   const jaPurgou = sessionStorage.getItem('nexus_boot_purged') === '1';
