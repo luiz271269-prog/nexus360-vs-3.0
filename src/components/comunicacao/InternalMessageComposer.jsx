@@ -64,6 +64,52 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
     return usuarios.filter(u => u.id !== currentUser?.id);
   }, [usuarios, currentUser?.id]);
 
+  const usuariosById = React.useMemo(() => {
+    const map = {};
+    usuarios.forEach(u => { map[u.id] = u; });
+    return map;
+  }, [usuarios]);
+
+  // Pilha de avatares dos membros do grupo (com foto quando disponível)
+  const GroupAvatars = ({ participantIds = [] }) => {
+    const membros = (participantIds || []).map(id => usuariosById[id]).filter(Boolean).slice(0, 3);
+    const extra = (participantIds?.length || 0) - membros.length;
+    if (membros.length === 0) {
+      return (
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+          <Users className="w-4 h-4" />
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center flex-shrink-0">
+        {membros.map((m, i) => (
+          m.foto_url ? (
+            <img
+              key={m.id}
+              src={m.foto_url}
+              alt={m.full_name}
+              className={`w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm ${i > 0 ? '-ml-3' : ''}`}
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          ) : (
+            <div
+              key={m.id}
+              className={`w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-white font-bold text-[10px] border-2 border-white shadow-sm ${i > 0 ? '-ml-3' : ''}`}
+            >
+              {(m.full_name || m.email || '?').charAt(0).toUpperCase()}
+            </div>
+          )
+        ))}
+        {extra > 0 && (
+          <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-[9px] border-2 border-white shadow-sm -ml-3">
+            +{extra}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const setorConfig = {
     'vendas': { cor: 'bg-emerald-500', label: 'Vendas', emoji: '💼' },
     'assistencia': { cor: 'bg-blue-500', label: 'Assistência', emoji: '🔧' },
@@ -524,9 +570,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                           <div className="flex-shrink-0">
                             {isSelected ? <CheckSquare className="w-4 h-4 text-cyan-600" /> : <Square className="w-4 h-4 text-slate-300" />}
                           </div>
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-white shadow-sm">
-                            <Users className="w-4 h-4" />
-                          </div>
+                          <GroupAvatars participantIds={grupo.participants} />
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-slate-700 truncate text-xs">{grupo.group_name || 'Grupo sem nome'}</div>
                             <div className="flex items-center gap-1 mt-0.5">
@@ -706,9 +750,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
                               <div className="flex-shrink-0">
                                 {isSelected ? <CheckSquare className="w-3 h-3 text-cyan-600" /> : <Square className="w-3 h-3 text-slate-300" />}
                               </div>
-                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-white shadow-sm flex-shrink-0">
-                                <Users className="w-3 h-3" />
-                              </div>
+                              <GroupAvatars participantIds={grupo.participants} />
                               <div className="flex-1 min-w-0">
                                 <div className="font-medium text-slate-700 truncate text-xs">{grupo.group_name || 'Grupo sem nome'}</div>
                                 <div className="text-[10px] text-slate-500">{grupo.participants?.length || 0} {grupo.participants?.length === 1 ? 'membro' : 'membros'}</div>
