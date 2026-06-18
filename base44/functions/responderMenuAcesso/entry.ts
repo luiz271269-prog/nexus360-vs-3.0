@@ -228,6 +228,26 @@ Deno.serve(async (req) => {
 
     const nivel = cp.acesso_menu_nivel || 'principal';
     const escolha = String(respostaCliente || '').trim();
+
+    // ── TRAVA ANTI-DUPLICIDADE ──
+    // W-API/Z-API podem reentregar o MESMO clique de lista/botão (webhook duplicado).
+    // Carimbamos a última escolha respondida + timestamp. Se chegar a mesma escolha
+    // no mesmo nível dentro de 15s, é reentrega → ignora (não reenvia o card/submenu).
+    const chaveEscolha = `${nivel}:${escolha.toLowerCase()}`;
+    if (cp.acesso_menu_last_choice === chaveEscolha && cp.acesso_menu_last_choice_at) {
+      const idadeMs = Date.now() - new Date(cp.acesso_menu_last_choice_at).getTime();
+      if (idadeMs < 15_000) {
+        console.log(`[responderMenuAcesso] ⏭️ DUPLICATA ignorada (${chaveEscolha}, age=${idadeMs}ms)`);
+        return Response.json({ success: true, skipped: 'duplicata_escolha', chave: chaveEscolha });
+      }
+    }
+    // Marca a escolha ANTES de processar (fecha a janela para o 2º webhook concorrente)
+    cp.acesso_menu_last_choice = chaveEscolha;
+    cp.acesso_menu_last_choice_at = new Date().toISOString();
+    await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+      campos_personalizados: { ...cp }
+    });
+
     let textoResposta = null;
     let novoNivel = null; // se setado, mantém menu aguardando neste nível
     let enviarQrPix = false;
