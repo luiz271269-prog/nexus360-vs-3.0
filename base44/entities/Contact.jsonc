@@ -375,6 +375,17 @@
           "data.atendente_fidelizado_vendas": "{{user.id}}"
         },
         {
+          "data.atendente_fidelizado_vendas": {
+            "$exists": false
+          }
+        },
+        {
+          "data.atendente_fidelizado_vendas": null
+        },
+        {
+          "data.atendente_fidelizado_vendas": ""
+        },
+        {
           "user_condition": {
             "role": "admin"
           }
