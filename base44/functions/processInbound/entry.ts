@@ -433,9 +433,21 @@ Deno.serve(async (req) => {
       result.actions.push('acesso_menu_expirado_limpo');
     } else {
     const respNum = String(messageContent || '').trim();
-    // Aceita número digitado (fallback) OU clique da lista interativa W-API ('acesso_menu:setores')
-    if (/^[0-9]{1,2}$/.test(respNum) || /^acesso_menu:/i.test(respNum)) {
+    // Aceita número digitado (fallback), clique da lista interativa W-API
+    // ('acesso_menu:setores') OU o LABEL do botão REPLAY ('📱 Redes Sociais',
+    // 'Setores da Empresa', 'Promoções e Web Site') que o WhatsApp devolve como texto.
+    const ehEscolhaMenu = /^[0-9]{1,2}$/.test(respNum)
+      || /^acesso_menu:/i.test(respNum)
+      || /(setor|promo[cç]|web\s*site|rede|social)/i.test(respNum);
+    if (ehEscolhaMenu) {
       result.pipeline.push('acessos_menu_gate');
+      // Oculta o eco do botão/escolha no chat do cliente (é navegação, não conteúdo).
+      if (message?.id) {
+        await base44.asServiceRole.entities.Message.update(message.id, {
+          visibility: 'internal_only',
+          metadata: { ...(message.metadata || {}), is_menu_choice_echo: true }
+        }).catch(() => {});
+      }
       try {
         await base44.asServiceRole.functions.invoke('responderMenuAcesso', {
           thread_id: thread.id,
