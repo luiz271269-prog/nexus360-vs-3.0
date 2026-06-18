@@ -413,43 +413,17 @@ Deno.serve(async (req) => {
   }
 
   // ════════════════════════════════════════════════════════════════
-  // [ACESSOS-MENU GATE] Se a thread tem um menu de Acessos Rápidos aberto
-  // e o cliente respondeu um NÚMERO, roteia para responderMenuAcesso e
-  // encerra — não deixa a escolha numérica cair na URA/skill.
+  // [ACESSOS-MENU GATE — DESATIVADO] O card de Acessos Rápidos agora envia
+  // botões de URL DIRETOS (cada destino abre o link ao toque). Não há mais
+  // lista/menu numérico, então não acionamos responderMenuAcesso.
+  // Cliques residuais 'acesso_menu:*' de cards antigos são apenas ignorados
+  // (sem gerar nenhuma mensagem/menu de escolha).
   // ════════════════════════════════════════════════════════════════
-  if (message?.sender_type === 'contact' && thread?.campos_personalizados?.acesso_menu_nivel) {
-    const cpMenu = thread.campos_personalizados;
-    const menuIdadeMs = cpMenu.acesso_menu_updated_at
-      ? Date.now() - new Date(cpMenu.acesso_menu_updated_at).getTime()
-      : Infinity;
-    const menuExpirado = menuIdadeMs > 30 * 60 * 1000; // 30 min
-
-    if (menuExpirado) {
-      // Menu antigo → limpa e deixa a mensagem seguir para a URA normalmente
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        campos_personalizados: { ...cpMenu, acesso_menu_nivel: null, acesso_menu_aguardando: false }
-      }).catch(() => {});
-      thread = { ...thread, campos_personalizados: { ...cpMenu, acesso_menu_nivel: null, acesso_menu_aguardando: false } };
-      result.actions.push('acesso_menu_expirado_limpo');
-    } else {
-    const respNum = String(messageContent || '').trim();
-    // Aceita número digitado (fallback) OU clique da lista interativa W-API ('acesso_menu:setores')
-    if (/^[0-9]{1,2}$/.test(respNum) || /^acesso_menu:/i.test(respNum)) {
-      result.pipeline.push('acessos_menu_gate');
-      try {
-        await base44.asServiceRole.functions.invoke('responderMenuAcesso', {
-          thread_id: thread.id,
-          contact_id: contact.id,
-          integration_id: integration?.id || thread.whatsapp_integration_id,
-          resposta: respNum
-        });
-        result.actions.push('acessos_menu_respondido');
-      } catch (e) {
-        console.warn(`[${VERSION}] ⚠️ responderMenuAcesso falhou:`, e.message);
-        result.actions.push('acessos_menu_falhou');
-      }
-      return Response.json({ success: true, handled: 'acessos_menu', pipeline: result.pipeline, actions: result.actions });
-    }
+  {
+    const respIn = String(messageContent || '').trim();
+    if (message?.sender_type === 'contact' && /^acesso_menu:/i.test(respIn)) {
+      result.actions.push('acesso_menu_click_ignorado');
+      return Response.json({ success: true, handled: 'acesso_menu_ignorado', pipeline: result.pipeline, actions: result.actions });
     }
   }
 
