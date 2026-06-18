@@ -103,8 +103,8 @@ const resolveThreadUI = (thread, currentUser, atendentes = []) => {
         const nome = outroUser?.full_name || outroUser?.email || 'Usuário';
         const avatar = outroUser?.full_name?.charAt(0)?.toUpperCase() || outroUser?.email?.charAt(0)?.toUpperCase() || 'U';
 
-        // ✅ CORREÇÃO: Usar foto_perfil_url do User quando disponível
-        const avatarUrl = outroUser?.foto_perfil_url || null;
+        // ✅ CORREÇÃO: campo correto do cadastro do usuário é foto_url (fallback p/ foto_perfil_url legada)
+        const avatarUrl = outroUser?.foto_url || outroUser?.foto_perfil_url || null;
 
         return {
           isInternal: true,

@@ -47,6 +47,7 @@ Deno.serve(async (req) => {
         role: u.role,
         attendant_sector: u.attendant_sector,
         attendant_role: u.attendant_role,
+        foto_url: u.foto_url || u.foto_perfil_url || null,  // foto de perfil para avatar nos contatos internos
         _ordem_cadastro: index  // índice preservado para ordenação no frontend
       }));
 
