@@ -1363,18 +1363,20 @@ export default function ChatWindow({
   // 🎯 BUSCAR NOME + SETOR DO OUTRO PARTICIPANTE (threads internas 1:1)
   // PERF FIX: só busca quando thread interna muda, usando atendentes[] já disponível como cache primeiro
   const [outroParticipanteNome, setOutroParticipanteNome] = React.useState('');
+  const [outroParticipanteFoto, setOutroParticipanteFoto] = React.useState(null);
   const outroParticipanteThreadIdRef = React.useRef(null);
 
   React.useEffect(() => {
     if (thread?.thread_type !== 'team_internal' || thread?.is_group_chat) {
       setOutroParticipanteNome('');
+      setOutroParticipanteFoto(null);
       return;
     }
     if (outroParticipanteThreadIdRef.current === thread.id) return;
     outroParticipanteThreadIdRef.current = thread.id;
 
     const outroId = thread.participants?.find(id => id !== usuario?.id);
-    if (!outroId) { setOutroParticipanteNome('Usuário'); return; }
+    if (!outroId) { setOutroParticipanteNome('Usuário'); setOutroParticipanteFoto(null); return; }
 
     // Tentar cache local (atendentes já carregados) antes de ir ao banco
     const atendenteLocal = atendentes.find(a => a.id === outroId);
@@ -1382,6 +1384,7 @@ export default function ChatWindow({
       const nome = atendenteLocal.display_name || atendenteLocal.full_name || atendenteLocal.email;
       const setor = atendenteLocal.attendant_sector || 'geral';
       setOutroParticipanteNome(`${nome} • ${setor}`);
+      setOutroParticipanteFoto(atendenteLocal.foto_url || atendenteLocal.foto_perfil_url || null);
       return;
     }
 
@@ -1392,7 +1395,8 @@ export default function ChatWindow({
       const nome = outroUser.full_name || outroUser.email;
       const setor = outroUser.attendant_sector || 'geral';
       setOutroParticipanteNome(`${nome} • ${setor}`);
-    }).catch(() => { if (!cancelled) setOutroParticipanteNome('Usuário'); });
+      setOutroParticipanteFoto(outroUser.foto_url || outroUser.foto_perfil_url || null);
+    }).catch(() => { if (!cancelled) { setOutroParticipanteNome('Usuário'); setOutroParticipanteFoto(null); } });
 
     return () => { cancelled = true; };
   }, [thread?.id, thread?.participants, usuario?.id, atendentes]);
@@ -1492,6 +1496,14 @@ export default function ChatWindow({
                     'G'
                   ) : thread?.thread_type === 'team_internal' && thread?.is_group_chat ? (
                     'G'
+                  ) : thread?.thread_type === 'team_internal' && !thread?.is_group_chat ? (
+                    outroParticipanteFoto ?
+                      <img
+                        src={outroParticipanteFoto}
+                        alt={outroParticipanteNome}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.target.style.display = 'none'; }} /> :
+                      <span>{getInitials(outroParticipanteNome)}</span>
                   ) : contatoCompleto?.foto_perfil_url ?
                 <img
                   src={contatoCompleto.foto_perfil_url}
