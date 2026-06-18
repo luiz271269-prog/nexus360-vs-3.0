@@ -203,9 +203,13 @@ export default function DashboardAtendentes() {
                   {/* Info do Atendente */}
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
-                        <User className="w-6 h-6 text-white" />
-                      </div>
+                      {atendente.foto_url ? (
+                        <img src={atendente.foto_url} alt={atendente.full_name} className="w-12 h-12 rounded-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                      ) : (
+                        <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                          <User className="w-6 h-6 text-white" />
+                        </div>
+                      )}
                       <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${getStatusColor(atendente.availability_status)}`} />
                     </div>
 

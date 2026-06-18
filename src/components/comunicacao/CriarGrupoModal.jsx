@@ -137,9 +137,13 @@ export default function CriarGrupoModal({ open, onClose, usuarios = [], currentU
                           <Square className="w-4 h-4 text-slate-400" />
                         )}
                       </div>
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold text-xs shadow-sm">
-                        {usuario.full_name?.charAt(0).toUpperCase() || '?'}
-                      </div>
+                      {usuario.foto_url ? (
+                        <img src={usuario.foto_url} alt={usuario.full_name} className="w-7 h-7 rounded-full object-cover shadow-sm flex-shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold text-xs shadow-sm flex-shrink-0">
+                          {usuario.full_name?.charAt(0).toUpperCase() || '?'}
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-slate-800 truncate text-xs">
                           {usuario.full_name || 'Sem nome'}

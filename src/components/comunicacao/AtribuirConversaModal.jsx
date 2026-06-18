@@ -436,9 +436,13 @@ export default function AtribuirConversaModal({
                           : 'hover:bg-orange-50 border-slate-200 hover:border-orange-300'
                       }`}
                     >
-                    <div className={`w-10 h-10 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold shadow-md`}>
-                      {(atendente.full_name || atendente.email || '?').charAt(0).toUpperCase()}
-                    </div>
+                    {atendente.foto_url ? (
+                      <img src={atendente.foto_url} alt={atendente.full_name} className="w-10 h-10 rounded-full object-cover shadow-md flex-shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+                    ) : (
+                      <div className={`w-10 h-10 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold shadow-md flex-shrink-0`}>
+                        {(atendente.full_name || atendente.email || '?').charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     <div className="flex-1 text-left min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <UsuarioDisplay usuario={atendente} className="flex-1 min-w-0" />
@@ -491,9 +495,13 @@ export default function AtribuirConversaModal({
                       className="w-4 h-4 text-blue-600"
                       readOnly
                     />
-                    <div className={`w-10 h-10 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold shadow-md`}>
-                      {(atendente.full_name || atendente.email || '?').charAt(0).toUpperCase()}
-                    </div>
+                    {atendente.foto_url ? (
+                      <img src={atendente.foto_url} alt={atendente.full_name} className="w-10 h-10 rounded-full object-cover shadow-md flex-shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+                    ) : (
+                      <div className={`w-10 h-10 ${setorCfg.cor} rounded-full flex items-center justify-center text-white font-bold shadow-md flex-shrink-0`}>
+                        {(atendente.full_name || atendente.email || '?').charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     <div className="flex-1 text-left min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <UsuarioDisplay usuario={atendente} className="flex-1 min-w-0" />
