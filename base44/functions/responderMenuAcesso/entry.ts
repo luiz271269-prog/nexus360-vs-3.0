@@ -100,7 +100,7 @@ async function enviarBotoesUrlWhatsApp(integ, telefone, titulo, mensagem, botoes
       message: mensagem,
       title: titulo,
       footer: rodape || 'NEURALTEC',
-      buttonActions: botoes.map(b => ({ type: 'CALL', buttonText: b.buttonText, url: b.url })),
+      buttonActions: botoes.map(b => ({ type: 'URL', buttonText: b.buttonText, url: b.url })),
       delayMessage: 1
     };
     const r = await fetch(url, {
