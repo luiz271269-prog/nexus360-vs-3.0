@@ -366,6 +366,24 @@ Deno.serve(async (req) => {
         result.actions.push('reset_promotion_funnel');
       } catch (e) {}
     }
+
+    // NOVO CICLO (>12h): libera o menu de Acessos Rápidos para ser reenviado.
+    // O guard anti-reenvio do enviarCartaoAcesso bloqueia enquanto
+    // acessos_rapidos_enviado=true; zerar aqui garante que um cliente que volta
+    // depois de horas/dias receba o menu de novo no início do novo ciclo.
+    if (detectNovoCiclo(thread?.last_inbound_at) && thread?.campos_personalizados?.acessos_rapidos_enviado === true) {
+      try {
+        await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+          campos_personalizados: {
+            ...thread.campos_personalizados,
+            acessos_rapidos_enviado: false,
+            acesso_menu_nivel: null
+          }
+        });
+        thread = { ...thread, campos_personalizados: { ...thread.campos_personalizados, acessos_rapidos_enviado: false, acesso_menu_nivel: null } };
+        result.actions.push('reset_acessos_menu_novo_ciclo');
+      } catch (e) {}
+    }
   }
 
   // ✅ Garantir que assigned_user_id está em participants[] E atendentes_historico[]
