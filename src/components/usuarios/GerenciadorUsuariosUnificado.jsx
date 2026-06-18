@@ -576,23 +576,39 @@ export default function GerenciadorUsuariosUnificado({
                               : "hover:bg-slate-50"
                           }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-slate-800 truncate">{getNome(u) || "(sem nome)"}</span>
-                            <div className="flex items-center gap-1">
-                              <Badge variant={u.ativo ? "default" : "secondary"} className="text-[9px] px-1.5 py-0">
-                                {u.ativo ? "Ativo" : "Inativo"}
-                              </Badge>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); excluirUsuario(u); }}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all"
-                                title="Excluir usuário"
-                              >
-                                <Trash2 className="w-3 h-3 text-red-500" />
-                              </button>
+                          <div className="flex items-center gap-2">
+                            {u.foto_url ? (
+                              <img
+                                src={u.foto_url}
+                                alt={getNome(u)}
+                                className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-slate-200"
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
+                                {(getNome(u) || u.email || '?').trim().charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-slate-800 truncate">{getNome(u) || "(sem nome)"}</span>
+                                <div className="flex items-center gap-1">
+                                  <Badge variant={u.ativo ? "default" : "secondary"} className="text-[9px] px-1.5 py-0">
+                                    {u.ativo ? "Ativo" : "Inativo"}
+                                  </Badge>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); excluirUsuario(u); }}
+                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all"
+                                    title="Excluir usuário"
+                                  >
+                                    <Trash2 className="w-3 h-3 text-red-500" />
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="text-[10px] text-slate-500 truncate">{u.email}</div>
+                              <div className="text-[10px] text-slate-400">{u.funcao || "—"}</div>
                             </div>
                           </div>
-                          <div className="text-[10px] text-slate-500 truncate">{u.email}</div>
-                          <div className="text-[10px] text-slate-400">{u.funcao || "—"}</div>
                         </li>
                       ))}
                     </ul>
