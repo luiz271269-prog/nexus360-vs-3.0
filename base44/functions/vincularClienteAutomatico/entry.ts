@@ -147,8 +147,22 @@ Deno.serve(async (req) => {
     if ((melhor.exato && !empate) || matchNomeUnico) {
       const clienteVinc = clientes.find(c => c.id === melhor.cliente_id);
       const vendedorId = clienteVinc?.vendedor_responsavel || clienteVinc?.usuario_id || null;
+      const nomeEmpresaCliente = clienteVinc?.razao_social || clienteVinc?.nome_fantasia || null;
 
       const update = { cliente_id: melhor.cliente_id, tipo_contato: 'cliente' };
+
+      // PADRONIZAÇÃO DA EMPRESA: o nome da empresa é primordial para a organização.
+      // Ao vincular ao Cliente do CRM, preenche o campo `empresa` do contato com a
+      // razão social do cliente quando o contato ainda não tem empresa cadastrada.
+      if (nomeEmpresaCliente && !contato.empresa) {
+        update.empresa = nomeEmpresaCliente;
+      }
+      // Herda o ramo de atividade do cliente, se o contato não tiver.
+      if (clienteVinc?.ramo_atividade && !contato.ramo_atividade) {
+        update.ramo_atividade = clienteVinc.ramo_atividade;
+        update.ramo_atividade_origem = 'cliente';
+      }
+
       // Herda o vendedor do cliente como atendente fidelizado de vendas, para que
       // a PRÓXIMA mensagem caia direto nele (skillPreAtendimentos P2: fidelizado).
       if (vendedorId && /^[a-f0-9]{24}$/i.test(String(vendedorId))) {
@@ -162,6 +176,7 @@ Deno.serve(async (req) => {
         vinculado: true,
         cliente_id: melhor.cliente_id,
         cliente_nome: melhor.nome_fantasia || melhor.razao_social,
+        empresa_preenchida: update.empresa || null,
         vendedor_herdado: update.atendente_fidelizado_vendas || null,
         motivos: melhor.motivos
       });
