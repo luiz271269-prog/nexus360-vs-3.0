@@ -58,12 +58,28 @@ export default function CardEnriquecimentoIA({ contact, onUpdate }) {
     }
   };
 
-  // Tudo preenchido → mostra confirmação discreta
+  // Tudo preenchido → mostra confirmação + links rápidos (Maps / Instagram)
   if (faltantes.length === 0) {
     return (
-      <div className="mx-4 mb-3 rounded-xl border border-green-200 bg-green-50 p-3 flex items-center gap-2">
-        <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-        <span className="text-xs text-green-800 font-medium">Cadastro completo</span>
+      <div className="mx-4 mb-3 rounded-xl border border-green-200 bg-green-50 p-3">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+          <span className="text-xs text-green-800 font-medium">Cadastro completo</span>
+        </div>
+        {(cp.localizacao_maps || cp.instagram_url) && (
+          <div className="flex gap-2 mt-2 pt-2 border-t border-green-200">
+            {cp.localizacao_maps && (
+              <a href={cp.localizacao_maps} target="_blank" rel="noopener noreferrer" className="flex-1 inline-flex items-center justify-center gap-1 text-[11px] text-blue-600 hover:underline">
+                <MapPin className="w-3 h-3" /> Ver no Maps
+              </a>
+            )}
+            {cp.instagram_url && (
+              <a href={cp.instagram_url} target="_blank" rel="noopener noreferrer" className="flex-1 inline-flex items-center justify-center gap-1 text-[11px] text-pink-600 hover:underline">
+                <InstagramIcon className="w-3 h-3" /> {cp.instagram}
+              </a>
+            )}
+          </div>
+        )}
       </div>
     );
   }
