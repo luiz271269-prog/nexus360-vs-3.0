@@ -28,7 +28,8 @@ Deno.serve(async (req) => {
       ramo_atividade: vazio(contato.ramo_atividade),
       email: vazio(contato.email),
       localizacao: vazio(contato.campos_personalizados?.localizacao_maps),
-      instagram: vazio(contato.campos_personalizados?.instagram)
+      instagram_empresa: vazio(contato.campos_personalizados?.instagram_empresa),
+      instagram_contato: vazio(contato.campos_personalizados?.instagram_contato)
     };
 
     if (!Object.values(faltando).some(Boolean)) {
@@ -73,17 +74,21 @@ Dados conhecidos:
 - Cidade/UF (conhecida ou deduzida pelo DDD do telefone): ${cidadeConhecida}
 
 ESTRATÉGIA DE BUSCA:
-- O nome "${contato.nome || ''}" pode ser o próprio @ ou nome de perfil no Instagram da empresa/profissional. Procure ESSE nome no Instagram e em buscadores junto da cidade "${cidadeConhecida}".
-- Muitos contatos são clínicas, profissionais autônomos ou pequenas empresas — use o nome do perfil + a cidade deduzida para localizar o negócio real.
+- Existem DOIS perfis de Instagram distintos a procurar: o da EMPRESA e o da PESSOA (contato).
+- O nome da EMPRESA "${contato.empresa || ''}" identifica o perfil OFICIAL DA EMPRESA no Instagram (ex: a empresa "Farben" tem o @industrial.farben).
+- O nome da PESSOA "${contato.nome || ''}" identifica o perfil PESSOAL do contato no Instagram (ex: "Anderson Selinger" tem o @andersonselinger).
+- Procure ambos no Instagram e em buscadores junto da cidade "${cidadeConhecida}".
+- Muitos contatos são clínicas, profissionais autônomos ou pequenas empresas — use os nomes + a cidade deduzida para localizar os perfis reais.
 
 Encontre e retorne (apenas os que faltam):
 - nome da empresa/negócio oficial
 - ramo de atividade / setor (ex: Estética, Saúde, Saneamento, Varejo, Indústria, Tecnologia)
 - e-mail de contato público da empresa
 - endereço completo da empresa (para localizar no Google Maps)
-- @ do Instagram oficial da empresa/profissional (com @)
+- @ do Instagram OFICIAL DA EMPRESA (campo instagram_empresa, com @)
+- @ do Instagram PESSOAL do contato (campo instagram_contato, com @)
 
-Se não tiver certeza de um campo, deixe-o vazio. NÃO invente.`;
+Se não tiver certeza de um campo, deixe-o vazio. NÃO invente. NÃO troque o perfil da empresa pelo da pessoa nem vice-versa.`;
 
     // Timeout de 45s: a busca de IA na internet pode travar/demorar demais.
     // Em vez de deixar o botão "Buscando dados..." eternamente, cortamos e avisamos.
@@ -98,7 +103,8 @@ Se não tiver certeza de um campo, deixe-o vazio. NÃO invente.`;
           ramo_atividade: { type: 'string' },
           email: { type: 'string' },
           endereco: { type: 'string' },
-          instagram: { type: 'string' }
+          instagram_empresa: { type: 'string' },
+          instagram_contato: { type: 'string' }
         }
       }
     });
@@ -137,10 +143,15 @@ Se não tiver certeza de um campo, deixe-o vazio. NÃO invente.`;
       camposPersonalizados.localizacao_maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`;
       camposPersonalizados.endereco = endereco;
     }
-    if (faltando.instagram && !vazio(resultado.instagram)) {
-      const ig = resultado.instagram.trim().replace(/^@/, '');
-      camposPersonalizados.instagram = `@${ig}`;
-      camposPersonalizados.instagram_url = `https://instagram.com/${ig}`;
+    if (faltando.instagram_empresa && !vazio(resultado.instagram_empresa)) {
+      const ig = resultado.instagram_empresa.trim().replace(/^@/, '');
+      camposPersonalizados.instagram_empresa = `@${ig}`;
+      camposPersonalizados.instagram_empresa_url = `https://instagram.com/${ig}`;
+    }
+    if (faltando.instagram_contato && !vazio(resultado.instagram_contato)) {
+      const ig = resultado.instagram_contato.trim().replace(/^@/, '');
+      camposPersonalizados.instagram_contato = `@${ig}`;
+      camposPersonalizados.instagram_contato_url = `https://instagram.com/${ig}`;
     }
 
     const mudouCamposPersonalizados =

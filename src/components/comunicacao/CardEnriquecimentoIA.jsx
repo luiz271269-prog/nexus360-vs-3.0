@@ -7,18 +7,16 @@ import { toast } from 'sonner';
 const vazio = (v) => !v || String(v).trim() === '';
 
 // Extrai o @handle do Instagram a partir de uma URL ou de um texto solto
-const extrairHandleInstagram = (cp) => {
-  const raw = cp?.instagram || cp?.instagram_url || '';
+const extrairHandle = (raw) => {
   if (!raw) return '';
   const m = String(raw).match(/instagram\.com\/([A-Za-z0-9._]+)/i);
   if (m) return m[1].replace(/\/$/, '');
   return String(raw).replace('@', '').trim();
 };
 
-// Abre o perfil do contato no Instagram: app nativo no celular (deep link),
+// Abre o perfil no Instagram: app nativo no celular (deep link),
 // instagram.com no desktop (sessão já logada da NeuralTec) — pronto pra seguir.
-const abrirInstagram = (cp) => {
-  const handle = extrairHandleInstagram(cp);
+const abrirInstagram = (handle) => {
   if (!handle) return;
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   if (isMobile) {
@@ -39,7 +37,8 @@ const camposEssenciais = (contact) => {
     { chave: 'ramo_atividade', label: 'Setor / Ramo', icon: Briefcase, falta: vazio(contact?.ramo_atividade) },
     { chave: 'email', label: 'E-mail', icon: Mail, falta: vazio(contact?.email) },
     { chave: 'localizacao', label: 'Localização (Maps)', icon: MapPin, falta: vazio(cp.localizacao_maps) },
-    { chave: 'instagram', label: 'Instagram', icon: InstagramIcon, falta: vazio(cp.instagram) }
+    { chave: 'instagram_empresa', label: 'Instagram Empresa', icon: InstagramIcon, falta: vazio(cp.instagram_empresa) },
+    { chave: 'instagram_contato', label: 'Instagram Contato', icon: InstagramIcon, falta: vazio(cp.instagram_contato) }
   ];
 };
 
@@ -113,29 +112,45 @@ export default function CardEnriquecimentoIA({ contact, onUpdate }) {
     }
   };
 
-  const temInstagram = !!(cp.instagram || cp.instagram_url);
+  const handleIgEmpresa = extrairHandle(cp.instagram_empresa || cp.instagram_empresa_url);
+  const handleIgContato = extrairHandle(cp.instagram_contato || cp.instagram_contato_url);
+  const temInstagram = !!(handleIgEmpresa || handleIgContato);
 
-  // Botões grandes e indutivos de Maps / Instagram (reutilizados nos dois estados)
+  // Botões grandes e indutivos de Maps / Instagram (reutilizados nos dois estados).
+  // Quando houver os DOIS Instagrams (empresa + contato), mostra 2 botões separados.
   const BotoesAcesso = () => (
-    <div className="flex gap-2">
+    <div className="flex flex-col gap-2">
       {cp.localizacao_maps && (
         <a
           href={cp.localizacao_maps}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-sm transition-all"
+          className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-sm transition-all"
         >
           <MapPin className="w-4 h-4" /> Ver no Maps
         </a>
       )}
-      {temInstagram && (
-        <button
-          type="button"
-          onClick={() => abrirInstagram(cp)}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-pink-500 via-rose-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-sm transition-all"
-        >
-          <InstagramIcon className="w-4 h-4" /> Seguir no Instagram
-        </button>
+      {(handleIgEmpresa || handleIgContato) && (
+        <div className="flex gap-2">
+          {handleIgEmpresa && (
+            <button
+              type="button"
+              onClick={() => abrirInstagram(handleIgEmpresa)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-pink-500 via-rose-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-sm transition-all"
+            >
+              <InstagramIcon className="w-4 h-4" /> {handleIgContato ? 'Empresa' : 'Instagram'}
+            </button>
+          )}
+          {handleIgContato && (
+            <button
+              type="button"
+              onClick={() => abrirInstagram(handleIgContato)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-sm transition-all"
+            >
+              <InstagramIcon className="w-4 h-4" /> {handleIgEmpresa ? 'Contato' : 'Instagram'}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
