@@ -1,7 +1,8 @@
 import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Loader2, MapPin, Instagram as InstagramIcon, CheckCircle2, Building2, Mail, Briefcase, RefreshCw } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Sparkles, Loader2, MapPin, Instagram as InstagramIcon, CheckCircle2, Building2, Mail, Briefcase, RefreshCw, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const vazio = (v) => !v || String(v).trim() === '';
@@ -44,6 +45,48 @@ const camposEssenciais = (contact) => {
 
 export default function CardEnriquecimentoIA({ contact, onUpdate }) {
   const [carregando, setCarregando] = React.useState(false);
+  // Edição manual inline: qual campo está aberto ('maps' | 'ig_empresa' | 'ig_contato' | null) e o valor digitado
+  const [editando, setEditando] = React.useState(null);
+  const [valorEdicao, setValorEdicao] = React.useState('');
+  const [salvando, setSalvando] = React.useState(false);
+
+  // Salva a correção manual de Maps/Instagram direto no contato (SEM IA).
+  // Permite trocar quando a IA acertou o perfil errado ou o endereço errado.
+  const salvarCorrecao = async (campo, valor) => {
+    const v = String(valor || '').trim();
+    setSalvando(true);
+    try {
+      const cpAtual = contact.campos_personalizados || {};
+      const novosCampos = { ...cpAtual };
+
+      if (campo === 'maps') {
+        novosCampos.localizacao_maps = v;
+      } else if (campo === 'ig_empresa') {
+        const h = extrairHandle(v);
+        novosCampos.instagram_empresa = h ? `@${h}` : '';
+        novosCampos.instagram_empresa_url = h ? `https://instagram.com/${h}` : '';
+      } else if (campo === 'ig_contato') {
+        const h = extrairHandle(v);
+        novosCampos.instagram_contato = h ? `@${h}` : '';
+        novosCampos.instagram_contato_url = h ? `https://instagram.com/${h}` : '';
+      }
+
+      await base44.entities.Contact.update(contact.id, { campos_personalizados: novosCampos });
+      toast.success('✅ Corrigido');
+      setEditando(null);
+      setValorEdicao('');
+      if (onUpdate) await onUpdate();
+    } catch (error) {
+      toast.error('Erro ao salvar: ' + error.message);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const abrirEdicao = (campo, valorAtual) => {
+    setEditando(campo);
+    setValorEdicao(valorAtual || '');
+  };
 
   // Vínculo automático com o CRM (100% interno, SEM IA): roda ao abrir os
   // detalhes do contato. Só dispara se ainda não há cliente vinculado e há
@@ -116,41 +159,123 @@ export default function CardEnriquecimentoIA({ contact, onUpdate }) {
   const handleIgContato = extrairHandle(cp.instagram_contato || cp.instagram_contato_url);
   const temInstagram = !!(handleIgEmpresa || handleIgContato);
 
+  // Campo de edição inline reutilizável: input + salvar + cancelar
+  const CampoEdicao = ({ campo, placeholder }) => (
+    <div className="flex items-center gap-1.5 w-full">
+      <Input
+        autoFocus
+        value={valorEdicao}
+        onChange={(e) => setValorEdicao(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') salvarCorrecao(campo, valorEdicao);
+          if (e.key === 'Escape') { setEditando(null); setValorEdicao(''); }
+        }}
+        placeholder={placeholder}
+        className="h-8 text-xs"
+        disabled={salvando}
+      />
+      <button
+        type="button"
+        onClick={() => salvarCorrecao(campo, valorEdicao)}
+        disabled={salvando}
+        className="flex-shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+        title="Salvar"
+      >
+        {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+      </button>
+      <button
+        type="button"
+        onClick={() => { setEditando(null); setValorEdicao(''); }}
+        disabled={salvando}
+        className="flex-shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-600"
+        title="Cancelar"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+
+  // Botãozinho de lápis para corrigir manualmente um item
+  const BotaoCorrigir = ({ campo, valorAtual }) => (
+    <button
+      type="button"
+      onClick={() => abrirEdicao(campo, valorAtual)}
+      className="flex-shrink-0 w-9 inline-flex items-center justify-center rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all"
+      title="Corrigir manualmente"
+    >
+      <Pencil className="w-3.5 h-3.5" />
+    </button>
+  );
+
   // Botões grandes e indutivos de Maps / Instagram (reutilizados nos dois estados).
   // Quando houver os DOIS Instagrams (empresa + contato), mostra 2 botões separados.
+  // Cada item tem um lápis "Corrigir" para trocar manualmente quando a IA errou.
   const BotoesAcesso = () => (
     <div className="flex flex-col gap-2">
-      {cp.localizacao_maps && (
-        <a
-          href={cp.localizacao_maps}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-sm transition-all"
-        >
-          <MapPin className="w-4 h-4" /> Ver no Maps
-        </a>
-      )}
-      {(handleIgEmpresa || handleIgContato) && (
-        <div className="flex gap-2">
-          {handleIgEmpresa && (
-            <button
-              type="button"
-              onClick={() => abrirInstagram(handleIgEmpresa)}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-pink-500 via-rose-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-sm transition-all"
-            >
-              <InstagramIcon className="w-4 h-4" /> {handleIgContato ? 'Empresa' : 'Instagram'}
-            </button>
-          )}
-          {handleIgContato && (
-            <button
-              type="button"
-              onClick={() => abrirInstagram(handleIgContato)}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-sm transition-all"
-            >
-              <InstagramIcon className="w-4 h-4" /> {handleIgEmpresa ? 'Contato' : 'Instagram'}
-            </button>
-          )}
+      {/* Maps */}
+      {editando === 'maps' ? (
+        <CampoEdicao campo="maps" placeholder="Cole o link do Google Maps" />
+      ) : cp.localizacao_maps && (
+        <div className="flex gap-1.5">
+          <a
+            href={cp.localizacao_maps}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-sm transition-all"
+          >
+            <MapPin className="w-4 h-4" /> Ver no Maps
+          </a>
+          <BotaoCorrigir campo="maps" valorAtual={cp.localizacao_maps} />
         </div>
+      )}
+
+      {/* Instagram Empresa */}
+      {editando === 'ig_empresa' ? (
+        <CampoEdicao campo="ig_empresa" placeholder="@perfil ou link da empresa" />
+      ) : handleIgEmpresa && (
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => abrirInstagram(handleIgEmpresa)}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-pink-500 via-rose-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-sm transition-all"
+          >
+            <InstagramIcon className="w-4 h-4" /> {handleIgContato ? 'Empresa' : 'Instagram'} (@{handleIgEmpresa})
+          </button>
+          <BotaoCorrigir campo="ig_empresa" valorAtual={cp.instagram_empresa} />
+        </div>
+      )}
+
+      {/* Instagram Contato */}
+      {editando === 'ig_contato' ? (
+        <CampoEdicao campo="ig_contato" placeholder="@perfil ou link do contato" />
+      ) : handleIgContato && (
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => abrirInstagram(handleIgContato)}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-sm transition-all"
+          >
+            <InstagramIcon className="w-4 h-4" /> {handleIgEmpresa ? 'Contato' : 'Instagram'} (@{handleIgContato})
+          </button>
+          <BotaoCorrigir campo="ig_contato" valorAtual={cp.instagram_contato} />
+        </div>
+      )}
+
+      {/* Adicionar manualmente o que ainda não existe */}
+      {(!cp.localizacao_maps && editando !== 'maps') && (
+        <button type="button" onClick={() => abrirEdicao('maps', '')} className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-500 hover:text-slate-700 border border-dashed border-slate-300 rounded-lg px-3 py-1.5">
+          <MapPin className="w-3.5 h-3.5" /> Adicionar Maps manualmente
+        </button>
+      )}
+      {(!handleIgEmpresa && editando !== 'ig_empresa') && (
+        <button type="button" onClick={() => abrirEdicao('ig_empresa', '')} className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-500 hover:text-slate-700 border border-dashed border-slate-300 rounded-lg px-3 py-1.5">
+          <InstagramIcon className="w-3.5 h-3.5" /> Adicionar Instagram da empresa
+        </button>
+      )}
+      {(!handleIgContato && editando !== 'ig_contato') && (
+        <button type="button" onClick={() => abrirEdicao('ig_contato', '')} className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-500 hover:text-slate-700 border border-dashed border-slate-300 rounded-lg px-3 py-1.5">
+          <InstagramIcon className="w-3.5 h-3.5" /> Adicionar Instagram do contato
+        </button>
       )}
     </div>
   );
@@ -163,11 +288,9 @@ export default function CardEnriquecimentoIA({ contact, onUpdate }) {
           <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
           <span className="text-xs text-green-800 font-medium">Cadastro completo</span>
         </div>
-        {(cp.localizacao_maps || temInstagram) && (
-          <div className="mt-2.5 pt-2.5 border-t border-green-200">
-            <BotoesAcesso />
-          </div>
-        )}
+        <div className="mt-2.5 pt-2.5 border-t border-green-200">
+          <BotoesAcesso />
+        </div>
         <button
           type="button"
           onClick={handleEnriquecer}
@@ -208,12 +331,10 @@ export default function CardEnriquecimentoIA({ contact, onUpdate }) {
         {carregando ? 'Buscando dados...' : 'Atualizar com IA'}
       </Button>
 
-      {/* Botões grandes dos dados já encontrados (Maps / Instagram) */}
-      {(cp.localizacao_maps || temInstagram) && (
-        <div className="mt-2.5">
-          <BotoesAcesso />
-        </div>
-      )}
+      {/* Botões grandes dos dados já encontrados + correção/adição manual (Maps / Instagram) */}
+      <div className="mt-2.5">
+        <BotoesAcesso />
+      </div>
     </div>
   );
 }
