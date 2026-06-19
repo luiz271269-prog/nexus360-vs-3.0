@@ -620,7 +620,7 @@ export default function ChatSidebar({
               }
 
               <div className="relative flex-shrink-0">
-                <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${corAvatar}`}>
+                <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ring-2 ring-offset-1 ring-purple-400 ${corAvatar}`}>
                   {threadUI.avatarUrl ?
                   <img
                     src={threadUI.avatarUrl}
@@ -765,14 +765,14 @@ export default function ChatSidebar({
           const isSelected = contatosSelecionados.find((c) => c.id === contato?.id);
           const hasUnread = getUnreadCount(thread, usuarioAtual?.id) > 0;
 
-          // 🎨 Cor de fundo + borda esquerda por canal da conversa
+          // 🎨 Cor de fundo + borda esquerda + anel do avatar por canal da conversa
           const canalStyle = thread.channel === 'email'
-            ? { bg: 'bg-blue-50/50', border: 'border-l-blue-400' }
+            ? { bg: 'bg-blue-50/50', border: 'border-l-blue-400', ring: 'ring-blue-400' }
             : thread.channel === 'instagram'
-            ? { bg: 'bg-pink-50/50', border: 'border-l-pink-400' }
+            ? { bg: 'bg-pink-50/50', border: 'border-l-pink-400', ring: 'ring-pink-400' }
             : thread.channel === 'facebook'
-            ? { bg: 'bg-sky-50/50', border: 'border-l-sky-500' }
-            : { bg: '', border: 'border-l-green-400' }; // whatsapp/padrão
+            ? { bg: 'bg-sky-50/50', border: 'border-l-sky-500', ring: 'ring-sky-500' }
+            : { bg: '', border: 'border-l-green-400', ring: 'ring-green-400' }; // whatsapp/padrão
 
           return (
             <motion.div
@@ -796,7 +796,7 @@ export default function ChatSidebar({
 
               {/* Avatar */}
               <div className="relative flex-shrink-0">
-                <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ${
+                <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ring-2 ring-offset-1 ${canalStyle.ring} ${
                 hasUnread ?
                 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' :
                 'bg-gradient-to-br from-slate-400 to-slate-500'}`
