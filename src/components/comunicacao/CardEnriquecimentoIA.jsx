@@ -45,12 +45,23 @@ export default function CardEnriquecimentoIA({ contact, onUpdate }) {
     try {
       const resp = await base44.functions.invoke('enriquecerContatoComIA', { contact_id: contact.id });
       const data = resp?.data;
-      if (data?.success && data?.updated) {
-        toast.success(`✅ Cadastro atualizado: ${(data.campos_preenchidos || []).join(', ')}`);
-        if (onUpdate) await onUpdate();
-      } else {
+
+      const vinculo = data?.vinculo_crm;
+      if (vinculo?.vinculado) {
+        toast.success(`🔗 Vinculado ao cliente: ${vinculo.cliente_nome}`);
+      } else if (vinculo?.sugestoes?.length) {
+        toast.info(`Encontrei ${vinculo.sugestoes.length} cliente(s) parecido(s) — confira o vínculo no painel.`);
+      }
+
+      if (data?.success && (data?.campos_preenchidos || []).length > 0) {
+        toast.success(`✅ Cadastro atualizado: ${data.campos_preenchidos.join(', ')}`);
+      } else if (!vinculo?.vinculado) {
         toast.info(data?.reason || 'A IA não encontrou novos dados confiáveis.');
       }
+
+      // Sempre recarrega o contato — garante que o card e os campos reflitam o banco
+      // (corrige o "Faltam N campos" fantasma quando os dados já existiam).
+      if (onUpdate) await onUpdate();
     } catch (error) {
       toast.error('Erro ao consultar a IA: ' + error.message);
     } finally {
