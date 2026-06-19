@@ -979,9 +979,16 @@ export default React.memo(function MessageBubble({
   if (_internalLog) return _internalLog;
 
   // ⚡ ACESSOS RÁPIDOS — cartão compacto no lugar do texto puro
-  // Aceita: 'acessos_rapidos*' (legado) + menu de pré-atendimento ('acessos_menu_categorias', 'acessos_submenu')
+  // Detecção POR METADATA (fonte primária) OU POR CONTEÚDO (fallback robusto):
+  // o menu enviado pelo enviarCartaoAcesso ganha message_type, mas quando a
+  // mesma mensagem é recriada por um sync/eco do WhatsApp (Z-API/W-API) o
+  // metadata vem genérico SEM message_type — então caía como texto puro.
+  // Casar a assinatura "NEURALTEC — Acessos rápidos" garante o cartão em
+  // qualquer caminho de persistência. Só vale para mensagens enviadas (isOwn).
   const _accessType = String(message?.metadata?.message_type || '');
-  if (_accessType.startsWith('acessos_rapidos') || _accessType.startsWith('acessos_menu') || _accessType.startsWith('acessos_submenu')) {
+  const _accessByType = _accessType.startsWith('acessos_rapidos') || _accessType.startsWith('acessos_menu') || _accessType.startsWith('acessos_submenu');
+  const _accessByContent = isOwn && /neuraltec\s*[—\-]\s*acessos\s*r[áa]pidos/i.test(String(message?.content || ''));
+  if (_accessByType || _accessByContent) {
     return <AcessosRapidosCard message={message} />;
   }
 
