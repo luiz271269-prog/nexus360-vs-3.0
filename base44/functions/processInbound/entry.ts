@@ -132,51 +132,6 @@ Deno.serve(async (req) => {
 
   console.log(`[${VERSION}] 📩 Message: ${message?.id} | Contact: ${contact?.nome} | Thread: ${thread?.id}`);
 
-  // ════════════════════════════════════════════════════════════════
-  // [ACESSO RÁPIDO] Captura da escolha na Lista Interativa.
-  // Se o cliente tocou numa opção (list_reply id="acesso_rapido:ID"),
-  // entrega o link/Pix correspondente e encerra o pipeline (não vira URA).
-  // ════════════════════════════════════════════════════════════════
-  // Extrai o rowId da seleção de lista cobrindo TODOS os formatos de Z-API e W-API.
-  // (a interactive_list retorna um ID ao webhook — não abre URL sozinha; é o
-  //  responderAcessoRapido que envia o link/Pix/wa.me correspondente)
-  const rp = rawPayload || {};
-  const msgContent = rp.message || rp.msgContent || rp.messages?.[0] || {};
-  const listReplyId =
-    // Z-API
-    rp.list_reply?.id ||
-    rp.listResponseMessage?.selectedRowId ||
-    rp.buttonsResponseMessage?.buttonId ||
-    rp.selectedRowId ||
-    rp.selectedId ||
-    // W-API / Baileys (singleSelectReply)
-    rp.listResponseMessage?.singleSelectReply?.selectedRowId ||
-    msgContent.listResponseMessage?.selectedRowId ||
-    msgContent.listResponseMessage?.singleSelectReply?.selectedRowId ||
-    msgContent.list_reply?.id ||
-    msgContent.buttonsResponseMessage?.selectedButtonId ||
-    msgContent.templateButtonReplyMessage?.selectedId ||
-    // fallback: o conteúdo textual pode conter o id (alguns gateways colocam no body)
-    (typeof messageContent === 'string' && messageContent.startsWith('acesso_rapido:') ? messageContent.trim() : null) ||
-    null;
-
-  if (listReplyId && String(listReplyId).startsWith('acesso_rapido:')) {
-    console.log(`[${VERSION}] ⚡ ACESSO RÁPIDO escolhido: ${listReplyId} | provider=${provider}`);
-    try {
-      const r = await base44.asServiceRole.functions.invoke('responderAcessoRapido', {
-        selected_row_id: listReplyId,
-        thread_id: thread?.id,
-        contact_id: contact?.id,
-        integration_id: integration?.id || thread?.whatsapp_integration_id
-      });
-      console.log(`[${VERSION}] ⚡ responderAcessoRapido resultado:`, JSON.stringify(r?.data || {}).slice(0, 200));
-    } catch (e) {
-      console.error(`[${VERSION}] ❌ Erro ao responder acesso rápido:`, e.message);
-    }
-    // Processa apenas a seleção inbound e encerra — não vira URA, evita loop.
-    return Response.json({ success: true, handled: 'acesso_rapido', selected: listReplyId });
-  }
-
   const result = { pipeline: [], actions: [] };
   const now = new Date();
 
