@@ -1,0 +1,62 @@
+{
+  "name": "EtiquetaConversa",
+  "type": "object",
+  "description": "Etiquetas de conversa/mensagem organizadas por setor da empresa (espelha os setores do cadastro de User). Cada setor tem seu pr\u00f3prio conjunto de etiquetas de situa\u00e7\u00e3o/atendimento.",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Slug normalizado da etiqueta (ex: aguardando_pagamento)"
+    },
+    "label": {
+      "type": "string",
+      "description": "Nome de exibi\u00e7\u00e3o da etiqueta"
+    },
+    "emoji": {
+      "type": "string",
+      "default": "\ud83c\udff7\ufe0f",
+      "description": "Emoji da etiqueta"
+    },
+    "cor": {
+      "type": "string",
+      "default": "bg-slate-400",
+      "description": "Classe de cor Tailwind"
+    },
+    "setor": {
+      "type": "string",
+      "enum": [
+        "geral",
+        "vendas",
+        "assistencia",
+        "financeiro",
+        "fornecedor",
+        "compras"
+      ],
+      "default": "geral",
+      "description": "Setor dono da etiqueta (geral = vis\u00edvel a todos os setores)"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o/uso da etiqueta"
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se a etiqueta est\u00e1 ativa"
+    },
+    "ordem": {
+      "type": "number",
+      "default": 100,
+      "description": "Ordem de exibi\u00e7\u00e3o (menor primeiro)"
+    },
+    "uso_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Contador de uso"
+    }
+  },
+  "required": [
+    "nome",
+    "label",
+    "setor"
+  ]
+}
