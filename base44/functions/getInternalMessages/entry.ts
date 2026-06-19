@@ -23,8 +23,18 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'thread_id required' }, { status: 400 });
   }
 
-  // Verificar se o usuário é participante da thread
-  const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id).catch(() => null);
+  // ⚡ PERF: thread (para validação) e mensagens em PARALELO, em vez de sequencial.
+  // Mantém todos os guards — apenas remove a espera encadeada de ~1 ida ao banco.
+  const filter = { thread_id };
+  if (before_sent_at) {
+    filter.created_date = { $lt: before_sent_at };
+  }
+
+  const [thread, messages] = await Promise.all([
+    base44.asServiceRole.entities.MessageThread.get(thread_id).catch(() => null),
+    base44.asServiceRole.entities.Message.filter(filter, '-created_date', limit)
+  ]);
+
   if (!thread) {
     return Response.json({ success: false, error: 'thread not found' }, { status: 404 });
   }
@@ -38,17 +48,6 @@ Deno.serve(async (req) => {
   if (!isSectorGroup && !isParticipant && !isAdmin) {
     return Response.json({ success: false, error: 'forbidden' }, { status: 403 });
   }
-
-  const filter = { thread_id };
-  if (before_sent_at) {
-    filter.created_date = { $lt: before_sent_at };
-  }
-
-  const messages = await base44.asServiceRole.entities.Message.filter(
-    filter,
-    '-created_date',
-    limit
-  );
 
   return Response.json({ success: true, messages });
 });
