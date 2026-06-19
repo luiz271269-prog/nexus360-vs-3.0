@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { normalizarSlugEtiqueta } from "../lib/normalizarEtiqueta";
 
 // Configuração dos setores
 const SETORES = [
@@ -118,6 +119,8 @@ export default function GerenciadorEtiquetasUnificado({ usuarioAtual }) {
   const queryClient = useQueryClient();
   const setorUsuario = usuarioAtual?.attendant_sector || 'geral';
   const isAdmin = usuarioAtual?.role === 'admin';
+  // Só admin / gerente / coordenador podem CRIAR novas etiquetas
+  const podeCriarEtiqueta = isAdmin || ['gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
 
   // Buscar etiquetas
   const { data: etiquetas = [], isLoading } = useQuery({
@@ -258,8 +261,21 @@ export default function GerenciadorEtiquetasUnificado({ usuarioAtual }) {
       return;
     }
 
-    const nomeNormalizado = formData.nome || formData.label.trim().toLowerCase().replace(/\s+/g, '_');
-    
+    const nomeNormalizado = normalizarSlugEtiqueta(formData.nome || formData.label);
+
+    // Ao CRIAR (não editar), bloquear duplicado pelo slug canônico (acento/maiúscula/plural)
+    if (!etiquetaEditando) {
+      if (!podeCriarEtiqueta) {
+        toast.error('❌ Apenas admin, gerente ou coordenador podem criar etiquetas');
+        return;
+      }
+      const duplicada = etiquetas.find(e => normalizarSlugEtiqueta(e.nome) === nomeNormalizado || normalizarSlugEtiqueta(e.label) === nomeNormalizado);
+      if (duplicada) {
+        toast.warning(`Já existe uma etiqueta equivalente: ${duplicada.emoji || '🏷️'} ${duplicada.label}`);
+        return;
+      }
+    }
+
     salvarMutation.mutate({
       ...formData,
       nome: nomeNormalizado,
@@ -311,9 +327,11 @@ export default function GerenciadorEtiquetasUnificado({ usuarioAtual }) {
             {stats.total} etiquetas • {stats.fixas} fixas • {stats.personalizadas} personalizadas
           </p>
         </div>
-        <Button onClick={abrirModalNovo} className="bg-purple-600 hover:bg-purple-700">
-          <Plus className="w-4 h-4 mr-2" /> Nova Etiqueta
-        </Button>
+        {podeCriarEtiqueta && (
+          <Button onClick={abrirModalNovo} className="bg-purple-600 hover:bg-purple-700">
+            <Plus className="w-4 h-4 mr-2" /> Nova Etiqueta
+          </Button>
+        )}
       </div>
 
       {/* Filtros */}

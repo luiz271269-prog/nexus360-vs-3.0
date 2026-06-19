@@ -13,6 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { motion, AnimatePresence } from "framer-motion";
+import { normalizarSlugEtiqueta } from "../lib/normalizarEtiqueta";
 
 /**
  * Componente unificado para selecionar e aplicar etiquetas a contatos
@@ -32,8 +33,17 @@ export default function SeletorEtiquetasContato({
   // Para criar novas
   permitirCriar = true,
   // Para exibição de usuários
-  atendentes = []
+  atendentes = [],
+  // Usuário atual (controla quem pode CRIAR novas etiquetas)
+  usuarioAtual = null
 }) {
+  // Só admin / gerente / coordenador podem criar novas etiquetas
+  const podeCriarEtiqueta = (() => {
+    if (!usuarioAtual) return false;
+    if (usuarioAtual.role === 'admin') return true;
+    return ['gerente', 'coordenador'].includes(usuarioAtual.attendant_role);
+  })();
+  const permitirCriarFinal = permitirCriar && podeCriarEtiqueta;
   const [aberto, setAberto] = React.useState(false);
   const [busca, setBusca] = React.useState('');
   const [salvando, setSalvando] = React.useState(false);
@@ -126,15 +136,26 @@ export default function SeletorEtiquetasContato({
   const criarNovaEtiqueta = async () => {
     if (!novaEtiqueta.trim() || salvando) return;
 
+    if (!podeCriarEtiqueta) {
+      toast.error('❌ Apenas admin, gerente ou coordenador podem criar etiquetas');
+      return;
+    }
+
     setSalvando(true);
     try {
-      const nomeNormalizado = novaEtiqueta.trim().toLowerCase().replace(/\s+/g, '_');
+      const nomeNormalizado = normalizarSlugEtiqueta(novaEtiqueta);
       const labelOriginal = novaEtiqueta.trim();
 
-      // Verificar se já existe
-      const existente = etiquetasDB.find(e => e.nome === nomeNormalizado);
+      // Verificar se já existe (comparando pelo SLUG canônico — pega acento/maiúscula/plural)
+      const existente = etiquetasDB.find(e => normalizarSlugEtiqueta(e.nome) === nomeNormalizado || normalizarSlugEtiqueta(e.label) === nomeNormalizado);
       if (existente) {
-        toast.warning('Etiqueta já existe');
+        toast.warning(`Etiqueta já existe: ${existente.emoji || '🏷️'} ${existente.label}`);
+        // Se tem contato e ainda não está aplicada, aplica a existente
+        if (contato && !etiquetasAtuais.includes(existente.nome)) {
+          await base44.entities.Contact.update(contato.id, { tags: [...etiquetasAtuais, existente.nome] });
+          queryClient.invalidateQueries({ queryKey: ['contatos'] });
+          if (onUpdate) onUpdate();
+        }
         setNovaEtiqueta('');
         setCriandoNova(false);
         setSalvando(false);
@@ -252,7 +273,7 @@ export default function SeletorEtiquetasContato({
             setNovaEtiqueta={setNovaEtiqueta}
             criarNovaEtiqueta={criarNovaEtiqueta}
             salvando={salvando}
-            permitirCriar={permitirCriar}
+            permitirCriar={permitirCriarFinal}
             isLoading={isLoading}
             getEtiquetaConfig={getEtiquetaConfig}
           />
@@ -345,7 +366,7 @@ export default function SeletorEtiquetasContato({
           setNovaEtiqueta={setNovaEtiqueta}
           criarNovaEtiqueta={criarNovaEtiqueta}
           salvando={salvando}
-          permitirCriar={permitirCriar}
+          permitirCriar={permitirCriarFinal}
           isLoading={isLoading}
           getEtiquetaConfig={getEtiquetaConfig}
         />

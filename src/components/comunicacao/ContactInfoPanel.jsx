@@ -745,6 +745,7 @@ export default function ContactInfoPanel({
                     variant="default"
                     disabled={!podeEditarContatos}
                     atendentes={atendentes}
+                    usuarioAtual={usuario}
                   />
                 </div>
               </div>
