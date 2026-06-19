@@ -978,9 +978,10 @@ export default React.memo(function MessageBubble({
   const _internalLog = renderInternalDispatchLog(message);
   if (_internalLog) return _internalLog;
 
-  // ⚡ ACESSOS RÁPIDOS — cartão compacto no lugar do texto
-  // Aceita variações: 'acessos_rapidos', 'acessos_rapidos_texto', 'acessos_rapidos_lista'
-  if (String(message?.metadata?.message_type || '').startsWith('acessos_rapidos')) {
+  // ⚡ ACESSOS RÁPIDOS — cartão compacto no lugar do texto puro
+  // Aceita: 'acessos_rapidos*' (legado) + menu de pré-atendimento ('acessos_menu_categorias', 'acessos_submenu')
+  const _accessType = String(message?.metadata?.message_type || '');
+  if (_accessType.startsWith('acessos_rapidos') || _accessType.startsWith('acessos_menu') || _accessType.startsWith('acessos_submenu')) {
     return <AcessosRapidosCard message={message} />;
   }
 
