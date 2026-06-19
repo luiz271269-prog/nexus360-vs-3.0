@@ -13,6 +13,20 @@ const ICONES = {
   Headphones, DollarSign, ShoppingCart
 };
 
+// ── FONTE ÚNICA DE VERDADE ──
+// Decide se uma Message é o cartão/menu "Acessos Rápidos" NeuralTec.
+// Cobre as duas origens possíveis da mensagem:
+//  1) metadata.message_type (enviarCartaoAcesso): acessos_rapidos*, acessos_menu*, acessos_submenu*
+//  2) conteúdo (quando um sync/eco do WhatsApp recria a Message sem o metadata):
+//     assinatura "NEURALTEC — Acessos rápidos" — só vale para mensagens enviadas (isOwn).
+// Qualquer lugar que precise renderizar o cartão deve usar ESTA função.
+export function isAcessosRapidosMessage(message, isOwn) {
+  const tipo = String(message?.metadata?.message_type || '');
+  const porTipo = tipo.startsWith('acessos_rapidos') || tipo.startsWith('acessos_menu') || tipo.startsWith('acessos_submenu');
+  const porConteudo = isOwn && /neuraltec\s*[—\-]\s*acessos\s*r[áa]pidos/i.test(String(message?.content || ''));
+  return porTipo || porConteudo;
+}
+
 // Cartão fino de Acessos Rápidos — renderizado na Central no lugar do texto da mensagem
 export default function AcessosRapidosCard({ message }) {
   const { data: itens = [] } = useQuery({

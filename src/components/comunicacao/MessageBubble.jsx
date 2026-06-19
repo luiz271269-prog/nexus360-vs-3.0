@@ -43,7 +43,7 @@ import VincularPromocaoDialog from './VincularPromocaoDialog';
 import ComentariosInternos from './ComentariosInternos';
 import { useMessageStatus } from './useMessageStatus';
 import { renderInternalDispatchLog } from './skills/internalDispatchLogSkill';
-import AcessosRapidosCard from './AcessosRapidosCard';
+import AcessosRapidosCard, { isAcessosRapidosMessage } from './AcessosRapidosCard';
 import { mobileEstiloMensagem } from './skills/mobileSkill';
 
 // Player de áudio: nativo + botão de velocidade (v2) — memoizado para não remontar <audio> em re-render
@@ -978,17 +978,8 @@ export default React.memo(function MessageBubble({
   const _internalLog = renderInternalDispatchLog(message);
   if (_internalLog) return _internalLog;
 
-  // ⚡ ACESSOS RÁPIDOS — cartão compacto no lugar do texto puro
-  // Detecção POR METADATA (fonte primária) OU POR CONTEÚDO (fallback robusto):
-  // o menu enviado pelo enviarCartaoAcesso ganha message_type, mas quando a
-  // mesma mensagem é recriada por um sync/eco do WhatsApp (Z-API/W-API) o
-  // metadata vem genérico SEM message_type — então caía como texto puro.
-  // Casar a assinatura "NEURALTEC — Acessos rápidos" garante o cartão em
-  // qualquer caminho de persistência. Só vale para mensagens enviadas (isOwn).
-  const _accessType = String(message?.metadata?.message_type || '');
-  const _accessByType = _accessType.startsWith('acessos_rapidos') || _accessType.startsWith('acessos_menu') || _accessType.startsWith('acessos_submenu');
-  const _accessByContent = isOwn && /neuraltec\s*[—\-]\s*acessos\s*r[áa]pidos/i.test(String(message?.content || ''));
-  if (_accessByType || _accessByContent) {
+  // ⚡ ACESSOS RÁPIDOS — cartão compacto (detecção via fonte única isAcessosRapidosMessage)
+  if (isAcessosRapidosMessage(message, isOwn)) {
     return <AcessosRapidosCard message={message} />;
   }
 
