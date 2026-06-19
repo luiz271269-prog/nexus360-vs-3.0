@@ -1,0 +1,114 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+
+// ==========================================
+// ENRIQUECER CONTATO COM IA (sob demanda)
+// ==========================================
+// Roda SOMENTE quando o usuário clica "Atualizar com IA" no painel.
+// Usa busca na internet para descobrir campos que faltam.
+// NUNCA sobrescreve campo que já tem valor — só preenche o que está vazio.
+// Campos alvo: empresa, ramo_atividade (setor), email, localização (Maps), Instagram.
+
+const vazio = (v) => !v || String(v).trim() === '';
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user) return Response.json({ error: 'Não autorizado' }, { status: 401 });
+
+    const { contact_id } = await req.json();
+    if (!contact_id) return Response.json({ error: 'contact_id obrigatório' }, { status: 400 });
+
+    const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
+    if (!contato) return Response.json({ error: 'Contato não encontrado' }, { status: 404 });
+
+    // Quais campos faltam (pré-análise no servidor para confirmar)
+    const faltando = {
+      empresa: vazio(contato.empresa),
+      ramo_atividade: vazio(contato.ramo_atividade),
+      email: vazio(contato.email),
+      localizacao: vazio(contato.campos_personalizados?.localizacao_maps),
+      instagram: vazio(contato.campos_personalizados?.instagram)
+    };
+
+    if (!Object.values(faltando).some(Boolean)) {
+      return Response.json({ success: true, updated: false, reason: 'Todos os campos já preenchidos', dados_atualizados: {} });
+    }
+
+    const prompt = `Você é um assistente de enriquecimento de cadastro B2B no Brasil.
+Com base nas informações abaixo de um contato/empresa, encontre dados públicos REAIS na internet.
+Só retorne um valor se tiver ALTA confiança de que é a empresa/pessoa correta. Caso contrário, retorne string vazia.
+
+Dados conhecidos:
+- Nome do contato: ${contato.nome || '(desconhecido)'}
+- Empresa (se houver): ${contato.empresa || '(desconhecida)'}
+- Telefone: ${contato.telefone || '(desconhecido)'}
+- Cidade/UF conhecida: ${contato.campos_personalizados?.cidade || '(desconhecida)'}
+
+Encontre e retorne (apenas os que faltam):
+- nome da empresa oficial
+- ramo de atividade / setor (ex: Saneamento, Varejo, Indústria, Tecnologia, Saúde)
+- e-mail de contato público da empresa
+- endereço completo da empresa (para localizar no Google Maps)
+- @ do Instagram oficial da empresa (com @)
+
+Se não tiver certeza de um campo, deixe-o vazio. NÃO invente.`;
+
+    const resultado = await base44.integrations.Core.InvokeLLM({
+      prompt,
+      add_context_from_internet: true,
+      model: 'gemini_3_flash',
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          empresa: { type: 'string' },
+          ramo_atividade: { type: 'string' },
+          email: { type: 'string' },
+          endereco: { type: 'string' },
+          instagram: { type: 'string' }
+        }
+      }
+    });
+
+    // Montar update SÓ com campos que faltam E que a IA retornou com valor
+    const dadosAtualizados = {};
+    const camposPersonalizados = { ...(contato.campos_personalizados || {}) };
+
+    if (faltando.empresa && !vazio(resultado.empresa)) dadosAtualizados.empresa = resultado.empresa.trim();
+    if (faltando.ramo_atividade && !vazio(resultado.ramo_atividade)) {
+      dadosAtualizados.ramo_atividade = resultado.ramo_atividade.trim();
+      dadosAtualizados.ramo_atividade_origem = 'ia';
+    }
+    if (faltando.email && !vazio(resultado.email)) dadosAtualizados.email = resultado.email.trim().toLowerCase();
+
+    if (faltando.localizacao && !vazio(resultado.endereco)) {
+      const endereco = resultado.endereco.trim();
+      camposPersonalizados.localizacao_maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`;
+      camposPersonalizados.endereco = endereco;
+    }
+    if (faltando.instagram && !vazio(resultado.instagram)) {
+      const ig = resultado.instagram.trim().replace(/^@/, '');
+      camposPersonalizados.instagram = `@${ig}`;
+      camposPersonalizados.instagram_url = `https://instagram.com/${ig}`;
+    }
+
+    const mudouCamposPersonalizados =
+      JSON.stringify(camposPersonalizados) !== JSON.stringify(contato.campos_personalizados || {});
+    if (mudouCamposPersonalizados) dadosAtualizados.campos_personalizados = camposPersonalizados;
+
+    if (Object.keys(dadosAtualizados).length === 0) {
+      return Response.json({ success: true, updated: false, reason: 'IA não encontrou dados confiáveis', dados_atualizados: {} });
+    }
+
+    await base44.asServiceRole.entities.Contact.update(contact_id, dadosAtualizados);
+
+    return Response.json({
+      success: true,
+      updated: true,
+      dados_atualizados: dadosAtualizados,
+      campos_preenchidos: Object.keys(dadosAtualizados).filter((k) => k !== 'ramo_atividade_origem')
+    });
+  } catch (error) {
+    return Response.json({ success: false, error: error.message }, { status: 500 });
+  }
+});

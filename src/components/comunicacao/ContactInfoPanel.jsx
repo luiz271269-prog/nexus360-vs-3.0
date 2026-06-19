@@ -27,6 +27,7 @@ import SeletorEtiquetasContato from './SeletorEtiquetasContato';
 import UsuarioDisplay from './UsuarioDisplay';
 import CallHistoryPanel from './CallHistoryPanel';
 import PainelSaneamentoContato from '../saneamento/PainelSaneamentoContato';
+import CardEnriquecimentoIA from './CardEnriquecimentoIA';
 
 export default function ContactInfoPanel({ 
   contact, 
@@ -554,6 +555,11 @@ export default function ContactInfoPanel({
          </TabsList>
 
         <TabsContent value="dados" className="flex-1 overflow-y-auto m-0">
+          {/* Card de enriquecimento com IA (pré-análise local, IA só sob demanda) */}
+          <div className="pt-3">
+            <CardEnriquecimentoIA contact={contact} onUpdate={onUpdate} />
+          </div>
+
           {/* Cards Classificação - 1cm altura NO TOPO */}
           <div className="p-3 space-y-2 bg-slate-50 border-b">
             <div className={`bg-gradient-to-r ${tipoAtual?.cor || 'from-orange-500 to-red-500'} text-white rounded-lg px-3 shadow h-[1cm] flex items-center gap-2`}>
