@@ -88,6 +88,12 @@ Encontre e retorne (apenas os que faltam):
 - @ do Instagram OFICIAL DA EMPRESA (campo instagram_empresa, com @)
 - @ do Instagram PESSOAL do contato (campo instagram_contato, com @)
 
+REGRAS CRÍTICAS PARA O INSTAGRAM (evitar perfis inexistentes):
+- O @ DEVE ser o username REAL e EXISTENTE do perfil, exatamente como aparece na barra de endereço do Instagram (ex: instagram.com/unimederechim → "unimederechim").
+- NUNCA invente o username adicionando pontos (.), underscores (_) ou separadores entre as palavras. A maioria dos perfis de empresa brasileira NÃO usa ponto (ex: "Unimed Erechim" = "unimederechim", e NÃO "unimed.erechim").
+- Só retorne o @ se você localizou o perfil REAL na busca da internet e tem certeza de que a página existe (não foi removida). Em caso de qualquer dúvida sobre o username exato, deixe VAZIO — é melhor vazio do que um perfil que não existe.
+- Prefira o perfil verificado/oficial com mais seguidores quando houver variações.
+
 Se não tiver certeza de um campo, deixe-o vazio. NÃO invente. NÃO troque o perfil da empresa pelo da pessoa nem vice-versa.`;
 
     // Timeout de 45s: a busca de IA na internet pode travar/demorar demais.

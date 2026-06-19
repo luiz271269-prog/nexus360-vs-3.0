@@ -15,6 +15,15 @@ const extrairHandle = (raw) => {
   return String(raw).replace('@', '').trim();
 };
 
+// Abre a BUSCA do Instagram já com o termo (empresa/nome) digitado, para o
+// atendente achar o perfil REAL e copiar o @ certo. Resolve o caso da IA
+// adivinhar handle errado (ex: unimed.erechim que não existe).
+const buscarNoInstagram = (termo) => {
+  const q = encodeURIComponent(String(termo || '').trim());
+  if (!q) { window.open('https://www.instagram.com/', '_blank'); return; }
+  window.open(`https://www.instagram.com/explore/search/keyword/?q=${q}`, '_blank');
+};
+
 // Abre o perfil no Instagram: app nativo no celular (deep link),
 // instagram.com no desktop (sessão já logada da NeuralTec) — pronto pra seguir.
 const abrirInstagram = (handle) => {
@@ -159,41 +168,58 @@ export default function CardEnriquecimentoIA({ contact, onUpdate }) {
   const handleIgContato = extrairHandle(cp.instagram_contato || cp.instagram_contato_url);
   const temInstagram = !!(handleIgEmpresa || handleIgContato);
 
-  // Campo de edição inline reutilizável: input + salvar + cancelar
-  const CampoEdicao = ({ campo, placeholder }) => (
-    <div className="flex items-center gap-1.5 w-full">
-      <Input
-        autoFocus
-        value={valorEdicao}
-        onChange={(e) => setValorEdicao(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') salvarCorrecao(campo, valorEdicao);
-          if (e.key === 'Escape') { setEditando(null); setValorEdicao(''); }
-        }}
-        placeholder={placeholder}
-        className="h-8 text-xs"
-        disabled={salvando}
-      />
-      <button
-        type="button"
-        onClick={() => salvarCorrecao(campo, valorEdicao)}
-        disabled={salvando}
-        className="flex-shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
-        title="Salvar"
-      >
-        {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-      </button>
-      <button
-        type="button"
-        onClick={() => { setEditando(null); setValorEdicao(''); }}
-        disabled={salvando}
-        className="flex-shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-600"
-        title="Cancelar"
-      >
-        <X className="w-4 h-4" />
-      </button>
-    </div>
-  );
+  // Campo de edição inline reutilizável: input + salvar + cancelar.
+  // Para campos de Instagram, mostra um botão extra "Buscar no Instagram" que
+  // abre a busca real (com a empresa/nome) para o atendente copiar o @ certo.
+  const CampoEdicao = ({ campo, placeholder }) => {
+    const isInstagram = campo === 'ig_empresa' || campo === 'ig_contato';
+    const termoBusca = campo === 'ig_contato' ? contact.nome : (contact.empresa || contact.nome);
+    return (
+      <div className="flex flex-col gap-1.5 w-full">
+        <div className="flex items-center gap-1.5 w-full">
+          <Input
+            autoFocus
+            value={valorEdicao}
+            onChange={(e) => setValorEdicao(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') salvarCorrecao(campo, valorEdicao);
+              if (e.key === 'Escape') { setEditando(null); setValorEdicao(''); }
+            }}
+            placeholder={placeholder}
+            className="h-8 text-xs"
+            disabled={salvando}
+          />
+          <button
+            type="button"
+            onClick={() => salvarCorrecao(campo, valorEdicao)}
+            disabled={salvando}
+            className="flex-shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+            title="Salvar"
+          >
+            {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setEditando(null); setValorEdicao(''); }}
+            disabled={salvando}
+            className="flex-shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-600"
+            title="Cancelar"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        {isInstagram && (
+          <button
+            type="button"
+            onClick={() => buscarNoInstagram(termoBusca)}
+            className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-medium text-pink-600 hover:text-pink-700 border border-dashed border-pink-300 rounded-lg px-3 py-1.5"
+          >
+            <InstagramIcon className="w-3.5 h-3.5" /> Buscar "{termoBusca}" no Instagram e copiar o @
+          </button>
+        )}
+      </div>
+    );
+  };
 
   // Botãozinho de lápis para corrigir manualmente um item
   const BotaoCorrigir = ({ campo, valorAtual }) => (
