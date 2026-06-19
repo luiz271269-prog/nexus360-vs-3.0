@@ -958,6 +958,18 @@ Deno.serve(async (req) => {
       if (microIntent) {
         console.log(`[CAMADA-0-MICRO] 🎯 Detectado: ${microIntent.tipo} ("${microIntent.texto.substring(0, 40)}")`);
 
+        // MENU IMEDIATO: toda saudação pura dispara o cartão de Acessos Rápidos
+        // NA HORA (antes de ACK/intent/roteamento). Guard de 30min do
+        // enviarCartaoAcesso evita duplicidade. Fire-and-forget.
+        if (microIntent.tipo === 'saudacao_pura') {
+          const _integMenu = integration_id || thread?.whatsapp_integration_id;
+          if (_integMenu) {
+            base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
+              thread_id, contact_id, integration_id: _integMenu, source: 'skill_saudacao'
+            }).catch(e => console.warn('[CAMADA-4-MICRO] cartão imediato falhou:', e.message));
+          }
+        }
+
         // Mídia pura sem texto → silêncio (não responde, só loga)
         if (microIntent.tipo === 'midia_pura') {
           await logC4(base44, thread_id, contact_id, 'micro_intent_midia_pura', { mensagem: `Mídia ${mediaType} sem texto — silêncio`, media_type: mediaType, action: 'silent' });
