@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
-import { Zap, Workflow, Gift, MessageSquare, BarChart3 } from 'lucide-react';
+import { Zap, Workflow, Gift, MessageSquare, BarChart3, Tag, Copy } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
 import BibliotecaAutomacoes from '../components/automacao/BibliotecaAutomacoes';
 import GerenciadorRegrasRoteamento from '../components/comunicacao/GerenciadorRegrasRoteamento';
+import GerenciadorEtiquetasConversa from '../components/comunicacao/GerenciadorEtiquetasConversa';
+import DeduplicadorEtiquetas from '../components/comunicacao/DeduplicadorEtiquetas';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function AutomacoesPage() {
+  const { data: usuarioAtual } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+    staleTime: 5 * 60 * 1000,
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/20 to-amber-50/30 p-6">
       
@@ -86,6 +96,12 @@ export default function AutomacoesPage() {
             <TabsTrigger value="roteamento" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
               <Workflow className="w-3.5 h-3.5 mr-1.5" /> Roteamento por Palavras-chave
             </TabsTrigger>
+            <TabsTrigger value="etiquetas-conversa" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+              <Tag className="w-3.5 h-3.5 mr-1.5" /> Etiquetas de Conversa
+            </TabsTrigger>
+            <TabsTrigger value="deduplicacao" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+              <Copy className="w-3.5 h-3.5 mr-1.5" /> Deduplicação
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="automacoes">
             <BibliotecaAutomacoes />
@@ -93,6 +109,16 @@ export default function AutomacoesPage() {
           <TabsContent value="roteamento">
             <div className="bg-white rounded-xl border border-slate-200 p-6">
               <GerenciadorRegrasRoteamento />
+            </div>
+          </TabsContent>
+          <TabsContent value="etiquetas-conversa">
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <GerenciadorEtiquetasConversa usuarioAtual={usuarioAtual} />
+            </div>
+          </TabsContent>
+          <TabsContent value="deduplicacao">
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <DeduplicadorEtiquetas usuarioAtual={usuarioAtual} />
             </div>
           </TabsContent>
         </Tabs>
