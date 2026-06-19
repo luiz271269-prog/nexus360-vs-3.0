@@ -54,7 +54,9 @@ Encontre e retorne (apenas os que faltam):
 
 Se não tiver certeza de um campo, deixe-o vazio. NÃO invente.`;
 
-    const resultado = await base44.integrations.Core.InvokeLLM({
+    // Timeout de 45s: a busca de IA na internet pode travar/demorar demais.
+    // Em vez de deixar o botão "Buscando dados..." eternamente, cortamos e avisamos.
+    const chamadaIA = base44.integrations.Core.InvokeLLM({
       prompt,
       add_context_from_internet: true,
       model: 'gemini_3_flash',
@@ -69,6 +71,24 @@ Se não tiver certeza de um campo, deixe-o vazio. NÃO invente.`;
         }
       }
     });
+
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('timeout_ia')), 45000)
+    );
+
+    let resultado;
+    try {
+      resultado = await Promise.race([chamadaIA, timeout]);
+    } catch (e) {
+      if (e.message === 'timeout_ia') {
+        return Response.json({
+          success: false,
+          updated: false,
+          reason: 'A IA demorou demais para responder. Tente novamente em instantes.'
+        });
+      }
+      throw e;
+    }
 
     // Montar update SÓ com campos que faltam E que a IA retornou com valor
     const dadosAtualizados = {};

@@ -35,6 +35,11 @@ export default function CardEnriquecimentoIA({ contact, onUpdate }) {
     contact.is_cliente_fidelizado
   );
 
+  // Regra de exibição (B): só mostra o enriquecimento por IA para
+  // contatos fidelizados OU do tipo "cliente". Demais tipos não exibem.
+  const podeEnriquecer = isFidelizado || contact.tipo_contato === 'cliente';
+  if (!podeEnriquecer) return null;
+
   const handleEnriquecer = async () => {
     setCarregando(true);
     try {
