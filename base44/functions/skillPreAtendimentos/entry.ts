@@ -1732,6 +1732,13 @@ Deno.serve(async (req) => {
         if (atendente) motivoAtribuicao = 'menor_carga_setor';
       }
 
+      // P5.1: NENHUM contato fica preso — se o setor detectado não tem
+      // atendente, cai SEMPRE em vendas (área comercial distribui depois).
+      if (!atendente && setor !== 'vendas') {
+        atendente = await buscarAtendentePorSetor(base44, 'vendas', atendentes);
+        if (atendente) { setor = 'vendas'; motivoAtribuicao = 'fallback_comercial'; }
+      }
+
       // P6: Sem atendente → fila
       if (!atendente) {
         await base44.asServiceRole.entities.WorkQueueItem.create({
