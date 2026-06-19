@@ -35,6 +35,33 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, updated: false, reason: 'Todos os campos já preenchidos', dados_atualizados: {} });
     }
 
+    // Deduz a cidade/UF pelo DDD do telefone quando a cidade não é conhecida.
+    // Ajuda a IA a confirmar a empresa/perfil certo (ex: DDD 41 = Curitiba/PR).
+    const DDD_REGIAO = {
+      '11': 'São Paulo/SP', '12': 'Vale do Paraíba/SP', '13': 'Santos/SP', '14': 'Bauru/SP',
+      '15': 'Sorocaba/SP', '16': 'Ribeirão Preto/SP', '17': 'São José do Rio Preto/SP',
+      '18': 'Presidente Prudente/SP', '19': 'Campinas/SP', '21': 'Rio de Janeiro/RJ',
+      '22': 'Campos dos Goytacazes/RJ', '24': 'Volta Redonda/RJ', '27': 'Vitória/ES',
+      '28': 'Cachoeiro de Itapemirim/ES', '31': 'Belo Horizonte/MG', '32': 'Juiz de Fora/MG',
+      '33': 'Governador Valadares/MG', '34': 'Uberlândia/MG', '35': 'Poços de Caldas/MG',
+      '37': 'Divinópolis/MG', '38': 'Montes Claros/MG', '41': 'Curitiba/PR', '42': 'Ponta Grossa/PR',
+      '43': 'Londrina/PR', '44': 'Maringá/PR', '45': 'Foz do Iguaçu/PR', '46': 'Pato Branco/PR',
+      '47': 'Joinville/SC', '48': 'Florianópolis/SC', '49': 'Chapecó/SC', '51': 'Porto Alegre/RS',
+      '53': 'Pelotas/RS', '54': 'Caxias do Sul/RS', '55': 'Santa Maria/RS', '61': 'Brasília/DF',
+      '62': 'Goiânia/GO', '63': 'Palmas/TO', '64': 'Rio Verde/GO', '65': 'Cuiabá/MT',
+      '66': 'Rondonópolis/MT', '67': 'Campo Grande/MS', '68': 'Rio Branco/AC', '69': 'Porto Velho/RO',
+      '71': 'Salvador/BA', '73': 'Itabuna/BA', '74': 'Juazeiro/BA', '75': 'Feira de Santana/BA',
+      '77': 'Barreiras/BA', '79': 'Aracaju/SE', '81': 'Recife/PE', '82': 'Maceió/AL',
+      '83': 'João Pessoa/PB', '84': 'Natal/RN', '85': 'Fortaleza/CE', '86': 'Teresina/PI',
+      '87': 'Petrolina/PE', '88': 'Juazeiro do Norte/CE', '89': 'Picos/PI', '91': 'Belém/PA',
+      '92': 'Manaus/AM', '93': 'Santarém/PA', '94': 'Marabá/PA', '95': 'Boa Vista/RR',
+      '96': 'Macapá/AP', '97': 'Coari/AM', '98': 'São Luís/MA', '99': 'Imperatriz/MA'
+    };
+    const soDigitos = String(contato.telefone || '').replace(/\D/g, '');
+    const dddMatch = soDigitos.match(/^55(\d{2})/);
+    const cidadePorDDD = dddMatch ? DDD_REGIAO[dddMatch[1]] : null;
+    const cidadeConhecida = contato.campos_personalizados?.cidade || cidadePorDDD || '(desconhecida)';
+
     const prompt = `Você é um assistente de enriquecimento de cadastro B2B no Brasil.
 Com base nas informações abaixo de um contato/empresa, encontre dados públicos REAIS na internet.
 Só retorne um valor se tiver ALTA confiança de que é a empresa/pessoa correta. Caso contrário, retorne string vazia.
@@ -43,14 +70,18 @@ Dados conhecidos:
 - Nome do contato: ${contato.nome || '(desconhecido)'}
 - Empresa (se houver): ${contato.empresa || '(desconhecida)'}
 - Telefone: ${contato.telefone || '(desconhecido)'}
-- Cidade/UF conhecida: ${contato.campos_personalizados?.cidade || '(desconhecida)'}
+- Cidade/UF (conhecida ou deduzida pelo DDD do telefone): ${cidadeConhecida}
+
+ESTRATÉGIA DE BUSCA:
+- O nome "${contato.nome || ''}" pode ser o próprio @ ou nome de perfil no Instagram da empresa/profissional. Procure ESSE nome no Instagram e em buscadores junto da cidade "${cidadeConhecida}".
+- Muitos contatos são clínicas, profissionais autônomos ou pequenas empresas — use o nome do perfil + a cidade deduzida para localizar o negócio real.
 
 Encontre e retorne (apenas os que faltam):
-- nome da empresa oficial
-- ramo de atividade / setor (ex: Saneamento, Varejo, Indústria, Tecnologia, Saúde)
+- nome da empresa/negócio oficial
+- ramo de atividade / setor (ex: Estética, Saúde, Saneamento, Varejo, Indústria, Tecnologia)
 - e-mail de contato público da empresa
 - endereço completo da empresa (para localizar no Google Maps)
-- @ do Instagram oficial da empresa (com @)
+- @ do Instagram oficial da empresa/profissional (com @)
 
 Se não tiver certeza de um campo, deixe-o vazio. NÃO invente.`;
 

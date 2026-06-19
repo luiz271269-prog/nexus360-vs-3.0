@@ -8,12 +8,17 @@ function useHeaderHeight() {
   const [top, setTop] = React.useState(0);
   React.useEffect(() => {
     const update = () => {
-      // Pegar o header mais próximo acima da área de conversas
-      const header = document.querySelector('header, [class*="header"], .flex-shrink-0');
-      if (header) {
-        const rect = header.getBoundingClientRect();
-        setTop(rect.bottom);
+      // No desktop (>=768px) o app não tem header fixo no topo da viewport,
+      // então o painel flutuante deve ancorar em 0. O <header> só existe no
+      // mobile. Medir via querySelector genérico pegava o elemento errado e
+      // abria o painel deslocado — agora medimos só o <header> mobile real.
+      const isDesktop = window.innerWidth >= 768;
+      if (isDesktop) {
+        setTop(0);
+        return;
       }
+      const header = document.querySelector('header');
+      setTop(header ? header.getBoundingClientRect().bottom : 0);
     };
     update();
     window.addEventListener('resize', update);
