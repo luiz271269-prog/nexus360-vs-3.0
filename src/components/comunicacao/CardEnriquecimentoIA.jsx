@@ -1,10 +1,35 @@
 import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Loader2, MapPin, Instagram as InstagramIcon, CheckCircle2, Building2, Mail, Briefcase } from 'lucide-react';
+import { Sparkles, Loader2, MapPin, Instagram as InstagramIcon, CheckCircle2, Building2, Mail, Briefcase, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 const vazio = (v) => !v || String(v).trim() === '';
+
+// Extrai o @handle do Instagram a partir de uma URL ou de um texto solto
+const extrairHandleInstagram = (cp) => {
+  const raw = cp?.instagram || cp?.instagram_url || '';
+  if (!raw) return '';
+  const m = String(raw).match(/instagram\.com\/([A-Za-z0-9._]+)/i);
+  if (m) return m[1].replace(/\/$/, '');
+  return String(raw).replace('@', '').trim();
+};
+
+// Abre o perfil do contato no Instagram: app nativo no celular (deep link),
+// instagram.com no desktop (sessão já logada da NeuralTec) — pronto pra seguir.
+const abrirInstagram = (cp) => {
+  const handle = extrairHandleInstagram(cp);
+  if (!handle) return;
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile) {
+    // Deep link abre direto no app do Instagram já logado no aparelho
+    window.location.href = `instagram://user?username=${handle}`;
+    // Fallback web caso o app não esteja instalado
+    setTimeout(() => { window.open(`https://instagram.com/${handle}`, '_blank'); }, 800);
+  } else {
+    window.open(`https://instagram.com/${handle}`, '_blank');
+  }
+};
 
 // Pré-análise local (SEM IA): detecta quais campos essenciais estão faltando
 const camposEssenciais = (contact) => {
@@ -88,7 +113,34 @@ export default function CardEnriquecimentoIA({ contact, onUpdate }) {
     }
   };
 
-  // Tudo preenchido → mostra confirmação + links rápidos (Maps / Instagram)
+  const temInstagram = !!(cp.instagram || cp.instagram_url);
+
+  // Botões grandes e indutivos de Maps / Instagram (reutilizados nos dois estados)
+  const BotoesAcesso = () => (
+    <div className="flex gap-2">
+      {cp.localizacao_maps && (
+        <a
+          href={cp.localizacao_maps}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-sm transition-all"
+        >
+          <MapPin className="w-4 h-4" /> Ver no Maps
+        </a>
+      )}
+      {temInstagram && (
+        <button
+          type="button"
+          onClick={() => abrirInstagram(cp)}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white rounded-lg px-3 py-2 bg-gradient-to-r from-pink-500 via-rose-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 shadow-sm transition-all"
+        >
+          <InstagramIcon className="w-4 h-4" /> Seguir no Instagram
+        </button>
+      )}
+    </div>
+  );
+
+  // Tudo preenchido → confirmação + botões grandes + 3º botão "Reatualizar com IA"
   if (faltantes.length === 0) {
     return (
       <div className="mx-4 mb-3 rounded-xl border border-green-200 bg-green-50 p-3">
@@ -96,20 +148,20 @@ export default function CardEnriquecimentoIA({ contact, onUpdate }) {
           <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
           <span className="text-xs text-green-800 font-medium">Cadastro completo</span>
         </div>
-        {(cp.localizacao_maps || cp.instagram_url) && (
-          <div className="flex gap-2 mt-2 pt-2 border-t border-green-200">
-            {cp.localizacao_maps && (
-              <a href={cp.localizacao_maps} target="_blank" rel="noopener noreferrer" className="flex-1 inline-flex items-center justify-center gap-1 text-[11px] text-blue-600 hover:underline">
-                <MapPin className="w-3 h-3" /> Ver no Maps
-              </a>
-            )}
-            {cp.instagram_url && (
-              <a href={cp.instagram_url} target="_blank" rel="noopener noreferrer" className="flex-1 inline-flex items-center justify-center gap-1 text-[11px] text-pink-600 hover:underline">
-                <InstagramIcon className="w-3 h-3" /> {cp.instagram}
-              </a>
-            )}
+        {(cp.localizacao_maps || temInstagram) && (
+          <div className="mt-2.5 pt-2.5 border-t border-green-200">
+            <BotoesAcesso />
           </div>
         )}
+        <button
+          type="button"
+          onClick={handleEnriquecer}
+          disabled={carregando}
+          className="mt-2 w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50"
+        >
+          {carregando ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+          {carregando ? 'Reatualizando...' : 'Reatualizar com IA'}
+        </button>
       </div>
     );
   }
@@ -141,19 +193,10 @@ export default function CardEnriquecimentoIA({ contact, onUpdate }) {
         {carregando ? 'Buscando dados...' : 'Atualizar com IA'}
       </Button>
 
-      {/* Mostrar links já encontrados (Maps / Instagram) */}
-      {(cp.localizacao_maps || cp.instagram) && (
-        <div className="flex gap-2 mt-2">
-          {cp.localizacao_maps && (
-            <a href={cp.localizacao_maps} target="_blank" rel="noopener noreferrer" className="flex-1 inline-flex items-center justify-center gap-1 text-[11px] text-blue-600 hover:underline">
-              <MapPin className="w-3 h-3" /> Ver no Maps
-            </a>
-          )}
-          {cp.instagram_url && (
-            <a href={cp.instagram_url} target="_blank" rel="noopener noreferrer" className="flex-1 inline-flex items-center justify-center gap-1 text-[11px] text-pink-600 hover:underline">
-              <InstagramIcon className="w-3 h-3" /> {cp.instagram}
-            </a>
-          )}
+      {/* Botões grandes dos dados já encontrados (Maps / Instagram) */}
+      {(cp.localizacao_maps || temInstagram) && (
+        <div className="mt-2.5">
+          <BotoesAcesso />
         </div>
       )}
     </div>
