@@ -659,7 +659,7 @@ export default function Comunicacao() {
         const msgs = await base44.entities.Message.filter(
           { thread_id: threadAtiva.id },
           '-sent_at',
-          50
+          20
         );
 
         return msgs.reverse();
