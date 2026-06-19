@@ -56,6 +56,15 @@ function normalizarTelefone(telefone) {
   return '+' + n;
 }
 
+// Dispara o vínculo automático contato->cliente (CRM) em background.
+// Fire-and-forget: NUNCA bloqueia nem derruba a criação do contato.
+function dispararVinculoCliente(base44, contactId) {
+  if (!contactId) return;
+  base44.asServiceRole.functions
+    .invoke('vincularClienteAutomatico', { contact_id: contactId })
+    .catch((e) => console.warn(`[${VERSION}] vínculo CRM automático falhou (não-crítico):`, e.message));
+}
+
 function extrairCanonicopTeléfone(telefoneNormalizado) {
   if (!telefoneNormalizado) return null;
   return telefoneNormalizado.replace(/\D/g, '');
@@ -249,7 +258,10 @@ Deno.serve(async (req) => {
 
       await base44.asServiceRole.entities.Contact.update(contatoEncontrado.id, update);
       console.log(`[${VERSION}] 🔄 Contato atualizado: ${contatoEncontrado.id}`);
-      
+
+      // Se ainda não está vinculado a um Cliente do CRM, tenta casar por empresa/nome.
+      if (!contatoEncontrado.cliente_id) dispararVinculoCliente(base44, contatoEncontrado.id);
+
       return Response.json({ success: true, contact: contatoEncontrado, action: 'updated' });
     } catch (e) {
       console.error(`[${VERSION}] ❌ Erro ao atualizar:`, e.message);
@@ -267,7 +279,7 @@ Deno.serve(async (req) => {
         : `Contato ${telefoneNormalizado.slice(-8)}`,
       telefone: telefoneNormalizado,
       telefone_canonico: canonico,
-      tipo_contato: 'lead',
+      tipo_contato: 'novo',
       cliente_id: null,
       empresa: null,
       whatsapp_status: 'verificado',
@@ -278,6 +290,9 @@ Deno.serve(async (req) => {
     });
 
     console.log(`[${VERSION}] 🆕 Novo contato criado: ${novoContato.id} | ${novoContato.nome}`);
+
+    // Vínculo automático com Cliente do CRM (por empresa/nome). Fire-and-forget.
+    dispararVinculoCliente(base44, novoContato.id);
 
     // ═══════════════════════════════════════════════════════════════
     // ANTI-RACE PÓS-CREATE v3: limit=10 + merge completo de campos
