@@ -4,8 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import BibliotecaAutomacoes from '../components/automacao/BibliotecaAutomacoes';
 import GerenciadorRegrasRoteamento from '../components/comunicacao/GerenciadorRegrasRoteamento';
-import GerenciadorEtiquetasConversa from '../components/comunicacao/GerenciadorEtiquetasConversa';
-import DeduplicadorEtiquetas from '../components/comunicacao/DeduplicadorEtiquetas';
+import GerenciadorEtiquetasCentral from '../components/comunicacao/GerenciadorEtiquetasCentral';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function AutomacoesPage() {
@@ -96,11 +95,8 @@ export default function AutomacoesPage() {
             <TabsTrigger value="roteamento" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
               <Workflow className="w-3.5 h-3.5 mr-1.5" /> Roteamento por Palavras-chave
             </TabsTrigger>
-            <TabsTrigger value="etiquetas-conversa" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-              <Tag className="w-3.5 h-3.5 mr-1.5" /> Etiquetas de Conversa
-            </TabsTrigger>
-            <TabsTrigger value="deduplicacao" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-              <Copy className="w-3.5 h-3.5 mr-1.5" /> Deduplicação
+            <TabsTrigger value="etiquetas" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+              <Tag className="w-3.5 h-3.5 mr-1.5" /> Etiquetas
             </TabsTrigger>
           </TabsList>
           <TabsContent value="automacoes">
@@ -111,14 +107,9 @@ export default function AutomacoesPage() {
               <GerenciadorRegrasRoteamento />
             </div>
           </TabsContent>
-          <TabsContent value="etiquetas-conversa">
+          <TabsContent value="etiquetas">
             <div className="bg-white rounded-xl border border-slate-200 p-6">
-              <GerenciadorEtiquetasConversa usuarioAtual={usuarioAtual} />
-            </div>
-          </TabsContent>
-          <TabsContent value="deduplicacao">
-            <div className="bg-white rounded-xl border border-slate-200 p-6">
-              <DeduplicadorEtiquetas usuarioAtual={usuarioAtual} />
+              <GerenciadorEtiquetasCentral usuarioAtual={usuarioAtual} />
             </div>
           </TabsContent>
         </Tabs>
