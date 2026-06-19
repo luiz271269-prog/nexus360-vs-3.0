@@ -116,28 +116,17 @@ Se não tiver certeza de um campo, deixe-o vazio. NÃO invente.`;
       JSON.stringify(camposPersonalizados) !== JSON.stringify(contato.campos_personalizados || {});
     if (mudouCamposPersonalizados) dadosAtualizados.campos_personalizados = camposPersonalizados;
 
-    if (Object.keys(dadosAtualizados).length > 0) {
-      await base44.asServiceRole.entities.Contact.update(contact_id, dadosAtualizados);
+    if (Object.keys(dadosAtualizados).length === 0) {
+      return Response.json({ success: true, updated: false, reason: 'IA não encontrou dados confiáveis', dados_atualizados: {} });
     }
 
-    // Vínculo automático com o CRM (empresa/nome primeiro, telefone como reforço).
-    // Roda sempre que o contato ainda não tem cliente_id — mesmo que a IA não tenha
-    // encontrado dados novos, pois a empresa pode já casar com um Cliente cadastrado.
-    let vinculoCRM = null;
-    try {
-      const respVinculo = await base44.functions.invoke('vincularClienteAutomatico', { contact_id });
-      vinculoCRM = respVinculo?.data || null;
-    } catch (_) { /* vínculo é best-effort; não bloqueia o enriquecimento */ }
-
-    const houveUpdate = Object.keys(dadosAtualizados).length > 0 || vinculoCRM?.vinculado === true;
+    await base44.asServiceRole.entities.Contact.update(contact_id, dadosAtualizados);
 
     return Response.json({
       success: true,
-      updated: houveUpdate,
+      updated: true,
       dados_atualizados: dadosAtualizados,
-      campos_preenchidos: Object.keys(dadosAtualizados).filter((k) => k !== 'ramo_atividade_origem'),
-      vinculo_crm: vinculoCRM,
-      reason: houveUpdate ? undefined : 'Nenhum dado novo encontrado.'
+      campos_preenchidos: Object.keys(dadosAtualizados).filter((k) => k !== 'ramo_atividade_origem')
     });
   } catch (error) {
     return Response.json({ success: false, error: error.message }, { status: 500 });

@@ -21,6 +21,32 @@ const camposEssenciais = (contact) => {
 export default function CardEnriquecimentoIA({ contact, onUpdate }) {
   const [carregando, setCarregando] = React.useState(false);
 
+  // Vínculo automático com o CRM (100% interno, SEM IA): roda ao abrir os
+  // detalhes do contato. Só dispara se ainda não há cliente vinculado e há
+  // dados para casar (empresa/nome/telefone). Não gasta créditos de IA.
+  React.useEffect(() => {
+    if (!contact?.id) return;
+    if (contact.cliente_id) return;
+    const temDadosParaCasar = contact.empresa || contact.nome || contact.telefone || contact.telefone_canonico;
+    if (!temDadosParaCasar) return;
+
+    let cancelado = false;
+    (async () => {
+      try {
+        const resp = await base44.functions.invoke('vincularClienteAutomatico', { contact_id: contact.id });
+        const data = resp?.data;
+        if (cancelado) return;
+        if (data?.vinculado) {
+          toast.success(`🔗 Vinculado ao cliente: ${data.cliente_nome}`);
+          if (onUpdate) await onUpdate();
+        }
+      } catch (_) { /* best-effort, silencioso */ }
+    })();
+
+    return () => { cancelado = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contact?.id]);
+
   if (!contact) return null;
 
   const campos = camposEssenciais(contact);
@@ -46,16 +72,9 @@ export default function CardEnriquecimentoIA({ contact, onUpdate }) {
       const resp = await base44.functions.invoke('enriquecerContatoComIA', { contact_id: contact.id });
       const data = resp?.data;
 
-      const vinculo = data?.vinculo_crm;
-      if (vinculo?.vinculado) {
-        toast.success(`🔗 Vinculado ao cliente: ${vinculo.cliente_nome}`);
-      } else if (vinculo?.sugestoes?.length) {
-        toast.info(`Encontrei ${vinculo.sugestoes.length} cliente(s) parecido(s) — confira o vínculo no painel.`);
-      }
-
       if (data?.success && (data?.campos_preenchidos || []).length > 0) {
         toast.success(`✅ Cadastro atualizado: ${data.campos_preenchidos.join(', ')}`);
-      } else if (!vinculo?.vinculado) {
+      } else {
         toast.info(data?.reason || 'A IA não encontrou novos dados confiáveis.');
       }
 
