@@ -429,12 +429,17 @@ Deno.serve(async (req) => {
     
     // ========== ÁUDIO ==========
     else if (audio_url) {
+      // ✅ FIX "áudio não está mais disponível": limpar query/token da URL pública
+      // (igual imagem/documento). URLs com ?token expiram e o WhatsApp falha ao
+      // rebaixar a mídia quando o destinatário abre depois.
+      const audioUrlLimpa = audio_url.includes('?') ? audio_url.split('?')[0] : audio_url;
+
       if (isWAPI) {
         // W-API: usar send-audio com campo 'audio' (corrigido)
         endpoint = `${baseUrl}/message/send-audio?instanceId=${instanceId}`;
         body = {
           phone: numeroFormatado,
-          audio: audio_url,       // ✅ CORRIGIDO: W-API usa 'audio' para áudio
+          audio: audioUrlLimpa,   // ✅ CORRIGIDO: W-API usa 'audio' para áudio
           delayMessage: 1
         };
         
@@ -450,7 +455,7 @@ Deno.serve(async (req) => {
         endpoint = `${baseUrl}/instances/${instanceId}/token/${token}/send-audio`;
         body = {
           phone: numeroFormatado,
-          audio: audio_url
+          audio: audioUrlLimpa
         };
         
         if (reply_to_message_id) {
@@ -458,7 +463,7 @@ Deno.serve(async (req) => {
         }
       }
       
-      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🎵 Enviando áudio (${providerName}):`, audio_url?.substring(0, 60));
+      console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🎵 Enviando áudio (${providerName}):`, audioUrlLimpa?.substring(0, 60));
       console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 🎵 Body:`, JSON.stringify(body));
     } 
     
