@@ -86,20 +86,6 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'invalid_json' }, { status: 400 });
   }
 
-  // ════════════════════════════════════════════════════════════════
-  // [ANTI-429] JITTER ALEATÓRIO: Espalha chamadas DB simultâneas
-  // Quando múltiplos webhooks chegam ao mesmo tempo, cada instância
-  // espera um tempo aleatório diferente, evitando o thundering herd
-  // que causa cascata de erros 429.
-  // ════════════════════════════════════════════════════════════════
-  // Escolha de menu pula o jitter — navegação não dispara thundering herd.
-  if (!_ehEscolhaMenuFast) {
-    const jitter = Math.floor(Math.random() * 700); // 0~700ms
-    if (jitter > 50) {
-      await new Promise(r => setTimeout(r, jitter));
-    }
-  }
-
   const { message, integration, provider, messageContent, rawPayload } = payload;
   let { contact, thread } = payload;
 
@@ -109,12 +95,25 @@ Deno.serve(async (req) => {
   // interativa ou label do botão REPLAY) com um menu de Acessos aberto na
   // thread. Se for, pula o jitter e o batch window (atrasos de ~3,7s) — a
   // navegação precisa abrir o submenu na hora. O roteamento continua no
-  // [ACESSOS-MENU GATE] mais abaixo, que faz o invoke do responderMenuAcesso.
+  // [ACESSOS-MENU GATE] mais abaixo, que faz o invoke do enviarCartaoAcesso.
+  // ⚠️ Declarado ANTES do jitter (corrige TDZ: era usado na linha do jitter
+  // antes de existir, derrubando o inbound com "Cannot access before init").
   // ════════════════════════════════════════════════════════════════
   const _respMenu = String(messageContent || '').trim();
   const _ehEscolhaMenuFast = thread?.campos_personalizados?.acesso_menu_nivel
     && message?.sender_type === 'contact'
     && (/^[0-9]{1,2}$/.test(_respMenu) || /^acesso_menu:/i.test(_respMenu) || /(setor|promo[cç]|web\s*site|rede|social)/i.test(_respMenu));
+
+  // ════════════════════════════════════════════════════════════════
+  // [ANTI-429] JITTER ALEATÓRIO espalha chamadas DB simultâneas.
+  // Escolha de menu pula o jitter — navegação não dispara thundering herd.
+  // ════════════════════════════════════════════════════════════════
+  if (!_ehEscolhaMenuFast) {
+    const jitter = Math.floor(Math.random() * 700); // 0~700ms
+    if (jitter > 50) {
+      await new Promise(r => setTimeout(r, jitter));
+    }
+  }
 
   // ════════════════════════════════════════════════════════════════
   // GUARD ECHO: Bloquear mensagens enviadas pelo próprio sistema.
@@ -484,7 +483,11 @@ Deno.serve(async (req) => {
         }).catch(() => {});
       }
       try {
-        await base44.asServiceRole.functions.invoke('responderMenuAcesso', {
+        // FONTE ÚNICA: o submenu (botões de URL ↗) é montado/enviado pelo
+        // enviarCartaoAcesso com acao:'submenu'. responderMenuAcesso virou
+        // apenas redirecionador legado.
+        await base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
+          acao: 'submenu',
           thread_id: thread.id,
           contact_id: contact.id,
           integration_id: integration?.id || thread.whatsapp_integration_id,
@@ -492,7 +495,7 @@ Deno.serve(async (req) => {
         });
         result.actions.push('acessos_menu_respondido');
       } catch (e) {
-        console.warn(`[${VERSION}] ⚠️ responderMenuAcesso falhou:`, e.message);
+        console.warn(`[${VERSION}] ⚠️ enviarCartaoAcesso(submenu) falhou:`, e.message);
         result.actions.push('acessos_menu_falhou');
       }
       return Response.json({ success: true, handled: 'acessos_menu', pipeline: result.pipeline, actions: result.actions });
