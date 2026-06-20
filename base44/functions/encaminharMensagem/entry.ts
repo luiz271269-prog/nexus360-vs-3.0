@@ -119,14 +119,43 @@ Deno.serve(async (req) => {
       throw new Error(envioResponse.data.error || 'Erro ao encaminhar');
     }
 
-    // Se tiver thread de destino, salvar mensagem lá
+    // ── Resolver a thread de destino para registrar a bolha de referência ──
+    // Se o frontend não passou target_thread_id (encaminhamento direto por
+    // telefone), localizamos/criamos a thread canônica do contato destinatário
+    // pelo número — assim a mensagem encaminhada aparece na conversa dele com
+    // status (✓), igual a uma mensagem normal.
+    let threadDestino = null;
     if (target_thread_id) {
-      const threadDestino = await base44.asServiceRole.entities.MessageThread.get(target_thread_id);
-      
+      threadDestino = await base44.asServiceRole.entities.MessageThread.get(target_thread_id).catch(() => null);
+    } else if (target_phone) {
+      const contatoResp = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+        telefone: target_phone,
+        integracaoId: integration_id
+      });
+      const contatoDestino = contatoResp.data?.contact;
+      if (contatoDestino?.id) {
+        const threadsExistentes = await base44.asServiceRole.entities.MessageThread.filter({
+          contact_id: contatoDestino.id, is_canonical: true
+        });
+        threadDestino = threadsExistentes[0] || await base44.asServiceRole.entities.MessageThread.create({
+          contact_id: contatoDestino.id,
+          channel: 'whatsapp',
+          thread_type: 'contact_external',
+          is_canonical: true,
+          status: 'aberta',
+          whatsapp_integration_id: integration_id,
+          assigned_user_id: user.id
+        });
+      }
+    }
+
+    // Salvar a bolha de referência na thread de destino
+    {
       if (threadDestino) {
+        const target_thread_id_final = threadDestino.id;
         // Criar mensagem na thread de destino
         await base44.asServiceRole.entities.Message.create({
-          thread_id: target_thread_id,
+          thread_id: target_thread_id_final,
           sender_id: user.id,
           sender_type: 'user',
           recipient_id: threadDestino.contact_id,
@@ -149,7 +178,7 @@ Deno.serve(async (req) => {
         });
 
         // Atualizar thread de destino
-        await base44.asServiceRole.entities.MessageThread.update(target_thread_id, {
+        await base44.asServiceRole.entities.MessageThread.update(target_thread_id_final, {
           last_message_content: conteudoEncaminhado?.substring(0, 100) || '[Encaminhada]',
           last_message_at: new Date().toISOString(),
           last_message_sender: 'user',
