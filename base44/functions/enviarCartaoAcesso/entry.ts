@@ -129,17 +129,20 @@ function escolherCategoria(conteudo) {
   return null;
 }
 
-// ── Resolver integração conectada (compartilhado pelos 2 estágios) ──
+// ── Resolver integração conectada — FONTE ÚNICA POR THREAD ──
+// Prioridade ABSOLUTA: a conexão registrada na thread (a mesma que conduziu a
+// saudação/conversa). Só usa o integrationId recebido ou o fallback [0] quando
+// a thread ainda não tem conexão definida. Isso impede que o menu/submenu saia
+// por uma conexão diferente da que o cliente está conversando (evita o cliente
+// ver dois remetentes — ex: saudação pela "Vendas" e menu pela "Campanhas-2800").
 async function resolverIntegracao(base44, integrationId, thread) {
-  let integration = null;
-  if (integrationId) {
-    integration = await base44.asServiceRole.entities.WhatsAppIntegration.get(integrationId).catch(() => null);
+  const ids = [thread?.whatsapp_integration_id, integrationId].filter(Boolean);
+  for (const id of ids) {
+    const integ = await base44.asServiceRole.entities.WhatsAppIntegration.get(id).catch(() => null);
+    if (integ) return integ;
   }
-  if (!integration) {
-    const ints = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' });
-    integration = (thread?.whatsapp_integration_id && ints.find(i => i.id === thread.whatsapp_integration_id)) || ints[0];
-  }
-  return integration;
+  const ints = await base44.asServiceRole.entities.WhatsAppIntegration.filter({ status: 'conectado' });
+  return ints[0] || null;
 }
 
 // ============================================================================
