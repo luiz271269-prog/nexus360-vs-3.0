@@ -48,15 +48,7 @@ export default function AcessosRapidosCard({ message, onEncaminhar }) {
   const horario = message?.sent_at || message?.created_date;
 
   return (
-    <div className="flex justify-end group relative">
-      {onEncaminhar && (
-        <button
-          onClick={onEncaminhar}
-          title="Encaminhar"
-          className="absolute -top-2 right-2 h-7 w-7 rounded-full shadow-lg bg-white/90 hover:bg-white border border-slate-200 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-20">
-          <Forward className="w-3.5 h-3.5 text-slate-700" />
-        </button>
-      )}
+    <div className="flex justify-end relative">
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm px-3 py-2 max-w-full">
         <div className="flex items-center gap-2 mb-1.5">
           <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
@@ -91,6 +83,16 @@ export default function AcessosRapidosCard({ message, onEncaminhar }) {
             );
           })}
         </div>
+        {onEncaminhar && (
+          <div className="flex justify-end mt-1.5 pt-1.5 border-t border-slate-100">
+            <button
+              onClick={onEncaminhar}
+              className="flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md px-2 py-1 transition-colors">
+              <Forward className="w-3.5 h-3.5" />
+              Encaminhar
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
