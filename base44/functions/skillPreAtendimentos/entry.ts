@@ -668,6 +668,15 @@ Deno.serve(async (req) => {
 
     console.log(`[SKILL-PRE-ATEND] 🚀 Início pipeline — thread: ${thread_id} | context: ${JSON.stringify(context)}`);
 
+    let threadInicial = null;
+    let contactInicial = null;
+    try {
+      [threadInicial, contactInicial] = await Promise.all([
+        base44.asServiceRole.entities.MessageThread.get(thread_id).catch(() => null),
+        base44.asServiceRole.entities.Contact.get(contact_id).catch(() => null)
+      ]);
+    } catch (_) { /* segue mesmo se falhar — Camada 0 vai re-buscar */ }
+
     // ═══════════════════════════════════════════════════════════════════
     // CAMADA 0 — ACESSOS RÁPIDOS: CLIQUE EM CATEGORIA → SUBMENU
     // FONTE ÚNICA para W-API e Z-API. O webhook entrega a escolha como:
@@ -676,6 +685,8 @@ Deno.serve(async (req) => {
     // Detecta a escolha ANTES de qualquer ACK/roteamento e dispara o submenu
     // de botões da categoria via enviarCartaoAcesso(acao:'submenu'), encerrando
     // o pipeline (não envia ACK, não roteia, não chama LLM).
+    // OBS: roda DEPOIS do carregamento de threadInicial (a leitura do nível do
+    // menu exige a thread já carregada — antes disso dava ReferenceError).
     // ═══════════════════════════════════════════════════════════════════
     const _txtMenu = String(message_content || '').trim();
     const _ehCliqueMenu = /^acesso_menu:/i.test(_txtMenu)
@@ -703,15 +714,6 @@ Deno.serve(async (req) => {
     }
 
     // CAMADA 1 — roteamentos diretos (Agenda / Fiscal).
-
-    let threadInicial = null;
-    let contactInicial = null;
-    try {
-      [threadInicial, contactInicial] = await Promise.all([
-        base44.asServiceRole.entities.MessageThread.get(thread_id).catch(() => null),
-        base44.asServiceRole.entities.Contact.get(contact_id).catch(() => null)
-      ]);
-    } catch (_) { /* segue mesmo se falhar — Camada 0 vai re-buscar */ }
 
     // 1) AGENDA IA por modo/número (assistant_mode='agenda' OU número especial)
     marcarInicioCamada(1);
