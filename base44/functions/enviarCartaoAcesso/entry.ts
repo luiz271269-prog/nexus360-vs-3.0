@@ -31,7 +31,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 // title/message para não exibir nada acima dos botões.
 const MENU_TITULO = '\u200b';
 const MENU_MENSAGEM = '\u200b';
-const MENU_RODAPE = 'NEURALTEC';
+const MENU_RODAPE = '\u200b';
 
 const MENU_CATEGORIAS = [
   { id: 'acesso_menu:setores',   label: '🏢 Setores da Empresa' },
@@ -54,11 +54,16 @@ async function enviarBotoes(integ, telefone, titulo, mensagem, botoes, rodape) {
   if (integ.api_provider === 'w_api') {
     const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
       + `/message/send-button-actions?instanceId=${integ.instance_id_provider}`;
+    // Título e rodapé só são enviados quando têm conteúdo real (não o
+    // caractere invisível \u200b). Sem cabeçalho/título/rodapé: só os botões.
+    // `message` sempre presente (W-API exige corpo) — invisível quando vazio.
+    const temTitulo = titulo && titulo.replace(/\u200b/g, '').trim().length > 0;
+    const temRodape = rodape && rodape.replace(/\u200b/g, '').trim().length > 0;
     const body = {
       phone,
-      message: mensagem,
-      title: titulo,
-      footer: rodape || 'NEURALTEC',
+      message: mensagem || '\u200b',
+      ...(temTitulo ? { title: titulo } : {}),
+      ...(temRodape ? { footer: rodape } : {}),
       buttonActions: botoes.map(b => b.type === 'URL'
         ? { type: 'URL', buttonText: b.buttonText, url: b.url }
         : { type: 'REPLAY', buttonText: b.buttonText, id: b.id }),
@@ -213,7 +218,7 @@ Deno.serve(async (req) => {
       const itensDestino = isRedes
         ? lista.filter(it => String(it.titulo || '').toLowerCase().includes('instagram'))
         : lista;
-      const rodape = isRedes ? '🔜 Facebook e LinkedIn em breve' : 'NEURALTEC';
+      const rodape = isRedes ? '🔜 Facebook e LinkedIn em breve' : '\u200b';
 
       // FORMATO ÚNICO: botões de URL ↗. O WhatsApp interativo aceita no máx 3
       // botões por mensagem — se houver mais destinos (ex: 4 setores), envia em
