@@ -43,20 +43,21 @@ Deno.serve(async (req) => {
       throw new Error('Mensagem não encontrada');
     }
 
-    // ── CARTÃO DE ACESSOS RÁPIDOS: encaminhar como TEXTO (mesma técnica do texto) ──
-    // O cartão interativo não pode ser reencaminhado nativamente. Para ficar igual
-    // ao texto, montamos os links do cartão em uma mensagem de texto e enviamos
-    // pela MESMA rota (enviarWhatsApp), seguindo o fluxo normal abaixo.
+    // ── CARTÃO DE ACESSOS RÁPIDOS: IMAGEM (visual igual ao app) + LEGENDA com links ──
+    // WhatsApp não entrega o cartão nativo com 9 botões (limite de 2-3 botões da Meta).
+    // Solução fiel: enviamos a IMAGEM do cartão (visual idêntico) e, na LEGENDA, os
+    // links clicáveis de cada acesso — mesma EXECUÇÃO do app (toca e abre o destino).
+    const CARTAO_IMAGEM_URL = 'https://media.base44.com/images/public/68a7d067890527304dbe8477/052916df9_generated_image.png';
     const msgType = String(mensagem?.metadata?.message_type || '');
     const ehCartaoPorTipo = msgType.startsWith('acessos_');
     const ehCartaoPorConteudo = /neuraltec\s*[—\-]\s*acessos\s*r[áa]pidos/i.test(String(mensagem?.content || ''));
-    let cartaoTextoEncaminhado = '';
+    let cartaoLegendaLinks = '';
     if (ehCartaoPorTipo || ehCartaoPorConteudo) {
       const itens = await base44.asServiceRole.entities.AcessoRapido.filter({ ativo: true }, 'ordem');
       const linhas = itens
         .filter(it => String(it.tipo || 'link').toLowerCase() !== 'pix') // Pix sai só por ação manual
-        .map(it => `${it.emoji || '🔗'} ${it.titulo}: ${it.url}`);
-      cartaoTextoEncaminhado = `⚡ *NEURALTEC — Acessos rápidos*\n\n${linhas.join('\n')}`;
+        .map(it => `${it.emoji || '🔗'} *${it.titulo}*: ${it.url}`);
+      cartaoLegendaLinks = `⚡ *NEURALTEC — Acessos rápidos*\n\n${linhas.join('\n')}`;
     }
 
     // Preparar dados para envio
@@ -68,10 +69,12 @@ Deno.serve(async (req) => {
     let conteudoEncaminhado = '';
 
     // Verificar tipo de conteúdo
-    if (cartaoTextoEncaminhado) {
-      // Cartão de acessos rápidos encaminhado como texto (mesma técnica do texto)
-      dadosEnvio.mensagem = cartaoTextoEncaminhado;
-      conteudoEncaminhado = cartaoTextoEncaminhado;
+    if (cartaoLegendaLinks) {
+      // Cartão: imagem (visual do app) + legenda com links clicáveis (mesma execução)
+      dadosEnvio.media_url = CARTAO_IMAGEM_URL;
+      dadosEnvio.media_type = 'image';
+      dadosEnvio.media_caption = cartaoLegendaLinks;
+      conteudoEncaminhado = cartaoLegendaLinks;
     } else if (mensagem.media_url && mensagem.media_type !== 'none') {
       // Encaminhar mídia — áudio usa campo 'audio_url'; demais usam 'media_url' + 'media_type'
       if (mensagem.media_type === 'audio') {
