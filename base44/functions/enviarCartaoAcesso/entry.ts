@@ -59,7 +59,7 @@ async function enviarBotoes(integ, telefone, titulo, mensagem, botoes, rodape) {
       buttonActions: botoes.map(b => b.type === 'URL'
         ? { type: 'URL', buttonText: b.buttonText, url: b.url }
         : { type: 'REPLAY', buttonText: b.buttonText, id: b.id }),
-      delayMessage: 1
+      delayMessage: 0
     };
     const r = await fetch(url, {
       method: 'POST',
@@ -200,12 +200,11 @@ Deno.serve(async (req) => {
 
       const isRedes = categoria === 'redes';
       const isSetores = categoria === 'setores';
-      const titulo = isRedes ? '📱 Redes Sociais'
-        : isSetores ? '💬 Setores da Empresa'
-        : '🏷️ Promoções e Web Site';
-      const mensagem = isRedes ? 'Toque para acessar nossas redes:'
-        : isSetores ? 'Toque no setor desejado:'
-        : 'Toque para acessar:';
+      // Submenu sem título nem frase de confirmação: só os botões.
+      // O WhatsApp exige algum corpo de texto, então usamos um espaço mínimo
+      // (zero-width) como title/message para não exibir nada acima dos botões.
+      const titulo = '\u200b';
+      const mensagem = '\u200b';
 
       // Redes: só Instagram ativo (Facebook/LinkedIn em breve)
       const itensDestino = isRedes
@@ -236,7 +235,7 @@ Deno.serve(async (req) => {
         sender_type: 'user',
         recipient_id: contato.id,
         recipient_type: 'contact',
-        content: `${titulo}`,
+        content: `Submenu: ${categoria}`,
         channel: 'whatsapp',
         status: 'enviada',
         whatsapp_message_id: resp.msgId,
