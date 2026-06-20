@@ -1127,9 +1127,10 @@ Deno.serve(async (req) => {
                 // dispara o menu UMA VEZ aqui pois este branch faz early-return e
                 // NÃO chega à Camada 5. Sem este disparo, saudação em thread
                 // atribuída não traria o menu. Fire-and-forget.
-                if (microIntent.tipo === 'saudacao_pura' && integration_id) {
+                const _integCartaoC4 = integration_id || thread?.whatsapp_integration_id || null;
+                if (microIntent.tipo === 'saudacao_pura' && _integCartaoC4) {
                   base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
-                    thread_id, contact_id, integration_id, source: 'skill_saudacao'
+                    thread_id, contact_id, integration_id: _integCartaoC4, source: 'skill_saudacao'
                   }).catch(e => console.warn('[CAMADA-0-MICRO] cartão acesso (saudação) falhou:', e.message));
                 }
 
