@@ -26,8 +26,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 // ============================================================================
 // ESTÁGIO 1 — CARTÃO DE 3 CATEGORIAS (formato BOTÕES)
 // ============================================================================
-const MENU_TITULO = 'NEURALTEC — Acessos rápidos';
-const MENU_MENSAGEM = 'Escolha uma opção abaixo:';
+// Menu principal sem título nem frase: só os botões. O WhatsApp exige algum
+// corpo de texto, então usamos um caractere invisível (zero-width) como
+// title/message para não exibir nada acima dos botões.
+const MENU_TITULO = '\u200b';
+const MENU_MENSAGEM = '\u200b';
 const MENU_RODAPE = 'NEURALTEC';
 
 const MENU_CATEGORIAS = [
