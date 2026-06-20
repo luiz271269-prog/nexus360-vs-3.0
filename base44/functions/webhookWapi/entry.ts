@@ -445,10 +445,21 @@ function normalizarPayload(payload) {
     // W-API entrega a escolha sem texto; usamos o rowId como conteúdo para o
     // processInbound rotear ao responderAcessoRapido (envia link/Pix/wa.me).
     } else if (msgContent.listResponseMessage || msgContent.buttonsResponseMessage || msgContent.templateButtonReplyMessage) {
+      // Clique de botão interativo (send-button-actions REPLAY) ou lista.
+      // O W-API entrega em templateButtonReplyMessage com:
+      //   • selectedDisplayText = LABEL do botão ("🏢 Setores da Empresa")
+      //   • selectedID          = id numérico gerado pelo WhatsApp (NÃO é o nosso id)
+      // Priorizamos o texto exibido (display text), que o gate de menu no
+      // processInbound já interpreta (escolherCategoria detecta "setor", "promo"...).
+      // Mantemos selectedButtonId/selectedRowId para o caso de virem com nosso id.
       conteudo = String(
+        msgContent.buttonsResponseMessage?.selectedButtonId ||
+        msgContent.buttonsResponseMessage?.selectedDisplayText ||
         msgContent.listResponseMessage?.singleSelectReply?.selectedRowId ||
         msgContent.listResponseMessage?.selectedRowId ||
-        msgContent.buttonsResponseMessage?.selectedButtonId ||
+        msgContent.listResponseMessage?.title ||
+        msgContent.templateButtonReplyMessage?.selectedDisplayText ||
+        msgContent.templateButtonReplyMessage?.selectedID ||
         msgContent.templateButtonReplyMessage?.selectedId ||
         ''
       );
