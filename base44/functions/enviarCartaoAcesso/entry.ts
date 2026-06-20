@@ -167,21 +167,23 @@ Deno.serve(async (req) => {
 
       const escolha = String(resposta || '').trim();
 
-      // ── TRAVA ANTI-DUPLICIDADE: mesmo clique reentregue em <15s é ignorado ──
-      const chaveEscolha = `submenu:${escolha.toLowerCase()}`;
+      etapa = 'submenu_resolver_categoria';
+      const categoria = escolherCategoria(escolha);
+      if (!categoria) return Response.json({ success: true, skipped: 'escolha_nao_reconhecida' });
+
+      // ── TRAVA ANTI-DUPLICIDADE POR CATEGORIA RESOLVIDA ──
+      // A chave usa a CATEGORIA (não o texto/id bruto): clique via texto
+      // ("🏢 Setores") e via id ("acesso_menu:setores") resolvem a mesma
+      // categoria, então ambos batem na mesma trava — sem reenvio duplicado.
+      // ⚠️ A trava é gravada SÓ APÓS o envio bem-sucedido (mais abaixo): se o
+      // envio falhar, a reentrega NÃO é bloqueada e o submenu pode reabrir.
+      const chaveEscolha = `submenu:${categoria}`;
       if (cp.acesso_menu_last_choice === chaveEscolha && cp.acesso_menu_last_choice_at) {
         const idadeMs = Date.now() - new Date(cp.acesso_menu_last_choice_at).getTime();
         if (idadeMs < 15_000) {
           return Response.json({ success: true, skipped: 'duplicata_escolha', chave: chaveEscolha });
         }
       }
-      cp.acesso_menu_last_choice = chaveEscolha;
-      cp.acesso_menu_last_choice_at = new Date().toISOString();
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, { campos_personalizados: { ...cp } });
-
-      etapa = 'submenu_resolver_categoria';
-      const categoria = escolherCategoria(escolha);
-      if (!categoria) return Response.json({ success: true, skipped: 'escolha_nao_reconhecida' });
 
       const itens = await base44.asServiceRole.entities.AcessoRapido.filter({ ativo: true }, 'ordem');
       const grupos = agrupar(itens);
@@ -248,7 +250,15 @@ Deno.serve(async (req) => {
         }
       });
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        campos_personalizados: { ...cp, acesso_menu_nivel: 'principal', acesso_menu_updated_at: now }
+        campos_personalizados: {
+          ...cp,
+          acesso_menu_nivel: 'principal',
+          acesso_menu_updated_at: now,
+          // Trava anti-duplicidade gravada só agora (pós-envio OK): falha de
+          // envio não bloqueia reenvio; clique repetido da mesma categoria sim.
+          acesso_menu_last_choice: chaveEscolha,
+          acesso_menu_last_choice_at: now
+        }
       });
 
       console.log(`[enviarCartaoAcesso:submenu] ✅ ${categoria} (${formato}) → ${contato.nome}`);
