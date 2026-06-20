@@ -337,7 +337,11 @@ Deno.serve(async (req) => {
     }
 
     // ── Guard ANTI-REENVIO TEMPORAL (30 min) ──
-    if (trigger === 'auto_primeira_msg') {
+    // EXCEÇÃO: saudação explícita (source='skill_saudacao') SEMPRE reenvia o menu —
+    // toda vez que o cliente cumprimenta ("oi", "bom dia"...), o menu vem logo
+    // após o ACK, sem o cooldown de 30min. O guard segue valendo para os demais
+    // disparos automáticos (ex: inbound genérico), evitando spam de menu.
+    if (trigger === 'auto_primeira_msg' && body?.source !== 'skill_saudacao') {
       const enviadoEm = thread?.campos_personalizados?.acessos_rapidos_enviado_em;
       const MENU_REENVIO_GAP_MS = 30 * 60 * 1000;
       if (enviadoEm && (Date.now() - new Date(enviadoEm).getTime() < MENU_REENVIO_GAP_MS)) {

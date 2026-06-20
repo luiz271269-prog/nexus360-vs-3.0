@@ -1103,6 +1103,7 @@ Deno.serve(async (req) => {
                   base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
                     thread_id, contact_id, integration_id, source: 'skill_saudacao'
                   }).catch(e => console.warn('[CAMADA-0-MICRO] cartão acesso (saudação) falhou:', e.message));
+                  // dispara o menu sem cooldown de 30min — toda saudação traz o menu
                 }
 
                 await liberarEstadoThread(base44, thread, 'early_return_camada4_micro_intent_responded');
@@ -1464,7 +1465,7 @@ Deno.serve(async (req) => {
         const ehSaudacaoCartao = /(^|\b)(oi+|ol[aá]+|opa|bom\s*dia|boa\s*tarde|boa\s*noite|e\s*a[ií]|eai)(\b|$|[\s!.,?])/.test(textoSaud);
         if (ehSaudacaoCartao && integ?.id) {
           base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
-            thread_id, contact_id, integration_id: integ.id
+            thread_id, contact_id, integration_id: integ.id, source: 'skill_saudacao'
           }).catch(e => console.warn('[SKILL-PRE-ATEND] cartão acesso falhou (não-crítico):', e.message));
         }
       }
