@@ -43,48 +43,20 @@ Deno.serve(async (req) => {
       throw new Error('Mensagem não encontrada');
     }
 
-    // ── CARTÃO DE ACESSOS RÁPIDOS: regenerar nativo (botões funcionais) ──
-    // Mensagens interativas não guardam os botões no banco — precisam ser
-    // remontadas pela função-fonte para chegarem clicáveis no destino.
-    // Detecção alinhada com isAcessosRapidosMessage (AcessosRapidosCard):
-    //  1) por metadata.message_type (envio original)
-    //  2) por conteúdo, quando o eco do WhatsApp recria a Message sem metadata
+    // ── CARTÃO DE ACESSOS RÁPIDOS: encaminhar como TEXTO (mesma técnica do texto) ──
+    // O cartão interativo não pode ser reencaminhado nativamente. Para ficar igual
+    // ao texto, montamos os links do cartão em uma mensagem de texto e enviamos
+    // pela MESMA rota (enviarWhatsApp), seguindo o fluxo normal abaixo.
     const msgType = String(mensagem?.metadata?.message_type || '');
     const ehCartaoPorTipo = msgType.startsWith('acessos_');
     const ehCartaoPorConteudo = /neuraltec\s*[—\-]\s*acessos\s*r[áa]pidos/i.test(String(mensagem?.content || ''));
+    let cartaoTextoEncaminhado = '';
     if (ehCartaoPorTipo || ehCartaoPorConteudo) {
-      // Resolver destinatário: usa target_thread_id se houver, senão resolve o
-      // contato pelo telefone (encaminhamento direto para um contato da lista).
-      const cartaoArgs = {
-        integration_id: integration_id,
-        source: 'encaminhamento_manual' // ação manual: bypassa auth e cooldown de 30min
-      };
-
-      if (target_thread_id) {
-        cartaoArgs.thread_id = target_thread_id;
-      } else if (target_phone) {
-        const contatoResp = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
-          telefone: target_phone
-        });
-        const contatoId = contatoResp.data?.contact?.id || contatoResp.data?.contact_id || contatoResp.data?.id;
-        if (!contatoId) {
-          throw new Error('Não foi possível identificar o contato destinatário do cartão.');
-        }
-        cartaoArgs.contact_id = contatoId;
-      } else {
-        throw new Error('Informe um contato ou conversa de destino para o cartão de acessos.');
-      }
-
-      const cartaoResp = await base44.asServiceRole.functions.invoke('enviarCartaoAcesso', cartaoArgs);
-      // 'skipped' significa que NADA foi enviado ao WhatsApp (cooldown, guard, etc.)
-      // — não pode ser tratado como sucesso, senão o atendente vê "✓" sem entrega.
-      if (!cartaoResp.data?.success || cartaoResp.data?.skipped) {
-        throw new Error(cartaoResp.data?.error || cartaoResp.data?.skipped || 'Falha ao encaminhar cartão de acessos');
-      }
-      return new Response(
-        JSON.stringify({ success: true, message_id: cartaoResp.data.message_id, forwarded_card: true }),
-        { status: 200, headers }
-      );
+      const itens = await base44.asServiceRole.entities.AcessoRapido.filter({ ativo: true }, 'ordem');
+      const linhas = itens
+        .filter(it => String(it.tipo || 'link').toLowerCase() !== 'pix') // Pix sai só por ação manual
+        .map(it => `${it.emoji || '🔗'} ${it.titulo}: ${it.url}`);
+      cartaoTextoEncaminhado = `⚡ *NEURALTEC — Acessos rápidos*\n\n${linhas.join('\n')}`;
     }
 
     // Preparar dados para envio
@@ -96,7 +68,11 @@ Deno.serve(async (req) => {
     let conteudoEncaminhado = '';
 
     // Verificar tipo de conteúdo
-    if (mensagem.media_url && mensagem.media_type !== 'none') {
+    if (cartaoTextoEncaminhado) {
+      // Cartão de acessos rápidos encaminhado como texto (mesma técnica do texto)
+      dadosEnvio.mensagem = cartaoTextoEncaminhado;
+      conteudoEncaminhado = cartaoTextoEncaminhado;
+    } else if (mensagem.media_url && mensagem.media_type !== 'none') {
       // Encaminhar mídia — áudio usa campo 'audio_url'; demais usam 'media_url' + 'media_type'
       if (mensagem.media_type === 'audio') {
         dadosEnvio.audio_url = mensagem.media_url;
