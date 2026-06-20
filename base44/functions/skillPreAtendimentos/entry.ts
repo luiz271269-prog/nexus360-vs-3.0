@@ -668,6 +668,40 @@ Deno.serve(async (req) => {
 
     console.log(`[SKILL-PRE-ATEND] 🚀 Início pipeline — thread: ${thread_id} | context: ${JSON.stringify(context)}`);
 
+    // ═══════════════════════════════════════════════════════════════════
+    // CAMADA 0 — ACESSOS RÁPIDOS: CLIQUE EM CATEGORIA → SUBMENU
+    // FONTE ÚNICA para W-API e Z-API. O webhook entrega a escolha como:
+    //   • Z-API: buttonId = "acesso_menu:setores"
+    //   • W-API: selectedDisplayText = "🏢 Setores da Empresa"
+    // Detecta a escolha ANTES de qualquer ACK/roteamento e dispara o submenu
+    // de botões da categoria via enviarCartaoAcesso(acao:'submenu'), encerrando
+    // o pipeline (não envia ACK, não roteia, não chama LLM).
+    // ═══════════════════════════════════════════════════════════════════
+    const _txtMenu = String(message_content || '').trim();
+    const _ehCliqueMenu = /^acesso_menu:/i.test(_txtMenu)
+      || /(setores|promo|web\s*site|redes\s*sociais)/i.test(_txtMenu.toLowerCase());
+    if (_ehCliqueMenu && _txtMenu.length <= 60) {
+      const _menuNivel = threadInicial?.campos_personalizados?.acesso_menu_nivel;
+      if (_menuNivel) {
+        console.log(`[SKILL-PRE-ATEND] 🎯 Camada 0 — clique de menu detectado ("${_txtMenu}") → submenu`);
+        const _respSub = await base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
+          acao: 'submenu',
+          thread_id,
+          resposta: _txtMenu,
+          integration_id: integration_id || threadInicial?.whatsapp_integration_id
+        }).catch(e => { console.warn('[SKILL-PRE-ATEND] submenu falhou:', e.message); return null; });
+        const _subData = _respSub?.data || _respSub;
+        // Só encerra o pipeline se o submenu foi de fato enviado (ou pulado por
+        // duplicata/expiração). Se a escolha não foi reconhecida, segue o fluxo
+        // normal para não engolir uma mensagem real que casou o regex por acaso.
+        if (_subData?.success && !_subData?.skipped?.toString().includes('escolha_nao_reconhecida')) {
+          await liberarEstadoThread(base44, threadInicial, 'early_return_camada0_submenu_acessos');
+          return Response.json({ success: true, action: 'submenu_acessos', resultado: _subData }, { headers });
+        }
+        console.log(`[SKILL-PRE-ATEND] ↩️ Camada 0 — submenu não enviado (${_subData?.skipped || 'sem_resposta'}), seguindo pipeline`);
+      }
+    }
+
     // CAMADA 1 — roteamentos diretos (Agenda / Fiscal).
 
     let threadInicial = null;
