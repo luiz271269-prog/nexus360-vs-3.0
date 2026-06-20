@@ -21,7 +21,7 @@ const TIPOS = {
   conversa: {
     label: "Etiquetas de Conversa",
     icon: MessageSquare,
-    fn: "unificarEtiquetasConversa",
+    fn: "unificarCategoriasConversa",
     iconColor: "text-blue-600",
     badgeColor: "bg-blue-600 text-white",
     btnColor: "bg-blue-600 hover:bg-blue-700",
