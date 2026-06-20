@@ -356,6 +356,13 @@ Deno.serve(async (req) => {
       contactId = body.contact_id;
       integrationId = body.integration_id || null;
       trigger = 'auto_primeira_msg';
+    } else if (body?.source === 'encaminhamento_manual') {
+      // Encaminhamento manual do atendente (backend→backend, sem sessão):
+      // trata como ação manual → ignora cooldown de 30min e guards de saudação.
+      threadId = body.thread_id;
+      contactId = body.contact_id;
+      integrationId = body.integration_id || null;
+      trigger = 'manual';
     } else {
       const user = await base44.auth.me().catch(() => null);
       if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });

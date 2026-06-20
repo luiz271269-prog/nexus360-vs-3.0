@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
       // contato pelo telefone (encaminhamento direto para um contato da lista).
       const cartaoArgs = {
         integration_id: integration_id,
-        source: 'skill_saudacao' // bypassa auth e guards; força envio manual
+        source: 'encaminhamento_manual' // ação manual: bypassa auth e cooldown de 30min
       };
 
       if (target_thread_id) {
@@ -76,7 +76,9 @@ Deno.serve(async (req) => {
       }
 
       const cartaoResp = await base44.asServiceRole.functions.invoke('enviarCartaoAcesso', cartaoArgs);
-      if (!cartaoResp.data?.success) {
+      // 'skipped' significa que NADA foi enviado ao WhatsApp (cooldown, guard, etc.)
+      // — não pode ser tratado como sucesso, senão o atendente vê "✓" sem entrega.
+      if (!cartaoResp.data?.success || cartaoResp.data?.skipped) {
         throw new Error(cartaoResp.data?.error || cartaoResp.data?.skipped || 'Falha ao encaminhar cartão de acessos');
       }
       return new Response(
