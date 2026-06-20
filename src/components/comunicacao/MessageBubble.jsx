@@ -1799,6 +1799,13 @@ export default React.memo(function MessageBubble({
             {/* TEXTO - ✅ Detecta URLs e links em nova aba */}
             {(!message?.media_url || message?.media_type === 'none') && message?.media_type !== 'document' && message?.media_type !== 'contact' && message?.content != null && String(message.content || '').trim() !== '' && String(message.content) !== '[No content]' &&
             <>
+                {/* ↪ Selo "Encaminhada" — padrão WhatsApp (itálico, discreto) */}
+                {message?.metadata?.is_forwarded &&
+                <div className="flex items-center gap-1 text-slate-400 italic text-[12px] mb-0.5 px-0.5">
+                  <Forward className="w-3 h-3" />
+                  <span>Encaminhada</span>
+                </div>
+                }
                 <div className={cn(
                 "break-words whitespace-pre-wrap",
                 // 🎨 TEXTO ESCURO HARMONIOSO em fundos claros
