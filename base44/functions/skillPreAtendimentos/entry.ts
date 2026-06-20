@@ -1046,7 +1046,11 @@ Deno.serve(async (req) => {
           if (integData && contactData?.telefone) {
             const _cfgMicro = await getHorarioCfgPipeline(base44);
             const _msgsMicro = await carregarMensagensAck(base44);
-            const hora = new Date().getHours();
+            // Hora em BRT (America/Sao_Paulo), não UTC — senão "Boa tarde" às 15h
+            // virava "Boa noite" (18h UTC). Mesmo padrão usado na Camada 6.
+            const hora = parseInt(new Intl.DateTimeFormat('en-US', {
+              timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false
+            }).format(new Date()), 10);
             const foraHorario = hora < _cfgMicro.manha_inicio || hora > _cfgMicro.tarde_fim;
             const msg = gerarRespostaMicroIntent(microIntent.tipo, styleProfile, contactData.nome, hora, foraHorario, _cfgMicro, _msgsMicro);
 
