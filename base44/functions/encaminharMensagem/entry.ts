@@ -43,21 +43,55 @@ Deno.serve(async (req) => {
       throw new Error('Mensagem não encontrada');
     }
 
-    // ── CARTÃO DE ACESSOS RÁPIDOS: IMAGEM (visual igual ao app) + LEGENDA com links ──
-    // WhatsApp não entrega o cartão nativo com 9 botões (limite de 2-3 botões da Meta).
-    // Solução fiel: enviamos a IMAGEM do cartão (visual idêntico) e, na LEGENDA, os
-    // links clicáveis de cada acesso — mesma EXECUÇÃO do app (toca e abre o destino).
-    const CARTAO_IMAGEM_URL = 'https://media.base44.com/images/public/68a7d067890527304dbe8477/052916df9_generated_image.png';
+    // ── CARTÃO DE ACESSOS RÁPIDOS: MENU INTERATIVO NATIVO (igual ao app) ──
+    // Detecta se a mensagem encaminhada é o cartão de Acessos Rápidos. Em vez de
+    // imagem+links, delega ao enviarCartaoAcesso, que entrega o menu interativo
+    // nativo do WhatsApp: lista de categorias → cliente toca → botões de URL que
+    // executam o acesso. Mesma interatividade do app. O source 'encaminhamento_manual'
+    // ignora o cooldown de 30min e os guards de saudação.
+    // Resolvemos AQUI a thread de destino (já temos sessão) e passamos o thread_id
+    // pronto — assim o enviarCartaoAcesso não precisa resolver contato (evita 403).
     const msgType = String(mensagem?.metadata?.message_type || '');
     const ehCartaoPorTipo = msgType.startsWith('acessos_');
     const ehCartaoPorConteudo = /neuraltec\s*[—\-]\s*acessos\s*r[áa]pidos/i.test(String(mensagem?.content || ''));
-    let cartaoLegendaLinks = '';
     if (ehCartaoPorTipo || ehCartaoPorConteudo) {
-      const itens = await base44.asServiceRole.entities.AcessoRapido.filter({ ativo: true }, 'ordem');
-      const linhas = itens
-        .filter(it => String(it.tipo || 'link').toLowerCase() !== 'pix') // Pix sai só por ação manual
-        .map(it => `${it.emoji || '🔗'} *${it.titulo}*: ${it.url}`);
-      cartaoLegendaLinks = `⚡ *NEURALTEC — Acessos rápidos*\n\n${linhas.join('\n')}`;
+      let threadCartaoId = target_thread_id || null;
+      if (!threadCartaoId && target_phone) {
+        const contatoResp = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+          telefone: target_phone,
+          integracaoId: integration_id
+        });
+        const contatoDestino = contatoResp.data?.contact;
+        if (contatoDestino?.id) {
+          const threadsExistentes = await base44.asServiceRole.entities.MessageThread.filter({
+            contact_id: contatoDestino.id, is_canonical: true
+          });
+          const threadCartao = threadsExistentes[0] || await base44.asServiceRole.entities.MessageThread.create({
+            contact_id: contatoDestino.id,
+            channel: 'whatsapp',
+            thread_type: 'contact_external',
+            is_canonical: true,
+            status: 'aberta',
+            whatsapp_integration_id: integration_id,
+            assigned_user_id: user.id
+          });
+          threadCartaoId = threadCartao.id;
+        }
+      }
+
+      const cartaoResp = await base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
+        source: 'encaminhamento_manual',
+        thread_id: threadCartaoId,
+        target_phone,
+        integration_id
+      });
+      if (!cartaoResp.data?.success) {
+        throw new Error(cartaoResp.data?.error || 'Erro ao encaminhar cartão de acessos');
+      }
+      return new Response(
+        JSON.stringify({ success: true, message_id: cartaoResp.data.message_id, interativo: true }),
+        { status: 200, headers }
+      );
     }
 
     // Preparar dados para envio

@@ -363,6 +363,14 @@ Deno.serve(async (req) => {
       contactId = body.contact_id;
       integrationId = body.integration_id || null;
       trigger = 'manual';
+      // Encaminhamento direto por telefone (sem thread/contact): resolve o contato.
+      if (!threadId && !contactId && body?.target_phone) {
+        const contatoResp = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+          telefone: body.target_phone,
+          integracaoId: integrationId
+        });
+        contactId = contatoResp.data?.contact?.id || null;
+      }
     } else {
       const user = await base44.auth.me().catch(() => null);
       if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
