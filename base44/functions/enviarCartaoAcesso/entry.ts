@@ -4,14 +4,16 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 // ENVIAR CARTÃO ACESSO — FONTE ÚNICA do menu de Acessos Rápidos NeuralTec
 // ============================================================================
 // Esta é a ÚNICA função que monta e envia o menu de Acessos Rápidos (cartão de
-// visita). Centraliza os 2 estágios via parâmetro `acao`:
+// visita). FORMATO ÚNICO: BOTÕES (send-button-actions). Nenhum outro formato é
+// usado (sem lista, sem texto numérico, sem links em texto). Centraliza os 2
+// estágios via parâmetro `acao`:
 //
-//   acao: 'menu'    (default) → cartão 1 com 3 CATEGORIAS em formato RESPOSTA ↩
-//                               (lista/botão de resposta — o toque devolve a
-//                                escolha ao sistema, que abre o submenu).
-//   acao: 'submenu' + resposta → destinos da categoria escolhida em BOTÕES DE
-//                               URL EMBUTIDA ↗ (o toque abre o link direto, sem
-//                               URL escrita e SEM mensagem de confirmação).
+//   acao: 'menu'    (default) → cartão 1 com 3 CATEGORIAS em BOTÕES de resposta
+//                               (REPLY — o toque devolve a escolha ao sistema,
+//                                que abre o submenu).
+//   acao: 'submenu' + resposta → destinos da categoria escolhida em BOTÕES de
+//                               URL ↗ (o toque abre o link direto, sem URL
+//                               escrita e SEM mensagem de confirmação).
 //
 // Pix NÃO faz parte deste menu — é enviado por ação manual do atendente
 // (enviarPixChat, no menu de anexos). Aqui o tipo 'pix' é sempre ignorado.
@@ -21,36 +23,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 //   2. auto_primeira_msg → saudação inbound (guard temporal de 30min)
 // ============================================================================
 
-// ── Envio direto ao provedor (Z-API/W-API). NÃO usar invoke('enviarWhatsApp')
-// server-to-server: esse hop retorna 403 Forbidden e a mensagem NUNCA chega. ──
-async function enviarTextoWhatsApp(integ, telefone, mensagem) {
-  const tel = (telefone || '').replace(/\D/g, '');
-  const phone = tel.startsWith('55') ? tel : '55' + tel;
-
-  if (integ.api_provider === 'w_api') {
-    const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
-      + `/message/send-text?instanceId=${integ.instance_id_provider}`;
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
-      body: JSON.stringify({ phone, message: mensagem, delayMessage: 1 })
-    });
-    const resp = await r.json().catch(() => ({}));
-    const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
-    return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp };
-  }
-  const url = (integ.base_url_provider || 'https://api.z-api.io')
-    + `/instances/${integ.instance_id_provider}/token/${integ.api_key_provider}/send-text`;
-  const headers = { 'Content-Type': 'application/json' };
-  if (integ.security_client_token_header) headers['Client-Token'] = integ.security_client_token_header;
-  const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ phone, message: mensagem }) });
-  const resp = await r.json().catch(() => ({}));
-  const msgId = resp.messageId || resp.key?.id || resp.id || null;
-  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp };
-}
-
 // ============================================================================
-// ESTÁGIO 1 — CARTÃO DE 3 CATEGORIAS (formato RESPOSTA ↩)
+// ESTÁGIO 1 — CARTÃO DE 3 CATEGORIAS (formato BOTÕES)
 // ============================================================================
 const MENU_TITULO = 'NEURALTEC — Acessos rápidos';
 const MENU_MENSAGEM = 'Escolha uma opção abaixo:';
@@ -62,66 +36,15 @@ const MENU_CATEGORIAS = [
   { id: 'acesso_menu:redes',     label: '📱 Redes Sociais' }
 ];
 
-// Cartão 1: LISTA INTERATIVA (send-list). O reply de lista devolve só o título
-// da linha — sem o eco verde duplicado que o botão REPLAY causava.
-async function enviarCategoriasWapi(integ, telefone) {
-  const tel = (telefone || '').replace(/\D/g, '');
-  const phone = tel.startsWith('55') ? tel : '55' + tel;
-  const url = (integ.base_url_provider || 'https://api.w-api.app/v1')
-    + `/message/send-list?instanceId=${integ.instance_id_provider}`;
-  const body = {
-    phone,
-    title: MENU_TITULO,
-    description: MENU_MENSAGEM,
-    buttonText: 'Ver opções',
-    footer: MENU_RODAPE,
-    sections: [{
-      title: 'Categorias',
-      rows: MENU_CATEGORIAS.map(c => ({ rowId: c.id, title: c.label, description: ' ' }))
-    }],
-    delayMessage: 1
-  };
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
-    body: JSON.stringify(body)
-  });
-  const rawText = await r.text().catch(() => '');
-  let resp = {}; try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
-  const msgId = resp.messageId || resp.insertedId || resp.id || resp.key?.id || null;
-  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText };
-}
-
-async function enviarCategoriasZapi(integ, telefone) {
-  const tel = (telefone || '').replace(/\D/g, '');
-  const phone = tel.startsWith('55') ? tel : '55' + tel;
-  const url = (integ.base_url_provider || 'https://api.z-api.io')
-    + `/instances/${integ.instance_id_provider}/token/${integ.api_key_provider}/send-button-list`;
-  const headers = { 'Content-Type': 'application/json' };
-  if (integ.security_client_token_header) headers['Client-Token'] = integ.security_client_token_header;
-  const body = {
-    phone,
-    message: `*${MENU_TITULO}*\n${MENU_MENSAGEM}`,
-    buttonList: { buttons: MENU_CATEGORIAS.map(c => ({ id: c.id, label: c.label })) }
-  };
-  const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
-  const rawText = await r.text().catch(() => '');
-  let resp = {}; try { resp = rawText ? JSON.parse(rawText) : {}; } catch { resp = {}; }
-  const msgId = resp.messageId || resp.id || resp.key?.id || null;
-  return { ok: r.ok && !!msgId && !resp.error, msgId, raw: resp, httpStatus: r.status, rawText };
-}
-
-function montarMenuNumerico() {
-  return `⚡ *${MENU_TITULO}*\n${MENU_MENSAGEM}\n\n1️⃣ Setores da Empresa\n2️⃣ Promoções e Web Site\n3️⃣ Redes Sociais`;
-}
-
 // ============================================================================
-// ESTÁGIO 2 — DESTINOS DA CATEGORIA (formato BOTÕES DE URL ↗)
+// FONTE ÚNICA DE ENVIO — BOTÕES (send-button-actions)
 // ============================================================================
-// Botões com URL EMBUTIDA invisível: o cliente toca e o navegador abre direto,
-// o link NÃO aparece escrito e NÃO há mensagem de confirmação no chat.
-// botoes: [{ buttonText, url }]
-async function enviarBotoesUrlWhatsApp(integ, telefone, titulo, mensagem, botoes, rodape) {
+// FORMATO ÚNICO. Todo cartão (categorias E destinos) sai em BOTÕES, sem nenhum
+// outro formato (sem lista, sem texto numérico, sem links em texto).
+// botoes: [{ buttonText, type: 'REPLAY'|'URL', id?, url? }]
+//   • REPLAY → o toque devolve o id ao sistema (usado nas 3 categorias).
+//   • URL    → o toque abre o link direto, sem link escrito (usado nos destinos).
+async function enviarBotoes(integ, telefone, titulo, mensagem, botoes, rodape) {
   const tel = (telefone || '').replace(/\D/g, '');
   const phone = tel.startsWith('55') ? tel : '55' + tel;
 
@@ -133,7 +56,9 @@ async function enviarBotoesUrlWhatsApp(integ, telefone, titulo, mensagem, botoes
       message: mensagem,
       title: titulo,
       footer: rodape || 'NEURALTEC',
-      buttonActions: botoes.map(b => ({ type: 'URL', buttonText: b.buttonText, url: b.url })),
+      buttonActions: botoes.map(b => b.type === 'URL'
+        ? { type: 'URL', buttonText: b.buttonText, url: b.url }
+        : { type: 'REPLAY', buttonText: b.buttonText, id: b.id }),
       delayMessage: 1
     };
     const r = await fetch(url, {
@@ -154,7 +79,9 @@ async function enviarBotoesUrlWhatsApp(integ, telefone, titulo, mensagem, botoes
   const body = {
     phone,
     message: `*${titulo}*\n${mensagem}`,
-    buttonActions: botoes.map((b, i) => ({ id: String(i + 1), type: 'URL', label: b.buttonText, url: b.url }))
+    buttonActions: botoes.map((b, i) => b.type === 'URL'
+      ? { id: String(i + 1), type: 'URL', label: b.buttonText, url: b.url }
+      : { id: b.id || String(i + 1), type: 'REPLAY', label: b.buttonText })
   };
   const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
   const rawText = await r.text().catch(() => '');
@@ -215,7 +142,7 @@ Deno.serve(async (req) => {
     const acao = body?.acao || 'menu';
 
     // ════════════════════════════════════════════════════════════════
-    // ESTÁGIO 2 — SUBMENU (destinos da categoria) em BOTÕES DE URL ↗
+    // ESTÁGIO 2 — SUBMENU (destinos da categoria) em BOTÕES
     // Chamado pelo processInbound quando o cliente escolhe uma categoria.
     // ════════════════════════════════════════════════════════════════
     if (acao === 'submenu') {
@@ -284,28 +211,19 @@ Deno.serve(async (req) => {
         : lista;
       const rodape = isRedes ? '🔜 Facebook e LinkedIn em breve' : 'NEURALTEC';
 
-      // Botões de URL ↗ (máx 3 por mensagem no WhatsApp interativo)
+      // FORMATO ÚNICO: botões de URL ↗ (máx 3 por mensagem no WhatsApp interativo)
       const botoes = itensDestino.slice(0, 3).map(it => ({
+        type: 'URL',
         buttonText: String(it.titulo || '').slice(0, 24),
         url: it.url
       }));
+      if (!botoes.length) return Response.json({ success: true, skipped: 'sem_destinos', categoria });
 
       etapa = 'submenu_enviar_botoes';
-      let formato = 'botoes_url';
-      let resp = botoes.length
-        ? await enviarBotoesUrlWhatsApp(integration, contato.telefone, titulo, mensagem, botoes, rodape)
-        : { ok: false };
-      console.log(`[enviarCartaoAcesso:submenu] 🔎 ${categoria} botões URL →`, JSON.stringify({ ok: resp.ok, httpStatus: resp.httpStatus, rawText: resp.rawText }));
-
-      // Fallback: links clicáveis em texto
-      if (!resp.ok) {
-        formato = 'texto_links';
-        const linhas = (itensDestino.length ? itensDestino : lista).map(it => `🔗 ${it.titulo}: ${it.url}`);
-        const extra = isRedes ? `\n\n${rodape}` : '';
-        const textoResposta = `*${titulo}*\n${mensagem}\n\n${linhas.join('\n')}${extra}`;
-        resp = await enviarTextoWhatsApp(integration, contato.telefone, textoResposta);
-        if (!resp.ok) return Response.json({ success: false, error: 'erro_envio', detalhe: resp.raw });
-      }
+      const formato = 'botoes';
+      const resp = await enviarBotoes(integration, contato.telefone, titulo, mensagem, botoes, rodape);
+      console.log(`[enviarCartaoAcesso:submenu] 🔎 ${categoria} botões →`, JSON.stringify({ ok: resp.ok, httpStatus: resp.httpStatus, rawText: resp.rawText }));
+      if (!resp.ok) return Response.json({ success: false, error: 'erro_envio', detalhe: resp.raw });
 
       // Persiste Message + mantém nível principal (cliente pode tocar outra categoria)
       etapa = 'submenu_persistir';
@@ -338,7 +256,7 @@ Deno.serve(async (req) => {
     }
 
     // ════════════════════════════════════════════════════════════════
-    // ESTÁGIO 1 — CARTÃO DE CATEGORIAS (formato RESPOSTA ↩) — acao 'menu'
+    // ESTÁGIO 1 — CARTÃO DE CATEGORIAS (formato BOTÕES) — acao 'menu'
     // ════════════════════════════════════════════════════════════════
     const isAutomacao = !!body?.event;
     let threadId, contactId, integrationId, trigger;
@@ -444,19 +362,13 @@ Deno.serve(async (req) => {
     }
 
     etapa = 'enviar_categorias';
-    const menuNumerico = montarMenuNumerico();
-    let formato = 'botoes_categorias';
-    let resp = integration.api_provider === 'w_api'
-      ? await enviarCategoriasWapi(integration, contact.telefone)
-      : await enviarCategoriasZapi(integration, contact.telefone);
+    // FORMATO ÚNICO: as 3 categorias em BOTÕES de resposta (REPLAY).
+    const formato = 'botoes';
+    const botoesCategorias = MENU_CATEGORIAS.map(c => ({ type: 'REPLAY', buttonText: c.label, id: c.id }));
+    const resp = await enviarBotoes(integration, contact.telefone, MENU_TITULO, MENU_MENSAGEM, botoesCategorias, MENU_RODAPE);
     console.log(`[enviarCartaoAcesso] 🔎 ${integration.api_provider} categorias →`, JSON.stringify({ ok: resp.ok, httpStatus: resp.httpStatus, rawText: resp.rawText }));
-
     if (!resp.ok) {
-      formato = 'menu_numerico';
-      resp = await enviarTextoWhatsApp(integration, contact.telefone, menuNumerico);
-      if (!resp.ok) {
-        return Response.json({ success: false, error: 'erro_envio', detalhe: resp.raw });
-      }
+      return Response.json({ success: false, error: 'erro_envio', detalhe: resp.raw });
     }
 
     const now = new Date().toISOString();
@@ -467,7 +379,7 @@ Deno.serve(async (req) => {
         sender_type: 'user',
         recipient_id: contact.id,
         recipient_type: 'contact',
-        content: menuNumerico,
+        content: `${MENU_TITULO}\n${MENU_MENSAGEM}`,
         channel: 'whatsapp',
         status: 'enviada',
         whatsapp_message_id: resp.msgId,
