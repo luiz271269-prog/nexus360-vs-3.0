@@ -43,6 +43,28 @@ Deno.serve(async (req) => {
       throw new Error('Mensagem não encontrada');
     }
 
+    // ── CARTÃO DE ACESSOS RÁPIDOS: regenerar nativo (botões funcionais) ──
+    // Mensagens interativas não guardam os botões no banco — precisam ser
+    // remontadas pela função-fonte para chegarem clicáveis no destino.
+    const msgType = mensagem?.metadata?.message_type || '';
+    if (msgType.startsWith('acessos_')) {
+      if (!target_thread_id) {
+        throw new Error('Encaminhe o cartão de acessos para uma conversa existente.');
+      }
+      const cartaoResp = await base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
+        thread_id: target_thread_id,
+        integration_id: integration_id,
+        source: 'skill_saudacao' // bypassa auth e guards; força envio manual
+      });
+      if (!cartaoResp.data?.success) {
+        throw new Error(cartaoResp.data?.error || 'Falha ao encaminhar cartão de acessos');
+      }
+      return new Response(
+        JSON.stringify({ success: true, message_id: cartaoResp.data.message_id, forwarded_card: true }),
+        { status: 200, headers }
+      );
+    }
+
     // Preparar dados para envio
     const dadosEnvio = {
       integration_id: integration_id,
