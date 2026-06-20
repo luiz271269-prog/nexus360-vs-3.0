@@ -678,7 +678,7 @@ Deno.serve(async (req) => {
     } catch (_) { /* segue mesmo se falhar — Camada 0 vai re-buscar */ }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 0 — ACESSOS RÁPIDOS: CLIQUE EM CATEGORIA → SUBMENU
+    // CAMADA 1 — ACESSOS RÁPIDOS: CLIQUE EM CATEGORIA → SUBMENU
     // FONTE ÚNICA para W-API e Z-API. O webhook entrega a escolha como:
     //   • Z-API: buttonId = "acesso_menu:setores"
     //   • W-API: selectedDisplayText = "🏢 Setores da Empresa"
@@ -713,7 +713,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // CAMADA 1 — roteamentos diretos (Agenda / Fiscal).
+    // CAMADA 2 — roteamentos diretos (Agenda / Fiscal).
 
     // 1) AGENDA IA por modo/número (assistant_mode='agenda' OU número especial)
     marcarInicioCamada(1);
@@ -797,7 +797,7 @@ Deno.serve(async (req) => {
       marcarFimCamada(1, 'skipped', { reason: 'nenhum_branch_disparou' });
     }
 
-    // CAMADA 2 — decisão de contexto.
+    // CAMADA 3 — decisão de contexto.
 
     marcarInicioCamada(2);
     // Camada 2 só bloqueia pipeline em horário comercial.
@@ -892,7 +892,7 @@ Deno.serve(async (req) => {
     marcarFimCamada(2, 'ok', { reason: 'pode_seguir_pipeline' });
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 3 — DEDUP / IDEMPOTENCY GUARD
+    // CAMADA 4 — DEDUP / IDEMPOTENCY GUARD
     // ═══════════════════════════════════════════════════════════════════
 
     let thread = null;
@@ -980,7 +980,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 4 — MICRO-INTENTS (saudação/agradecimento/spam/mídia)
+    // CAMADA 5 — MICRO-INTENTS (saudação/agradecimento/spam/mídia)
     // Early-return se detecta intent simples com atendente já atribuído
     // ═══════════════════════════════════════════════════════════════════
 
@@ -1193,7 +1193,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 5 — ACK ADAPTATIVO (fire & forget — falha NÃO para pipeline)
+    // CAMADA 6 — ACK ADAPTATIVO (fire & forget — falha NÃO para pipeline)
     // ═══════════════════════════════════════════════════════════════════
 
     marcarInicioCamada(5);
@@ -1482,7 +1482,7 @@ Deno.serve(async (req) => {
           video_anexado: !!videoConfig,
           whatsapp_msg_id: msgId
         });
-        console.log(`[SKILL-PRE-ATEND] ✅ Camada 1 OK — ACK enviado (${ack.tipo}/${horarioInfo.motivo}${videoConfig ? ' + video' : ''})`);
+        console.log(`[SKILL-PRE-ATEND] ✅ Camada 6 OK — ACK enviado (${ack.tipo}/${horarioInfo.motivo}${videoConfig ? ' + video' : ''})`);
 
         // ── SAUDAÇÃO+CARTÃO DETERMINÍSTICO ──
         // A skill é a dona única. Após o ACK, dispara o cartão de Acessos Rápidos
@@ -1530,7 +1530,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 6 — INTENT DETECTION (pattern match → LLM fallback)
+    // CAMADA 7 — INTENT DETECTION (pattern match → LLM fallback)
     // ═══════════════════════════════════════════════════════════════════
 
     let setor = SETOR_DEFAULT;
@@ -1638,7 +1638,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 7 — QUALIFICAÇÃO via PreAtendimentoRule
+    // CAMADA 8 — QUALIFICAÇÃO via PreAtendimentoRule
     // Avalia regras configuradas no banco e aplica efeitos (bloqueio, rota
     // forçada, mensagem custom). Falha desta camada NÃO interrompe pipeline.
     // ═══════════════════════════════════════════════════════════════════
@@ -1724,7 +1724,7 @@ Deno.serve(async (req) => {
       marcarFimCamada(7, 'error', { error: e.message });
     }
 
-    // CAMADA 8 — roteamento por prioridade.
+    // CAMADA 9 — roteamento por prioridade.
 
     let atendente = null;
     let motivoAtribuicao = null;
@@ -1830,7 +1830,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // CAMADA 9 — ATRIBUIÇÃO + BOAS-VINDAS
+    // CAMADA 10 — ATRIBUIÇÃO + BOAS-VINDAS
     // ═══════════════════════════════════════════════════════════════════
 
     marcarInicioCamada(9);
