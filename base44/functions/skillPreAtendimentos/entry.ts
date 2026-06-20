@@ -958,17 +958,10 @@ Deno.serve(async (req) => {
       if (microIntent) {
         console.log(`[CAMADA-0-MICRO] 🎯 Detectado: ${microIntent.tipo} ("${microIntent.texto.substring(0, 40)}")`);
 
-        // MENU IMEDIATO: toda saudação pura dispara o cartão de Acessos Rápidos
-        // NA HORA (antes de ACK/intent/roteamento). Guard de 30min do
-        // enviarCartaoAcesso evita duplicidade. Fire-and-forget.
-        if (microIntent.tipo === 'saudacao_pura') {
-          const _integMenu = integration_id || thread?.whatsapp_integration_id;
-          if (_integMenu) {
-            base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
-              thread_id, contact_id, integration_id: _integMenu, source: 'skill_saudacao'
-            }).catch(e => console.warn('[CAMADA-4-MICRO] cartão imediato falhou:', e.message));
-          }
-        }
+        // O cartão de Acessos Rápidos é disparado UMA ÚNICA VEZ, na Camada 5
+        // (após o ACK). O disparo aqui na Camada 4 era redundante e causava
+        // envio duplicado do menu (saudação dispara os dois, ambos com
+        // source='skill_saudacao' que ignora o cooldown). Removido.
 
         // Mídia pura sem texto → silêncio (não responde, só loga)
         if (microIntent.tipo === 'midia_pura') {
@@ -1094,16 +1087,14 @@ Deno.serve(async (req) => {
                 resultado.camadas.dedup.micro_intent = { tipo: microIntent.tipo, action: 'responded', style_profile_used: !!styleProfile };
                 console.log(`[CAMADA-0-MICRO] ✅ Respondido ${microIntent.tipo} ${styleProfile ? 'no estilo ' + styleProfile.display_name : '(genérico)'}`);
 
-                // CARTÃO DE ACESSOS RÁPIDOS junto da saudação: mesmo em thread já
-                // atribuída, toda saudação pura deve trazer o menu de categorias
-                // logo após o ACK. O enviarCartaoAcesso tem guard temporal de 30min
-                // próprio, então toques de categoria / saudações em rajada não
-                // reenviam. Fire-and-forget (não bloqueia o retorno).
+                // CARTÃO DE ACESSOS RÁPIDOS junto da saudação (thread já atribuída):
+                // dispara o menu UMA VEZ aqui pois este branch faz early-return e
+                // NÃO chega à Camada 5. Sem este disparo, saudação em thread
+                // atribuída não traria o menu. Fire-and-forget.
                 if (microIntent.tipo === 'saudacao_pura' && integration_id) {
                   base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
                     thread_id, contact_id, integration_id, source: 'skill_saudacao'
                   }).catch(e => console.warn('[CAMADA-0-MICRO] cartão acesso (saudação) falhou:', e.message));
-                  // dispara o menu sem cooldown de 30min — toda saudação traz o menu
                 }
 
                 await liberarEstadoThread(base44, thread, 'early_return_camada4_micro_intent_responded');

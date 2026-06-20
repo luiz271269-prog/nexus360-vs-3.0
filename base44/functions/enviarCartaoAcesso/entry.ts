@@ -212,19 +212,27 @@ Deno.serve(async (req) => {
         : lista;
       const rodape = isRedes ? '🔜 Facebook e LinkedIn em breve' : 'NEURALTEC';
 
-      // FORMATO ÚNICO: botões de URL ↗ (máx 3 por mensagem no WhatsApp interativo)
-      const botoes = itensDestino.slice(0, 3).map(it => ({
+      // FORMATO ÚNICO: botões de URL ↗. O WhatsApp interativo aceita no máx 3
+      // botões por mensagem — se houver mais destinos (ex: 4 setores), envia em
+      // lotes de 3 (cartões em sequência), sem cabeçalho/título, só os botões.
+      const todosBotoes = itensDestino.map(it => ({
         type: 'URL',
         buttonText: String(it.titulo || '').slice(0, 24),
         url: it.url
       }));
-      if (!botoes.length) return Response.json({ success: true, skipped: 'sem_destinos', categoria });
+      if (!todosBotoes.length) return Response.json({ success: true, skipped: 'sem_destinos', categoria });
 
       etapa = 'submenu_enviar_botoes';
       const formato = 'botoes';
-      const resp = await enviarBotoes(integration, contato.telefone, titulo, mensagem, botoes, rodape);
-      console.log(`[enviarCartaoAcesso:submenu] 🔎 ${categoria} botões →`, JSON.stringify({ ok: resp.ok, httpStatus: resp.httpStatus, rawText: resp.rawText }));
-      if (!resp.ok) return Response.json({ success: false, error: 'erro_envio', detalhe: resp.raw });
+      const lotes = [];
+      for (let i = 0; i < todosBotoes.length; i += 3) lotes.push(todosBotoes.slice(i, i + 3));
+
+      let resp = null;
+      for (const loteBotoes of lotes) {
+        resp = await enviarBotoes(integration, contato.telefone, titulo, mensagem, loteBotoes, rodape);
+        console.log(`[enviarCartaoAcesso:submenu] 🔎 ${categoria} lote(${loteBotoes.length}) →`, JSON.stringify({ ok: resp.ok, httpStatus: resp.httpStatus, rawText: resp.rawText }));
+        if (!resp.ok) return Response.json({ success: false, error: 'erro_envio', detalhe: resp.raw });
+      }
 
       // Persiste Message + mantém nível principal (cliente pode tocar outra categoria)
       etapa = 'submenu_persistir';
