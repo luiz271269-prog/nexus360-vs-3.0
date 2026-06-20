@@ -979,8 +979,163 @@ export default React.memo(function MessageBubble({
   if (_internalLog) return _internalLog;
 
   // ⚡ ACESSOS RÁPIDOS — cartão compacto (detecção via fonte única isAcessosRapidosMessage)
+  // Renderiza o card com botão "Encaminhar" + o mesmo Dialog de encaminhamento das demais mensagens.
   if (isAcessosRapidosMessage(message, isOwn)) {
-    return <AcessosRapidosCard message={message} />;
+    return (
+      <>
+        <AcessosRapidosCard
+          message={message}
+          onEncaminhar={podeEncaminhar ? () => {
+            setMostrarDialogEncaminhar(true);
+            setContatosSelecionados([]);
+            setBuscaContato("");
+            setTipoEncaminhamento('contatos');
+          } : undefined}
+        />
+
+        <Dialog open={mostrarDialogEncaminhar} onOpenChange={(open) => {
+          if (!open && encaminhando) return;
+          setMostrarDialogEncaminhar(open);
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Forward className="w-5 h-5 text-blue-600" />
+                Encaminhar Mensagem
+              </DialogTitle>
+              <DialogDescription>
+                Escolha o tipo de destinatário e selecione quem deve receber
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
+                <button
+                  onClick={() => { setTipoEncaminhamento('contatos'); setContatosSelecionados([]); setBuscaContato(""); }}
+                  className={cn(
+                    "flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all",
+                    tipoEncaminhamento === 'contatos' ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  )}>
+                  <div className="flex items-center justify-center gap-2"><User className="w-4 h-4" />Contatos</div>
+                </button>
+                <button
+                  onClick={() => { setTipoEncaminhamento('internos'); setContatosSelecionados([]); setBuscaContato(""); }}
+                  className={cn(
+                    "flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all",
+                    tipoEncaminhamento === 'internos' ? "bg-white text-purple-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  )}>
+                  <div className="flex items-center justify-center gap-2"><Users className="w-4 h-4" />Internos</div>
+                </button>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Input
+                  placeholder={tipoEncaminhamento === 'internos' ? "Buscar usuário..." : "Buscar contato..."}
+                  value={buscaContato}
+                  onChange={(e) => setBuscaContato(e.target.value)}
+                  className="pl-10" />
+              </div>
+
+              {contatosSelecionados.length > 0 &&
+                <div className={cn("flex flex-wrap gap-2 p-3 rounded-lg border",
+                  tipoEncaminhamento === 'internos' ? "bg-purple-50 border-purple-200" : "bg-blue-50 border-blue-200")}>
+                  {contatosSelecionados.map((itemId) => {
+                    const item = tipoEncaminhamento === 'internos'
+                      ? usuariosInternos.find((u) => u.id === itemId)
+                      : contatos.find((c) => c.id === itemId);
+                    if (!item) return null;
+                    const nomeChip = tipoEncaminhamento === 'internos' ? item.nome_exibicao : (item.nome || item.telefone);
+                    return (
+                      <Badge key={itemId} variant="secondary"
+                        className={tipoEncaminhamento === 'internos' ? "bg-purple-100 text-purple-800 gap-1" : "bg-blue-100 text-blue-800 gap-1"}>
+                        {nomeChip}
+                        <button onClick={(e) => { e.stopPropagation(); toggleContatoSelecionado(item); }}
+                          className="ml-1 hover:bg-white/50 rounded-full p-0.5">×</button>
+                      </Badge>);
+                  })}
+                </div>
+              }
+
+              <ScrollArea className="h-64 border rounded-lg">
+                {!buscaContato || buscaContato.trim().length < 2 ?
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                    <Search className="w-12 h-12 mb-3 text-slate-300" />
+                    <p className="text-sm font-medium">Digite para buscar</p>
+                    <p className="text-xs text-slate-400 mt-1">Mínimo 2 caracteres</p>
+                  </div> :
+                  (tipoEncaminhamento === 'contatos' ? carregandoContatos : carregandoInternos) ?
+                  <div className="flex items-center justify-center h-full"><Loader2 className="w-6 h-6 animate-spin text-blue-600" /></div> :
+                  (tipoEncaminhamento === 'contatos' ? contatos.length : usuariosInternos.length) === 0 ?
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                    <p className="text-sm">Nenhum {tipoEncaminhamento === 'internos' ? 'usuário' : 'contato'} encontrado</p>
+                  </div> :
+                  <div className="p-2">
+                    {tipoEncaminhamento === 'contatos' && contatos.map((contato) => {
+                      const selecionado = contatosSelecionados.includes(contato.id);
+                      let nomeExibicao = "";
+                      if (contato.empresa) nomeExibicao += contato.empresa;
+                      if (contato.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + contato.cargo;
+                      if (contato.nome && contato.nome !== contato.telefone && contato.nome !== '-') {
+                        nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
+                      }
+                      if (!nomeExibicao || nomeExibicao.trim() === '') nomeExibicao = contato.telefone || "Sem nome";
+                      return (
+                        <button key={contato.id} onClick={() => toggleContatoSelecionado(contato)}
+                          className={cn("w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors",
+                            selecionado && "bg-blue-50 hover:bg-blue-100")}>
+                          <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden",
+                            selecionado ? "bg-blue-600" : "bg-slate-400")}>
+                            {selecionado ? <Check className="w-5 h-5" /> :
+                              contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ?
+                              <img src={contato.foto_perfil_url} alt={nomeExibicao} className="w-full h-full object-cover"
+                                onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.textContent = nomeExibicao.charAt(0).toUpperCase(); }} /> :
+                              nomeExibicao.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                          <div className="flex-1 text-left min-w-0">
+                            <p className="font-medium text-slate-900 truncate">{nomeExibicao}</p>
+                            <p className="text-sm text-slate-500 truncate">{contato.telefone}</p>
+                          </div>
+                        </button>);
+                    })}
+                    {tipoEncaminhamento === 'internos' && usuariosInternos.map((item) => {
+                      const selecionado = contatosSelecionados.includes(item.id);
+                      const isGroup = item._tipo === 'sector_group' || item._tipo === 'team_group';
+                      return (
+                        <button key={item.id} onClick={() => toggleContatoSelecionado(item)}
+                          className={cn("w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors",
+                            selecionado && "bg-purple-50 hover:bg-purple-100")}>
+                          <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 text-sm",
+                            selecionado ? "bg-purple-600" : isGroup ? "bg-indigo-500" : "bg-slate-400")}>
+                            {selecionado ? <Check className="w-5 h-5" /> : item.nome_exibicao.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                          <div className="flex-1 text-left min-w-0">
+                            <p className="font-medium text-slate-900 truncate">{item.nome_exibicao}</p>
+                            <p className="text-xs text-slate-500 truncate">{item.subtitulo}</p>
+                          </div>
+                        </button>);
+                    })}
+                  </div>
+                }
+              </ScrollArea>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setMostrarDialogEncaminhar(false); setContatosSelecionados([]); setBuscaContato(""); }}>
+                Cancelar
+              </Button>
+              <Button onClick={handleEncaminhar}
+                disabled={contatosSelecionados.length === 0 || encaminhando}
+                className={tipoEncaminhamento === 'internos' ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}>
+                {encaminhando ?
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Encaminhando...</> :
+                  <>Encaminhar<ArrowRight className="w-4 h-4 ml-2" /></>}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
   }
 
   // 🔔 MENSAGEM DE TRANSFERÊNCIA
