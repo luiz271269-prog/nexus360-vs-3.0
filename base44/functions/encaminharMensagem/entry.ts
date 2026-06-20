@@ -46,8 +46,13 @@ Deno.serve(async (req) => {
     // ── CARTÃO DE ACESSOS RÁPIDOS: regenerar nativo (botões funcionais) ──
     // Mensagens interativas não guardam os botões no banco — precisam ser
     // remontadas pela função-fonte para chegarem clicáveis no destino.
-    const msgType = mensagem?.metadata?.message_type || '';
-    if (msgType.startsWith('acessos_')) {
+    // Detecção alinhada com isAcessosRapidosMessage (AcessosRapidosCard):
+    //  1) por metadata.message_type (envio original)
+    //  2) por conteúdo, quando o eco do WhatsApp recria a Message sem metadata
+    const msgType = String(mensagem?.metadata?.message_type || '');
+    const ehCartaoPorTipo = msgType.startsWith('acessos_');
+    const ehCartaoPorConteudo = /neuraltec\s*[—\-]\s*acessos\s*r[áa]pidos/i.test(String(mensagem?.content || ''));
+    if (ehCartaoPorTipo || ehCartaoPorConteudo) {
       if (!target_thread_id) {
         throw new Error('Encaminhe o cartão de acessos para uma conversa existente.');
       }
