@@ -84,9 +84,13 @@ async function enviarBotoes(integ, telefone, titulo, mensagem, botoes, rodape) {
     + `/instances/${integ.instance_id_provider}/token/${integ.api_key_provider}/send-button-actions`;
   const headers = { 'Content-Type': 'application/json' };
   if (integ.security_client_token_header) headers['Client-Token'] = integ.security_client_token_header;
+  // Mesma regra do W-API: sem título/cabeçalho, só os botões. `message`
+  // sempre presente (provedor exige corpo) — invisível quando vazio.
+  const temTituloZ = titulo && titulo.replace(/\u200b/g, '').trim().length > 0;
+  const corpoZ = temTituloZ ? `*${titulo}*\n${mensagem || ''}` : (mensagem || '\u200b');
   const body = {
     phone,
-    message: `*${titulo}*\n${mensagem}`,
+    message: corpoZ,
     buttonActions: botoes.map((b, i) => b.type === 'URL'
       ? { id: String(i + 1), type: 'URL', label: b.buttonText, url: b.url }
       : { id: b.id || String(i + 1), type: 'REPLAY', label: b.buttonText })
