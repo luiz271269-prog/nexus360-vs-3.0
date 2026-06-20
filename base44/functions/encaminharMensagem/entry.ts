@@ -53,16 +53,31 @@ Deno.serve(async (req) => {
     const ehCartaoPorTipo = msgType.startsWith('acessos_');
     const ehCartaoPorConteudo = /neuraltec\s*[—\-]\s*acessos\s*r[áa]pidos/i.test(String(mensagem?.content || ''));
     if (ehCartaoPorTipo || ehCartaoPorConteudo) {
-      if (!target_thread_id) {
-        throw new Error('Encaminhe o cartão de acessos para uma conversa existente.');
-      }
-      const cartaoResp = await base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
-        thread_id: target_thread_id,
+      // Resolver destinatário: usa target_thread_id se houver, senão resolve o
+      // contato pelo telefone (encaminhamento direto para um contato da lista).
+      const cartaoArgs = {
         integration_id: integration_id,
         source: 'skill_saudacao' // bypassa auth e guards; força envio manual
-      });
+      };
+
+      if (target_thread_id) {
+        cartaoArgs.thread_id = target_thread_id;
+      } else if (target_phone) {
+        const contatoResp = await base44.asServiceRole.functions.invoke('getOrCreateContactCentralized', {
+          telefone: target_phone
+        });
+        const contatoId = contatoResp.data?.contact?.id || contatoResp.data?.contact_id || contatoResp.data?.id;
+        if (!contatoId) {
+          throw new Error('Não foi possível identificar o contato destinatário do cartão.');
+        }
+        cartaoArgs.contact_id = contatoId;
+      } else {
+        throw new Error('Informe um contato ou conversa de destino para o cartão de acessos.');
+      }
+
+      const cartaoResp = await base44.asServiceRole.functions.invoke('enviarCartaoAcesso', cartaoArgs);
       if (!cartaoResp.data?.success) {
-        throw new Error(cartaoResp.data?.error || 'Falha ao encaminhar cartão de acessos');
+        throw new Error(cartaoResp.data?.error || cartaoResp.data?.skipped || 'Falha ao encaminhar cartão de acessos');
       }
       return new Response(
         JSON.stringify({ success: true, message_id: cartaoResp.data.message_id, forwarded_card: true }),
