@@ -297,11 +297,10 @@ Deno.serve(async (req) => {
       const titulo = '\u200b';
       const mensagem = '\u200b';
 
-      // Redes: só Instagram ativo (Facebook/LinkedIn em breve)
-      const itensDestino = isRedes
-        ? lista.filter(it => String(it.titulo || '').toLowerCase().includes('instagram'))
-        : lista;
-      const rodape = isRedes ? '🔜 Facebook e LinkedIn em breve' : '\u200b';
+      // Redes: envia TODAS as redes ativas (Instagram, LinkedIn e o que houver),
+      // uma a uma, igual ao fluxo fora-horário. Sem rodapé "em breve".
+      const itensDestino = lista;
+      const rodape = '\u200b';
 
       // FORMATO ÚNICO: botões de URL ↗. O WhatsApp interativo aceita no máx 3
       // botões por mensagem — se houver mais destinos (ex: 4 setores), envia em
