@@ -186,10 +186,10 @@ Deno.serve(async (req) => {
       const grupos = agrupar(itens);
 
       // Ordem: Promoções/Web Site primeiro, Redes Sociais depois.
-      // Redes: só Instagram ativo (mesmo critério do submenu).
+      // Envia TODOS os destinos ativos de cada bloco como links diretos (URL).
       const blocos = [
         { categoria: 'promocoes', lista: grupos.promocoes, rodape: '\u200b' },
-        { categoria: 'redes', lista: (grupos.redes || []).filter(it => String(it.titulo || '').toLowerCase().includes('instagram')), rodape: '🔜 Facebook e LinkedIn em breve' }
+        { categoria: 'redes', lista: grupos.redes || [], rodape: '\u200b' }
       ];
 
       etapa = 'fora_horario_enviar';
