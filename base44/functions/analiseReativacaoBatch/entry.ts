@@ -6,6 +6,19 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
  */
 
 Deno.serve(async (req) => {
+  // ─── DESCONTINUADA (ponto único de reativação = watchdogIdleContacts) ───
+  // Pilha SDR morta: sem automação e zero SkillExecution histórico. Guard de
+  // descontinuação impede execução acidental. Lógica preservada abaixo para
+  // eventual reaproveitamento. Remover este bloco para reativar.
+  if (req.method !== 'OPTIONS') {
+    return Response.json({
+      success: false,
+      archived: true,
+      reason: 'funcao_descontinuada_ponto_unico_watchdog',
+      message: 'analiseReativacaoBatch descontinuada. Reativação de contato parado é responsabilidade única do watchdogIdleContacts.'
+    }, { status: 410 });
+  }
+
   try {
     const base44 = createClientFromRequest(req);
     const _tsInicio = Date.now(); // SkillExecution: medir duration_ms

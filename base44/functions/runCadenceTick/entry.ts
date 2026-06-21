@@ -10,6 +10,20 @@ const GLOBAL_DAILY_CAP_DEFAULT = 200;
 const PER_CONTACT_DAILY_CAP_DEFAULT = 1;
 
 Deno.serve(async (req) => {
+  // ─── DESCONTINUADA (ponto único de reativação = watchdogIdleContacts) ───
+  // Motor de cadência morto: CyclePolicy vazio, EngagementLog vazio, sem
+  // automação. Reimplementava envio Z/W-API inline em vez do canal único
+  // enviarWhatsApp. Guard de descontinuação impede execução acidental.
+  // Lógica preservada abaixo. Remover este bloco para reativar.
+  if (req.method !== 'OPTIONS') {
+    return Response.json({
+      success: false,
+      archived: true,
+      reason: 'funcao_descontinuada_ponto_unico_watchdog',
+      message: 'runCadenceTick descontinuada. Reativação de contato parado é responsabilidade única do watchdogIdleContacts.'
+    }, { status: 410 });
+  }
+
   try {
     const base44 = createClientFromRequest(req);
     const now = new Date();
