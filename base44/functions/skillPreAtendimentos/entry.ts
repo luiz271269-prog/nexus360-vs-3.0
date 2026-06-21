@@ -1133,9 +1133,15 @@ Deno.serve(async (req) => {
                 // atribuída não traria o menu. Fire-and-forget.
                 const _integCartaoC4 = integration_id || thread?.whatsapp_integration_id || null;
                 if (microIntent.tipo === 'saudacao_pura' && _integCartaoC4) {
-                  base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
-                    thread_id, contact_id, integration_id: _integCartaoC4, source: 'skill_saudacao'
-                  }).catch(e => console.warn('[CAMADA-0-MICRO] cartão acesso (saudação) falhou:', e.message));
+                  // Mesma decisão de fase da Camada 5: fora do expediente manda
+                  // os LINKS DIRETOS (menu_fora_horario, sem Setores), pois não há
+                  // atendente nos setores fora-horário. Em horário comercial,
+                  // mantém o menu de 3 categorias (skill_saudacao).
+                  const _payloadCartaoC4 = foraHorario
+                    ? { acao: 'menu_fora_horario', thread_id, contact_id, integration_id: _integCartaoC4 }
+                    : { thread_id, contact_id, integration_id: _integCartaoC4, source: 'skill_saudacao' };
+                  base44.asServiceRole.functions.invoke('enviarCartaoAcesso', _payloadCartaoC4)
+                    .catch(e => console.warn('[CAMADA-0-MICRO] cartão acesso (saudação) falhou:', e.message));
                 }
 
                 await liberarEstadoThread(base44, thread, 'early_return_camada4_micro_intent_responded');
