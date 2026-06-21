@@ -157,6 +157,92 @@ Deno.serve(async (req) => {
     const acao = body?.acao || 'menu';
 
     // ════════════════════════════════════════════════════════════════
+    // ESTÁGIO FORA-HORÁRIO — LINKS DIRETOS (sem menu de categorias)
+    // Fora do expediente não há atendente nos setores, então pulamos o menu
+    // de 3 categorias e o grupo "setores". Enviamos direto os destinos de URL
+    // de Promoções/Web Site e, em seguida, Redes Sociais (dois cartões em
+    // sequência). Guard: uma vez por dia BRT por thread (anti-flood).
+    // ════════════════════════════════════════════════════════════════
+    if (acao === 'menu_fora_horario') {
+      etapa = 'fora_horario_carregar_thread';
+      const threadId = body?.thread_id;
+      if (!threadId) return Response.json({ success: true, skipped: 'sem_thread' });
+
+      const thread = await base44.asServiceRole.entities.MessageThread.get(threadId).catch(() => null);
+      if (!thread) return Response.json({ success: true, skipped: 'thread_nao_encontrada' });
+
+      const cp = thread.campos_personalizados || {};
+
+      // Guard 1x/dia BRT: já enviou hoje? pula.
+      const brtDayKey = (value) => value
+        ? new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value))
+        : null;
+      const hojeBrt = brtDayKey(new Date());
+      if (cp.menu_fora_horario_enviado_em && brtDayKey(cp.menu_fora_horario_enviado_em) === hojeBrt) {
+        return Response.json({ success: true, skipped: 'menu_fora_horario_ja_enviado_hoje' });
+      }
+
+      const contato = await base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null);
+      if (!contato?.telefone) return Response.json({ success: false, error: 'contato_sem_telefone' });
+
+      etapa = 'fora_horario_integracao';
+      const integration = await resolverIntegracao(base44, body?.integration_id || thread.whatsapp_integration_id, thread);
+      if (!integration) return Response.json({ success: false, error: 'sem_integracao_conectada' });
+
+      const itens = await base44.asServiceRole.entities.AcessoRapido.filter({ ativo: true }, 'ordem');
+      const grupos = agrupar(itens);
+
+      // Ordem: Promoções/Web Site primeiro, Redes Sociais depois.
+      // Redes: só Instagram ativo (mesmo critério do submenu).
+      const blocos = [
+        { categoria: 'promocoes', lista: grupos.promocoes, rodape: '\u200b' },
+        { categoria: 'redes', lista: (grupos.redes || []).filter(it => String(it.titulo || '').toLowerCase().includes('instagram')), rodape: '🔜 Facebook e LinkedIn em breve' }
+      ];
+
+      etapa = 'fora_horario_enviar';
+      const enviados = [];
+      for (const bloco of blocos) {
+        if (!bloco.lista?.length) continue;
+        const botoes = bloco.lista.map(it => ({ type: 'URL', buttonText: String(it.titulo || '').slice(0, 24), url: it.url }));
+        for (let i = 0; i < botoes.length; i += 3) {
+          const lote = botoes.slice(i, i + 3);
+          const r = await enviarBotoes(integration, contato.telefone, '\u200b', '\u200b', lote, bloco.rodape);
+          if (!r.ok) return Response.json({ success: false, error: 'erro_envio', categoria: bloco.categoria, detalhe: r.raw });
+          enviados.push({ categoria: bloco.categoria, msgId: r.msgId });
+        }
+      }
+
+      if (!enviados.length) return Response.json({ success: true, skipped: 'sem_destinos_fora_horario' });
+
+      const now = new Date().toISOString();
+      await base44.asServiceRole.entities.Message.create({
+        thread_id: thread.id,
+        sender_id: 'system',
+        sender_type: 'user',
+        recipient_id: contato.id,
+        recipient_type: 'contact',
+        content: 'Acessos rápidos (fora de horário)',
+        channel: 'whatsapp',
+        status: 'enviada',
+        whatsapp_message_id: enviados[enviados.length - 1].msgId,
+        sent_at: now,
+        metadata: {
+          whatsapp_integration_id: integration.id,
+          is_system_message: true,
+          message_type: 'acessos_menu_fora_horario',
+          formato: 'botoes',
+          categorias: enviados.map(e => e.categoria)
+        }
+      });
+      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
+        campos_personalizados: { ...cp, menu_fora_horario_enviado_em: now }
+      });
+
+      console.log(`[enviarCartaoAcesso] ✅ menu fora-horário (${enviados.map(e => e.categoria).join('+')}) → ${contato.nome}`);
+      return Response.json({ success: true, enviados });
+    }
+
+    // ════════════════════════════════════════════════════════════════
     // ESTÁGIO 2 — SUBMENU (destinos da categoria) em BOTÕES
     // Chamado pelo processInbound quando o cliente escolhe uma categoria.
     // ════════════════════════════════════════════════════════════════

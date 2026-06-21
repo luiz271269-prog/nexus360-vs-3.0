@@ -1495,7 +1495,17 @@ Deno.serve(async (req) => {
         // que competia com este ACK via GUARD OUTBOUND 30s.
         const textoSaud = (message_content || '').toLowerCase().trim();
         const ehSaudacaoCartao = /(^|\b)(oi+|ol[aá]+|opa|bom\s*dia|boa\s*tarde|boa\s*noite|e\s*a[ií]|eai)(\b|$|[\s!.,?])/.test(textoSaud);
-        if (ehSaudacaoCartao && integ?.id) {
+
+        // FORA DE HORÁRIO: após o vídeo/ACK, manda os ACESSOS RÁPIDOS de links
+        // (Promoções/Web Site + Redes) automaticamente — sem menu de categorias
+        // e sem Setores, pois não há atendente nos setores fora do expediente.
+        // O cliente navega no autoatendimento. Guard 1x/dia BRT na própria função.
+        if (ack.tipo === 'fora_horario' && integ?.id) {
+          base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
+            acao: 'menu_fora_horario',
+            thread_id, contact_id, integration_id: integ.id
+          }).catch(e => console.warn('[SKILL-PRE-ATEND] menu fora-horário falhou (não-crítico):', e.message));
+        } else if (ehSaudacaoCartao && integ?.id) {
           base44.asServiceRole.functions.invoke('enviarCartaoAcesso', {
             thread_id, contact_id, integration_id: integ.id, source: 'skill_saudacao'
           }).catch(e => console.warn('[SKILL-PRE-ATEND] cartão acesso falhou (não-crítico):', e.message));
