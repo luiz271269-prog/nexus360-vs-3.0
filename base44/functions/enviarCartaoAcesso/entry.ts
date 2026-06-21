@@ -173,15 +173,8 @@ Deno.serve(async (req) => {
 
       const cp = thread.campos_personalizados || {};
 
-      // Guard 1x/dia BRT: já enviou hoje? pula.
-      const brtDayKey = (value) => value
-        ? new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value))
-        : null;
-      const hojeBrt = brtDayKey(new Date());
-      if (cp.menu_fora_horario_enviado_em && brtDayKey(cp.menu_fora_horario_enviado_em) === hojeBrt) {
-        return Response.json({ success: true, skipped: 'menu_fora_horario_ja_enviado_hoje' });
-      }
-
+      // Sem guard de 1x/dia: o menu fora-horário acompanha SEMPRE o ACK/vídeo
+      // fora de horário (o cooldown de ACK na skill já evita flood).
       const contato = await base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null);
       if (!contato?.telefone) return Response.json({ success: false, error: 'contato_sem_telefone' });
 
@@ -233,9 +226,6 @@ Deno.serve(async (req) => {
           formato: 'botoes',
           categorias: enviados.map(e => e.categoria)
         }
-      });
-      await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-        campos_personalizados: { ...cp, menu_fora_horario_enviado_em: now }
       });
 
       console.log(`[enviarCartaoAcesso] ✅ menu fora-horário (${enviados.map(e => e.categoria).join('+')}) → ${contato.nome}`);
