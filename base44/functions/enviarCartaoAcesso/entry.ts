@@ -178,6 +178,17 @@ Deno.serve(async (req) => {
       const contato = await base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null);
       if (!contato?.telefone) return Response.json({ success: false, error: 'contato_sem_telefone' });
 
+      // Coerência de fase com o estágio 'menu' (horário comercial): fornecedor,
+      // tipo não-permitido e contato bloqueado NÃO recebem o menu — nem fora
+      // do expediente. Sem isto, o caminho fora-horário burlaria esses guards.
+      {
+        const tipoFH = String(contato.tipo_contato || '').toLowerCase();
+        const tiposPermitidosFH = ['novo', 'lead', 'cliente', 'eventual', 'ex_cliente', 'parceiro'];
+        if (tipoFH === 'fornecedor') return Response.json({ success: true, skipped: 'tipo_contato_fornecedor' });
+        if (tipoFH && !tiposPermitidosFH.includes(tipoFH)) return Response.json({ success: true, skipped: 'tipo_contato_nao_permitido', tipo: tipoFH });
+        if (contato.bloqueado) return Response.json({ success: true, skipped: 'bloqueado' });
+      }
+
       etapa = 'fora_horario_integracao';
       const integration = await resolverIntegracao(base44, body?.integration_id || thread.whatsapp_integration_id, thread);
       if (!integration) return Response.json({ success: false, error: 'sem_integracao_conectada' });
