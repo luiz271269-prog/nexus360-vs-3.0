@@ -24,6 +24,7 @@ import MetricasNotasFiscais from "../components/dashboard/MetricasNotasFiscais";
 import { dedupById, dedupClientes, dedupVendas, dedupOrcamentos, dedupContatos } from "../utils/dedup";
 import { getNomeExibicao } from "../components/lib/vendedorSync";
 import { buscarNotasFiscaisExternas } from "@/functions/buscarNotasFiscaisExternas";
+import MetricasVendasNF from "../components/dashboard/MetricasVendasNF";
 
 // Cache global para evitar chamadas desnecessárias
 const dashboardCache = {
@@ -731,6 +732,7 @@ export default function Dashboard() {
             {viewMode === 'empresa' && isGerente &&
               <>
                 <MetricasNotasFiscais mesSel={modoAnual ? null : mesSelecionado - 1} anoSel={anoSelecionado} modoAnual={modoAnual} />
+                <MetricasVendasNF notas={notasFiltradas} modoAnual={modoAnual} />
                 <VisaoGeralEmpresa dados={dadosCompletos} filtros={filtros} usuario={usuario} notasFiscais={notasFiltradas} />
               </>
             }
