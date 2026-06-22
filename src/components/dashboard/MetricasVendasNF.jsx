@@ -35,7 +35,7 @@ export default function MetricasVendasNF({ notas = [], modoAnual = false }) {
     { titulo: 'Vendas (NFs)', valor: m.qtdVendas, sub: modoAnual ? 'no ano' : 'no mês', cor: 'from-orange-700 to-orange-600', icon: ShoppingBag },
     { titulo: 'Faturamento', valor: fmt(m.faturado), sub: `${fmt(m.recebido)} recebido`, cor: 'from-emerald-800 to-emerald-700', icon: DollarSign },
     { titulo: 'Ticket Médio', valor: fmt(m.ticketMedio), sub: 'por venda', cor: 'from-indigo-800 to-indigo-700', icon: TrendingUp },
-    { titulo: 'Clientes Ativos', valor: m.clientesAtivos, sub: 'com NF no período', cor: 'from-purple-800 to-purple-700', icon: Users },
+    { titulo: 'Clientes c/ NF', valor: m.clientesAtivos, sub: 'distintos no período', cor: 'from-purple-800 to-purple-700', icon: Users },
   ];
 
   return (
