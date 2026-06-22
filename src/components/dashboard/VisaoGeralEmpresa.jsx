@@ -265,7 +265,7 @@ function calcularKPIsEmpresa(dados, notas) {
   const percentualMeta = metaTotal > 0 ? Math.round(faturamentoTotal / metaTotal * 100) : 0;
   const clientesAtivos = dados.clientes.filter((c) => c.status === 'Ativo').length;
   const totalOrcamentos = dados.orcamentos.length;
-  const orcamentosAprovados = dados.orcamentos.filter((o) => o.status === 'Aprovado').length;
+  const orcamentosAprovados = dados.orcamentos.filter((o) => (o.status || '').toLowerCase() === 'aprovado').length;
   const taxaConversao = totalOrcamentos > 0 ? Math.round(orcamentosAprovados / totalOrcamentos * 100) : 0;
   return {
     faturamentoTotal,
