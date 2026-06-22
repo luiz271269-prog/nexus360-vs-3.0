@@ -112,7 +112,13 @@ Deno.serve(async (req) => {
         }
 
         if (!hasAssigned) {
-          const refDate = lastInboundAt || lastMsgAt;
+          // 🚫 ROTA APOSENTADA (Tipo A) — decisão B. O disparo proativo chamava
+          // preAtendimentoHandler (inexistente) e nunca produziu efeito; o inbound
+          // cobre o pipeline. Threads sem atendente já saíam por continue em todos
+          // os caminhos abaixo, então pular aqui NÃO altera o Tipo D (só hasAssigned).
+          continue;
+
+          const refDate = lastInboundAt || lastMsgAt; // eslint-disable-line no-unreachable
           if (!refDate || refDate > thresholdA) {
             continue;
           }
@@ -148,10 +154,13 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // ── TIPO C: tem atendente + humano dormindo >4h → reativar URA ──────
+        // ── TIPO C: APOSENTADO (decisão B) ──────────────────────────────────
+        // Reativação proativa via preAtendimentoHandler (inexistente). Nunca rodou.
+        // ⚠️ A linha abaixo (guard de horário) é PRESERVADA: protege o Tipo D de
+        // rodar fora do expediente. Só a condição do C é neutralizada (false &&).
         if (!dentrodoHorario) continue;
 
-        if (hasAssigned && !humanoAtivo(thread, IDLE_THRESHOLD_C_HOURS)) {
+        if (false && hasAssigned && !humanoAtivo(thread, IDLE_THRESHOLD_C_HOURS)) {
           if (lastInboundAt && lastInboundAt < thresholdC) {
             if (!isCompleted) {
               // ✅ FIX: Buscar Contact (sem Integration paralela)
