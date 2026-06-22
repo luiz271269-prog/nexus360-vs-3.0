@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { DollarSign, Users, ShoppingBag, TrendingUp, Award } from "lucide-react";
 
-const fmt = (v) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const fmt = (v) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // Métricas de VENDAS derivadas das Notas Fiscais reais do Neural Fin Flow (conexão online).
 // Não faz nenhuma chamada nova — consome as notas já filtradas pelo período no Dashboard.
