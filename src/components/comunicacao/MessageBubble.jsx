@@ -62,10 +62,15 @@ const AudioPlayer = React.memo(({ src }) => {
     <div className="flex items-center gap-1.5 flex-1 min-w-0">
       <audio
         ref={audioRef}
-        src={src}
         controls
+        preload="metadata"
         className="flex-1 h-8 min-w-0"
-        onPlay={() => {if (audioRef.current) audioRef.current.playbackRate = speed;}} />
+        onPlay={() => {if (audioRef.current) audioRef.current.playbackRate = speed;}}>
+        {/* type explícito: o storage devolve application/octet-stream e o browser não decodifica.
+            Declarar audio/ogg + mpeg força o decode correto (áudio do WhatsApp é OGG/Opus). */}
+        <source src={src} type="audio/ogg" />
+        <source src={src} type="audio/mpeg" />
+      </audio>
 
       <button
         onClick={cycleSpeed}
