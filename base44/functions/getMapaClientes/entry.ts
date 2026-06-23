@@ -8,6 +8,42 @@ const norm = (s) => (s || '')
   .replace(/\bS[\/.]?A\b/g, '').replace(/\bLTDA\b/g, '').replace(/\bME\b/g, '')
   .replace(/[^A-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
 
+// Centro das UFs — fallback quando o geocoding da cidade falha
+const COORD_UF = {
+  AC: [-9.02, -70.81], AL: [-9.57, -36.78], AM: [-3.42, -65.86], AP: [1.41, -51.79],
+  BA: [-12.58, -41.70], CE: [-5.50, -39.32], DF: [-15.80, -47.86], ES: [-19.18, -40.31],
+  GO: [-15.83, -49.84], MA: [-4.96, -45.27], MG: [-18.51, -44.55], MS: [-20.77, -54.79],
+  MT: [-12.68, -56.92], PA: [-3.42, -52.22], PB: [-7.24, -36.78], PE: [-8.81, -36.95],
+  PI: [-7.72, -42.73], PR: [-24.89, -51.55], RJ: [-22.91, -43.21], RN: [-5.40, -36.95],
+  RO: [-10.95, -62.83], RR: [2.74, -62.08], RS: [-30.03, -51.22], SC: [-27.24, -50.22],
+  SE: [-10.57, -37.39], SP: [-22.0, -48.5], TO: [-10.18, -48.30]
+};
+
+// Cache em memória do geocoding (vive enquanto a function fica quente)
+const geoCache = {};
+
+async function geocodeCidade(cidade, uf) {
+  if (!cidade) return COORD_UF[uf] || null;
+  const key = `${cidade.toUpperCase()}|${uf}`;
+  if (geoCache[key] !== undefined) return geoCache[key];
+  try {
+    const q = encodeURIComponent(`${cidade}, ${uf}, Brasil`);
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${q}`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'Nexus360-MapaClientes/1.0' } });
+    if (r.ok) {
+      const arr = await r.json();
+      if (arr && arr[0]) {
+        const coord = [parseFloat(arr[0].lat), parseFloat(arr[0].lon)];
+        geoCache[key] = coord;
+        return coord;
+      }
+    }
+  } catch (_e) { /* cai no fallback */ }
+  const fb = COORD_UF[uf] || null;
+  geoCache[key] = fb;
+  return fb;
+}
+
 /**
  * getMapaClientes — Monta o mapa de localização a partir das NOTAS FISCAIS
  * emitidas (fonte: Neural Fin Flow), que representam o volume real de vendas
@@ -155,6 +191,14 @@ Deno.serve(async (req) => {
     const cidades = Object.values(cidadesMap).sort((a, b) => b.valor - a.valor);
     cidades.forEach(c => c.clientes.sort((a, b) => b.valor - a.valor));
     semLoc.sort((a, b) => b.valor - a.valor);
+
+    // Geocoding real por cidade (sequencial para respeitar rate-limit do Nominatim)
+    for (const c of cidades) {
+      c.coord = await geocodeCidade(c.cidade, c.uf);
+    }
+    for (const c of fidelizadosCidades) {
+      c.coord = await geocodeCidade(c.cidade, c.uf);
+    }
 
     const clientesUnicos = Object.keys(porCliente).length;
 

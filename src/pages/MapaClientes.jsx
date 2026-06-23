@@ -75,7 +75,8 @@ export default function MapaClientes() {
     .map(c => {
       // vendedor dominante da cidade (maior faturamento) define a cor do marcador
       const vendDominante = Object.entries(c.porVendedor || {}).sort((a, b) => b[1] - a[1])[0]?.[0];
-      return { ...c, coord: coordenadaPara(c.cidade, c.uf), vendDominante };
+      // coord já vem geocodificada do backend (Nominatim); fallback para tabela local
+      return { ...c, coord: c.coord || coordenadaPara(c.cidade, c.uf), vendDominante };
     })
     .filter(c => c.coord);
   const maxValor = Math.max(1, ...pontos.map(p => p.valor));
