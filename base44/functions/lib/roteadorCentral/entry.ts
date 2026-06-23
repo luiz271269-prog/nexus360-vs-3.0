@@ -2,6 +2,7 @@
 // ROTEADOR CENTRAL - Decisão determinística por tipo de contato
 // ============================================================================
 // Substitui "ifs espalhados" por ordem imutável de prioridade
+// Ordem de roteamento (em inboundCore): humano ativo > fornecedor > fidelizado > URA
 // ============================================================================
 
 
