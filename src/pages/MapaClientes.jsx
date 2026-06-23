@@ -5,6 +5,7 @@ import { getMapaClientes } from '@/functions/getMapaClientes';
 import { coordenadaPara } from '@/components/mapa/coordenadasBR';
 import { corDoVendedor } from '@/components/mapa/coresVendedor';
 import RankingVendedoresMapa from '@/components/mapa/RankingVendedoresMapa';
+import AjustarLimitesMapa from '@/components/mapa/AjustarLimitesMapa';
 import FidelizadosVendedor from '@/components/mapa/FidelizadosVendedor';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -160,8 +161,9 @@ export default function MapaClientes() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Mapa */}
             <Card className="lg:col-span-2 p-0 overflow-hidden h-[520px]">
-              <MapContainer center={[-27.5, -50.0]} zoom={6} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
+              <MapContainer center={[-27.5, -51.0]} zoom={6} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
                 <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <AjustarLimitesMapa pontos={pontos} />
                 {pontos.map((p, i) => {
                   const cor = corDoVendedor(p.vendDominante, vendedores);
                   return (
@@ -171,7 +173,7 @@ export default function MapaClientes() {
                     radius={8 + (p.valor / maxValor) * 24}
                     pathOptions={{ color: cor, fillColor: cor, fillOpacity: 0.55, weight: 2 }}
                   >
-                    <Tooltip direction="top">{p.cidade}/{p.uf} — {fmtMoeda(p.valor)}</Tooltip>
+                    <Tooltip direction="top">{p.cidade}/{p.uf} — {p.clientes.length} cliente{p.clientes.length !== 1 ? 's' : ''} · {fmtMoeda(p.valor)}</Tooltip>
                     <Popup>
                       <div className="text-sm">
                         <div className="font-bold mb-1">{p.cidade}/{p.uf} · {fmtMoeda(p.valor)}</div>
