@@ -25,28 +25,24 @@ export default function PainelMetas() {
         const anoAtual = new Date().getFullYear();
         const mesAtual = new Date().getMonth(); // 0-11
 
-        const [users, vendEntidades, notasRes] = await Promise.all([
+        const [users, notasRes] = await Promise.all([
           base44.entities.User.list().catch(() => []),
-          base44.entities.Vendedor.list('-created_date', 200).catch(() => []),
           buscarNotasFiscaisExternas({}).catch(() => ({ data: { notas: [] } }))
         ]);
 
         const notas = notasRes?.data?.notas || notasRes?.data?.data || [];
 
-        // Faturamento por vendedor no MÊS atual + evolução mensal do ano
-        const porVendedorMes = {};
+        // Evolução mensal do ano (todas as NFs)
         const receitaPorMes = Array(12).fill(0);
+        // NFs do mês atual (para casar com cada vendedor pelo mesmo critério do Dashboard)
+        const notasMesAtual = [];
         for (const n of notas) {
           const d = n.data_emissao || n.data || n.created_date;
           if (!d) continue;
           const dt = new Date(d);
           if (isNaN(dt) || dt.getFullYear() !== anoAtual) continue;
-          const valor = n.valor_total || 0;
-          receitaPorMes[dt.getMonth()] += valor;
-          if (dt.getMonth() === mesAtual) {
-            const v = normalizarNome(n.vendedor || n.vendedor_nome || '').toLowerCase();
-            if (v) porVendedorMes[v] = (porVendedorMes[v] || 0) + valor;
-          }
+          receitaPorMes[dt.getMonth()] += n.valor_total || 0;
+          if (dt.getMonth() === mesAtual) notasMesAtual.push(n);
         }
 
         // Evolução: do mês 0 até o mês atual
@@ -54,18 +50,17 @@ export default function PainelMetas() {
           .slice(0, mesAtual + 1)
           .map((receita, i) => ({ mes: MESES[i], receita: Math.round(receita) }));
 
-        // Mapa de meta por vendedor (entidade Vendedor -> User)
-        const userById = new Map(users.map(u => [u.id, u]));
-        const lista = vendEntidades
-          .filter(v => v.status !== 'inativo')
-          .map(v => {
-            const user = userById.get(v.usuario_id);
-            const nome = user ? getNomeExibicao(user) : (v.codigo || 'Vendedor');
-            const nomeNorm = normalizarNome(nome).toLowerCase();
-            // casa faturamento pelo nome de exibição ou full_name legado
-            const fullNorm = normalizarNome(user?.full_name || '').toLowerCase();
-            const realizado = porVendedorMes[nomeNorm] || porVendedorMes[fullNorm] || 0;
-            return { nome, realizado, meta: v.meta_mensal || 0 };
+        // MESMA FONTE/MATCH DO DASHBOARD: Users vendedores (codigo ou setor=vendas),
+        // faturamento por NF cujo campo "vendedor" inclui o primeiro nome do vendedor.
+        const vendedoresUsers = users.filter(u => u.codigo || u.attendant_sector === 'vendas');
+        const lista = vendedoresUsers
+          .map(u => {
+            const nome = getNomeExibicao(u) || u.full_name || u.email || 'Vendedor';
+            const primeiroNome = normalizarNome(nome).toLowerCase().split(' ')[0];
+            const realizado = notasMesAtual
+              .filter(n => (n.vendedor || '').toLowerCase().includes(primeiroNome))
+              .reduce((s, n) => s + (n.valor_total || 0), 0);
+            return { nome, realizado, meta: u.meta_mensal || 0 };
           })
           .sort((a, b) => b.realizado - a.realizado);
 
