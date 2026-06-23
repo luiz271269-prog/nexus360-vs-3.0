@@ -22,6 +22,7 @@ import Emails from '@/pages/Emails';
 import InstagramPublicacao from '@/pages/InstagramPublicacao';
 import PortalCliente from '@/pages/PortalCliente';
 import MapaClientes from '@/pages/MapaClientes';
+import PainelMetas from '@/pages/PainelMetas';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -172,6 +173,14 @@ const AuthenticatedApp = () => {
           element={
             <LayoutWrapper currentPageName="MapaClientes">
               <MapaClientes />
+            </LayoutWrapper>
+          } 
+        />
+        <Route 
+          path="/PainelMetas" 
+          element={
+            <LayoutWrapper currentPageName="PainelMetas">
+              <PainelMetas />
             </LayoutWrapper>
           } 
         />
