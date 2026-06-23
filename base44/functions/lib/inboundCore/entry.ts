@@ -4,7 +4,7 @@
 // Pipeline imutável: Webhook → Core → (Guardas) → PreAtendimentoHandler
 // ============================================================================
 
-const VERSION = 'v10.1.0-CENTRALIZADO-SKILL-PRE-ATENDIMENTOS';
+const VERSION = 'v10.1.1-CENTRALIZADO-SKILL-PRE-ATENDIMENTOS';
 
 // =================================================================
 // 🛡️ HELPERS DE DECISÃO
