@@ -7,6 +7,7 @@
 
 
 // Tipos válidos mapeados no sistema
+// (redeploy trigger)
 const TIPOS_VALIDOS = ['novo', 'lead', 'cliente', 'eventual', 'ex_cliente', 'fornecedor', 'parceiro'];
 
 /**
