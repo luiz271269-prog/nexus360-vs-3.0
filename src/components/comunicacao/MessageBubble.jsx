@@ -96,7 +96,17 @@ const AudioPlayer = React.memo(({ src }) => {
         controls
         preload="metadata"
         className="flex-1 h-8 min-w-0"
-        onPlay={() => {if (audioRef.current) audioRef.current.playbackRate = speed;}} />
+        onPlay={() => {if (audioRef.current) audioRef.current.playbackRate = speed;}}
+        onLoadedMetadata={(e) => {
+          // OGG/Opus do WhatsApp não traz 'duration' no header → <audio> mostra 0:00.
+          // Workaround Chrome: forçar seek até o fim faz o browser calcular a duração real.
+          const a = e.currentTarget;
+          if (a.duration === Infinity || Number.isNaN(a.duration)) {
+            a.currentTime = 1e101;
+            const fix = () => { a.currentTime = 0; a.removeEventListener('timeupdate', fix); };
+            a.addEventListener('timeupdate', fix);
+          }
+        }} />
 
       <button
         onClick={cycleSpeed}
