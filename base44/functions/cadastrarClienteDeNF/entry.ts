@@ -134,18 +134,54 @@ Deno.serve(async (req) => {
     }
     const clienteId = clienteFinal.id;
 
-    // 5) VINCULAR o contato fidelizado ao cliente (fecha o laço)
-    let contatoVinculado = null;
-    if (melhorContato && !melhorContato.cliente_id) {
+    // 5) VINCULAR TODOS os contatos da mesma empresa ao cliente (fecha o laço).
+    //    Empresa é o vínculo-mãe: uma empresa tem vários contatos (compras,
+    //    financeiro, técnico). Cada pessoa daquela empresa deve cair sob o
+    //    mesmo cliente, não apenas o melhor match.
+    const contatosDaEmpresa = contatos.filter((c) => {
+      if (c.cliente_id) return false; // já vinculado (a este ou outro)
+      const empresaC = norm(c.empresa);
+      const nomeC = norm(c.nome);
+      // empresa idêntica/contida
+      if (empresaC && (empresaC === nomeNorm ||
+          (empresaC.length >= 5 && nomeNorm.length >= 5 &&
+           (empresaC.includes(nomeNorm) || nomeNorm.includes(empresaC))))) {
+        return true;
+      }
+      // token forte compartilhado (ex: "portonave")
+      if (tokensNome.length > 0 &&
+          tokensNome.some((t) => empresaC.includes(t) || nomeC.includes(t))) {
+        return true;
+      }
+      return false;
+    });
+    // Garante que o melhorContato entra na lista mesmo se a regra acima não o pegou
+    if (melhorContato && !melhorContato.cliente_id &&
+        !contatosDaEmpresa.some((c) => c.id === melhorContato.id)) {
+      contatosDaEmpresa.push(melhorContato);
+    }
+
+    const contatosVinculados = [];
+    for (const c of contatosDaEmpresa) {
       const updateContato = { cliente_id: clienteId, tipo_contato: 'cliente', is_cliente_fidelizado: true };
-      if (usuarioId && !melhorContato.atendente_fidelizado_vendas) {
+      if (usuarioId && !c.atendente_fidelizado_vendas) {
         updateContato.atendente_fidelizado_vendas = usuarioId;
       }
-      if (!melhorContato.empresa) updateContato.empresa = razaoSocial;
-      await base44.asServiceRole.entities.Contact.update(melhorContato.id, updateContato);
-      contatoVinculado = { id: melhorContato.id, nome: melhorContato.nome, telefone: melhorContato.telefone };
-    } else if (melhorContato?.cliente_id) {
+      if (!c.empresa) updateContato.empresa = razaoSocial;
+      try {
+        await base44.asServiceRole.entities.Contact.update(c.id, updateContato);
+        contatosVinculados.push({ id: c.id, nome: c.nome, telefone: c.telefone });
+      } catch (e) {
+        console.warn('Falha ao vincular contato', c.id, e.message);
+      }
+    }
+
+    // Compatibilidade: mantém o campo singular apontando para o melhor match
+    let contatoVinculado = null;
+    if (melhorContato?.cliente_id) {
       contatoVinculado = { id: melhorContato.id, nome: melhorContato.nome, ja_vinculado: true };
+    } else if (contatosVinculados.length > 0) {
+      contatoVinculado = contatosVinculados.find((c) => c.id === melhorContato?.id) || contatosVinculados[0];
     }
 
     return Response.json({
@@ -155,6 +191,8 @@ Deno.serve(async (req) => {
       action,
       score_contato: melhorScore,
       contato_vinculado: contatoVinculado,
+      contatos_vinculados: contatosVinculados,
+      total_contatos_vinculados: contatosVinculados.length,
       herdado: {
         telefone: dadosHerdados.telefone || null,
         email: dadosHerdados.email || null,

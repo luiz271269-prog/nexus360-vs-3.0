@@ -11,6 +11,7 @@ import { listarVendedoresParaSelect } from '../lib/vendedorSync';
 import { REGRAS_VALIDACAO_POR_ETAPA } from './ClienteFormValidation';
 import { toast } from "sonner";
 import HistoricoQualificacaoCliente from './HistoricoQualificacaoCliente';
+import ContatosDaEmpresa from './ContatosDaEmpresa';
 
 const NOMES_ETAPAS = {
   novo_lead: 'Novo Lead',
@@ -575,7 +576,10 @@ export default function ClienteForm({ cliente, novoStatus, onSave, onCancel }) {
             </div>
 
             {cliente?.id ? (
-              <HistoricoQualificacaoCliente clienteId={cliente.id} />
+              <>
+                <ContatosDaEmpresa clienteId={cliente.id} />
+                <HistoricoQualificacaoCliente clienteId={cliente.id} />
+              </>
             ) : (
               <div className="text-center py-8 text-orange-400/50">
                 <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
