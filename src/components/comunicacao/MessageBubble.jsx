@@ -50,7 +50,32 @@ import { mobileEstiloMensagem } from './skills/mobileSkill';
 const AudioPlayer = React.memo(({ src }) => {
   const audioRef = React.useRef(null);
   const [speed, setSpeed] = React.useState(1);
+  const [blobUrl, setBlobUrl] = React.useState(null);
   const speeds = [1, 1.5, 2];
+
+  // O storage devolve Content-Type: application/octet-stream e o navegador
+  // recusa decodificar (player trava em 0:00). Baixamos o arquivo e recriamos
+  // um Blob com MIME de áudio detectado pela assinatura (OggS / ftyp) → blob: URL decodifica sempre.
+  React.useEffect(() => {
+    if (!src || src === 'pending_download' || src === 'failed_download') return;
+    let revoked = false; let createdUrl = null;
+    (async () => {
+      try {
+        const resp = await fetch(src);
+        const buf = await resp.arrayBuffer();
+        const sig = new Uint8Array(buf.slice(0, 4));
+        const ascii = String.fromCharCode(...sig);
+        const mime = ascii === 'OggS' ? 'audio/ogg'
+          : (sig[0] === 0x00 && sig[3] === 0x20) ? 'audio/mp4'
+          : 'audio/mpeg';
+        createdUrl = URL.createObjectURL(new Blob([buf], { type: mime }));
+        if (!revoked) setBlobUrl(createdUrl);
+      } catch (e) {
+        if (!revoked) setBlobUrl(null); // fallback para src direto
+      }
+    })();
+    return () => { revoked = true; if (createdUrl) URL.revokeObjectURL(createdUrl); };
+  }, [src]);
 
   const cycleSpeed = () => {
     const next = speeds[(speeds.indexOf(speed) + 1) % speeds.length];
@@ -62,15 +87,11 @@ const AudioPlayer = React.memo(({ src }) => {
     <div className="flex items-center gap-1.5 flex-1 min-w-0">
       <audio
         ref={audioRef}
+        src={blobUrl || src}
         controls
         preload="metadata"
         className="flex-1 h-8 min-w-0"
-        onPlay={() => {if (audioRef.current) audioRef.current.playbackRate = speed;}}>
-        {/* type explícito: o storage devolve application/octet-stream e o browser não decodifica.
-            Declarar audio/ogg + mpeg força o decode correto (áudio do WhatsApp é OGG/Opus). */}
-        <source src={src} type="audio/ogg" />
-        <source src={src} type="audio/mpeg" />
-      </audio>
+        onPlay={() => {if (audioRef.current) audioRef.current.playbackRate = speed;}} />
 
       <button
         onClick={cycleSpeed}
