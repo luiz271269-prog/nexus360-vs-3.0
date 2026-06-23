@@ -30,7 +30,9 @@ import ClienteForm from "../components/clientes/ClienteForm";
 import ClienteTable from "../components/clientes/ClienteTable";
 import ClienteKanban from "../components/clientes/ClienteKanban";
 import HistoricoQualificacaoCliente from "../components/clientes/HistoricoQualificacaoCliente";
+import ClientesNaoCadastrados from "../components/clientes/ClientesNaoCadastrados";
 import { listarVendedoresParaSelect } from '../components/lib/vendedorSync';
+import { getFaturamentoPorCliente } from "@/functions/getFaturamentoPorCliente";
 
 export default function Clientes() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -47,8 +49,7 @@ export default function Clientes() {
     status: 'todos',
     classificacao: 'todos',
     segmento: 'todos',
-    vendedor: 'todos',
-    usuario_filtro: null // Filtro de usuário para supervisores
+    responsavel: 'todos' // Filtro único: Usuário = Vendedor (mesma pessoa)
   });
   const [aba, setAba] = useState('clientes'); // 'clientes' ou 'contatos_fidelizados'
   const [usuarioAtual, setUsuarioAtual] = useState(null);
@@ -102,6 +103,15 @@ export default function Clientes() {
     queryFn: () => base44.entities.ClienteScore.list('-score_total', 500),
   });
 
+  // 💰 Faturamento real (NFes do Neural Fin) cruzado com clientes do CRM
+  const { data: faturamentoData } = useQuery({
+    queryKey: ['faturamentoPorCliente'],
+    queryFn: async () => (await getFaturamentoPorCliente({})).data,
+    staleTime: 5 * 60 * 1000,
+  });
+  const faturamentoPorCliente = faturamentoData?.faturamentoPorCliente || {};
+  const clientesNaoCadastrados = faturamentoData?.clientesNaoCadastrados || [];
+
   useEffect(() => {
     carregarVendedores();
   }, []);
@@ -130,13 +140,13 @@ export default function Clientes() {
 
   const handleSalvarCliente = async (clienteData, isAutoSave = false) => {
     try {
-      if (isAutoSave && editingCliente) {
+      if (isAutoSave && editingCliente?.id) {
         // Auto-save silencioso
         await base44.entities.Cliente.update(editingCliente.id, clienteData);
         return; // Não fecha o modal nem mostra toast de sucesso
       }
 
-      if (editingCliente) {
+      if (editingCliente && editingCliente.id) {
         await base44.entities.Cliente.update(editingCliente.id, clienteData);
         toast.success("Cliente atualizado com sucesso!");
         
@@ -176,6 +186,7 @@ export default function Clientes() {
       setEditingCliente(null);
       await queryClient.invalidateQueries({ queryKey: ['clientes'] });
       await queryClient.invalidateQueries({ queryKey: ['clientesScores'] });
+      await queryClient.invalidateQueries({ queryKey: ['faturamentoPorCliente'] });
     } catch (error) {
       console.error("Erro ao salvar cliente:", error);
       if (!isAutoSave) {
@@ -229,13 +240,13 @@ export default function Clientes() {
   };
 
   const clientesFiltrados = (clientes || []).filter(cliente => {
-    // ✅ PERMISSÃO: Admin vê todos, usuário normal vê apenas seus
+    // Resolve o nome do responsável (Usuário = Vendedor, mesma pessoa)
+    const nomeResponsavel = cliente.vendedor_responsavel;
+
+    // ✅ PERMISSÃO: Admin/gerência vê todos; usuário normal vê apenas os seus
     const temPermissaoVerOutros = ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role);
-    
     if (!temPermissaoVerOutros) {
-      if (cliente.vendedor_responsavel !== usuarioAtual?.full_name) return false;
-    } else if (filtros.usuario_filtro) {
-      if (cliente.vendedor_responsavel !== filtros.usuario_filtro) return false;
+      if (nomeResponsavel !== usuarioAtual?.full_name) return false;
     }
 
     if (filtros.busca) {
@@ -253,12 +264,13 @@ export default function Clientes() {
     if (filtros.classificacao !== 'todos' && cliente.classificacao !== filtros.classificacao) return false;
     if (filtros.segmento !== 'todos' && cliente.segmento !== filtros.segmento) return false;
 
-    if (filtros.vendedor !== 'todos') {
-      if (filtros.vendedor === 'nao_atribuido') {
-        if (cliente.vendedor_responsavel) return false;
+    // 🔗 Filtro único "Responsável" (funde Usuário + Vendedor)
+    if (filtros.responsavel !== 'todos') {
+      if (filtros.responsavel === 'nao_atribuido') {
+        if (nomeResponsavel) return false;
       } else {
-        const vendedorLabel = (vendedores || []).find(v => String(v.value) === String(filtros.vendedor))?.label;
-        if (vendedorLabel && cliente.vendedor_responsavel !== vendedorLabel) return false;
+        const respLabel = (vendedores || []).find(v => String(v.value) === String(filtros.responsavel))?.label;
+        if (respLabel && nomeResponsavel !== respLabel) return false;
       }
     }
 
@@ -267,7 +279,8 @@ export default function Clientes() {
 
   const clientesComScore = clientesFiltrados.map(cliente => ({
     ...cliente,
-    score: (clientesScores || []).find(s => s.cliente_id === cliente.id)
+    score: (clientesScores || []).find(s => s.cliente_id === cliente.id),
+    faturamento: faturamentoPorCliente[cliente.id] || null
   }));
 
   // 🆕 NOVO: Se está vendo detalhes, mostrar página de detalhes
@@ -539,35 +552,16 @@ export default function Clientes() {
                 </SelectContent>
               </Select>
 
-              {/* ✅ FILTRO DE USUÁRIO - Apenas Supervisor/Gerente/Admin */}
-              {['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role) && (
-                <Select
-                  value={filtros.usuario_filtro || ''}
-                  onValueChange={(value) => setFiltros({ ...filtros, usuario_filtro: value || null })}
-                >
-                  <SelectTrigger className="h-9 border-slate-300 focus:border-blue-500">
-                    <SelectValue placeholder="👤 Usuário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={null}>Meus Dados</SelectItem>
-                    {vendedores.map((vendedor) => (
-                      <SelectItem key={vendedor.value} value={vendedor.label}>
-                        {vendedor.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-
+              {/* 🔗 FILTRO ÚNICO "RESPONSÁVEL" (Usuário = Vendedor, mesma pessoa) */}
               <Select
-                value={filtros.vendedor}
-                onValueChange={(value) => setFiltros({ ...filtros, vendedor: value })}
+                value={filtros.responsavel}
+                onValueChange={(value) => setFiltros({ ...filtros, responsavel: value })}
               >
                 <SelectTrigger className="h-9 border-slate-300 focus:border-blue-500">
-                  <SelectValue placeholder="Vendedor" />
+                  <SelectValue placeholder="👤 Responsável" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos os Vendedores</SelectItem>
+                  <SelectItem value="todos">Todos os Responsáveis</SelectItem>
                   {vendedores.map((vendedor) => (
                     <SelectItem key={vendedor.value} value={vendedor.value}>
                       {vendedor.label}
@@ -730,7 +724,7 @@ export default function Clientes() {
           <div className="text-center py-20 bg-white/80 backdrop-blur-lg rounded-xl shadow-lg border-2 border-slate-200/50">
             <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
             <p className="text-lg text-slate-600 font-medium">Nenhum cliente encontrado com os filtros aplicados.</p>
-            <Button onClick={() => setFiltros({ busca: '', status: 'todos', classificacao: 'todos', segmento: 'todos', vendedor: 'todos' })} variant="link" className="mt-4 text-blue-600">
+            <Button onClick={() => setFiltros({ busca: '', status: 'todos', classificacao: 'todos', segmento: 'todos', responsavel: 'todos' })} variant="link" className="mt-4 text-blue-600">
               Limpar Filtros
             </Button>
           </div>
@@ -783,6 +777,17 @@ export default function Clientes() {
               />
             </CardContent>
           </Card>
+        )}
+
+        {/* CLIENTES QUE FATURARAM MAS NÃO ESTÃO CADASTRADOS */}
+        {aba === 'clientes' && clientesNaoCadastrados.length > 0 && (
+          <ClientesNaoCadastrados
+            clientes={clientesNaoCadastrados}
+            onCadastrar={(nome) => {
+              setEditingCliente({ razao_social: nome });
+              setShowForm(true);
+            }}
+          />
         )}
 
         {/* MODAL DE FORMULÁRIO */}

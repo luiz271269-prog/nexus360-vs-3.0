@@ -36,6 +36,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
             <TableHead>Responsável</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Segmento</TableHead>
+            <TableHead className="text-right">Faturado (NF)</TableHead>
             <TableHead className="text-right">Valor Mensal</TableHead>
             <TableHead className="w-[100px] text-center">Ações</TableHead>
           </TableRow>
@@ -62,6 +63,16 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
               </TableCell>
               <TableCell>{getStatusChip(cliente.status)}</TableCell>
               <TableCell>{cliente.segmento}</TableCell>
+              <TableCell className="text-right">
+                {cliente.faturamento ? (
+                  <div>
+                    <div className="font-semibold text-emerald-600">{formatCurrency(cliente.faturamento.totalFaturado)}</div>
+                    <div className="text-xs text-slate-400">{cliente.faturamento.qtdNotas} NF</div>
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-300">—</span>
+                )}
+              </TableCell>
               <TableCell className="text-right font-medium text-slate-700">{formatCurrency(cliente.valor_recorrente_mensal)}</TableCell>
               <TableCell className="text-center">
                 <DropdownMenu>
