@@ -10,10 +10,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 // ║  4. Log de telemetria para PTTs quebrados                             ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 
-const VERSION = 'v27.0.0-RETRY-CACHE-DEDUP';
-const BUILD_DATE = '2026-05-22T11:00:00';
-const DEPLOYMENT_ID = 'WAPI_RETRY_CACHE_2026_05_22';
-const ARCHITECTURE = 'PORTEIRO-CEGO+RETRY';
+const VERSION = 'v28.0.0-FILTRO-ANTES-DB';
+const BUILD_DATE = '2026-06-23T20:50:00';
+const DEPLOYMENT_ID = 'WAPI_FILTRO_ANTES_DB_2026_06_23';
+const ARCHITECTURE = 'FILTRO-ANTES-DB+PORTEIRO-CEGO';
 
 // ════════════════════════════════════════════════════════════════
 // CACHE DE CHIPS INTERNOS — TTL 60s (portado do Z-API v11.6.0)
@@ -1308,12 +1308,45 @@ Deno.serve(async (req) => {
     return jsonErr('JSON invalido', 200);
   }
 
-  // ✅ WH-3: salvar payload bruto IMEDIATAMENTE após parse, antes de qualquer processamento.
-  // Garante replay caso o webhook quebre antes de Message.create.
+  // ════════════════════════════════════════════════════════════════════
+  // ✅ FILTRO ANTES DO BANCO (correção do 403 auth_required):
+  // Classificar e DESCARTAR delivery/status/broadcast/ignore ANTES de criar
+  // qualquer cliente Base44 ou gravar auditoria. Eventos de Status/delivery
+  // (a maioria do tráfego W-API) não precisam de banco — tocá-lo aqui
+  // disparava ZapiPayloadNormalized.create cujo 403 assíncrono emergia ~60s
+  // depois, solto, sem contexto. Agora retornam sem nunca tocar o banco.
+  // ════════════════════════════════════════════════════════════════════
+  const classification = classifyWapiEvent(payload);
+  console.log('[WAPI] 📊 Classification:', classification, '| Event:', payload.event || payload.type);
+
+  const motivoIgnorar = deveIgnorar(payload, classification);
+
+  // Eventos sem necessidade de processamento (delivery/status/broadcast/ignore/conexão):
+  // retorno imediato, SEM criar cliente nem auditoria. Conexão é tratada depois (precisa de DB).
+  const ehSomenteStatus = (
+    classification === 'system-status' ||
+    classification === 'system-status-delivery' ||
+    classification === 'ignore'
+  );
+  if (ehSomenteStatus || (motivoIgnorar && classification !== 'connection-status')) {
+    console.log('[WAPI] ⏭️ Descartado antes do banco:', motivoIgnorar || classification);
+    return jsonOk({ ignored: true, reason: motivoIgnorar || classification });
+  }
+
+  // A partir daqui o evento é real (mensagem ou conexão) e justifica tocar o banco.
+  let base44;
+  try {
+    base44 = createClientFromRequest(req);
+    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (asServiceRole habilitado)');
+  } catch (e) {
+    console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
+    return jsonErr(`auth_error: ${e.message}`, 500);
+  }
+
+  // ✅ WH-3: salvar payload bruto para replay — agora só para eventos reais.
   let auditPayloadId = null;
   try {
-    const _clientAudit = createClientFromRequest(req);
-    const _audit = await _clientAudit.asServiceRole.entities.ZapiPayloadNormalized.create({
+    const _audit = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
       payload_bruto: payload,
       instance_identificado: payload.instanceId || payload.instance || 'unknown',
       message_id: payload.messageId || null,
@@ -1325,40 +1358,6 @@ Deno.serve(async (req) => {
     auditPayloadId = _audit?.id || null;
   } catch (e) {
     console.warn('[WAPI-AUDIT-WH3] ⚠️ Falha ao salvar payload bruto inicial:', e.message);
-  }
-
-  // ✅ RETORNO ANTECIPADO para confirmações de entrega (webhookDelivery/fromMe)
-  // Esses eventos não precisam de DB — evita 403 por contexto sem token
-  if (payload.event === 'webhookDelivery' || (payload.fromMe === true && payload.fromApi === true)) {
-    console.log('[WAPI] 📋 webhookDelivery — retorno antecipado (evita 403)');
-    return jsonOk({ ignored: true, reason: 'webhook_delivery_skip', audit_id: auditPayloadId });
-  }
-
-  let base44;
-  try {
-    base44 = createClientFromRequest(req);
-    console.log('[WAPI-AUTH] ✅ Cliente Base44 criado (asServiceRole habilitado)');
-  } catch (e) {
-    console.error('[WAPI] 🔴 FATAL AUTH ERROR:', e.message);
-    return jsonErr(`auth_error: ${e.message}`, 500);
-  }
-
-  const classification = classifyWapiEvent(payload);
-  console.log('[WAPI] 📊 Classification:', classification, '| Event:', payload.event || payload.type);
-
-  const motivoIgnorar = deveIgnorar(payload, classification);
-
-  if (motivoIgnorar) {
-    console.log('[WAPI] ⏭️ Ignorado:', motivoIgnorar);
-    // WH-3: se já temos auditPayloadId, atualizar com motivo de skip (não duplicar)
-    if (auditPayloadId) {
-      try {
-        await base44.asServiceRole.entities.ZapiPayloadNormalized.update(auditPayloadId, {
-          erro_detalhes: `Ignorado: ${motivoIgnorar}`
-        });
-      } catch {}
-    }
-    return jsonOk({ ignored: true, reason: motivoIgnorar, audit_id: auditPayloadId });
   }
 
   // ✅ HOTFIX: normalizar payload antes de usar `dados` (linha removida em patch anterior)
