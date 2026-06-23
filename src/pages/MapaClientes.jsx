@@ -9,7 +9,8 @@ import FidelizadosVendedor from '@/components/mapa/FidelizadosVendedor';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Users, Building2, AlertTriangle, Loader2, DollarSign, FileText, UserCheck } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { MapPin, Users, Building2, AlertTriangle, Loader2, DollarSign, FileText, UserCheck, Map as MapIcon, Trophy } from 'lucide-react';
 
 const fmtMoeda = (v) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 const fmtMes = (m) => {
@@ -147,6 +148,15 @@ export default function MapaClientes() {
             </Card>
           </div>
 
+          <Tabs defaultValue="mapa" className="w-full">
+            <TabsList className="h-auto flex-wrap">
+              <TabsTrigger value="mapa" className="gap-1.5"><MapIcon className="w-4 h-4" /> Mapa</TabsTrigger>
+              <TabsTrigger value="rankings" className="gap-1.5"><Trophy className="w-4 h-4" /> Rankings</TabsTrigger>
+              <TabsTrigger value="fidelizados" className="gap-1.5"><UserCheck className="w-4 h-4" /> Fidelizados</TabsTrigger>
+              <TabsTrigger value="pendencias" className="gap-1.5"><AlertTriangle className="w-4 h-4" /> Pendências</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="mapa" className="mt-4 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Mapa */}
             <Card className="lg:col-span-2 p-0 overflow-hidden h-[520px]">
@@ -216,12 +226,39 @@ export default function MapaClientes() {
               </div>
             </Card>
           )}
+            </TabsContent>
 
-          {/* Ranking de vendedores por região + Fidelizados por vendedor */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <RankingVendedoresMapa cidades={cidadesFiltradas} vendedores={vendedores} />
-            <FidelizadosVendedor ranking={dados.fidelizadosRanking} />
-          </div>
+            <TabsContent value="rankings" className="mt-4 space-y-6">
+              {/* Ranking de vendedores por região */}
+              <RankingVendedoresMapa cidades={cidadesFiltradas} vendedores={vendedores} />
+
+              {/* Ranking por cidade */}
+              <Card className="p-4">
+                <h2 className="font-bold text-slate-900 mb-3">Cidades ({cidadesFiltradas.length})</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {cidadesFiltradas.map((c, i) => (
+                    <div key={i} className="border rounded-lg p-3 bg-slate-50">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-800">{c.cidade}/{c.uf}</span>
+                        <Badge className="bg-emerald-600">{fmtMoeda(c.valor)}</Badge>
+                      </div>
+                      <ul className="mt-2 space-y-0.5">
+                        {c.clientes.slice(0, 5).map((cl, j) => (
+                          <li key={j} className="text-xs text-slate-600 truncate">
+                            {cl.nome} <span className="text-slate-400">· {fmtMoeda(cl.valor)}</span>
+                          </li>
+                        ))}
+                        {c.clientes.length > 5 && <li className="text-xs text-slate-400">+{c.clientes.length - 5} mais</li>}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="fidelizados" className="mt-4 space-y-6">
+              {/* Fidelizados por vendedor */}
+              <FidelizadosVendedor ranking={dados.fidelizadosRanking} />
 
           {/* Contatos fidelizados localizados no mapa (por cidade/UF) */}
           {(dados.fidelizadosCidades || []).length > 0 && (
@@ -252,32 +289,11 @@ export default function MapaClientes() {
               </div>
             </Card>
           )}
+            </TabsContent>
 
-          {/* Ranking por cidade */}
-          <Card className="p-4">
-            <h2 className="font-bold text-slate-900 mb-3">Cidades ({cidadesFiltradas.length})</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {cidadesFiltradas.map((c, i) => (
-                <div key={i} className="border rounded-lg p-3 bg-slate-50">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-slate-800">{c.cidade}/{c.uf}</span>
-                    <Badge className="bg-emerald-600">{fmtMoeda(c.valor)}</Badge>
-                  </div>
-                  <ul className="mt-2 space-y-0.5">
-                    {c.clientes.slice(0, 5).map((cl, j) => (
-                      <li key={j} className="text-xs text-slate-600 truncate">
-                        {cl.nome} <span className="text-slate-400">· {fmtMoeda(cl.valor)}</span>
-                      </li>
-                    ))}
-                    {c.clientes.length > 5 && <li className="text-xs text-slate-400">+{c.clientes.length - 5} mais</li>}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </Card>
-
+            <TabsContent value="pendencias" className="mt-4 space-y-6">
           {/* Clientes sem localização — gargalo do cadastro */}
-          {dados.clientesSemLocalizacao.length > 0 && (
+          {dados.clientesSemLocalizacao.length > 0 ? (
             <Card className="p-4 border-amber-200 bg-amber-50/50">
               <div className="flex items-center gap-2 mb-3">
                 <AlertTriangle className="w-5 h-5 text-amber-600" />
@@ -300,7 +316,14 @@ export default function MapaClientes() {
                 ))}
               </div>
             </Card>
+          ) : (
+            <Card className="p-8 text-center text-slate-400">
+              <UserCheck className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
+              Todos os clientes vendidos têm cidade/UF cadastrada. Nenhuma pendência.
+            </Card>
           )}
+            </TabsContent>
+          </Tabs>
         </>
       )}
     </div>
