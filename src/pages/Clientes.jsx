@@ -33,6 +33,7 @@ import HistoricoQualificacaoCliente from "../components/clientes/HistoricoQualif
 import ClientesNaoCadastrados from "../components/clientes/ClientesNaoCadastrados";
 import { listarVendedoresParaSelect } from '../components/lib/vendedorSync';
 import { getFaturamentoPorCliente } from "@/functions/getFaturamentoPorCliente";
+import { cadastrarClienteDeNF } from "@/functions/cadastrarClienteDeNF";
 
 export default function Clientes() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -199,6 +200,35 @@ export default function Clientes() {
     setEditingCliente(cliente);
     setShowForm(true);
     setViewingDetails(null); // Close details view if opened from there
+  };
+
+  // Cadastra automaticamente um cliente que faturou (NFe), enriquecendo com os
+  // dados do contato correspondente e vinculando-o ao contato fidelizado.
+  const handleCadastrarDeNF = async ({ nome, vendedor }) => {
+    try {
+      const { data } = await cadastrarClienteDeNF({ nome, vendedor });
+      if (!data?.success) {
+        toast.error(data?.error || 'Não foi possível cadastrar o cliente');
+        return;
+      }
+      const herd = data.herdado || {};
+      const herdadoMsg = [
+        herd.telefone && 'telefone',
+        herd.contato_principal_nome && 'contato',
+        herd.usuario_id && 'responsável'
+      ].filter(Boolean).join(', ');
+      toast.success(
+        data.contato_vinculado
+          ? `Cliente cadastrado e vinculado ao contato${herdadoMsg ? ` (${herdadoMsg} herdados)` : ''}!`
+          : 'Cliente cadastrado!'
+      );
+      await queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      await queryClient.invalidateQueries({ queryKey: ['contatosFidelizados'] });
+      await queryClient.invalidateQueries({ queryKey: ['faturamentoPorCliente'] });
+    } catch (error) {
+      console.error('Erro ao cadastrar cliente a partir da NF:', error);
+      toast.error('Erro ao cadastrar cliente');
+    }
   };
 
   const handleExcluirCliente = async (clienteId) => {
@@ -783,10 +813,7 @@ export default function Clientes() {
         {aba === 'clientes' && clientesNaoCadastrados.length > 0 && (
           <ClientesNaoCadastrados
             clientes={clientesNaoCadastrados}
-            onCadastrar={(nome) => {
-              setEditingCliente({ razao_social: nome });
-              setShowForm(true);
-            }}
+            onCadastrar={handleCadastrarDeNF}
           />
         )}
 

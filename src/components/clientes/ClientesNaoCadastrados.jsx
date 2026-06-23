@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, Plus, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 
 const fmtMoeda = (v) =>
   (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -13,8 +13,18 @@ const fmtMoeda = (v) =>
  */
 export default function ClientesNaoCadastrados({ clientes = [], onCadastrar }) {
   const [aberto, setAberto] = useState(false);
+  const [cadastrando, setCadastrando] = useState(null); // nome em processamento
   const totalFaturado = clientes.reduce((s, c) => s + (c.totalFaturado || 0), 0);
   const visiveis = aberto ? clientes : clientes.slice(0, 6);
+
+  const handleClick = async (c) => {
+    setCadastrando(c.nome);
+    try {
+      await onCadastrar({ nome: c.nome, vendedor: c.vendedor });
+    } finally {
+      setCadastrando(null);
+    }
+  };
 
   return (
     <Card className="shadow-lg border-2 border-amber-200/70 bg-amber-50/40">
@@ -43,10 +53,15 @@ export default function ClientesNaoCadastrados({ clientes = [], onCadastrar }) {
               <Button
                 size="sm"
                 variant="outline"
+                disabled={cadastrando === c.nome}
                 className="shrink-0 ml-2 h-7 text-xs border-green-300 text-green-700 hover:bg-green-50"
-                onClick={() => onCadastrar(c.nome)}
+                onClick={() => handleClick(c)}
               >
-                <Plus className="w-3 h-3 mr-1" />
+                {cadastrando === c.nome ? (
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                ) : (
+                  <Plus className="w-3 h-3 mr-1" />
+                )}
                 Cadastrar
               </Button>
             </div>
