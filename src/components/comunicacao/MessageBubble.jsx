@@ -46,6 +46,9 @@ import { renderInternalDispatchLog } from './skills/internalDispatchLogSkill';
 import AcessosRapidosCard, { isAcessosRapidosMessage } from './AcessosRapidosCard';
 import { mobileEstiloMensagem } from './skills/mobileSkill';
 
+// Cache de blob URLs de áudio, por URL de origem (módulo-level, persiste entre remontagens)
+const audioBlobCache = new Map();
+
 // Player de áudio: nativo + botão de velocidade (v2) — memoizado para não remontar <audio> em re-render
 const AudioPlayer = React.memo(({ src }) => {
   const audioRef = React.useRef(null);
@@ -56,9 +59,12 @@ const AudioPlayer = React.memo(({ src }) => {
   // O storage devolve Content-Type: application/octet-stream e o navegador
   // recusa decodificar (player trava em 0:00). Baixamos o arquivo e recriamos
   // um Blob com MIME de áudio detectado pela assinatura (OggS / ftyp) → blob: URL decodifica sempre.
+  // Cache global de blobs por URL — sobrevive a remontagens do componente,
+  // então o player NUNCA regride para "processando" depois de já ter o áudio.
   React.useEffect(() => {
     if (!src || src === 'pending_download' || src === 'failed_download') return;
-    let revoked = false; let createdUrl = null;
+    if (audioBlobCache.has(src)) { setBlobUrl(audioBlobCache.get(src)); return; }
+    let cancelled = false;
     (async () => {
       try {
         const resp = await fetch(src);
@@ -68,13 +74,12 @@ const AudioPlayer = React.memo(({ src }) => {
         const mime = ascii === 'OggS' ? 'audio/ogg'
           : (sig[0] === 0x00 && sig[3] === 0x20) ? 'audio/mp4'
           : 'audio/mpeg';
-        createdUrl = URL.createObjectURL(new Blob([buf], { type: mime }));
-        if (!revoked) setBlobUrl(createdUrl);
-      } catch (e) {
-        if (!revoked) setBlobUrl(null); // fallback para src direto
-      }
+        const url = URL.createObjectURL(new Blob([buf], { type: mime }));
+        audioBlobCache.set(src, url);
+        if (!cancelled) setBlobUrl(url);
+      } catch (e) { /* mantém src direto como fallback */ }
     })();
-    return () => { revoked = true; if (createdUrl) URL.revokeObjectURL(createdUrl); };
+    return () => { cancelled = true; }; // NÃO revoga: o blob fica em cache para a próxima montagem
   }, [src]);
 
   const cycleSpeed = () => {
