@@ -162,48 +162,90 @@ export async function selecionarTemplate(base44, classificacao) {
 
 /**
  * Aplica roteamento por fidelização
+ * Regra: respeita o setor escolhido pelo contato; dentro do setor prioriza o
+ * atendente fidelizado, senão o último atendente do setor; nunca sobrescreve humano ativo.
  * @param {object} base44 - SDK
  * @param {object} thread - MessageThread
  * @param {object} contato - Contact
  * @returns {Promise<object>} - { success, setor?, atendente_id? }
  */
 export async function aplicarRoteamentoFidelizado(base44, thread, contato) {
-  const setorFidelizado = contato.atendente_fidelizado_vendas ? 'vendas' :
-                          contato.atendente_fidelizado_assistencia ? 'assistencia' :
-                          contato.atendente_fidelizado_financeiro ? 'financeiro' :
-                          contato.atendente_fidelizado_fornecedor ? 'fornecedor' : 'geral';
-  
   const campoFidelizado = {
     'vendas': 'atendente_fidelizado_vendas',
     'assistencia': 'atendente_fidelizado_assistencia',
     'financeiro': 'atendente_fidelizado_financeiro',
     'fornecedor': 'atendente_fidelizado_fornecedor'
   };
-  
-  let atendenteFidelizado = null;
-  const campo = campoFidelizado[setorFidelizado];
+
+  // 1. SETOR ALVO: respeita o setor que o contato ESCOLHEU; senão usa o do vínculo
+  const setorEscolhido = thread.pre_atendimento_setor_explicitamente_escolhido && thread.sector_id
+    ? thread.sector_id
+    : null;
+
+  const setorDoVinculo = contato.atendente_fidelizado_vendas ? 'vendas' :
+                         contato.atendente_fidelizado_assistencia ? 'assistencia' :
+                         contato.atendente_fidelizado_financeiro ? 'financeiro' :
+                         contato.atendente_fidelizado_fornecedor ? 'fornecedor' : 'geral';
+
+  const setorAlvo = setorEscolhido || setorDoVinculo;
+
+  // 2. ATENDENTE dentro do setor alvo
+  let atendenteId = null;
+
+  // 2a. Atendente fidelizado do setor alvo (prioridade máxima)
+  const campo = campoFidelizado[setorAlvo];
   if (campo && contato[campo]) {
+    atendenteId = contato[campo];
+  } else {
+    // 2b. Sem fidelizado nesse setor → último usuário que conversou QUE PERTENÇA ao setor alvo
     try {
-      atendenteFidelizado = await base44.asServiceRole.entities.User.get(contato[campo]);
+      const historico = Array.isArray(thread.atendentes_historico) ? thread.atendentes_historico : [];
+      if (historico.length > 0) {
+        const usuariosHist = await Promise.all(
+          historico.map(uid => base44.asServiceRole.entities.User.get(uid).catch(() => null))
+        );
+        // Percorre do mais recente para o mais antigo (histórico é append-only)
+        for (let i = usuariosHist.length - 1; i >= 0; i--) {
+          const u = usuariosHist[i];
+          if (u && u.attendant_sector === setorAlvo) {
+            atendenteId = u.id;
+            break;
+          }
+        }
+      }
     } catch (e) {}
+    // 2c. Nenhum do setor no histórico → deixa sem atribuição (cai na fila do setor)
   }
-  
+
+  // 3. GUARD: não sobrescrever humano ATIVO do MESMO setor alvo
+  const atualAindaValido = thread.assigned_user_id && (() => {
+    const lastHuman = thread.last_human_message_at ? new Date(thread.last_human_message_at) : null;
+    if (!lastHuman) return false;
+    const janelaH = (thread.assigned_user_id && thread.sector_id) ? 48 : 2;
+    const horas = (Date.now() - lastHuman.getTime()) / (1000 * 60 * 60);
+    return horas < janelaH && thread.sector_id === setorAlvo;
+  })();
+
   const threadUpdate = {
-    sector_id: setorFidelizado,
+    sector_id: setorAlvo,
     pre_atendimento_ativo: false,
     pre_atendimento_state: 'NAO_INICIADO'
   };
-  
-  if (atendenteFidelizado) {
-    threadUpdate.assigned_user_id = atendenteFidelizado.id;
+
+  // Só (re)atribui se NÃO há humano ativo válido do setor alvo
+  if (!atualAindaValido && atendenteId) {
+    threadUpdate.assigned_user_id = atendenteId;
+    const hist = Array.from(new Set([...(thread.atendentes_historico || []), atendenteId]));
+    threadUpdate.atendentes_historico = hist;
   }
-  
+
   await base44.asServiceRole.entities.MessageThread.update(thread.id, threadUpdate);
-  
+
   return {
     success: true,
-    setor: setorFidelizado,
-    atendente_id: atendenteFidelizado?.id || null
+    setor: setorAlvo,
+    atendente_id: atualAindaValido ? thread.assigned_user_id : (atendenteId || null),
+    preservou_humano_ativo: atualAindaValido
   };
 }
 
