@@ -101,6 +101,36 @@ Deno.serve(async (req) => {
     //   C → URL direta (se não for whatsapp.net criptografado)
     // ═══════════════════════════════════════════════════════════════════
 
+    // CAMINHO A: GET /message/download-url/{messageId} (endpoint oficial W-API)
+    // Usa o mediaId (= messageId) que o webhook sempre preenche. É o método
+    // recomendado pela W-API e o único confiável para áudio/PTT (.enc).
+    const mediaIdParaDownload = downloadSpec.mediaId || message_id;
+    if (!mediaUrl && mediaIdParaDownload) {
+      try {
+        const endpointA = `${baseUrl}/message/download-url/${mediaIdParaDownload}?instanceId=${instanceId}`;
+        console.log('[PERSISTIR-MIDIA-WAPI] 🔄 Caminho A (download-url):', endpointA);
+        const resp = await fetch(endpointA, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+        });
+        const respText = await resp.text();
+        console.log(`[PERSISTIR-MIDIA-WAPI] Caminho A status: ${resp.status} | body: ${respText.substring(0, 300)}`);
+        if (resp.ok) {
+          let data;
+          try { data = JSON.parse(respText); } catch(_) { data = {}; }
+          mediaUrl = data.fileLink || data.link || data.url || data.mediaUrl || null;
+          if (mediaUrl) {
+            caminhoUsado = 'A_download_url';
+            console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho A: link obtido');
+          } else {
+            console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho A: sem link. Keys:', Object.keys(data).join(','));
+          }
+        }
+      } catch (e) {
+        console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho A erro:', e.message);
+      }
+    }
+
     // CAMINHO B: POST /message/download-media com mediaKey + directPath
     if (!mediaUrl && downloadSpec.mediaKey && downloadSpec.directPath) {
       try {
