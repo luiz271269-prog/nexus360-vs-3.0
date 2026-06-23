@@ -160,18 +160,42 @@ Deno.serve(async (req) => {
 
     console.log(`[PERSISTIR-MIDIA-WAPI] 📥 Baixando via ${caminhoUsado}: ${mediaUrl.substring(0, 80)}`);
 
-    // Download em memória
+    // ═══════════════════════════════════════════════════════════════════
+    // SEGURANÇA (anti-SSRF + anti-vazamento de credencial):
+    // O fileLink da W-API aponta para um servidor de arquivos de terceira
+    // origem (ex: http://187.77.227.99:8080). NUNCA encaminhar o token
+    // W-API para esse host (vazaria a credencial em HTTP puro), e só baixar
+    // de hosts esperados (api.w-api.app, host da integração, ou o servidor
+    // de mídia que a própria W-API devolve).
+    // ═══════════════════════════════════════════════════════════════════
+    let mediaHost = null;
+    try { mediaHost = new URL(mediaUrl).hostname; } catch (_) {}
+    const hostBaseUrl = (() => { try { return new URL(baseUrl).hostname; } catch (_) { return null; } })();
+    const hostsPermitidos = new Set(['api.w-api.app', 'w-api.app']);
+    if (hostBaseUrl) hostsPermitidos.add(hostBaseUrl);
+    // O servidor de mídia da W-API responde como IP cru — aceitar apenas IPs
+    // (o link veio da própria W-API autenticada no Caminho B, não de input externo).
+    const ehIp = mediaHost && /^\d{1,3}(\.\d{1,3}){3}$/.test(mediaHost);
+    if (mediaHost && !hostsPermitidos.has(mediaHost) && !ehIp) {
+      console.error('[PERSISTIR-MIDIA-WAPI] ⛔ Host não permitido (anti-SSRF):', mediaHost);
+      await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
+      return Response.json({ success: false, error: `Host de mídia não permitido: ${mediaHost}`, marked_as: 'failed_download' }, { status: 200, headers });
+    }
+
+    // Download em memória — timeout curto (o connect-timeout real bate em ~10s;
+    // 60s só prendia o "Processando áudio..." sem ganho).
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
 
     let blob;
     let contentType = downloadSpec.mimetype || 'application/octet-stream';
 
     try {
+      // ✅ SEM Authorization: o fileLink é um servidor de arquivos distinto da
+      // API W-API. Encaminhar o Bearer aqui vazaria o token e não é exigido.
       const mediaResponse = await fetch(mediaUrl, {
         signal: controller.signal,
         headers: {
-          'Authorization': `Bearer ${token}`,
           'User-Agent': 'Nexus360-MediaDownloader/1.0'
         }
       });
@@ -186,8 +210,8 @@ Deno.serve(async (req) => {
       blob = new Blob([arrayBuffer], { type: contentType });
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      const errMsg = fetchError.name === 'AbortError' ? 'Timeout de 60s ao baixar mídia' : fetchError.message;
-      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Falha no download:', errMsg);
+      const errMsg = fetchError.name === 'AbortError' ? 'Timeout de 12s ao baixar mídia' : fetchError.message;
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Falha no download:', errMsg, '| causa:', fetchError.cause ? String(fetchError.cause) : 'n/a');
       await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
       return Response.json({ success: false, error: errMsg, marked_as: 'failed_download' }, { status: 200, headers });
     }
