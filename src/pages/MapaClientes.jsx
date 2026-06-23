@@ -3,10 +3,13 @@ import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip } from 'react-lea
 import 'leaflet/dist/leaflet.css';
 import { getMapaClientes } from '@/functions/getMapaClientes';
 import { coordenadaPara } from '@/components/mapa/coordenadasBR';
+import { corDoVendedor } from '@/components/mapa/coresVendedor';
+import RankingVendedoresMapa from '@/components/mapa/RankingVendedoresMapa';
+import FidelizadosVendedor from '@/components/mapa/FidelizadosVendedor';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Users, Building2, AlertTriangle, Loader2, DollarSign, FileText } from 'lucide-react';
+import { MapPin, Users, Building2, AlertTriangle, Loader2, DollarSign, FileText, UserCheck } from 'lucide-react';
 
 const fmtMoeda = (v) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 const fmtMes = (m) => {
@@ -21,6 +24,7 @@ export default function MapaClientes() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
   const [mes, setMes] = useState('todos');
+  const [vendedorSel, setVendedorSel] = useState('todos');
 
   useEffect(() => {
     let ativo = true;
@@ -47,13 +51,37 @@ export default function MapaClientes() {
     );
   }
 
-  const ufEntries = dados ? Object.entries(dados.porUF || {}).sort((a, b) => b[1] - a[1]) : [];
-  const pontos = dados
-    ? (dados.cidades || [])
-        .map(c => ({ ...c, coord: coordenadaPara(c.cidade, c.uf) }))
-        .filter(c => c.coord)
-    : [];
+  const vendedores = dados?.vendedores || [];
+
+  // Aplica filtro de vendedor: recalcula cidades/valor/clientes só daquele vendedor
+  const cidadesFiltradas = (dados?.cidades || [])
+    .map((c) => {
+      if (vendedorSel === 'todos') return c;
+      const clientes = (c.clientes || []).filter((cl) => cl.vendedor === vendedorSel);
+      if (clientes.length === 0) return null;
+      const valor = clientes.reduce((s, cl) => s + (cl.valor || 0), 0);
+      return { ...c, clientes, valor, porVendedor: { [vendedorSel]: valor } };
+    })
+    .filter(Boolean);
+
+  // UF a partir das cidades filtradas
+  const porUFCalc = {};
+  cidadesFiltradas.forEach((c) => { if (c.uf && c.uf !== '-') porUFCalc[c.uf] = (porUFCalc[c.uf] || 0) + 1; });
+  const ufEntries = Object.entries(porUFCalc).sort((a, b) => b[1] - a[1]);
+
+  const pontos = cidadesFiltradas
+    .map(c => {
+      // vendedor dominante da cidade (maior faturamento) define a cor do marcador
+      const vendDominante = Object.entries(c.porVendedor || {}).sort((a, b) => b[1] - a[1])[0]?.[0];
+      return { ...c, coord: coordenadaPara(c.cidade, c.uf), vendDominante };
+    })
+    .filter(c => c.coord);
   const maxValor = Math.max(1, ...pontos.map(p => p.valor));
+
+  // Faturamento total considerando o filtro
+  const faturamentoFiltrado = vendedorSel === 'todos'
+    ? (dados?.faturamento || 0)
+    : cidadesFiltradas.reduce((s, c) => s + c.valor, 0);
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
@@ -67,15 +95,26 @@ export default function MapaClientes() {
             <p className="text-sm text-slate-500">Baseado nas Notas Fiscais emitidas (Neural Fin Flow), mês a mês.</p>
           </div>
         </div>
-        <Select value={mes} onValueChange={setMes}>
-          <SelectTrigger className="w-full md:w-56"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os meses</SelectItem>
-            {(dados?.meses || []).map(m => (
-              <SelectItem key={m} value={m}>{fmtMes(m)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+          <Select value={vendedorSel} onValueChange={setVendedorSel}>
+            <SelectTrigger className="w-full md:w-48"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os vendedores</SelectItem>
+              {vendedores.map(v => (
+                <SelectItem key={v} value={v}>{v}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={mes} onValueChange={setMes}>
+            <SelectTrigger className="w-full md:w-48"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os meses</SelectItem>
+              {(dados?.meses || []).map(m => (
+                <SelectItem key={m} value={m}>{fmtMes(m)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {loading || !dados ? (
@@ -88,7 +127,7 @@ export default function MapaClientes() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Card className="p-4">
               <div className="flex items-center gap-2 text-slate-500 text-sm"><DollarSign className="w-4 h-4" /> Faturamento</div>
-              <div className="text-xl font-bold text-emerald-600 mt-1">{fmtMoeda(dados.faturamento)}</div>
+              <div className="text-xl font-bold text-emerald-600 mt-1">{fmtMoeda(faturamentoFiltrado)}</div>
             </Card>
             <Card className="p-4">
               <div className="flex items-center gap-2 text-slate-500 text-sm"><FileText className="w-4 h-4" /> Notas fiscais</div>
@@ -113,12 +152,14 @@ export default function MapaClientes() {
             <Card className="lg:col-span-2 p-0 overflow-hidden h-[520px]">
               <MapContainer center={[-27.5, -50.0]} zoom={6} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
                 <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                {pontos.map((p, i) => (
+                {pontos.map((p, i) => {
+                  const cor = corDoVendedor(p.vendDominante, vendedores);
+                  return (
                   <CircleMarker
                     key={i}
                     center={p.coord}
                     radius={8 + (p.valor / maxValor) * 24}
-                    pathOptions={{ color: '#ea580c', fillColor: '#f97316', fillOpacity: 0.55, weight: 2 }}
+                    pathOptions={{ color: cor, fillColor: cor, fillOpacity: 0.55, weight: 2 }}
                   >
                     <Tooltip direction="top">{p.cidade}/{p.uf} — {fmtMoeda(p.valor)}</Tooltip>
                     <Popup>
@@ -135,7 +176,8 @@ export default function MapaClientes() {
                       </div>
                     </Popup>
                   </CircleMarker>
-                ))}
+                  );
+                })}
               </MapContainer>
             </Card>
 
@@ -160,11 +202,62 @@ export default function MapaClientes() {
             </Card>
           </div>
 
+          {/* Legenda de cores por vendedor (só quando vendo todos) */}
+          {vendedorSel === 'todos' && vendedores.length > 0 && (
+            <Card className="p-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-slate-500 mr-1">Cores por vendedor:</span>
+                {vendedores.map((v) => (
+                  <span key={v} className="flex items-center gap-1 text-xs text-slate-700">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: corDoVendedor(v, vendedores) }} />
+                    {v}
+                  </span>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Ranking de vendedores por região + Fidelizados por vendedor */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <RankingVendedoresMapa cidades={cidadesFiltradas} vendedores={vendedores} />
+            <FidelizadosVendedor ranking={dados.fidelizadosRanking} />
+          </div>
+
+          {/* Contatos fidelizados localizados no mapa (por cidade/UF) */}
+          {(dados.fidelizadosCidades || []).length > 0 && (
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <UserCheck className="w-5 h-5 text-indigo-600" />
+                <h2 className="font-bold text-slate-900">Contatos fidelizados por cidade</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {dados.fidelizadosCidades.map((c, i) => (
+                  <div key={i} className="border rounded-lg p-3 bg-slate-50">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-800">{c.cidade}/{c.uf}</span>
+                      <Badge variant="outline" className="font-bold">{c.total}</Badge>
+                    </div>
+                    <ul className="mt-2 space-y-0.5">
+                      {c.contatos.slice(0, 5).map((ct, j) => (
+                        <li key={j} className="text-xs flex items-center gap-1.5 truncate">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${ct.diasInativo !== null && ct.diasInativo <= 7 ? 'bg-green-500' : 'bg-red-500'}`} />
+                          <span className="text-slate-700 truncate">{ct.nome}</span>
+                          <span className="text-slate-400 flex-shrink-0">· {ct.diasInativo !== null ? `${ct.diasInativo}d` : 's/ data'}</span>
+                        </li>
+                      ))}
+                      {c.contatos.length > 5 && <li className="text-xs text-slate-400">+{c.contatos.length - 5} mais</li>}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
           {/* Ranking por cidade */}
           <Card className="p-4">
-            <h2 className="font-bold text-slate-900 mb-3">Cidades ({dados.cidades.length})</h2>
+            <h2 className="font-bold text-slate-900 mb-3">Cidades ({cidadesFiltradas.length})</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {dados.cidades.map((c, i) => (
+              {cidadesFiltradas.map((c, i) => (
                 <div key={i} className="border rounded-lg p-3 bg-slate-50">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-slate-800">{c.cidade}/{c.uf}</span>
