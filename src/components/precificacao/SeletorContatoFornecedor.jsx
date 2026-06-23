@@ -53,18 +53,21 @@ export default function SeletorContatoFornecedor({ contato, onSelect }) {
     return (
       <div>
         <Label className="text-xs font-semibold bg-gradient-to-r from-pink-400 to-rose-400 bg-clip-text text-transparent leading-none flex items-center gap-1 mb-2">
-          <span className="text-pink-400">👤</span> Contato Vinculado
+          <span className="text-pink-400">👤</span> Contato vinculado
         </Label>
-        <div className="flex items-center gap-1">
-          <div className="flex-1 h-8 px-2 flex items-center bg-slate-800/50 border border-pink-500/30 rounded-md text-xs text-white truncate">
-            {contato.nome}
+        <div className="flex items-stretch gap-2 min-w-0">
+          <div className="flex-1 min-w-0 rounded-md border border-pink-500/30 bg-slate-800/50 px-3 py-2 text-white">
+            <div className="truncate text-sm font-medium">{contato.nome}</div>
+            <div className="truncate text-[11px] text-slate-300">
+              {[contato.empresa, contato.telefone].filter(Boolean).join(' · ') || 'Contato sem detalhes adicionais'}
+            </div>
           </div>
-          <Button size="icon" onClick={pedirAtualizacao} title="Pedir atualização via mensagem"
-            className="h-8 w-8 bg-gradient-to-br from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 shrink-0">
+          <Button size="icon" onClick={pedirAtualizacao} title="Abrir conversa"
+            className="h-10 w-10 bg-gradient-to-br from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 shrink-0">
             <MessageSquare className="w-4 h-4 text-white" />
           </Button>
           <Button size="icon" variant="ghost" onClick={() => onSelect(null)} title="Remover vínculo"
-            className="h-8 w-8 text-slate-400 hover:text-red-400 shrink-0">
+            className="h-10 w-10 text-slate-400 hover:text-red-400 shrink-0">
             <X className="w-4 h-4" />
           </Button>
         </div>
@@ -73,24 +76,24 @@ export default function SeletorContatoFornecedor({ contato, onSelect }) {
   }
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <Label className="text-xs font-semibold bg-gradient-to-r from-pink-400 to-rose-400 bg-clip-text text-transparent leading-none flex items-center gap-1 mb-2">
-        <span className="text-pink-400">👤</span> Contato (fornecedor)
+        <span className="text-pink-400">👤</span> Contato vinculado
       </Label>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2 min-w-0">
         <Input
-          placeholder="Buscar contato..."
+          placeholder="Buscar contato ou fornecedor..."
           value={termo}
           onChange={(e) => setTermo(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && buscar()}
-          className="h-8 text-xs px-2 py-1 bg-slate-800/50 border-pink-500/30 focus:border-pink-400 focus:ring-pink-400/50 text-white placeholder:text-slate-400" />
+          className="h-9 text-xs px-3 py-2 bg-slate-800/50 border-pink-500/30 focus:border-pink-400 focus:ring-pink-400/50 text-white placeholder:text-slate-400" />
         <Button size="icon" onClick={buscar} disabled={buscando}
-          className="h-8 w-8 bg-slate-700 hover:bg-slate-600 shrink-0">
+          className="h-9 w-9 bg-slate-700 hover:bg-slate-600 shrink-0">
           {buscando ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Search className="w-4 h-4 text-white" />}
         </Button>
       </div>
       {resultados.length > 0 && (
-        <div className="absolute z-50 mt-1 w-64 max-h-56 overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg shadow-2xl">
+        <div className="absolute z-50 mt-1 w-full min-w-[280px] max-h-56 overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg shadow-2xl">
           {resultados.map((c) => (
             <button key={c.id}
               onClick={() => { onSelect({ id: c.id, nome: c.nome, telefone: c.telefone, empresa: c.empresa || '' }); setResultados([]); setTermo(''); }}

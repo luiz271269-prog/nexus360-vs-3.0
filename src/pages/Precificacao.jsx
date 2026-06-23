@@ -290,47 +290,47 @@ export default function Precificacao() {
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <div className="flex-1 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 rounded-md border-2 border-white/50 shadow-lg relative overflow-hidden">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
+          <div className="bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 rounded-md border-2 border-white/50 shadow-lg relative overflow-visible min-w-0">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-indigo-500/20 rounded-full blur-2xl"></div>
             <ConfiguracaoPrecificacaoHeader
               config={configPrecificacao}
               onConfigChange={setConfigPrecificacao}
             />
           </div>
-          {podeImportar && <div className="bg-gradient-to-br from-white via-indigo-50/30 to-purple-50/50 rounded-md border-2 border-white/50 shadow-lg relative overflow-hidden">
+          {podeImportar && <div className="bg-gradient-to-br from-white via-indigo-50/30 to-purple-50/50 rounded-md border-2 border-white/50 shadow-lg relative overflow-visible min-w-0 xl:min-w-[360px]">
             <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-400/20 to-purple-500/20 rounded-full blur-2xl"></div>
-            <div className="p-1 relative z-10">
-              <div className="flex items-center gap-1 mb-1">
-                <div className="w-4 h-4 bg-gradient-to-br from-indigo-500 to-purple-600 rounded flex items-center justify-center">
+            <div className="p-3 relative z-10 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-5 h-5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded flex items-center justify-center shrink-0">
                   <Brain className="w-3 h-3 text-white" />
                 </div>
-                <h3 className="text-xs font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h3 className="text-sm font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   Importação & Análise
                 </h3>
                 <span className="text-xs text-slate-600">Cole dados ou Ctrl+V</span>
               </div>
-              <div className="flex items-center gap-1 mb-1">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <select
                   value={configPrecificacao.origemItem || 'catalogo_fornecedor'}
                   onChange={(e) => setConfigPrecificacao(prev => ({ ...prev, origemItem: e.target.value }))}
-                  className="text-xs border border-slate-300 rounded px-1 py-0.5 bg-white text-slate-700"
+                  className="h-9 text-xs border border-slate-300 rounded px-2 py-1 bg-white text-slate-700 min-w-0 sm:min-w-[180px]"
                   title="Origem dos itens importados (controle interno)"
                 >
                   <option value="catalogo_fornecedor">📦 Catálogo Fornecedor</option>
                   <option value="estoque_proprio">🏠 Estoque Próprio</option>
                 </select>
                 {(configPrecificacao.origemItem || 'catalogo_fornecedor') === 'catalogo_fornecedor' && (
-                  <label className="flex items-center gap-1 text-xs text-slate-600">
-                    Validade:
+                  <label className="flex items-center gap-2 text-xs text-slate-600 whitespace-nowrap">
+                    <span>Validade:</span>
                     <input
                       type="number"
                       min="1"
                       value={configPrecificacao.validadePautaDias ?? 30}
                       onChange={(e) => setConfigPrecificacao(prev => ({ ...prev, validadePautaDias: parseInt(e.target.value) || 30 }))}
-                      className="w-12 text-xs border border-slate-300 rounded px-1 py-0.5 bg-white text-slate-700"
+                      className="h-9 w-16 text-xs border border-slate-300 rounded px-2 py-1 bg-white text-slate-700"
                     />
-                    dias
+                    <span>dias</span>
                   </label>
                 )}
               </div>
