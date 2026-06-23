@@ -21,6 +21,7 @@ import MonitorWAL from '@/pages/MonitorWAL';
 import Emails from '@/pages/Emails';
 import InstagramPublicacao from '@/pages/InstagramPublicacao';
 import PortalCliente from '@/pages/PortalCliente';
+import MapaClientes from '@/pages/MapaClientes';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -163,6 +164,14 @@ const AuthenticatedApp = () => {
           element={
             <LayoutWrapper currentPageName="InstagramPublicacao">
               <InstagramPublicacao />
+            </LayoutWrapper>
+          } 
+        />
+        <Route 
+          path="/MapaClientes" 
+          element={
+            <LayoutWrapper currentPageName="MapaClientes">
+              <MapaClientes />
             </LayoutWrapper>
           } 
         />
