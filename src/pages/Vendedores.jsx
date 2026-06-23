@@ -10,6 +10,7 @@ import VendedorTable from "../components/vendedores/VendedorTable";
 import { toast } from "sonner";
 import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
 import AlertasInteligentesIA from '../components/global/AlertasInteligentesIA';
+import { listarUsuariosParaAtribuicao } from "@/functions/listarUsuariosParaAtribuicao";
 
 export default function Vendedores() {
   const [vendedores, setVendedores] = useState([]); // users com codigo preenchido
@@ -30,12 +31,13 @@ export default function Vendedores() {
       const user = await base44.auth.me();
       setUsuario(user);
 
-      const [todosUsuarios, vendasData, orcamentosData, interacoesData] = await Promise.all([
-        base44.entities.User.list(),
+      const [usuariosResp, vendasData, orcamentosData, interacoesData] = await Promise.all([
+        listarUsuariosParaAtribuicao({}).catch(() => ({ data: { usuarios: [] } })),
         base44.entities.Venda.list('-data_venda', 500),
         base44.entities.Orcamento.list('-data_orcamento', 500),
         base44.entities.Interacao.list('-data_interacao', 1000),
       ]);
+      const todosUsuarios = usuariosResp?.data?.usuarios || [];
 
       // Vendedores = Users que têm o campo "codigo" preenchido OU attendant_sector === 'vendas'
       const vendedoresData = todosUsuarios.filter(u => u.codigo || u.attendant_sector === 'vendas');

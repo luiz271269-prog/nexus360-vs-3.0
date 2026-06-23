@@ -48,6 +48,16 @@ Deno.serve(async (req) => {
         attendant_sector: u.attendant_sector,
         attendant_role: u.attendant_role,
         foto_url: u.foto_url || u.foto_perfil_url || null,  // foto de perfil para avatar nos contatos internos
+        // Campos de vendedor (usados na tela Gestão de Vendedores / metas)
+        codigo: u.codigo || null,
+        meta_mensal: u.meta_mensal || 0,
+        meta_ligacoes_diarias: u.meta_ligacoes_diarias || 0,
+        meta_whatsapp_diarios: u.meta_whatsapp_diarios || 0,
+        meta_emails_diarios: u.meta_emails_diarios || 0,
+        status_vendedor: u.status_vendedor || null,
+        carga_trabalho_atual: u.carga_trabalho_atual || 0,
+        capacidade_maxima: u.capacidade_maxima || 0,
+        telefone_ramal: u.telefone_ramal || null,
         _ordem_cadastro: index  // índice preservado para ordenação no frontend
       }));
 
