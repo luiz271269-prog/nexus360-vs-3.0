@@ -60,14 +60,26 @@ Deno.serve(async (req) => {
           ? (await base44.asServiceRole.entities.User.get(thread.assigned_user_id).catch(() => null))?.full_name || 'Equipe'
           : 'Equipe';
 
-        // Buscar ou criar cliente centralizado
+        // Buscar/criar cliente centralizado, enriquecendo com os dados do orçamento
+        // em rascunho do contato (CNPJ, endereço, cidade, UF, número) — dedup multi-chave.
         let clienteId = null;
         if (contato) {
+          const orcDados = await base44.asServiceRole.entities.Orcamento.filter(
+            { contact_id: contactId }, '-created_date', 1
+          ).catch(() => []);
+          const orc = orcDados[0] || {};
           try {
             const resCliente = await base44.asServiceRole.functions.invoke('getOrCreateCliente', {
-              razao_social: contato.empresa || contato.nome,
-              telefone: contato.telefone || '',
-              email: contato.email || '',
+              razao_social: orc.cliente_empresa || contato.empresa || orc.cliente_nome || contato.nome,
+              nome_fantasia: orc.cliente_empresa || contato.empresa || '',
+              cnpj: orc.cliente_cnpj || '',
+              codigo_externo: orc.numero_orcamento || '',
+              telefone: orc.cliente_telefone || contato.telefone || '',
+              email: orc.cliente_email || contato.email || '',
+              endereco: orc.cliente_endereco || '',
+              bairro: orc.cliente_bairro || '',
+              cidade: orc.cliente_cidade || '',
+              uf: orc.cliente_uf || '',
               usuario_id: thread.assigned_user_id || null,
               origem: 'WhatsApp'
             });

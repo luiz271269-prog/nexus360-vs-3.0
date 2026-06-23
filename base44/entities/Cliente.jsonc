@@ -14,6 +14,10 @@
       "type": "string",
       "description": "CNPJ da empresa"
     },
+    "codigo_externo": {
+      "type": "string",
+      "description": "C\u00f3digo interno/externo do cliente (ex: c\u00f3digo do ERP ou da nota fiscal) usado para deduplica\u00e7\u00e3o"
+    },
     "telefone": {
       "type": "string",
       "description": "Telefone principal"
