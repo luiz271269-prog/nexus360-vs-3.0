@@ -5,6 +5,7 @@ import { getNomeExibicao, normalizarNome } from "@/components/lib/vendedorSync";
 import BrutalCard from "@/components/metas/BrutalCard";
 import MetaVendedorCard from "@/components/metas/MetaVendedorCard";
 import EvolucaoReceitaChart from "@/components/metas/EvolucaoReceitaChart";
+import RankingVendedores from "@/components/metas/RankingVendedores";
 import { Target, TrendingUp, Loader2, Trophy } from "lucide-react";
 
 const fmt = (v) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -128,6 +129,14 @@ export default function PainelMetas() {
             {pctGeral}% <TrendingUp className="w-6 h-6" />
           </p>
         </BrutalCard>
+      </div>
+
+      {/* Ranking de performance — meta × realizado */}
+      <div>
+        <h2 className="font-black text-xl uppercase mb-3 bg-black text-white inline-block px-3 py-1 flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-yellow-400" /> Ranking de Performance
+        </h2>
+        <RankingVendedores vendedores={vendedores} />
       </div>
 
       {/* Evolução da receita */}
