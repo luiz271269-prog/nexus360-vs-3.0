@@ -195,6 +195,59 @@ export default function MediaRichMessage({ message }) {
         </div>
       );
 
+    case 'contact': {
+      // vCard compartilhado: metadata.vcard pode ser { displayName, vcard } ou um array
+      const vcardRaw = metadata?.vcard;
+      const vcards = Array.isArray(vcardRaw) ? vcardRaw : (vcardRaw ? [vcardRaw] : []);
+      const parseTelefone = (vc) => {
+        const texto = typeof vc === 'string' ? vc : (vc?.vcard || '');
+        const match = texto.match(/waid=\d+:([+\d\s()-]+)/) || texto.match(/TEL[^:]*:([+\d\s()-]+)/i);
+        return match ? match[1].trim() : '';
+      };
+      const getNome = (vc) => (typeof vc === 'string' ? '' : vc?.displayName) || 'Contato';
+
+      if (vcards.length === 0) {
+        return (
+          <div className="flex items-center gap-2 p-3 bg-white/10 rounded-lg text-sm">
+            <Phone className="w-5 h-5 text-emerald-500" />
+            <span>Contato compartilhado</span>
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-2">
+          {message.content && message.content !== '[Contato]' && (
+            <p className="text-sm leading-relaxed">{message.content}</p>
+          )}
+          {vcards.map((vc, index) => {
+            const nome = getNome(vc);
+            const telefone = parseTelefone(vc);
+            return (
+              <div key={index} className="flex items-center gap-3 p-3 bg-white/10 rounded-lg max-w-sm">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                  <Phone className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">{nome}</p>
+                  {telefone && <p className="text-xs text-slate-600 truncate">{telefone}</p>}
+                </div>
+                {telefone && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { window.location.href = `tel:${telefone.replace(/\s/g, '')}`; }}
+                  >
+                    Ligar
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
     case 'location':
       return (
         <div className="space-y-2">
