@@ -1142,54 +1142,28 @@ async function handleMessage(dados, payloadBruto, base44) {
     console.error(`[WAPI] ⚠️ Erro ao atualizar thread:`, updateError.message);
   }
 
-  // ✅ WORKER DE MÍDIA — só dispara se downloadSpec tem dados úteis
+  // ✅ WORKER DE MÍDIA — fire-and-forget (padronizado com Z-API).
+  // A mensagem já está salva como 'pending_download'. O worker baixa em
+  // background e atualiza a media_url quando concluir. NÃO usar await: o
+  // fileLink da W-API aponta para um servidor de arquivos HTTP lento, e
+  // bloquear o webhook esperando esse download travava a resposta e marcava
+  // failed_download em timeouts transitórios. Igual ao persistirMidiaZapi.
   if (dados.downloadSpec) {
-    const workerPayload = {
-      message_id: mensagem.id,
-      integration_id: integracaoId,
-      downloadSpec: dados.downloadSpec,
-      media_type: dados.mediaType,
-      filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
-    };
-    console.log('[WAPI] 🏛️ GERENTE: Disparando worker de mídia...', {
+    console.log('[WAPI] 🏛️ Disparando worker de mídia (fire-and-forget)...', {
       message_id: mensagem.id,
       integration_id: integracaoId,
       type: dados.downloadSpec.type,
       hasUrl: !!dados.downloadSpec.url,
       hasKeyPath: !!(dados.downloadSpec.mediaKey && dados.downloadSpec.directPath),
-      hasMediaId: !!dados.downloadSpec.mediaId,
-      mediaId_value: dados.downloadSpec.mediaId,
-      url_value: dados.downloadSpec.url || '(sem url)'
+      hasMediaId: !!dados.downloadSpec.mediaId
     });
-    // ✅ AWAIT + verificação de success: sem isso, um worker que falhasse ou
-    // travasse deixava a mensagem em pending_download para sempre. Agora, se o
-    // worker não confirmar sucesso, marcamos failed_download aqui (rede de segurança).
-    try {
-      const workerResp = await base44.asServiceRole.functions.invoke('persistirMidiaWapi', workerPayload);
-      const ok = workerResp?.data?.success === true;
-      if (ok) {
-        console.log(`[WAPI] ✅ Worker de mídia OK | msgId=${mensagem.id} | ${workerResp.data.stored_at}`);
-      } else {
-        console.error(`[WAPI] ❌ Worker de mídia sem sucesso | msgId=${mensagem.id} | err=${workerResp?.data?.error || 'sem resposta'}`);
-        // Se o worker não já marcou failed_download, garantir aqui (anti pending_download eterno)
-        const msgAtual = await base44.asServiceRole.entities.Message.get(mensagem.id).catch(() => null);
-        if (msgAtual && msgAtual.media_url === 'pending_download') {
-          await base44.asServiceRole.entities.Message.update(mensagem.id, {
-            media_url: 'failed_download',
-            metadata: { ...(msgAtual.metadata || {}), download_failed_reason: 'worker_sem_sucesso', download_failed_at: new Date().toISOString() }
-          }).catch(() => {});
-        }
-      }
-    } catch (e) {
-      console.error(`[WAPI] ❌ Erro ao aguardar worker de mídia | msgId=${mensagem.id}:`, e.message);
-      const msgAtual = await base44.asServiceRole.entities.Message.get(mensagem.id).catch(() => null);
-      if (msgAtual && msgAtual.media_url === 'pending_download') {
-        await base44.asServiceRole.entities.Message.update(mensagem.id, {
-          media_url: 'failed_download',
-          metadata: { ...(msgAtual.metadata || {}), download_failed_reason: `worker_invoke_error: ${e.message}`, download_failed_at: new Date().toISOString() }
-        }).catch(() => {});
-      }
-    }
+    base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
+      message_id: mensagem.id,
+      integration_id: integracaoId,
+      downloadSpec: dados.downloadSpec,
+      media_type: dados.mediaType,
+      filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+    }).catch(e => console.error(`[WAPI] ⚠️ Worker mídia erro:`, e?.message));
   } else if (mediaUrlInicial === 'failed_download') {
     console.warn(`[WAPI] ⚠️ MEDIA_FAILED | msgId=${mensagem.id} | type=${dados.mediaType} | Sem dados para download`);
   }
