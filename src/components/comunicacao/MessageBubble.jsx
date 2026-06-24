@@ -1583,10 +1583,12 @@ export default React.memo(function MessageBubble({
                   <div className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 overflow-hidden">
                     <Mic className="w-4 h-4 text-white" />
                   </div>
-                  {!message?.media_url || message?.media_url === 'pending_download' ? (() => {
-                  // Se passou mais de 3 minutos e ainda está pending → falhou
+                  {!message?.media_url || message?.media_url === 'pending_download' || message?.media_url === 'failed_download' ? (() => {
+                  // failed_download = download falhou definitivamente → indisponível direto.
+                  // pending_download há mais de 3 min sem resolver → tratar como indisponível.
+                  const falhou = message?.media_url === 'failed_download';
                   const msgAge = Date.now() - new Date(message.sent_at || message.created_date).getTime();
-                  const expirou = msgAge > 3 * 60 * 1000;
+                  const expirou = falhou || msgAge > 3 * 60 * 1000;
                   return (
                     <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
                       {expirou

@@ -9,8 +9,44 @@ import {
   Play,
   Image as ImageIcon,
   FileText,
-  MapPin
+  MapPin,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
+
+// Estados de status gravados no campo media_url quando o download da W-API
+// ainda não concluiu ou falhou — NÃO são URLs reais e não devem ser
+// renderizados como mídia tocável (causava player "0:00 / 0:00").
+const MEDIA_STATUS_PENDING = 'pending_download';
+const MEDIA_STATUS_FAILED = 'failed_download';
+
+function isMediaIndisponivel(url) {
+  return url === MEDIA_STATUS_PENDING || url === MEDIA_STATUS_FAILED;
+}
+
+function PlaceholderMidia({ url, mediaType }) {
+  const pendente = url === MEDIA_STATUS_PENDING;
+  const rotuloTipo = {
+    audio: 'Áudio', image: 'Imagem', video: 'Vídeo', document: 'Documento'
+  }[mediaType] || 'Mídia';
+
+  return (
+    <div className={`flex items-center gap-2 p-3 rounded-lg text-sm border ${
+      pendente
+        ? 'bg-amber-50 border-amber-200 text-amber-700'
+        : 'bg-slate-100 border-slate-200 text-slate-500'
+    }`}>
+      {pendente
+        ? <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+        : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
+      <span>
+        {pendente
+          ? `${rotuloTipo} sendo baixado…`
+          : `${rotuloTipo} indisponível (não foi possível baixar)`}
+      </span>
+    </div>
+  );
+}
 
 /**
  * Componente para renderizar mensagens com mídia rica
@@ -78,6 +114,19 @@ export default function MediaRichMessage({ message }) {
             </Card>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  // Mídia ainda não baixada / falha de download: mostrar placeholder claro
+  // em vez de um player/imagem quebrado.
+  if (['image', 'video', 'audio', 'document'].includes(media_type) && isMediaIndisponivel(media_url)) {
+    return (
+      <div className="space-y-2">
+        {message.content && (
+          <p className="text-sm leading-relaxed">{message.content}</p>
+        )}
+        <PlaceholderMidia url={media_url} mediaType={media_type} />
       </div>
     );
   }
