@@ -211,9 +211,22 @@ Deno.serve(async (req) => {
     } catch (fetchError) {
       clearTimeout(timeoutId);
       const errMsg = fetchError.name === 'AbortError' ? 'Timeout de 12s ao baixar mídia' : fetchError.message;
-      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Falha no download:', errMsg, '| causa:', fetchError.cause ? String(fetchError.cause) : 'n/a');
-      await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
-      return Response.json({ success: false, error: errMsg, marked_as: 'failed_download' }, { status: 200, headers });
+      console.error('[PERSISTIR-MIDIA-WAPI] ❌ Falha no download:', errMsg, '| fileLink:', mediaUrl, '| host:', mediaHost, '| causa:', fetchError.cause ? String(fetchError.cause) : 'n/a');
+      // Registrar o fileLink/host exato que a W-API devolveu — evidência para o suporte W-API
+      // (host de mídia inacessível, ex: IP privado HTTP). Causa-raiz é de infraestrutura, não de código.
+      let _mAtual;
+      try { _mAtual = await base44.asServiceRole.entities.Message.get(message_id); } catch (_) {}
+      await base44.asServiceRole.entities.Message.update(message_id, {
+        media_url: 'failed_download',
+        metadata: {
+          ...(_mAtual?.metadata || {}),
+          download_failed_reason: errMsg,
+          download_failed_filelink: mediaUrl,
+          download_failed_host: mediaHost,
+          download_failed_at: new Date().toISOString()
+        }
+      });
+      return Response.json({ success: false, error: errMsg, failed_filelink: mediaUrl, failed_host: mediaHost, marked_as: 'failed_download' }, { status: 200, headers });
     }
 
     // Validação de tamanho
