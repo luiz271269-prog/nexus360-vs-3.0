@@ -132,6 +132,24 @@ const jsonOk = (data, extra = {}) =>
 const jsonErr = (error, status = 500) =>
   Response.json({ success: false, error }, { status, headers: corsHeaders });
 
+// ============================================================================
+// ✅ SEGURANÇA DE LOG: redigir campos sensíveis antes de imprimir o payload.
+// Remove messageSecret, thumbnails base64 e URLs assinadas (perfil/mídia)
+// para não vazar credenciais/dados pessoais nos logs do webhook.
+// ============================================================================
+function redigirPayloadParaLog(payload) {
+  let s;
+  try { s = JSON.stringify(payload); } catch { return '[unserializable]'; }
+  return s
+    .replace(/"messageSecret":"[^"]*"/g, '"messageSecret":"[REDIGIDO]"')
+    .replace(/"e2EeMediaKey":"[^"]*"/g, '"e2EeMediaKey":"[REDIGIDO]"')
+    .replace(/"mediaKey":"[^"]*"/g, '"mediaKey":"[REDIGIDO]"')
+    .replace(/"JPEGThumbnail":"[^"]*"/g, '"JPEGThumbnail":"[thumb]"')
+    .replace(/"jpegThumbnail":"[^"]*"/g, '"jpegThumbnail":"[thumb]"')
+    .replace(/"(profilePicture|profilePicThumbObj|eurl|URL|url|directPath|fileLink)":"https?:\/\/[^"]*"/g, '"$1":"[url]"')
+    .substring(0, 1500);
+}
+
 // phoneNormalizer v2.0 — canônica sincronizada em todos os arquivos
 // Cobre: celular BR (13 dígitos), celular sem 9 (12), fixo (12), números curtos (8+)
 function normalizarTelefone(telefone) {
@@ -1303,7 +1321,7 @@ Deno.serve(async (req) => {
     if (!body) return jsonOk({ ignored: true });
     payload = JSON.parse(body);
     console.log('[WAPI] 📥 Evento:', payload.event, '| Tipo:', payload.type);
-    console.log('[WAPI] 📥 Carga útil:', JSON.stringify(payload).substring(0, 1500));
+    console.log('[WAPI] 📥 Carga útil:', redigirPayloadParaLog(payload));
   } catch (e) {
     return jsonErr('JSON invalido', 200);
   }
