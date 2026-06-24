@@ -185,10 +185,18 @@ function isSamePhone(a, b) {
 // Captura url||link (Auto Download da Whapi) e mediaId como fontes adicionais.
 // ============================================================================
 function buildDownloadSpec(type, msg, extra = {}) {
-  const url        = msg?.url || msg?.link || extra.url || null;
-  const mediaKey   = msg?.mediaKey   || null;
-  const directPath = msg?.directPath || null;
-  const mediaId    = msg?.mediaId || msg?.id || extra.mediaId || null;
+  // ✅ FIX URL maiúsculo: a W-API entrega o link de mídia em campos com
+  // capitalização variável (URL, Url, mediaUrl, fileLink, deprecatedMms3Url).
+  // Antes só líamos msg.url/msg.link → hasUrl:false em payloads válidos.
+  const url        = msg?.url || msg?.URL || msg?.Url ||
+                     msg?.link || msg?.Link ||
+                     msg?.mediaUrl || msg?.mediaURL ||
+                     msg?.fileLink || msg?.fileUrl ||
+                     msg?.deprecatedMms3Url ||
+                     extra.url || null;
+  const mediaKey   = msg?.mediaKey   || msg?.MediaKey   || null;
+  const directPath = msg?.directPath || msg?.DirectPath || null;
+  const mediaId    = msg?.mediaId || msg?.MediaId || msg?.id || extra.mediaId || null;
 
   const hasUrl     = !!url;
   const hasKeyPath = !!(mediaKey && directPath);
@@ -407,10 +415,12 @@ function normalizarPayload(payload) {
     } else if (msgContent.audioMessage || msgContent.pttMessage) {
       mediaType = 'audio';
       const audioMsg = msgContent.audioMessage || msgContent.pttMessage;
-      conteudo = audioMsg?.ptt ? '🎤 [Áudio de voz]' : '🎤 [Áudio recebido]';
+      // ✅ FIX PTT maiúsculo: W-API entrega "PTT" (maiúsculo), não "ptt"
+      const ehPtt = audioMsg?.ptt ?? audioMsg?.PTT ?? false;
+      conteudo = ehPtt ? '🎤 [Áudio de voz]' : '🎤 [Áudio recebido]';
 
       downloadSpec = buildDownloadSpec('audio', audioMsg, {
-        isPtt: audioMsg?.ptt || false,
+        isPtt: ehPtt,
         mediaId: audioMsg?.mediaId || audioMsg?.id || payload.mediaId || payload.messageId || null
       });
 
@@ -1148,7 +1158,8 @@ async function handleMessage(dados, payloadBruto, base44) {
       hasUrl: !!dados.downloadSpec.url,
       hasKeyPath: !!(dados.downloadSpec.mediaKey && dados.downloadSpec.directPath),
       hasMediaId: !!dados.downloadSpec.mediaId,
-      mediaId_value: dados.downloadSpec.mediaId
+      mediaId_value: dados.downloadSpec.mediaId,
+      url_value: dados.downloadSpec.url || '(sem url)'
     });
     // ✅ AWAIT + verificação de success: sem isso, um worker que falhasse ou
     // travasse deixava a mensagem em pending_download para sempre. Agora, se o
