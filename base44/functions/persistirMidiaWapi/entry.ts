@@ -127,6 +127,36 @@ Deno.serve(async (req) => {
     const token = integracao.api_key_provider;
     const baseUrl = (integracao.base_url_provider || 'https://api.w-api.app/v1').replace(/\/$/, '');
 
+    // ═══════════════════════════════════════════════════════════════════
+    // GUARD DE SESSÃO: a W-API só consegue baixar mídia .enc com a instância
+    // CONECTADA (sessão ativa do WhatsApp Web). Se estiver desconectada,
+    // o WhatsApp devolve 401 e o download é impossível — diagnóstico claro
+    // em vez de "host inacessível" genérico. (Diferente do Z-API, que entrega
+    // URL pública no webhook e não depende de sessão para o download.)
+    // ═══════════════════════════════════════════════════════════════════
+    try {
+      const statusResp = await fetch(
+        `${baseUrl}/instance/status-instance?instanceId=${integracao.instance_id_provider}`,
+        { method: 'GET', headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      if (statusResp.ok) {
+        const statusData = await statusResp.json();
+        if (statusData?.connected === false) {
+          console.error('[PERSISTIR-MIDIA-WAPI] ⛔ Instância W-API DESCONECTADA — download de mídia impossível até reconectar (QR Code).');
+          await marcarFalha(message_id, 'Instância W-API desconectada (connected=false) — reconecte a instância (QR Code) para baixar mídias', { wapi_desconectada: true });
+          return Response.json({
+            success: false,
+            error: 'Instância W-API desconectada — reconecte (QR Code) para baixar mídias',
+            message_id,
+            marked_as: 'failed_download',
+            wapi_connected: false
+          }, { status: 200, headers });
+        }
+      }
+    } catch (e) {
+      console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Não foi possível verificar status da instância:', e.message);
+    }
+
     // ✅ LOG DIAGNÓSTICO: confirmar que pegou a integração W-API correta
     console.log('[PERSISTIR-MIDIA-WAPI] 🔍 INTEGRAÇÃO ENCONTRADA:', {
       integration_id,
