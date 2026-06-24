@@ -112,43 +112,40 @@ Deno.serve(async (req) => {
         }
 
         if (!hasAssigned) {
-          // 🚫 ROTA APOSENTADA (Tipo A) — decisão B. O disparo proativo chamava
-          // preAtendimentoHandler (inexistente) e nunca produziu efeito; o inbound
-          // cobre o pipeline. Threads sem atendente já saíam por continue em todos
-          // os caminhos abaixo, então pular aqui NÃO altera o Tipo D (só hasAssigned).
-          continue;
+          // ── TIPO A (RECUPERAÇÃO) — thread órfã sem atendente, presa em NEW/INIT ──
+          // Só recupera threads que NUNCA completaram o pré-atendimento (routing_stage
+          // NEW/null) e estão idle >30min. Threads em WAITING_* já foram filtradas (Tipo B).
+          // Redispara a skillPreAtendimentos ATUAL (não a preAtendimentoHandler antiga).
+          const stageOrfa = !thread.routing_stage || thread.routing_stage === 'NEW';
+          if (!stageOrfa) continue;
 
-          const refDate = lastInboundAt || lastMsgAt; // eslint-disable-line no-unreachable
-          if (!refDate || refDate > thresholdA) {
-            continue;
-          }
+          const refDate = lastInboundAt || lastMsgAt;
+          if (!refDate || refDate > thresholdA) continue;
 
-          // ✅ FIX: Buscar Contact (sem Integration paralela — adiciona timeout)
-           const contact = await base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null);
-           if (!contact) continue;
-
-           // Use existing integration or skip
-           const integrationId = thread.whatsapp_integration_id || null;
+          const integrationId = thread.whatsapp_integration_id || null;
           if (!integrationId) {
             console.warn(`[WATCHDOG v3] ⚠️ Sem integração para thread ${thread.id}`);
             continue;
           }
 
-          console.log(`[WATCHDOG v3] 🎯 Tipo A: disparando preAtendimento para ${contact.nome}`);
+          // Buscar a última mensagem inbound do contato para reprocessar com conteúdo
+          const ultimaInbound = await base44.asServiceRole.entities.Message.filter({
+            thread_id: thread.id,
+            sender_type: 'contact'
+          }, '-created_date', 1).catch(() => []);
+          const msgOrfa = ultimaInbound?.[0] || null;
 
-          await base44.asServiceRole.entities.MessageThread.update(thread.id, {
-            pre_atendimento_state: 'INIT',
-            pre_atendimento_ativo: true,
-            pre_atendimento_timeout_at: null
-          });
+          console.log(`[WATCHDOG v3] 🎯 Tipo A: reprocessando skillPreAtendimentos para thread órfã ${thread.id}`);
 
-          // Fire-and-forget: não aguardar resposta
-          base44.asServiceRole.functions.invoke('preAtendimentoHandler', {
+          // Fire-and-forget: redispara o motor correto atual
+          base44.asServiceRole.functions.invoke('skillPreAtendimentos', {
             thread_id: thread.id,
             contact_id: thread.contact_id,
-            whatsapp_integration_id: integrationId,
-            user_input: { type: 'proactive', content: '' }
-          }).catch(e => console.warn(`[WATCHDOG v3] preAtendimento async falhou: ${e.message}`));
+            integration_id: integrationId,
+            message_id: msgOrfa?.id || null,
+            message_content: msgOrfa?.content || thread.last_message_content || '',
+            context: { thread_assigned: false, human_active: false, novo_ciclo: false }
+          }).catch(e => console.warn(`[WATCHDOG v3] skillPreAtendimentos async falhou: ${e.message}`));
 
           results.tipoA_ura_disparada++;
           continue;

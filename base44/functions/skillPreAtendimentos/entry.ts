@@ -2006,6 +2006,28 @@ NUNCA mencione nomes de atendentes. Tom profissional e humano.`
         const threadCleanup = await _base44ForCleanup.asServiceRole.entities.MessageThread.get(_payloadForCleanup.thread_id).catch(() => ({ id: _payloadForCleanup.thread_id, contact_id: _payloadForCleanup.contact_id }));
         await liberarEstadoThread(_base44ForCleanup, threadCleanup, 'catch_fatal_skill');
         console.log(`[SKILL-PRE-ATEND] 🧹 Cleanup pós-erro-fatal executado (thread ${_payloadForCleanup.thread_id})`);
+
+        // RECUPERAÇÃO: se a thread caiu no erro fatal SEM atendente atribuído,
+        // o contato ficaria órfão em "Não Atribuídas" sem retry. Enfileira um
+        // WorkQueueItem para o watchdog reprocessar (idempotente: só 1 aberto).
+        if (!threadCleanup?.assigned_user_id) {
+          const jaTemItem = await _base44ForCleanup.asServiceRole.entities.WorkQueueItem.filter({
+            thread_id: _payloadForCleanup.thread_id,
+            status: { $in: ['open', 'in_progress'] }
+          }, '-created_date', 1).catch(() => []);
+          if (!jaTemItem.length) {
+            await _base44ForCleanup.asServiceRole.entities.WorkQueueItem.create({
+              contact_id: _payloadForCleanup.contact_id,
+              thread_id: _payloadForCleanup.thread_id,
+              tipo: 'sem_atendente',
+              reason: 'skill_fatal_error',
+              severity: 'high',
+              status: 'open',
+              notes: `Pré-atendimento abortou por erro fatal: ${error.message?.substring(0, 200)}`
+            }).catch(() => {});
+            console.log(`[SKILL-PRE-ATEND] 📋 WorkQueueItem criado para reprocessamento (thread órfã)`);
+          }
+        }
       } catch (cleanupErr) {
         console.error('[SKILL-PRE-ATEND] 🔴 Cleanup também falhou:', cleanupErr.message);
       }
