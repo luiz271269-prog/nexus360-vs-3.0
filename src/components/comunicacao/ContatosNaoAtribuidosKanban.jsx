@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Loader2,
   User,
+  CheckCheck,
   Clock,
   MessageSquare,
   X,
@@ -214,10 +215,11 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], con
             setCarregandoMensagens(false);
           }
         }}
-        className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${
-          estaSelecionado ? 'bg-orange-100 border-l-4 border-l-orange-500' : ''
+        className={`px-2 py-2 flex items-center gap-3 cursor-pointer transition-all border-b border-slate-100 border-l-4 border-l-green-400 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 ${
+          estaSelecionado ? 'bg-orange-100 border-l-orange-500' : ''
         }`}
       >
+        {/* Checkbox de seleção */}
         <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           <Checkbox
             checked={estaSelecionado}
@@ -225,63 +227,52 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], con
           />
         </div>
 
+        {/* Avatar (padrão ChatSidebar) */}
         <div className="relative flex-shrink-0">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
-            {contato.nome?.charAt(0)?.toUpperCase() || '?'}
+          <div className="relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ring-2 ring-offset-1 ring-green-400 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500">
+            {contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ? (
+              <img
+                src={contato.foto_perfil_url}
+                alt={nomeExibicao}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.parentElement.textContent = (nomeExibicao.charAt(0) || '?').toUpperCase();
+                }}
+              />
+            ) : (
+              (nomeExibicao.charAt(0) || '?').toUpperCase()
+            )}
           </div>
         </div>
 
         <div className="flex-1 min-w-0">
-           <div className="flex items-center justify-between gap-2 mb-0.5">
-             <h3 className="font-semibold truncate text-sm text-slate-900">
-               {nomeExibicao}
-             </h3>
-             {(thread.unread_count > 0 || thread.total_mensagens > 0) && (
-               <div className="flex items-center gap-0.5 flex-shrink-0">
-                 {thread.unread_count > 0 && (
-                   <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full shadow-md">
-                     💬 {thread.unread_count}
-                   </span>
-                 )}
-                 {thread.total_mensagens > 0 && (
-                   <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500 text-white text-[10px] font-bold rounded-full shadow-md">
-                     ✓ {thread.total_mensagens}
-                   </span>
-                 )}
-               </div>
-             )}
-           </div>
-
-           <p className="text-xs text-slate-500 truncate mb-0.5 flex items-center gap-1">
-             {(() => {
-               if (thread.last_message_sender === 'user') {
-                 if (thread.read_at) {
-                   return <span className="text-blue-600 font-bold">✓✓</span>;
-                 } else if (thread.delivered_at) {
-                   return <span className="text-slate-400">✓</span>;
-                 } else {
-                   return <span className="text-slate-400">📤</span>;
-                 }
-               }
-               return <Clock className="w-3 h-3 flex-shrink-0" />;
-             })()}
-             {formatarDataUltimaMensagem(thread.last_inbound_at || thread.last_message_at)}
-           </p>
-
-          {contato.tags && contato.tags.length > 0 && (
-            <div className="flex items-center gap-0.5 flex-wrap">
-              {contato.tags.slice(0, 3).map((tag) => (
-                <Badge key={tag} className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[8px] px-1.5 py-0 h-4">
-                  {tag}
-                </Badge>
-              ))}
-              {contato.tags.length > 3 && (
-                <span className="text-[8px] text-slate-500 font-semibold">+{contato.tags.length - 3}</span>
-              )}
+          {/* Linha 1: Nome + Horário (padrão ChatSidebar) */}
+          <div className="flex items-center justify-between mb-0.5">
+            <div className="flex items-center gap-1 min-w-0 flex-1">
+              <h3 className="font-semibold truncate text-sm text-slate-900">
+                {nomeExibicao}
+              </h3>
             </div>
-          )}
+            <span className="text-[10px] flex-shrink-0 ml-2 text-slate-400">
+              {formatarDataUltimaMensagem(thread.last_inbound_at || thread.last_message_at)}
+            </span>
+          </div>
 
-          <div className="flex items-center gap-0.5 flex-wrap mt-0.5">
+          {/* Linha 2: Preview da última mensagem (padrão ChatSidebar) */}
+          <p className="text-xs truncate flex items-center gap-1 text-slate-500">
+            {thread.last_message_sender === 'user' ? (
+              <CheckCheck className="w-3 h-3 text-slate-400 flex-shrink-0" />
+            ) : (
+              <Clock className="w-3 h-3 flex-shrink-0" />
+            )}
+            <span className="truncate">
+              {thread.last_message_content || 'Nova mensagem'}
+            </span>
+          </p>
+
+          {/* Linha 3: Badges (Tipo + Sem atrib.) + botão Corrigir — estilo ChatSidebar */}
+          <div className="flex items-center gap-1 mt-1 overflow-hidden">
             {(() => {
               const tipoContato = contato.tipo_contato || 'novo';
               const tiposConfig = {
@@ -293,14 +284,14 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], con
               };
               const cfg = tiposConfig[tipoContato] || tiposConfig['novo'];
               return (
-                <span className={`inline-flex items-center gap-0.5 px-1 py-0 rounded-full text-[9px] font-semibold text-white ${cfg.bg} shadow-sm`}>
+                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${cfg.bg} shadow-sm`}>
                   {cfg.emoji} {cfg.label}
                 </span>
               );
             })()}
 
-            <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded-full text-[9px] font-semibold text-white bg-red-500 shadow-sm">
-              <AlertTriangle className="w-2 h-2" />
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white bg-red-500 shadow-sm">
+              <AlertTriangle className="w-3 h-3" />
               Sem atrib.
             </span>
 
@@ -311,7 +302,7 @@ export default function ContatosNaoAtribuidosKanban({ usuario, threads = [], con
                 e.stopPropagation();
                 abrirDetalhesParaCorrigir(thread, contato);
               }}
-              className="ml-auto h-5 px-2 text-[8px] font-bold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded shadow-md"
+              className="ml-auto h-5 px-2 text-[9px] font-bold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded shadow-md flex-shrink-0"
               title="Abrir detalhes e diagnóstico do contato"
             >
               🔧 Corrigir
