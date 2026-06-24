@@ -9,7 +9,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 //     segurança anti-SSRF mantidas intactas.
 // ============================================================================
 
-const VERSION = 'v9.0.0-PADRONIZADO-ZAPI';
+const VERSION = 'v10.0.0-FILELINK-HOST-OFICIAL';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const DOWNLOAD_TIMEOUT = 30000; // 30s (igual ao Z-API)
 const RESOLVE_TIMEOUT = 20000;  // 20s — POST que resolve o fileLink na W-API
@@ -43,6 +43,32 @@ function sanitizeFilename(name) {
     .replace(/_{2,}/g, '_')
     .replace(/^_+|_+$/g, '')
     .substring(0, 150);
+}
+
+// ============================================================================
+// ✅ v10: NORMALIZAR fileLink PARA O HOST OFICIAL (docs.w-api.app)
+// A doc oficial entrega o fileLink como https://api.w-api.app/media/file/...
+// Porém, em alguns retornos, a W-API devolve um host legado em IP cru HTTP
+// (ex: http://187.77.227.99:8080/media/file/...) — esse servidor secundário
+// é intermitente e causa timeout no download. Quando detectamos o padrão
+// "/media/file/" servido por IP cru/HTTP, reescrevemos para o domínio oficial
+// HTTPS, que serve o MESMO arquivo de forma estável. Path/query preservados.
+// ============================================================================
+const WAPI_OFFICIAL_MEDIA_HOST = 'api.w-api.app';
+function normalizarFileLinkWapi(link) {
+  try {
+    const u = new URL(link);
+    const ehIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(u.hostname);
+    const ehMediaFile = u.pathname.includes('/media/file/');
+    // Só reescreve quando é o servidor de mídia (path /media/file/) entregue
+    // por IP cru ou HTTP — mantém qualquer link já em domínio HTTPS intacto.
+    if (ehMediaFile && (ehIp || u.protocol === 'http:')) {
+      const reescrito = `https://${WAPI_OFFICIAL_MEDIA_HOST}${u.pathname}${u.search}`;
+      console.log(`[PERSISTIR-MIDIA-WAPI] 🔁 fileLink reescrito p/ host oficial: ${u.host} → ${WAPI_OFFICIAL_MEDIA_HOST}`);
+      return reescrito;
+    }
+  } catch (_) { /* link inválido → devolve original */ }
+  return link;
 }
 
 Deno.serve(async (req) => {
@@ -222,6 +248,8 @@ Deno.serve(async (req) => {
           let data;
           try { data = JSON.parse(respText); } catch(_) { data = {}; }
           mediaUrl = data.fileLink || data.link || data.url || data.mediaUrl || null;
+          // ✅ v10: reescrever host legado/IP-cru para o domínio oficial HTTPS estável
+          if (mediaUrl) mediaUrl = normalizarFileLinkWapi(mediaUrl);
           if (mediaUrl) {
             caminhoUsado = 'B_mediaKey_directPath';
             console.log('[PERSISTIR-MIDIA-WAPI] ✅ Caminho B: link obtido');
