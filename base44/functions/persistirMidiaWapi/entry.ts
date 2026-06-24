@@ -1,13 +1,48 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 // ============================================================================
-// PERSISTIR MÍDIA W-API - v8.0.0-BASE44-UPLOAD
+// PERSISTIR MÍDIA W-API - v9.0.0-PADRONIZADO-ZAPI
 // ============================================================================
-// v8: Remove dependência do Supabase. Usa base44.asServiceRole.integrations.Core.UploadFile
-//     igual ao padrão da função legada que funcionava. createClientFromRequest(req) + SDK 0.7.1.
+// v9: Padronizado ao nível do persistirMidiaZapi — timeout 30s, SDK 0.8.31,
+//     helpers robustos de extensão/sanitização e preservação de metadata em
+//     TODOS os pontos de failed_download. Lógica de download (cascata B/C) e
+//     segurança anti-SSRF mantidas intactas.
 // ============================================================================
 
-const VERSION = 'v8.0.0-BASE44-UPLOAD';
+const VERSION = 'v9.0.0-PADRONIZADO-ZAPI';
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+const DOWNLOAD_TIMEOUT = 30000; // 30s (igual ao Z-API)
+
+// Mapas de extensão/MIME (padrão do persistirMidiaZapi)
+const MIME_MAP = {
+  'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+  'video/mp4': 'mp4', 'video/3gpp': '3gp',
+  'audio/ogg': 'ogg', 'audio/ogg; codecs=opus': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/amr': 'amr', 'audio/wav': 'wav',
+  'application/pdf': 'pdf', 'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/zip': 'zip', 'text/plain': 'txt'
+};
+const DEFAULT_EXT_BY_TYPE = { image: 'jpg', video: 'mp4', audio: 'ogg', document: 'pdf', sticker: 'webp' };
+
+function getFileExtension(mimetype, filename, mediaType) {
+  if (filename && filename.includes('.')) {
+    const ext = filename.split('.').pop().toLowerCase();
+    if (ext && ext.length >= 2 && ext.length <= 5 && /^[a-z0-9]+$/i.test(ext)) return ext;
+  }
+  const mimeBase = (mimetype || '').split(';')[0].trim();
+  if (MIME_MAP[mimetype]) return MIME_MAP[mimetype];
+  if (MIME_MAP[mimeBase]) return MIME_MAP[mimeBase];
+  return DEFAULT_EXT_BY_TYPE[mediaType] || 'bin';
+}
+
+function sanitizeFilename(name) {
+  return (name || '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .substring(0, 150);
+}
 
 Deno.serve(async (req) => {
   const headers = {
@@ -26,6 +61,26 @@ Deno.serve(async (req) => {
   // ✅ BUG FIX #1: Criar cliente ANTES de ler body (evita consumo do stream)
   const base44 = createClientFromRequest(req);
   console.log('[PERSISTIR-MIDIA-WAPI] ✅ Cliente criado via createClientFromRequest');
+
+  // Helper: marca failed_download preservando metadata existente (padronização)
+  const marcarFalha = async (msgId, motivo, extra = {}) => {
+    if (!msgId) return;
+    let atual;
+    try { atual = await base44.asServiceRole.entities.Message.get(msgId); } catch (_) {}
+    try {
+      await base44.asServiceRole.entities.Message.update(msgId, {
+        media_url: 'failed_download',
+        metadata: {
+          ...(atual?.metadata || {}),
+          download_failed_reason: motivo,
+          download_failed_at: new Date().toISOString(),
+          ...extra
+        }
+      });
+    } catch (e) {
+      console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Não conseguiu marcar failed_download:', e.message);
+    }
+  };
 
   // Ler body DEPOIS de criar cliente
   let bodyText;
@@ -147,9 +202,7 @@ Deno.serve(async (req) => {
     // Cascata esgotada sem URL
     if (!mediaUrl) {
       console.error('[PERSISTIR-MIDIA-WAPI] ❌ Cascata esgotada sem URL. Marcando failed_download.');
-      await base44.asServiceRole.entities.Message.update(message_id, {
-        media_url: 'failed_download'
-      });
+      await marcarFalha(message_id, 'Cascata esgotada: sem url/mediaKey/directPath');
       return Response.json({
         success: false,
         error: 'Cascata esgotada: sem url, mediaId nem mediaKey/directPath válidos',
@@ -178,14 +231,14 @@ Deno.serve(async (req) => {
     const ehIp = mediaHost && /^\d{1,3}(\.\d{1,3}){3}$/.test(mediaHost);
     if (mediaHost && !hostsPermitidos.has(mediaHost) && !ehIp) {
       console.error('[PERSISTIR-MIDIA-WAPI] ⛔ Host não permitido (anti-SSRF):', mediaHost);
-      await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
+      await marcarFalha(message_id, `Host de mídia não permitido: ${mediaHost}`, { download_failed_host: mediaHost });
       return Response.json({ success: false, error: `Host de mídia não permitido: ${mediaHost}`, marked_as: 'failed_download' }, { status: 200, headers });
     }
 
-    // Download em memória — timeout curto (o connect-timeout real bate em ~10s;
-    // 60s só prendia o "Processando áudio..." sem ganho).
+    // Download em memória — timeout 30s (padronizado com o Z-API, para descartar
+    // 100% a hipótese de lentidão antes de imputar o host inacessível da W-API).
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const timeoutId = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT);
 
     let blob;
     let contentType = downloadSpec.mimetype || 'application/octet-stream';
@@ -210,54 +263,25 @@ Deno.serve(async (req) => {
       blob = new Blob([arrayBuffer], { type: contentType });
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      const errMsg = fetchError.name === 'AbortError' ? 'Timeout de 12s ao baixar mídia' : fetchError.message;
+      const errMsg = fetchError.name === 'AbortError' ? `Timeout de ${DOWNLOAD_TIMEOUT / 1000}s ao baixar mídia` : fetchError.message;
       console.error('[PERSISTIR-MIDIA-WAPI] ❌ Falha no download:', errMsg, '| fileLink:', mediaUrl, '| host:', mediaHost, '| causa:', fetchError.cause ? String(fetchError.cause) : 'n/a');
       // Registrar o fileLink/host exato que a W-API devolveu — evidência para o suporte W-API
       // (host de mídia inacessível, ex: IP privado HTTP). Causa-raiz é de infraestrutura, não de código.
-      let _mAtual;
-      try { _mAtual = await base44.asServiceRole.entities.Message.get(message_id); } catch (_) {}
-      await base44.asServiceRole.entities.Message.update(message_id, {
-        media_url: 'failed_download',
-        metadata: {
-          ...(_mAtual?.metadata || {}),
-          download_failed_reason: errMsg,
-          download_failed_filelink: mediaUrl,
-          download_failed_host: mediaHost,
-          download_failed_at: new Date().toISOString()
-        }
-      });
+      await marcarFalha(message_id, errMsg, { download_failed_filelink: mediaUrl, download_failed_host: mediaHost });
       return Response.json({ success: false, error: errMsg, failed_filelink: mediaUrl, failed_host: mediaHost, marked_as: 'failed_download' }, { status: 200, headers });
     }
 
     // Validação de tamanho
-    if (blob.size > 50 * 1024 * 1024) {
+    if (blob.size > MAX_FILE_SIZE) {
       console.error('[PERSISTIR-MIDIA-WAPI] ❌ Arquivo muito grande:', blob.size);
-      await base44.asServiceRole.entities.Message.update(message_id, { media_url: 'failed_download' });
+      await marcarFalha(message_id, `Arquivo excede 50MB (${(blob.size / 1024 / 1024).toFixed(2)}MB)`);
       return Response.json({ success: false, error: 'Arquivo excede 50MB', marked_as: 'failed_download' }, { status: 200, headers });
     }
 
-    // Extensão
-    const extensaoMap = {
-      'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
-      'video/mp4': 'mp4', 'video/3gpp': '3gp',
-      'audio/ogg': 'ogg', 'audio/ogg; codecs=opus': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/amr': 'amr',
-      'application/pdf': 'pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-    };
-    const mediaTypeMap = { 'image': 'jpg', 'video': 'mp4', 'audio': 'ogg', 'document': 'pdf', 'sticker': 'webp' };
-
-    let extensao = 'bin';
-    if (filename?.includes('.')) {
-      extensao = filename.split('.').pop().toLowerCase();
-    } else if (extensaoMap[contentType]) {
-      extensao = extensaoMap[contentType];
-    } else if (downloadSpec.type) {
-      extensao = mediaTypeMap[downloadSpec.type] || 'bin';
-    }
-
+    // Extensão e nome (helpers padronizados com o persistirMidiaZapi)
     const timestamp = Date.now();
-    const baseF = (filename?.replace(/\.[^.]+$/, '') || downloadSpec.type || 'media').replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 40);
+    const extensao = getFileExtension(contentType, filename, downloadSpec.type || media_type);
+    const baseF = sanitizeFilename(filename?.replace(/\.[^.]+$/, '') || downloadSpec.type || 'media').substring(0, 40) || 'media';
     const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${baseF}.${extensao}`;
 
     // ✅ UPLOAD PARA BASE44 (URLs W-API expiram em 24h)
@@ -323,14 +347,10 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('[PERSISTIR-MIDIA-WAPI] ❌ ERRO GERAL:', error.message);
 
-    // Marcar failed_download se temos o message_id disponível
+    // Marcar failed_download (preservando metadata) se temos o message_id disponível
     if (message_id_global) {
-      try {
-        await base44.asServiceRole.entities.Message.update(message_id_global, { media_url: 'failed_download' });
-        console.log('[PERSISTIR-MIDIA-WAPI] ✅ failed_download marcado no catch geral');
-      } catch (catchErr) {
-        console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Não conseguiu marcar failed_download:', catchErr.message);
-      }
+      await marcarFalha(message_id_global, `erro_geral: ${error.message}`);
+      console.log('[PERSISTIR-MIDIA-WAPI] ✅ failed_download marcado no catch geral');
     }
 
     return Response.json({
