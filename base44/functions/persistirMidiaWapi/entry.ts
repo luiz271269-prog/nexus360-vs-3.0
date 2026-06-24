@@ -12,6 +12,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 const VERSION = 'v9.0.0-PADRONIZADO-ZAPI';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const DOWNLOAD_TIMEOUT = 30000; // 30s (igual ao Z-API)
+const RESOLVE_TIMEOUT = 20000;  // 20s — POST que resolve o fileLink na W-API
 
 // Mapas de extensão/MIME (padrão do persistirMidiaZapi)
 const MIME_MAP = {
@@ -108,7 +109,7 @@ Deno.serve(async (req) => {
     const { message_id, integration_id, downloadSpec, media_type, filename } = payload;
     message_id_global = message_id; // expor para o catch geral
 
-    console.log('[PERSISTIR-MIDIA-WAPI] 📦 Parâmetros:', { message_id, integration_id, media_type, filename });
+    console.log(`[PERSISTIR-MIDIA-WAPI] ▶️ INÍCIO | msgId=${message_id} | int=${integration_id} | type=${media_type}`);
 
     if (!message_id || !integration_id || !downloadSpec) {
       return Response.json({ success: false, error: 'message_id, integration_id e downloadSpec são obrigatórios' }, { status: 400, headers });
@@ -169,13 +170,24 @@ Deno.serve(async (req) => {
           mimetype: downloadSpec.mimetype
         };
         console.log('[PERSISTIR-MIDIA-WAPI] 🔄 Caminho B (download-media):', endpointB);
-        const resp = await fetch(endpointB, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify(bodyB)
-        });
+        // P1: timeout próprio no POST — sem ele, um endpoint travado mantinha a
+        // função presa até o runtime matá-la (sem passar pelo catch) → pending_download eterno.
+        const ctrlB = new AbortController();
+        const tB = setTimeout(() => ctrlB.abort(), RESOLVE_TIMEOUT);
+        const tsB = Date.now();
+        let resp;
+        try {
+          resp = await fetch(endpointB, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(bodyB),
+            signal: ctrlB.signal
+          });
+        } finally {
+          clearTimeout(tB);
+        }
         const respText = await resp.text();
-        console.log(`[PERSISTIR-MIDIA-WAPI] Caminho B status: ${resp.status} | body: ${respText.substring(0, 300)}`);
+        console.log(`[PERSISTIR-MIDIA-WAPI] Caminho B status: ${resp.status} | ${Date.now() - tsB}ms | body: ${respText.substring(0, 300)}`);
         if (resp.ok) {
           let data;
           try { data = JSON.parse(respText); } catch(_) { data = {}; }
@@ -188,7 +200,8 @@ Deno.serve(async (req) => {
           }
         }
       } catch (e) {
-        console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho B erro:', e.message);
+        const msgB = e.name === 'AbortError' ? `Timeout de ${RESOLVE_TIMEOUT / 1000}s no POST download-media` : e.message;
+        console.warn('[PERSISTIR-MIDIA-WAPI] ⚠️ Caminho B erro:', msgB);
       }
     }
 
@@ -226,9 +239,21 @@ Deno.serve(async (req) => {
     const hostBaseUrl = (() => { try { return new URL(baseUrl).hostname; } catch (_) { return null; } })();
     const hostsPermitidos = new Set(['api.w-api.app', 'w-api.app']);
     if (hostBaseUrl) hostsPermitidos.add(hostBaseUrl);
-    // O servidor de mídia da W-API responde como IP cru — aceitar apenas IPs
-    // (o link veio da própria W-API autenticada no Caminho B, não de input externo).
+    // O servidor de mídia da W-API responde como IP cru — aceitar IP público
+    // (o link veio da própria W-API autenticada no Caminho B), mas BLOQUEAR
+    // IPs privados/localhost/link-local (anti-SSRF).
     const ehIp = mediaHost && /^\d{1,3}(\.\d{1,3}){3}$/.test(mediaHost);
+    const ehIpPrivado = ehIp && (() => {
+      const [a, b] = mediaHost.split('.').map(Number);
+      return a === 10 || a === 127 || (a === 169 && b === 254) ||
+             (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
+             a === 0 || a >= 224; // 0.x, multicast/reservados
+    })();
+    if (ehIpPrivado) {
+      console.error('[PERSISTIR-MIDIA-WAPI] ⛔ IP privado/reservado bloqueado (anti-SSRF):', mediaHost);
+      await marcarFalha(message_id, `IP de mídia privado/inacessível: ${mediaHost}`, { download_failed_host: mediaHost });
+      return Response.json({ success: false, error: `IP de mídia privado/inacessível: ${mediaHost}`, marked_as: 'failed_download' }, { status: 200, headers });
+    }
     if (mediaHost && !hostsPermitidos.has(mediaHost) && !ehIp) {
       console.error('[PERSISTIR-MIDIA-WAPI] ⛔ Host não permitido (anti-SSRF):', mediaHost);
       await marcarFalha(message_id, `Host de mídia não permitido: ${mediaHost}`, { download_failed_host: mediaHost });
@@ -248,6 +273,7 @@ Deno.serve(async (req) => {
       // API W-API. Encaminhar o Bearer aqui vazaria o token e não é exigido.
       const mediaResponse = await fetch(mediaUrl, {
         signal: controller.signal,
+        redirect: 'error', // anti-SSRF: não seguir redirect para host arbitrário
         headers: {
           'User-Agent': 'Nexus360-MediaDownloader/1.0'
         }
@@ -261,6 +287,14 @@ Deno.serve(async (req) => {
       contentType = mediaResponse.headers.get('content-type') || contentType;
       const arrayBuffer = await mediaResponse.arrayBuffer();
       blob = new Blob([arrayBuffer], { type: contentType });
+
+      // Validar conteúdo: arquivo vazio ou resposta HTML (página de erro) não é mídia
+      if (!blob.size) {
+        throw new Error('Arquivo vazio (0 bytes) — host não entregou a mídia');
+      }
+      if (/text\/html/i.test(contentType)) {
+        throw new Error(`Resposta HTML em vez de mídia (content-type: ${contentType})`);
+      }
     } catch (fetchError) {
       clearTimeout(timeoutId);
       const errMsg = fetchError.name === 'AbortError' ? `Timeout de ${DOWNLOAD_TIMEOUT / 1000}s ao baixar mídia` : fetchError.message;
@@ -268,7 +302,8 @@ Deno.serve(async (req) => {
       // Registrar o fileLink/host exato que a W-API devolveu — evidência para o suporte W-API
       // (host de mídia inacessível, ex: IP privado HTTP). Causa-raiz é de infraestrutura, não de código.
       await marcarFalha(message_id, errMsg, { download_failed_filelink: mediaUrl, download_failed_host: mediaHost });
-      return Response.json({ success: false, error: errMsg, failed_filelink: mediaUrl, failed_host: mediaHost, marked_as: 'failed_download' }, { status: 200, headers });
+      // HTTP 502: falha de download é transitória (host pode voltar) → chamador pode retentar
+      return Response.json({ success: false, error: errMsg, failed_filelink: mediaUrl, failed_host: mediaHost, marked_as: 'failed_download' }, { status: 502, headers });
     }
 
     // Validação de tamanho
@@ -298,7 +333,7 @@ Deno.serve(async (req) => {
       console.log('[PERSISTIR-MIDIA-WAPI] ✅ Upload para Base44 concluído:', permanentUrl);
     } catch (uploadErr) {
       console.error('[PERSISTIR-MIDIA-WAPI] ❌ Erro no upload para Base44:', uploadErr.message);
-      console.log('[PERSISTIR-MIDIA-WAPI] ⚠️ Fallback: usando URL W-API temporária');
+      console.log('[PERSISTIR-MIDIA-WAPI] ⚠️ Fallback: usando URL W-API temporária (expira em 24h)');
       permanentUrl = mediaUrl; // URL limpa, sem fragmento
       uploadOk = false;
     }
@@ -330,9 +365,10 @@ Deno.serve(async (req) => {
        metadata
      });
 
-     // ✅ LOG FINAL: confirmar URL salva
-     console.log(`[PERSISTIR-MIDIA-WAPI] ✅ Mensagem atualizada | Caminho: ${caminhoUsado} | Storage: Base44 | Size: ${blob.size}`);
-     console.log(`[PERSISTIR-MIDIA-WAPI] 🔗 URL PERMANENTE SALVA: ${permanentUrl}`);
+     // ✅ LOG FINAL: confirmar URL salva (storage real, não fixo)
+     const storage = uploadOk ? 'base44' : 'wapi_temp';
+     console.log(`[PERSISTIR-MIDIA-WAPI] ✅ Mensagem atualizada | Caminho: ${caminhoUsado} | Storage: ${storage} | Size: ${blob.size}`);
+     console.log(`[PERSISTIR-MIDIA-WAPI] 🔗 URL SALVA (${storage}): ${permanentUrl}`);
 
      return Response.json({
        success: true,
@@ -340,23 +376,24 @@ Deno.serve(async (req) => {
        permanent_url: permanentUrl,
        caminho_usado: caminhoUsado,
        file_size: blob.size,
-       stored_at: 'base44',
+       stored_at: storage,
        version: VERSION
      }, { headers });
 
   } catch (error) {
-    console.error('[PERSISTIR-MIDIA-WAPI] ❌ ERRO GERAL:', error.message);
+    console.error(`[PERSISTIR-MIDIA-WAPI] ❌ ERRO GERAL | msgId=${message_id_global || 'N/A'}:`, error.message);
 
     // Marcar failed_download (preservando metadata) se temos o message_id disponível
     if (message_id_global) {
       await marcarFalha(message_id_global, `erro_geral: ${error.message}`);
-      console.log('[PERSISTIR-MIDIA-WAPI] ✅ failed_download marcado no catch geral');
+      console.log(`[PERSISTIR-MIDIA-WAPI] ⏹️ FIM (falha) | msgId=${message_id_global} | failed_download marcado`);
     }
 
+    // HTTP 502: erro inesperado é transitório → chamador pode retentar
     return Response.json({
       success: false,
       error: error.message,
       version: VERSION
-    }, { status: 200, headers }); // 200 para evitar retry loop
+    }, { status: 502, headers });
   }
 });
