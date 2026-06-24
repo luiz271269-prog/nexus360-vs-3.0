@@ -34,13 +34,27 @@ Deno.serve(async (req) => {
     const limiteAntigo = new Date(agora - IDADE_MAXIMA_MIN * 60 * 1000).toISOString();
 
     // Mensagens pendentes dentro da janela [24h .. 10min] atrás
-    const pendentes = await base44.asServiceRole.entities.Message.filter(
+    const pendentesRaw = await base44.asServiceRole.entities.Message.filter(
       { media_url: 'pending_download', created_date: { $lte: limiteRecente, $gte: limiteAntigo } },
       'created_date',
       LOTE
     );
 
-    console.log(`[RECUPERAR-MIDIA-WAPI] ${VERSION} | pendentes encontradas: ${pendentes.length}`);
+    // ✅ TAMBÉM recuperar failed_download recentes que ainda têm downloadSpec:
+    // o servidor de mídia da W-API é intermitente, então uma falha anterior pode
+    // ter sido transitória. Reprocessamos com o retry novo do persistirMidiaWapi.
+    // Só dentro da janela de 24h (depois disso o fileLink já expirou de vez).
+    const falhadasRaw = await base44.asServiceRole.entities.Message.filter(
+      { media_url: 'failed_download', created_date: { $lte: limiteRecente, $gte: limiteAntigo } },
+      'created_date',
+      LOTE
+    );
+    // Só reprocessa falhadas que preservaram downloadSpec (sem ele não há o que baixar)
+    const falhadas = falhadasRaw.filter(m => m.metadata?.downloadSpec && m.metadata?.whatsapp_integration_id);
+
+    const pendentes = [...pendentesRaw, ...falhadas];
+
+    console.log(`[RECUPERAR-MIDIA-WAPI] ${VERSION} | pendentes=${pendentesRaw.length} | failed_recuperáveis=${falhadas.length}`);
 
     let reprocessadas = 0;
     let marcadasFalha = 0;

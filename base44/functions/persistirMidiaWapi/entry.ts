@@ -290,44 +290,67 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: `Host de mídia não permitido: ${mediaHost}`, marked_as: 'failed_download' }, { status: 200, headers });
     }
 
-    // Download em memória — timeout 30s (padronizado com o Z-API, para descartar
-    // 100% a hipótese de lentidão antes de imputar o host inacessível da W-API).
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT);
+    // Download em memória com RETRY: o servidor de mídia da W-API é intermitente,
+    // então uma 1ª falha não significa que a mídia não exista. Tentamos até 3x
+    // (1 inicial + 2 retries com timeout menor de 12s e backoff curto). Quando
+    // o host responde em alguma das janelas, o áudio/imagem é recuperado na hora,
+    // em vez de marcar failed_download por uma instabilidade transitória.
+    const RETRY_TIMEOUT = 12000; // 12s nas retentativas (mais agressivo que os 30s iniciais)
+    const MAX_TENTATIVAS = 3;
 
     let blob;
     let contentType = downloadSpec.mimetype || 'application/octet-stream';
+    let ultimoErro = null;
 
-    try {
-      // ✅ SEM Authorization: o fileLink é um servidor de arquivos distinto da
-      // API W-API. Encaminhar o Bearer aqui vazaria o token e não é exigido.
-      const mediaResponse = await fetch(mediaUrl, {
-        signal: controller.signal,
-        redirect: 'error', // anti-SSRF: não seguir redirect para host arbitrário
-        headers: {
-          'User-Agent': 'Nexus360-MediaDownloader/1.0'
+    for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+      const timeoutTentativa = tentativa === 1 ? DOWNLOAD_TIMEOUT : RETRY_TIMEOUT;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutTentativa);
+      try {
+        // ✅ SEM Authorization: o fileLink é um servidor de arquivos distinto da
+        // API W-API. Encaminhar o Bearer aqui vazaria o token e não é exigido.
+        const mediaResponse = await fetch(mediaUrl, {
+          signal: controller.signal,
+          redirect: 'error', // anti-SSRF: não seguir redirect para host arbitrário
+          headers: {
+            'User-Agent': 'Nexus360-MediaDownloader/1.0'
+          }
+        });
+        clearTimeout(timeoutId);
+
+        if (!mediaResponse.ok) {
+          throw new Error(`HTTP ${mediaResponse.status} ao baixar mídia`);
         }
-      });
-      clearTimeout(timeoutId);
 
-      if (!mediaResponse.ok) {
-        throw new Error(`HTTP ${mediaResponse.status} ao baixar mídia`);
-      }
+        contentType = mediaResponse.headers.get('content-type') || contentType;
+        const arrayBuffer = await mediaResponse.arrayBuffer();
+        blob = new Blob([arrayBuffer], { type: contentType });
 
-      contentType = mediaResponse.headers.get('content-type') || contentType;
-      const arrayBuffer = await mediaResponse.arrayBuffer();
-      blob = new Blob([arrayBuffer], { type: contentType });
+        // Validar conteúdo: arquivo vazio ou resposta HTML (página de erro) não é mídia
+        if (!blob.size) {
+          throw new Error('Arquivo vazio (0 bytes) — host não entregou a mídia');
+        }
+        if (/text\/html/i.test(contentType)) {
+          throw new Error(`Resposta HTML em vez de mídia (content-type: ${contentType})`);
+        }
+        // Sucesso → sai do loop
+        ultimoErro = null;
+        break;
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        ultimoErro = fetchError;
+        const errMsgTentativa = fetchError.name === 'AbortError' ? `Timeout de ${timeoutTentativa / 1000}s` : fetchError.message;
+        console.warn(`[PERSISTIR-MIDIA-WAPI] ⚠️ Download tentativa ${tentativa}/${MAX_TENTATIVAS} falhou: ${errMsgTentativa}`);
+        // Backoff curto antes de retentar (não na última)
+        if (tentativa < MAX_TENTATIVAS) {
+          await new Promise(r => setTimeout(r, 1500 * tentativa));
+        }
+      }
+    }
 
-      // Validar conteúdo: arquivo vazio ou resposta HTML (página de erro) não é mídia
-      if (!blob.size) {
-        throw new Error('Arquivo vazio (0 bytes) — host não entregou a mídia');
-      }
-      if (/text\/html/i.test(contentType)) {
-        throw new Error(`Resposta HTML em vez de mídia (content-type: ${contentType})`);
-      }
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      const errMsg = fetchError.name === 'AbortError' ? `Timeout de ${DOWNLOAD_TIMEOUT / 1000}s ao baixar mídia` : fetchError.message;
+    if (ultimoErro) {
+      const fetchError = ultimoErro;
+      const errMsg = fetchError.name === 'AbortError' ? `Timeout ao baixar mídia após ${MAX_TENTATIVAS} tentativas` : `${fetchError.message} (após ${MAX_TENTATIVAS} tentativas)`;
       console.error('[PERSISTIR-MIDIA-WAPI] ❌ Falha no download:', errMsg, '| fileLink:', mediaUrl, '| host:', mediaHost, '| causa:', fetchError.cause ? String(fetchError.cause) : 'n/a');
       // Registrar o fileLink/host exato que a W-API devolveu — evidência para o suporte W-API
       // (host de mídia inacessível, ex: IP privado HTTP). Causa-raiz é de infraestrutura, não de código.
