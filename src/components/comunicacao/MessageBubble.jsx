@@ -315,6 +315,11 @@ export default React.memo(function MessageBubble({
     return null;
   }
 
+  // ✅ NÃO RENDERIZAR separador zero-width do sistema (bolha vazia)
+  if (message.sender_id === 'system' && !String(message.content || '').replace(/[\u200b\s]/g, '')) {
+    return null;
+  }
+
   // ✅ RENDERIZAÇÃO DE LOCALIZAÇÃO (padrão WhatsApp)
   if (message.media_type === 'location' && message.metadata?.location) {
     const loc = message.metadata.location;
@@ -1958,7 +1963,27 @@ export default React.memo(function MessageBubble({
                     </>);
 
                 })()}
-                
+
+                {/* ACK do pré-atendimento: mostra o atendente fidelizado do contato */}
+                {isOwn && !isThreadInterna && message.sender_id === 'skill_ack' && (() => {
+                  const setorThread = thread?.sector_id || 'vendas';
+                  const campoFid = {
+                    vendas: 'atendente_fidelizado_vendas',
+                    assistencia: 'atendente_fidelizado_assistencia',
+                    financeiro: 'atendente_fidelizado_financeiro',
+                    fornecedor: 'atendente_fidelizado_fornecedor'
+                  }[setorThread] || 'atendente_fidelizado_vendas';
+                  const fidId = contato?.[campoFid] || thread?.assigned_user_id;
+                  const fid = atendentes.find((a) => a.id === fidId);
+                  if (!fid) return null;
+                  const nomeFid = (fid.display_name || fid.full_name || '').split(' ')[0];
+                  return (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 flex items-center gap-0.5">
+                      <UserCheck className="w-3 h-3" />
+                      ~ {nomeFid} ({fid.attendant_sector || setorThread})
+                    </span>);
+                })()}
+
                 <span className="text-[11px] text-slate-500">
                   {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                 </span>
