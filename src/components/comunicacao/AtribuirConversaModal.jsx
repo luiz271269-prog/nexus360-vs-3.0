@@ -255,7 +255,7 @@ export default function AtribuirConversaModal({
       });
 
       const textoMensagem = mensagemTransferencia?.trim() 
-        ? `🔔 ${mensagemTransferencia} (→ ${atendenteEscolhido.full_name})`
+        ? `🔔 ${mensagemTransferencia} (→ ${atendenteEscolhido.full_name}) por ${usuario.full_name}`
         : `🔔 Conversa ${thread.assigned_user_id ? 'transferida' : 'atribuída'} para ${atendenteEscolhido.full_name} por ${usuario.full_name}`;
 
       await base44.entities.Message.create({
