@@ -10,6 +10,7 @@ import { base44 } from '@/api/base44Client';
 import { atualizarStatusOrcamento } from '@/functions/atualizarStatusOrcamento';
 import OrcamentoTagModal from './OrcamentoTagModal';
 import OrcamentoChatDrawer from './OrcamentoChatDrawer';
+import RejeicaoMotivoModal from './RejeicaoMotivoModal';
 
 const statusLabels = {
   rascunho: 'Rascunho',
@@ -291,6 +292,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   const [etiquetas, setEtiquetas] = useState([]);
   const [localOrcamentos, setLocalOrcamentos] = useState(null);
   const [savingId, setSavingId] = useState(null);
+  const [rejeicaoPendente, setRejeicaoPendente] = useState(null); // { orcamento, novoStatus, novaOrdem }
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -379,6 +381,14 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
       return base.map((o) => o.id === draggableId ? { ...o, status: novoStatus, kanban_order: novaOrdem } : o);
     });
 
+    // ✅ REJEITADO: abre tela de motivo antes de gravar (em vez de persistir direto)
+    if (novoStatus === 'rejeitado' && statusAnterior !== 'rejeitado') {
+      const base = localOrcamentos ?? orcamentosProps;
+      const orc = base.find((o) => o.id === draggableId);
+      setRejeicaoPendente({ orcamento: orc, novoStatus, novaOrdem, statusAnterior, draggableId });
+      return;
+    }
+
     setSavingId(draggableId);
     try {
       // Backend grava com service role — evita falha silenciosa de RLS
@@ -411,6 +421,76 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
       setSavingId(null);
     }
   }, [onUpdateStatus, orcamentosProps, orcamentosPorStatus, queryClient]);
+
+  const confirmarRejeicao = useCallback(async ({ motivo, observacao }) => {
+    if (!rejeicaoPendente) return;
+    const { orcamento, novoStatus, novaOrdem, statusAnterior, draggableId } = rejeicaoPendente;
+    setSavingId(draggableId);
+    try {
+      // Garante a etiqueta "Rejeitado" no orçamento
+      let etiquetaRejeitado = etiquetas.find((e) => (e.nome || '').toLowerCase() === 'rejeitado');
+      if (!etiquetaRejeitado) {
+        etiquetaRejeitado = await base44.entities.EtiquetaOrcamento.create({
+          nome: 'Rejeitado', icone: 'AlertTriangle', cor: '#ef4444', cor_texto: '#ffffff', ativo: true
+        });
+        setEtiquetas((prev) => [...prev, etiquetaRejeitado]);
+      }
+      const etiquetasAtuais = orcamento?.etiquetas || [];
+      const novasEtiquetas = etiquetasAtuais.includes(etiquetaRejeitado.id)
+        ? etiquetasAtuais
+        : [...etiquetasAtuais, etiquetaRejeitado.id];
+
+      const novaEntradaHistorico = {
+        id: `${Date.now()}`,
+        data: new Date().toISOString(),
+        tipo: 'nota',
+        texto: `❌ Rejeitado — Motivo: ${motivo}. ${observacao || ''}`.trim()
+      };
+      const historicoAtual = Array.isArray(orcamento?.historico_interno) ? orcamento.historico_interno : [];
+
+      await base44.entities.Orcamento.update(draggableId, {
+        status: novoStatus,
+        kanban_order: novaOrdem,
+        observacoes: `[Rejeitado] ${motivo}${observacao && observacao !== motivo ? ' — ' + observacao : ''}`,
+        etiquetas: novasEtiquetas,
+        historico_interno: [...historicoAtual, novaEntradaHistorico]
+      });
+
+      setLocalOrcamentos((prev) => {
+        const base = prev ?? orcamentosProps;
+        return base.map((o) => o.id === draggableId
+          ? { ...o, status: novoStatus, kanban_order: novaOrdem, etiquetas: novasEtiquetas }
+          : o);
+      });
+      queryClient.setQueryData(['orcamentos'], (old) =>
+        Array.isArray(old)
+          ? old.map((o) => o.id === draggableId ? { ...o, status: novoStatus, kanban_order: novaOrdem, etiquetas: novasEtiquetas } : o)
+          : old
+      );
+      toast.success('Orçamento rejeitado e etiquetado');
+    } catch (error) {
+      console.error('Erro ao rejeitar orçamento:', error);
+      setLocalOrcamentos((prev) => {
+        const base = prev ?? orcamentosProps;
+        return base.map((o) => o.id === draggableId ? { ...o, status: statusAnterior } : o);
+      });
+      toast.error('Erro ao rejeitar. Revertendo...');
+    } finally {
+      setSavingId(null);
+      setRejeicaoPendente(null);
+    }
+  }, [rejeicaoPendente, etiquetas, orcamentosProps, localOrcamentos, queryClient]);
+
+  const cancelarRejeicao = useCallback(() => {
+    if (!rejeicaoPendente) { setRejeicaoPendente(null); return; }
+    const { statusAnterior, draggableId } = rejeicaoPendente;
+    // Reverte o card para a coluna de origem
+    setLocalOrcamentos((prev) => {
+      const base = prev ?? orcamentosProps;
+      return base.map((o) => o.id === draggableId ? { ...o, status: statusAnterior } : o);
+    });
+    setRejeicaoPendente(null);
+  }, [rejeicaoPendente, orcamentosProps]);
 
   const onAtendido = useCallback(async (orcamento) => {
     const telefone = orcamento.cliente_telefone || orcamento.cliente_celular;
@@ -531,6 +611,13 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
         isOpen={!!chatOrcamento}
         onClose={() => setChatOrcamento(null)}
       />
+      {rejeicaoPendente &&
+        <RejeicaoMotivoModal
+          orcamento={rejeicaoPendente.orcamento}
+          onConfirmar={confirmarRejeicao}
+          onCancelar={cancelarRejeicao}
+        />
+      }
     </DragDropContext>
   );
 }

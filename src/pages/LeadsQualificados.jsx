@@ -43,6 +43,7 @@ export default function LeadsQualificados() {
   const [editingCliente, setEditingCliente] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [mostrarTodosMeses, setMostrarTodosMeses] = useState(false); // false = só mês corrente
 
   const navigate = useNavigate();
 
@@ -489,8 +490,18 @@ export default function LeadsQualificados() {
       orcamento.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = filterStatus === 'all' || orcamento.status === filterStatus;
+
+    // ── FILTRO MÊS CORRENTE (flag "mostrar todos" desliga) ──
+    if (!mostrarTodosMeses) {
+      const ref = orcamento.data_orcamento || orcamento.created_date;
+      if (!ref) return false;
+      const d = new Date(ref);
+      const agora = new Date();
+      if (d.getMonth() !== agora.getMonth() || d.getFullYear() !== agora.getFullYear()) return false;
+    }
+
     return matchesSearch && matchesStatus;
-  }), [orcamentos, usuarioAtual, podeVerTodos, vendedorDoUsuario, filtroVendedorGlobal, atendentes, searchTerm, filterStatus]);
+  }), [orcamentos, usuarioAtual, podeVerTodos, vendedorDoUsuario, filtroVendedorGlobal, atendentes, searchTerm, filterStatus, mostrarTodosMeses]);
 
   const scoresParaKanban = clientesScores || [];
 
@@ -632,6 +643,19 @@ export default function LeadsQualificados() {
                     }}
                     className="pl-7 h-7 w-full sm:w-[160px] text-[11px] bg-slate-800/60 border-slate-700 text-white placeholder:text-slate-500" />
                 </div>
+
+                {(activeTab === 'orcamentos' || activeTab === 'cotacoes') && (
+                  <button
+                    onClick={() => setMostrarTodosMeses(v => !v)}
+                    title={mostrarTodosMeses ? 'Mostrando todos os meses' : 'Mostrando apenas o mês atual'}
+                    className={`h-7 px-2.5 text-[11px] rounded-md font-semibold border transition-all whitespace-nowrap ${
+                      mostrarTodosMeses
+                        ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                        : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-700'
+                    }`}>
+                    📅 {mostrarTodosMeses ? 'Todos os meses' : 'Só mês atual'}
+                  </button>
+                )}
 
                 {activeTab === 'orcamentos' && (
                   <>
