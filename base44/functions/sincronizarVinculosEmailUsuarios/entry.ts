@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // Sincroniza os vínculos User.email_accounts -> EmailAccount.assigned_user_ids.
 // Fonte de verdade: o cadastro do usuário (campo email_accounts).

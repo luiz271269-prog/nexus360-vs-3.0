@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // Aprova ou rejeita um EmailSincronizado que está na caixa temporária (status pendente).
 // - aprovar: se não houver contact_id, cria um Contact (tipo_contato="email") com o remetente,

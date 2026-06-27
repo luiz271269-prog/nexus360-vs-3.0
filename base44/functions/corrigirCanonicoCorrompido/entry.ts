@@ -4,7 +4,7 @@
 // - Se o corrompido é o único: RESTAURA o canonical limpo
 // Admin-only. Suporta dry_run para preview.
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 const VERSION = 'v1.0-2026-04-22';
 

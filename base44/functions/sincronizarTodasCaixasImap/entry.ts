@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // Orquestrador: percorre TODAS as EmailAccount IMAP (Zimbra) ativas com
 // inbound habilitado e dispara a sincronização individual de cada uma.

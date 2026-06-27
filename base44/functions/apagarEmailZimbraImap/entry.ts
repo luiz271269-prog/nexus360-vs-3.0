@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // Apaga DE VERDADE mensagens no servidor Zimbra (IMAP) por UID.
 // Marca \Deleted e faz EXPUNGE. Usado para remover lixo eletrônico de remetentes bloqueados.

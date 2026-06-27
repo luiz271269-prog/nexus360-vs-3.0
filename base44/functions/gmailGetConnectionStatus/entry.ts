@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 const GMAIL_CONNECTOR_ID = '6a14df6da76515d039e6833c';
 

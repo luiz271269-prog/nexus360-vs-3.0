@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // Cifra uma senha (AES-GCM) usando a chave-mestra EMAIL_ENCRYPTION_KEY.
 // Retorna string "iv_base64:ciphertext_base64".

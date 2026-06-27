@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // Decodifica cabeçalhos MIME "encoded-word" (RFC 2047): =?charset?B/Q?texto?=
 function decodeMimeWords(str) {

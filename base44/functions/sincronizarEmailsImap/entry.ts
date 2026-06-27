@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 const DEFAULT_TIMEOUT_MS = 20000;
 const MAX_MESSAGES = 30;

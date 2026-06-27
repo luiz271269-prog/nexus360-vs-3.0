@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // Inicia um e-mail NOVO (não-resposta) a partir da Central:
 // 1) localiza/cria o Contact pelo e-mail

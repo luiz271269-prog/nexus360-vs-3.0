@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 // redeploy bump: recarregar secrets de e-mail (EMAIL_PWD_ZIMBRA_PADRAO) v2
 
 const DEFAULT_IMAP_PORT = 993;

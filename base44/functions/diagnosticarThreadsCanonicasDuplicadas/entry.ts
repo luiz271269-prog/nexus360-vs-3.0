@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 /**
  * Varredura de MessageThread para encontrar contatos com MAIS DE UMA

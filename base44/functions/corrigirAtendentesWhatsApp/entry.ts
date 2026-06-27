@@ -1,5 +1,5 @@
 // Função cirúrgica para corrigir whatsapp_setores dos atendentes
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {

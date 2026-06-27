@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // Classifica um EmailSincronizado por URGÊNCIA e SETOR usando IA,
 // a partir dos dados que o organizador já leu (remetente, assunto, corpo_preview).

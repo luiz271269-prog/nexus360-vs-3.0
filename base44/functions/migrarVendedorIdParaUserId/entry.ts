@@ -5,7 +5,7 @@
  * MODO DRY_RUN (padrão): apenas lista o que seria alterado, sem gravar.
  * Para executar de verdade: { "dry_run": false }
  */
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
