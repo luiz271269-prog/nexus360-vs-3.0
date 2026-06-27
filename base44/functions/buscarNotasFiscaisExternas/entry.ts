@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     let resultado = notas;
     if (filters.mes_referencia) {
       resultado = notas.filter(function(n) {
-        return (n.mes_referencia || n.data_emissao || '').startsWith(filters.mes_referencia);
+        return String(n.data_emissao || '').startsWith(filters.mes_referencia);
       });
     }
 
