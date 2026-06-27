@@ -8,7 +8,7 @@
 // Admin-only.
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 const VERSION = 'v1.2.0';
 const BATCH_LIMIT = 50;

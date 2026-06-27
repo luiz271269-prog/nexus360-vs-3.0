@@ -7,7 +7,7 @@
 // com o banco local para identificar MENSAGENS FALTANDO.
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 /**
  * Normaliza telefone para formato padrão (+5548999999999)
