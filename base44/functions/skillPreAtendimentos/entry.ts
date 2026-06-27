@@ -1,6 +1,6 @@
 // skillPreAtendimentos.js — motor único do pré-atendimento em camadas.
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTES — TODAS as configurações vêm do banco via BroadcastConfig + ConfiguracaoSistema
@@ -2001,7 +2001,7 @@ NUNCA mencione nomes de atendentes. Tom profissional e humano.`
     // estado para sempre. Histórico do projeto mostra backlog de "stuck
     // threads" decorrente exatamente desse caso (threads com
     // pre_atendimento_ativo: true sem assigned_user_id).
-    if (_payloadForCleanup?.thread_id && _base44ForCleanup) {
+    if (_payloadForCleanup?.thread_id && _base44ForCleanup?.asServiceRole?.entities?.MessageThread) {
       try {
         const threadCleanup = await _base44ForCleanup.asServiceRole.entities.MessageThread.get(_payloadForCleanup.thread_id).catch(() => ({ id: _payloadForCleanup.thread_id, contact_id: _payloadForCleanup.contact_id }));
         await liberarEstadoThread(_base44ForCleanup, threadCleanup, 'catch_fatal_skill');
