@@ -1,5 +1,5 @@
 // redeploy: 2026-05-12T-B3-B4-GATE-PURO
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // ============================================================================
 // PROCESS INBOUND - v12.0.0 GATE PURO (B0+B1+B2+B3+B4)

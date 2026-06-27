@@ -1,5 +1,5 @@
 // redeploy: 2026-05-22T18:00-WH3-CHIPS-SDK025
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
 // ║  WEBHOOK WHATSAPP W-API - v26.0.0-MEDIA-FIX                           ║
