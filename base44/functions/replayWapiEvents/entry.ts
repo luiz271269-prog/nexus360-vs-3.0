@@ -7,8 +7,7 @@
 // que não foram gravadas devido a quedas de banco, falhas ou inconsistências.
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
-import { processInboundEvent } from './lib/inboundCore.js';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 /**
  * Normaliza telefone para formato padrão (+5548999999999)
@@ -181,6 +180,8 @@ Deno.serve(async (req) => {
     const BATCH_SIZE = 50;
     const MAX_RETRIES = 3;
     
+    const { processInboundEvent } = await import('./lib/inboundCore.js');
+
     const processWithRetry = async (event) => {
       const normalized = normalizarPayloadReplay(event);
       
