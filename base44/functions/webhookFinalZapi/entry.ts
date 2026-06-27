@@ -1,5 +1,5 @@
 // redeploy: 2026-05-22T18:00-WH3-CHIPS-SDK025
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // Fonte: functions/lib/phoneNormalizer.js (inlined — Deno não suporta imports locais)
 // phoneNormalizer v2.0 — canônica sincronizada em todos os arquivos

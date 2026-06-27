@@ -21,7 +21,7 @@
 // Apenas admins podem invocar.
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 const VERSION = 'v1.0.0';
 
