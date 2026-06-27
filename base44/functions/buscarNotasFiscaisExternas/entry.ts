@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 const EXTERNAL_APP_ID = '69c2ec97bab310deafd37881';
 
@@ -40,7 +40,32 @@ Deno.serve(async (req) => {
       });
     }
 
-    return Response.json({ success: true, notas: resultado, total: resultado.length });
+    // Resumo financeiro consolidado (ignora espelhos de CI para não somar em dobro).
+    // - Faturamento BRUTO exclui NFs anuladas/canceladas (não representam receita).
+    // - "vencido" é separado como inadimplência real.
+    const STATUS_INVALIDOS = ['anulada', 'cancelado', 'cancelada'];
+    const r2 = (v) => Math.round(v * 100) / 100;
+    const validas = resultado.filter(function(n) {
+      return !n.is_espelho_ci && !STATUS_INVALIDOS.includes(n.status);
+    });
+    const vencidas = validas.filter(function(n) {
+      return n.status === 'vencido' || n.status === 'atrasado';
+    });
+    const sum = (arr, campo) => arr.reduce((s, n) => s + Number(n[campo] || 0), 0);
+
+    const resumo = {
+      nfs_validas: validas.length,
+      nfs_anuladas_canceladas: resultado.filter(function(n) {
+        return STATUS_INVALIDOS.includes(n.status);
+      }).length,
+      faturamento_bruto: r2(sum(validas, 'valor_total')),
+      total_recebido: r2(sum(validas, 'valor_recebido')),
+      total_aberto: r2(sum(validas, 'valor_aberto')),
+      total_vencido: r2(sum(vencidas, 'valor_aberto')),
+      qtd_vencidas: vencidas.length
+    };
+
+    return Response.json({ success: true, notas: resultado, total: resultado.length, resumo });
   } catch (error) {
     console.error('[NotasFiscais] Erro:', error.message);
     return Response.json({ error: error.message }, { status: 500 });
