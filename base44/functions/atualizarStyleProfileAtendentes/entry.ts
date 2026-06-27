@@ -13,7 +13,7 @@
 // sample_size: quantas mensagens analisar por atendente (padrão 50, max 150)
 // ============================================================================
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 const DEFAULT_SAMPLE_SIZE = 50;
 const MAX_SAMPLE_SIZE = 150;

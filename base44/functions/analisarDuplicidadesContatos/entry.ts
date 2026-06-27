@@ -1,6 +1,6 @@
 // Utilitário admin: agrupa contatos por telefone_canonico e retorna grupos duplicados.
 // NÃO modifica nada. Somente leitura + agregação em memória.
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 const VERSION = 'v1.0-2026-04-22';
 

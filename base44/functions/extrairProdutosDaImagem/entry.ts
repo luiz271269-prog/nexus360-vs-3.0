@@ -1,5 +1,5 @@
 // Extrai lista de produtos de uma imagem/PDF de cotação usando InvokeLLM multimodal
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 Deno.serve(async (req) => {
   try {

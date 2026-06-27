@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 const VERSION = 'DIAGNÓSTICO-WEBHOOK-ZAPI';
 
@@ -153,4 +153,22 @@ Deno.serve(async (req) => {
     version: VERSION,
     timestamp: new Date().toISOString(),
     payload_tipo: tipo,
-    fromMe_resultado: fromMeIsSt
+    fromMe_resultado: fromMeIsStrictFalse,
+    conteudo_extraido: conteudoExtraido,
+    tem_conteudo_mensagem: !!temConteudoMensagem,
+    tem_indicadores_mensagem: !!temIndicadoresMensagem,
+    eh_mensagem_real: !!ehMensagemReal,
+    fluxo: {
+      isQRCode: !!isQRCode,
+      isConnection: !!isConnection,
+      isStatusUpdate: !!isStatusUpdate,
+      ehMensagemReal: !!ehMensagemReal
+    },
+    payload_bruto: payload
+  };
+
+  return new Response(JSON.stringify(diagnostico, null, 2), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+});
