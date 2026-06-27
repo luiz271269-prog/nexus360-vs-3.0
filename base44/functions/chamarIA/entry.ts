@@ -1,5 +1,5 @@
 // chamarIA - Função unificada para chamar IA com fallback automático
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 async function registrarUsoIA(base44, provider, model, sucesso) {
   try {

@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // Inline phone normalizer (no local imports allowed in backend functions)
 function normalizePhone(phone) {

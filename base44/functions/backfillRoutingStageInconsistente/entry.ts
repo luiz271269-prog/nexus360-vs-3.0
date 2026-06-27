@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // FIX #1 Sprint 1 — corrige threads com routing_stage='ASSIGNED' mas assigned_user_id=null.
 // Reverte para routing_stage='NEW' + pre_atendimento_ativo=false para permitir re-roteamento.

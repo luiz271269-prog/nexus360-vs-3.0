@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 /**
  * CALCULA SCORES ABC - Roda 1x/hora via automation

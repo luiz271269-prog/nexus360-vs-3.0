@@ -1,6 +1,6 @@
 // Backfill: Re-normalizar telefone_canonico de 12 dígitos → 13 dígitos (inserir dígito 9 móvel)
 // Resolve: contatos criados antes da normalização inserir o 9 não eram encontrados pelo webhook
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 function normalizarCanonico(canon) {
   if (!canon) return null;
