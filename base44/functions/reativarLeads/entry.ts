@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 /**
  * SKILL SDR: Reativar Leads Frios
@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
 
 // ============ FUNÇÕES AUXILIARES ============
 
-async function carregarTemplatesReativacao(base44: any) {
+async function carregarTemplatesReativacao(base44) {
   try {
     const configs = await base44.asServiceRole.entities.ConfiguracaoSistema.filter({
       chave: 'templates_reativacao'
@@ -199,7 +199,7 @@ async function carregarTemplatesReativacao(base44: any) {
   };
 }
 
-function selecionarTemplate(templates: any, classificacao: string, lead: any) {
+function selecionarTemplate(templates, classificacao, lead) {
   if (classificacao === 'alto_potencial' && lead.valor_orcamentos_abertos > 0) {
     return templates.alto_potencial;
   }
@@ -209,7 +209,7 @@ function selecionarTemplate(templates: any, classificacao: string, lead: any) {
   return templates.baixo_potencial;
 }
 
-function personalizarMensagem(template: any, dados: any): string {
+function personalizarMensagem(template, dados) {
   return template.texto
     .replace('{nome}', dados.nome)
     .replace('{dias_sem_contato}', String(dados.dias_sem_contato))
