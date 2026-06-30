@@ -5,6 +5,7 @@ import { instagramPublicarCarrossel } from '@/functions/instagramPublicarCarross
 import { Button } from '@/components/ui/button';
 import { Instagram, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import ModalLegendaInstagram from './ModalLegendaInstagram';
 
 /**
  * Botão Postar/Repostar no Instagram para um item da Visão Combinada.
@@ -13,6 +14,7 @@ import { toast } from 'sonner';
  */
 export default function BotaoPostarInstagram({ item }) {
   const [posting, setPosting] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const isVideo = item._media_type === 'video' || item.tipo_midia === 'video';
@@ -23,26 +25,27 @@ export default function BotaoPostarInstagram({ item }) {
   const tipoPost = item.instagram_post_tipo
     || (item._origem === 'promotion' ? (item.tipo_midia === 'video' ? 'reels' : 'imagem') : null);
 
-  const postar = async (e) => {
+  // Abre o modal de geração de legenda por IA
+  const abrirModal = (e) => {
     e.stopPropagation();
-
-    // Controle de deduplicação: confirma antes de repostar
-    let force = false;
     if (jaPostada) {
       const dataPost = new Date(item.instagram_posted_at).toLocaleString('pt-BR');
       if (!window.confirm(`⚠️ Esta promoção já foi publicada em ${dataPost}.\n\nDeseja publicar NOVAMENTE no Instagram?`)) {
         return;
       }
-      force = true;
     }
+    setModalOpen(true);
+  };
 
+  // Publica de fato, com a legenda aprovada/editada no modal
+  const publicar = async (caption) => {
+    const force = jaPostada;
     setPosting(true);
     try {
       let res;
       if (item._origem === 'promotion') {
-        res = await instagramPostarPromocao({ promotion_id: item.id, force });
+        res = await instagramPostarPromocao({ promotion_id: item.id, caption, force });
       } else {
-        const caption = `🔥 ${item.titulo || 'Oferta NeuralTec'}\n\n📲 Chama no direct ou WhatsApp!\n#neuraltec #tecnologia #ofertas`;
         res = await instagramPublicarCarrossel(
           isVideo
             ? { video_url: mediaUrl, caption, message_id: item._message_id, force }
@@ -56,6 +59,7 @@ export default function BotaoPostarInstagram({ item }) {
             onClick: () => window.open(res.data.permalink, '_blank')
           } : undefined
         });
+        setModalOpen(false);
         queryClient.invalidateQueries({ queryKey: ['promocoes-unificadas'] });
       } else {
         toast.error(res.data?.motivo || res.data?.error || 'Erro ao publicar');
@@ -70,6 +74,15 @@ export default function BotaoPostarInstagram({ item }) {
 
   return (
     <div className="mt-2 pt-2 border-t border-slate-100">
+      <ModalLegendaInstagram
+        open={modalOpen}
+        onOpenChange={(v) => { if (!posting) setModalOpen(v); }}
+        item={item}
+        mediaUrl={mediaUrl}
+        isVideo={isVideo}
+        publishing={posting}
+        onPublish={publicar}
+      />
       {jaPostada && (
         <div className="flex items-center gap-1 mb-1.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 w-fit">
           ✅ Publicado{tipoPost ? ` (${tipoPost})` : ''} em {new Date(item.instagram_posted_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -79,7 +92,7 @@ export default function BotaoPostarInstagram({ item }) {
       <Button
         size="sm"
         variant="outline"
-        onClick={postar}
+        onClick={abrirModal}
         disabled={posting}
         className="h-7 text-xs flex-1 border-pink-300 text-pink-700 hover:bg-pink-50"
       >

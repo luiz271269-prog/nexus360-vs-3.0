@@ -74,18 +74,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Montar legenda (remove placeholders {{nome}} etc)
+    // Legenda: usa a aprovada pelo usuário (modal de IA) se enviada; senão monta a padrão.
     const limpar = (t) => (t || '').replace(/\{\{[^}]+\}\}/g, '').trim();
-    const partes = [`🔥 ${limpar(promo.titulo)}`];
-    if (limpar(promo.descricao_curta || promo.descricao)) {
-      partes.push('', limpar(promo.descricao_curta || promo.descricao));
+    let caption = limpar(payload?.caption);
+    if (!caption) {
+      const partes = [`🔥 ${limpar(promo.titulo)}`];
+      if (limpar(promo.descricao_curta || promo.descricao)) {
+        partes.push('', limpar(promo.descricao_curta || promo.descricao));
+      }
+      if (promo.price_info) partes.push('', `💰 ${promo.price_info}`);
+      if (promo.validade) {
+        partes.push(`⏰ Válido até ${new Date(promo.validade).toLocaleDateString('pt-BR')}`);
+      }
+      partes.push('', '📲 Chama no direct ou WhatsApp!', '#neuraltec #tecnologia #ofertas #promocao');
+      caption = partes.join('\n');
     }
-    if (promo.price_info) partes.push('', `💰 ${promo.price_info}`);
-    if (promo.validade) {
-      partes.push(`⏰ Válido até ${new Date(promo.validade).toLocaleDateString('pt-BR')}`);
-    }
-    partes.push('', '📲 Chama no direct ou WhatsApp!', '#neuraltec #tecnologia #ofertas #promocao');
-    const caption = partes.join('\n');
 
     // Conector nativo Instagram
     const { accessToken } = await base44.asServiceRole.connectors.getConnection('instagram');
