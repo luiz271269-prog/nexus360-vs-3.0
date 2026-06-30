@@ -20,6 +20,7 @@ import CentralSaneamento from '@/pages/CentralSaneamento';
 import MonitorWAL from '@/pages/MonitorWAL';
 import Emails from '@/pages/Emails';
 import InstagramPublicacao from '@/pages/InstagramPublicacao';
+import TextosSociais from '@/pages/TextosSociais';
 import PortalCliente from '@/pages/PortalCliente';
 import MapaClientes from '@/pages/MapaClientes';
 import PainelMetas from '@/pages/PainelMetas';
@@ -165,6 +166,14 @@ const AuthenticatedApp = () => {
           element={
             <LayoutWrapper currentPageName="InstagramPublicacao">
               <InstagramPublicacao />
+            </LayoutWrapper>
+          } 
+        />
+        <Route 
+          path="/TextosSociais" 
+          element={
+            <LayoutWrapper currentPageName="TextosSociais">
+              <TextosSociais />
             </LayoutWrapper>
           } 
         />
