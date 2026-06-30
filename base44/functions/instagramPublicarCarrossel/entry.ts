@@ -155,7 +155,9 @@ Deno.serve(async (req) => {
             instagram_media_id: pubData.id,
             instagram_permalink: linkData.permalink || null,
             instagram_posted_at: new Date().toISOString(),
-            instagram_post_tipo: tipoPost
+            instagram_post_tipo: tipoPost,
+            instagram_posted_by_id: user.id,
+            instagram_posted_by_name: user.full_name || user.email || 'Usuário'
           }
         });
       } catch (e) {
@@ -169,6 +171,7 @@ Deno.serve(async (req) => {
       tipo_post: tipoPost,
       permalink: linkData.permalink || null,
       username: me.username,
+      posted_by_name: user.full_name || user.email || 'Usuário',
       total_imagens: video_url ? 1 : image_urls.length,
       tipo: video_url ? 'video' : 'imagem'
     });

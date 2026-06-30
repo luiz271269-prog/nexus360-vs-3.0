@@ -244,6 +244,14 @@
       "type": "string",
       "format": "datetime",
       "description": "Quando foi postada no Instagram pela \u00faltima vez (controle do auto-post)"
+    },
+    "instagram_posted_by_id": {
+      "type": "string",
+      "description": "ID do User que fez a \u00faltima publica\u00e7\u00e3o no Instagram (null se automa\u00e7\u00e3o)"
+    },
+    "instagram_posted_by_name": {
+      "type": "string",
+      "description": "Nome do usu\u00e1rio que fez a \u00faltima publica\u00e7\u00e3o no Instagram (ou 'Automa\u00e7\u00e3o')"
     }
   },
   "required": [

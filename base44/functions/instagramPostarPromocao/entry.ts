@@ -32,6 +32,8 @@ Deno.serve(async (req) => {
 
     let promotionId;
     let isAutomation = false;
+    let autorId = null;
+    let autorNome = 'Automação';
 
     if (payload?.event?.entity_name === 'Promotion' && payload?.event?.entity_id) {
       // Disparado pela automação de entidade (nova promoção criada)
@@ -44,6 +46,8 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Unauthorized' }, { status: 401 });
       }
       promotionId = payload?.promotion_id;
+      autorId = user.id;
+      autorNome = user.full_name || user.email || 'Usuário';
     }
 
     if (!promotionId) {
@@ -136,7 +140,9 @@ Deno.serve(async (req) => {
     await base44.asServiceRole.entities.Promotion.update(promo.id, {
       instagram_media_id: pubData.id,
       instagram_permalink: linkData.permalink || null,
-      instagram_posted_at: new Date().toISOString()
+      instagram_posted_at: new Date().toISOString(),
+      instagram_posted_by_id: autorId,
+      instagram_posted_by_name: autorNome
     });
 
     console.log(`[INSTAGRAM AUTO-POST] Promoção "${promo.titulo}" publicada (${isAutomation ? 'automação' : 'manual'}): ${linkData.permalink}`);
@@ -146,6 +152,7 @@ Deno.serve(async (req) => {
       media_id: pubData.id,
       permalink: linkData.permalink || null,
       username: me.username,
+      posted_by_name: autorNome,
       modo: isAutomation ? 'automatico' : 'manual'
     });
 
