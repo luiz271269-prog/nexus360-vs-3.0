@@ -314,6 +314,31 @@
         "email_snippet": {
           "type": "string",
           "description": "Pr\u00e9via do corpo (cache email)"
+        },
+        "instagram_media_id": {
+          "type": "string",
+          "description": "ID da m\u00eddia publicada no Instagram (quando esta mensagem etiquetada \u00e9 postada)"
+        },
+        "instagram_permalink": {
+          "type": "string",
+          "description": "Link da publica\u00e7\u00e3o no Instagram"
+        },
+        "instagram_posted_at": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Quando esta mensagem foi publicada no Instagram"
+        },
+        "instagram_post_tipo": {
+          "type": "string",
+          "description": "Tipo de post no Instagram (imagem, carrossel, reels)"
+        },
+        "instagram_posted_by_id": {
+          "type": "string",
+          "description": "ID do User que publicou no Instagram"
+        },
+        "instagram_posted_by_name": {
+          "type": "string",
+          "description": "Nome do usu\u00e1rio que publicou no Instagram"
         }
       }
     },
