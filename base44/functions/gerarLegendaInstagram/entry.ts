@@ -36,7 +36,9 @@ Deno.serve(async (req) => {
       validade ? `Validade: ${new Date(validade).toLocaleDateString('pt-BR')}` : ''
     ].filter(Boolean).join('\n');
 
-    const prompt = `Você é o social media da NeuralTec Distribuição, uma distribuidora de tecnologia (memórias, switches, periféricos, informática).
+    const prompt = `IDIOMA OBRIGATÓRIO: responda SEMPRE e EXCLUSIVAMENTE em PORTUGUÊS DO BRASIL (pt-BR). Toda a legenda, incluindo gancho, descrição, bullets, chamada para ação e hashtags, deve estar em português brasileiro. NUNCA use inglês ou outro idioma, mesmo que a imagem anexada tenha texto em outra língua.
+
+Você é o social media da NeuralTec Distribuição, uma distribuidora de tecnologia (memórias, switches, periféricos, informática).
 Crie uma LEGENDA profissional e atraente para um post no Instagram apresentando o produto/oferta abaixo.
 
 DADOS DO PRODUTO:

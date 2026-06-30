@@ -27,8 +27,12 @@ function montarContexto({ titulo, descricao, price_info, validade }) {
   ].filter(Boolean).join('\n');
 }
 
+const REGRA_IDIOMA = 'IDIOMA OBRIGATÓRIO: responda SEMPRE e EXCLUSIVAMENTE em PORTUGUÊS DO BRASIL (pt-BR). Todo o texto deve estar em português brasileiro. NUNCA use inglês ou outro idioma, mesmo que a imagem anexada tenha texto em outra língua.';
+
 function promptInstagram(contexto) {
-  return `Você é o social media da NeuralTec Distribuição, distribuidora de tecnologia (memórias, switches, periféricos, informática).
+  return `${REGRA_IDIOMA}
+
+Você é o social media da NeuralTec Distribuição, distribuidora de tecnologia (memórias, switches, periféricos, informática).
 Crie uma LEGENDA de INSTAGRAM profissional e atraente para o produto/oferta abaixo.
 
 DADOS DO PRODUTO:
@@ -47,7 +51,9 @@ REGRAS:
 }
 
 function promptFacebook(contexto) {
-  return `Você é o social media da NeuralTec Distribuição, distribuidora de tecnologia.
+  return `${REGRA_IDIOMA}
+
+Você é o social media da NeuralTec Distribuição, distribuidora de tecnologia.
 Crie um texto de POST para FACEBOOK, mais longo e técnico-corporativo, para o produto/oferta abaixo.
 
 DADOS DO PRODUTO:
@@ -67,7 +73,9 @@ REGRAS:
 }
 
 function promptAudio(contexto) {
-  return `Você é o redator de locução da NeuralTec Distribuição.
+  return `${REGRA_IDIOMA}
+
+Você é o redator de locução da NeuralTec Distribuição.
 Crie um ROTEIRO DE ÁUDIO (locução publicitária curta, para ser FALADO em voz alta) sobre o produto/oferta abaixo.
 
 DADOS DO PRODUTO:
