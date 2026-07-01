@@ -45,6 +45,7 @@ import { useMessageStatus } from './useMessageStatus';
 import { renderInternalDispatchLog } from './skills/internalDispatchLogSkill';
 import AcessosRapidosCard, { isAcessosRapidosMessage } from './AcessosRapidosCard';
 import { mobileEstiloMensagem } from './skills/mobileSkill';
+import SeloEtiquetagem from './SeloEtiquetagem';
 
 // Cache de blob URLs de áudio, por URL de origem (módulo-level, persiste entre remontagens)
 const audioBlobCache = new Map();
@@ -906,11 +907,26 @@ export default React.memo(function MessageBubble({
     setCategorizando(true);
     try {
       const categoriasAtuais = normalizarCategorias(message?.categorias);
-      const novasCategorias = categoriasAtuais.includes(valorCategoria) ?
-      categoriasAtuais.filter((c) => c !== valorCategoria) :
-      [...categoriasAtuais, valorCategoria];
+      const adicionando = !categoriasAtuais.includes(valorCategoria);
+      const novasCategorias = adicionando ?
+      [...categoriasAtuais, valorCategoria] :
+      categoriasAtuais.filter((c) => c !== valorCategoria);
 
-      await base44.entities.Message.update(message?.id, { categorias: novasCategorias });
+      // 🏷️ Registra data/hora + autor por etiqueta individual (para o selo no topo da bolha)
+      const metaAtual = { ...(message?.metadata?.etiquetas_meta || {}) };
+      if (adicionando) {
+        metaAtual[valorCategoria] = {
+          em: new Date().toISOString(),
+          por: usuarioAtual?.display_name || usuarioAtual?.full_name || 'Atendente'
+        };
+      } else {
+        delete metaAtual[valorCategoria];
+      }
+
+      await base44.entities.Message.update(message?.id, {
+        categorias: novasCategorias,
+        metadata: { ...(message?.metadata || {}), etiquetas_meta: metaAtual }
+      });
       const threadId = thread?.id;
       if (threadId) await queryClient.invalidateQueries({ queryKey: ['mensagens', threadId] });
 
@@ -988,8 +1004,16 @@ export default React.memo(function MessageBubble({
 
       const categoriasAtuais = normalizarCategorias(message?.categorias);
       if (!categoriasAtuais.includes(categoriaNormalizada)) {
+        const metaAtual = {
+          ...(message?.metadata?.etiquetas_meta || {}),
+          [categoriaNormalizada]: {
+            em: new Date().toISOString(),
+            por: usuarioAtual?.display_name || usuarioAtual?.full_name || 'Atendente'
+          }
+        };
         await base44.entities.Message.update(message?.id, {
-          categorias: [...categoriasAtuais, categoriaNormalizada]
+          categorias: [...categoriasAtuais, categoriaNormalizada],
+          metadata: { ...(message?.metadata || {}), etiquetas_meta: metaAtual }
         });
         const threadId = thread?.id;
         if (threadId) {
@@ -1370,6 +1394,12 @@ export default React.memo(function MessageBubble({
           style={{
             borderRadius: isOwn ? '8px 0 8px 8px' : '0 8px 8px 8px'
           }}>
+            {/* 🏷️ SELO DE ETIQUETAGEM — mostra etiquetas + data/hora, ou alerta ⚠️ se não etiquetada */}
+            {!isThreadInterna && (
+              <div className="px-2 pt-2">
+                <SeloEtiquetagem message={message} categoriasDB={categoriasDB} />
+              </div>
+            )}
             {!modoSelecao && !isTransferMessage &&
             <div className="absolute -top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20">
                   {onResponder &&
@@ -1522,19 +1552,8 @@ export default React.memo(function MessageBubble({
             {/* IMAGEM - ✅ Abre em nova aba (igual PDF) */}
             {message.media_type === 'image' &&
             <div className="flex flex-col gap-1">
-              {/* TIMESTAMP + TAGS NO TOPO — evita sobreposição sobre a imagem */}
+              {/* TIMESTAMP NO TOPO — as etiquetas agora vêm do SeloEtiquetagem universal acima */}
               <div className="flex items-center gap-1 flex-wrap px-2 pt-2 pb-0">
-                {message?.categorias && message.categorias.length > 0 &&
-                <div className="flex gap-1 flex-wrap">
-                  {message.categorias.slice(0, 3).map((cat) => {
-                    const config = getCategoriaConfig(cat, categoriasDB);
-                    return (
-                      <span key={cat} className="text-[9px] px-1.5 py-0.5 bg-slate-100 rounded flex items-center gap-1">
-                        {config.emoji} {config.label}
-                      </span>);
-                  })}
-                </div>
-                }
                 <span className="text-[10px] text-slate-500 ml-auto">
                   {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
                 </span>
