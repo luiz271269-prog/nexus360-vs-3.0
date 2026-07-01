@@ -190,23 +190,43 @@ export default function ChatWindow({
     });
   }, [integracoes, usuario]);
 
-  // ✅ VERIFICAR PERMISSÕES ESPECÍFICAS DA INSTÂNCIA
+  // ✅ VERIFICAR PERMISSÕES ESPECÍFICAS DA INSTÂNCIA DE ENVIO
+  // 🎯 O envio NÃO depende da instância de RECEBIMENTO (thread.whatsapp_integration_id).
+  // O atendente responde pela instância SELECIONADA (canalSelecionado) — que ele pode
+  // trocar no seletor "Enviar por:" para uma instância do setor dele. Respeita a config
+  // Ver/Receber/Enviar/Transferir de cada instância individualmente.
   const getPermissaoInstancia = (permissionKey) => {
-    if (!thread?.whatsapp_integration_id || !usuario) return true;
+    if (!usuario) return true;
     if (usuario.role === 'admin') return true;
 
     const whatsappPerms = usuario.whatsapp_permissions || [];
     if (whatsappPerms.length === 0) return true;
 
-    const perm = whatsappPerms.find((p) => p.integration_id === thread.whatsapp_integration_id);
-    
-    // ✅ CRÍTICO: Se não há permissão configurada para esta instância, LIBERAR por padrão
+    // Instância efetiva de envio: a selecionada no seletor, senão a da thread
+    const integrationEnvio = canalSelecionado || thread?.whatsapp_integration_id;
+    if (!integrationEnvio) return true;
+
+    const perm = whatsappPerms.find((p) => p.integration_id === integrationEnvio);
+
+    // ✅ Se não há permissão configurada para esta instância, LIBERAR por padrão
     if (!perm) return true;
-    
+
     return perm[permissionKey] ?? true;
   };
 
-  const podeEnviarPorInstancia = getPermissaoInstancia('can_send');
+  // ✅ Pode enviar se a instância selecionada permitir, OU se existir QUALQUER
+  // instância habilitada para envio (o atendente troca no seletor "Enviar por:").
+  const podeEnviarPorAlgumaInstancia = React.useMemo(() => {
+    if (!usuario || usuario.role === 'admin') return true;
+    const whatsappPerms = usuario.whatsapp_permissions || [];
+    if (whatsappPerms.length === 0) return true;
+    return integracoes.some((int) => {
+      const perm = whatsappPerms.find((p) => p.integration_id === int.id);
+      return !perm || perm.can_send === true;
+    });
+  }, [usuario, integracoes]);
+
+  const podeEnviarPorInstancia = getPermissaoInstancia('can_send') || podeEnviarPorAlgumaInstancia;
 
   // 🔐 Construir userPermissions para o banner de status
   const userPermissions = React.useMemo(() => {
