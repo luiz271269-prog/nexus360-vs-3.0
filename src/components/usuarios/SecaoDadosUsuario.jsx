@@ -4,7 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { User, Shield, Lock } from 'lucide-react';
+import { User, Shield, Lock, Bell } from 'lucide-react';
 import CardRegraFixaHardCore from './CardRegraFixaHardCore';
 import UploadFotoPerfil from './UploadFotoPerfil';
 
@@ -123,6 +123,16 @@ export default function SecaoDadosUsuario({
             </div>
           </div>
 
+          <div>
+            <label className="text-xs font-medium text-slate-700 mb-1 block">Celular Particular (para avisos)</label>
+            <Input
+              value={usuarioSelecionado.telefone_particular || ""}
+              onChange={(e) => atualizarUsuario("telefone_particular", e.target.value)}
+              placeholder="+55 48 99999-9999"
+              className="h-9"
+            />
+          </div>
+
           <div className="flex items-center justify-between px-2 py-1.5 bg-slate-50 rounded-lg border">
             <div>
               <p className="text-sm font-medium text-slate-800">Status do Usuário</p>
@@ -137,6 +147,38 @@ export default function SecaoDadosUsuario({
       </Card>
 
 
+
+      {/* Preferências de Avisos/Notificações */}
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Bell className="w-5 h-5" />
+            Avisos & Notificações
+          </CardTitle>
+          <CardDescription>Como este usuário recebe avisos de novas mensagens</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 pb-3">
+          {[
+            { key: 'receber_push', titulo: 'Push no Navegador/Celular', desc: 'Notificação nativa (requer permissão no dispositivo)' },
+            { key: 'receber_whatsapp', titulo: 'WhatsApp no Celular Particular', desc: 'Envia aviso para o número cadastrado acima' },
+            { key: 'receber_email', titulo: 'E-mail', desc: 'Envia aviso para o e-mail do usuário' },
+          ].map(opcao => (
+            <div key={opcao.key} className="flex items-center justify-between px-2 py-1.5 bg-slate-50 rounded-lg border">
+              <div>
+                <p className="text-sm font-medium text-slate-800">{opcao.titulo}</p>
+                <p className="text-xs text-slate-500">{opcao.desc}</p>
+              </div>
+              <Switch
+                checked={(usuarioSelecionado.notificacoes_config || {})[opcao.key] === true || (opcao.key === 'receber_push' && (usuarioSelecionado.notificacoes_config || {})[opcao.key] !== false)}
+                onCheckedChange={(v) => atualizarUsuario("notificacoes_config", {
+                  ...(usuarioSelecionado.notificacoes_config || {}),
+                  [opcao.key]: v
+                })}
+              />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {/* Perfis Rápidos */}
       <Card>

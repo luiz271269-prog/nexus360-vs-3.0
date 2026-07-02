@@ -11,6 +11,31 @@
       "default": true,
       "description": "Se o usu\u00e1rio est\u00e1 ativo no sistema"
     },
+    "telefone_particular": {
+      "type": "string",
+      "description": "N\u00famero de celular particular (com DDD, ex: +5548999999999) para receber avisos via WhatsApp"
+    },
+    "notificacoes_config": {
+      "type": "object",
+      "description": "Prefer\u00eancias de avisos/notifica\u00e7\u00f5es do usu\u00e1rio",
+      "properties": {
+        "receber_push": {
+          "type": "boolean",
+          "default": true,
+          "description": "Receber notifica\u00e7\u00f5es push no navegador/celular"
+        },
+        "receber_whatsapp": {
+          "type": "boolean",
+          "default": false,
+          "description": "Receber avisos no celular particular via WhatsApp"
+        },
+        "receber_email": {
+          "type": "boolean",
+          "default": false,
+          "description": "Receber avisos por e-mail"
+        }
+      }
+    },
     "is_whatsapp_attendant": {
       "type": "boolean",
       "default": false,
