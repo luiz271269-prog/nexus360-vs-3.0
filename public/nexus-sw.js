@@ -25,9 +25,20 @@ self.addEventListener('push', (event) => {
   try { data = event.data ? event.data.json() : {}; } catch (_) {}
 
   const title = data.title || 'Nexus360';
+
+  // Cor diferenciada por tipo de notificação (ícone colorido)
+  const ICONES_POR_TIPO = {
+    call: 'https://media.base44.com/images/public/68a7d067890527304dbe8477/b6a537353_generated_image.png',      // 🔴 chamada
+    interna: 'https://media.base44.com/images/public/68a7d067890527304dbe8477/ab13770da_generated_image.png',   // 🟣 mensagem interna
+    externa: 'https://media.base44.com/images/public/68a7d067890527304dbe8477/d26b0232f_generated_image.png',   // 🟢 mensagem de contato
+    sistema: 'https://media.base44.com/images/public/68a7d067890527304dbe8477/27c47bcda_generated_image.png'    // 🟠 alertas do sistema
+  };
+  const categoria = data.tipo === 'call' ? 'call' : (data.categoria || 'sistema');
+  const iconePadrao = ICONES_POR_TIPO[categoria] || '/icon-192.png';
+
   const options = {
     body: data.body || 'Você tem uma nova notificação',
-    icon: data.icon || '/icon-192.png',
+    icon: data.icon || iconePadrao,
     badge: data.badge || '/icon-192.png',
     tag: data.tag || 'nexus-notification',
     renotify: true,

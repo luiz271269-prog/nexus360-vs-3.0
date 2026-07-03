@@ -18,7 +18,7 @@ import webpush from 'npm:web-push@3.6.7';
 
 // Envia Web Push diretamente para todos os devices ativos de um usuário.
 // Registra cada tentativa no WakeUpLog (mesma auditoria do enviarWakeUpPush).
-async function enviarPushDireto(base44, { target_user_id, sender_user_id = null, tipo = 'message', title, body, action_url, icon = null, thread_id = null }) {
+async function enviarPushDireto(base44, { target_user_id, sender_user_id = null, tipo = 'message', categoria = 'sistema', title, body, action_url, icon = null, thread_id = null }) {
   if (sender_user_id && sender_user_id === target_user_id) {
     return { sent: 0, reason: 'sender_excluded' };
   }
@@ -35,7 +35,7 @@ async function enviarPushDireto(base44, { target_user_id, sender_user_id = null,
     return { sent: 0, reason: 'no_active_device' };
   }
 
-  const pushPayload = JSON.stringify({ title, body, tipo, action_url, icon, tag: thread_id ? `thread-${thread_id}` : `nexus-${tipo}` });
+  const pushPayload = JSON.stringify({ title, body, tipo, categoria, action_url, icon, tag: thread_id ? `thread-${thread_id}` : `nexus-${tipo}` });
   let sent = 0;
   let failed = 0;
 
@@ -158,6 +158,7 @@ Deno.serve(async (req) => {
             target_user_id: userId,
             sender_user_id: remetenteId,
             tipo: 'message',
+            categoria: 'interna',
             title: tituloInterno,
             body: previewInt,
             action_url: `/Comunicacao?thread_id=${thread.id}`,
@@ -239,6 +240,7 @@ Deno.serve(async (req) => {
         const res = await enviarPushDireto(base44, {
           target_user_id: userId,
           tipo: 'message',
+          categoria: 'externa',
           title: contactName,
           body: preview,
           action_url,
