@@ -1878,7 +1878,13 @@ export default React.memo(function MessageBubble({
               )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                   <p className={mobileEstiloMensagem.textoCorpo} style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
                     {(() => {
-                      const content = String(message.content || '');
+                      let content = String(message.content || '');
+                      // Evita duplicidade: o rodapé já mostra o atendente + setor,
+                      // então oculta a assinatura "_~ Nome (setor)_" no fim do texto enviado
+                      if (isOwn && !isThreadInterna) {
+                        const semAssinatura = content.replace(/\s*_?~\s*[^_\n()]+\([^)\n]+\)_?\s*$/, '');
+                        if (semAssinatura.trim() !== '') content = semAssinatura;
+                      }
                       const urlRegex = /(https?:\/\/[^\s]+)/gi;
                       const parts = content.split(urlRegex);
                       return parts.map((part, idx) => {
