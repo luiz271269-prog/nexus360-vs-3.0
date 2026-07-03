@@ -1974,7 +1974,7 @@ export default React.memo(function MessageBubble({
                             {nomeAtendente}
                           </span>
                           {setorAtendente &&
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[hsl(var(--chart-4))] text-[hsl(var(--destructive))]">
                               {setorAtendente}
                             </span>
                         }
