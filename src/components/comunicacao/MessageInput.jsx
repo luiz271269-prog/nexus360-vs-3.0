@@ -453,12 +453,13 @@ export default function MessageInput({
       )}
 
       {integracoes.length > 1 && !modoSelecaoMultipla && thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group' && (
-        <div className="mb-1 flex items-center gap-1 flex-wrap">
-          <label className="text-gray-900 text-xs font-medium whitespace-nowrap">Enviar por:</label>
+        <div className="mb-1.5 inline-flex items-center gap-2 max-w-full px-4 py-1.5 rounded-full bg-[#494960]/90 backdrop-blur-md border border-white/10 shadow-lg shadow-slate-400/30">
+          <label className="text-slate-100 text-xs font-medium whitespace-nowrap">Enviar por:</label>
+          <span className="w-px h-4 bg-white/30 flex-shrink-0" />
           <select
             value={canalSelecionado || thread?.whatsapp_integration_id || ''}
             onChange={(e) => onCanalChange(e.target.value)}
-            className="bg-[#778ca6] text-slate-50 px-1.5 py-0.5 text-xs rounded border border-slate-300 min-w-0 flex-1 truncate"
+            className="bg-transparent text-slate-50 text-xs min-w-0 flex-1 truncate cursor-pointer focus:outline-none [&>option]:text-slate-900"
           >
             {integracoes.map((int) => {
               const channelLogos = { z_api: '🟢', w_api: '🟢', instagram_api: '📸', facebook_graph_api: '📘', goto_phone: '📞' };
@@ -474,12 +475,13 @@ export default function MessageInput({
       )}
 
       {integracoes.length > 0 && modoSelecaoMultipla && contatosSelecionados.length > 0 && (
-        <div className="mb-1 flex items-center gap-1 flex-wrap">
-          <label className="text-gray-900 text-xs font-medium whitespace-nowrap">Enviar por:</label>
+        <div className="mb-1.5 inline-flex items-center gap-2 max-w-full px-4 py-1.5 rounded-full bg-[#494960]/90 backdrop-blur-md border border-white/10 shadow-lg shadow-slate-400/30">
+          <label className="text-slate-100 text-xs font-medium whitespace-nowrap">Enviar por:</label>
+          <span className="w-px h-4 bg-white/30 flex-shrink-0" />
           <select
             value={canalSelecionado || integracoes.find(i => i.status === 'conectado')?.id || ''}
             onChange={(e) => onCanalChange(e.target.value)}
-            className="bg-[#778ca6] text-slate-50 px-1.5 py-0.5 text-xs rounded border border-slate-300 min-w-0 flex-1 truncate"
+            className="bg-transparent text-slate-50 text-xs min-w-0 flex-1 truncate cursor-pointer focus:outline-none [&>option]:text-slate-900"
           >
             {integracoes.filter(i => i.status === 'conectado').map((int) => {
               const channelLogos = { z_api: '🟢', w_api: '🟢', instagram_api: '📸', facebook_graph_api: '📘', goto_phone: '📞' };
