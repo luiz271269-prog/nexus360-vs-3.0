@@ -800,6 +800,38 @@ Deno.serve(async (req) => {
     // CAMADA 3 — decisão de contexto.
 
     marcarInicioCamada(2);
+
+    // GUARD HUMANO REAL: context.human_active depende de thread.last_human_message_at,
+    // que pode não ter sido persistido no envio do atendente (caso Patrícia 03/07:
+    // Tiago respondeu 09:37, campo ficou null, ACK saiu 09:40). Fonte de verdade
+    // alternativa: mensagens reais da thread. Se um atendente humano (sender_id =
+    // ObjectId de User, sem is_ack/is_ai_response/micro_intent) respondeu nos
+    // últimos 60min, trata como humano ativo e faz backfill do campo.
+    if (context.human_active !== true) {
+      try {
+        const _1hAtras = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const _msgsRecentes = await base44.asServiceRole.entities.Message.filter({
+          thread_id, sender_type: 'user', created_date: { $gte: _1hAtras }
+        }, '-created_date', 10).catch(() => []);
+        const _msgHumana = (_msgsRecentes || []).find(m =>
+          /^[a-f0-9]{24}$/i.test(String(m.sender_id || ''))
+          && m.metadata?.is_ack !== true
+          && m.metadata?.is_ai_response !== true
+          && m.metadata?.micro_intent !== true
+        );
+        if (_msgHumana) {
+          context.human_active = true;
+          const _tsHumana = _msgHumana.sent_at || _msgHumana.created_date;
+          if (!threadInicial?.last_human_message_at || new Date(threadInicial.last_human_message_at) < new Date(_tsHumana)) {
+            await base44.asServiceRole.entities.MessageThread.update(thread_id, { last_human_message_at: _tsHumana }).catch(() => {});
+          }
+          console.log(`[SKILL-PRE-ATEND] 👤 Guard humano real: mensagem humana recente na thread (${_msgHumana.sender_id}) — human_active=true`);
+        }
+      } catch (e) {
+        console.warn('[SKILL-PRE-ATEND] Guard humano real falhou (não crítico):', e.message);
+      }
+    }
+
     // Camada 2 só bloqueia pipeline em horário comercial.
     const _horarioCfgC2 = await getHorarioCfgPipeline(base44);
     const _horarioInfoC2 = await getHorarioInfoPipeline(base44);
@@ -1557,7 +1589,21 @@ Deno.serve(async (req) => {
     let intencao = 'contato_geral';
     let confidence = 0.5;
     let metodo = 'fallback';
-    const textoAnalise = (message_content || thread?.last_message_content || '').substring(0, 500);
+    // CONTEXTO CONVERSACIONAL: classificar usando as últimas mensagens do cliente,
+    // não só a atual — "026.280.379-80" isolado virava "financeiro" mesmo com
+    // pedido de monitor 2 mensagens antes (caso Patrícia 03/07).
+    let textoAnalise = (message_content || thread?.last_message_content || '').substring(0, 500);
+    try {
+      const _inbounds = await base44.asServiceRole.entities.Message.filter({
+        thread_id, sender_type: 'contact'
+      }, '-created_date', 5).catch(() => []);
+      if (Array.isArray(_inbounds) && _inbounds.length > 1) {
+        const _contexto = _inbounds.reverse().map(m => (m.content || '').trim()).filter(Boolean).join('\n');
+        if (_contexto.length > (message_content || '').trim().length) {
+          textoAnalise = _contexto.substring(0, 500);
+        }
+      }
+    } catch (_) { /* mantém textoAnalise da mensagem atual */ }
 
     marcarInicioCamada(6);
     try {
