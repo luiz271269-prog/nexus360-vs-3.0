@@ -1394,11 +1394,9 @@ export default React.memo(function MessageBubble({
           style={{
             borderRadius: isOwn ? '8px 0 8px 8px' : '0 8px 8px 8px'
           }}>
-            {/* 🏷️ SELO DE ETIQUETAGEM — mostra etiquetas + data/hora, ou alerta ⚠️ se não etiquetada */}
+            {/* 🏷️ SELO DE ETIQUETAGEM — etiquetas aplicadas; alerta "Não etiquetado" só em imagens enviadas (badge canto sup. direito) */}
             {!isThreadInterna && (
-              <div className="px-2 pt-2">
-                <SeloEtiquetagem message={message} categoriasDB={categoriasDB} />
-              </div>
+              <SeloEtiquetagem message={message} categoriasDB={categoriasDB} isOwn={isOwn} />
             )}
             {!modoSelecao && !isTransferMessage &&
             <div className="absolute -top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20">

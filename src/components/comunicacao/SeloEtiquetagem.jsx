@@ -13,15 +13,17 @@ import { getCategoriaConfig } from './CategorizadorRapido';
  * O timestamp por etiqueta é gravado em message.metadata.etiquetas_meta:
  *   { [nomeEtiqueta]: { em: ISOString, por: "Nome do atendente" } }
  */
-export default function SeloEtiquetagem({ message, categoriasDB = [] }) {
+export default function SeloEtiquetagem({ message, categoriasDB = [], isOwn = false }) {
   const categorias = Array.isArray(message?.categorias) ? message.categorias : [];
   const etiquetasMeta = message?.metadata?.etiquetas_meta || {};
 
-  // Sem etiqueta → selo de alerta chamativo
+  // Sem etiqueta → alerta APENAS em IMAGENS ENVIADAS, como badge destacado
+  // no canto superior direito da bolha (não polui mensagens de texto).
   if (categorias.length === 0) {
+    if (!isOwn || message?.media_type !== 'image') return null;
     return (
-      <div className="flex items-center gap-1 mb-1">
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300">
+      <div className="absolute -top-2.5 right-2 z-10 pointer-events-none">
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white border border-amber-600 shadow-md">
           <AlertTriangle className="w-3 h-3" />
           Não etiquetado
         </span>
@@ -39,7 +41,7 @@ export default function SeloEtiquetagem({ message, categoriasDB = [] }) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1 mb-1">
+    <div className="flex flex-wrap items-center gap-1 mb-1 px-2 pt-2">
       {categorias.map((cat) => {
         const config = getCategoriaConfig(cat, categoriasDB);
         const meta = etiquetasMeta[cat];
