@@ -786,7 +786,7 @@ export default function MessageInput({
               "Digite..."
               }
               rows={Math.max(1, Math.min(4, mensagemTexto.split('\n').length))}
-              className="w-full md:p-3 text-sm border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 pr-1 pb-4 pl-1 pt-5"
+              className="w-full md:p-3 text-sm border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 pr-1 pb-4 pl-1 pt-6 my-1 mx-auto"
               disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens} />
             
         </div>
