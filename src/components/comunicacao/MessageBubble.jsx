@@ -1969,7 +1969,7 @@ export default React.memo(function MessageBubble({
                     <>
                       {nomeAtendente &&
                       <>
-                          <span className="px-1.5 py-0.5 rounded flex items-center gap-0.5 text-xs text-[hsl(var(--destructive))] bg-[hsl(var(--sidebar-ring))]">
+                          <span className="px-1.5 py-0.5 rounded flex items-center gap-0.5 text-xs text-[hsl(var(--destructive))] [font-family:'Pacifico',_system-ui] bg-[hsl(var(--chart-4))]">
                             <UserCheck className="w-3 h-3" />
                             {nomeAtendente}
                           </span>
