@@ -64,7 +64,7 @@ const AudioPlayer = React.memo(({ src }) => {
   // então o player NUNCA regride para "processando" depois de já ter o áudio.
   React.useEffect(() => {
     if (!src || src === 'pending_download' || src === 'failed_download') return;
-    if (audioBlobCache.has(src)) { setBlobUrl(audioBlobCache.get(src)); return; }
+    if (audioBlobCache.has(src)) {setBlobUrl(audioBlobCache.get(src));return;}
     let cancelled = false;
     (async () => {
       try {
@@ -72,15 +72,15 @@ const AudioPlayer = React.memo(({ src }) => {
         const buf = await resp.arrayBuffer();
         const sig = new Uint8Array(buf.slice(0, 4));
         const ascii = String.fromCharCode(...sig);
-        const mime = ascii === 'OggS' ? 'audio/ogg'
-          : (sig[0] === 0x00 && sig[3] === 0x20) ? 'audio/mp4'
-          : 'audio/mpeg';
+        const mime = ascii === 'OggS' ? 'audio/ogg' :
+        sig[0] === 0x00 && sig[3] === 0x20 ? 'audio/mp4' :
+        'audio/mpeg';
         const url = URL.createObjectURL(new Blob([buf], { type: mime }));
         audioBlobCache.set(src, url);
         if (!cancelled) setBlobUrl(url);
-      } catch (e) { /* mantém src direto como fallback */ }
+      } catch (e) {/* mantém src direto como fallback */}
     })();
-    return () => { cancelled = true; }; // NÃO revoga: o blob fica em cache para a próxima montagem
+    return () => {cancelled = true;}; // NÃO revoga: o blob fica em cache para a próxima montagem
   }, [src]);
 
   const cycleSpeed = () => {
@@ -104,7 +104,7 @@ const AudioPlayer = React.memo(({ src }) => {
           const a = e.currentTarget;
           if (a.duration === Infinity || Number.isNaN(a.duration)) {
             a.currentTime = 1e101;
-            const fix = () => { a.currentTime = 0; a.removeEventListener('timeupdate', fix); };
+            const fix = () => {a.currentTime = 0;a.removeEventListener('timeupdate', fix);};
             a.addEventListener('timeupdate', fix);
           }
         }} />
@@ -128,8 +128,8 @@ const VideoPlayer = React.memo(({ src, poster }) => {
       controls
       preload="metadata"
       poster={poster || undefined}
-      className="max-w-[280px] max-h-[280px] rounded-lg bg-black" />
-  );
+      className="max-w-[280px] max-h-[280px] rounded-lg bg-black" />);
+
 }, (prev, next) => prev.src === next.src && prev.poster === next.poster);
 
 // Componente de imagem com fallback seguro
@@ -633,10 +633,10 @@ export default React.memo(function MessageBubble({
       if (tipoEncaminhamento === 'contatos') {
         // ✅ FALLBACK em ordem: mensagem → thread direta → array de origens → primeira integração conectada
         let integrationId =
-          message?.metadata?.whatsapp_integration_id ||
-          thread?.whatsapp_integration_id ||
-          (Array.isArray(thread?.origin_integration_ids) && thread.origin_integration_ids[0]) ||
-          null;
+        message?.metadata?.whatsapp_integration_id ||
+        thread?.whatsapp_integration_id ||
+        Array.isArray(thread?.origin_integration_ids) && thread.origin_integration_ids[0] ||
+        null;
 
         if (!integrationId && Array.isArray(integracoes) && integracoes.length > 0) {
           const conectada = integracoes.find((i) => i.status === 'conectado');
@@ -662,14 +662,14 @@ export default React.memo(function MessageBubble({
           const broadcastId = `forward_${message.id}_${Date.now()}`;
           const agora = Date.now();
           const conteudoTexto = message?.content || '';
-          const conteudoFinal = conteudoTexto
-            ? `📨 *[Mensagem Encaminhada]*\n\n${conteudoTexto}`
-            : '';
+          const conteudoFinal = conteudoTexto ?
+          `📨 *[Mensagem Encaminhada]*\n\n${conteudoTexto}` :
+          '';
           const isAudio = message?.media_type === 'audio';
 
           for (let i = 0; i < contatosSelecionados.length; i++) {
             const contato = contatos.find((c) => c.id === contatosSelecionados[i]);
-            if (!contato || !contato.telefone) { erros++; continue; }
+            if (!contato || !contato.telefone) {erros++;continue;}
 
             // Espalha em janela de 30s a 4min para o worker pegar nos próximos ciclos
             const offsetMs = 30000 + i * 30000;
@@ -763,7 +763,7 @@ export default React.memo(function MessageBubble({
 
         for (const itemId of contatosSelecionados) {
           const item = usuariosInternos.find((u) => u.id === itemId);
-          if (!item) { erros++; continue; }
+          if (!item) {erros++;continue;}
 
           try {
             let threadId = null;
@@ -780,7 +780,7 @@ export default React.memo(function MessageBubble({
               threadId = item._thread_id;
             }
 
-            if (!threadId) { erros++; continue; }
+            if (!threadId) {erros++;continue;}
 
             // ✅ Mesmo padrão de sendInternalMessage já em produção
             await base44.functions.invoke('sendInternalMessage', {
@@ -863,25 +863,25 @@ export default React.memo(function MessageBubble({
     if (qm) {
       // Normalizar para formato compatível com a UI
       const texto = qm.conversation ||
-                    qm.extendedTextMessage?.text ||
-                    qm.imageMessage?.caption ||
-                    qm.videoMessage?.caption ||
-                    qm.documentMessage?.caption ||
-                    qm.audioMessage ? '🎤 Áudio' :
-                    qm.imageMessage ? '📷 Imagem' :
-                    qm.videoMessage ? '🎥 Vídeo' :
-                    qm.documentMessage ? `📄 ${qm.documentMessage.fileName || 'Documento'}` :
-                    qm.stickerMessage ? '🎨 Sticker' :
-                    null;
+      qm.extendedTextMessage?.text ||
+      qm.imageMessage?.caption ||
+      qm.videoMessage?.caption ||
+      qm.documentMessage?.caption ||
+      qm.audioMessage ? '🎤 Áudio' :
+      qm.imageMessage ? '📷 Imagem' :
+      qm.videoMessage ? '🎥 Vídeo' :
+      qm.documentMessage ? `📄 ${qm.documentMessage.fileName || 'Documento'}` :
+      qm.stickerMessage ? '🎨 Sticker' :
+      null;
       if (texto) {
         return {
           id: null,
           content: texto,
           media_type: qm.imageMessage ? 'image' :
-                      qm.videoMessage ? 'video' :
-                      qm.audioMessage ? 'audio' :
-                      qm.documentMessage ? 'document' :
-                      qm.stickerMessage ? 'sticker' : 'none',
+          qm.videoMessage ? 'video' :
+          qm.audioMessage ? 'audio' :
+          qm.documentMessage ? 'document' :
+          qm.stickerMessage ? 'sticker' : 'none',
           sender_type: qm.key?.fromMe ? 'user' : 'contact',
           sender_id: qm.key?.fromMe ? message.sender_id : null,
           _fromMetadata: true
@@ -1060,8 +1060,8 @@ export default React.memo(function MessageBubble({
             setContatosSelecionados([]);
             setBuscaContato("");
             setTipoEncaminhamento('contatos');
-          } : undefined}
-        />
+          } : undefined} />
+        
 
         <Dialog open={mostrarDialogEncaminhar} onOpenChange={(open) => {
           if (!open && encaminhando) return;
@@ -1081,7 +1081,7 @@ export default React.memo(function MessageBubble({
             <div className="space-y-4">
               <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
                 <button
-                  onClick={() => { setTipoEncaminhamento('contatos'); setContatosSelecionados([]); setBuscaContato(""); }}
+                  onClick={() => {setTipoEncaminhamento('contatos');setContatosSelecionados([]);setBuscaContato("");}}
                   className={cn(
                     "flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all",
                     tipoEncaminhamento === 'contatos' ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
@@ -1089,7 +1089,7 @@ export default React.memo(function MessageBubble({
                   <div className="flex items-center justify-center gap-2"><User className="w-4 h-4" />Contatos</div>
                 </button>
                 <button
-                  onClick={() => { setTipoEncaminhamento('internos'); setContatosSelecionados([]); setBuscaContato(""); }}
+                  onClick={() => {setTipoEncaminhamento('internos');setContatosSelecionados([]);setBuscaContato("");}}
                   className={cn(
                     "flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all",
                     tipoEncaminhamento === 'internos' ? "bg-white text-purple-600 shadow-sm" : "text-slate-600 hover:text-slate-900"
@@ -1108,75 +1108,75 @@ export default React.memo(function MessageBubble({
               </div>
 
               {contatosSelecionados.length > 0 &&
-                <div className={cn("flex flex-wrap gap-2 p-3 rounded-lg border",
-                  tipoEncaminhamento === 'internos' ? "bg-purple-50 border-purple-200" : "bg-blue-50 border-blue-200")}>
+              <div className={cn("flex flex-wrap gap-2 p-3 rounded-lg border",
+              tipoEncaminhamento === 'internos' ? "bg-purple-50 border-purple-200" : "bg-blue-50 border-blue-200")}>
                   {contatosSelecionados.map((itemId) => {
-                    const item = tipoEncaminhamento === 'internos'
-                      ? usuariosInternos.find((u) => u.id === itemId)
-                      : contatos.find((c) => c.id === itemId);
-                    if (!item) return null;
-                    const nomeChip = tipoEncaminhamento === 'internos' ? item.nome_exibicao : (item.nome || item.telefone);
-                    return (
-                      <Badge key={itemId} variant="secondary"
-                        className={tipoEncaminhamento === 'internos' ? "bg-purple-100 text-purple-800 gap-1" : "bg-blue-100 text-blue-800 gap-1"}>
+                  const item = tipoEncaminhamento === 'internos' ?
+                  usuariosInternos.find((u) => u.id === itemId) :
+                  contatos.find((c) => c.id === itemId);
+                  if (!item) return null;
+                  const nomeChip = tipoEncaminhamento === 'internos' ? item.nome_exibicao : item.nome || item.telefone;
+                  return (
+                    <Badge key={itemId} variant="secondary"
+                    className={tipoEncaminhamento === 'internos' ? "bg-purple-100 text-purple-800 gap-1" : "bg-blue-100 text-blue-800 gap-1"}>
                         {nomeChip}
-                        <button onClick={(e) => { e.stopPropagation(); toggleContatoSelecionado(item); }}
-                          className="ml-1 hover:bg-white/50 rounded-full p-0.5">×</button>
+                        <button onClick={(e) => {e.stopPropagation();toggleContatoSelecionado(item);}}
+                      className="ml-1 hover:bg-white/50 rounded-full p-0.5">×</button>
                       </Badge>);
-                  })}
+                })}
                 </div>
               }
 
               <ScrollArea className="h-64 border rounded-lg">
                 {!buscaContato || buscaContato.trim().length < 2 ?
-                  <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
                     <Search className="w-12 h-12 mb-3 text-slate-300" />
                     <p className="text-sm font-medium">Digite para buscar</p>
                     <p className="text-xs text-slate-400 mt-1">Mínimo 2 caracteres</p>
                   </div> :
-                  (tipoEncaminhamento === 'contatos' ? carregandoContatos : carregandoInternos) ?
-                  <div className="flex items-center justify-center h-full"><Loader2 className="w-6 h-6 animate-spin text-blue-600" /></div> :
-                  (tipoEncaminhamento === 'contatos' ? contatos.length : usuariosInternos.length) === 0 ?
-                  <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                (tipoEncaminhamento === 'contatos' ? carregandoContatos : carregandoInternos) ?
+                <div className="flex items-center justify-center h-full"><Loader2 className="w-6 h-6 animate-spin text-blue-600" /></div> :
+                (tipoEncaminhamento === 'contatos' ? contatos.length : usuariosInternos.length) === 0 ?
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
                     <p className="text-sm">Nenhum {tipoEncaminhamento === 'internos' ? 'usuário' : 'contato'} encontrado</p>
                   </div> :
-                  <div className="p-2">
+                <div className="p-2">
                     {tipoEncaminhamento === 'contatos' && contatos.map((contato) => {
-                      const selecionado = contatosSelecionados.includes(contato.id);
-                      let nomeExibicao = "";
-                      if (contato.empresa) nomeExibicao += contato.empresa;
-                      if (contato.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + contato.cargo;
-                      if (contato.nome && contato.nome !== contato.telefone && contato.nome !== '-') {
-                        nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
-                      }
-                      if (!nomeExibicao || nomeExibicao.trim() === '') nomeExibicao = contato.telefone || "Sem nome";
-                      return (
-                        <button key={contato.id} onClick={() => toggleContatoSelecionado(contato)}
-                          className={cn("w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors",
-                            selecionado && "bg-blue-50 hover:bg-blue-100")}>
+                    const selecionado = contatosSelecionados.includes(contato.id);
+                    let nomeExibicao = "";
+                    if (contato.empresa) nomeExibicao += contato.empresa;
+                    if (contato.cargo) nomeExibicao += (nomeExibicao ? " - " : "") + contato.cargo;
+                    if (contato.nome && contato.nome !== contato.telefone && contato.nome !== '-') {
+                      nomeExibicao += (nomeExibicao ? " - " : "") + contato.nome;
+                    }
+                    if (!nomeExibicao || nomeExibicao.trim() === '') nomeExibicao = contato.telefone || "Sem nome";
+                    return (
+                      <button key={contato.id} onClick={() => toggleContatoSelecionado(contato)}
+                      className={cn("w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors",
+                      selecionado && "bg-blue-50 hover:bg-blue-100")}>
                           <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden",
-                            selecionado ? "bg-blue-600" : "bg-slate-400")}>
+                        selecionado ? "bg-blue-600" : "bg-slate-400")}>
                             {selecionado ? <Check className="w-5 h-5" /> :
-                              contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ?
-                              <img src={contato.foto_perfil_url} alt={nomeExibicao} className="w-full h-full object-cover"
-                                onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.textContent = nomeExibicao.charAt(0).toUpperCase(); }} /> :
-                              nomeExibicao.charAt(0)?.toUpperCase() || '?'}
+                          contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ?
+                          <img src={contato.foto_perfil_url} alt={nomeExibicao} className="w-full h-full object-cover"
+                          onError={(e) => {e.target.style.display = 'none';e.target.parentElement.textContent = nomeExibicao.charAt(0).toUpperCase();}} /> :
+                          nomeExibicao.charAt(0)?.toUpperCase() || '?'}
                           </div>
                           <div className="flex-1 text-left min-w-0">
                             <p className="font-medium text-slate-900 truncate">{nomeExibicao}</p>
                             <p className="text-sm text-slate-500 truncate">{contato.telefone}</p>
                           </div>
                         </button>);
-                    })}
+                  })}
                     {tipoEncaminhamento === 'internos' && usuariosInternos.map((item) => {
-                      const selecionado = contatosSelecionados.includes(item.id);
-                      const isGroup = item._tipo === 'sector_group' || item._tipo === 'team_group';
-                      return (
-                        <button key={item.id} onClick={() => toggleContatoSelecionado(item)}
-                          className={cn("w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors",
-                            selecionado && "bg-purple-50 hover:bg-purple-100")}>
+                    const selecionado = contatosSelecionados.includes(item.id);
+                    const isGroup = item._tipo === 'sector_group' || item._tipo === 'team_group';
+                    return (
+                      <button key={item.id} onClick={() => toggleContatoSelecionado(item)}
+                      className={cn("w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors",
+                      selecionado && "bg-purple-50 hover:bg-purple-100")}>
                           <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 text-sm",
-                            selecionado ? "bg-purple-600" : isGroup ? "bg-indigo-500" : "bg-slate-400")}>
+                        selecionado ? "bg-purple-600" : isGroup ? "bg-indigo-500" : "bg-slate-400")}>
                             {selecionado ? <Check className="w-5 h-5" /> : item.nome_exibicao.charAt(0)?.toUpperCase() || '?'}
                           </div>
                           <div className="flex-1 text-left min-w-0">
@@ -1184,28 +1184,28 @@ export default React.memo(function MessageBubble({
                             <p className="text-xs text-slate-500 truncate">{item.subtitulo}</p>
                           </div>
                         </button>);
-                    })}
+                  })}
                   </div>
                 }
               </ScrollArea>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setMostrarDialogEncaminhar(false); setContatosSelecionados([]); setBuscaContato(""); }}>
+              <Button variant="outline" onClick={() => {setMostrarDialogEncaminhar(false);setContatosSelecionados([]);setBuscaContato("");}}>
                 Cancelar
               </Button>
               <Button onClick={handleEncaminhar}
-                disabled={contatosSelecionados.length === 0 || encaminhando}
-                className={tipoEncaminhamento === 'internos' ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}>
+              disabled={contatosSelecionados.length === 0 || encaminhando}
+              className={tipoEncaminhamento === 'internos' ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}>
                 {encaminhando ?
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Encaminhando...</> :
-                  <>Encaminhar<ArrowRight className="w-4 h-4 ml-2" /></>}
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Encaminhando...</> :
+                <>Encaminhar<ArrowRight className="w-4 h-4 ml-2" /></>}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </>
-    );
+      </>);
+
   }
 
   // 🔔 MENSAGEM DE TRANSFERÊNCIA
@@ -1311,7 +1311,7 @@ export default React.memo(function MessageBubble({
               </div>);
 
           })()}
-          {mostrarHeaderContato ? (
+          {mostrarHeaderContato ?
           <div className="flex items-center gap-2 mb-0.5">
               <span className="text-[11px] font-semibold text-[#00a884]">
                 {contato.nome}
@@ -1330,8 +1330,8 @@ export default React.memo(function MessageBubble({
                   </span>);
 
             })()}
-            </div>
-          ) : null}
+            </div> :
+          null}
 
           {/* ✅ QUOTE/RESPOSTA - Estilo WhatsApp */}
           {mensagemOriginal &&
@@ -1385,9 +1385,9 @@ export default React.memo(function MessageBubble({
             "rounded-lg relative shadow-sm",
             // 🎨 CORES THREADS INTERNAS vs EXTERNAS
             isThreadInterna ?
-              isOwn ? "bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-l-4 border-l-blue-600" : "bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-r-4 border-r-purple-600"
-            :
-              isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200",
+            isOwn ? "bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-l-4 border-l-blue-600" : "bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-r-4 border-r-purple-600" :
+
+            isOwn ? "bg-[#d9fdd3] border border-green-200" : "bg-white border border-slate-200",
             selecionada ? 'ring-2 ring-blue-500' : '',
             message.media_url && message.media_type !== 'none' ? '' : mobileEstiloMensagem.paddingBolha
           )}
@@ -1395,119 +1395,119 @@ export default React.memo(function MessageBubble({
             borderRadius: isOwn ? '8px 0 8px 8px' : '0 8px 8px 8px'
           }}>
             {/* 🏷️ SELO DE ETIQUETAGEM — etiquetas aplicadas; alerta "Não etiquetado" só em imagens enviadas (badge canto sup. direito) */}
-            {!isThreadInterna && (
-              <SeloEtiquetagem message={message} categoriasDB={categoriasDB} isOwn={isOwn} />
-            )}
+            {!isThreadInterna &&
+            <SeloEtiquetagem message={message} categoriasDB={categoriasDB} isOwn={isOwn} />
+            }
             {!modoSelecao && !isTransferMessage &&
             <div className="absolute -top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20">
                   {onResponder &&
-                <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Responder"
-                      onClick={() => onResponder(message)}
-                      className={cn(
-                        "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
-                        "bg-white/90 hover:bg-white border border-slate-200"
-                      )}>
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Responder"
+                onClick={() => onResponder(message)}
+                className={cn(
+                  "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                  "bg-white/90 hover:bg-white border border-slate-200"
+                )}>
                           <Reply className="w-3.5 h-3.5 text-slate-700" />
                         </Button>
-                }
+              }
 
                   {/* 💬 COMENTÁRIOS INTERNOS - Anexado à mensagem */}
-                  {!isOwn && (
-                    <ComentariosInternos
-                      messageId={message.id}
-                      usuarioAtual={usuarioAtual}
-                      contato={contato}
-                      atendentes={atendentes}
-                      hasPermission={usuarioAtual?.role === 'admin' || ['gerente', 'coordenador'].includes(usuarioAtual?.attendant_role)}
-                    />
-                  )}
+                  {!isOwn &&
+              <ComentariosInternos
+                messageId={message.id}
+                usuarioAtual={usuarioAtual}
+                contato={contato}
+                atendentes={atendentes}
+                hasPermission={usuarioAtual?.role === 'admin' || ['gerente', 'coordenador'].includes(usuarioAtual?.attendant_role)} />
+
+              }
 
                   {/* 📇 CARTÃO DE ACESSO - atalho rápido em mensagens recebidas */}
                   {!isOwn && !isThreadInterna && thread?.contact_id &&
-                <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Enviar Cartão de Acesso"
-                      onClick={handleEnviarCartao}
-                      disabled={enviandoCartao}
-                      className={cn(
-                        "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
-                        "bg-white/90 hover:bg-teal-50 border border-slate-200"
-                      )}>
-                          {enviandoCartao
-                            ? <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin" />
-                            : <CreditCard className="w-3.5 h-3.5 text-teal-600" />}
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Enviar Cartão de Acesso"
+                onClick={handleEnviarCartao}
+                disabled={enviandoCartao}
+                className={cn(
+                  "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                  "bg-white/90 hover:bg-teal-50 border border-slate-200"
+                )}>
+                          {enviandoCartao ?
+                <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin" /> :
+                <CreditCard className="w-3.5 h-3.5 text-teal-600" />}
                         </Button>
-                }
+              }
 
                   {/* ✅ NEXUS360: Encaminhar validado */}
                   {podeEncaminhar &&
-                <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Encaminhar"
-                      onClick={() => {
-                       setMostrarDialogEncaminhar(true);
-                       setContatosSelecionados([]);
-                       setBuscaContato("");
-                       setTipoEncaminhamento('contatos');
-                      }}
-                      disabled={encaminhando}
-                      className={cn(
-                        "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
-                        "bg-white/90 hover:bg-white border border-slate-200"
-                      )}>
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Encaminhar"
+                onClick={() => {
+                  setMostrarDialogEncaminhar(true);
+                  setContatosSelecionados([]);
+                  setBuscaContato("");
+                  setTipoEncaminhamento('contatos');
+                }}
+                disabled={encaminhando}
+                className={cn(
+                  "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                  "bg-white/90 hover:bg-white border border-slate-200"
+                )}>
                           <Forward className="w-3.5 h-3.5 text-slate-700" />
                         </Button>
-                }
+              }
 
                       {isOwn &&
-                <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Apagar"
-                      onClick={handleApagar}
-                      disabled={apagando}
-                      className={cn(
-                        "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
-                        "bg-white/90 hover:bg-red-50 border border-slate-200"
-                      )}>
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Apagar"
+                onClick={handleApagar}
+                disabled={apagando}
+                className={cn(
+                  "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                  "bg-white/90 hover:bg-red-50 border border-slate-200"
+                )}>
                           <Trash2 className="w-3.5 h-3.5 text-red-600" />
                         </Button>
-                }
+              }
 
                       <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Criar Oportunidade de Negócio"
-                      onClick={() => {
-                        if (window.handleCriarOportunidadeDeChat && message) {
-                          window.handleCriarOportunidadeDeChat(message, thread || {});
-                        }
-                      }}
-                      className={cn(
-                        "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
-                        "bg-white/90 hover:bg-green-50 border border-slate-200"
-                      )}>
+                variant="ghost"
+                size="icon"
+                title="Criar Oportunidade de Negócio"
+                onClick={() => {
+                  if (window.handleCriarOportunidadeDeChat && message) {
+                    window.handleCriarOportunidadeDeChat(message, thread || {});
+                  }
+                }}
+                className={cn(
+                  "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                  "bg-white/90 hover:bg-green-50 border border-slate-200"
+                )}>
                         <Target className="w-3.5 h-3.5 text-green-600" />
                       </Button>
 
                   {/* ✅ NEXUS360: Categorizar validado */}
                   {podeCategorizar &&
-                <DropdownMenu>
+              <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                             <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Etiquetar Mensagem"
-                          disabled={categorizando}
-                          className={cn(
-                            "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
-                            "bg-white/90 hover:bg-purple-50 border border-slate-200"
-                          )}>
+                    variant="ghost"
+                    size="icon"
+                    title="Etiquetar Mensagem"
+                    disabled={categorizando}
+                    className={cn(
+                      "h-7 w-7 rounded-full shadow-lg backdrop-blur-sm",
+                      "bg-white/90 hover:bg-purple-50 border border-slate-200"
+                    )}>
                               <Tag className="w-3.5 h-3.5 text-purple-600" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -1515,35 +1515,35 @@ export default React.memo(function MessageBubble({
                       <DropdownMenuLabel className="flex items-center justify-between">
                         <span>Etiquetar mensagem</span>
                         <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          const novaCategoria = prompt("Digite o nome da nova etiqueta:");
-                          if (novaCategoria && novaCategoria.trim()) {
-                            adicionarNovaCategoria(novaCategoria.trim());
-                          }
-                        }}
-                        className="h-6 w-6 p-0 hover:bg-blue-50">
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        const novaCategoria = prompt("Digite o nome da nova etiqueta:");
+                        if (novaCategoria && novaCategoria.trim()) {
+                          adicionarNovaCategoria(novaCategoria.trim());
+                        }
+                      }}
+                      className="h-6 w-6 p-0 hover:bg-blue-50">
 
                           <span className="text-blue-600 font-bold text-lg">+</span>
                         </Button>
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       {todasCategorias.map((cat) =>
-                    <DropdownMenuCheckboxItem
-                      key={cat.nome}
-                      checked={(message?.categorias || []).includes(cat.nome)}
-                      onCheckedChange={() => handleToggleCategoria(cat.nome)}>
+                  <DropdownMenuCheckboxItem
+                    key={cat.nome}
+                    checked={(message?.categorias || []).includes(cat.nome)}
+                    onCheckedChange={() => handleToggleCategoria(cat.nome)}>
 
                           <div className="flex items-center gap-2">
                             <div className={`w-3 h-3 rounded-full ${cat.cor || 'bg-slate-400'}`} />
                             <span>{cat.emoji || '🏷️'} {cat.label}</span>
                           </div>
                         </DropdownMenuCheckboxItem>
-                    )}
+                  )}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                }
+              }
                 </div>
             }
 
@@ -1563,19 +1563,19 @@ export default React.memo(function MessageBubble({
               </div>
               {/* IMAGEM */}
               <div className="relative overflow-hidden rounded-lg cursor-pointer" onClick={() => message.media_url && message.media_url !== 'pending_download' && message.media_url !== 'failed_download' && window.open(message.media_url, '_blank')}>
-                {message.media_url === 'pending_download' ? (
-                  <div className="flex flex-col items-center justify-center bg-slate-100 rounded-lg p-8 min-h-[160px] max-w-[280px]">
+                {message.media_url === 'pending_download' ?
+                <div className="flex flex-col items-center justify-center bg-slate-100 rounded-lg p-8 min-h-[160px] max-w-[280px]">
                     <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
                     <span className="text-sm text-slate-600 font-medium">Processando imagem...</span>
-                  </div>
-                ) : !message.media_url || message.media_url === 'failed_download' ? (
-                  <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[160px] max-w-[280px]">
+                  </div> :
+                !message.media_url || message.media_url === 'failed_download' ?
+                <div className="flex items-center justify-center bg-slate-100 rounded-2xl p-8 min-h-[160px] max-w-[280px]">
                     <div className="text-center">
                       <ImageIcon className="w-10 h-10 text-slate-400 mx-auto mb-2" />
                       <p className="text-sm text-slate-500">Imagem indisponível</p>
                     </div>
-                  </div>
-                ) :
+                  </div> :
+
                 <ImageWithFallback
                   src={message.media_url}
                   alt="Imagem"
@@ -1613,12 +1613,12 @@ export default React.memo(function MessageBubble({
                   const expirou = falhou || msgAge > 3 * 60 * 1000;
                   return (
                     <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
-                      {expirou
-                        ? <><AlertCircle className="w-4 h-4 flex-shrink-0 text-slate-400" /><span className="text-slate-400">Áudio indisponível</span></>
-                        : <><Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" /><span>Processando áudio...</span></>
+                      {expirou ?
+                      <><AlertCircle className="w-4 h-4 flex-shrink-0 text-slate-400" /><span className="text-slate-400">Áudio indisponível</span></> :
+                      <><Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" /><span>Processando áudio...</span></>
                       }
-                    </div>
-                  );
+                    </div>);
+
                 })() :
 
                 <AudioPlayer src={message.media_url} />
@@ -1689,8 +1689,8 @@ export default React.memo(function MessageBubble({
             {message?.media_type === 'video' && message?.media_url &&
             <div className="px-3 py-2">
                 <VideoPlayer
-                  src={message.media_url}
-                  poster={message.metadata?.thumbnail_url || message.metadata?.jpegThumbnail} />
+                src={message.media_url}
+                poster={message.metadata?.thumbnail_url || message.metadata?.jpegThumbnail} />
 
                 {message.media_caption &&
               <div className="px-2 py-1 mt-1 text-slate-800">
@@ -1714,10 +1714,10 @@ export default React.memo(function MessageBubble({
             message?.media_type === 'document' ||
             message?.content === 'pdf' ||
             message?.content?.toLowerCase() === '[documento]' ||
-            (message?.media_url && (
+            message?.media_url && (
             message?.media_url.toLowerCase().includes('.pdf') ||
             message?.media_url.toLowerCase().includes('.doc') ||
-            message?.media_url.toLowerCase().includes('.xls')))) &&
+            message?.media_url.toLowerCase().includes('.xls'))) &&
 
             message?.media_url && message?.media_url !== 'pending_download' &&
             (() => {
@@ -1725,7 +1725,7 @@ export default React.memo(function MessageBubble({
               const ext = (docUrl?.split('.').pop()?.split('?')[0] || '').toLowerCase();
               const isPdf = ext === 'pdf' || docUrl?.toLowerCase().includes('.pdf');
               const nomeArquivo = message.media_caption || message.content?.replace(/[\[\]]/g, '').trim() || 'Documento';
-              
+
               // Para PDFs: abrir inline via Google Docs Viewer (não força download)
               const abrirPdf = () => {
                 if (isPdf) {
@@ -1736,7 +1736,7 @@ export default React.memo(function MessageBubble({
                   window.open(docUrl, '_blank', 'noopener,noreferrer');
                 }
               };
-              
+
               return (
                 <div className="overflow-hidden">
                   <button
@@ -1771,8 +1771,8 @@ export default React.memo(function MessageBubble({
                     {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
                     {isOwn && message.status === 'falhou' && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
                   </div>
-                </div>
-              );
+                </div>);
+
             })()
             }
             
@@ -1781,10 +1781,10 @@ export default React.memo(function MessageBubble({
             message?.media_type === 'document' ||
             message?.content === 'pdf' ||
             message?.content?.toLowerCase() === '[documento]' ||
-            (message?.media_url && (
+            message?.media_url && (
             message?.media_url.toLowerCase().includes('.pdf') ||
             message?.media_url.toLowerCase().includes('.doc') ||
-            message?.media_url.toLowerCase().includes('.xls')))) &&
+            message?.media_url.toLowerCase().includes('.xls'))) &&
 
             message?.media_url === 'pending_download' &&
             <div className="overflow-hidden px-3 py-3">
@@ -1818,9 +1818,9 @@ export default React.memo(function MessageBubble({
               const vcardText = vc.vcard || '';
               const telMatch = vcardText.match(/waid=(\d+)/) || vcardText.match(/TEL[^:]*:\+?([\d\s-()]+)/i);
               const telefoneDigitos = telMatch ? telMatch[1].replace(/\D/g, '') : null;
-              const telefoneExibicao = telefoneDigitos
-                ? `+${telefoneDigitos.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, '$1 ($2) $3-$4')}`
-                : null;
+              const telefoneExibicao = telefoneDigitos ?
+              `+${telefoneDigitos.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, '$1 ($2) $3-$4')}` :
+              null;
               const abrirConversaInterna = () => {
                 if (!telefoneDigitos) return;
                 if (typeof window.handleAbrirConversaPorTelefone === 'function') {
@@ -1840,13 +1840,13 @@ export default React.memo(function MessageBubble({
                       {telefoneExibicao && <p className="text-xs text-slate-600 truncate">{telefoneExibicao}</p>}
                     </div>
                   </div>
-                  {telefoneDigitos && (
-                    <button
-                      onClick={abrirConversaInterna}
-                      className="w-full block p-2.5 text-center text-sm font-medium text-blue-600 hover:bg-black/5 transition-colors">
+                  {telefoneDigitos &&
+                  <button
+                    onClick={abrirConversaInterna}
+                    className="w-full block p-2.5 text-center text-sm font-medium text-blue-600 hover:bg-black/5 transition-colors">
                       💬 Abrir conversa no Nexus360
                     </button>
-                  )}
+                  }
                   <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-1">
                     <span className="text-[10px] text-slate-500">
                       {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
@@ -1856,8 +1856,8 @@ export default React.memo(function MessageBubble({
                     {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-slate-600" />}
                     {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
                   </div>
-                </div>
-              );
+                </div>);
+
             })()
             }
 
@@ -1866,11 +1866,11 @@ export default React.memo(function MessageBubble({
             <>
                 {/* ↪ Selo "Encaminhada" — padrão WhatsApp (itálico, discreto) */}
                 {message?.metadata?.is_forwarded &&
-                <div className="flex items-center gap-1 text-slate-400 italic text-[12px] mb-0.5 px-0.5">
+              <div className="flex items-center gap-1 text-slate-400 italic text-[12px] mb-0.5 px-0.5">
                   <Forward className="w-3 h-3" />
                   <span>Encaminhada</span>
                 </div>
-                }
+              }
                 <div className={cn(
                 "break-words whitespace-pre-wrap",
                 // 🎨 TEXTO ESCURO HARMONIOSO em fundos claros
@@ -1878,35 +1878,35 @@ export default React.memo(function MessageBubble({
               )} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                   <p className={mobileEstiloMensagem.textoCorpo} style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", sans-serif' }}>
                     {(() => {
-                      let content = String(message.content || '');
-                      // Evita duplicidade: o rodapé já mostra o atendente + setor,
-                      // então oculta a assinatura "_~ Nome (setor)_" no fim do texto enviado
-                      if (isOwn && !isThreadInterna) {
-                        const semAssinatura = content.replace(/\s*_?~\s*[^_\n()]+\([^)\n]+\)_?\s*$/, '');
-                        if (semAssinatura.trim() !== '') content = semAssinatura;
-                      }
-                      const urlRegex = /(https?:\/\/[^\s]+)/gi;
-                      const parts = content.split(urlRegex);
-                      return parts.map((part, idx) => {
-                        if (urlRegex.test(part)) {
-                          return (
-                            <a
-                              key={idx}
-                              href={part}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 underline hover:text-blue-800 hover:font-semibold transition-colors"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                window.open(part, '_blank', 'noopener,noreferrer');
-                              }}>
+                    let content = String(message.content || '');
+                    // Evita duplicidade: o rodapé já mostra o atendente + setor,
+                    // então oculta a assinatura "_~ Nome (setor)_" no fim do texto enviado
+                    if (isOwn && !isThreadInterna) {
+                      const semAssinatura = content.replace(/\s*_?~\s*[^_\n()]+\([^)\n]+\)_?\s*$/, '');
+                      if (semAssinatura.trim() !== '') content = semAssinatura;
+                    }
+                    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+                    const parts = content.split(urlRegex);
+                    return parts.map((part, idx) => {
+                      if (urlRegex.test(part)) {
+                        return (
+                          <a
+                            key={idx}
+                            href={part}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 underline hover:text-blue-800 hover:font-semibold transition-colors"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              window.open(part, '_blank', 'noopener,noreferrer');
+                            }}>
                               {part}
-                            </a>
-                          );
-                        }
-                        return sanitizeEmojis(part);
-                      });
-                    })()}
+                            </a>);
+
+                      }
+                      return sanitizeEmojis(part);
+                    });
+                  })()}
                   </p>
                 </div>
 
@@ -1969,7 +1969,7 @@ export default React.memo(function MessageBubble({
                     <>
                       {nomeAtendente &&
                       <>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 flex items-center gap-0.5">
+                          <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 flex items-center gap-0.5 text-xs">
                             <UserCheck className="w-3 h-3" />
                             {nomeAtendente}
                           </span>
@@ -2078,9 +2078,9 @@ export default React.memo(function MessageBubble({
                 }}
                 className={cn(
                   "flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all",
-                  tipoEncaminhamento === 'contatos'
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
+                  tipoEncaminhamento === 'contatos' ?
+                  "bg-white text-blue-600 shadow-sm" :
+                  "text-slate-600 hover:text-slate-900"
                 )}>
                 <div className="flex items-center justify-center gap-2">
                   <User className="w-4 h-4" />
@@ -2095,9 +2095,9 @@ export default React.memo(function MessageBubble({
                 }}
                 className={cn(
                   "flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all",
-                  tipoEncaminhamento === 'internos'
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
+                  tipoEncaminhamento === 'internos' ?
+                  "bg-white text-purple-600 shadow-sm" :
+                  "text-slate-600 hover:text-slate-900"
                 )}>
                 <div className="flex items-center justify-center gap-2">
                   <Users className="w-4 h-4" />
@@ -2123,13 +2123,13 @@ export default React.memo(function MessageBubble({
             )}>
                 {contatosSelecionados.map((itemId) => {
                 // Buscar nome do selecionado no dataset correto
-                const item = tipoEncaminhamento === 'internos'
-                  ? usuariosInternos.find((u) => u.id === itemId)
-                  : contatos.find((c) => c.id === itemId);
+                const item = tipoEncaminhamento === 'internos' ?
+                usuariosInternos.find((u) => u.id === itemId) :
+                contatos.find((c) => c.id === itemId);
                 if (!item) return null;
-                const nomeChip = tipoEncaminhamento === 'internos'
-                  ? item.nome_exibicao
-                  : (item.nome || item.telefone);
+                const nomeChip = tipoEncaminhamento === 'internos' ?
+                item.nome_exibicao :
+                item.nome || item.telefone;
 
                 return (
                   <Badge
