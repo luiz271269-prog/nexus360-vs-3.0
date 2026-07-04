@@ -1083,7 +1083,12 @@ Deno.serve(async (req) => {
             const hora = parseInt(new Intl.DateTimeFormat('en-US', {
               timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false
             }).format(new Date()), 10);
-            const foraHorario = hora < _cfgMicro.manha_inicio || hora > _cfgMicro.tarde_fim;
+            // Fonte única: avaliarHorarioComercial (via pipeline) já cobre
+            // fim de semana + feriado + almoço + noite. O cálculo inline
+            // anterior (só hora) tratava sábado/domingo diurno como "dentro"
+            // e mandava o menu normal (com Setores) em vez do menu_fora_horario.
+            const _horarioInfoMicro = await getHorarioInfoPipeline(base44);
+            const foraHorario = !_horarioInfoMicro.dentro;
             const msg = gerarRespostaMicroIntent(microIntent.tipo, styleProfile, contactData.nome, hora, foraHorario, _cfgMicro, _msgsMicro);
 
             if (msg) {
