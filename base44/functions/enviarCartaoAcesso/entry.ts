@@ -501,7 +501,10 @@ Deno.serve(async (req) => {
         sender_type: 'user',
         recipient_id: contact.id,
         recipient_type: 'contact',
-        content: `${MENU_TITULO}\n${MENU_MENSAGEM}`,
+        // Rótulo VISÍVEL só na Central (o cliente recebe apenas os botões).
+        // Antes gravava '\u200b\n\u200b' (invisível) e a bolha aparecia vazia,
+        // dando a impressão de que o cartão manual não havia sido enviado.
+        content: 'Acessos rápidos (menu de categorias)',
         channel: 'whatsapp',
         status: 'enviada',
         whatsapp_message_id: resp.msgId,
