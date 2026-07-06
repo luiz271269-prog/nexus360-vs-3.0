@@ -19,10 +19,17 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
   const [activeTab, setActiveTab] = React.useState('usuarios');
 
   // 🚀 PERF: Reusar atendentes do pai (já em memória) — sem query duplicada
-  // Fallback: query própria apenas se não vier por prop (compatibilidade legada)
+  // Fallback: leitura DIRETA do banco (User.list). Se vier só 1 (usuário sem
+  // permissão de listar), cai na função backend como último recurso.
   const { data: usuariosFetched = [], isLoading: loadingFetched } = useQuery({
     queryKey: ['usuarios-internos'],
     queryFn: async () => {
+      try {
+        const direto = await base44.entities.User.list();
+        if (direto && direto.length > 1) return direto;
+      } catch (e) {
+        console.warn('[COMPOSER] Leitura direta de usuários falhou, usando backend:', e.message);
+      }
       const resultado = await base44.functions.invoke('listarUsuariosParaAtribuicao', {});
       if (resultado?.data?.success && resultado?.data?.usuarios) {
         return resultado.data.usuarios;
@@ -30,7 +37,8 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
       return [];
     },
     enabled: open && (!atendentes || atendentes.length === 0),
-    staleTime: 5 * 60 * 1000
+    staleTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false
   });
 
   const usuarios = atendentes && atendentes.length > 0 ? atendentes : usuariosFetched;
@@ -48,7 +56,7 @@ export default function InternalMessageComposer({ open, onClose, currentUser, on
       return (threads || []).filter(t => !(t.group_name && t.group_name.endsWith('_comentarios')));
     },
     enabled: open,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false
   });
 
