@@ -21,11 +21,33 @@ async function carregarHorarioConfig(base44) {
   if (_cacheConfig && (agora - _cacheConfigAt) < CACHE_TTL_MS) {
     return _cacheConfig;
   }
-  const lista = await base44.asServiceRole.entities.BroadcastConfig
-    .filter({ nome_config: 'default', ativo: true });
-  const c = lista?.[0];
+  // RESILIÊNCIA: falha na leitura (ex: "Rate limit exceeded") NÃO pode derrubar
+  // o pipeline inteiro (causa raiz dos 500 → threads presas + fila de falhas).
+  // Ordem de fallback: cache expirado (stale) > defaults seguros.
+  let c = null;
+  try {
+    const lista = await base44.asServiceRole.entities.BroadcastConfig
+      .filter({ nome_config: 'default', ativo: true });
+    c = lista?.[0] || null;
+  } catch (e) {
+    console.warn('[SKILL-PRE-ATEND] carregarHorarioConfig falhou:', e.message);
+  }
   if (!c) {
-    throw new Error('BroadcastConfig (nome_config=default, ativo=true) não encontrado no banco');
+    if (_cacheConfig) {
+      console.warn('[SKILL-PRE-ATEND] usando cache stale de BroadcastConfig');
+      return _cacheConfig;
+    }
+    console.warn('[SKILL-PRE-ATEND] usando defaults de horário (BroadcastConfig indisponível)');
+    return {
+      manha_inicio: 8, almoco_inicio: 12, almoco_fim: 13.5, tarde_fim: 18,
+      feriados_extras: [],
+      feriados_nacionais_fixos: ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25'],
+      enviar_fim_semana: false,
+      cooldown_ack_ms: 5 * 60 * 1000,
+      dedup_window_ms: 30 * 1000,
+      gap_promo_fora_horario_ms: 12 * 60 * 60 * 1000,
+      gap_ack_fora_horario_ms: 30 * 60 * 1000
+    };
   }
   _cacheConfig = {
     manha_inicio: c.horario_comercial_manha_inicio ?? c.horario_inicio,
@@ -545,11 +567,13 @@ async function liberarEstadoThread(base44, thread, motivo) {
     patch.routing_stage = 'ASSIGNED';
   }
 
-  if (Object.keys(patch).length > 0) {
-    await base44.asServiceRole.entities.MessageThread.update(thread.id, patch).catch(err => {
-      console.error(`[liberarEstadoThread] falha ao atualizar thread ${thread.id}:`, err.message);
-    });
-  }
+  // Sem mudança de estado → sem escrita e sem log (antes gravava 1 AutomationLog
+  // por saída do pipeline mesmo sem patch, amplificando o rate limit).
+  if (Object.keys(patch).length === 0) return;
+
+  await base44.asServiceRole.entities.MessageThread.update(thread.id, patch).catch(err => {
+    console.error(`[liberarEstadoThread] falha ao atualizar thread ${thread.id}:`, err.message);
+  });
 
   await registrarEventoPreAtendimento(base44, thread.id, thread.contact_id, 'thread_state_normalized', {
     acao: 'outro',
