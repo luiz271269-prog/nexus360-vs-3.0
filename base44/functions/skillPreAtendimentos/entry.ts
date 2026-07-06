@@ -678,6 +678,141 @@ Deno.serve(async (req) => {
     } catch (_) { /* segue mesmo se falhar — Camada 0 vai re-buscar */ }
 
     // ═══════════════════════════════════════════════════════════════════
+    // CAMADA 0-S — ESCOLHA DE SETOR NO CARTÃO DE ACESSOS → ROTEAMENTO IMEDIATO
+    // Clique em "acesso_setor:<setor>" (ou nome do setor digitado com o submenu
+    // de setores aberto) → atribui NA HORA: fidelizado do setor > menor carga.
+    // Confirma ao cliente na mesma conversa e notifica o atendente. Encerra o
+    // pipeline (sem ACK, sem LLM) — caminho mais rápido possível de atendimento.
+    // ═══════════════════════════════════════════════════════════════════
+    try {
+      const _txtSetorRaw = String(message_content || '').trim();
+      let _setorEscolhido = null;
+      const _mSetorId = _txtSetorRaw.match(/acesso_setor:([a-z_]+)/i);
+      if (_mSetorId) {
+        _setorEscolhido = _mSetorId[1].toLowerCase();
+      } else if (threadInicial?.campos_personalizados?.acesso_menu_nivel === 'setores' && _txtSetorRaw.length > 0 && _txtSetorRaw.length <= 30) {
+        const _t = _txtSetorRaw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (/vendas?/.test(_t)) _setorEscolhido = 'vendas';
+        else if (/assistencia|suporte|tecnic/.test(_t)) _setorEscolhido = 'assistencia';
+        else if (/financeiro|boleto/.test(_t)) _setorEscolhido = 'financeiro';
+        else if (/compras/.test(_t)) _setorEscolhido = 'compras';
+      }
+
+      if (_setorEscolhido) {
+        console.log(`[SKILL-PRE-ATEND] 🎯 Camada 0-S — setor escolhido no cartão: ${_setorEscolhido}`);
+        const [contatoSetor, integSetor, usersSetor] = await Promise.all([
+          contactInicial ? Promise.resolve(contactInicial) : base44.asServiceRole.entities.Contact.get(contact_id).catch(() => null),
+          (integration_id || threadInicial?.whatsapp_integration_id)
+            ? base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id || threadInicial?.whatsapp_integration_id).catch(() => null)
+            : Promise.resolve(null),
+          base44.asServiceRole.entities.User.list('-created_date', 200).catch(() => [])
+        ]);
+        const atendentesSetor = (usersSetor || []).filter(u => u.is_whatsapp_attendant !== false && (u.full_name || u.email));
+
+        // Prioridade: fidelizado do setor > menor carga do setor (fallback geral)
+        let atendenteSetor = null;
+        let motivoSetor = null;
+        const campoFidSetor = `atendente_fidelizado_${_setorEscolhido}`;
+        const fidIdSetor = contatoSetor?.[campoFidSetor] && /^[a-f0-9]{24}$/i.test(String(contatoSetor[campoFidSetor]))
+          ? String(contatoSetor[campoFidSetor]) : null;
+        if (fidIdSetor) {
+          atendenteSetor = atendentesSetor.find(u => u.id === fidIdSetor) || null;
+          if (atendenteSetor) motivoSetor = 'fidelizado_setor_escolhido';
+        }
+        if (!atendenteSetor) {
+          atendenteSetor = await buscarAtendentePorSetor(base44, _setorEscolhido, atendentesSetor);
+          if (atendenteSetor) motivoSetor = 'menor_carga_setor_escolhido';
+        }
+
+        const nowSetor = new Date().toISOString();
+        const cpSetor = threadInicial?.campos_personalizados || {};
+        await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+          sector_id: _setorEscolhido,
+          pre_atendimento_setor_explicitamente_escolhido: true,
+          ...(atendenteSetor ? {
+            assigned_user_id: atendenteSetor.id,
+            routing_stage: 'ASSIGNED',
+            pre_atendimento_state: 'COMPLETED',
+            pre_atendimento_ativo: false,
+            pre_atendimento_completed_at: nowSetor,
+            atendentes_historico: [
+              ...(Array.isArray(threadInicial?.atendentes_historico) ? threadInicial.atendentes_historico : []),
+              atendenteSetor.id
+            ].filter((v, i, a) => a.indexOf(v) === i)
+          } : {
+            routing_stage: 'ROUTED',
+            pre_atendimento_state: 'WAITING_ATTENDANT_CHOICE',
+            pre_atendimento_ativo: false,
+            entrou_na_fila_em: nowSetor
+          }),
+          campos_personalizados: { ...cpSetor, acesso_menu_nivel: null, acesso_menu_updated_at: nowSetor }
+        }).catch(e => console.error('[SKILL-PRE-ATEND] 0-S update thread falhou:', e.message));
+
+        // Fila quando não há atendente disponível no setor
+        if (!atendenteSetor) {
+          await base44.asServiceRole.entities.WorkQueueItem.create({
+            contact_id, thread_id,
+            tipo: 'sem_atendente',
+            reason: 'sem_atendente_disponivel',
+            severity: contatoSetor?.is_vip ? 'critical' : 'high',
+            status: 'open',
+            owner_sector_id: _setorEscolhido,
+            notes: `Cliente escolheu o setor "${_setorEscolhido}" no cartão de acessos e não há atendente disponível.`
+          }).catch(() => {});
+        }
+
+        // Confirmação IMEDIATA ao cliente, na mesma conversa
+        if (integSetor && contatoSetor?.telefone) {
+          const nomeAtendSetor = atendenteSetor ? (atendenteSetor.display_name || atendenteSetor.full_name || '').split(' ')[0] : null;
+          const rotuloSetor = { vendas: 'Vendas', assistencia: 'Assistência', financeiro: 'Financeiro', compras: 'Compras' }[_setorEscolhido] || _setorEscolhido;
+          const msgConfSetor = nomeAtendSetor
+            ? `✅ Setor *${rotuloSetor}* selecionado! ${nomeAtendSetor} já vai te atender. 😊`
+            : `✅ Setor *${rotuloSetor}* selecionado! Você será atendido em instantes. 😊`;
+          const { ok: okConfSetor, msgId: msgIdConfSetor } = await enviarWhatsApp(integSetor, contatoSetor.telefone, msgConfSetor);
+          if (okConfSetor) {
+            await base44.asServiceRole.entities.Message.create({
+              thread_id, sender_id: 'system', sender_type: 'user',
+              recipient_id: contact_id, recipient_type: 'contact',
+              content: msgConfSetor, channel: 'whatsapp', status: 'enviada',
+              sent_at: nowSetor, visibility: 'public_to_customer',
+              metadata: { is_system_message: true, message_type: 'confirmacao_setor_escolhido', setor: _setorEscolhido, whatsapp_msg_id: msgIdConfSetor }
+            }).catch(() => {});
+            await base44.asServiceRole.entities.MessageThread.update(thread_id, {
+              last_outbound_at: nowSetor, last_message_at: nowSetor,
+              last_message_sender: 'user', last_message_content: msgConfSetor.substring(0, 100)
+            }).catch(() => {});
+          }
+        }
+
+        // Notificação interna de alta prioridade para o atendente escolhido
+        if (atendenteSetor) {
+          await base44.asServiceRole.entities.NotificationEvent.create({
+            tipo: 'mensagem_nao_lida',
+            titulo: `🎯 ${contatoSetor?.nome || 'Contato'} escolheu ${_setorEscolhido} e está aguardando`,
+            mensagem: 'Cliente escolheu o setor no cartão de acessos rápidos. Atendimento imediato.',
+            prioridade: 'alta',
+            usuario_id: atendenteSetor.id,
+            entidade_relacionada: 'MessageThread',
+            entidade_id: thread_id,
+            origem: 'acesso_rapido_setor',
+            metadata: { thread_id, contact_id, setor: _setorEscolhido, motivo: motivoSetor }
+          }).catch(() => {});
+        }
+
+        await registrarEventoPreAtendimento(base44, thread_id, contact_id, 'acesso_setor_roteado', {
+          acao: 'roteamento_lead', resultado: 'sucesso',
+          mensagem: `Setor escolhido no cartão: ${_setorEscolhido} → ${atendenteSetor ? atendenteSetor.full_name : 'fila'} (${motivoSetor || 'sem_atendente'})`,
+          setor: _setorEscolhido, atendente_id: atendenteSetor?.id || null, motivo: motivoSetor
+        });
+
+        console.log(`[SKILL-PRE-ATEND] ✅ Camada 0-S — ${_setorEscolhido} → ${atendenteSetor?.full_name || 'fila'} (${motivoSetor || 'sem_atendente'})`);
+        return Response.json({ success: true, action: 'setor_escolhido_roteado', setor: _setorEscolhido, atendente: atendenteSetor?.full_name || null, motivo: motivoSetor }, { headers });
+      }
+    } catch (eSetor) {
+      console.warn('[SKILL-PRE-ATEND] Camada 0-S erro (não crítico, segue pipeline):', eSetor.message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     // CAMADA 1 — ACESSOS RÁPIDOS: CLIQUE EM CATEGORIA → SUBMENU
     // FONTE ÚNICA para W-API e Z-API. O webhook entrega a escolha como:
     //   • Z-API: buttonId = "acesso_menu:setores"

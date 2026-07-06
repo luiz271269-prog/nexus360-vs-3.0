@@ -120,6 +120,16 @@ function agrupar(itens) {
   return g;
 }
 
+// ── Slug do setor a partir do título do item (Vendas → vendas, Assistência → assistencia) ──
+function setorSlug(titulo) {
+  const t = String(titulo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (t.includes('vend')) return 'vendas';
+  if (t.includes('assist') || t.includes('suporte')) return 'assistencia';
+  if (t.includes('financ')) return 'financeiro';
+  if (t.includes('compra')) return 'compras';
+  return t.replace(/[^a-z_]/g, '_');
+}
+
 // ── Interpreta a escolha (número, palavra OU id da lista) ──
 function escolherCategoria(conteudo) {
   const t = String(conteudo || '').trim().toLowerCase().replace('acesso_menu:', '');
@@ -306,7 +316,9 @@ Deno.serve(async (req) => {
       // O WhatsApp exige algum corpo de texto, então usamos um espaço mínimo
       // (zero-width) como title/message para não exibir nada acima dos botões.
       const titulo = '\u200b';
-      const mensagem = '\u200b';
+      // Setores: corpo VISÍVEL (se os botões não renderizarem no aparelho, o
+      // cliente ainda vê a instrução e pode responder pelo nome do setor).
+      const mensagem = isSetores ? 'Escolha o setor para ser atendido agora 👇' : '\u200b';
 
       // Redes: envia TODAS as redes ativas (Instagram, LinkedIn e o que houver),
       // uma a uma, igual ao fluxo fora-horário. Sem rodapé "em breve".
@@ -316,11 +328,14 @@ Deno.serve(async (req) => {
       // FORMATO ÚNICO: botões de URL ↗. O WhatsApp interativo aceita no máx 3
       // botões por mensagem — se houver mais destinos (ex: 4 setores), envia em
       // lotes de 3 (cartões em sequência), sem cabeçalho/título, só os botões.
-      const todosBotoes = itensDestino.map(it => ({
-        type: 'URL',
-        buttonText: String(it.titulo || '').slice(0, 24),
-        url: it.url
-      }));
+      // SETORES: botões de RESPOSTA (REPLAY) — o toque devolve "acesso_setor:<setor>"
+      // ao sistema, que roteia IMEDIATAMENTE na MESMA conversa (fidelizado >
+      // menor carga, na skillPreAtendimentos). Antes eram links wa.me que
+      // apontavam para o próprio número da conversa e não executavam nada.
+      // Demais categorias seguem como botões de URL.
+      const todosBotoes = itensDestino.map(it => isSetores
+        ? { type: 'REPLAY', buttonText: String(it.titulo || '').slice(0, 24), id: `acesso_setor:${setorSlug(it.titulo)}` }
+        : { type: 'URL', buttonText: String(it.titulo || '').slice(0, 24), url: it.url });
       if (!todosBotoes.length) return Response.json({ success: true, skipped: 'sem_destinos', categoria });
 
       etapa = 'submenu_enviar_botoes';
@@ -360,7 +375,9 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.MessageThread.update(thread.id, {
         campos_personalizados: {
           ...cp,
-          acesso_menu_nivel: 'principal',
+          // Setores abre o estado 'setores': a resposta do cliente (clique ou
+          // nome digitado) é tratada como escolha de setor pelo pré-atendimento.
+          acesso_menu_nivel: isSetores ? 'setores' : 'principal',
           acesso_menu_updated_at: now,
           // Trava anti-duplicidade gravada só agora (pós-envio OK): falha de
           // envio não bloqueia reenvio; clique repetido da mesma categoria sim.
