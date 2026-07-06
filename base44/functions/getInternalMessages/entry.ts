@@ -10,12 +10,6 @@ Deno.serve(async (req) => {
 
   const base44 = createClientFromRequest(req);
 
-  // Validar usuário autenticado
-  const user = await base44.auth.me().catch(() => null);
-  if (!user) {
-    return Response.json({ success: false, error: 'unauthorized' }, { status: 401 });
-  }
-
   const { thread_id, before_sent_at, limit = 20 } = await req.json().catch(() => ({}));
   // before_sent_at contém created_date (nome legado mantido para compatibilidade)
 
@@ -23,17 +17,26 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: 'thread_id required' }, { status: 400 });
   }
 
-  // ⚡ PERF: thread (para validação) e mensagens em PARALELO, em vez de sequencial.
-  // Mantém todos os guards — apenas remove a espera encadeada de ~1 ida ao banco.
+  // ⚡ PERF: auth.me(), thread (para validação) e mensagens TODOS em PARALELO.
+  // Mantém todos os guards — dados só são retornados após validar usuário e permissão.
   const filter = { thread_id };
   if (before_sent_at) {
     filter.created_date = { $lt: before_sent_at };
   }
 
-  const [thread, messages] = await Promise.all([
+  const [user, thread, messages] = await Promise.all([
+    base44.auth.me().catch(() => null),
     base44.asServiceRole.entities.MessageThread.get(thread_id).catch(() => null),
-    base44.asServiceRole.entities.Message.filter(filter, '-created_date', limit)
+    base44.asServiceRole.entities.Message.filter(filter, '-created_date', limit).catch(() => null)
   ]);
+
+  if (!user) {
+    return Response.json({ success: false, error: 'unauthorized' }, { status: 401 });
+  }
+
+  if (messages === null) {
+    return Response.json({ success: false, error: 'fetch_failed' }, { status: 500 });
+  }
 
   if (!thread) {
     return Response.json({ success: false, error: 'thread not found' }, { status: 404 });

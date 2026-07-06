@@ -8,6 +8,16 @@ import { getInternalMessages } from '@/functions/getInternalMessages';
  * Busca APENAS mensagens da thread atual.
  * Cada thread é uma conversa independente — sem mesclar com outras threads do contato.
  */
+// ⚡ Cache em memória por thread (sessão): reabrir uma conversa mostra as mensagens
+// instantaneamente enquanto a busca atualiza em background. Máx 30 threads (LRU simples).
+const _msgCache = new Map();
+const cacheGet = (threadId) => _msgCache.get(threadId) || null;
+const cacheSet = (threadId, msgs) => {
+  if (_msgCache.has(threadId)) _msgCache.delete(threadId);
+  _msgCache.set(threadId, msgs);
+  if (_msgCache.size > 30) _msgCache.delete(_msgCache.keys().next().value);
+};
+
 export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
   const [messages, setMessages] = useState([]);
   const [oldestLoadedAt, setOldestLoadedAt] = useState(null);
@@ -43,7 +53,15 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
       lastThreadId.current = threadId;
     }
 
-    setIsInitialLoading(true);
+    // ⚡ CACHE HIT: pinta instantaneamente e revalida em background (sem spinner)
+    const cached = cacheGet(threadId);
+    if (cached && cached.length > 0) {
+      setMessages(cached);
+      setOldestLoadedAt(cached[0]?.created_date || cached[0]?.sent_at || null);
+      setHasMore(cached.length >= 20);
+    } else {
+      setIsInitialLoading(true);
+    }
 
     try {
       console.log('[PAGINACAO] 🔄 Carregando inicial da thread:', threadId.substring(0, 8));
@@ -60,13 +78,17 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
       setMessages(reversed);
       setOldestLoadedAt(reversed[0]?.created_date || reversed[0]?.sent_at || null);
       setHasMore(msgs.length === 20); // Se trouxe 20, pode ter mais
+      cacheSet(threadId, reversed);
 
       console.log('[PAGINACAO] ✅ Inicial carregada:', reversed.length, 'msgs');
 
     } catch (error) {
       console.error('[PAGINACAO] ❌ Erro ao carregar inicial:', error);
-      setMessages([]);
-      setHasMore(false);
+      // ⚡ Se falhou (ex: 429) mas temos cache, mantém o cache na tela
+      if (!cached || cached.length === 0) {
+        setMessages([]);
+        setHasMore(false);
+      }
     } finally {
       setIsInitialLoading(false);
     }
@@ -101,7 +123,11 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
       }
 
       const reversed = older.reverse();
-      setMessages(prev => [...reversed, ...prev]);
+      setMessages(prev => {
+        const next = [...reversed, ...prev];
+        cacheSet(threadId, next);
+        return next;
+      });
       setOldestLoadedAt(reversed[0]?.created_date || reversed[0]?.sent_at);
       setHasMore(older.length === 20);
 
