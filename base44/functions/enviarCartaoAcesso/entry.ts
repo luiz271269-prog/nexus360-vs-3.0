@@ -30,7 +30,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 // corpo de texto, então usamos um caractere invisível (zero-width) como
 // title/message para não exibir nada acima dos botões.
 const MENU_TITULO = '\u200b';
-const MENU_MENSAGEM = '\u200b';
+// Corpo VISÍVEL: mensagem com corpo invisível (\u200b) não renderiza os botões
+// em várias versões do WhatsApp (causa raiz dos cliques que nunca chegavam).
+// Com texto visível, o cartão sempre aparece — e se os botões falharem, o
+// cliente ainda vê a instrução e pode responder por texto.
+const MENU_MENSAGEM = 'Como podemos te ajudar? Escolha uma opção 👇';
 const MENU_RODAPE = '\u200b';
 
 const MENU_CATEGORIAS = [

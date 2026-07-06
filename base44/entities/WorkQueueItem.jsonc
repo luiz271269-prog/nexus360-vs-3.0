@@ -8,7 +8,8 @@
         "idle_reativacao",
         "enviar_promocao",
         "follow_up",
-        "manual"
+        "manual",
+        "sem_atendente"
       ],
       "default": "manual",
       "description": "Tipo de tarefa na fila"
@@ -30,7 +31,10 @@
         "idle_14d",
         "manual",
         "urgente",
-        "promocao_lote"
+        "promocao_lote",
+        "sem_atendente_disponivel",
+        "routing_falhou",
+        "skill_fatal_error"
       ],
       "description": "Motivo da entrada na fila"
     },
