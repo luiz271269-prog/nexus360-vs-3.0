@@ -109,6 +109,30 @@ Deno.serve(async (req) => {
       );
     }
 
+    // 🛡️ REDE DE SEGURANÇA: converter HEIC→JPEG no servidor
+    // (fallback quando a conversão no celular falha e o HEIC cru é enviado —
+    //  navegadores não renderizam HEIC, gerando "Imagem indisponível")
+    let mediaUrlFinal = media_url;
+    if (mediaUrlFinal && media_type === 'image' && /\.hei[cf]$/i.test(mediaUrlFinal.split('?')[0])) {
+      try {
+        console.log('[SEND_INTERNAL] 🔄 HEIC detectado — convertendo para JPEG no servidor...');
+        const mod = await import('npm:heic-convert@2.1.0');
+        const convert = mod.default || mod;
+        const resp = await fetch(mediaUrlFinal);
+        if (!resp.ok) throw new Error(`Download HEIC falhou: ${resp.status}`);
+        const inputBuffer = new Uint8Array(await resp.arrayBuffer());
+        const jpegBuffer = await convert({ buffer: inputBuffer, format: 'JPEG', quality: 0.85 });
+        const jpegFile = new File([new Uint8Array(jpegBuffer)], `internal-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        const up = await base44.asServiceRole.integrations.Core.UploadFile({ file: jpegFile });
+        if (up?.file_url) {
+          mediaUrlFinal = up.file_url;
+          console.log('[SEND_INTERNAL] ✅ HEIC convertido para JPEG:', mediaUrlFinal);
+        }
+      } catch (heicErr) {
+        console.warn('[SEND_INTERNAL] ⚠️ Conversão HEIC server-side falhou (mantendo original):', heicErr.message);
+      }
+    }
+
     let contentFinal = content || '';
 
     if (!contentFinal && media_type !== 'none') {
@@ -168,7 +192,7 @@ Deno.serve(async (req) => {
 
     // Campos opcionais (só se houver)
     if (media_type && media_type !== 'none') messageData.media_type = media_type;
-    if (media_url) messageData.media_url = media_url;
+    if (mediaUrlFinal) messageData.media_url = mediaUrlFinal;
     if (media_caption) messageData.media_caption = media_caption;
     if (reply_to_message_id) messageData.reply_to_message_id = reply_to_message_id;
 
