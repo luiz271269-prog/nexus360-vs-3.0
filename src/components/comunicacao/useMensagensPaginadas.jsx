@@ -18,6 +18,9 @@ const cacheSet = (threadId, msgs) => {
   if (_msgCache.size > 30) _msgCache.delete(_msgCache.keys().next().value);
 };
 
+const INITIAL_LIMIT = 10; // Carga inicial enxuta (era 20)
+const PAGE_LIMIT = 20;    // Scroll-up carrega blocos maiores
+
 export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
   const [messages, setMessages] = useState([]);
   const [oldestLoadedAt, setOldestLoadedAt] = useState(null);
@@ -34,12 +37,26 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
     setIsInitialLoading(false);
   }, []);
 
-  // Busca mensagens via backend (para threads internas — bypass RLS)
-  const fetchMessagesBackend = useCallback(async (threadId, before_sent_at = null) => {
-    const res = await getInternalMessages({ thread_id: threadId, before_sent_at, limit: 20 });
+  // Busca mensagens via backend (fallback para threads internas — bypass RLS)
+  const fetchMessagesBackend = useCallback(async (threadId, before_sent_at = null, limit = PAGE_LIMIT) => {
+    const res = await getInternalMessages({ thread_id: threadId, before_sent_at, limit });
     if (!res?.data?.success) throw new Error(res?.data?.error || 'backend_error');
     return res.data.messages || [];
   }, []);
+
+  // ⚡ Threads internas: leitura DIRETA do banco (sem desvio pelo servidor).
+  // Se vier vazio (possível bloqueio de visibilidade), cai no backend como fallback.
+  const fetchMessagesInterna = useCallback(async (threadId, before_sent_at = null, limit = PAGE_LIMIT) => {
+    const filtro = { thread_id: threadId };
+    if (before_sent_at) filtro.created_date = { $lt: before_sent_at };
+    try {
+      const direto = await base44.entities.Message.filter(filtro, '-created_date', limit);
+      if (direto.length > 0) return direto;
+    } catch (e) {
+      console.warn('[PAGINACAO] Leitura direta falhou, usando backend:', e.message);
+    }
+    return fetchMessagesBackend(threadId, before_sent_at, limit);
+  }, [fetchMessagesBackend]);
 
   // Carga inicial - últimas 20 mensagens da thread atual
   const loadInitial = useCallback(async () => {
@@ -58,7 +75,7 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
     if (cached && cached.length > 0) {
       setMessages(cached);
       setOldestLoadedAt(cached[0]?.created_date || cached[0]?.sent_at || null);
-      setHasMore(cached.length >= 20);
+      setHasMore(cached.length >= INITIAL_LIMIT);
     } else {
       setIsInitialLoading(true);
     }
@@ -67,17 +84,17 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
       console.log('[PAGINACAO] 🔄 Carregando inicial da thread:', threadId.substring(0, 8));
 
       const msgs = isThreadInterna
-        ? await fetchMessagesBackend(threadId)
+        ? await fetchMessagesInterna(threadId, null, INITIAL_LIMIT)
         : await base44.entities.Message.filter(
             { thread_id: threadId },
             '-created_date',
-            20
+            INITIAL_LIMIT
           );
 
       const reversed = msgs.reverse();
       setMessages(reversed);
       setOldestLoadedAt(reversed[0]?.created_date || reversed[0]?.sent_at || null);
-      setHasMore(msgs.length === 20); // Se trouxe 20, pode ter mais
+      setHasMore(msgs.length === INITIAL_LIMIT); // Se trouxe o limite, pode ter mais
       cacheSet(threadId, reversed);
 
       console.log('[PAGINACAO] ✅ Inicial carregada:', reversed.length, 'msgs');
@@ -106,14 +123,14 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
       console.log('[PAGINACAO] ⬆️ Buscando mensagens antigas antes de', oldestLoadedAt);
 
       const older = isThreadInterna
-        ? await fetchMessagesBackend(threadId, oldestLoadedAt)
+        ? await fetchMessagesInterna(threadId, oldestLoadedAt, PAGE_LIMIT)
         : await base44.entities.Message.filter(
             {
               thread_id: threadId,
               created_date: { $lt: oldestLoadedAt }
             },
             '-created_date',
-            20
+            PAGE_LIMIT
           );
 
       if (older.length === 0) {
@@ -129,7 +146,7 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
         return next;
       });
       setOldestLoadedAt(reversed[0]?.created_date || reversed[0]?.sent_at);
-      setHasMore(older.length === 20);
+      setHasMore(older.length === PAGE_LIMIT);
 
       console.log('[PAGINACAO] ✅ +', reversed.length, 'mensagens antigas carregadas');
 
