@@ -346,6 +346,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Produtos", icon: Package, page: "Produtos" },
     { name: "Automações", icon: Workflow, page: "Automacoes" },
     { name: "Métricas de Inteligência", icon: Brain, page: "InteligenciaMetricas" },
+    { name: "Aprendizados Semanais", icon: Sparkles, page: "AprendizadosSemanais" },
     { name: "Importação", icon: Upload, page: "Importacao" },
     { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" },
     { name: "Ferramentas de Migração", icon: Activity, page: "FerramentasMigracao" },

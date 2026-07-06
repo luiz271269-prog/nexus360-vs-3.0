@@ -24,6 +24,7 @@ import TextosSociais from '@/pages/TextosSociais';
 import PortalCliente from '@/pages/PortalCliente';
 import MapaClientes from '@/pages/MapaClientes';
 import PainelMetas from '@/pages/PainelMetas';
+import AprendizadosSemanais from '@/pages/AprendizadosSemanais';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -190,6 +191,14 @@ const AuthenticatedApp = () => {
           element={
             <LayoutWrapper currentPageName="PainelMetas">
               <PainelMetas />
+            </LayoutWrapper>
+          } 
+        />
+        <Route 
+          path="/AprendizadosSemanais" 
+          element={
+            <LayoutWrapper currentPageName="AprendizadosSemanais">
+              <AprendizadosSemanais />
             </LayoutWrapper>
           } 
         />
