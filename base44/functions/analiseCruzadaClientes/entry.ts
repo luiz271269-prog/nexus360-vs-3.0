@@ -58,6 +58,21 @@ Deno.serve(async (req) => {
       2000
     );
 
+    // 2b. Atividade da Central de Comunicação (mensagens ENVIADAS e RECEBIDAS contam como interação)
+    const limiteMsg = new Date(agora.getTime() - 120 * 86400000).toISOString();
+    const threadsRecentes = await base44.asServiceRole.entities.MessageThread.filter(
+      { thread_type: 'contact_external', last_message_at: { $gte: limiteMsg } },
+      '-last_message_at',
+      1000
+    );
+    const msgPorContato = {};
+    for (const t of threadsRecentes) {
+      if (!t.contact_id || !t.last_message_at) continue;
+      if (!msgPorContato[t.contact_id] || t.last_message_at > msgPorContato[t.contact_id]) {
+        msgPorContato[t.contact_id] = t.last_message_at;
+      }
+    }
+
     // Indexar vendas por nome do cliente para lookup rápido
     const vendasPorCliente = {};
     for (const v of vendasRecentes) {
@@ -83,7 +98,8 @@ Deno.serve(async (req) => {
         : 999;
 
       // Calcular dias sem interação
-      const ultimaInteracao = contato.ultima_interacao || contato.last_attention_given_at;
+      const ultimaInteracao = [contato.ultima_interacao, contato.last_attention_given_at, msgPorContato[contato.id]]
+        .filter(Boolean).sort().pop(); // a mais recente entre CRM e Central de Comunicação
       const diasSemInteracao = ultimaInteracao
         ? Math.floor((agora - new Date(ultimaInteracao)) / 86400000)
         : 999;
