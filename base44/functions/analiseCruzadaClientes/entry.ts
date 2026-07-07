@@ -25,6 +25,13 @@ function classificar(contato, ultimaVenda, diasSemVenda, diasSemInteracao) {
   return 'VERDE';
 }
 
+// Normalização de nome de empresa (mesmo método do getFaturamentoPorCliente)
+const normNome = (s) => (s || '')
+  .toString().toUpperCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/\bS[\/.]?A\b/g, '').replace(/\bLTDA\b/g, '').replace(/\bME\b/g, '').replace(/\bEPP\b/g, '')
+  .replace(/[^A-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   const agora = new Date();
@@ -50,13 +57,44 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, analisados: 0, message: 'Nenhum contato para analisar' });
     }
 
-    // 2. Buscar vendas dos últimos 180 dias
-    const limite180d = new Date(agora.getTime() - 180 * 86400000).toISOString().split('T')[0];
-    const vendasRecentes = await base44.asServiceRole.entities.Venda.filter(
-      { data_venda: { $gte: limite180d } },
-      '-data_venda',
-      2000
+    // 2. Buscar NFes emitidas (fonte de verdade: Neural Fin Flow)
+    // A entidade Venda local está vazia — as vendas reais são as NFes do Neural Fin.
+    const apiKey = Deno.env.get('NEURAL_FIN_API_KEY');
+    let notas = [];
+    if (apiKey) {
+      const urlNF = 'https://app.base44.com/api/apps/69c2ec97bab310deafd37881/entities/NotaFiscal?sort=-data_emissao&limit=1000';
+      const respNF = await fetch(urlNF, { headers: { api_key: apiKey, 'Content-Type': 'application/json' } });
+      if (respNF.ok) notas = await respNF.json();
+      else console.warn('[ANALISE-CRUZADA] ⚠️ Falha ao buscar NFes:', respNF.status);
+    }
+    const STATUS_NF_INVALIDOS = ['anulada', 'cancelado', 'cancelada'];
+    notas = (Array.isArray(notas) ? notas : []).filter(n =>
+      !n.is_espelho_ci && !STATUS_NF_INVALIDOS.includes(n.status) && n.cliente
     );
+    console.log('[ANALISE-CRUZADA] 🧾 NFes válidas carregadas:', notas.length);
+
+    // Agregar NFes por nome normalizado do cliente
+    const nfPorNome = {};
+    for (const n of notas) {
+      const k = normNome(n.cliente);
+      if (!k) continue;
+      if (!nfPorNome[k]) nfPorNome[k] = { ultimaEmissao: '', totalFaturado: 0, qtdNotas: 0 };
+      const reg = nfPorNome[k];
+      reg.totalFaturado += Number(n.valor_total) || 0;
+      reg.qtdNotas++;
+      if ((n.data_emissao || '') > reg.ultimaEmissao) reg.ultimaEmissao = n.data_emissao;
+    }
+    const buscarNF = (nome) => {
+      const k = normNome(nome);
+      if (!k) return null;
+      if (nfPorNome[k]) return nfPorNome[k];
+      if (k.length >= 6) {
+        for (const chave in nfPorNome) {
+          if (chave.length >= 6 && (k.includes(chave) || chave.includes(k))) return nfPorNome[chave];
+        }
+      }
+      return null;
+    };
 
     // 2b. Atividade da Central de Comunicação (mensagens ENVIADAS e RECEBIDAS contam como interação)
     const limiteMsg = new Date(agora.getTime() - 120 * 86400000).toISOString();
@@ -73,26 +111,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Indexar vendas por nome do cliente para lookup rápido
-    const vendasPorCliente = {};
-    for (const v of vendasRecentes) {
-      const key = (v.cliente_nome || '').toLowerCase().trim();
-      if (!vendasPorCliente[key]) vendasPorCliente[key] = [];
-      vendasPorCliente[key].push(v);
-    }
 
     // 3. Classificar cada contato
     const resultado = { PRETO: [], VERMELHO: [], AMARELO: [], VERDE: [] };
     const atualizacoes = [];
 
     for (const contato of contatos) {
-      const keyNome = (contato.nome || '').toLowerCase().trim();
-      const vendasContato = vendasPorCliente[keyNome] || [];
-
-      // Calcular dias sem venda
-      const ultimaVendaDt = vendasContato.length > 0
-        ? new Date(vendasContato[0].data_venda)
-        : null;
+      // Calcular dias sem venda (última NFe emitida — empresa primeiro, nome como fallback)
+      const nfContato = buscarNF(contato.empresa) || buscarNF(contato.nome);
+      const ultimaVendaDt = nfContato?.ultimaEmissao ? new Date(nfContato.ultimaEmissao) : null;
       const diasSemVenda = ultimaVendaDt
         ? Math.floor((agora - ultimaVendaDt) / 86400000)
         : 999;
@@ -139,6 +166,42 @@ Deno.serve(async (req) => {
     for (let i = 0; i < atualizacoes.length; i += 20) {
       await Promise.all(atualizacoes.slice(i, i + 20));
     }
+
+    // 3b. RECONCILIAR entidade Cliente com as NFes (saúde real do CRM)
+    // Atualiza status, score, classificação A/B/C e ultimo_contato do Kanban de Clientes.
+    const clientesCRM = await base44.asServiceRole.entities.Cliente.list('-updated_date', 1000);
+    const updatesCliente = [];
+    for (const cli of clientesCRM) {
+      const nfInfo = buscarNF(cli.razao_social) || buscarNF(cli.nome_fantasia);
+      if (!nfInfo || !nfInfo.ultimaEmissao) continue;
+
+      const diasSemNF = Math.floor((agora - new Date(nfInfo.ultimaEmissao)) / 86400000);
+      const novoStatus = diasSemNF <= 90 ? 'Ativo' : diasSemNF <= 365 ? 'Em Risco' : 'Inativo';
+      // Score 0-100: recência (60%) + volume (até 40%) + frequência (bônus)
+      const recencia = Math.max(0, 100 - Math.floor(diasSemNF / 7) * 5);
+      const volume = Math.min(40, Math.floor(nfInfo.totalFaturado / 10000) * 4);
+      const score = Math.min(100, Math.round(recencia * 0.6 + volume + Math.min(20, nfInfo.qtdNotas * 2)));
+      const classificacao = nfInfo.totalFaturado >= 100000 ? 'A - Alto Potencial'
+        : nfInfo.totalFaturado >= 20000 ? 'B - Médio Potencial'
+        : 'C - Baixo Potencial';
+
+      const upd = {};
+      if (cli.status !== novoStatus) upd.status = novoStatus;
+      if (cli.ultimo_contato !== nfInfo.ultimaEmissao) upd.ultimo_contato = nfInfo.ultimaEmissao;
+      if (cli.score_qualificacao_lead !== score) {
+        upd.score_qualificacao_lead = score;
+        upd.data_ultima_qualificacao = agora.toISOString();
+      }
+      if (cli.classificacao !== classificacao) upd.classificacao = classificacao;
+      if (Object.keys(upd).length > 0) updatesCliente.push({ id: cli.id, ...upd });
+    }
+    for (let i = 0; i < updatesCliente.length; i += 100) {
+      await base44.asServiceRole.entities.Cliente.bulkUpdate(updatesCliente.slice(i, i + 100)).catch((e) =>
+        console.warn('[ANALISE-CRUZADA] ⚠️ bulkUpdate Cliente:', e.message)
+      );
+    }
+    const clientesReconciliados = updatesCliente.length;
+    console.log('[ANALISE-CRUZADA] 🏢 Clientes reconciliados com NFe:', clientesReconciliados);
 
     // 4. Montar resumo por setor/vendedor e notificar via nexusNotificar
     // Agrupar críticos (PRETO + VERMELHO) por vendedor
@@ -221,6 +284,8 @@ Deno.serve(async (req) => {
         amarelo: resultado.AMARELO.length,
         verde: resultado.VERDE.length
       },
+      nfes_analisadas: notas.length,
+      clientes_reconciliados: clientesReconciliados,
       notificacoes_enviadas: notificacoes
     });
 
