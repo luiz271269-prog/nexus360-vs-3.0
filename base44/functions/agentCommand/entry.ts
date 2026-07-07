@@ -104,7 +104,7 @@ const ANALYST_TOOLS = [
   },
   {
     name: 'search_knowledge',
-    description: 'Busca na base de conhecimento: produtos, preços, políticas, casos resolvidos.',
+    description: 'Busca na base de conhecimento: produtos, preços, políticas, casos resolvidos E documentação do sistema Nexus360 (arquitetura, módulos, regras de funcionamento, como o app foi implementado e como deve ser usado).',
     input_schema: {
       type: 'object',
       properties: {
@@ -239,23 +239,65 @@ async function executeTool(base44, toolName, toolInput) {
   }
 
   if (toolName === 'search_knowledge') {
+    const normalizar = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const palavras = normalizar(toolInput.query).split(/\s+/).filter(p => p.length > 2);
     const filtroKB = toolInput.tipo && toolInput.tipo !== 'qualquer' ? { tipo: toolInput.tipo } : {};
-    const conhecimentos = await base44.asServiceRole.entities.KnowledgeBase.filter(filtroKB, '-vezes_consultado', 20).catch(() => []);
-    const queryLower = (toolInput.query || '').toLowerCase();
-    const palavras = queryLower.split(/\s+/).filter(Boolean);
-    const relevantes = conhecimentos.filter(k => {
-      const t = (k.titulo || '').toLowerCase();
-      const c = (k.conteudo || '').toLowerCase();
-      const tags = (k.tags || []).map(x => x.toLowerCase());
-      return palavras.some(p => t.includes(p) || c.includes(p) || tags.some(tg => tg.includes(p)));
-    });
+
+    // Busca dupla: KnowledgeBase (operacional) + BaseConhecimento (segundo cérebro / RAG)
+    const [conhecimentos, docsApp] = await Promise.all([
+      base44.asServiceRole.entities.KnowledgeBase.filter(filtroKB, '-vezes_consultado', 20).catch(() => []),
+      base44.asServiceRole.entities.BaseConhecimento.filter({ ativo: true }, '-relevancia_score', 150).catch(() => [])
+    ]);
+
+    // Score = nº de palavras da query que casam (título/tags pesam 3x)
+    const pontuar = (titulo, conteudo, tags) => {
+      const t = normalizar(titulo);
+      const c = normalizar(conteudo);
+      const tg = normalizar((tags || []).join(' '));
+      let score = 0;
+      for (const p of palavras) {
+        if (t.includes(p) || tg.includes(p)) score += 3;
+        else if (c.includes(p)) score += 1;
+      }
+      return score;
+    };
+
+    const relevantes = conhecimentos
+      .map(k => ({ item: k, score: pontuar(k.titulo, k.conteudo, k.tags) }))
+      .filter(r => r.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(r => r.item);
+    const relevantesApp = docsApp
+      .map(d => ({ item: d, score: pontuar(d.titulo, d.conteudo, [...(d.tags || []), ...(d.palavras_chave || [])]) }))
+      .filter(r => r.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(r => r.item);
+
     for (const item of relevantes.slice(0, 3)) {
       base44.asServiceRole.entities.KnowledgeBase.update(item.id, {
         vezes_consultado: (item.vezes_consultado || 0) + 1,
         ultima_consulta: new Date().toISOString()
       }).catch(() => {});
     }
-    return { total: relevantes.length, dados: relevantes.slice(0, 5) };
+    for (const item of relevantesApp.slice(0, 3)) {
+      base44.asServiceRole.entities.BaseConhecimento.update(item.id, {
+        vezes_utilizado: (item.vezes_utilizado || 0) + 1,
+        ultima_utilizacao: new Date().toISOString()
+      }).catch(() => {});
+    }
+
+    console.log(`[AGENT-COMMAND] 🔎 search_knowledge("${toolInput.query}") → KB: ${relevantes.length} | Docs sistema: ${relevantesApp.length}`);
+    return {
+      encontrado: (relevantes.length + relevantesApp.length) > 0,
+      total: relevantes.length + relevantesApp.length,
+      dados: relevantes.slice(0, 5),
+      documentacao_sistema: relevantesApp.slice(0, 3).map(d => ({
+        titulo: d.titulo,
+        categoria: d.categoria,
+        conteudo: d.conteudo,
+        quando_usar: d.contexto_aplicacao?.quando_usar || null
+      }))
+    };
   }
 
   if (toolName === 'save_to_knowledge') {
@@ -344,27 +386,76 @@ async function fetchContextData(base44, contactId = null) {
 }
 
 async function callBase44AI(base44, systemPrompt, userMessage, contextData, fileUrls = null) {
-  const prompt = `${systemPrompt}\n\nUSUÁRIO PERGUNTA: ${userMessage}`;
-  
-  try {
-    const llmPayload = {
-      prompt: prompt,
-      add_context_from_internet: false
-    };
-    // Se tem anexos, usar modelo multimodal (sem forçar gpt_5 que pode não suportar visão)
-    if (Array.isArray(fileUrls) && fileUrls.length > 0) {
-      llmPayload.file_urls = fileUrls;
-    } else {
-      llmPayload.model = 'gpt_5';
-    }
-    const response = await base44.asServiceRole.integrations.Core.InvokeLLM(llmPayload);
-    
-    console.log('[AGENT-COMMAND] ✓ Base44 AI respondeu com sucesso');
+  // Anexos: fluxo multimodal direto (sem loop de tools)
+  if (Array.isArray(fileUrls) && fileUrls.length > 0) {
+    const response = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      prompt: `${systemPrompt}\n\nUSUÁRIO PERGUNTA: ${userMessage}`,
+      file_urls: fileUrls
+    });
     return typeof response === 'string' ? response : JSON.stringify(response);
-  } catch (error) {
-    console.error('[BASE44-AI] Erro:', error.message);
-    throw error;
   }
+
+  // ── LOOP AGÊNTICO REAL: LLM decide chamar tools de verdade (máx 4 iterações) ──
+  const toolsDoc = ANALYST_TOOLS.map(t =>
+    `• ${t.name}: ${t.description}\n  parâmetros: ${JSON.stringify(t.input_schema.properties)}`
+  ).join('\n');
+
+  const schema = {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['tool_call', 'final'], description: 'tool_call para usar ferramenta, final para responder' },
+      tool: { type: 'string', description: 'Nome da ferramenta (quando action=tool_call)' },
+      input_json: { type: 'string', description: 'Parâmetros da ferramenta como STRING JSON. Ex: {"query":"pré-atendimento"}' },
+      response: { type: 'string', description: 'Resposta final em markdown (quando action=final)' }
+    },
+    required: ['action']
+  };
+
+  let transcript = `${systemPrompt}
+
+FERRAMENTAS DISPONÍVEIS — você PODE e DEVE usá-las para buscar dados REAIS antes de responder:
+${toolsDoc}
+
+PROTOCOLO: responda SEMPRE em JSON.
+- Para usar ferramenta: {"action":"tool_call","tool":"<nome>","input_json":"{\\"param\\":\\"valor\\"}"}
+- Para responder ao usuário: {"action":"final","response":"<resposta em markdown>"}
+NUNCA invente dados: se a pergunta exige dados do banco, do sistema ou de conhecimento, chame a ferramenta correspondente primeiro.
+
+USUÁRIO PERGUNTA: ${userMessage}`;
+
+  for (let i = 0; i < 4; i++) {
+    const out = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      prompt: transcript,
+      response_json_schema: schema
+    });
+
+    if (out?.action === 'tool_call' && out.tool) {
+      let toolInput = {};
+      try { toolInput = typeof out.input_json === 'string' ? JSON.parse(out.input_json) : (out.input_json || out.input || {}); } catch (_) { toolInput = {}; }
+      console.log(`[AGENT-COMMAND] 🔧 Tool loop ${i + 1}/4: ${out.tool}(${JSON.stringify(toolInput).slice(0, 200)})`);
+      let resultado;
+      try {
+        resultado = await executeTool(base44, out.tool, toolInput);
+      } catch (e) {
+        resultado = { error: e.message };
+      }
+      transcript += `\n\n[TOOL_CALL ${i + 1}] ${out.tool}(${JSON.stringify(toolInput).slice(0, 500)})\n[TOOL_RESULT] ${JSON.stringify(resultado).slice(0, 8000)}\n\nContinue: chame outra ferramenta se precisar de mais dados, ou finalize com action=final.`;
+      continue;
+    }
+
+    if (out?.response) {
+      console.log(`[AGENT-COMMAND] ✓ Resposta final após ${i} tool call(s)`);
+      return out.response;
+    }
+    return typeof out === 'string' ? out : JSON.stringify(out);
+  }
+
+  // Limite de iterações atingido: forçar resposta final
+  const finalOut = await base44.asServiceRole.integrations.Core.InvokeLLM({
+    prompt: transcript + '\n\nLimite de ferramentas atingido. Responda AGORA com action=final usando os dados já coletados.',
+    response_json_schema: schema
+  });
+  return finalOut?.response || JSON.stringify(finalOut);
 }
 
 Deno.serve(async (req) => {
@@ -593,7 +684,7 @@ INSTRUÇÕES:
 2. Use get_thread_messages quando perguntarem "o que conversamos", "última mensagem", "resumir conversa".
 3. Use get_contact_full_profile para perfil completo (dados + threads + análise).
 4. Use query_database com filtros corretos baseados no schema acima.
-5. Use search_knowledge para produtos, preços, políticas.
+5. Use search_knowledge para produtos, preços, políticas E perguntas sobre o próprio sistema Nexus360 (como funciona, regras, módulos, como usar).
 6. Use save_to_knowledge quando o usuário ENSINAR algo novo.
 7. Use execute_skill quando o usuário pedir AÇÃO executável.
 8. Sempre cite dados reais. Seja objetivo, máximo 3 parágrafos.`;
