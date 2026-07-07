@@ -173,6 +173,8 @@ Deno.serve(async (req) => {
         vendedor_responsavel_id: vendedor_id || undefined,
         metadata: { analise_cruzada: true, data_analise: agora.toISOString() }
       };
+      // Espaçamento entre notificações para não estourar rate-limit da plataforma
+      if (notificacoes > 0) await new Promise(r => setTimeout(r, 1500));
       try {
         await base44.asServiceRole.functions.invoke('nexusNotificar', payloadNotif);
       } catch (e1) {
