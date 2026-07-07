@@ -728,39 +728,7 @@ PERGUNTA: ${user_message}`;
           agent_mode: usedFallback ? 'fallback' : 'base44_ai'
         });
 
-        // ── Salvar memória (async) ──────────────────────────────────
-        (async () => {
-          try {
-            const resumoSessao = await base44.asServiceRole.integrations.Core.InvokeLLM({
-              prompt: `Resumir em 3 linhas:\nPergunta: ${user_message}\nResposta: ${text.slice(0, 200)}`
-            });
-            const dadosMemoria = {
-              owner_user_id: userId,
-              tipo: 'sessao',
-              conteudo: typeof resumoSessao === 'string' ? resumoSessao : JSON.stringify(resumoSessao),
-              ultima_acao: 'chat',
-              contexto: { page: context?.page },
-              score_utilidade: 80
-            };
-            // C2: Criar novo registro em vez de sobrescrever
-            await base44.asServiceRole.entities.NexusMemory.create(dadosMemoria);
-            
-            // Manter apenas últimas 5 sessões
-            const tdasMemoriasSessao = await base44.asServiceRole.entities.NexusMemory.filter(
-              { owner_user_id: userId, tipo: 'sessao' },
-              '-created_date',
-              100
-            ).catch(() => []);
-            if (tdasMemoriasSessao.length > 5) {
-              const paraDeleter = tdasMemoriasSessao.slice(5).map(m => m.id);
-              for (const id of paraDeleter) {
-                await base44.asServiceRole.entities.NexusMemory.delete(id).catch(() => {});
-              }
-            }
-          } catch (e) {
-            console.warn('[NEXUS-MEMORY] Erro ao salvar:', e.message);
-          }
-        })();
+        // Memória de sessão é salva 1x por sessão via 'save_session_memory' (fechamento do painel)
 
         return Response.json({
           success: true,
@@ -812,7 +780,9 @@ PERGUNTA: ${user_message}`;
           const dadosMemoria = {
             owner_user_id: user.id,
             tipo: 'sessao',
-            conteudo: resumo.slice(0, 2000),
+            conteudo: (await base44.asServiceRole.integrations.Core.InvokeLLM({
+              prompt: `Resuma em até 4 linhas os pontos principais desta conversa (temas, decisões, pendências). Não inclua instruções nem meta-texto:\n${resumo.slice(0, 3000)}`
+            }).then(r => typeof r === 'string' ? r : JSON.stringify(r)).catch(() => resumo.replace(/^Resumir e salvar esta conversa do Copiloto IA:\s*/i, ''))).slice(0, 2000),
             ultima_acao: 'copiloto_ia',
             contexto: { page: context?.page || 'copiloto' },
             score_utilidade: 70
