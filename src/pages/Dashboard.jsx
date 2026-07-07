@@ -151,7 +151,7 @@ export default function Dashboard() {
   });
   const [notasFiscais, setNotasFiscais] = useState([]);
   const [threadsAtividade, setThreadsAtividade] = useState([]);
-  const [vendedoresAtivos, setVendedoresAtivos] = useState(0);
+  const [vendedoresEntidade, setVendedoresEntidade] = useState([]);
 
   const [usuario, setUsuario] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -321,7 +321,7 @@ export default function Dashboard() {
         base44.entities.Interacao.list('-data_interacao', 500),
         base44.entities.Contact.filter({ is_cliente_fidelizado: true }, '-ultima_interacao', 500),
         base44.entities.MessageThread.filter({ thread_type: 'contact_external' }, '-last_message_at', 500),
-        base44.entities.Vendedor.filter({ status: 'ativo' })
+        base44.entities.Vendedor.list()
       ]);
       const vendedoresData = dedupById(usersData).filter(u => u.codigo || u.attendant_sector === 'vendas');
 
@@ -334,7 +334,7 @@ export default function Dashboard() {
         interacoes: dedupById(interacoesData),
         contatosFidelizados: dedupContatos(contatosFidelizadosData),
         threadsAtividade: dedupById(threadsAtividadeData || []),
-        vendedoresAtivos: (vendedoresEntData || []).length
+        vendedoresEntidade: vendedoresEntData || []
       };
 
       dashboardCache.data = dadosCarregados;
@@ -363,7 +363,7 @@ export default function Dashboard() {
       const dadosCarregados = await carregarDadosComCache();
       setUsuario(dadosCarregados.usuario);
       setThreadsAtividade(dadosCarregados.threadsAtividade || []);
-      setVendedoresAtivos(dadosCarregados.vendedoresAtivos || 0);
+      setVendedoresEntidade(dadosCarregados.vendedoresEntidade || []);
 
       let dadosFiltrados = filtrarDadosPorPerfil(dadosCarregados.usuario, {
         vendedores: dadosCarregados.vendedores,
@@ -733,7 +733,7 @@ export default function Dashboard() {
             </div>
             {isGerente &&
               <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
-                <span>🏆 {vendedoresAtivos || dados.vendedores.length} vendedores</span>
+                <span>🏆 {vendedoresEntidade.filter(v => v.status === 'ativo').length || dados.vendedores.length} vendedores</span>
               </div>
             }
           </div>
@@ -746,13 +746,13 @@ export default function Dashboard() {
               <>
                 <MetricasNotasFiscais mesSel={modoAnual ? null : mesSelecionado - 1} anoSel={anoSelecionado} modoAnual={modoAnual} />
                 <MetricasVendasNF notas={notasFiltradas} modoAnual={modoAnual} />
-                <VisaoGeralEmpresa dados={dadosCompletos} filtros={filtros} usuario={usuario} notasFiscais={notasFiltradas} />
+                <VisaoGeralEmpresa dados={dadosCompletos} filtros={filtros} usuario={usuario} notasFiscais={notasFiltradas} vendedoresEntidade={vendedoresEntidade} />
               </>
             }
             {viewMode === 'vendedores' &&
-              <PerformanceVendedores dados={dadosCompletos} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiltradas} />
+              <PerformanceVendedores dados={dadosCompletos} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiltradas} notasTodas={notasFiscais} vendedoresEntidade={vendedoresEntidade} />
             }
-            {viewMode === 'clientes' && <AnaliseClientes dados={dadosCompletos} filtros={filtros} isGerente={isGerente} />}
+            {viewMode === 'clientes' && <AnaliseClientes dados={dadosCompletos} filtros={filtros} isGerente={isGerente} notasFiscais={notasFiscais} />}
             {viewMode === 'operacional' &&
               <MetricasOperacionais dados={dadosCompletos} filtros={filtros} isGerente={isGerente} />
             }

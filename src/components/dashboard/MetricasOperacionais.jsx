@@ -131,10 +131,10 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
               {metricas.statusOrcamentos.map((status, index) => (
                 <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700">
                   <div className="flex items-center gap-3">
-                    {status.status === 'Em Aberto' && <Clock className="w-5 h-5 text-yellow-400" />}
-                    {status.status === 'Aprovado' && <CheckCircle className="w-5 h-5 text-green-400" />}
-                    {status.status === 'Rejeitado' && <AlertCircle className="w-5 h-5 text-red-400" />}
-                    {status.status === 'Vencido' && <AlertCircle className="w-5 h-5 text-orange-400" />}
+                    {status.tipo === 'aberto' && <Clock className="w-5 h-5 text-yellow-400" />}
+                    {status.tipo === 'aprovado' && <CheckCircle className="w-5 h-5 text-green-400" />}
+                    {status.tipo === 'rejeitado' && <AlertCircle className="w-5 h-5 text-red-400" />}
+                    {status.tipo === 'vencido' && <AlertCircle className="w-5 h-5 text-orange-400" />}
                     <div>
                       <p className="font-medium text-slate-200">{status.status}</p>
                       <p className="text-xs text-slate-400">
@@ -143,9 +143,9 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
                     </div>
                   </div>
                   <Badge className={`border-none ${
-                    status.status === 'Em Aberto' ? 'bg-yellow-800/70 text-yellow-200' :
-                    status.status === 'Aprovado' ? 'bg-green-800/70 text-green-200' :
-                    status.status === 'Rejeitado' ? 'bg-red-800/70 text-red-200' :
+                    status.tipo === 'aberto' ? 'bg-yellow-800/70 text-yellow-200' :
+                    status.tipo === 'aprovado' ? 'bg-green-800/70 text-green-200' :
+                    status.tipo === 'rejeitado' ? 'bg-red-800/70 text-red-200' :
                     'bg-orange-800/70 text-orange-200'
                   }`}>
                     {status.quantidade}
@@ -266,16 +266,32 @@ function aplicarFiltroData(dados, filtros) {
 }
 
 // Função para calcular métricas operacionais com dados reais
+const STATUS_FECHADOS = ['aprovado', 'rejeitado', 'vencido'];
+const ehAberto = (o) => !STATUS_FECHADOS.includes((o.status || '').toLowerCase());
+
 function calcularMetricasOperacionais(dados, dadosCompletos) {
   const totalOrcamentos = dados.orcamentos.length;
-  const orcamentosAprovados = dados.orcamentos.filter(o => o.status === 'Aprovado').length;
-  const vendasFechadas = dados.vendas.length;
+  const aprovados = dados.orcamentos.filter(o => (o.status || '').toLowerCase() === 'aprovado');
+  const orcamentosAprovados = aprovados.length;
+  // Vendas fechadas = orçamentos aprovados (entidade Venda não é usada; vendas reais = NFes/aprovações)
+  const vendasFechadas = orcamentosAprovados;
   const taxaConversao = totalOrcamentos > 0 ? Math.round((orcamentosAprovados / totalOrcamentos) * 100) : 0;
-  
-  const tempoMedioFechamento = 15; // Pode ser calculado baseado nas datas
-  const orcamentosAtivos = dados.orcamentos.filter(o => o.status === 'Em Aberto').length;
+
+  // Tempo médio de fechamento calculado das datas reais dos aprovados
+  const temposFechamento = aprovados
+    .map(o => {
+      const inicio = new Date(o.data_orcamento || o.created_date);
+      const fim = new Date(o.updated_date || o.created_date);
+      const dias = Math.round((fim - inicio) / 86400000);
+      return dias >= 0 && dias < 365 ? dias : null;
+    })
+    .filter(d => d !== null);
+  const tempoMedioFechamento = temposFechamento.length > 0
+    ? Math.round(temposFechamento.reduce((a, b) => a + b, 0) / temposFechamento.length)
+    : 0;
+  const orcamentosAtivos = dados.orcamentos.filter(ehAberto).length;
   const valorFunilAtivo = dados.orcamentos
-    .filter(o => o.status === 'Em Aberto')
+    .filter(ehAberto)
     .reduce((acc, o) => acc + (o.valor_total || 0), 0);
 
   // Cálculo real das atividades baseado nas interações
@@ -299,10 +315,8 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
 
   // Funil de vendas com dados reais
   const totalValorOrcamentos = dados.orcamentos.reduce((acc, o) => acc + (o.valor_total || 0), 0);
-  const valorOrcamentosAberto = dados.orcamentos
-    .filter(o => o.status === 'Em Aberto')
-    .reduce((acc, o) => acc + (o.valor_total || 0), 0);
-  const valorVendasFechadas = dados.vendas.reduce((acc, v) => acc + (v.valor_total || 0), 0);
+  const valorOrcamentosAberto = valorFunilAtivo;
+  const valorVendasFechadas = aprovados.reduce((acc, o) => acc + (o.valor_total || 0), 0);
 
   const funil = [
     {
@@ -359,22 +373,29 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
     orcamentos: orcamentosPorMes[mes] || 0
   }));
 
-  // Status dos orçamentos com dados reais
+  // Status dos orçamentos com dados reais (enums minúsculos do banco → rótulos)
+  const ROTULOS_STATUS = {
+    rascunho: 'Rascunho', aguardando_cotacao: 'Aguardando Cotação', cotando: 'Cotando',
+    aguardando_analise: 'Aguardando Análise', analisando: 'Analisando',
+    aguardando_liberacao: 'Aguardando Liberação', liberado: 'Liberado', enviado: 'Enviado',
+    negociando: 'Negociando', aprovado: 'Aprovado', rejeitado: 'Rejeitado', vencido: 'Vencido'
+  };
   const statusCount = {};
   dados.orcamentos.forEach(orc => {
-    const status = orc.status || 'Em Aberto';
-    if (!statusCount[status]) {
-      statusCount[status] = { quantidade: 0, valor: 0 };
+    const raw = (orc.status || 'rascunho').toLowerCase();
+    if (!statusCount[raw]) {
+      statusCount[raw] = { quantidade: 0, valor: 0 };
     }
-    statusCount[status].quantidade++;
-    statusCount[status].valor += orc.valor_total || 0;
+    statusCount[raw].quantidade++;
+    statusCount[raw].valor += orc.valor_total || 0;
   });
 
-  const statusOrcamentos = Object.entries(statusCount).map(([status, dados]) => ({
-    status,
+  const statusOrcamentos = Object.entries(statusCount).map(([raw, dados]) => ({
+    status: ROTULOS_STATUS[raw] || raw,
+    tipo: raw === 'aprovado' ? 'aprovado' : raw === 'rejeitado' ? 'rejeitado' : raw === 'vencido' ? 'vencido' : 'aberto',
     quantidade: dados.quantidade,
     valor: dados.valor
-  }));
+  })).sort((a, b) => b.quantidade - a.quantidade);
 
   // Atividades da semana com dados reais
   const atividadesSemana = [
@@ -423,7 +444,7 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
   // Se não há interações com próximas ações, criar algumas baseadas em orçamentos
   if (proximasAcoes.length < 3) {
     const orcamentosEmAberto = dados.orcamentos
-      .filter(o => o.status === 'Em Aberto')
+      .filter(ehAberto)
       .slice(0, 5 - proximasAcoes.length);
     
     orcamentosEmAberto.forEach(orc => {

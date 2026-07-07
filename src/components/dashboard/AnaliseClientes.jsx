@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Target, TrendingUp, AlertTriangle, Award, DollarSign, Calendar, User } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Legend } from "recharts";
 
-export default function AnaliseClientes({ dados, filtros, isGerente }) {
-  const analises = calcularAnaliseClientes(dados, filtros);
+export default function AnaliseClientes({ dados, filtros, isGerente, notasFiscais }) {
+  const analises = calcularAnaliseClientes(dados, filtros, notasFiscais || []);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -21,7 +21,7 @@ export default function AnaliseClientes({ dados, filtros, isGerente }) {
         <ClienteKPI
           titulo="Receita Média"
           valor={`R$ ${analises.receitaMedia.toLocaleString('pt-BR')}`}
-          subtitulo="por cliente/mês"
+          subtitulo="por cliente faturado"
           icon={DollarSign}
           cor="green"
         />
@@ -137,9 +137,9 @@ export default function AnaliseClientes({ dados, filtros, isGerente }) {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-slate-100">
-                      R$ {(cliente.valor_recorrente_mensal || 0).toLocaleString('pt-BR')}
+                      R$ {(cliente.receita_real || 0).toLocaleString('pt-BR')}
                     </p>
-                    <p className="text-xs text-slate-400">/mês</p>
+                    <p className="text-xs text-slate-400">faturado</p>
                   </div>
                 </div>
               ))}
@@ -315,9 +315,32 @@ function segmentoLabel(s) {
   return map[s] || s;
 }
 
+const normNomeAC = (s) => (s || '').toString().toUpperCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/\bS[\/.]?A\b/g, '').replace(/\bLTDA\b/g, '').replace(/\bME\b/g, '').replace(/\bEPP\b/g, '')
+  .replace(/[^A-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+
 // Função para calcular análises de clientes melhorada
-function calcularAnaliseClientes(dados, filtros) {
+function calcularAnaliseClientes(dados, filtros, notas) {
   const unificados = buildUnificados(dados.clientes || [], dados.contatosFidelizados || [], dados.vendedores || []);
+
+  // Receita real por cliente a partir das NFes (valor_recorrente_mensal não é preenchido no CRM)
+  const nfPorNome = {};
+  (notas || []).forEach((n) => {
+    const k = normNomeAC(n.cliente);
+    if (k) nfPorNome[k] = (nfPorNome[k] || 0) + (n.valor_total || 0);
+  });
+  const receitaDoCliente = (c) => {
+    const k1 = normNomeAC(c.razao_social);
+    const k2 = normNomeAC(c.nome_fantasia);
+    if (k1 && nfPorNome[k1] != null) return nfPorNome[k1];
+    if (k2 && nfPorNome[k2] != null) return nfPorNome[k2];
+    for (const chave in nfPorNome) {
+      if (chave.length >= 6 && k1.length >= 6 && (k1.includes(chave) || chave.includes(k1))) return nfPorNome[chave];
+    }
+    return 0;
+  };
+  unificados.forEach((c) => { c.receita_real = receitaDoCliente(c); });
 
   const totalClientes = dados.clientes.length;
   const totalFidelizados = (dados.contatosFidelizados || []).length;
@@ -327,15 +350,17 @@ function calcularAnaliseClientes(dados, filtros) {
   const clientesEmRisco = unificados.filter(c => c.status === 'Em Risco' || c.status === 'Inativo').length;
   const percentualRisco = totalUnificado > 0 ? Math.round((clientesEmRisco / totalUnificado) * 100) : 0;
 
-  // Receita média (só CRM tem valor_recorrente_mensal)
-  const receitaTotal = unificados.reduce((acc, c) => acc + (c.valor_recorrente_mensal || 0), 0);
-  const receitaMedia = totalUnificado > 0 ? Math.round(receitaTotal / totalUnificado) : 0;
+  // Receita média real (base: NFes do Neural Fin, só clientes com faturamento)
+  const clientesComReceita = unificados.filter(c => (c.receita_real || 0) > 0);
+  const receitaTotal = clientesComReceita.reduce((acc, c) => acc + (c.receita_real || 0), 0);
+  const receitaMedia = clientesComReceita.length > 0 ? Math.round(receitaTotal / clientesComReceita.length) : 0;
 
-  // Novos clientes baseado no período selecionado
-  const novosClientes = (dados.vendas || []).filter(v => {
-    if (!v.data_venda) return false;
-    if (filtros?.dataInicio && v.data_venda < filtros.dataInicio) return false;
-    if (filtros?.dataFim && v.data_venda > filtros.dataFim) return false;
+  // Novos clientes = clientes CADASTRADOS no período selecionado
+  const novosClientes = (dados.clientes || []).filter(c => {
+    const d = (c.created_date || '').slice(0, 10);
+    if (!d) return false;
+    if (filtros?.dataInicio && d < filtros.dataInicio) return false;
+    if (filtros?.dataFim && d > filtros.dataFim) return false;
     return true;
   }).length;
 
@@ -347,21 +372,17 @@ function calcularAnaliseClientes(dados, filtros) {
   });
   const porSegmento = Object.entries(segmentos).map(([segmento, quantidade]) => ({ segmento, quantidade }));
 
-  // Receita por segmento
+  // Receita por segmento (NFes reais)
   const receitaSegmentos = {};
   unificados.forEach(cliente => {
     const segmento = cliente.segmento || 'Não definido';
-    receitaSegmentos[segmento] = (receitaSegmentos[segmento] || 0) + (cliente.valor_recorrente_mensal || 0);
+    receitaSegmentos[segmento] = (receitaSegmentos[segmento] || 0) + (cliente.receita_real || 0);
   });
   const receitaPorSegmento = Object.entries(receitaSegmentos).map(([segmento, receita]) => ({ segmento, receita }));
 
-  // Top clientes (unificados, pelo valor ou score)
+  // Top clientes por receita real (NFes), com score como desempate
   const topClientes = [...unificados]
-    .sort((a, b) => {
-      const va = (b.valor_recorrente_mensal || 0) || (b.cliente_score || 0);
-      const vb = (a.valor_recorrente_mensal || 0) || (a.cliente_score || 0);
-      return va - vb;
-    })
+    .sort((a, b) => ((b.receita_real || 0) - (a.receita_real || 0)) || ((b.cliente_score || 0) - (a.cliente_score || 0)))
     .slice(0, 10);
 
   // Clientes por vendedor (unificados)

@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, Target, Users, TrendingUp, AlertCircle, CheckCircle, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from "recharts";
 
-export default function VisaoGeralEmpresa({ dados, notasFiscais }) {
+export default function VisaoGeralEmpresa({ dados, notasFiscais, vendedoresEntidade }) {
   const nf = notasFiscais || [];
-  const kpis = calcularKPIsEmpresa(dados, nf);
-  const tendencias = calcularTendencias(dados, nf);
-  const distribuicoes = calcularDistribuicoes(dados);
+  const kpis = calcularKPIsEmpresa(dados, nf, vendedoresEntidade || []);
+  const tendencias = calcularTendencias(dados, nf, vendedoresEntidade || []);
+  const distribuicoes = calcularDistribuicoes(dados, nf);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -198,10 +198,10 @@ export default function VisaoGeralEmpresa({ dados, notasFiscais }) {
               {distribuicoes.statusOrcamentos.map((status, index) =>
               <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700">
                   <div className="flex items-center gap-3">
-                    {status.status === 'Em Aberto' && <AlertCircle className="w-5 h-5 text-yellow-400" />}
-                    {status.status === 'Aprovado' && <CheckCircle className="w-5 h-5 text-green-400" />}
-                    {status.status === 'Rejeitado' && <AlertCircle className="w-5 h-5 text-red-400" />}
-                    <span className="font-medium text-slate-300">{status.status}</span>
+                    {status.status === 'aprovado' ? <CheckCircle className="w-5 h-5 text-green-400" /> :
+                     ['rejeitado', 'vencido'].includes(status.status) ? <AlertCircle className="w-5 h-5 text-red-400" /> :
+                     <AlertCircle className="w-5 h-5 text-yellow-400" />}
+                    <span className="font-medium text-slate-300 capitalize">{(status.status || '').replace(/_/g, ' ')}</span>
                   </div>
                   <div className="text-right">
                     <div className="font-semibold text-white">{status.quantidade}</div>
@@ -256,12 +256,15 @@ function KPICard({ titulo, valor, variacao, icon: Icon, cor }) {
 }
 
 // Funções auxiliares para cálculos
-function calcularKPIsEmpresa(dados, notas) {
+function calcularKPIsEmpresa(dados, notas, vendedoresEntidade) {
   // Prioriza notas fiscais para faturamento real
   const faturamentoTotal = notas.length > 0
     ? notas.reduce((acc, n) => acc + (n.valor_total || 0), 0)
     : dados.vendas.reduce((acc, venda) => acc + (venda.valor_total || 0), 0);
-  const metaTotal = dados.vendedores.reduce((acc, vendedor) => acc + (vendedor.meta_mensal || 0), 0);
+  // Metas vêm da entidade Vendedor (fonte de verdade), não do User
+  const metaTotal = (vendedoresEntidade || [])
+    .filter((v) => v.status === 'ativo')
+    .reduce((acc, v) => acc + (v.meta_mensal || 0), 0);
   const percentualMeta = metaTotal > 0 ? Math.round(faturamentoTotal / metaTotal * 100) : 0;
   const clientesAtivos = dados.clientes.filter((c) => c.status === 'Ativo').length;
   const totalOrcamentos = dados.orcamentos.length;
@@ -271,15 +274,11 @@ function calcularKPIsEmpresa(dados, notas) {
     faturamentoTotal,
     percentualMeta,
     clientesAtivos,
-    taxaConversao,
-    crescimentoFaturamento: 12,
-    variacao_meta: 8,
-    crescimentoClientes: 5,
-    variacaoConversao: -2
+    taxaConversao
   };
 }
 
-function calcularTendencias(dados, notas) {
+function calcularTendencias(dados, notas, vendedoresEntidade) {
   const hoje = new Date();
   const ultimosMeses = [];
   for (let i = 3; i >= 0; i--) {
@@ -307,7 +306,9 @@ function calcularTendencias(dados, notas) {
   });
 
   const temNotas = Object.keys(notasPorMesObj).length > 0;
-  const metaTotalEmpresa = dados.vendedores.reduce((acc, v) => acc + (v.meta_mensal || 0), 0);
+  const metaTotalEmpresa = (vendedoresEntidade || [])
+    .filter((v) => v.status === 'ativo')
+    .reduce((acc, v) => acc + (v.meta_mensal || 0), 0);
 
   const faturamentoPorMes = ultimosMeses.map(({ mes, nome }) => ({
     mes: nome,
@@ -327,13 +328,17 @@ function calcularTendencias(dados, notas) {
   return { faturamentoPorMes, performanceVsMeta, performanceMensal };
 }
 
-function calcularDistribuicoes(dados) {
-  // Distribuição por segmento (Clientes)
+const normNomeVG = (s) => (s || '').toString().toUpperCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/\bS[\/.]?A\b/g, '').replace(/\bLTDA\b/g, '').replace(/\bME\b/g, '').replace(/\bEPP\b/g, '')
+  .replace(/[^A-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+
+function calcularDistribuicoes(dados, notas) {
+  // Distribuição por segmento (Clientes) — por QUANTIDADE (valor_recorrente_mensal não é preenchido)
   const segmentosClientes = {};
   dados.clientes.forEach((cliente) => {
     const segmento = cliente.segmento || 'Não definido';
-    const valor = cliente.valor_recorrente_mensal || 0; // Assuming this is used for client distribution
-    segmentosClientes[segmento] = (segmentosClientes[segmento] || 0) + valor;
+    segmentosClientes[segmento] = (segmentosClientes[segmento] || 0) + 1;
   });
 
   const porSegmento = Object.entries(segmentosClientes).map(([segmento, valor]) => ({
@@ -341,15 +346,26 @@ function calcularDistribuicoes(dados) {
     valor
   }));
 
-  // Receita por Segmento (Vendas)
+  // Receita por Segmento — fonte real: NFes (Neural Fin), casadas por nome do cliente
+  const segmentoPorNome = {};
+  dados.clientes.forEach((c) => {
+    const k1 = normNomeVG(c.razao_social);
+    const k2 = normNomeVG(c.nome_fantasia);
+    if (k1) segmentoPorNome[k1] = c.segmento || 'Não definido';
+    if (k2) segmentoPorNome[k2] = c.segmento || 'Não definido';
+  });
   const receitaPorSegmentoObj = {};
-  dados.vendas.forEach((venda) => {
-    // Find the client associated with the sale to get their segment
-    const cliente = dados.clientes.find((c) => c.id === venda.cliente_id); // Assuming venda has client_id
-    if (cliente) {
-      const segmento = cliente.segmento || 'Não definido';
-      receitaPorSegmentoObj[segmento] = (receitaPorSegmentoObj[segmento] || 0) + (venda.valor_total || 0);
+  (notas || []).forEach((n) => {
+    const k = normNomeVG(n.cliente);
+    if (!k) return;
+    let seg = segmentoPorNome[k];
+    if (!seg) {
+      for (const chave in segmentoPorNome) {
+        if (chave.length >= 6 && k.length >= 6 && (k.includes(chave) || chave.includes(k))) { seg = segmentoPorNome[chave]; break; }
+      }
     }
+    seg = seg || 'Não identificado';
+    receitaPorSegmentoObj[seg] = (receitaPorSegmentoObj[seg] || 0) + (n.valor_total || 0);
   });
 
   const receitaPorSegmento = Object.entries(receitaPorSegmentoObj).map(([segmento, receita]) => ({

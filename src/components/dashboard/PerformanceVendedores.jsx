@@ -6,14 +6,14 @@ import { Progress } from "@/components/ui/progress";
 import { Award, TrendingUp, Target, DollarSign, Users, Phone, Calendar, Star, Trophy, User, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 
-export default function PerformanceVendedores({ dados, filtros, isGerente, usuario, notasFiscais }) {
+export default function PerformanceVendedores({ dados, filtros, isGerente, usuario, notasFiscais, notasTodas, vendedoresEntidade }) {
   const dadosFiltrados = aplicarFiltroData(dados, filtros);
   const nf = (notasFiscais || []).filter(n => {
     if (!filtros?.dataInicio || !filtros?.dataFim) return true;
     const d = (n.data_emissao || n.created_date || '').slice(0, 10);
     return d >= filtros.dataInicio && d <= filtros.dataFim;
   });
-  const metricas = calcularMetricasVendedores(dadosFiltrados, dados, usuario, nf);
+  const metricas = calcularMetricasVendedores(dadosFiltrados, dados, usuario, nf, vendedoresEntidade || [], notasTodas || []);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -320,7 +320,7 @@ function aplicarFiltroData(dados, filtros) {
   };
 }
 
-function calcularMetricasVendedores(dados, dadosCompletos, usuario, notas) {
+function calcularMetricasVendedores(dados, dadosCompletos, usuario, notas, vendedoresEntidade, notasTodas) {
   if (!dados || !Array.isArray(dados.vendedores) || !Array.isArray(dados.vendas) || !Array.isArray(dados.interacoes) || !Array.isArray(dados.orcamentos) || !Array.isArray(dados.clientes)) {
     return {
       rankingVendedores: [],
@@ -342,10 +342,12 @@ function calcularMetricasVendedores(dados, dadosCompletos, usuario, notas) {
     };
   }
 
-  // Calcular métricas por vendedor
+  // Calcular métricas por vendedor (meta e foto vêm da entidade Vendedor via usuario_id)
   const vendedoresComMetricas = dados.vendedores.map((vendedor) => {
     const nomeVendedor = getNomeExibicao(vendedor) || vendedor.full_name || vendedor.email || '';
     const primeiroNome = nomeVendedor.split(' ')[0].toLowerCase();
+    const entVendedor = (vendedoresEntidade || []).find((e) => e.usuario_id === vendedor.id);
+    const metaMensal = entVendedor?.meta_mensal || vendedor.meta_mensal || 0;
     const vendasVendedor = dados.vendas.filter((v) => v.vendedor === nomeVendedor || v.vendedor_id === vendedor.id);
     // Faturamento: prioriza notas fiscais do vendedor
     const notasVendedor = (notas || []).filter(n =>
@@ -354,22 +356,26 @@ function calcularMetricasVendedores(dados, dadosCompletos, usuario, notas) {
     const faturamentoVendedor = notasVendedor.length > 0
       ? notasVendedor.reduce((sum, n) => sum + (n.valor_total || 0), 0)
       : vendasVendedor.reduce((sum, v) => sum + (v.valor_total || 0), 0);
-    const percentualMeta = (vendedor.meta_mensal || 0) > 0 ?
-    Math.round(faturamentoVendedor / vendedor.meta_mensal * 100) :
+    const percentualMeta = metaMensal > 0 ?
+    Math.round(faturamentoVendedor / metaMensal * 100) :
     0;
 
-    const orcamentosVendedor = dados.orcamentos.filter((o) => o.vendedor === nomeVendedor || o.vendedor_id === vendedor.id);
-    const clientesVendedor = dados.clientes.filter((c) => (c.vendedor_responsavel === nomeVendedor || c.vendedor_id === vendedor.id) && c.status === 'Ativo');
+    const orcamentosVendedor = dados.orcamentos.filter((o) => o.vendedor === nomeVendedor || o.vendedor_id === vendedor.id || o.usuario_id === vendedor.id);
+    const aprovadosVendedor = orcamentosVendedor.filter((o) => o.status === 'aprovado').length;
+    const clientesVendedor = dados.clientes.filter((c) => (c.vendedor_responsavel === nomeVendedor || c.vendedor_id === vendedor.id || c.usuario_id === vendedor.id) && c.status === 'Ativo');
+    // Vendas reais = NFes emitidas; conversão = orçamentos aprovados / total de orçamentos
+    const quantidadeVendas = notasVendedor.length > 0 ? notasVendedor.length : vendasVendedor.length;
     const taxaConversaoIndividual = orcamentosVendedor.length > 0 ?
-    Math.round(vendasVendedor.length / orcamentosVendedor.length * 100) :
+    Math.round(aprovadosVendedor / orcamentosVendedor.length * 100) :
     0;
 
     return {
       ...vendedor,
       nome: nomeVendedor,
+      foto_url: vendedor.foto_url || entVendedor?.foto_url || null,
       faturamento: faturamentoVendedor,
       percentualMeta,
-      quantidadeVendas: vendasVendedor.length,
+      quantidadeVendas,
       quantidadeOrcamentos: orcamentosVendedor.length,
       taxaConversao: taxaConversaoIndividual,
       quantidadeClientes: clientesVendedor.length
@@ -384,10 +390,15 @@ function calcularMetricasVendedores(dados, dadosCompletos, usuario, notas) {
   const faturamentoTotal = (notas && notas.length > 0)
     ? notas.reduce((sum, n) => sum + (n.valor_total || 0), 0)
     : dados.vendas.reduce((sum, v) => sum + (v.valor_total || 0), 0);
-  const metaTotal = dados.vendedores.reduce((sum, v) => sum + (v.meta_mensal || 0), 0);
+  const metaTotal = (vendedoresEntidade || [])
+    .filter((v) => v.status === 'ativo')
+    .reduce((sum, v) => sum + (v.meta_mensal || 0), 0);
   const percentualMetaColetiva = metaTotal > 0 ? Math.round(faturamentoTotal / metaTotal * 100) : 0;
-  const ticketMedio = dados.vendas.length > 0 ? Math.round(faturamentoTotal / dados.vendas.length) : 0;
-  const vendedoresAtivos = dados.vendedores.filter((v) => v.status_vendedor === 'ativo' || v.status === 'ativo').length;
+  // Ticket médio e nº de vendas: NFes são a fonte real quando disponíveis
+  const numVendas = (notas && notas.length > 0) ? notas.length : dados.vendas.length;
+  const ticketMedio = numVendas > 0 ? Math.round(faturamentoTotal / numVendas) : 0;
+  const vendedoresAtivos = (vendedoresEntidade || []).filter((v) => v.status === 'ativo').length ||
+    dados.vendedores.filter((v) => v.status_vendedor === 'ativo' || v.status === 'ativo').length;
 
   // Performance vs Meta para gráfico
   const performanceVsMeta = rankingVendedores.map((v) => ({
@@ -403,15 +414,20 @@ function calcularMetricasVendedores(dados, dadosCompletos, usuario, notas) {
     valor: v.faturamento
   }));
 
-  // Evolução mensal — últimos 6 meses com dados reais
+  // Evolução mensal — últimos 6 meses com dados reais (NFes como fonte primária)
   const hoje = new Date();
   const evolucaoMensal = [];
+  const usarNotas = (notasTodas || []).length > 0;
   for (let i = 5; i >= 0; i--) {
     const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
     const mesAno = d.toISOString().slice(0, 7);
     const nomeMs = d.toLocaleDateString('pt-BR', { month: 'short' });
-    const vendasMes = (dadosCompletos?.vendas || []).filter(v => v.data_venda?.slice(0, 7) === mesAno);
-    evolucaoMensal.push({ mes: nomeMs, faturamento: vendasMes.reduce((s, v) => s + (v.valor_total || 0), 0) });
+    const faturamentoMes = usarNotas
+      ? (notasTodas || []).filter(n => (n.data_emissao || n.created_date || '').slice(0, 7) === mesAno)
+          .reduce((s, n) => s + (n.valor_total || 0), 0)
+      : (dadosCompletos?.vendas || []).filter(v => v.data_venda?.slice(0, 7) === mesAno)
+          .reduce((s, v) => s + (v.valor_total || 0), 0);
+    evolucaoMensal.push({ mes: nomeMs, faturamento: faturamentoMes });
   }
 
   const nomeUsuario = usuario?.full_name || usuario?.nome || '';
@@ -422,14 +438,14 @@ function calcularMetricasVendedores(dados, dadosCompletos, usuario, notas) {
     faturamentoTotal,
     percentualMetaColetiva,
     ticketMedio,
-    totalVendas: dados.vendas.length,
+    totalVendas: numVendas,
     vendedoresAtivos,
     performanceVsMeta,
     distribuicaoVendas,
     evolucaoMensal,
     totalLigacoes: dados.interacoes.filter((i) => i.tipo_interacao === 'ligacao').length,
     totalReunioes: dados.interacoes.filter((i) => i.tipo_interacao === 'reuniao').length,
-    taxaConversao: Math.round(dados.vendas.length / Math.max(dados.orcamentos.length, 1) * 100),
+    taxaConversao: Math.round(dados.orcamentos.filter((o) => o.status === 'aprovado').length / Math.max(dados.orcamentos.length, 1) * 100),
     posicaoUsuario: rankingVendedores.findIndex((v) => v.nome === nomeUsuario) + 1 || 0,
     metaUsuario: rankingVendedores.find((v) => v.nome === nomeUsuario)?.percentualMeta || 0,
     vendasUsuario: rankingVendedores.find((v) => v.nome === nomeUsuario)?.quantidadeVendas || 0
