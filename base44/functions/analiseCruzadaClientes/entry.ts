@@ -214,6 +214,7 @@ Deno.serve(async (req) => {
     }
 
     let notificacoes = 0;
+    const isValidUserId = (v) => typeof v === 'string' && /^[0-9a-f]{24}$/i.test(v);
     for (const [vendedor, dados] of Object.entries(porVendedor)) {
       if (vendedor === 'sem_vendedor') continue;
       const { itens, vendedor_id } = dados;
@@ -233,16 +234,16 @@ Deno.serve(async (req) => {
       const payloadNotif = {
         setor: 'vendas',
         conteudo: msg,
-        vendedor_responsavel_id: vendedor_id || undefined,
+        vendedor_responsavel_id: isValidUserId(vendedor_id) ? vendedor_id : undefined,
         metadata: { analise_cruzada: true, data_analise: agora.toISOString() }
       };
       // Espaçamento entre notificações para não estourar rate-limit da plataforma
-      if (notificacoes > 0) await new Promise(r => setTimeout(r, 1500));
+      if (notificacoes > 0) await new Promise(r => setTimeout(r, 4000));
       try {
         await base44.asServiceRole.functions.invoke('nexusNotificar', payloadNotif);
       } catch (e1) {
         // Retry único após pausa (mitiga 403/429 de rate-limit em rajada)
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 5000));
         await base44.asServiceRole.functions.invoke('nexusNotificar', payloadNotif)
           .catch(e2 => console.warn('[ANALISE-CRUZADA] ⚠️ nexusNotificar (após retry):', e2.message));
       }
