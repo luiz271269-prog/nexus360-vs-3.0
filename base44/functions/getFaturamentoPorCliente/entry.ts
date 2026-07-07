@@ -33,7 +33,11 @@ Deno.serve(async (req) => {
       const errText = await resp.text();
       return Response.json({ error: `Erro ${resp.status} ao buscar NFes: ${errText.substring(0, 150)}` }, { status: resp.status });
     }
-    const notas = await resp.json();
+    const todasNotas = await resp.json();
+    // Padrão auditado (mesmo critério de analiseCruzadaClientes/buscarNotasFiscaisExternas):
+    // excluir espelhos de CI (dupla contagem) e NFs anuladas/canceladas (não são receita).
+    const STATUS_INVALIDOS = ['anulada', 'cancelado', 'cancelada'];
+    const notas = todasNotas.filter((n) => !n.is_espelho_ci && !STATUS_INVALIDOS.includes(n.status));
 
     // 2) Índice de clientes cadastrados (nome normalizado -> id)
     const clientes = await base44.asServiceRole.entities.Cliente.list('-updated_date', 2000);
