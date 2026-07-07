@@ -25,6 +25,7 @@ import { dedupById, dedupClientes, dedupVendas, dedupOrcamentos, dedupContatos }
 import { getNomeExibicao } from "../components/lib/vendedorSync";
 import { buscarNotasFiscaisExternas } from "@/functions/buscarNotasFiscaisExternas";
 import MetricasVendasNF from "../components/dashboard/MetricasVendasNF";
+import FinanceiroNeuralFin from "../components/dashboard/FinanceiroNeuralFin";
 import DetalhesModal from "../components/dashboard/DetalhesModal";
 import { COLS_NF, COLS_ORCAMENTO, COLS_CLIENTE, COLS_THREAD, COLS_VENDEDOR_ENT } from "../components/dashboard/drilldownColunas";
 
@@ -776,6 +777,7 @@ export default function Dashboard() {
           <>
             {viewMode === 'empresa' && isGerente &&
               <>
+                <FinanceiroNeuralFin mesSel={mesSelecionado} anoSel={anoSelecionado} modoAnual={modoAnual} />
                 <MetricasNotasFiscais mesSel={modoAnual ? null : mesSelecionado - 1} anoSel={anoSelecionado} modoAnual={modoAnual} />
                 <MetricasVendasNF notas={notasFiltradas} modoAnual={modoAnual} />
                 <VisaoGeralEmpresa dados={dadosCompletos} filtros={filtros} usuario={usuario} notasFiscais={notasFiltradas} vendedoresEntidade={vendedoresEntidade} />
