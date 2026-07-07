@@ -396,7 +396,8 @@ export default function Dashboard() {
   const carregarNotasFiscais = async () => {
     try {
       const resp = await buscarNotasFiscaisExternas({});
-      if (resp.data?.success) setNotasFiscais(dedupById(resp.data.notas || []));
+      // Exclui NFs anuladas/zeradas — não são vendas reais e distorcem faturamento e ticket médio
+      if (resp.data?.success) setNotasFiscais(dedupById(resp.data.notas || []).filter(n => (n.valor_total || 0) > 0));
     } catch (e) {
       console.warn('[Dashboard] Notas fiscais indisponíveis:', e.message);
     }
