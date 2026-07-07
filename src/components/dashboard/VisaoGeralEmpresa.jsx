@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import DetalhesModal from "./DetalhesModal";
+import { COLS_NF, COLS_ORCAMENTO, COLS_CLIENTE } from "./drilldownColunas";
 import { DollarSign, Target, Users, TrendingUp, AlertCircle, CheckCircle, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from "recharts";
 
@@ -8,6 +10,7 @@ export default function VisaoGeralEmpresa({ dados, notasFiscais, vendedoresEntid
   const kpis = calcularKPIsEmpresa(dados, nf, vendedoresEntidade || []);
   const tendencias = calcularTendencias(dados, nf, vendedoresEntidade || []);
   const distribuicoes = calcularDistribuicoes(dados, nf);
+  const [drill, setDrill] = useState(null);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -18,28 +21,32 @@ export default function VisaoGeralEmpresa({ dados, notasFiscais, vendedoresEntid
           valor={`R$ ${kpis.faturamentoTotal.toLocaleString('pt-BR')}`}
           variacao={kpis.crescimentoFaturamento}
           icon={DollarSign}
-          cor="emerald" />
+          cor="emerald"
+          onClick={() => setDrill({ title: 'Faturamento — Notas Fiscais do Período', dados: nf, colunas: COLS_NF })} />
 
         <KPICard
           titulo="Meta Atingida"
           valor={`${kpis.percentualMeta}%`}
           variacao={kpis.variacao_meta}
           icon={Target}
-          cor="blue" />
+          cor="blue"
+          onClick={() => setDrill({ title: 'Meta — Notas Fiscais Consideradas', dados: nf, colunas: COLS_NF })} />
 
         <KPICard
           titulo="Clientes Ativos"
           valor={kpis.clientesAtivos}
           variacao={kpis.crescimentoClientes}
           icon={Users}
-          cor="purple" />
+          cor="purple"
+          onClick={() => setDrill({ title: 'Clientes Ativos', dados: dados.clientes.filter((c) => c.status === 'Ativo'), colunas: COLS_CLIENTE })} />
 
         <KPICard
           titulo="Taxa Conversão"
           valor={`${kpis.taxaConversao}%`}
           variacao={kpis.variacaoConversao}
           icon={TrendingUp}
-          cor="orange" />
+          cor="orange"
+          onClick={() => setDrill({ title: 'Orçamentos do Período', dados: dados.orcamentos, colunas: COLS_ORCAMENTO })} />
       </div>
 
       {/* Gráficos de Tendência dos Últimos 4 Meses */}
@@ -215,12 +222,14 @@ export default function VisaoGeralEmpresa({ dados, notasFiscais, vendedoresEntid
           </CardContent>
         </Card>
       </div>
+
+      {drill && <DetalhesModal title={drill.title} dados={drill.dados} colunas={drill.colunas} onClose={() => setDrill(null)} />}
     </div>);
 
 }
 
 // Componente KPICard
-function KPICard({ titulo, valor, variacao, icon: Icon, cor }) {
+function KPICard({ titulo, valor, variacao, icon: Icon, cor, onClick }) {
   const getCor = (cor) => {
     const cores = {
       emerald: "from-emerald-500 to-emerald-600",
@@ -232,7 +241,7 @@ function KPICard({ titulo, valor, variacao, icon: Icon, cor }) {
   };
 
   return (
-    <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 shadow-lg hover:shadow-xl hover:shadow-purple-500/10 transition-all transform hover:-translate-y-1">
+    <Card onClick={onClick} className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 shadow-lg hover:shadow-xl hover:shadow-purple-500/10 transition-all transform hover:-translate-y-1 cursor-pointer">
       <CardContent className="p-3 md:p-4">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">

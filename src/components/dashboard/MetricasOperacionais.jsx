@@ -1,12 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import DetalhesModal from "./DetalhesModal";
+import { COLS_ORCAMENTO, COLS_INTERACAO } from "./drilldownColunas";
 import { Target, TrendingUp, Clock, CheckCircle, AlertCircle, Phone, MessageCircle, Calendar, Users, Mail } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 
 export default function MetricasOperacionais({ dados, filtros, isGerente }) {
   const dadosFiltrados = aplicarFiltroData(dados, filtros);
   const metricas = calcularMetricasOperacionais(dadosFiltrados, dados);
+  const [drill, setDrill] = useState(null);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -18,6 +21,7 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
           subtitulo={`${metricas.vendasFechadas}/${metricas.totalOrcamentos} orçamentos`}
           icon={Target}
           cor="green"
+          onClick={() => setDrill({ title: 'Orçamentos Aprovados', dados: metricas.listaAprovados, colunas: COLS_ORCAMENTO })}
         />
         <OperacionalKPI
           titulo="Tempo Médio"
@@ -25,6 +29,7 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
           subtitulo="para fechamento"
           icon={Clock}
           cor="blue"
+          onClick={() => setDrill({ title: 'Aprovados — Base do Tempo de Fechamento', dados: metricas.listaAprovados, colunas: COLS_ORCAMENTO })}
         />
         <OperacionalKPI
           titulo="Funil Ativo"
@@ -32,6 +37,7 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
           subtitulo={`R$ ${metricas.valorFunilAtivo.toLocaleString('pt-BR')}`}
           icon={TrendingUp}
           cor="purple"
+          onClick={() => setDrill({ title: 'Funil Ativo — Orçamentos em Aberto', dados: metricas.listaAbertos, colunas: COLS_ORCAMENTO })}
         />
         <OperacionalKPI
           titulo="Atividades Hoje"
@@ -39,6 +45,7 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
           subtitulo={`${metricas.ligacoesHoje} ligações realizadas`}
           icon={Phone}
           cor="orange"
+          onClick={() => setDrill({ title: 'Atividades de Hoje', dados: metricas.listaInteracoesHoje, colunas: COLS_INTERACAO })}
         />
       </div>
 
@@ -220,12 +227,14 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
           </CardContent>
         </Card>
       </div>
+
+      {drill && <DetalhesModal title={drill.title} dados={drill.dados} colunas={drill.colunas} onClose={() => setDrill(null)} />}
     </div>
   );
 }
 
 // Componente KPI Operacional
-function OperacionalKPI({ titulo, valor, subtitulo, icon: Icon, cor }) {
+function OperacionalKPI({ titulo, valor, subtitulo, icon: Icon, cor, onClick }) {
   const getCor = (cor) => {
     const cores = {
       green: "from-green-500 to-green-600",
@@ -237,7 +246,7 @@ function OperacionalKPI({ titulo, valor, subtitulo, icon: Icon, cor }) {
   };
 
   return (
-    <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/10 transition-shadow transform hover:-translate-y-1">
+    <Card onClick={onClick} className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/10 transition-shadow transform hover:-translate-y-1 cursor-pointer">
       <CardContent className="p-3 md:p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -470,7 +479,11 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
     performanceMensal,
     statusOrcamentos,
     atividadesSemana,
-    proximasAcoes
+    proximasAcoes,
+    listaOrcamentos: dados.orcamentos,
+    listaAprovados: aprovados,
+    listaAbertos: dados.orcamentos.filter(ehAberto),
+    listaInteracoesHoje: interacoesHoje
   };
 }
 

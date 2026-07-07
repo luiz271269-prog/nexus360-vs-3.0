@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { getNomeExibicao } from "@/components/lib/vendedorSync";
+import DetalhesModal from "./DetalhesModal";
+import { COLS_NF, COLS_VENDEDOR } from "./drilldownColunas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -14,6 +16,7 @@ export default function PerformanceVendedores({ dados, filtros, isGerente, usuar
     return d >= filtros.dataInicio && d <= filtros.dataFim;
   });
   const metricas = calcularMetricasVendedores(dadosFiltrados, dados, usuario, nf, vendedoresEntidade || [], notasTodas || []);
+  const [drill, setDrill] = useState(null);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -25,28 +28,32 @@ export default function PerformanceVendedores({ dados, filtros, isGerente, usuar
           subtitulo={metricas.topVendedor ? `R$ ${metricas.topVendedor.faturamento.toLocaleString('pt-BR')}` : ''}
           icon={Trophy}
           cor="gold"
-          foto_url={metricas.topVendedor?.foto_url} />
+          foto_url={metricas.topVendedor?.foto_url}
+          onClick={() => setDrill({ title: 'Ranking de Vendedores', dados: metricas.rankingVendedores, colunas: COLS_VENDEDOR })} />
 
         <PerformanceKPI
           titulo="Meta Coletiva"
           valor={`${metricas.percentualMetaColetiva}%`}
           subtitulo={`R$ ${metricas.faturamentoTotal.toLocaleString('pt-BR')}`}
           icon={Target}
-          cor="blue" />
+          cor="blue"
+          onClick={() => setDrill({ title: 'Meta Coletiva — Faturamento por Vendedor', dados: metricas.rankingVendedores, colunas: COLS_VENDEDOR })} />
 
         <PerformanceKPI
           titulo="Ticket Médio"
           valor={`R$ ${metricas.ticketMedio.toLocaleString('pt-BR')}`}
           subtitulo={`${metricas.totalVendas} vendas`}
           icon={DollarSign}
-          cor="green" />
+          cor="green"
+          onClick={() => setDrill({ title: 'Vendas do Período (NFs)', dados: nf, colunas: COLS_NF })} />
 
         <PerformanceKPI
           titulo="Vendedores Ativos"
           valor={metricas.vendedoresAtivos}
           subtitulo={`de ${dados.vendedores.length} total`}
           icon={Users}
-          cor="purple" />
+          cor="purple"
+          onClick={() => setDrill({ title: 'Vendedores', dados: metricas.rankingVendedores, colunas: COLS_VENDEDOR })} />
 
       </div>
 
@@ -256,6 +263,8 @@ export default function PerformanceVendedores({ dados, filtros, isGerente, usuar
 
         </div>
       </div>
+
+      {drill && <DetalhesModal title={drill.title} dados={drill.dados} colunas={drill.colunas} onClose={() => setDrill(null)} />}
     </div>);
 
 }
@@ -274,7 +283,7 @@ function MetricItem({ icon: Icon, label, value, color }) {
 }
 
 // Componente para KPIs de Performance
-function PerformanceKPI({ titulo, valor, subtitulo, icon: Icon, cor, foto_url }) {
+function PerformanceKPI({ titulo, valor, subtitulo, icon: Icon, cor, foto_url, onClick }) {
   const cores = {
     gold: 'from-yellow-500 to-yellow-600',
     blue: 'from-blue-500 to-blue-600',
@@ -283,7 +292,7 @@ function PerformanceKPI({ titulo, valor, subtitulo, icon: Icon, cor, foto_url })
   };
 
   return (
-    <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/10 transition-shadow transform hover:-translate-y-1">
+    <Card onClick={onClick} className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/10 transition-shadow transform hover:-translate-y-1 cursor-pointer">
       <CardContent className="p-3 md:p-4">
         <div className="flex items-center gap-2 md:gap-3">
           <div className={`w-9 h-9 md:w-10 md:h-10 flex-shrink-0 bg-gradient-to-br ${cores[cor]} flex items-center justify-center overflow-hidden ${foto_url ? 'rounded-full' : 'rounded-lg'}`}>

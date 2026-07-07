@@ -1,11 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import DetalhesModal from "./DetalhesModal";
+import { COLS_CLIENTE, COLS_CLIENTE_RECEITA } from "./drilldownColunas";
 import { Users, Target, TrendingUp, AlertTriangle, Award, DollarSign, Calendar, User } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Legend } from "recharts";
 
 export default function AnaliseClientes({ dados, filtros, isGerente, notasFiscais }) {
   const analises = calcularAnaliseClientes(dados, filtros, notasFiscais || []);
+  const [drill, setDrill] = useState(null);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -17,6 +20,7 @@ export default function AnaliseClientes({ dados, filtros, isGerente, notasFiscai
           subtitulo={`${analises.totalClientes} CRM + ${analises.totalFidelizados} fidelizados`}
           icon={Users}
           cor="blue"
+          onClick={() => setDrill({ title: 'Clientes Unificados (CRM + Fidelizados)', dados: analises.listaUnificados, colunas: COLS_CLIENTE_RECEITA })}
         />
         <ClienteKPI
           titulo="Receita Média"
@@ -24,6 +28,7 @@ export default function AnaliseClientes({ dados, filtros, isGerente, notasFiscai
           subtitulo="por cliente faturado"
           icon={DollarSign}
           cor="green"
+          onClick={() => setDrill({ title: 'Clientes com Faturamento (NFs)', dados: analises.listaComReceita, colunas: COLS_CLIENTE_RECEITA })}
         />
         <ClienteKPI
           titulo="Clientes em Risco"
@@ -31,6 +36,7 @@ export default function AnaliseClientes({ dados, filtros, isGerente, notasFiscai
           subtitulo={`${analises.percentualRisco}% do total`}
           icon={AlertTriangle}
           cor="red"
+          onClick={() => setDrill({ title: 'Clientes em Risco / Inativos', dados: analises.listaRisco, colunas: COLS_CLIENTE_RECEITA })}
         />
         <ClienteKPI
           titulo="Novos Clientes"
@@ -38,6 +44,7 @@ export default function AnaliseClientes({ dados, filtros, isGerente, notasFiscai
           subtitulo="este período"
           icon={TrendingUp}
           cor="purple"
+          onClick={() => setDrill({ title: 'Novos Clientes do Período', dados: analises.listaNovos, colunas: COLS_CLIENTE })}
         />
       </div>
 
@@ -232,12 +239,14 @@ export default function AnaliseClientes({ dados, filtros, isGerente, notasFiscai
           </CardContent>
         </Card>
       </div>
+
+      {drill && <DetalhesModal title={drill.title} dados={drill.dados} colunas={drill.colunas} onClose={() => setDrill(null)} />}
     </div>
   );
 }
 
 // Componente KPI para Clientes
-function ClienteKPI({ titulo, valor, subtitulo, icon: Icon, cor }) {
+function ClienteKPI({ titulo, valor, subtitulo, icon: Icon, cor, onClick }) {
   const getCor = (cor) => {
     const cores = {
       blue: "from-blue-500 to-blue-600",
@@ -249,7 +258,7 @@ function ClienteKPI({ titulo, valor, subtitulo, icon: Icon, cor }) {
   };
 
   return (
-    <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/10 transition-shadow transform hover:-translate-y-1">
+    <Card onClick={onClick} className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/10 transition-shadow transform hover:-translate-y-1 cursor-pointer">
       <CardContent className="p-3 md:p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -347,7 +356,8 @@ function calcularAnaliseClientes(dados, filtros, notas) {
   const totalUnificado = unificados.length;
 
   const clientesAtivos = unificados.filter(c => c.status === 'Ativo').length;
-  const clientesEmRisco = unificados.filter(c => c.status === 'Em Risco' || c.status === 'Inativo').length;
+  const listaRisco = unificados.filter(c => c.status === 'Em Risco' || c.status === 'Inativo');
+  const clientesEmRisco = listaRisco.length;
   const percentualRisco = totalUnificado > 0 ? Math.round((clientesEmRisco / totalUnificado) * 100) : 0;
 
   // Receita média real (base: NFes do Neural Fin, só clientes com faturamento)
@@ -356,13 +366,14 @@ function calcularAnaliseClientes(dados, filtros, notas) {
   const receitaMedia = clientesComReceita.length > 0 ? Math.round(receitaTotal / clientesComReceita.length) : 0;
 
   // Novos clientes = clientes CADASTRADOS no período selecionado
-  const novosClientes = (dados.clientes || []).filter(c => {
+  const listaNovos = (dados.clientes || []).filter(c => {
     const d = (c.created_date || '').slice(0, 10);
     if (!d) return false;
     if (filtros?.dataInicio && d < filtros.dataInicio) return false;
     if (filtros?.dataFim && d > filtros.dataFim) return false;
     return true;
-  }).length;
+  });
+  const novosClientes = listaNovos.length;
 
   // Distribuição por segmento (dados unificados)
   const segmentos = {};
@@ -429,6 +440,10 @@ function calcularAnaliseClientes(dados, filtros, notas) {
     receitaPorSegmento,
     topClientes,
     clientesPorVendedor,
-    clientesAtencao
+    clientesAtencao,
+    listaUnificados: unificados,
+    listaComReceita: clientesComReceita,
+    listaRisco,
+    listaNovos
   };
 }
