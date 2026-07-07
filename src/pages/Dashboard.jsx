@@ -25,6 +25,8 @@ import { dedupById, dedupClientes, dedupVendas, dedupOrcamentos, dedupContatos }
 import { getNomeExibicao } from "../components/lib/vendedorSync";
 import { buscarNotasFiscaisExternas } from "@/functions/buscarNotasFiscaisExternas";
 import MetricasVendasNF from "../components/dashboard/MetricasVendasNF";
+import DetalhesModal from "../components/dashboard/DetalhesModal";
+import { COLS_NF, COLS_ORCAMENTO, COLS_CLIENTE, COLS_THREAD, COLS_VENDEDOR_ENT } from "../components/dashboard/drilldownColunas";
 
 // Cache global para evitar chamadas desnecessárias
 const dashboardCache = {
@@ -178,6 +180,9 @@ export default function Dashboard() {
     if (modoAnual) return d.getFullYear() === anoSelecionado;
     return d.getMonth() + 1 === mesSelecionado && d.getFullYear() === anoSelecionado;
   });
+
+  // Drill-down dos totalizadores do topo (auditoria das métricas)
+  const [drillDash, setDrillDash] = useState(null);
 
   // Novas métricas de IA
   const [metricasIA, setMetricasIA] = useState(null);
@@ -715,27 +720,53 @@ export default function Dashboard() {
         {/* Estatísticas Resumo - scroll horizontal no mobile */}
         <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-3 py-2.5 rounded-xl border border-slate-200/50">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-            <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
+            <button
+              onClick={() => setDrillDash({ title: 'Vendas do Período (Notas Fiscais)', dados: notasFiltradas, colunas: COLS_NF })}
+              className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 hover:from-slate-700/80 hover:to-slate-800/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
               <span>📊 {notasFiltradas.length} vendas (NFs)</span>
-            </div>
-            <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
+            </button>
+            <button
+              onClick={() => setDrillDash({ title: 'Orçamentos do Período', dados: dados.orcamentos, colunas: COLS_ORCAMENTO })}
+              className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 hover:from-slate-700/80 hover:to-slate-800/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
               <span>🎯 {dados.orcamentos.length} orçamentos</span>
-            </div>
-            <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
+            </button>
+            <button
+              onClick={() => setDrillDash({ title: 'Clientes', dados: dados.clientes, colunas: COLS_CLIENTE })}
+              className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 hover:from-slate-700/80 hover:to-slate-800/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
               <span>👥 {dados.clientes.length} clientes</span>
-            </div>
-            <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
+            </button>
+            <button
+              onClick={() => setDrillDash({
+                title: 'Interações do Período (Conversas)',
+                dados: threadsAtividade.filter(t => {
+                  if (!t.last_message_at) return false;
+                  const d = new Date(t.last_message_at);
+                  if (modoAnual) return d.getFullYear() === anoSelecionado;
+                  return d.getMonth() + 1 === mesSelecionado && d.getFullYear() === anoSelecionado;
+                }),
+                colunas: COLS_THREAD
+              })}
+              className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 hover:from-slate-700/80 hover:to-slate-800/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
               <span>📞 {threadsAtividade.filter(t => {
                 if (!t.last_message_at) return false;
                 const d = new Date(t.last_message_at);
                 if (modoAnual) return d.getFullYear() === anoSelecionado;
                 return d.getMonth() + 1 === mesSelecionado && d.getFullYear() === anoSelecionado;
               }).length} interações</span>
-            </div>
+            </button>
             {isGerente &&
-              <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
+              <button
+                onClick={() => setDrillDash({
+                  title: 'Vendedores Ativos',
+                  dados: vendedoresEntidade.filter(v => v.status === 'ativo').map(v => ({
+                    ...v,
+                    nome: dados.vendedores.find(u => u.id === v.usuario_id)?.full_name || v.codigo
+                  })),
+                  colunas: COLS_VENDEDOR_ENT
+                })}
+                className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 hover:from-slate-700/80 hover:to-slate-800/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
                 <span>🏆 {vendedoresEntidade.filter(v => v.status === 'ativo').length || dados.vendedores.length} vendedores</span>
-              </div>
+              </button>
             }
           </div>
         </div>
@@ -762,6 +793,8 @@ export default function Dashboard() {
             }
           </>
         }
+
+        {drillDash && <DetalhesModal title={drillDash.title} dados={drillDash.dados} colunas={drillDash.colunas} onClose={() => setDrillDash(null)} />}
       </div>
     </div>
   );

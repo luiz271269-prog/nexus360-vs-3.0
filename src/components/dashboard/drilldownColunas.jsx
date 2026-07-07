@@ -44,6 +44,21 @@ export const COLS_VENDEDOR = [
   { campo: 'percentualMeta', titulo: 'Meta', formato: (v) => `${v || 0}%` }
 ];
 
+export const COLS_THREAD = [
+  { campo: 'last_message_sender_name', titulo: 'Contato/Remetente' },
+  { campo: 'last_message_content', titulo: 'Última Mensagem' },
+  { campo: 'channel', titulo: 'Canal' },
+  { campo: 'last_message_at', titulo: 'Data', formato: fmtData },
+  { campo: 'status', titulo: 'Status' }
+];
+
+export const COLS_VENDEDOR_ENT = [
+  { campo: 'nome', titulo: 'Vendedor' },
+  { campo: 'codigo', titulo: 'Código' },
+  { campo: 'meta_mensal', titulo: 'Meta Mensal', formato: fmtMoeda },
+  { campo: 'status', titulo: 'Status' }
+];
+
 export const COLS_INTERACAO = [
   { campo: 'cliente_nome', titulo: 'Cliente' },
   { campo: 'tipo_interacao', titulo: 'Tipo' },
