@@ -571,6 +571,9 @@ export const VISIBILITY_MATRIX = [
         thread.metadata?.atendentes_anteriores?.includes(uid);
 
       if (jaParticipou) {
+        // 🔒 FIX VAZAMENTO: histórico NÃO libera se a thread está ATRIBUÍDA a outro.
+        // Cai para a prioridade 9 (bloqueio_atribuido_outro) — só o dono atual vê.
+        if (thread.assigned_user_id && thread.assigned_user_id !== uid) return null;
         return {
           visible: true,
           motivo: 'Usuário já atendeu esta conversa (histórico)',

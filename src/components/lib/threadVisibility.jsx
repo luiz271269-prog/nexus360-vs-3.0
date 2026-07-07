@@ -353,7 +353,8 @@ export const canUserSeeThreadBase = (usuario, thread, mensagensThread = []) => {
   }
 
   // 🔑 PRIORIDADE #2.5: HISTÓRICO — usuário já participou desta thread
-  if (usuarioJaParticipouDaThread(usuario, thread)) {
+  // 🔒 FIX VAZAMENTO: só libera se a thread NÃO está atribuída a outro atendente
+  if (usuarioJaParticipouDaThread(usuario, thread) && !thread.assigned_user_id) {
     return true;
   }
 
@@ -516,7 +517,8 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
   }
 
   // PRIORIDADE 1.5: HISTÓRICO — usuário já participou desta thread
-  if (usuarioJaParticipouDaThread(usuario, thread)) {
+  // 🔒 FIX VAZAMENTO: só libera se a thread NÃO está atribuída a outro atendente
+  if (usuarioJaParticipouDaThread(usuario, thread) && !(thread.assigned_user_id && !atribuido)) {
     return true;
   }
 
@@ -548,8 +550,8 @@ export const canUserSeeThreadWithFilters = (usuario, thread, filtros = {}) => {
   // A. Aba "Minhas Conversas" (scope = 'my')
   if (filtros.scope === 'my') {
     // ✅ CRÍTICO: histórico também conta como "minha conversa"
-    // Sem isso, conversas transferidas desaparecem da aba "my"
-    if (usuarioJaParticipouDaThread(usuario, thread)) {
+    // 🔒 FIX VAZAMENTO: só quando a thread NÃO está atribuída a outro atendente
+    if (usuarioJaParticipouDaThread(usuario, thread) && !thread.assigned_user_id) {
       return true;
     }
     return false;
