@@ -60,8 +60,11 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
   // Salvar memória de sessão ao fechar + limpar histórico
   useEffect(() => {
     if (!isOpen) {
-      if (mensagens.length >= 2 && usuario?.id) {
-        const historico = mensagens.slice(-10);
+      // Excluir mensagens de histórico carregado (sessões anteriores) e erros — evita memória recursiva
+      const conversaReal = mensagens.filter(m => !m.historico && !m.erro);
+      const houveInteracao = conversaReal.some(m => m.role === 'user');
+      if (conversaReal.length >= 2 && houveInteracao && usuario?.id) {
+        const historico = conversaReal.slice(-10);
         const resumo = historico
           .map(m => `${m.role === 'user' ? 'Usuário' : 'Copiloto'}: ${m.content}`)
           .join('\n');
