@@ -72,14 +72,26 @@ Deno.serve(async (req) => {
       }
     });
 
-    // Atualizar status do contato para lead se ainda for novo
+    // Atualizar status do contato para lead se ainda for novo + vincular ao Cliente
     if (contact_id) {
       try {
         const contato = await base44.asServiceRole.entities.Contact.get(contact_id);
-        if (contato && (contato.tipo_contato === 'novo' || !contato.tipo_contato)) {
-          await base44.asServiceRole.entities.Contact.update(contact_id, {
-            tipo_contato: 'lead'
-          });
+        if (contato) {
+          const update = {};
+          if (contato.tipo_contato === 'novo' || !contato.tipo_contato) {
+            update.tipo_contato = 'lead';
+          }
+          // Vínculo automático: se o orçamento resolveu um Cliente e o contato ainda não tem vínculo
+          if (clienteId && !contato.cliente_id) {
+            update.cliente_id = clienteId;
+          }
+          if (Object.keys(update).length > 0) {
+            await base44.asServiceRole.entities.Contact.update(contact_id, update);
+          }
+          // Se não havia Cliente resolvido, tenta o match inteligente (empresa/telefone)
+          if (!clienteId && !contato.cliente_id) {
+            await base44.asServiceRole.functions.invoke('vincularClienteAutomatico', { contact_id }).catch(() => null);
+          }
         }
       } catch (_) { /* Não bloquear se falhar */ }
     }
