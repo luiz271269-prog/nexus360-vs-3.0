@@ -150,6 +150,8 @@ export default function Dashboard() {
     interacoes: []
   });
   const [notasFiscais, setNotasFiscais] = useState([]);
+  const [threadsAtividade, setThreadsAtividade] = useState([]);
+  const [vendedoresAtivos, setVendedoresAtivos] = useState(0);
 
   const [usuario, setUsuario] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -311,13 +313,15 @@ export default function Dashboard() {
     try {
       const usuarioAtual = await base44.auth.me();
 
-      const [usersData, clientesData, vendasData, orcamentosData, interacoesData, contatosFidelizadosData] = await Promise.all([
+      const [usersData, clientesData, vendasData, orcamentosData, interacoesData, contatosFidelizadosData, threadsAtividadeData, vendedoresEntData] = await Promise.all([
         base44.entities.User.list(),
         base44.entities.Cliente.list('-updated_date', 500),
         base44.entities.Venda.list('-data_venda', 500),
         base44.entities.Orcamento.list('-data_orcamento', 300),
         base44.entities.Interacao.list('-data_interacao', 500),
-        base44.entities.Contact.filter({ is_cliente_fidelizado: true }, '-ultima_interacao', 500)
+        base44.entities.Contact.filter({ is_cliente_fidelizado: true }, '-ultima_interacao', 500),
+        base44.entities.MessageThread.filter({ thread_type: 'contact_external' }, '-last_message_at', 500),
+        base44.entities.Vendedor.filter({ status: 'ativo' })
       ]);
       const vendedoresData = dedupById(usersData).filter(u => u.codigo || u.attendant_sector === 'vendas');
 
@@ -328,7 +332,9 @@ export default function Dashboard() {
         vendas: dedupVendas(vendasData),
         orcamentos: dedupOrcamentos(orcamentosData),
         interacoes: dedupById(interacoesData),
-        contatosFidelizados: dedupContatos(contatosFidelizadosData)
+        contatosFidelizados: dedupContatos(contatosFidelizadosData),
+        threadsAtividade: dedupById(threadsAtividadeData || []),
+        vendedoresAtivos: (vendedoresEntData || []).length
       };
 
       dashboardCache.data = dadosCarregados;
@@ -356,6 +362,8 @@ export default function Dashboard() {
     try {
       const dadosCarregados = await carregarDadosComCache();
       setUsuario(dadosCarregados.usuario);
+      setThreadsAtividade(dadosCarregados.threadsAtividade || []);
+      setVendedoresAtivos(dadosCarregados.vendedoresAtivos || 0);
 
       let dadosFiltrados = filtrarDadosPorPerfil(dadosCarregados.usuario, {
         vendedores: dadosCarregados.vendedores,
@@ -699,7 +707,7 @@ export default function Dashboard() {
               <span className="text-xs font-medium opacity-80">Pipeline de Orçamentos</span>
               <DollarSign className="w-4 h-4 opacity-70" />
             </div>
-            <p className="text-3xl font-bold">{dados.orcamentos.length}</p>
+            <p className="text-3xl font-bold">{dadosCompletos.orcamentos.filter(o => !['aprovado','rejeitado','vencido'].includes(o.status)).length}</p>
           </button>
         </div>
 
@@ -707,7 +715,7 @@ export default function Dashboard() {
         <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 px-3 py-2.5 rounded-xl border border-slate-200/50">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
             <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
-              <span>📊 {dados.vendas.length} vendas</span>
+              <span>📊 {notasFiltradas.length} vendas (NFs)</span>
             </div>
             <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
               <span>🎯 {dados.orcamentos.length} orçamentos</span>
@@ -716,11 +724,16 @@ export default function Dashboard() {
               <span>👥 {dados.clientes.length} clientes</span>
             </div>
             <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
-              <span>📞 {dados.interacoes.length} interações</span>
+              <span>📞 {threadsAtividade.filter(t => {
+                if (!t.last_message_at) return false;
+                const d = new Date(t.last_message_at);
+                if (modoAnual) return d.getFullYear() === anoSelecionado;
+                return d.getMonth() + 1 === mesSelecionado && d.getFullYear() === anoSelecionado;
+              }).length} interações</span>
             </div>
             {isGerente &&
               <div className="flex-shrink-0 bg-gradient-to-r from-slate-800/80 to-slate-900/80 text-slate-50 px-3 py-1.5 font-semibold flex items-center gap-1.5 rounded-lg text-xs md:text-sm">
-                <span>🏆 {dados.vendedores.length} vendedores</span>
+                <span>🏆 {vendedoresAtivos || dados.vendedores.length} vendedores</span>
               </div>
             }
           </div>
