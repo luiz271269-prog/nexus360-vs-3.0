@@ -30,8 +30,10 @@ Deno.serve(async (req) => {
   const agora = new Date();
 
   try {
-    const user = await base44.auth.me();
-    if (!user || user.role !== 'admin') {
+    // Permite: execução agendada (sem sessão) OU admin manual.
+    // Bloqueia: usuário logado não-admin.
+    const user = await base44.auth.me().catch(() => null);
+    if (user && user.role !== 'admin') {
       return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
