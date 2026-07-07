@@ -167,12 +167,20 @@ Deno.serve(async (req) => {
         `*Top clientes que precisam de ação:*\n${linhas.join('\n')}` +
         (itens.length > 10 ? `\n_...e mais ${itens.length - 10} contatos_` : '');
 
-      await base44.asServiceRole.functions.invoke('nexusNotificar', {
+      const payloadNotif = {
         setor: 'vendas',
         conteudo: msg,
         vendedor_responsavel_id: vendedor_id || undefined,
         metadata: { analise_cruzada: true, data_analise: agora.toISOString() }
-      }).catch(e => console.warn('[ANALISE-CRUZADA] ⚠️ nexusNotificar:', e.message));
+      };
+      try {
+        await base44.asServiceRole.functions.invoke('nexusNotificar', payloadNotif);
+      } catch (e1) {
+        // Retry único após pausa (mitiga 403/429 de rate-limit em rajada)
+        await new Promise(r => setTimeout(r, 2000));
+        await base44.asServiceRole.functions.invoke('nexusNotificar', payloadNotif)
+          .catch(e2 => console.warn('[ANALISE-CRUZADA] ⚠️ nexusNotificar (após retry):', e2.message));
+      }
 
       notificacoes++;
     }
