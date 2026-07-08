@@ -6,9 +6,9 @@ import { COLS_ORCAMENTO, COLS_INTERACAO, COLS_THREAD, COLS_NF } from "./drilldow
 import { Target, TrendingUp, Clock, CheckCircle, AlertCircle, Phone, MessageCircle, Calendar, Users, Mail } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 
-export default function MetricasOperacionais({ dados, filtros, isGerente, notasFiscais, threads }) {
+export default function MetricasOperacionais({ dados, filtros, isGerente, notasFiscais, notasTodas, threads }) {
   const dadosFiltrados = aplicarFiltroData(dados, filtros);
-  const metricas = calcularMetricasOperacionais(dadosFiltrados, dados, notasFiscais || [], threads || []);
+  const metricas = calcularMetricasOperacionais(dadosFiltrados, dados, notasFiscais || [], threads || [], notasTodas || []);
   const [drill, setDrill] = useState(null);
 
   return (
@@ -292,7 +292,7 @@ function aplicarFiltroData(dados, filtros) {
 const STATUS_FECHADOS = ['aprovado', 'rejeitado', 'vencido'];
 const ehAberto = (o) => !STATUS_FECHADOS.includes((o.status || '').toLowerCase());
 
-function calcularMetricasOperacionais(dados, dadosCompletos, notas = [], threads = []) {
+function calcularMetricasOperacionais(dados, dadosCompletos, notas = [], threads = [], notasTodas = []) {
   const totalOrcamentos = dados.orcamentos.length;
   const aprovados = dados.orcamentos.filter(o => (o.status || '').toLowerCase() === 'aprovado');
   const orcamentosAprovados = aprovados.length;
@@ -391,12 +391,21 @@ function calcularMetricasOperacionais(dados, dadosCompletos, notas = [], threads
   const vendasPorMes = {};
   const orcamentosPorMes = {};
 
-  (dadosCompletos?.vendas || dados.vendas).forEach(venda => {
-    if (venda.data_venda) {
-      const mes = venda.data_venda.slice(0, 7);
-      vendasPorMes[mes] = (vendasPorMes[mes] || 0) + 1;
-    }
-  });
+  // ✅ Entidade Venda vazia → vendas reais por mês vêm das NFs emitidas
+  const fonteVendas = (dadosCompletos?.vendas?.length ? dadosCompletos.vendas : dados.vendas) || [];
+  if (fonteVendas.length > 0) {
+    fonteVendas.forEach(venda => {
+      if (venda.data_venda) {
+        const mes = venda.data_venda.slice(0, 7);
+        vendasPorMes[mes] = (vendasPorMes[mes] || 0) + 1;
+      }
+    });
+  } else {
+    notasTodas.forEach(n => {
+      const mes = String(n.data_emissao || n.created_date || '').slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(mes)) vendasPorMes[mes] = (vendasPorMes[mes] || 0) + 1;
+    });
+  }
 
   (dadosCompletos?.orcamentos || dados.orcamentos).forEach(orc => {
     if (orc.data_orcamento) {
@@ -500,6 +509,21 @@ function calcularMetricasOperacionais(dados, dadosCompletos, notas = [], threads
         vendedor: orc.vendedor
       });
     });
+  }
+
+  // ✅ Sem orçamentos abertos nem interações → conversas aguardando resposta viram próximas ações
+  if (proximasAcoes.length < 3 && threads.length > 0) {
+    threadsSemana
+      .filter(t => t.last_message_sender === 'contact')
+      .slice(0, 6 - proximasAcoes.length)
+      .forEach(t => {
+        proximasAcoes.push({
+          cliente: t.last_message_sender_name || t.group_name || 'Contato',
+          acao: 'Responder conversa em aberto',
+          prazo: (t.last_message_at || '').slice(0, 10) === hoje ? 'Hoje' : 'Esta semana',
+          vendedor: null
+        });
+      });
   }
 
   return {

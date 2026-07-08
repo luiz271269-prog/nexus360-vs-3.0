@@ -861,7 +861,7 @@ export default function Dashboard() {
             {viewMode === 'clientes' && <AnaliseClientes dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} notasFiscais={notasVisiveis} />}
             {viewMode === 'mapa' && <MapaClientes />}
             {viewMode === 'operacional' &&
-              <MetricasOperacionais dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} notasFiscais={notasFiltradas} threads={threadsAtividade} />
+              <MetricasOperacionais dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} notasFiscais={notasFiltradas} notasTodas={notasVisiveis} threads={threadsAtividade} />
             }
             {viewMode === 'analytics' && isGerente &&
               <AnalyticsAvancadoEmbed />
