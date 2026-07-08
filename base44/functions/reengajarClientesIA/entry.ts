@@ -16,6 +16,7 @@ const COOLDOWN_DIAS = 14;
 const IDLE_MIN_DIAS = 7;
 const IDLE_MAX_DIAS = 90;
 const LIMITE_PADRAO = 5;
+const MAX_RUNTIME_MS = 50_000; // abort gracioso antes do timeout de 60s da plataforma (herdado dos crons antigos)
 
 function dentroHorarioComercial() {
   // BRT = UTC-3
@@ -47,6 +48,14 @@ Deno.serve(async (req) => {
 
     const svc = base44.asServiceRole;
     const agora = Date.now();
+    const inicioExecucao = Date.now();
+
+    // Só integrações conectadas — evita 403 em massa por token inválido (herdado do batch tick)
+    const integracoesAtivas = await svc.entities.WhatsAppIntegration.filter({ status: 'conectado' });
+    const integIdsAtivos = new Set(integracoesAtivas.map(i => i.id));
+    if (!integIdsAtivos.size) {
+      return Response.json({ success: true, skipped: 'nenhuma_integracao_conectada', enviados: 0 });
+    }
     const idleMin = new Date(agora - IDLE_MIN_DIAS * 86400000).toISOString();
     const idleMax = new Date(agora - IDLE_MAX_DIAS * 86400000).toISOString();
     const cooldownLimite = agora - COOLDOWN_DIAS * 86400000;
@@ -65,8 +74,14 @@ Deno.serve(async (req) => {
 
     for (const thread of threads) {
       if (enviados >= limite) break;
+      // Abort gracioso antes do timeout de 60s — próxima execução retoma
+      if (Date.now() - inicioExecucao > MAX_RUNTIME_MS) {
+        resultados.push({ acao: 'timeout_abort', motivo: 'tempo maximo atingido, proxima execucao retoma' });
+        break;
+      }
       if (thread.bloqueado === true) continue;
       if (!thread.contact_id || !thread.whatsapp_integration_id) continue;
+      if (!integIdsAtivos.has(thread.whatsapp_integration_id)) continue; // integração desconectada
 
       // Cooldown de reengajamento por thread
       const ultimoReengajamento = thread.campos_personalizados?.reengajamento_ia_em;
@@ -159,7 +174,13 @@ REGRAS:
       const envioData = envio?.data || envio;
 
       if (!envioData?.success) {
-        resultados.push({ thread_id: thread.id, contato: nomeContato, acao: 'falha_envio', erro: envioData?.error || 'desconhecido' });
+        const erroTxt = String(envioData?.error || '');
+        resultados.push({ thread_id: thread.id, contato: nomeContato, acao: 'falha_envio', erro: erroTxt || 'desconhecido' });
+        // Rate limit (429) ou bloqueio (403): abortar o ciclo inteiro — insistir só piora (herdado dos crons antigos)
+        if (/429|403|rate limit/i.test(erroTxt)) {
+          resultados.push({ acao: 'rate_limit_abort', motivo: 'ciclo abortado, proxima execucao retoma' });
+          break;
+        }
         continue;
       }
 
