@@ -9,6 +9,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 // Payload: { dry_run?: boolean, limite?: number }
 // ============================================================================
 
+const TIPOS_PERMITIDOS = ['lead', 'cliente', 'eventual', 'ex_cliente'];
 const COOLDOWN_DIAS = 14;
 const IDLE_MIN_DIAS = 7;
 const IDLE_MAX_DIAS = 90;
@@ -71,6 +72,16 @@ Deno.serve(async (req) => {
 
       const contato = await svc.entities.Contact.get(thread.contact_id).catch(() => null);
       if (!contato) continue;
+
+      // ✅ FILTRO COMERCIAL: só reengaja contatos do funil de vendas/CRM.
+      // Fornecedor, parceiro, contato novo/avulso e contato de e-mail ficam FORA.
+      if (!TIPOS_PERMITIDOS.includes(contato.tipo_contato)) continue;
+      // Cliente/ex-cliente/eventual precisa de vínculo real com o CRM (métricas de venda);
+      // lead é prospecção ativa e passa sem cliente_id.
+      if (contato.tipo_contato !== 'lead' && !contato.cliente_id && !contato.is_cliente_fidelizado) continue;
+      if (contato.bloqueado === true) continue;
+      if (contato.suppressed_until && new Date(contato.suppressed_until).getTime() > agora) continue;
+
       const telefone = contato.telefone_canonico || contato.telefone;
       if (!telefone) continue;
 
