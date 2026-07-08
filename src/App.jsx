@@ -22,6 +22,7 @@ import Emails from '@/pages/Emails';
 import InstagramPublicacao from '@/pages/InstagramPublicacao';
 import TextosSociais from '@/pages/TextosSociais';
 import PortalCliente from '@/pages/PortalCliente';
+import PropostaGaropaba from '@/pages/PropostaGaropaba';
 import MapaClientes from '@/pages/MapaClientes';
 import PainelMetas from '@/pages/PainelMetas';
 import AprendizadosSemanais from '@/pages/AprendizadosSemanais';
@@ -203,6 +204,7 @@ const AuthenticatedApp = () => {
           } 
         />
         <Route path="/PortalCliente" element={<PortalCliente />} />
+        <Route path="/PropostaGaropaba" element={<PropostaGaropaba />} />
         <Route path="/MinhaCaixaEmail" element={<Navigate to="/Emails" replace />} />
         <Route path="/orcamentos" element={<Navigate to="/LeadsQualificados" replace />} />
         <Route path="*" element={<PageNotFound />} />
