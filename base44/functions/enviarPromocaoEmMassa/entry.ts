@@ -112,6 +112,26 @@ Deno.serve(async (req) => {
       contador_envios: (promo.contador_envios || 0) + qtdEnviada
     }).catch(e => console.warn('[PromoEmMassa] Falha contador:', e.message));
 
+    // ─ Registrar no ledger unificado de cooldown (mesmo campo do motor único) ─
+    // Sem isso, envios em massa ficavam invisíveis para o cooldown do
+    // enviarPromocao e do Reengajamento IA → risco de envio duplicado.
+    (async () => {
+      try {
+        const enviadosIds = (resp.data.resultados || [])
+          .filter(r => r.status === 'enfileirado')
+          .map(r => r.contact_id)
+          .filter(Boolean);
+        if (!enviadosIds.length) return;
+        const nowISO = new Date().toISOString();
+        const ledger = enviadosIds.map(id => ({ id, last_any_promo_sent_at: nowISO }));
+        for (let i = 0; i < ledger.length; i += 100) {
+          await base44.asServiceRole.entities.Contact.bulkUpdate(ledger.slice(i, i + 100));
+        }
+      } catch (e) {
+        console.warn('[PromoEmMassa] Falha ao registrar cooldown unificado:', e.message);
+      }
+    })();
+
     // ─ Log de auditoria unificado (fire-and-forget em lote) ─
     (async () => {
       try {

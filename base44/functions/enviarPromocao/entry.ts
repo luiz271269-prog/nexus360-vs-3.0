@@ -427,11 +427,15 @@ Deno.serve(async (req) => {
       })
     ];
 
-    if (thread && trigger === 'inbound_6h') {
+    // Ledger unificado: registra na THREAD também (lido pelo Reengajamento IA)
+    if (thread) {
       updates.push(
         base44.asServiceRole.entities.MessageThread.update(thread.id, {
-          thread_last_promo_inbound_at: now.toISOString(),
-          thread_last_promo_inbound_id: promo.id
+          last_any_promo_sent_at: now.toISOString(),
+          ...(trigger === 'inbound_6h' && {
+            thread_last_promo_inbound_at: now.toISOString(),
+            thread_last_promo_inbound_id: promo.id
+          })
         })
       );
     }

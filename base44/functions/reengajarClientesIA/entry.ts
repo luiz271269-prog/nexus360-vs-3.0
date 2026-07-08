@@ -83,6 +83,10 @@ Deno.serve(async (req) => {
       const contato = await svc.entities.Contact.get(thread.contact_id).catch(() => null);
       if (!contato) continue;
 
+      // ✅ LEDGER UNIFICADO: cooldown cruzado também no CONTATO (mesmo campo que o
+      // motor único enviarPromocao escreve) — cobre massa manual e promo individual.
+      if (contato.last_any_promo_sent_at && new Date(contato.last_any_promo_sent_at).getTime() > cooldownLimite) continue;
+
       // ✅ FILTRO COMERCIAL v2: APENAS cliente ativo no CRM com histórico de vendas.
       // Sem vínculo CRM = sem gasto de IA. Fornecedor/parceiro/novo/e-mail ficam FORA.
       if (!TIPOS_PERMITIDOS.includes(contato.tipo_contato)) continue;
@@ -193,6 +197,11 @@ REGRAS:
           reengajamento_ia_em: agoraISO
         }
       });
+
+      // Registrar no ledger unificado do CONTATO (visível ao motor enviarPromocao)
+      await svc.entities.Contact.update(thread.contact_id, {
+        last_any_promo_sent_at: agoraISO
+      }).catch(() => {});
 
       // Auditoria
       await svc.entities.AutomationLog.create({
