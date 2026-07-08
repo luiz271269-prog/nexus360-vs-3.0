@@ -205,11 +205,15 @@ export default function Dashboard() {
       // Se não tem nome definido, mostra todos os dados
       if (!nomeVendedor) return dados;
 
+      // Garante que o próprio usuário apareça como vendedor (ranking/performance)
+      const meusVendedores = dados.vendedores.filter((v) => v.email === usuario.email || v.id === userId);
+
       return {
-        vendedores: dados.vendedores.filter((v) => v.email === usuario.email || v.id === userId),
-        clientes: dados.clientes.filter((c) => c.vendedor_id === userId || c.vendedor_responsavel === nomeVendedor),
-        vendas: dados.vendas.filter((v) => v.vendedor === nomeVendedor || v.vendedor_id === userId),
-        orcamentos: dados.orcamentos.filter((o) => o.vendedor === nomeVendedor || o.vendedor_id === userId),
+        vendedores: meusVendedores.length ? meusVendedores : [usuario],
+        // ✅ Campo real de vínculo no CRM é usuario_id (vendedor_id/vendedor_responsavel são legados)
+        clientes: dados.clientes.filter((c) => c.usuario_id === userId || c.vendedor_id === userId || c.vendedor_responsavel === nomeVendedor),
+        vendas: dados.vendas.filter((v) => v.vendedor === nomeVendedor || v.vendedor_id === userId || v.usuario_id === userId),
+        orcamentos: dados.orcamentos.filter((o) => o.vendedor === nomeVendedor || o.vendedor_id === userId || o.usuario_id === userId),
         interacoes: dados.interacoes.filter((i) => i.vendedor === nomeVendedor),
         contatosFidelizados: (dados.contatosFidelizados || []).filter(
           (c) => c.atendente_fidelizado_vendas === userId || c.vendedor_responsavel === nomeVendedor
