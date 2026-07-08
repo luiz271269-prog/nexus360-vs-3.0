@@ -152,7 +152,7 @@ export default function MetricasNotasFiscais({ mesSel: mesProp, anoSel: anoProp,
               }`}
             >
               <div>{MESES[r.mes]}/{String(r.ano).slice(2)}</div>
-              <div className="text-emerald-400 font-bold">R$ {(r.recebido/1000).toFixed(0)}k</div>
+              <div className="text-emerald-400 font-bold">R$ {(r.total/1000).toFixed(0)}k</div>
             </button>
           ))}
         </div>
