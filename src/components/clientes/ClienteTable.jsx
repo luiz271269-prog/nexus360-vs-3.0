@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Edit, Trash2, Eye, Users } from "lucide-react";
 import AtribuidorAtendenteRapido from '../comunicacao/AtribuidorAtendenteRapido';
+import EtiquetaRecorrencia from './EtiquetaRecorrencia';
 
 export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails }) {
 
@@ -45,7 +46,10 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
           {clientes.map((cliente) => (
             <TableRow key={cliente.id} className="hover:bg-slate-50/50">
               <TableCell>
-                <div className="font-medium text-slate-800">{cliente.razao_social}</div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-slate-800">{cliente.razao_social}</span>
+                  <EtiquetaRecorrencia etiqueta={cliente.faturamento?.etiqueta} />
+                </div>
                 <div className="text-sm text-slate-500">{cliente.nome_fantasia}</div>
               </TableCell>
               <TableCell className="font-mono text-sm text-slate-600">{cliente.cnpj}</TableCell>

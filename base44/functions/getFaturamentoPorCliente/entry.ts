@@ -73,13 +73,14 @@ Deno.serve(async (req) => {
       const clienteId = acharClienteId(nome);
       if (clienteId) {
         if (!faturamentoPorCliente[clienteId]) {
-          faturamentoPorCliente[clienteId] = { totalFaturado: 0, totalRecebido: 0, qtdNotas: 0, ultimaEmissao: '' };
+          faturamentoPorCliente[clienteId] = { totalFaturado: 0, totalRecebido: 0, qtdNotas: 0, ultimaEmissao: '', meses: {} };
         }
         const reg = faturamentoPorCliente[clienteId];
         reg.totalFaturado += valor;
         reg.totalRecebido += recebido;
         reg.qtdNotas++;
         if (emissao > reg.ultimaEmissao) reg.ultimaEmissao = emissao;
+        if (emissao.length >= 7) reg.meses[emissao.substring(0, 7)] = true;
       } else {
         const k = norm(nome);
         if (!naoCadastradosMap[k]) {
@@ -94,6 +95,21 @@ Deno.serve(async (req) => {
     }
 
     const clientesNaoCadastrados = Object.values(naoCadastradosMap).sort((a, b) => b.totalFaturado - a.totalFaturado);
+
+    // 4) Etiqueta de recorrência baseada nos últimos 3 meses de compra:
+    //    ouro  = comprou nos 3 últimos meses | prata = comprou em 1-2 deles | risco = já comprou, mas nada nos últimos 3 meses
+    const agora = new Date();
+    const ultimos3Meses = [0, 1, 2].map((i) => {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    });
+    for (const id in faturamentoPorCliente) {
+      const reg = faturamentoPorCliente[id];
+      const mesesRecentes = ultimos3Meses.filter((m) => reg.meses[m]).length;
+      reg.mesesRecentes = mesesRecentes;
+      reg.etiqueta = mesesRecentes === 3 ? 'ouro' : mesesRecentes >= 1 ? 'prata' : 'risco';
+      delete reg.meses;
+    }
 
     return Response.json({
       faturamentoPorCliente,
