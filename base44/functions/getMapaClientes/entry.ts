@@ -106,9 +106,12 @@ Deno.serve(async (req) => {
     const acharLoc = (nomeCliente) => {
       const k = norm(nomeCliente);
       if (idxLoc[k]) return idxLoc[k];
-      // match parcial: chave do CRM contida no nome da NF ou vice-versa
+      // match por PREFIXO com fronteira de palavra: um nome deve começar com o outro completo.
+      // Evita falsos positivos de palavras genéricas no meio do nome (ex: cadastro "Sistema"
+      // capturava "SENIOR SISTEMAS" e jogava o cliente na cidade errada).
       for (const chave in idxLoc) {
-        if (chave.length >= 6 && (k.includes(chave) || chave.includes(k))) return idxLoc[chave];
+        if (Math.min(chave.length, k.length) < 4) continue;
+        if (k.startsWith(chave + ' ') || chave.startsWith(k + ' ')) return idxLoc[chave];
       }
       return null;
     };
