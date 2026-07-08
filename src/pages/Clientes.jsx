@@ -42,7 +42,7 @@ export default function Clientes() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingCliente, setEditingCliente] = useState(null);
-  const [viewMode, setViewMode] = useState('lista'); // Changed default view
+  const [viewMode, setViewMode] = useState(() => new URLSearchParams(window.location.search).get('view') === 'kanban' ? 'kanban' : 'lista');
   const [vendedores, setVendedores] = useState([]);
   const [viewingDetails, setViewingDetails] = useState(null); // 🆕 NOVO: Estado para "Ver Detalhes"
 

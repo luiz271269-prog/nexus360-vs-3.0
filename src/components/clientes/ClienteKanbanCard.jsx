@@ -74,150 +74,148 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
 
   return (
     <Card
-      className={`group hover:shadow-lg transition-all duration-300 cursor-move border-l-4 border-l-orange-500 ${
+      className={`group hover:shadow-lg transition-all duration-300 cursor-move overflow-hidden rounded-xl border border-slate-200 ${
         isDragging ? 'opacity-70 rotate-2 scale-105 shadow-xl shadow-orange-300/50' : ''
       } bg-white`}
     >
-      <CardContent className="p-3 space-y-2">
-        {/* Header: Nome e Score */}
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-slate-900 truncate text-sm">
-              {cliente.razao_social || cliente.nome_fantasia || 'Cliente Sem Nome'}
-            </h3>
-            {cliente.nome_fantasia && cliente.razao_social !== cliente.nome_fantasia && (
-              <p className="text-[10px] text-slate-600 truncate">{cliente.nome_fantasia}</p>
-            )}
-          </div>
-          {score?.score_total && (
-            <div className={`flex-shrink-0 ml-2 px-2 py-0.5 rounded-lg text-[10px] font-black ${getScoreColor(score.score_total)}`}>
-              {score.score_total}
-            </div>
+      {/* Header com gradiente laranja→vermelho */}
+      <div className="bg-gradient-to-r from-orange-500 to-red-500 p-3 flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-white text-sm leading-snug truncate">
+            {cliente.razao_social || cliente.nome_fantasia || 'Cliente Sem Nome'}
+          </h3>
+          {cliente.nome_fantasia && cliente.razao_social !== cliente.nome_fantasia && (
+            <p className="text-[10px] text-white/80 truncate">{cliente.nome_fantasia}</p>
           )}
         </div>
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          {score?.score_total && (
+            <span className="bg-white text-slate-900 rounded-full px-2.5 py-0.5 text-[11px] font-black shadow-sm">
+              {score.score_total}
+            </span>
+          )}
+          {cliente.classificacao && (
+            <span className="bg-white text-slate-900 rounded-full w-6 h-6 flex items-center justify-center text-[11px] font-black shadow-sm">
+              {cliente.classificacao.split(' - ')[0]}
+            </span>
+          )}
+        </div>
+      </div>
 
-        {/* Classificação */}
-        {cliente.classificacao && (
-          <Badge className={`text-[10px] px-2 py-0.5 border ${getClassificacaoColor(cliente.classificacao)}`}>
-            {cliente.classificacao.split(' - ')[0]}
-          </Badge>
-        )}
-
-        {/* Contatos */}
-        <div className="space-y-0.5 text-[10px]">
+      <CardContent className="p-3 space-y-2.5">
+        {/* Contatos em coluna */}
+        <div className="space-y-1.5 text-[11px]">
           {cliente.telefone && (
-            <div className="flex items-center gap-1 text-slate-700">
-              <Phone className="w-2.5 h-2.5" />
+            <div className="flex items-center gap-2 text-slate-700">
+              <Phone className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
               <span className="truncate">{cliente.telefone}</span>
             </div>
           )}
           {cliente.email && (
-            <div className="flex items-center gap-1 text-slate-700">
-              <Mail className="w-2.5 h-2.5" />
+            <div className="flex items-center gap-2 text-slate-700">
+              <Mail className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
               <span className="truncate">{cliente.email}</span>
             </div>
           )}
+          <div className="flex items-center gap-2">
+            <Users className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+            <AtribuidorAtendenteRapido
+              contato={{
+                id: cliente.id,
+                vendedor_responsavel: cliente.vendedor_responsavel,
+                tipo_contato: 'cliente'
+              }}
+              tipoContato="cliente"
+              setorAtual="vendas"
+              variant="mini"
+            />
+          </div>
         </div>
 
-        {/* Vendedor/Atendente - Com atribuição rápida */}
-        <div className="flex items-center gap-1">
-          <Users className="w-2.5 h-2.5 text-slate-400" />
-          <AtribuidorAtendenteRapido
-            contato={{ 
-              id: cliente.id, 
-              vendedor_responsavel: cliente.vendedor_responsavel,
-              tipo_contato: 'cliente'
-            }}
-            tipoContato="cliente"
-            setorAtual="vendas"
-            variant="mini"
-          />
-        </div>
-
-        {/* Métricas (Score) */}
+        {/* Métricas (Score) — pills outline */}
         {score && (
           <div className="flex flex-wrap gap-1">
             {score.score_urgencia > 0 && (
-              <Badge className={`text-[9px] px-1 py-0 ${getUrgenciaColor(score.score_urgencia)}`}>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full border border-slate-200 bg-white ${getUrgenciaColor(score.score_urgencia).replace(/bg-\S+/, '')}`}>
                 Urg: {score.score_urgencia}
-              </Badge>
+              </span>
             )}
             {score.score_potencial_compra > 0 && (
-              <Badge className="text-[9px] px-1 py-0 bg-purple-100 text-purple-700">
+              <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-200 bg-white text-purple-700">
                 Pot: {score.score_potencial_compra}
-              </Badge>
+              </span>
             )}
             {score.risco_churn && (
-              <Badge className={`text-[9px] px-1 py-0 ${getRiscoColor(score.risco_churn)}`}>
-                {score.risco_churn}
-              </Badge>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full border border-slate-200 bg-white ${getRiscoColor(score.risco_churn).replace(/bg-\S+/, '')}`}>
+                risco: {score.risco_churn}
+              </span>
             )}
           </div>
         )}
 
         {/* Valor Recorrente */}
         {cliente.valor_recorrente_mensal > 0 && (
-          <div className="flex items-center gap-1 text-[10px] text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
-            <DollarSign className="w-2.5 h-2.5" />
-            <span className="font-bold">
+          <p className="text-[11px] text-slate-700">
+            valor recorrente{' '}
+            <span className="font-bold text-slate-900">
               R$ {cliente.valor_recorrente_mensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
-          </div>
+          </p>
         )}
 
         {/* Próxima Ação (da IA) */}
         {score?.proxima_melhor_acao && (
-          <div className="text-[10px] p-1.5 bg-gradient-to-r from-indigo-50 to-purple-50 rounded border border-indigo-200">
-            <p className="font-bold text-indigo-700 mb-0.5">🤖 IA:</p>
-            <p className="text-slate-700 leading-tight">{score.proxima_melhor_acao}</p>
+          <div className="text-[11px] p-2 bg-slate-100 rounded-lg">
+            <span className="font-bold text-slate-900">🤖 IA: </span>
+            <span className="text-slate-700 leading-tight">{score.proxima_melhor_acao}</span>
           </div>
         )}
 
-        {/* Botões de Ação */}
-        <div className="grid grid-cols-2 gap-1 pt-1 border-t border-slate-200">
-          <Button
+        {/* Botões de Ação — ícones circulares com rótulo */}
+        <div className="flex items-start justify-between pt-1">
+          <button
             onClick={(e) => { e.stopPropagation(); onViewDetails?.(cliente); }}
-            size="sm"
-            variant="ghost"
-            className="h-6 text-[10px] hover:bg-blue-500 hover:text-white px-1 transition-all duration-150 hover:shadow-md hover:scale-105 active:scale-95"
+            className="flex flex-col items-center gap-1 group/btn"
           >
-            <Eye className="w-3 h-3 mr-0.5" />
-            Ver
-          </Button>
-          <Button
+            <span className="w-9 h-9 rounded-full border border-slate-300 bg-white flex items-center justify-center text-slate-700 transition-all duration-150 group-hover/btn:bg-blue-500 group-hover/btn:text-white group-hover/btn:border-blue-500 group-hover/btn:shadow-md">
+              <Eye className="w-4 h-4" />
+            </span>
+            <span className="text-[10px] text-slate-700">Ver</span>
+          </button>
+          <button
             onClick={(e) => { e.stopPropagation(); onEdit(cliente); }}
-            size="sm"
-            variant="ghost"
-            className="h-6 text-[10px] hover:bg-orange-500 hover:text-white px-1 transition-all duration-150 hover:shadow-md hover:scale-105 active:scale-95"
+            className="flex flex-col items-center gap-1 group/btn"
           >
-            <Edit className="w-3 h-3 mr-0.5" />
-            Editar
-          </Button>
-          <Button
+            <span className="w-9 h-9 rounded-full border border-slate-300 bg-white flex items-center justify-center text-slate-700 transition-all duration-150 group-hover/btn:bg-orange-500 group-hover/btn:text-white group-hover/btn:border-orange-500 group-hover/btn:shadow-md">
+              <Edit className="w-4 h-4" />
+            </span>
+            <span className="text-[10px] text-slate-700">Editar</span>
+          </button>
+          <button
             onClick={(e) => { e.stopPropagation(); setHistoricoOpen(true); }}
-            size="sm"
-            variant="ghost"
-            className="h-6 text-[10px] bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 px-1 transition-all duration-150 hover:shadow-md hover:scale-105 active:scale-95"
             title="Histórico interno"
+            className="flex flex-col items-center gap-1 group/btn"
           >
-            <NotebookPen className="w-3 h-3 mr-0.5" />
-            Notas
-          </Button>
-          <Button
+            <span className="w-9 h-9 rounded-full border border-slate-300 bg-white flex items-center justify-center text-slate-700 transition-all duration-150 group-hover/btn:bg-amber-500 group-hover/btn:text-white group-hover/btn:border-amber-500 group-hover/btn:shadow-md">
+              <NotebookPen className="w-4 h-4" />
+            </span>
+            <span className="text-[10px] text-slate-700">Notas</span>
+          </button>
+          <button
             onClick={(e) => { e.stopPropagation(); abrirChatNaCentral(); }}
             disabled={!temTelefone}
-            size="sm"
-            variant="ghost"
-            className={`h-6 text-[10px] px-1 transition-all duration-150 ${
-              temTelefone
-                ? 'bg-green-500 hover:bg-green-600 text-white hover:shadow-md hover:scale-105 active:scale-95'
-                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            }`}
             title={temTelefone ? 'Abrir na Central de Comunicação' : 'Sem telefone cadastrado'}
+            className={`flex flex-col items-center gap-1 group/btn ${!temTelefone ? 'cursor-not-allowed opacity-40' : ''}`}
           >
-            <MessageSquare className="w-3 h-3 mr-0.5" />
-            Chat
-          </Button>
+            <span className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-150 ${
+              temTelefone
+                ? 'border-slate-300 bg-white text-slate-700 group-hover/btn:bg-green-500 group-hover/btn:text-white group-hover/btn:border-green-500 group-hover/btn:shadow-md'
+                : 'border-slate-200 bg-slate-100 text-slate-400'
+            }`}>
+              <MessageSquare className="w-4 h-4" />
+            </span>
+            <span className="text-[10px] text-slate-700">Chat</span>
+          </button>
         </div>
       </CardContent>
 
