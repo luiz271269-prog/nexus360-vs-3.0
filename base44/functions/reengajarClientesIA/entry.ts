@@ -1,7 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 // ============================================================================
-// REENGAJAMENTO IA — v1.0.0
+// REENGAJAMENTO IA — v2.0.0 (SKILL ÚNICA DE REENGAJAMENTO)
+// Único motor outbound de reengajamento ativo. Foca EXCLUSIVAMENTE em clientes
+// ativos no CRM com histórico de vendas. Cooldown cruzado com promoções.
 // Varre threads WhatsApp paradas (7 a 90 dias sem inbound), analisa as últimas
 // 20 mensagens com IA e envia mensagem de reengajamento personalizada.
 // Guards: cooldown 14 dias por thread, thread bloqueada, horário comercial,
@@ -70,17 +72,29 @@ Deno.serve(async (req) => {
       const ultimoReengajamento = thread.campos_personalizados?.reengajamento_ia_em;
       if (ultimoReengajamento && new Date(ultimoReengajamento).getTime() > cooldownLimite) continue;
 
+      // ✅ COOLDOWN CRUZADO: se QUALQUER outro motor (promoção batch/inbound/broadcast)
+      // enviou algo nos últimos 14 dias, pula — evita envio duplicado e custo dobrado.
+      const ultimoDisparoQualquer = [thread.last_any_promo_sent_at, thread.last_promo_batch_at, thread.last_promo_inbound_at]
+        .filter(Boolean)
+        .map(d => new Date(d).getTime())
+        .sort((a, b) => b - a)[0];
+      if (ultimoDisparoQualquer && ultimoDisparoQualquer > cooldownLimite) continue;
+
       const contato = await svc.entities.Contact.get(thread.contact_id).catch(() => null);
       if (!contato) continue;
 
-      // ✅ FILTRO COMERCIAL: só reengaja contatos do funil de vendas/CRM.
-      // Fornecedor, parceiro, contato novo/avulso e contato de e-mail ficam FORA.
+      // ✅ FILTRO COMERCIAL v2: APENAS cliente ativo no CRM com histórico de vendas.
+      // Sem vínculo CRM = sem gasto de IA. Fornecedor/parceiro/novo/e-mail ficam FORA.
       if (!TIPOS_PERMITIDOS.includes(contato.tipo_contato)) continue;
-      // Cliente/ex-cliente/eventual precisa de vínculo real com o CRM (métricas de venda);
-      // lead é prospecção ativa e passa sem cliente_id.
-      if (contato.tipo_contato !== 'lead' && !contato.cliente_id && !contato.is_cliente_fidelizado) continue;
       if (contato.bloqueado === true) continue;
       if (contato.suppressed_until && new Date(contato.suppressed_until).getTime() > agora) continue;
+      if (!contato.cliente_id) continue;
+
+      const clienteCRM = await svc.entities.Cliente.get(contato.cliente_id).catch(() => null);
+      if (!clienteCRM) continue;
+      // Cliente ativo no CRM = tem histórico de vendas real: o status Ativo/Em Risco/Promotor
+      // é mantido pela Análise Cruzada Diária (NFes Neural Fin × CRM). Inativo/Prospect/lead ficam fora.
+      if (!['Ativo', 'Promotor', 'Em Risco'].includes(clienteCRM.status)) continue;
 
       const telefone = contato.telefone_canonico || contato.telefone;
       if (!telefone) continue;
@@ -173,6 +187,7 @@ REGRAS:
         last_outbound_at: agoraISO,
         last_message_sender: 'user',
         last_message_sender_name: 'Reengajamento IA',
+        last_any_promo_sent_at: agoraISO,
         campos_personalizados: {
           ...(thread.campos_personalizados || {}),
           reengajamento_ia_em: agoraISO
