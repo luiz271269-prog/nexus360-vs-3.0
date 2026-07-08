@@ -406,8 +406,13 @@ export default function Dashboard() {
   const carregarNotasFiscais = async () => {
     try {
       const resp = await buscarNotasFiscaisExternas({});
-      // Exclui NFs anuladas/zeradas — não são vendas reais e distorcem faturamento e ticket médio
-      if (resp.data?.success) setNotasFiscais(dedupById(resp.data.notas || []).filter(n => (n.valor_total || 0) > 0));
+      // Consolidação alinhada ao financeiro: exclui NFs zeradas, espelhos de CI e anuladas/canceladas
+      const STATUS_INVALIDOS = ['anulada', 'cancelado', 'cancelada'];
+      if (resp.data?.success) setNotasFiscais(
+        dedupById(resp.data.notas || []).filter(n =>
+          (n.valor_total || 0) > 0 && !n.is_espelho_ci && !STATUS_INVALIDOS.includes(n.status)
+        )
+      );
     } catch (e) {
       console.warn('[Dashboard] Notas fiscais indisponíveis:', e.message);
     }

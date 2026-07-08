@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { getNomeExibicao } from "@/components/lib/vendedorSync";
+import { notaPertenceAoVendedor } from "./metasNfUtils";
+import GestaoMetasVendedores from "./GestaoMetasVendedores";
 import DetalhesModal from "./DetalhesModal";
 import { COLS_NF, COLS_VENDEDOR } from "./drilldownColunas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +58,15 @@ export default function PerformanceVendedores({ dados, filtros, isGerente, usuar
           onClick={() => setDrill({ title: 'Vendedores', dados: metricas.rankingVendedores, colunas: COLS_VENDEDOR })} />
 
       </div>
+
+      {/* Gestão e previsão de metas (somente gerência) */}
+      {isGerente && (
+        <GestaoMetasVendedores
+          vendedores={dados.vendedores}
+          vendedoresEntidade={vendedoresEntidade}
+          notasTodas={notasTodas}
+        />
+      )}
 
       {/* Seção Principal: Ranking (75%) e Análises (25%) */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
@@ -354,13 +365,12 @@ function calcularMetricasVendedores(dados, dadosCompletos, usuario, notas, vende
   // Calcular métricas por vendedor (meta e foto vêm da entidade Vendedor via usuario_id)
   const vendedoresComMetricas = dados.vendedores.map((vendedor) => {
     const nomeVendedor = getNomeExibicao(vendedor) || vendedor.full_name || vendedor.email || '';
-    const primeiroNome = nomeVendedor.split(' ')[0].toLowerCase();
     const entVendedor = (vendedoresEntidade || []).find((e) => e.usuario_id === vendedor.id);
     const metaMensal = entVendedor?.meta_mensal || vendedor.meta_mensal || 0;
     const vendasVendedor = dados.vendas.filter((v) => v.vendedor === nomeVendedor || v.vendedor_id === vendedor.id);
-    // Faturamento: prioriza notas fiscais do vendedor
+    // Faturamento: NFs consolidadas do financeiro, vinculadas por nome completo (evita colisão de 1º nome)
     const notasVendedor = (notas || []).filter(n =>
-      n.vendedor && n.vendedor.toLowerCase().includes(primeiroNome)
+      notaPertenceAoVendedor(n.vendedor, vendedor, dados.vendedores)
     );
     const faturamentoVendedor = notasVendedor.length > 0
       ? notasVendedor.reduce((sum, n) => sum + (n.valor_total || 0), 0)
