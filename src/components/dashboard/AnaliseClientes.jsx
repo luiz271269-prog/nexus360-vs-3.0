@@ -125,7 +125,11 @@ export default function AnaliseClientes({ dados, filtros, isGerente, notasFiscai
           <CardContent>
             <div className="space-y-3">
               {analises.topClientes.slice(0, 8).map((cliente, index) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div
+                  key={index}
+                  onClick={() => setDrill({ title: 'Top Clientes por Receita', dados: analises.topClientes, colunas: COLS_CLIENTE_RECEITA })}
+                  className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700 cursor-pointer hover:bg-slate-700/60 transition-colors"
+                >
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                       index === 0 ? 'bg-yellow-400 text-yellow-900' :
@@ -166,7 +170,11 @@ export default function AnaliseClientes({ dados, filtros, isGerente, notasFiscai
             <CardContent>
               <div className="space-y-3">
                 {analises.clientesPorVendedor.map((vendedor, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                  <div
+                    key={index}
+                    onClick={() => setDrill({ title: `Clientes de ${vendedor.vendedor} (${vendedor.total})`, dados: vendedor.clientes || [], colunas: COLS_CLIENTE_RECEITA })}
+                    className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700 cursor-pointer hover:bg-slate-700/60 transition-colors"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full border-2 border-slate-600 flex-shrink-0 flex items-center justify-center overflow-hidden bg-slate-700">
                         {vendedor.foto_url ? (
@@ -216,7 +224,11 @@ export default function AnaliseClientes({ dados, filtros, isGerente, notasFiscai
           <CardContent>
             <div className="space-y-3">
               {analises.clientesAtencao.slice(0, 6).map((cliente, index) => (
-                <div key={index} className="p-3 rounded-lg bg-red-900/20 border border-red-500/30">
+                <div
+                  key={index}
+                  onClick={() => setDrill({ title: 'Clientes em Risco / Inativos', dados: analises.listaRisco, colunas: COLS_CLIENTE_RECEITA })}
+                  className="p-3 rounded-lg bg-red-900/20 border border-red-500/30 cursor-pointer hover:bg-red-900/40 transition-colors"
+                >
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-medium text-slate-100">
@@ -402,9 +414,10 @@ function calcularAnaliseClientes(dados, filtros, notas) {
   unificados.forEach(cliente => {
     const vendedorNome = cliente.vendedor_responsavel || 'Não atribuído';
     if (!vendedorClientes[vendedorNome]) {
-      vendedorClientes[vendedorNome] = { total: 0, ativos: 0, fidelizados: 0, foto_url: null };
+      vendedorClientes[vendedorNome] = { total: 0, ativos: 0, fidelizados: 0, foto_url: null, clientes: [] };
     }
     vendedorClientes[vendedorNome].total++;
+    vendedorClientes[vendedorNome].clientes.push(cliente);
     if (cliente.status === 'Ativo') vendedorClientes[vendedorNome].ativos++;
     if (cliente.is_fidelizado || cliente._source === 'contact_fidelizado') vendedorClientes[vendedorNome].fidelizados++;
   });
