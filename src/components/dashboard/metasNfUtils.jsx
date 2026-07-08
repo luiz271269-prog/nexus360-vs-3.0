@@ -57,3 +57,58 @@ export function analisarHistoricoVendedor(vendedor, todosVendedores, notasTodas,
     metaSugerida
   };
 }
+
+// Projeção de faturamento do mês corrente com base no histórico recorrente de cada cliente da carteira.
+// Para cada cliente: frequência de compra (meses com NF / meses analisados) × ticket médio mensal.
+export function projetarFaturamentoMensal(notasTodas, meses = 3) {
+  const hoje = new Date();
+  const mesAtual = hoje.toISOString().slice(0, 7);
+  const chavesMeses = [];
+  for (let i = 1; i <= meses; i++) {
+    chavesMeses.push(new Date(hoje.getFullYear(), hoje.getMonth() - i, 1).toISOString().slice(0, 7));
+  }
+
+  const clientes = {};
+  (notasTodas || []).forEach(n => {
+    const mes = (n.data_emissao || n.created_date || '').slice(0, 7);
+    const chave = n.cliente_cnpj_cpf || normalizarNome(n.cliente_nome);
+    if (!chave) return;
+    if (!clientes[chave]) clientes[chave] = { nome: n.cliente_nome, vendedor: n.vendedor, mesesHistorico: new Set(), valorHistorico: 0, realizadoMesAtual: 0 };
+    if (chavesMeses.includes(mes)) {
+      clientes[chave].mesesHistorico.add(mes);
+      clientes[chave].valorHistorico += (n.valor_total || 0);
+    }
+    if (mes === mesAtual) clientes[chave].realizadoMesAtual += (n.valor_total || 0);
+  });
+
+  const projecoes = Object.values(clientes)
+    .filter(c => c.mesesHistorico.size > 0)
+    .map(c => {
+      const frequencia = c.mesesHistorico.size / meses;
+      const mediaMensalCompra = c.valorHistorico / c.mesesHistorico.size;
+      const valorEsperado = Math.round(mediaMensalCompra * frequencia);
+      return {
+        nome: c.nome,
+        vendedor: c.vendedor,
+        recorrente: c.mesesHistorico.size >= 2,
+        frequencia: Math.round(frequencia * 100),
+        valorEsperado,
+        realizado: Math.round(c.realizadoMesAtual),
+        jaComprou: c.realizadoMesAtual > 0
+      };
+    })
+    .sort((a, b) => b.valorEsperado - a.valorEsperado);
+
+  const projecaoTotal = projecoes.reduce((s, c) => s + c.valorEsperado, 0);
+  const realizadoMes = Object.values(clientes).reduce((s, c) => s + c.realizadoMesAtual, 0);
+
+  return {
+    mesAtual,
+    projecaoTotal: Math.round(projecaoTotal),
+    realizadoMes: Math.round(realizadoMes),
+    percentualAtingido: projecaoTotal > 0 ? Math.round((realizadoMes / projecaoTotal) * 100) : 0,
+    clientesRecorrentes: projecoes.filter(c => c.recorrente).length,
+    clientesPendentes: projecoes.filter(c => c.recorrente && !c.jaComprou),
+    projecoes
+  };
+}

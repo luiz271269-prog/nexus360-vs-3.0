@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { TrendingUp, Users, DollarSign, Target, Award, Calendar, Filter, BarChart3, Brain, Zap, AlertCircle, CheckCircle, TrendingDown, Activity, ChevronRight, Building2, Map as MapIcon } from "lucide-react";
 import MapaClientes from "@/pages/MapaClientes";
+import PrevisaoFaturamento from "../components/dashboard/PrevisaoFaturamento";
 
 import VisaoGeralEmpresa from "../components/dashboard/VisaoGeralEmpresa";
 import PerformanceVendedores from "../components/dashboard/PerformanceVendedores";
@@ -828,6 +829,7 @@ export default function Dashboard() {
           <>
             {viewMode === 'empresa' && isGerente &&
               <>
+                <PrevisaoFaturamento notasTodas={notasFiscais} />
                 <FinanceiroNeuralFin mesSel={mesSelecionado} anoSel={anoSelecionado} modoAnual={modoAnual} />
                 <MetricasNotasFiscais mesSel={modoAnual ? null : mesSelecionado - 1} anoSel={anoSelecionado} modoAnual={modoAnual} />
                 <MetricasVendasNF notas={notasFiltradas} modoAnual={modoAnual} />
