@@ -19,6 +19,12 @@ const COORD_UF = {
   SE: [-10.57, -37.39], SP: [-22.0, -48.5], TO: [-10.18, -48.30]
 };
 
+// Normaliza nome de cidade para agrupamento: maiúsculas, sem acentos, espaços únicos
+const normCidade = (s) => (s || '')
+  .toString().toUpperCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/\s+/g, ' ').trim();
+
 // Cache em memória do geocoding (vive enquanto a function fica quente)
 const geoCache = {};
 
@@ -79,10 +85,14 @@ Deno.serve(async (req) => {
     const clientes = await base44.asServiceRole.entities.Cliente.list('-updated_date', 2000);
     const idxLoc = {};
     const clienteById = {};
+    const ufPorCidade = {}; // cidade normalizada -> UF conhecida (para preencher cadastros sem UF)
     for (const c of clientes) {
       clienteById[c.id] = c;
       const loc = { cidade: (c.cidade || '').trim(), uf: (c.uf || '').trim().toUpperCase() };
       if (!loc.cidade && !loc.uf) continue;
+      if (loc.cidade && loc.uf && !ufPorCidade[normCidade(loc.cidade)]) {
+        ufPorCidade[normCidade(loc.cidade)] = loc.uf;
+      }
       for (const nome of [c.razao_social, c.nome_fantasia]) {
         const k = norm(nome);
         if (k && !idxLoc[k]) idxLoc[k] = loc;
@@ -141,10 +151,12 @@ Deno.serve(async (req) => {
       const c = porCliente[nome];
       const loc = acharLoc(nome);
       if (!loc) { semLoc.push(c); continue; }
-      if (loc.uf) porUF[loc.uf] = (porUF[loc.uf] || 0) + 1;
-      const key = `${loc.cidade.toUpperCase()}|${loc.uf}`;
+      const cidadeKey = normCidade(loc.cidade);
+      const ufFinal = loc.uf || ufPorCidade[cidadeKey] || '';
+      if (ufFinal) porUF[ufFinal] = (porUF[ufFinal] || 0) + 1;
+      const key = `${cidadeKey}|${ufFinal}`;
       if (!cidadesMap[key]) {
-        cidadesMap[key] = { cidade: loc.cidade || '(sem cidade)', uf: loc.uf || '-', total: 0, valor: 0, clientes: [] };
+        cidadesMap[key] = { cidade: loc.cidade || '(sem cidade)', uf: ufFinal || '-', total: 0, valor: 0, clientes: [] };
       }
       cidadesMap[key].total++;
       cidadesMap[key].valor += c.valor;
@@ -176,9 +188,10 @@ Deno.serve(async (req) => {
       // localização via cliente vinculado
       const cli = ct.cliente_id ? clienteById[ct.cliente_id] : null;
       const cidade = (cli?.cidade || '').trim();
-      const uf = (cli?.uf || '').trim().toUpperCase();
-      if (!cidade && !uf) continue;
-      const k = `${cidade.toUpperCase()}|${uf}`;
+      const ufRaw = (cli?.uf || '').trim().toUpperCase();
+      if (!cidade && !ufRaw) continue;
+      const uf = ufRaw || ufPorCidade[normCidade(cidade)] || '';
+      const k = `${normCidade(cidade)}|${uf}`;
       if (!fidelizadosCidadeMap[k]) {
         fidelizadosCidadeMap[k] = { cidade: cidade || '(sem cidade)', uf: uf || '-', total: 0, contatos: [] };
       }
