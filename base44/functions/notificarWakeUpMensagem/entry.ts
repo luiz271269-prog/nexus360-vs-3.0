@@ -188,19 +188,36 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, skipped: 'nao_eh_contato' });
     }
 
-    // ── Destinatários: mesmo critério do alerta interno ───────────────
-    // assigned + compartilhados + histórico de atendentes + admins
+    // ── Destinatários: assigned + compartilhados + admins sempre.
+    // Histórico de atendentes: SOMENTE se o setor do usuário bate com o
+    // setor da conversa (ou usuário de setor 'geral') — evita push de
+    // conversas que o atendente não vê no app.
     const destinatarios = new Set();
     if (thread.assigned_user_id) destinatarios.add(thread.assigned_user_id);
     (thread.shared_with_users || []).forEach((id) => id && destinatarios.add(id));
-    (thread.atendentes_historico || []).forEach((id) => id && destinatarios.add(id));
 
-    // Admins sempre recebem (igual ao isAdmin do alerta interno)
     try {
-      const admins = await base44.asServiceRole.entities.User.filter({ role: 'admin' });
-      admins.forEach((u) => u?.id && destinatarios.add(u.id));
+      const todosUsuarios = await base44.asServiceRole.entities.User.list();
+      const setorThread = thread.sector_id || null;
+
+      // Admins sempre recebem (igual ao isAdmin do alerta interno)
+      todosUsuarios.forEach((u) => u?.role === 'admin' && u.id && destinatarios.add(u.id));
+
+      // Histórico: só quem é do mesmo setor da conversa (ou setor 'geral')
+      const userById = {};
+      todosUsuarios.forEach((u) => { if (u?.id) userById[u.id] = u; });
+      (thread.atendentes_historico || []).forEach((id) => {
+        if (!id || destinatarios.has(id)) return;
+        const u = userById[id];
+        if (!u) return;
+        const setorUser = u.attendant_sector || 'geral';
+        if (!setorThread || setorUser === 'geral' || setorUser === setorThread) {
+          destinatarios.add(id);
+        }
+      });
     } catch (e) {
-      console.warn('[notificarWakeUpMensagem] falha ao buscar admins:', e.message);
+      console.warn('[notificarWakeUpMensagem] falha ao buscar usuários:', e.message);
+      // Fallback conservador: sem lista de usuários, mantém só assigned + shared
     }
 
     if (destinatarios.size === 0) {
