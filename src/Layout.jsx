@@ -340,7 +340,6 @@ export default function Layout({ children, currentPageName }) {
     { name: "Contatos Inteligentes", icon: Target, page: "ContatosInteligentes" },
     { name: "CRM - Kanban", icon: Briefcase, page: "LeadsQualificados" },
     { name: "Clientes", icon: Building2, page: "Clientes" },
-    { name: "Mapa de Clientes", icon: Map, page: "MapaClientes" },
     { name: "Metas de Vendas", icon: Users, page: "Vendedores" },
     { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
     { name: "Produtos", icon: Package, page: "Produtos" },
@@ -472,13 +471,6 @@ export default function Layout({ children, currentPageName }) {
   if (globalUsuario && !baseMenuItems.some(item => item.page === 'Emails')) {
     const itemEmail = todosMenuItems.find(item => item.page === 'Emails');
     if (itemEmail) baseMenuItems = [...baseMenuItems, itemEmail];
-  }
-
-  // "Mapa de Clientes" — disponível para qualquer usuário logado (cada um vê apenas
-  // seus clientes/contatos vinculados via RLS; admins/gerência veem todos)
-  if (globalUsuario && !baseMenuItems.some(item => item.page === 'MapaClientes')) {
-    const itemMapa = todosMenuItems.find(item => item.page === 'MapaClientes');
-    if (itemMapa) baseMenuItems = [...baseMenuItems, itemMapa];
   }
 
   const checkAgentHealth = async () => {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { TrendingUp, Users, DollarSign, Target, Award, Calendar, Filter, BarChart3, Brain, Zap, AlertCircle, CheckCircle, TrendingDown, Activity, ChevronRight, Building2 } from "lucide-react";
+import { TrendingUp, Users, DollarSign, Target, Award, Calendar, Filter, BarChart3, Brain, Zap, AlertCircle, CheckCircle, TrendingDown, Activity, ChevronRight, Building2, Map as MapIcon } from "lucide-react";
+import MapaClientes from "@/pages/MapaClientes";
 
 import VisaoGeralEmpresa from "../components/dashboard/VisaoGeralEmpresa";
 import PerformanceVendedores from "../components/dashboard/PerformanceVendedores";
@@ -593,6 +594,13 @@ export default function Dashboard() {
       disponivel: true
     },
     {
+      key: 'mapa',
+      label: 'Mapa de Clientes',
+      icon: MapIcon,
+      descricao: 'Vendas por localização',
+      disponivel: true
+    },
+    {
       key: 'operacional',
       label: 'Métricas Operacionais',
       icon: Target,
@@ -830,6 +838,7 @@ export default function Dashboard() {
               <PerformanceVendedores dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiltradas} notasTodas={notasFiscais} vendedoresEntidade={vendedoresEntidade} />
             }
             {viewMode === 'clientes' && <AnaliseClientes dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} notasFiscais={notasFiscais} />}
+            {viewMode === 'mapa' && <MapaClientes />}
             {viewMode === 'operacional' &&
               <MetricasOperacionais dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} />
             }
