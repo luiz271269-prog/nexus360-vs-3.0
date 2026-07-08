@@ -175,11 +175,14 @@ export default function Dashboard() {
   const [modoAnual, setModoAnual] = useState(false);
 
   // Notas fiscais filtradas pelo período selecionado
+  // (ano/mês extraídos da string 'YYYY-MM-DD' — new Date() causava shift de fuso p/ o mês anterior)
   const notasFiltradas = notasFiscais.filter(n => {
-    const d = new Date(n.data_emissao || n.created_date || '');
-    if (isNaN(d.getTime())) return false;
-    if (modoAnual) return d.getFullYear() === anoSelecionado;
-    return d.getMonth() + 1 === mesSelecionado && d.getFullYear() === anoSelecionado;
+    const s = String(n.data_emissao || n.created_date || '').slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(s)) return false;
+    const ano = Number(s.slice(0, 4));
+    const mes = Number(s.slice(5, 7));
+    if (modoAnual) return ano === anoSelecionado;
+    return mes === mesSelecionado && ano === anoSelecionado;
   });
 
   // Drill-down dos totalizadores do topo (auditoria das métricas)

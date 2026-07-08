@@ -35,33 +35,43 @@ export default function MetricasNotasFiscais({ mesSel: mesProp, anoSel: anoProp,
 
   useEffect(() => { carregarNotas(); }, []);
 
+  // Extrai ano/mês direto da string 'YYYY-MM-DD' (evita shift de fuso horário do new Date)
+  const anoMesDe = (n) => {
+    const s = String(n.data_emissao || n.created_date || '').slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(s)) return null;
+    return { ano: Number(s.slice(0, 4)), mes: Number(s.slice(5, 7)) - 1, key: s };
+  };
+  const STATUS_INVALIDOS = ['anulada', 'cancelado', 'cancelada'];
+  const notasValidas = useMemo(
+    () => notas.filter(n => !n.is_espelho_ci && !STATUS_INVALIDOS.includes(n.status)),
+    [notas]
+  );
+
   // Filtrar notas pelo mês/ano selecionado
   const notasMes = useMemo(() => {
-    return notas.filter(n => {
-      const d = n.data_emissao || n.created_date || '';
-      if (!d) return false;
-      const dt = new Date(d);
-      if (modoAnual) return dt.getFullYear() === anoFinal;
-      return dt.getMonth() === mesFinal && dt.getFullYear() === anoFinal;
+    return notasValidas.filter(n => {
+      const am = anoMesDe(n);
+      if (!am) return false;
+      if (modoAnual) return am.ano === anoFinal;
+      return am.mes === mesFinal && am.ano === anoFinal;
     });
-  }, [notas, mesFinal, anoFinal, modoAnual]);
+  }, [notasValidas, mesFinal, anoFinal, modoAnual]);
 
   // Resumo mensal agrupado para comparação
   const resumoMensal = useMemo(() => {
     const mapa = {};
-    notas.forEach(n => {
-      const d = n.data_emissao || n.created_date || '';
-      if (!d) return;
-      const dt = new Date(d);
-      const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
-      if (!mapa[key]) mapa[key] = { total: 0, recebido: 0, aberto: 0, qtd: 0, mes: dt.getMonth(), ano: dt.getFullYear() };
+    notasValidas.forEach(n => {
+      const am = anoMesDe(n);
+      if (!am) return;
+      const key = am.key;
+      if (!mapa[key]) mapa[key] = { total: 0, recebido: 0, aberto: 0, qtd: 0, mes: am.mes, ano: am.ano };
       mapa[key].total += n.valor_total || 0;
       mapa[key].recebido += n.valor_recebido || 0;
       mapa[key].aberto += n.valor_aberto || 0;
       mapa[key].qtd++;
     });
     return Object.entries(mapa).sort((a,b) => b[0].localeCompare(a[0])).map(([k,v]) => ({key: k, ...v}));
-  }, [notas]);
+  }, [notasValidas]);
 
   const irMes = (delta) => {
     // Só altera estado interno se não controlado por props
