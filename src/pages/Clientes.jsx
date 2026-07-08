@@ -31,6 +31,7 @@ import ClienteTable from "../components/clientes/ClienteTable";
 import ClienteKanban from "../components/clientes/ClienteKanban";
 import HistoricoQualificacaoCliente from "../components/clientes/HistoricoQualificacaoCliente";
 import ClientesNaoCadastrados from "../components/clientes/ClientesNaoCadastrados";
+import FiltroRecorrencia from "../components/clientes/FiltroRecorrencia";
 import { listarVendedoresParaSelect } from '../components/lib/vendedorSync';
 import { getFaturamentoPorCliente } from "@/functions/getFaturamentoPorCliente";
 import { cadastrarClienteDeNF } from "@/functions/cadastrarClienteDeNF";
@@ -50,7 +51,8 @@ export default function Clientes() {
     status: 'todos',
     classificacao: 'todos',
     segmento: 'todos',
-    responsavel: 'todos' // Filtro único: Usuário = Vendedor (mesma pessoa)
+    responsavel: 'todos', // Filtro único: Usuário = Vendedor (mesma pessoa)
+    recorrencia: 'todos' // Filtro rápido: ouro | prata | risco
   });
   const [aba, setAba] = useState('clientes'); // 'clientes' ou 'contatos_fidelizados'
   const [usuarioAtual, setUsuarioAtual] = useState(null);
@@ -289,6 +291,8 @@ export default function Clientes() {
         cliente.cnpj?.includes(busca); // Added CNPJ to search
       if (!match) return false;
     }
+
+    if (filtros.recorrencia !== 'todos' && faturamentoPorCliente[cliente.id]?.etiqueta !== filtros.recorrencia) return false;
 
     if (filtros.status !== 'todos' && cliente.status !== filtros.status) return false;
     if (filtros.classificacao !== 'todos' && cliente.classificacao !== filtros.classificacao) return false;
@@ -534,7 +538,15 @@ export default function Clientes() {
               Filtros
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 space-y-3">
+            {aba === 'clientes' && (
+              <FiltroRecorrencia
+                valor={filtros.recorrencia}
+                onChange={(value) => setFiltros({ ...filtros, recorrencia: value })}
+                clientes={clientes}
+                faturamentoPorCliente={faturamentoPorCliente}
+              />
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
               <div className="lg:col-span-2">
                 <div className="relative">
@@ -754,7 +766,7 @@ export default function Clientes() {
           <div className="text-center py-20 bg-white/80 backdrop-blur-lg rounded-xl shadow-lg border-2 border-slate-200/50">
             <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
             <p className="text-lg text-slate-600 font-medium">Nenhum cliente encontrado com os filtros aplicados.</p>
-            <Button onClick={() => setFiltros({ busca: '', status: 'todos', classificacao: 'todos', segmento: 'todos', responsavel: 'todos' })} variant="link" className="mt-4 text-blue-600">
+            <Button onClick={() => setFiltros({ busca: '', status: 'todos', classificacao: 'todos', segmento: 'todos', responsavel: 'todos', recorrencia: 'todos' })} variant="link" className="mt-4 text-blue-600">
               Limpar Filtros
             </Button>
           </div>
