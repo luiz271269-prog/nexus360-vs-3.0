@@ -27,6 +27,7 @@ import { buscarNotasFiscaisExternas } from "@/functions/buscarNotasFiscaisExtern
 import MetricasVendasNF from "../components/dashboard/MetricasVendasNF";
 import FinanceiroNeuralFin from "../components/dashboard/FinanceiroNeuralFin";
 import DetalhesModal from "../components/dashboard/DetalhesModal";
+import SeletorVendedor from "../components/dashboard/SeletorVendedor";
 import { COLS_NF, COLS_ORCAMENTO, COLS_CLIENTE, COLS_THREAD, COLS_VENDEDOR_ENT } from "../components/dashboard/drilldownColunas";
 
 // Cache global para evitar chamadas desnecessárias
@@ -541,6 +542,22 @@ export default function Dashboard() {
   const isGerente = usuario?.role === 'admin';
   const nomeUsuario = usuario?.full_name || 'Usuário';
 
+  // Filtro de vendedor aplicado também aos dados completos (metas, clientes, operacional)
+  const filtrarPorVendedor = (d, nomeVendedor) => {
+    if (!nomeVendedor || nomeVendedor === 'todos') return d;
+    const v = (d.vendedores || []).find(u => (u.full_name || u.nome || u.email) === nomeVendedor);
+    const vid = v?.id;
+    return {
+      ...d,
+      clientes: (d.clientes || []).filter(c => c.vendedor_responsavel === nomeVendedor || (vid && (c.usuario_id === vid || c.vendedor_id === vid))),
+      vendas: (d.vendas || []).filter(x => x.vendedor === nomeVendedor || (vid && x.vendedor_id === vid)),
+      orcamentos: (d.orcamentos || []).filter(o => o.vendedor === nomeVendedor || (vid && (o.vendedor_id === vid || o.usuario_id === vid))),
+      interacoes: (d.interacoes || []).filter(i => i.vendedor === nomeVendedor),
+      contatosFidelizados: (d.contatosFidelizados || []).filter(c => c.vendedor_responsavel === nomeVendedor || (vid && c.atendente_fidelizado_vendas === vid))
+    };
+  };
+  const dadosCompletosFiltrados = filtrarPorVendedor(dadosCompletos, filtros.vendedor);
+
   const navegacao = [
     {
       key: 'empresa',
@@ -604,6 +621,13 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {isGerente && (
+                <SeletorVendedor
+                  vendedores={dadosCompletos.vendedores}
+                  valor={filtros.vendedor}
+                  onChange={(v) => setFiltros(prev => ({ ...prev, vendedor: v }))}
+                />
+              )}
               <FiltrosAvancados filtros={filtros} onFiltrosChange={setFiltros} vendedores={dados.vendedores} isGerente={isGerente} />
               <FiltroMes mesSelecionado={mesSelecionado} anoSelecionado={anoSelecionado} modoAnual={modoAnual} onMesChange={handleMesChange} onAnoChange={handleAnoChange} onModoAnual={handleModoAnual} />
               <ExportadorDashboard dados={dados} filtros={filtros} viewMode={viewMode} />
@@ -621,6 +645,17 @@ export default function Dashboard() {
             <FiltroMes mesSelecionado={mesSelecionado} anoSelecionado={anoSelecionado} modoAnual={modoAnual} onMesChange={handleMesChange} onAnoChange={handleAnoChange} onModoAnual={handleModoAnual} />
           </div>
         </div>
+
+        {/* Seletor de vendedor mobile */}
+        {isGerente && (
+          <div className="md:hidden bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-xl p-2">
+            <SeletorVendedor
+              vendedores={dadosCompletos.vendedores}
+              valor={filtros.vendedor}
+              onChange={(v) => setFiltros(prev => ({ ...prev, vendedor: v }))}
+            />
+          </div>
+        )}
 
         <BotaoNexusFlutuante
           contadorLembretes={alertasIA.length}
@@ -787,11 +822,11 @@ export default function Dashboard() {
               </>
             }
             {viewMode === 'vendedores' &&
-              <PerformanceVendedores dados={dadosCompletos} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiltradas} notasTodas={notasFiscais} vendedoresEntidade={vendedoresEntidade} />
+              <PerformanceVendedores dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiltradas} notasTodas={notasFiscais} vendedoresEntidade={vendedoresEntidade} />
             }
-            {viewMode === 'clientes' && <AnaliseClientes dados={dadosCompletos} filtros={filtros} isGerente={isGerente} notasFiscais={notasFiscais} />}
+            {viewMode === 'clientes' && <AnaliseClientes dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} notasFiscais={notasFiscais} />}
             {viewMode === 'operacional' &&
-              <MetricasOperacionais dados={dadosCompletos} filtros={filtros} isGerente={isGerente} />
+              <MetricasOperacionais dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} />
             }
             {viewMode === 'analytics' && isGerente &&
               <AnalyticsAvancadoEmbed />
