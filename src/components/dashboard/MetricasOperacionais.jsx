@@ -63,7 +63,11 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
           <CardContent>
             <div className="space-y-4">
               {metricas.funil.map((etapa, index) => (
-                <div key={index} className="relative p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div
+                  key={index}
+                  onClick={() => setDrill({ title: `${etapa.nome} (${etapa.quantidade})`, dados: etapa.lista || [], colunas: COLS_ORCAMENTO })}
+                  className="relative p-3 rounded-lg bg-slate-800/50 border border-slate-700 cursor-pointer hover:bg-slate-700/60 transition-colors"
+                >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
                       <etapa.icon className={`w-5 h-5 ${etapa.cor}`} />
@@ -136,7 +140,11 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
           <CardContent>
             <div className="space-y-3">
               {metricas.statusOrcamentos.map((status, index) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div
+                  key={index}
+                  onClick={() => setDrill({ title: `Orçamentos — ${status.status} (${status.quantidade})`, dados: status.lista || [], colunas: COLS_ORCAMENTO })}
+                  className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700 cursor-pointer hover:bg-slate-700/60 transition-colors"
+                >
                   <div className="flex items-center gap-3">
                     {status.tipo === 'aberto' && <Clock className="w-5 h-5 text-yellow-400" />}
                     {status.tipo === 'aprovado' && <CheckCircle className="w-5 h-5 text-green-400" />}
@@ -174,7 +182,11 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
           <CardContent>
             <div className="space-y-3">
               {metricas.atividadesSemana.map((atividade, index) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div
+                  key={index}
+                  onClick={() => setDrill({ title: `${atividade.nome} da Semana (${atividade.quantidade})`, dados: atividade.lista || [], colunas: COLS_INTERACAO })}
+                  className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700 cursor-pointer hover:bg-slate-700/60 transition-colors"
+                >
                   <div className="flex items-center gap-3">
                     {atividade.tipo === 'ligacao' && <Phone className="w-5 h-5 text-blue-400" />}
                     {atividade.tipo === 'whatsapp' && <MessageCircle className="w-5 h-5 text-green-400" />}
@@ -332,6 +344,7 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
       nome: 'Orçamentos Criados',
       quantidade: dados.orcamentos.length,
       valor: totalValorOrcamentos,
+      lista: dados.orcamentos,
       percentual: 100,
       icon: Clock,
       cor: 'text-blue-400',
@@ -341,6 +354,7 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
       nome: 'Em Negociação',
       quantidade: orcamentosAtivos,
       valor: valorOrcamentosAberto,
+      lista: dados.orcamentos.filter(ehAberto),
       percentual: totalOrcamentos > 0 ? Math.round((orcamentosAtivos / totalOrcamentos) * 100) : 0,
       icon: TrendingUp,
       cor: 'text-yellow-400',
@@ -350,6 +364,7 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
       nome: 'Vendas Fechadas',
       quantidade: vendasFechadas,
       valor: valorVendasFechadas,
+      lista: aprovados,
       percentual: totalOrcamentos > 0 ? Math.round((vendasFechadas / totalOrcamentos) * 100) : 0,
       icon: CheckCircle,
       cor: 'text-green-400',
@@ -393,17 +408,19 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
   dados.orcamentos.forEach(orc => {
     const raw = (orc.status || 'rascunho').toLowerCase();
     if (!statusCount[raw]) {
-      statusCount[raw] = { quantidade: 0, valor: 0 };
+      statusCount[raw] = { quantidade: 0, valor: 0, lista: [] };
     }
     statusCount[raw].quantidade++;
     statusCount[raw].valor += orc.valor_total || 0;
+    statusCount[raw].lista.push(orc);
   });
 
   const statusOrcamentos = Object.entries(statusCount).map(([raw, dados]) => ({
     status: ROTULOS_STATUS[raw] || raw,
     tipo: raw === 'aprovado' ? 'aprovado' : raw === 'rejeitado' ? 'rejeitado' : raw === 'vencido' ? 'vencido' : 'aberto',
     quantidade: dados.quantidade,
-    valor: dados.valor
+    valor: dados.valor,
+    lista: dados.lista
   })).sort((a, b) => b.quantidade - a.quantidade);
 
   // Atividades da semana com dados reais
@@ -412,6 +429,7 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
       tipo: 'ligacao', 
       nome: 'Ligações',
       quantidade: interacoesSemana.filter(i => i.tipo_interacao === 'ligacao').length,
+      lista: interacoesSemana.filter(i => i.tipo_interacao === 'ligacao'),
       descricao: 'Ligações realizadas',
       periodo: 'esta semana'
     },
@@ -419,6 +437,7 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
       tipo: 'whatsapp', 
       nome: 'WhatsApp',
       quantidade: whatsappSemana,
+      lista: interacoesSemana.filter(i => i.tipo_interacao === 'whatsapp'),
       descricao: 'Mensagens enviadas',
       periodo: 'esta semana'
     },
@@ -426,6 +445,7 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
       tipo: 'email', 
       nome: 'E-mails',
       quantidade: emailsSemana,
+      lista: interacoesSemana.filter(i => i.tipo_interacao === 'email'),
       descricao: 'E-mails enviados',
       periodo: 'esta semana'
     },
@@ -433,6 +453,7 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
       tipo: 'reuniao', 
       nome: 'Reuniões',
       quantidade: reunioesSemana,
+      lista: interacoesSemana.filter(i => i.tipo_interacao === 'reuniao'),
       descricao: 'Reuniões realizadas',
       periodo: 'esta semana'
     }
