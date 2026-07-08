@@ -336,17 +336,22 @@ export default function Dashboard() {
     try {
       const usuarioAtual = await base44.auth.me();
 
+      // ✅ Cada consulta é independente: uma falha (ex: User.list restrito a admin
+      // para perfil vendedor) não pode zerar todas as demais métricas
+      const safe = (p) => p.catch((e) => { console.warn('[Dashboard] consulta falhou:', e.message); return []; });
       const [usersData, clientesData, vendasData, orcamentosData, interacoesData, contatosFidelizadosData, threadsAtividadeData, vendedoresEntData] = await Promise.all([
-        base44.entities.User.list(),
-        base44.entities.Cliente.list('-updated_date', 500),
-        base44.entities.Venda.list('-data_venda', 500),
-        base44.entities.Orcamento.list('-data_orcamento', 300),
-        base44.entities.Interacao.list('-data_interacao', 500),
-        base44.entities.Contact.filter({ is_cliente_fidelizado: true }, '-ultima_interacao', 500),
-        base44.entities.MessageThread.filter({ thread_type: 'contact_external' }, '-last_message_at', 500),
-        base44.entities.Vendedor.list()
+        safe(base44.entities.User.list()),
+        safe(base44.entities.Cliente.list('-updated_date', 500)),
+        safe(base44.entities.Venda.list('-data_venda', 500)),
+        safe(base44.entities.Orcamento.list('-data_orcamento', 300)),
+        safe(base44.entities.Interacao.list('-data_interacao', 500)),
+        safe(base44.entities.Contact.filter({ is_cliente_fidelizado: true }, '-ultima_interacao', 500)),
+        safe(base44.entities.MessageThread.filter({ thread_type: 'contact_external' }, '-last_message_at', 500)),
+        safe(base44.entities.Vendedor.list())
       ]);
-      const vendedoresData = dedupById(usersData).filter(u => u.codigo || u.attendant_sector === 'vendas');
+      // Garante que o próprio usuário logado esteja na lista (User.list pode retornar vazio p/ não-admin)
+      const usersBase = dedupById([...(usersData || []), usuarioAtual]);
+      const vendedoresData = usersBase.filter(u => u.codigo || u.attendant_sector === 'vendas');
 
       const dadosCarregados = {
         usuario: usuarioAtual,
@@ -558,7 +563,7 @@ export default function Dashboard() {
   }, [mesSelecionado]);
 
   const isGerente = usuario?.role === 'admin';
-  const nomeUsuario = usuario?.full_name || 'Usuário';
+  const nomeUsuario = getNomeExibicao(usuario) || 'Usuário';
 
   // Filtro de vendedor aplicado também aos dados completos (metas, clientes, operacional)
   const filtrarPorVendedor = (d, nomeVendedor) => {
