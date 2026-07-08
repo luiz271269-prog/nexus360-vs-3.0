@@ -17,6 +17,10 @@ const IDLE_MIN_DIAS = 7;
 const IDLE_MAX_DIAS = 90;
 const LIMITE_PADRAO = 5;
 const MAX_RUNTIME_MS = 50_000; // abort gracioso antes do timeout de 60s da plataforma (herdado dos crons antigos)
+const DELAY_ENVIO_MIN_MS = 4_000; // intervalo mínimo entre envios reais (anti-flood)
+const DELAY_ENVIO_MAX_MS = 10_000; // intervalo máximo entre envios reais
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function dentroHorarioComercial() {
   // BRT = UTC-3
@@ -69,33 +73,55 @@ Deno.serve(async (req) => {
       last_inbound_at: { $lte: idleMin, $gte: idleMax }
     }, '-last_inbound_at', 50);
 
+    // ── FASE 1: guards baratos (sem I/O) — reduz a lista antes de qualquer fetch
+    const candidatas = threads.filter((t) => {
+      if (t.bloqueado === true) return false;
+      if (!t.contact_id || !t.whatsapp_integration_id) return false;
+      if (!integIdsAtivos.has(t.whatsapp_integration_id)) return false; // integração desconectada
+
+      // Cooldown de reengajamento por thread
+      const ultimoReengajamento = t.campos_personalizados?.reengajamento_ia_em;
+      if (ultimoReengajamento && new Date(ultimoReengajamento).getTime() > cooldownLimite) return false;
+
+      // ✅ COOLDOWN CRUZADO: se QUALQUER outro motor (promoção batch/inbound/broadcast)
+      // enviou algo nos últimos 14 dias, pula — evita envio duplicado e custo dobrado.
+      const ultimoDisparoQualquer = [t.last_any_promo_sent_at, t.last_promo_batch_at, t.last_promo_inbound_at]
+        .filter(Boolean)
+        .map(d => new Date(d).getTime())
+        .sort((a, b) => b - a)[0];
+      if (ultimoDisparoQualquer && ultimoDisparoQualquer > cooldownLimite) return false;
+      return true;
+    });
+
+    // ── FASE 2: prefetch em LOTE de contatos e clientes (2 queries em vez de 2×N)
+    const contatoById = {};
+    if (candidatas.length) {
+      const contatosLote = await svc.entities.Contact.filter({
+        id: { $in: [...new Set(candidatas.map(t => t.contact_id))] }
+      }).catch(() => []);
+      contatosLote.forEach(c => { contatoById[c.id] = c; });
+    }
+    const clienteById = {};
+    const clienteIds = [...new Set(Object.values(contatoById).map(c => c.cliente_id).filter(Boolean))];
+    if (clienteIds.length) {
+      const clientesLote = await svc.entities.Cliente.filter({ id: { $in: clienteIds } }).catch(() => []);
+      clientesLote.forEach(c => { clienteById[c.id] = c; });
+    }
+
+    // ── FASE 3: loop de processamento (IA + envio) com intervalo entre envios
     const resultados = [];
     let enviados = 0;
 
-    for (const thread of threads) {
+    for (const thread of candidatas) {
       if (enviados >= limite) break;
       // Abort gracioso antes do timeout de 60s — próxima execução retoma
       if (Date.now() - inicioExecucao > MAX_RUNTIME_MS) {
         resultados.push({ acao: 'timeout_abort', motivo: 'tempo maximo atingido, proxima execucao retoma' });
         break;
       }
-      if (thread.bloqueado === true) continue;
-      if (!thread.contact_id || !thread.whatsapp_integration_id) continue;
-      if (!integIdsAtivos.has(thread.whatsapp_integration_id)) continue; // integração desconectada
 
-      // Cooldown de reengajamento por thread
-      const ultimoReengajamento = thread.campos_personalizados?.reengajamento_ia_em;
-      if (ultimoReengajamento && new Date(ultimoReengajamento).getTime() > cooldownLimite) continue;
-
-      // ✅ COOLDOWN CRUZADO: se QUALQUER outro motor (promoção batch/inbound/broadcast)
-      // enviou algo nos últimos 14 dias, pula — evita envio duplicado e custo dobrado.
-      const ultimoDisparoQualquer = [thread.last_any_promo_sent_at, thread.last_promo_batch_at, thread.last_promo_inbound_at]
-        .filter(Boolean)
-        .map(d => new Date(d).getTime())
-        .sort((a, b) => b - a)[0];
-      if (ultimoDisparoQualquer && ultimoDisparoQualquer > cooldownLimite) continue;
-
-      const contato = await svc.entities.Contact.get(thread.contact_id).catch(() => null);
+      const contato = contatoById[thread.contact_id]
+        || await svc.entities.Contact.get(thread.contact_id).catch(() => null);
       if (!contato) continue;
 
       // ✅ LEDGER UNIFICADO: cooldown cruzado também no CONTATO (mesmo campo que o
@@ -109,7 +135,8 @@ Deno.serve(async (req) => {
       if (contato.suppressed_until && new Date(contato.suppressed_until).getTime() > agora) continue;
       if (!contato.cliente_id) continue;
 
-      const clienteCRM = await svc.entities.Cliente.get(contato.cliente_id).catch(() => null);
+      const clienteCRM = clienteById[contato.cliente_id]
+        || await svc.entities.Cliente.get(contato.cliente_id).catch(() => null);
       if (!clienteCRM) continue;
       // Cliente ativo no CRM = tem histórico de vendas real: o status Ativo/Em Risco/Promotor
       // é mantido pela Análise Cruzada Diária (NFes Neural Fin × CRM). Inativo/Prospect/lead ficam fora.
@@ -186,8 +213,10 @@ REGRAS:
 
       const agoraISO = new Date().toISOString();
 
+      // Gravações pós-envio em PARALELO (mensagem, thread, contato, auditoria)
+      await Promise.all([
       // Persistir mensagem no histórico da Central
-      await svc.entities.Message.create({
+      svc.entities.Message.create({
         thread_id: thread.id,
         sender_id: 'sistema-reengajamento-ia',
         sender_type: 'user',
@@ -203,10 +232,10 @@ REGRAS:
           user_name: 'Reengajamento IA',
           whatsapp_integration_id: thread.whatsapp_integration_id
         }
-      });
+      }),
 
       // Atualizar thread (cache + cooldown)
-      await svc.entities.MessageThread.update(thread.id, {
+      svc.entities.MessageThread.update(thread.id, {
         last_message_content: analise.mensagem,
         last_message_at: agoraISO,
         last_outbound_at: agoraISO,
@@ -217,15 +246,15 @@ REGRAS:
           ...(thread.campos_personalizados || {}),
           reengajamento_ia_em: agoraISO
         }
-      });
+      }),
 
       // Registrar no ledger unificado do CONTATO (visível ao motor enviarPromocao)
-      await svc.entities.Contact.update(thread.contact_id, {
+      svc.entities.Contact.update(thread.contact_id, {
         last_any_promo_sent_at: agoraISO
-      }).catch(() => {});
+      }).catch(() => {}),
 
       // Auditoria
-      await svc.entities.AutomationLog.create({
+      svc.entities.AutomationLog.create({
         acao: 'follow_up_automatico',
         contato_id: thread.contact_id,
         thread_id: thread.id,
@@ -237,10 +266,16 @@ REGRAS:
           mensagem: `Reengajamento IA (${diasParado} dias parado): ${analise.mensagem}`,
           dados_contexto: { motivo_ia: analise.motivo, mensagens_analisadas: mensagens.length }
         }
-      });
+      })
+      ]);
 
       resultados.push({ thread_id: thread.id, contato: nomeContato, acao: 'enviado', mensagem: analise.mensagem });
       enviados++;
+
+      // ✅ Intervalo aleatório entre envios reais (anti-flood / respeita rate limit)
+      if (enviados < limite && Date.now() - inicioExecucao < MAX_RUNTIME_MS) {
+        await sleep(DELAY_ENVIO_MIN_MS + Math.random() * (DELAY_ENVIO_MAX_MS - DELAY_ENVIO_MIN_MS));
+      }
     }
 
     return Response.json({
