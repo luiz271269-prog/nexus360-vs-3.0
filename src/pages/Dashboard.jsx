@@ -21,6 +21,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
 import AlertasInteligentesIA from "../components/global/AlertasInteligentesIA";
+import AlertasClientesEmRisco from "../components/dashboard/AlertasClientesEmRisco";
 import BotaoNexusFlutuante from "../components/global/BotaoNexusFlutuante";
 import MetricasNotasFiscais from "../components/dashboard/MetricasNotasFiscais";
 import { dedupById, dedupClientes, dedupVendas, dedupOrcamentos, dedupContatos } from "../utils/dedup";
@@ -697,6 +698,9 @@ export default function Dashboard() {
             }
             setAlertasIA((prev) => prev.filter((a) => a.id !== alerta.id));
           }} />
+
+        {/* Alertas de clientes que mudaram para "Em Risco" */}
+        <AlertasClientesEmRisco />
 
         {/* Navegação por Perspectivas - scroll horizontal no mobile */}
         <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 lg:grid-cols-5 md:gap-3 scrollbar-none">
