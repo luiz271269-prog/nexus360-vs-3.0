@@ -26,6 +26,7 @@ import BotaoNexusFlutuante from "../components/global/BotaoNexusFlutuante";
 import MetricasNotasFiscais from "../components/dashboard/MetricasNotasFiscais";
 import { dedupById, dedupClientes, dedupVendas, dedupOrcamentos, dedupContatos } from "../utils/dedup";
 import { getNomeExibicao } from "../components/lib/vendedorSync";
+import { notaPertenceAoVendedor } from "../components/dashboard/metasNfUtils";
 import { buscarNotasFiscaisExternas } from "@/functions/buscarNotasFiscaisExternas";
 import MetricasVendasNF from "../components/dashboard/MetricasVendasNF";
 import FinanceiroNeuralFin from "../components/dashboard/FinanceiroNeuralFin";
@@ -178,9 +179,14 @@ export default function Dashboard() {
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
   const [modoAnual, setModoAnual] = useState(false);
 
+  // ✅ Vendedor (role user) só vê as próprias NFs — vínculo por nome de exibição (display_name)
+  const notasVisiveis = usuario?.role === 'user'
+    ? notasFiscais.filter(n => notaPertenceAoVendedor(n.vendedor, usuario, dadosCompletos.vendedores))
+    : notasFiscais;
+
   // Notas fiscais filtradas pelo período selecionado
   // (ano/mês extraídos da string 'YYYY-MM-DD' — new Date() causava shift de fuso p/ o mês anterior)
-  const notasFiltradas = notasFiscais.filter(n => {
+  const notasFiltradas = notasVisiveis.filter(n => {
     const s = String(n.data_emissao || n.created_date || '').slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(s)) return false;
     const ano = Number(s.slice(0, 4));
@@ -845,9 +851,9 @@ export default function Dashboard() {
               </>
             }
             {viewMode === 'vendedores' &&
-              <PerformanceVendedores dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiltradas} notasTodas={notasFiscais} vendedoresEntidade={vendedoresEntidade} />
+              <PerformanceVendedores dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} usuario={usuario} notasFiscais={notasFiltradas} notasTodas={notasVisiveis} vendedoresEntidade={vendedoresEntidade} />
             }
-            {viewMode === 'clientes' && <AnaliseClientes dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} notasFiscais={notasFiscais} />}
+            {viewMode === 'clientes' && <AnaliseClientes dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} notasFiscais={notasVisiveis} />}
             {viewMode === 'mapa' && <MapaClientes />}
             {viewMode === 'operacional' &&
               <MetricasOperacionais dados={dadosCompletosFiltrados} filtros={filtros} isGerente={isGerente} />

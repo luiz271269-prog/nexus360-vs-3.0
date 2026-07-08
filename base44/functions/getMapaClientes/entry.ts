@@ -79,7 +79,22 @@ Deno.serve(async (req) => {
       const errText = await resp.text();
       return Response.json({ error: `Erro ${resp.status} ao buscar NFes: ${errText.substring(0, 150)}` }, { status: resp.status });
     }
-    const notas = await resp.json();
+    const notasBrutas = await resp.json();
+
+    // ✅ Vendedor (role user) só vê as próprias NFs — vínculo por nome de exibição
+    let notas = notasBrutas;
+    if (user.role === 'user') {
+      const nomeVendedorUser = norm(user.display_name || user.full_name || '');
+      if (nomeVendedorUser) {
+        notas = notasBrutas.filter(n => {
+          const nv = norm(n.vendedor);
+          if (!nv) return false;
+          return nv === nomeVendedorUser ||
+            nv.startsWith(nomeVendedorUser + ' ') ||
+            nomeVendedorUser.startsWith(nv + ' ');
+        });
+      }
+    }
 
     // 2) Índice de localização por nome do cliente (CRM)
     const clientes = await base44.asServiceRole.entities.Cliente.list('-updated_date', 2000);
@@ -170,7 +185,11 @@ Deno.serve(async (req) => {
     }
 
     // 5b) Contatos fidelizados de vendas — quantidade por vendedor + tempo de atividade + localização
-    const contatosFid = await base44.asServiceRole.entities.Contact.filter({ is_cliente_fidelizado: true }, '-ultima_interacao', 2000);
+    // ✅ Vendedor (role user) só vê os próprios fidelizados
+    const filtroFid = user.role === 'user'
+      ? { is_cliente_fidelizado: true, atendente_fidelizado_vendas: user.id }
+      : { is_cliente_fidelizado: true };
+    const contatosFid = await base44.asServiceRole.entities.Contact.filter(filtroFid, '-ultima_interacao', 2000);
     const agora = Date.now();
     const fidelizadosPorVendedor = {};
     const fidelizadosCidadeMap = {};

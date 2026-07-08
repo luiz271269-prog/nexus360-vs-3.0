@@ -449,7 +449,8 @@ function calcularMetricasVendedores(dados, dadosCompletos, usuario, notas, vende
     evolucaoMensal.push({ mes: nomeMs, faturamento: faturamentoMes });
   }
 
-  const nomeUsuario = usuario?.full_name || usuario?.nome || '';
+  // ✅ Usa nome de exibição (display_name) — full_name técnico ("vendas5") não bate com o ranking
+  const nomeUsuario = getNomeExibicao(usuario) || usuario?.full_name || usuario?.nome || '';
 
   return {
     rankingVendedores,
