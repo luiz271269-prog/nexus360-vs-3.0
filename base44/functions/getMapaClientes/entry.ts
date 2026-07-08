@@ -208,12 +208,41 @@ Deno.serve(async (req) => {
     cidades.forEach(c => c.clientes.sort((a, b) => b.valor - a.valor));
     semLoc.sort((a, b) => b.valor - a.valor);
 
-    // Geocoding real por cidade (sequencial para respeitar rate-limit do Nominatim)
-    for (const c of cidades) {
-      c.coord = await geocodeCidade(c.cidade, c.uf);
+    // Geocoding com cache PERSISTENTE (ExternalSourceCache): cada cidade só é
+    // geocodificada no Nominatim uma única vez na vida; depois resolve em 1 leitura de banco.
+    const todasCidadesGeo = [...cidades, ...fidelizadosCidades];
+    const chaveGeo = (c) => `geocode://${normCidade(c.cidade)}|${c.uf}`;
+    const chavesGeo = Array.from(new Set(todasCidadesGeo.map(chaveGeo)));
+    if (chavesGeo.length) {
+      const cacheRows = await base44.asServiceRole.entities.ExternalSourceCache
+        .filter({ source_url: { $in: chavesGeo } }, '-created_date', 500)
+        .catch(() => []);
+      for (const row of cacheRows) {
+        const cs = row.content_structured;
+        if (cs && typeof cs.lat === 'number' && typeof cs.lon === 'number') {
+          geoCache[row.source_url] = [cs.lat, cs.lon];
+        }
+      }
     }
-    for (const c of fidelizadosCidades) {
+    const novosGeo = [];
+    for (const c of todasCidadesGeo) {
+      const key = chaveGeo(c);
+      if (geoCache[key]) { c.coord = geoCache[key]; continue; }
       c.coord = await geocodeCidade(c.cidade, c.uf);
+      if (c.coord) {
+        geoCache[key] = c.coord;
+        novosGeo.push({
+          source_url: key,
+          source_url_hash: key,
+          source_type: 'api_call',
+          content_structured: { lat: c.coord[0], lon: c.coord[1] },
+          metadata: { domain: 'nominatim-geocode' },
+          fetched_at: new Date().toISOString()
+        });
+      }
+    }
+    if (novosGeo.length) {
+      await base44.asServiceRole.entities.ExternalSourceCache.bulkCreate(novosGeo).catch(() => {});
     }
 
     const clientesUnicos = Object.keys(porCliente).length;
