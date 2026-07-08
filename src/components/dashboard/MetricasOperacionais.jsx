@@ -2,13 +2,13 @@ import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import DetalhesModal from "./DetalhesModal";
-import { COLS_ORCAMENTO, COLS_INTERACAO } from "./drilldownColunas";
+import { COLS_ORCAMENTO, COLS_INTERACAO, COLS_THREAD, COLS_NF } from "./drilldownColunas";
 import { Target, TrendingUp, Clock, CheckCircle, AlertCircle, Phone, MessageCircle, Calendar, Users, Mail } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 
-export default function MetricasOperacionais({ dados, filtros, isGerente }) {
+export default function MetricasOperacionais({ dados, filtros, isGerente, notasFiscais, threads }) {
   const dadosFiltrados = aplicarFiltroData(dados, filtros);
-  const metricas = calcularMetricasOperacionais(dadosFiltrados, dados);
+  const metricas = calcularMetricasOperacionais(dadosFiltrados, dados, notasFiscais || [], threads || []);
   const [drill, setDrill] = useState(null);
 
   return (
@@ -21,7 +21,9 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
           subtitulo={`${metricas.vendasFechadas}/${metricas.totalOrcamentos} orçamentos`}
           icon={Target}
           cor="green"
-          onClick={() => setDrill({ title: 'Orçamentos Aprovados', dados: metricas.listaAprovados, colunas: COLS_ORCAMENTO })}
+          onClick={() => setDrill(metricas.usaNotas
+            ? { title: 'Vendas Fechadas (Notas Fiscais)', dados: metricas.listaNotas, colunas: COLS_NF }
+            : { title: 'Orçamentos Aprovados', dados: metricas.listaAprovados, colunas: COLS_ORCAMENTO })}
         />
         <OperacionalKPI
           titulo="Tempo Médio"
@@ -42,10 +44,10 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
         <OperacionalKPI
           titulo="Atividades Hoje"
           valor={metricas.atividadesHoje}
-          subtitulo={`${metricas.ligacoesHoje} ligações realizadas`}
+          subtitulo={metricas.subtituloAtividades}
           icon={Phone}
           cor="orange"
-          onClick={() => setDrill({ title: 'Atividades de Hoje', dados: metricas.listaInteracoesHoje, colunas: COLS_INTERACAO })}
+          onClick={() => setDrill({ title: 'Atividades de Hoje', dados: metricas.listaAtividadesHoje, colunas: metricas.usaThreads ? COLS_THREAD : COLS_INTERACAO })}
         />
       </div>
 
@@ -65,7 +67,7 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
               {metricas.funil.map((etapa, index) => (
                 <div
                   key={index}
-                  onClick={() => setDrill({ title: `${etapa.nome} (${etapa.quantidade})`, dados: etapa.lista || [], colunas: COLS_ORCAMENTO })}
+                  onClick={() => setDrill({ title: `${etapa.nome} (${etapa.quantidade})`, dados: etapa.lista || [], colunas: etapa.colunas || COLS_ORCAMENTO })}
                   className="relative p-3 rounded-lg bg-slate-800/50 border border-slate-700 cursor-pointer hover:bg-slate-700/60 transition-colors"
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -184,7 +186,7 @@ export default function MetricasOperacionais({ dados, filtros, isGerente }) {
               {metricas.atividadesSemana.map((atividade, index) => (
                 <div
                   key={index}
-                  onClick={() => setDrill({ title: `${atividade.nome} da Semana (${atividade.quantidade})`, dados: atividade.lista || [], colunas: COLS_INTERACAO })}
+                  onClick={() => setDrill({ title: `${atividade.nome} da Semana (${atividade.quantidade})`, dados: atividade.lista || [], colunas: metricas.usaThreads ? COLS_THREAD : COLS_INTERACAO })}
                   className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700 cursor-pointer hover:bg-slate-700/60 transition-colors"
                 >
                   <div className="flex items-center gap-3">
@@ -290,16 +292,20 @@ function aplicarFiltroData(dados, filtros) {
 const STATUS_FECHADOS = ['aprovado', 'rejeitado', 'vencido'];
 const ehAberto = (o) => !STATUS_FECHADOS.includes((o.status || '').toLowerCase());
 
-function calcularMetricasOperacionais(dados, dadosCompletos) {
+function calcularMetricasOperacionais(dados, dadosCompletos, notas = [], threads = []) {
   const totalOrcamentos = dados.orcamentos.length;
   const aprovados = dados.orcamentos.filter(o => (o.status || '').toLowerCase() === 'aprovado');
   const orcamentosAprovados = aprovados.length;
-  // Vendas fechadas = orçamentos aprovados (entidade Venda não é usada; vendas reais = NFes/aprovações)
-  const vendasFechadas = orcamentosAprovados;
-  const taxaConversao = totalOrcamentos > 0 ? Math.round((orcamentosAprovados / totalOrcamentos) * 100) : 0;
+  // Vendas fechadas: orçamentos aprovados; sem aprovados, NFs emitidas são a fonte real
+  const usaNotas = orcamentosAprovados === 0 && notas.length > 0;
+  const vendasFechadas = usaNotas ? notas.length : orcamentosAprovados;
+  const taxaConversao = totalOrcamentos > 0 ? Math.min(100, Math.round((vendasFechadas / totalOrcamentos) * 100)) : 0;
 
-  // Tempo médio de fechamento calculado das datas reais dos aprovados
-  const temposFechamento = aprovados
+  // Tempo médio de fechamento: aprovados; sem aprovados, usa todos os orçamentos finalizados
+  const baseTempos = aprovados.length > 0
+    ? aprovados
+    : dados.orcamentos.filter(o => STATUS_FECHADOS.includes((o.status || '').toLowerCase()));
+  const temposFechamento = baseTempos
     .map(o => {
       const inicio = new Date(o.data_orcamento || o.created_date);
       const fim = new Date(o.updated_date || o.created_date);
@@ -327,17 +333,25 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
     i.data_interacao?.slice(0, 10) >= semanaPassada
   );
 
-  const ligacoesHoje = interacoesHoje.filter(i => i.tipo_interacao === 'ligacao').length;
-  const whatsappSemana = interacoesSemana.filter(i => i.tipo_interacao === 'whatsapp').length;
-  const emailsSemana = interacoesSemana.filter(i => i.tipo_interacao === 'email').length;
+  // ✅ Fallback: entidade Interacao vazia → atividade real vem das conversas (MessageThread)
+  const usaThreads = dados.interacoes.length === 0 && threads.length > 0;
+  const threadsHoje = threads.filter(t => (t.last_message_at || '').slice(0, 10) === hoje);
+  const threadsSemana = threads.filter(t => (t.last_message_at || '').slice(0, 10) >= semanaPassada);
+  const threadsCanal = (lista, canal) => lista.filter(t => (t.channel || 'whatsapp') === canal);
+
+  const ligacoesHoje = usaThreads ? threadsCanal(threadsHoje, 'phone').length : interacoesHoje.filter(i => i.tipo_interacao === 'ligacao').length;
+  const whatsappSemana = usaThreads ? threadsCanal(threadsSemana, 'whatsapp').length : interacoesSemana.filter(i => i.tipo_interacao === 'whatsapp').length;
+  const emailsSemana = usaThreads ? threadsCanal(threadsSemana, 'email').length : interacoesSemana.filter(i => i.tipo_interacao === 'email').length;
   const reunioesSemana = interacoesSemana.filter(i => i.tipo_interacao === 'reuniao').length;
-  
-  const atividadesHoje = interacoesHoje.length;
+
+  const atividadesHoje = usaThreads ? threadsHoje.length : interacoesHoje.length;
 
   // Funil de vendas com dados reais
   const totalValorOrcamentos = dados.orcamentos.reduce((acc, o) => acc + (o.valor_total || 0), 0);
   const valorOrcamentosAberto = valorFunilAtivo;
-  const valorVendasFechadas = aprovados.reduce((acc, o) => acc + (o.valor_total || 0), 0);
+  const valorVendasFechadas = usaNotas
+    ? notas.reduce((acc, n) => acc + (n.valor_total || 0), 0)
+    : aprovados.reduce((acc, o) => acc + (o.valor_total || 0), 0);
 
   const funil = [
     {
@@ -364,7 +378,8 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
       nome: 'Vendas Fechadas',
       quantidade: vendasFechadas,
       valor: valorVendasFechadas,
-      lista: aprovados,
+      lista: usaNotas ? notas : aprovados,
+      colunas: usaNotas ? COLS_NF : null,
       percentual: totalOrcamentos > 0 ? Math.round((vendasFechadas / totalOrcamentos) * 100) : 0,
       icon: CheckCircle,
       cor: 'text-green-400',
@@ -428,8 +443,8 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
     { 
       tipo: 'ligacao', 
       nome: 'Ligações',
-      quantidade: interacoesSemana.filter(i => i.tipo_interacao === 'ligacao').length,
-      lista: interacoesSemana.filter(i => i.tipo_interacao === 'ligacao'),
+      quantidade: usaThreads ? threadsCanal(threadsSemana, 'phone').length : interacoesSemana.filter(i => i.tipo_interacao === 'ligacao').length,
+      lista: usaThreads ? threadsCanal(threadsSemana, 'phone') : interacoesSemana.filter(i => i.tipo_interacao === 'ligacao'),
       descricao: 'Ligações realizadas',
       periodo: 'esta semana'
     },
@@ -437,15 +452,15 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
       tipo: 'whatsapp', 
       nome: 'WhatsApp',
       quantidade: whatsappSemana,
-      lista: interacoesSemana.filter(i => i.tipo_interacao === 'whatsapp'),
-      descricao: 'Mensagens enviadas',
+      lista: usaThreads ? threadsCanal(threadsSemana, 'whatsapp') : interacoesSemana.filter(i => i.tipo_interacao === 'whatsapp'),
+      descricao: usaThreads ? 'Conversas com atividade' : 'Mensagens enviadas',
       periodo: 'esta semana'
     },
     { 
       tipo: 'email', 
       nome: 'E-mails',
       quantidade: emailsSemana,
-      lista: interacoesSemana.filter(i => i.tipo_interacao === 'email'),
+      lista: usaThreads ? threadsCanal(threadsSemana, 'email') : interacoesSemana.filter(i => i.tipo_interacao === 'email'),
       descricao: 'E-mails enviados',
       periodo: 'esta semana'
     },
@@ -501,10 +516,14 @@ function calcularMetricasOperacionais(dados, dadosCompletos) {
     statusOrcamentos,
     atividadesSemana,
     proximasAcoes,
+    usaNotas,
+    usaThreads,
+    subtituloAtividades: usaThreads ? 'conversas movimentadas hoje' : `${ligacoesHoje} ligações realizadas`,
+    listaNotas: notas,
     listaOrcamentos: dados.orcamentos,
     listaAprovados: aprovados,
     listaAbertos: dados.orcamentos.filter(ehAberto),
-    listaInteracoesHoje: interacoesHoje
+    listaAtividadesHoje: usaThreads ? threadsHoje : interacoesHoje
   };
 }
 
