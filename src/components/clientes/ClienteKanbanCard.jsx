@@ -174,15 +174,6 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
         {/* Botões de Ação — ícones circulares com rótulo */}
         <div className="flex items-start justify-between pt-1">
           <button
-            onClick={(e) => { e.stopPropagation(); onViewDetails?.(cliente); }}
-            className="flex flex-col items-center gap-1 group/btn"
-          >
-            <span className="w-9 h-9 rounded-full border border-slate-300 bg-white flex items-center justify-center text-slate-700 transition-all duration-150 group-hover/btn:bg-blue-500 group-hover/btn:text-white group-hover/btn:border-blue-500 group-hover/btn:shadow-md">
-              <Eye className="w-4 h-4" />
-            </span>
-            <span className="text-[10px] text-slate-700">Ver</span>
-          </button>
-          <button
             onClick={(e) => { e.stopPropagation(); onEdit(cliente); }}
             className="flex flex-col items-center gap-1 group/btn"
           >
