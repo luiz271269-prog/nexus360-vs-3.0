@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { dedupById } from "../../utils/dedup";
 import { buscarNotasFiscaisExternas } from "@/functions/buscarNotasFiscaisExternas";
-import { CheckCircle, Clock, AlertTriangle, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { DollarSign, ShoppingCart, TrendingUp, Users, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
@@ -106,25 +106,23 @@ export default function MetricasNotasFiscais({ mesSel: mesProp, anoSel: anoProp,
   const fmt = (v) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
   const totalFaturado = notasMes.reduce((s, n) => s + (n.valor_total || 0), 0);
-  const totalRecebido = notasMes.reduce((s, n) => s + (n.valor_recebido || 0), 0);
-  const totalAberto = notasMes.reduce((s, n) => s + (n.valor_aberto || 0), 0);
-  const vencidas = notasMes.filter(n => n.status === 'vencido');
-  const aVencer = notasMes.filter(n => n.status === 'a_vencer');
-  const pagas = notasMes.filter(n => n.status === 'pago');
+  const qtdVendas = notasMes.length;
+  const ticketMedio = qtdVendas > 0 ? totalFaturado / qtdVendas : 0;
+  const clientesFaturados = new Set(notasMes.map(n => (n.cliente || '').trim().toLowerCase()).filter(Boolean)).size;
 
   const cards = [
-    { titulo: 'Total Faturado', valor: fmt(totalFaturado), sub: `${notasMes.length} notas`, cor: 'from-slate-700 to-slate-600', icon: FileText },
-    { titulo: 'Recebido', valor: fmt(totalRecebido), sub: `${pagas.length} pagas`, cor: 'from-emerald-800 to-emerald-700', icon: CheckCircle },
-    { titulo: 'Em Aberto', valor: fmt(totalAberto), sub: `${aVencer.length} a vencer`, cor: 'from-amber-800 to-amber-700', icon: Clock },
-    { titulo: 'Vencidas', valor: fmt(vencidas.reduce((s,n) => s+(n.valor_aberto||0),0)), sub: `${vencidas.length} NFs`, cor: 'from-red-800 to-red-700', icon: AlertTriangle },
+    { titulo: 'Faturamento', valor: fmt(totalFaturado), sub: modoAnual ? `Ano ${anoFinal}` : `${MESES[mesFinal]}/${anoFinal}`, cor: 'from-emerald-800 to-emerald-700', icon: DollarSign },
+    { titulo: 'Vendas', valor: String(qtdVendas), sub: 'notas emitidas', cor: 'from-slate-700 to-slate-600', icon: ShoppingCart },
+    { titulo: 'Ticket Médio', valor: fmt(ticketMedio), sub: 'por venda', cor: 'from-blue-800 to-blue-700', icon: TrendingUp },
+    { titulo: 'Clientes', valor: String(clientesFaturados), sub: 'faturados', cor: 'from-purple-800 to-purple-700', icon: Users },
   ];
 
   return (
     <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-5 border border-slate-700">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-base font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent flex items-center gap-2">
-          <FileText className="w-5 h-5 text-amber-400" />
-          Notas Fiscais — Neural Fin Flow
+          <DollarSign className="w-5 h-5 text-amber-400" />
+          Vendas Faturadas (NF)
         </h2>
         <div className="flex items-center gap-2">
           <button onClick={() => irMes(-1)} className="w-7 h-7 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-300">
@@ -182,14 +180,7 @@ export default function MetricasNotasFiscais({ mesSel: mesProp, anoSel: anoProp,
                 <span className="text-slate-200 truncate">{n.cliente}</span>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-slate-300 font-semibold">{fmt(n.valor_total)}</span>
-                <Badge className={`text-xs ${
-                  n.status === 'pago' ? 'bg-emerald-800 text-emerald-200' :
-                  n.status === 'vencido' ? 'bg-red-800 text-red-200' :
-                  'bg-amber-800 text-amber-200'
-                }`}>
-                  {n.status === 'pago' ? 'Pago' : n.status === 'vencido' ? 'Vencido' : 'A Vencer'}
-                </Badge>
+                <span className="text-emerald-300 font-semibold">{fmt(n.valor_total)}</span>
               </div>
             </div>
           ))}
