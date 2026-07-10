@@ -11,6 +11,7 @@ import { atualizarStatusOrcamento } from '@/functions/atualizarStatusOrcamento';
 import OrcamentoTagModal from './OrcamentoTagModal';
 import OrcamentoChatDrawer from './OrcamentoChatDrawer';
 import RejeicaoMotivoModal from './RejeicaoMotivoModal';
+import LegendaTotalizadoresOrcamentos, { classificarOrcamento } from './LegendaTotalizadoresOrcamentos';
 
 const statusLabels = {
   rascunho: 'Rascunho',
@@ -293,6 +294,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   const [localOrcamentos, setLocalOrcamentos] = useState(null);
   const [savingId, setSavingId] = useState(null);
   const [rejeicaoPendente, setRejeicaoPendente] = useState(null); // { orcamento, novoStatus, novaOrdem }
+  const [categoriaPrioritaria, setCategoriaPrioritaria] = useState(null); // 'criticos' | 'vermelhos' | 'amarelos' | 'ativos' | null
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -346,10 +348,18 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     return todos.reduce((acc, status) => {
       acc[status] = orcamentos
         .filter((o) => o.status === status)
-        .sort((a, b) => (a.kanban_order ?? Infinity) - (b.kanban_order ?? Infinity));
+        .sort((a, b) => {
+          // Se há categoria priorizada, os orçamentos dela sobem para o topo
+          if (categoriaPrioritaria) {
+            const aPrio = classificarOrcamento(a) === categoriaPrioritaria ? 0 : 1;
+            const bPrio = classificarOrcamento(b) === categoriaPrioritaria ? 0 : 1;
+            if (aPrio !== bPrio) return aPrio - bPrio;
+          }
+          return (a.kanban_order ?? Infinity) - (b.kanban_order ?? Infinity);
+        });
       return acc;
     }, {});
-  }, [orcamentos]);
+  }, [orcamentos, categoriaPrioritaria]);
 
   const onDragEnd = useCallback(async (result) => {
     // Remove o foco do card ao soltar — a lib devolve o foco para o drag handle,
@@ -517,6 +527,11 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="space-y-1">
+        <LegendaTotalizadoresOrcamentos
+          orcamentos={orcamentos}
+          categoriaAtiva={categoriaPrioritaria}
+          onSelecionar={setCategoriaPrioritaria}
+        />
         {(() => {
           const etapasFiltradas = Object.entries(etapasFluxo).filter(
             ([key]) => !etapasVisiveis || etapasVisiveis.includes(key)
