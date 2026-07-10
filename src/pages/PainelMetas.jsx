@@ -5,8 +5,8 @@ import { getNomeExibicao, normalizarNome } from "@/components/lib/vendedorSync";
 import BrutalCard from "@/components/metas/BrutalCard";
 import MetaVendedorCard from "@/components/metas/MetaVendedorCard";
 import EvolucaoReceitaChart from "@/components/metas/EvolucaoReceitaChart";
-import RankingVendedores from "@/components/metas/RankingVendedores";
-import { Target, TrendingUp, Loader2, Trophy } from "lucide-react";
+import RankingMetasNF from "@/components/metas/RankingMetasNF";
+import { Target, TrendingUp, Loader2, Trophy, CalendarDays, CalendarRange } from "lucide-react";
 
 const fmt = (v) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -16,6 +16,9 @@ export default function PainelMetas() {
   const [vendedores, setVendedores] = useState([]); // { nome, realizado, meta }
   const [evolucao, setEvolucao] = useState([]);      // { mes, receita }
   const [totais, setTotais] = useState({ realizado: 0, meta: 0 });
+  const [notasTodas, setNotasTodas] = useState([]);  // NFs cruas (para ranking mensal/semanal)
+  const [usersVendedores, setUsersVendedores] = useState([]); // users com meta/codigo
+  const [periodo, setPeriodo] = useState('mensal');  // 'mensal' | 'semanal'
 
   useEffect(() => {
     let ativo = true;
@@ -71,6 +74,8 @@ export default function PainelMetas() {
           setVendedores(lista);
           setEvolucao(evo);
           setTotais({ realizado: totalRealizado, meta: totalMeta });
+          setNotasTodas(notas);
+          setUsersVendedores(vendedoresUsers);
         }
       } catch (e) {
         console.error('Erro ao carregar painel de metas:', e);
@@ -126,12 +131,29 @@ export default function PainelMetas() {
         </BrutalCard>
       </div>
 
-      {/* Ranking de performance — meta × realizado */}
+      {/* Ranking de progresso da meta (NF) — líder × precisa reforço */}
       <div>
-        <h2 className="font-black text-xl uppercase mb-3 bg-black text-white inline-block px-3 py-1 flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-yellow-400" /> Ranking de Performance
-        </h2>
-        <RankingVendedores vendedores={vendedores} />
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h2 className="font-black text-xl uppercase bg-black text-white px-3 py-1 flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-yellow-400" /> Ranking de Progresso da Meta
+          </h2>
+          {/* Toggle Mensal / Semanal */}
+          <div className="flex border-4 border-black shadow-[4px_4px_0_0_#000]">
+            <button
+              onClick={() => setPeriodo('mensal')}
+              className={`flex items-center gap-1.5 px-4 py-2 font-black uppercase text-sm ${periodo === 'mensal' ? 'bg-black text-white' : 'bg-white text-black'}`}
+            >
+              <CalendarDays className="w-4 h-4" /> Mensal
+            </button>
+            <button
+              onClick={() => setPeriodo('semanal')}
+              className={`flex items-center gap-1.5 px-4 py-2 font-black uppercase text-sm border-l-4 border-black ${periodo === 'semanal' ? 'bg-black text-white' : 'bg-white text-black'}`}
+            >
+              <CalendarRange className="w-4 h-4" /> Semanal
+            </button>
+          </div>
+        </div>
+        <RankingMetasNF notas={notasTodas} vendedores={usersVendedores} periodo={periodo} />
       </div>
 
       {/* Evolução da receita */}
