@@ -4,11 +4,20 @@ import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import OrcamentoChatDrawer from './OrcamentoChatDrawer';
 import OrcamentoHistoricoDrawer from './OrcamentoHistoricoDrawer';
+import { classificarOrcamento } from './LegendaTotalizadoresOrcamentos';
 
 const probCores = {
   'Alta':  'bg-emerald-50 text-emerald-700 border-emerald-200',
   'Média': 'bg-amber-50 text-amber-700 border-amber-200',
   'Baixa': 'bg-red-50 text-red-700 border-red-200',
+};
+
+// Cores da bolinha de dias parado por categoria
+const bolinhaCores = {
+  criticos:  'bg-slate-900 text-white',
+  vermelhos: 'bg-red-500 text-white',
+  amarelos:  'bg-amber-400 text-amber-900',
+  ativos:    'bg-emerald-500 text-white',
 };
 
 export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
@@ -49,6 +58,14 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
 
   const temTelefone = orcamento.cliente_telefone || orcamento.cliente_celular;
   const probCor = probCores[orcamento.probabilidade] || probCores['Média'];
+
+  // Dias parado + categoria da bolinha (⚫🔴🟡🟢)
+  const refData = orcamento.data_orcamento || orcamento.created_date;
+  const diasParado = refData
+    ? Math.floor((Date.now() - new Date(refData).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const categoriaBolinha = classificarOrcamento(orcamento);
+  const bolinhaCor = bolinhaCores[categoriaBolinha] || 'bg-slate-300 text-slate-700';
   // Mostrar apenas primeiro nome do vendedor
   const vendedorNome = (orcamento.vendedor || '').split(' ')[0] || null;
   const dataFormatada = formatDate(orcamento.data_orcamento);
@@ -72,12 +89,20 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
       )}
 
       <div className="p-2 space-y-0.5">
-        {/* Linha 1: Nome + menu */}
+        {/* Linha 1: Nome + bolinha de dias parado */}
         <div className="flex items-start justify-between gap-1">
           <h4 className="font-semibold text-slate-800 text-xs leading-tight truncate flex-1 uppercase tracking-tight">
             {orcamento.cliente_nome || '—'}
           </h4>
-
+          {diasParado !== null && (
+            <span
+              title={`${diasParado} dia(s) parado nesta etapa`}
+              className={`flex-shrink-0 w-7 h-7 rounded-full flex flex-col items-center justify-center leading-none shadow-sm ${bolinhaCor}`}
+            >
+              <span className="text-[11px] font-black">{diasParado}</span>
+              <span className="text-[6px] font-semibold uppercase opacity-80">dias</span>
+            </span>
+          )}
         </div>
 
         {/* Linha 2: Número + Valor */}
