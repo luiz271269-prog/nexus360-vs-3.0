@@ -764,7 +764,7 @@ export default function Dashboard() {
 
           <button
             onClick={() => {
-              navigate(createPageUrl('Clientes'));
+              navigate(createPageUrl('LeadsQualificados'));
               base44.analytics.track({ eventName: "dashboard_kanban_clicked", properties: { kanban: "clientes" } });
             }}
             className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-4 rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200 text-left">

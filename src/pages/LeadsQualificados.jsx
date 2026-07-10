@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import ClienteKanban from "../components/clientes/ClienteKanban";
 import ClienteTable from "../components/clientes/ClienteTable";
 import ClienteForm from "../components/clientes/ClienteForm";
+import GestaoClientesPanel from "../components/clientes/GestaoClientesPanel";
 import { listarVendedoresParaSelect, sincronizarClientesComVendedores, sincronizarOrcamentosComUsuarios, getNomeExibicao } from '../components/lib/vendedorSync';
 import { validarMudancaStatus, getMensagemMotivacional, getProximaAcaoSugerida } from '../components/clientes/ClienteFormValidation';
 import OrcamentoKanbanOptimized from "../components/orcamentos/OrcamentoKanbanOptimized";
@@ -368,7 +369,8 @@ export default function LeadsQualificados() {
   };
 
   const verDetalhes = (cliente) => {
-    window.open(`/Clientes?id=${cliente.id}`, '_blank');
+    // Abre a Central na aba de Clientes (a página dedicada foi unificada aqui)
+    setActiveTab('clientes');
   };
 
   const handleDeleteOrcamento = async (id) => {
@@ -736,16 +738,12 @@ export default function LeadsQualificados() {
                 }
                 </TabsContent>
 
-                {/* TAB: CLIENTES ATIVOS */}
+                {/* TAB: CLIENTES ATIVOS — painel completo de Gestão de Clientes */}
                 <TabsContent value="clientes" className="space-y-2 mt-2">
-                <ClienteKanban
-                clientes={clientesAtivos}
-                scores={scoresParaKanban}
-                onStatusChange={handleStatusChange}
-                onEdit={handleEditarCliente}
-                loading={loadingClientes}
-                verDetalhes={verDetalhes}
-                mode="clientes" />
+                <GestaoClientesPanel
+                usuarioAtual={usuarioAtual}
+                vendedores={atendentes}
+                />
                 </TabsContent>
 
                 {/* TAB: PIPELINE DE ORÇAMENTOS */}

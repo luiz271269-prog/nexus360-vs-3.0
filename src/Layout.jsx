@@ -339,7 +339,6 @@ export default function Layout({ children, currentPageName }) {
     { name: "Central de Comunicacao", icon: MessageSquare, page: "Comunicacao" },
     { name: "Contatos Inteligentes", icon: Target, page: "ContatosInteligentes" },
     { name: "CRM - Kanban", icon: Briefcase, page: "LeadsQualificados" },
-    { name: "Clientes", icon: Building2, page: "Clientes" },
     { name: "Metas de Vendas", icon: Users, page: "Vendedores" },
     { name: "Agenda Inteligente", icon: Calendar, page: "Agenda" },
     { name: "Produtos", icon: Package, page: "Produtos" },
@@ -390,17 +389,17 @@ export default function Layout({ children, currentPageName }) {
       if (setor === 'vendas') {
         return todosMenuItems.filter(item => [
           'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Vendedores', 
-          'Clientes', 'Agenda', 'Produtos', 'Automacoes', 'NotasFiscais'
+          'Agenda', 'Produtos', 'Automacoes', 'NotasFiscais'
         ].includes(item.page));
         }
         if (setor === 'assistencia') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'Automacoes', 'NotasFiscais'
+          'Comunicacao', 'LeadsQualificados', 'Agenda', 'Dashboard', 'Produtos', 'Automacoes', 'NotasFiscais'
         ].includes(item.page));
         }
         if (setor === 'fornecedor') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'Clientes', 'Agenda', 'Automacoes', 'NotasFiscais'
+          'Comunicacao', 'Produtos', 'Importacao', 'Dashboard', 'LeadsQualificados', 'Agenda', 'Automacoes', 'NotasFiscais'
         ].includes(item.page));
         }
         if (setor === 'compras') {
@@ -410,7 +409,7 @@ export default function Layout({ children, currentPageName }) {
         }
         // Gerência geral
         return todosMenuItems.filter(item => [
-        'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Clientes', 
+        'Comunicacao', 'Dashboard', 'LeadsQualificados', 
         'Vendedores', 'Produtos', 'Agenda', 'Automacoes', 'NotasFiscais'
         ].includes(item.page));
         }
@@ -419,13 +418,13 @@ export default function Layout({ children, currentPageName }) {
     if (nivelAtendente === 'senior') {
       if (setor === 'vendas') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'LeadsQualificados', 'Vendedores', 'Clientes', 
+          'Comunicacao', 'LeadsQualificados', 'Vendedores', 
           'Agenda', 'Dashboard', 'Produtos', 'NotasFiscais'
         ].includes(item.page));
       }
       if (setor === 'assistencia') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Clientes', 'Agenda', 'Dashboard', 'Produtos', 'NotasFiscais'
+          'Comunicacao', 'LeadsQualificados', 'Agenda', 'Dashboard', 'Produtos', 'NotasFiscais'
         ].includes(item.page));
       }
       if (setor === 'compras') {
@@ -444,7 +443,7 @@ export default function Layout({ children, currentPageName }) {
     }
     if (setor === 'assistencia') {
       return todosMenuItems.filter(item => [
-        'Comunicacao', 'Clientes', 'Produtos', 'Agenda', 'Dashboard', 'NotasFiscais'
+        'Comunicacao', 'LeadsQualificados', 'Produtos', 'Agenda', 'Dashboard', 'NotasFiscais'
       ].includes(item.page));
     }
     if (setor === 'compras') {
@@ -454,13 +453,13 @@ export default function Layout({ children, currentPageName }) {
     }
     if (setor === 'fornecedor') {
       return todosMenuItems.filter(item => [
-        'Comunicacao', 'Produtos', 'Clientes', 'Agenda', 'Dashboard', 'NotasFiscais'
+        'Comunicacao', 'Produtos', 'LeadsQualificados', 'Agenda', 'Dashboard', 'NotasFiscais'
       ].includes(item.page));
     }
 
     // Usuário padrão (fallback)
     return todosMenuItems.filter(item => [
-      'Comunicacao', 'Dashboard', 'Clientes', 'Agenda'
+      'Comunicacao', 'Dashboard', 'LeadsQualificados', 'Agenda'
     ].includes(item.page));
   };
 

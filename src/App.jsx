@@ -204,6 +204,7 @@ const AuthenticatedApp = () => {
         />
         <Route path="/PortalCliente" element={<PortalCliente />} />
         <Route path="/MinhaCaixaEmail" element={<Navigate to="/Emails" replace />} />
+        <Route path="/Clientes" element={<Navigate to="/LeadsQualificados" replace />} />
         <Route path="/orcamentos" element={<Navigate to="/LeadsQualificados" replace />} />
         <Route path="*" element={<PageNotFound />} />
       </Routes>

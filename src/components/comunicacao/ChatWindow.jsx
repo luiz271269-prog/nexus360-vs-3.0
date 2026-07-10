@@ -1271,7 +1271,7 @@ export default function ChatWindow({
           if (threadData.contact_id && novoCliente?.id) {
             await base44.entities.Contact.update(threadData.contact_id, { cliente_id: novoCliente.id });
           }
-          toast.dismiss(toastId); toast.success('👥 Cliente criado!', { duration: 5000, action: { label: 'Ver Clientes', onClick: () => navigate(createPageUrl('Clientes')) } }); return;
+          toast.dismiss(toastId); toast.success('👥 Cliente criado!', { duration: 5000, action: { label: 'Ver Clientes', onClick: () => navigate(createPageUrl('LeadsQualificados')) } }); return;
         }
         const response = await base44.functions.invoke('criarOportunidadeDoChat', { message_id: mensagem.id, thread_id: threadData.id, contact_id: threadData.contact_id, cliente_nome: contatoCompleto.nome || '', cliente_telefone: contatoCompleto.telefone || '', cliente_email: contatoCompleto.email || '', vendedor: usuario?.full_name || '', status: statusInicial, valor_total: dadosExtraidos?.valor_total || 0, produtos: dadosExtraidos?.itens?.map(i => ({ nome: i.nome_produto || '', quantidade: i.quantidade || 1, valor_unitario: i.valor_unitario || 0, valor_total: (i.quantidade || 1) * (i.valor_unitario || 0) })) || [], observacoes: obs, media_url: mensagem.media_url || '', media_type: mensagem.media_type || 'text' });
         if (!response?.data?.success) throw new Error(response?.data?.error || 'Erro ao criar');
