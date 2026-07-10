@@ -43,7 +43,24 @@ export default function LeadsQualificados() {
   const [editingCliente, setEditingCliente] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [mostrarTodosMeses, setMostrarTodosMeses] = useState(false); // false = só mês corrente
+  // Filtro de mês: 'atual' = mês corrente (com etapas abertas sempre visíveis) | 'todos' | 'YYYY-MM' de um mês anterior
+  const [filtroMes, setFiltroMes] = useState('atual');
+
+  // Últimos 12 meses (do atual para trás) para o dropdown
+  const opcoesMeses = useMemo(() => {
+    const meses = [];
+    const agora = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
+      const valor = i === 0 ? 'atual' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      meses.push({ valor, label: i === 0 ? `📅 ${label} (atual)` : label });
+    }
+    return meses;
+  }, []);
+
+  // Status finalizados: só aparecem no mês corrente se a DATA for do mês atual
+  const STATUS_FINALIZADOS = ['aprovado', 'rejeitado', 'vencido'];
 
   const navigate = useNavigate();
 
@@ -491,17 +508,29 @@ export default function LeadsQualificados() {
 
     const matchesStatus = filterStatus === 'all' || orcamento.status === filterStatus;
 
-    // ── FILTRO MÊS CORRENTE (flag "mostrar todos" desliga) ──
-    if (!mostrarTodosMeses) {
+    // ── FILTRO DE MÊS ──
+    // 'todos' = sem filtro de data. 'atual' = mês corrente + etapas abertas sempre visíveis.
+    // 'YYYY-MM' = mês anterior específico (filtra estritamente pela data).
+    if (filtroMes !== 'todos') {
       const ref = orcamento.data_orcamento || orcamento.created_date;
-      if (!ref) return false;
-      const d = new Date(ref);
-      const agora = new Date();
-      if (d.getMonth() !== agora.getMonth() || d.getFullYear() !== agora.getFullYear()) return false;
+      const d = ref ? new Date(ref) : null;
+
+      if (filtroMes === 'atual') {
+        const agora = new Date();
+        const ehMesAtual = d && d.getMonth() === agora.getMonth() && d.getFullYear() === agora.getFullYear();
+        const ehAberto = !STATUS_FINALIZADOS.includes(orcamento.status);
+        // Mês corrente: mostra se a data é do mês atual OU se está em etapa aberta (negociação viva)
+        if (!ehMesAtual && !ehAberto) return false;
+      } else {
+        // Mês anterior específico: filtra estritamente pela data
+        if (!d) return false;
+        const [ano, mes] = filtroMes.split('-').map(Number);
+        if (d.getFullYear() !== ano || d.getMonth() !== (mes - 1)) return false;
+      }
     }
 
     return matchesSearch && matchesStatus;
-  }), [orcamentos, usuarioAtual, podeVerTodos, vendedorDoUsuario, filtroVendedorGlobal, atendentes, searchTerm, filterStatus, mostrarTodosMeses]);
+  }), [orcamentos, usuarioAtual, podeVerTodos, vendedorDoUsuario, filtroVendedorGlobal, atendentes, searchTerm, filterStatus, filtroMes]);
 
   const scoresParaKanban = clientesScores || [];
 
@@ -645,16 +674,16 @@ export default function LeadsQualificados() {
                 </div>
 
                 {(activeTab === 'orcamentos' || activeTab === 'cotacoes') && (
-                  <button
-                    onClick={() => setMostrarTodosMeses(v => !v)}
-                    title={mostrarTodosMeses ? 'Mostrando todos os meses' : 'Mostrando apenas o mês atual'}
-                    className={`h-7 px-2.5 text-[11px] rounded-md font-semibold border transition-all whitespace-nowrap ${
-                      mostrarTodosMeses
-                        ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-                        : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-700'
-                    }`}>
-                    📅 {mostrarTodosMeses ? 'Todos os meses' : 'Só mês atual'}
-                  </button>
+                  <select
+                    value={filtroMes}
+                    onChange={(e) => setFiltroMes(e.target.value)}
+                    title="Filtrar por mês (etapas abertas sempre aparecem no mês atual)"
+                    className="h-7 px-2 text-[11px] bg-slate-800/60 border border-slate-700 rounded-md text-white capitalize font-semibold whitespace-nowrap">
+                    <option value="todos">Todos os meses</option>
+                    {opcoesMeses.map((m) => (
+                      <option key={m.valor} value={m.valor} className="capitalize">{m.label}</option>
+                    ))}
+                  </select>
                 )}
 
                 {activeTab === 'orcamentos' && (
