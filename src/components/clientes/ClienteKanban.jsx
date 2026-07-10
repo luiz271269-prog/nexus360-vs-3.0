@@ -1,8 +1,8 @@
-
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Badge } from '@/components/ui/badge';
 import ClienteKanbanCard from './ClienteKanbanCard';
+import LegendaTotalizadoresClientes, { classificarCliente } from './LegendaTotalizadoresClientes';
 import {
   UserPlus,
   Phone,
@@ -155,6 +155,18 @@ export default function ClienteKanban({
 
   const statusConfig = mode === 'leads' ? statusConfigLeads : statusConfigClientes;
 
+  const [categoriaPrioritaria, setCategoriaPrioritaria] = useState(null); // 'criticos' | 'vermelhos' | 'amarelos' | 'ativos' | null
+
+  // Ordena os clientes de uma coluna trazendo a categoria priorizada para o topo
+  const ordenarComPrioridade = (lista) => {
+    if (!categoriaPrioritaria) return lista;
+    return [...lista].sort((a, b) => {
+      const aPrio = classificarCliente(a) === categoriaPrioritaria ? 0 : 1;
+      const bPrio = classificarCliente(b) === categoriaPrioritaria ? 0 : 1;
+      return aPrio - bPrio;
+    });
+  };
+
   const onDragEnd = async (result) => {
     const { source, destination, draggableId } = result;
 
@@ -181,6 +193,13 @@ export default function ClienteKanban({
 
   return (
     <div className="space-y-3">
+      {/* Legenda com totalizadores por dias parados — clique prioriza a categoria no topo das colunas */}
+      <LegendaTotalizadoresClientes
+        clientes={Array.isArray(clientes) ? clientes : []}
+        categoriaAtiva={categoriaPrioritaria}
+        onSelecionar={setCategoriaPrioritaria}
+      />
+
       {/* 🔥 BARRA DE PROGRESSO VISUAL INDUTIVA (somente para leads) */}
       {mode === 'leads' &&
       <div className="bg-sky-800 p-4 opacity-95 rounded-2xl from-white via-orange-50/30 to-white border border-orange-200/50 shadow-lg">
@@ -235,13 +254,13 @@ export default function ClienteKanban({
         <div className="flex gap-2 overflow-x-auto pb-2">
           {statusConfig.map((status) => {
             const clientesArray = Array.isArray(clientes) ? clientes : [];
-            const clientesDoStatus = clientesArray.filter((c) => c.status === status.id);
+            const clientesDoStatus = ordenarComPrioridade(clientesArray.filter((c) => c.status === status.id));
             const IconComponent = status.icon;
 
             return (
               <div
                 key={status.id}
-                className="flex-shrink-0 w-[240px] rounded-xl overflow-hidden shadow-lg border border-slate-200">
+                className="flex-shrink-0 w-[300px] rounded-xl overflow-hidden shadow-lg border border-slate-200">
 
                 {/* 🔥 HEADER DA COLUNA - GRADIENTE SUAVE */}
                 <div className={`bg-gradient-to-br ${status.gradient} border-b-2 ${status.borderGlow} p-2`}>
