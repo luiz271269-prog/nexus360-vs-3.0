@@ -423,17 +423,18 @@ export default function LeadsQualificados() {
   const isSupervisor = usuarioAtual?.attendant_role === 'senior';
   const podeVerTodos = isAdmin || isGestor || isSupervisor;
 
-  // Resolve o nome do vendedor a aplicar no filtro global
-  const resolverFiltroVendedor = (campoVendedor) => {
+  // Resolve o ID do usuário responsável a aplicar no filtro global (fonte de verdade: usuario_id)
+  const resolverFiltroVendedorId = () => {
     if (!podeVerTodos) {
       // Usuário comum: sempre vê apenas os seus
-      if (!vendedorDoUsuario) return null; // ainda carregando
-      return vendedorDoUsuario;
+      if (!usuarioAtual) return null; // ainda carregando
+      return usuarioAtual.id;
     }
     // Admin/gestor/supervisor: aplica filtro global
     if (filtroVendedorGlobal === 'todos') return null;
-    if (filtroVendedorGlobal === 'meus') return vendedorDoUsuario;
-    return filtroVendedorGlobal;
+    if (filtroVendedorGlobal === 'meus') return usuarioAtual?.id || null;
+    // Filtro por vendedor específico: label → id via lista de atendentes
+    return atendentes.find(a => a.label === filtroVendedorGlobal)?.value || null;
   };
 
   const leadsFiltrados = (clientes || []).filter((c) => {
@@ -442,8 +443,8 @@ export default function LeadsQualificados() {
       'lead_qualificado', 'desqualificado'].includes(c.status);
     if (!isLead) return false;
 
-    const vendedorFiltro = resolverFiltroVendedor(c.vendedor_responsavel);
-    if (vendedorFiltro && c.vendedor_responsavel !== vendedorFiltro) return false;
+    const vendedorIdFiltro = resolverFiltroVendedorId();
+    if (vendedorIdFiltro && c.usuario_id !== vendedorIdFiltro) return false;
 
     if (filtrosLeads.busca) {
       const busca = filtrosLeads.busca.toLowerCase();
@@ -462,8 +463,8 @@ export default function LeadsQualificados() {
     const isCliente = ['Prospect', 'Ativo', 'Em Risco', 'Promotor'].includes(c.status);
     if (!isCliente) return false;
 
-    const vendedorFiltro = resolverFiltroVendedor(c.vendedor_responsavel);
-    if (vendedorFiltro && c.vendedor_responsavel !== vendedorFiltro) return false;
+    const vendedorIdFiltro = resolverFiltroVendedorId();
+    if (vendedorIdFiltro && c.usuario_id !== vendedorIdFiltro) return false;
 
     if (filtrosClientes.busca) {
       const busca = filtrosClientes.busca.toLowerCase();
