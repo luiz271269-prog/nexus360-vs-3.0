@@ -26,7 +26,7 @@ import { Vendedor } from "@/entities/Vendedor";
 import { Produto } from "@/entities/Produto";
 import { Orcamento } from "@/entities/Orcamento";
 import { Venda } from "@/entities/Venda";
-import { MotorRAG } from "../inteligencia/MotorRAG";
+
 
 /**
  * StressTest - Testes de Carga e Performance
@@ -63,12 +63,6 @@ export default function StressTest() {
       label: 'Misto (Recomendado)',
       descricao: 'Combina leitura e escrita de forma balanceada',
       icon: Activity
-    },
-    { 
-      value: 'ai_intensive', 
-      label: 'IA Intensiva',
-      descricao: 'Testa busca RAG e processamento IA',
-      icon: Zap
     }
   ];
 
@@ -222,8 +216,7 @@ export default function StressTest() {
     const operacoes = {
       read_only: ['list_clientes', 'list_produtos', 'list_vendas', 'list_orcamentos'],
       write_heavy: ['create_cliente', 'update_cliente', 'create_produto', 'create_orcamento'],
-      mixed: ['list_clientes', 'list_produtos', 'create_cliente', 'list_vendas', 'create_produto'],
-      ai_intensive: ['rag_busca', 'rag_busca', 'list_clientes', 'rag_busca']
+      mixed: ['list_clientes', 'list_produtos', 'create_cliente', 'list_vendas', 'create_produto']
     };
 
     const ops = operacoes[tipoTeste] || operacoes.mixed;
@@ -288,10 +281,6 @@ export default function StressTest() {
           status: "rascunho"
         });
         await Orcamento.delete(orcamento.id);
-        break;
-
-      case 'rag_busca':
-        await MotorRAG.buscarConhecimento("teste stress", { limite: 3 });
         break;
 
       default:

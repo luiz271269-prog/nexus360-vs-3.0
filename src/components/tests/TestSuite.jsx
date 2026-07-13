@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { base44 } from "@/api/base44Client";
 
 // Importar módulos a serem testados
-import { MotorRAG } from "../inteligencia/MotorRAG";
+
 import { ExecutorFluxos } from "../automacao/ExecutorFluxos";
 import MotorInteligencia from "../agenda/MotorInteligencia";
 
@@ -106,27 +106,7 @@ export default function TestSuite() {
     },
     
     // ===== TESTES DE IA =====
-    {
-      categoria: "Inteligência Artificial",
-      nome: "Motor RAG - Busca",
-      descricao: "Validar busca de conhecimento",
-      teste: async () => {
-        const resultado = await MotorRAG.buscarConhecimento(
-          "Como fazer um orçamento?",
-          { limite: 3 }
-        );
-        
-        if (!Array.isArray(resultado)) {
-          throw new Error("RAG não retornou array");
-        }
-        
-        return { 
-          sucesso: true, 
-          detalhes: `Encontrou ${resultado.length} documentos relevantes` 
-        };
-      }
-    },
-    
+
     {
       categoria: "Inteligência Artificial",
       nome: "Score de Confiança",
@@ -306,26 +286,6 @@ export default function TestSuite() {
         return { 
           sucesso: true, 
           detalhes: `${produtos.length} produtos em ${tempo}ms` 
-        };
-      }
-    },
-    
-    {
-      categoria: "Performance",
-      nome: "RAG - Velocidade de Busca",
-      descricao: "Medir tempo de busca no RAG",
-      teste: async () => {
-        const inicio = Date.now();
-        await MotorRAG.buscarConhecimento("teste performance", { limite: 5 });
-        const tempo = Date.now() - inicio;
-        
-        if (tempo > 5000) {
-          throw new Error(`Busca RAG muito lenta: ${tempo}ms`);
-        }
-        
-        return { 
-          sucesso: true, 
-          detalhes: `Busca completada em ${tempo}ms` 
         };
       }
     }
