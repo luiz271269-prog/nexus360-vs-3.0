@@ -18,7 +18,7 @@ export default function Fase2Documentacao() {
                   FASE 2 - IMPLEMENTADA ✅
                 </h1>
                 <p className="text-lg text-gray-600 mt-1">
-                  NLU + RAG + Autoatendimento Inteligente
+                  NLU + Base de Conhecimento + Autoatendimento Inteligente
                 </p>
               </div>
             </div>
@@ -99,7 +99,7 @@ export default function Fase2Documentacao() {
             {/* RAG */}
             <div className="border-l-4 border-purple-500 pl-4">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                2. Sistema RAG (Autoatendimento)
+                2. Base de Conhecimento (Autoatendimento)
               </h3>
               <p className="text-gray-600 mb-3">
                 📁 <code className="bg-gray-100 px-2 py-1 rounded">functions/lib/NexusEngineProxy.js → queryRAG()</code>
@@ -190,7 +190,7 @@ export default function Fase2Documentacao() {
                   <div className="bg-green-100 rounded-lg p-4 border-2 border-green-500">
                     <div className="font-semibold text-green-900 mb-1 flex items-center gap-2">
                       <Zap className="w-5 h-5" />
-                      GATEKEEPER IA: NLU + RAG
+                      GATEKEEPER IA: NLU + Base de Conhecimento
                     </div>
                     <div className="text-sm text-green-700 font-semibold">FASE 2 - NOVO!</div>
                   </div>
@@ -198,7 +198,7 @@ export default function Fase2Documentacao() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-purple-50 rounded-lg p-4 border border-purple-300">
                       <div className="font-semibold text-purple-900 mb-2">FAQ?</div>
-                      <div className="text-sm text-purple-700">→ RAG AUTO</div>
+                      <div className="text-sm text-purple-700">→ CONSULTA À BASE</div>
                       <div className="text-xs text-purple-600 mt-1">Thread: COMPLETED_AUTO</div>
                     </div>
                     
@@ -246,7 +246,7 @@ export default function Fase2Documentacao() {
                 </div>
                 <div className="flex justify-center">↓</div>
                 <div className="bg-purple-50 rounded p-2">
-                  <span className="font-semibold">RAG:</span> ✅ Resposta encontrada
+                  <span className="font-semibold">Base de Conhecimento:</span> ✅ Resposta encontrada
                 </div>
                 <div className="flex justify-center">↓</div>
                 <div className="bg-green-50 rounded p-2">
@@ -454,7 +454,7 @@ export default function Fase2Documentacao() {
                 <h3 className="font-semibold text-gray-900 mb-2">3. Integrações LLM Reais</h3>
                 <ul className="text-sm text-gray-600 space-y-1 ml-4">
                   <li>• Substituir keywords por LLM real (GPT-4o-mini)</li>
-                  <li>• RAG vetorial (embeddings)</li>
+                  <li>• Busca textual por palavras-chave</li>
                   <li>• Respostas mais naturais</li>
                 </ul>
               </div>
@@ -471,7 +471,7 @@ export default function Fase2Documentacao() {
           <div className="grid md:grid-cols-4 gap-4 text-sm">
             <div className="bg-white/20 rounded-lg p-3">
               <CheckCircle2 className="w-8 h-8 mx-auto mb-2" />
-              <div>IA (NLU + RAG)</div>
+              <div>IA (NLU + Base de Conhecimento)</div>
             </div>
             <div className="bg-white/20 rounded-lg p-3">
               <CheckCircle2 className="w-8 h-8 mx-auto mb-2" />

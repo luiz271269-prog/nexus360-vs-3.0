@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -123,7 +122,7 @@ export default function ChecklistProducao() {
           },
           { 
             id: "rag_indexado", 
-            nome: "Sistema RAG indexado", 
+            nome: "Base de Conhecimento disponível", 
             status: "pendente",
             critico: false
           }

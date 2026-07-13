@@ -101,7 +101,7 @@ export default function PlaybookEngineTest() {
     });
 
     return {
-      nome: 'Consulta RAG (Base de Conhecimento)',
+      nome: 'Consulta à Base de Conhecimento',
       sucesso: resultado.data.success,
       detalhes: `Encontrados: ${resultado.data.resultados?.length || 0} conhecimentos relevantes`,
       dados: resultado.data

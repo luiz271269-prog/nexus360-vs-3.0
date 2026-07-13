@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -241,7 +240,7 @@ export default function AnalisePlaybooksCritica() {
         },
         {
           prioridade: 2,
-          titulo: 'Integrar RAG no Playbook Engine',
+          titulo: 'Integrar Base de Conhecimento ao Playbook Engine',
           descricao: 'Steps "ia_classify" devem consultar Base de Conhecimento',
           esforco: 'Baixo',
           impacto: 'Alto',

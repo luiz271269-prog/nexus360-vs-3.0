@@ -35,7 +35,7 @@ export default function TestSuiteCompleto() {
     },
     {
       id: 'nexus_rag',
-      nome: 'NexusClassifier - RAG Query',
+      nome: 'NexusClassifier - Consulta à Base',
       categoria: 'IA',
       descricao: 'Testa busca na Base de Conhecimento',
       casos: [

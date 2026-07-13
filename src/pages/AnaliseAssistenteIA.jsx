@@ -176,7 +176,7 @@ const ROWS = [
   },
   {
     categoria: 'Integração com Sistema',
-    funcionalidade: 'Consulta a BaseConhecimento/RAG nos prompts',
+    funcionalidade: 'Consulta a Base de Conhecimento nos prompts',
     debatido: 'IA consulta base de conhecimento da empresa antes de sugerir',
     implementado: 'Não integrado aqui. MotorRAG existe no sistema mas não é chamado pelo AIResponseAssistant.',
     status: 'nao_implementado',

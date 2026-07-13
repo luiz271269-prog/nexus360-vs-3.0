@@ -83,7 +83,7 @@ export default function Documentacao() {
               </div>
               <ul className="text-sm text-slate-600 space-y-1 ml-7">
                 <li>• NexusClassifier: Classificação de intenções</li>
-                <li>• RAG: Respostas baseadas em Base de Conhecimento</li>
+                <li>• Base de Conhecimento: respostas baseadas no conteúdo cadastrado</li>
                 <li>• Agente IA: Atendimento autônomo</li>
                 <li>• Business IA: Insights estratégicos e previsões</li>
                 <li>• Aprendizado contínuo e auto-otimização</li>
@@ -181,7 +181,7 @@ export default function Documentacao() {
 │   ├── NexusCommandCenter.jsx   # Painel de controle
 │   ├── Comunicacao.jsx          # Central de conversas
 │   ├── PlaybooksAutomacao.jsx   # Gestão de playbooks
-│   └── BaseConhecimento.jsx     # Gerenciamento RAG
+│   └── BaseConhecimento.jsx     # Gerenciamento da Base de Conhecimento
 │
 ├── components/                   # Componentes React
 │   ├── automacao/
@@ -417,7 +417,7 @@ const health = await base44.functions.invoke('monitorarSaudeDoSistema', {});`}</
           <div>
             <h4 className="font-semibold mb-2">Reindexar Base de Conhecimento</h4>
             <p className="text-sm text-slate-600 mb-2">
-              Se a busca RAG estiver desatualizada:
+              Se as palavras-chave da base estiverem desatualizadas:
             </p>
             <div className="bg-slate-100 p-3 rounded-lg text-sm font-mono">
               await base44.functions.invoke('reindexarRAG', {`{}`});

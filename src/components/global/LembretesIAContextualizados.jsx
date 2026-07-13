@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -128,7 +127,7 @@ export default function LembretesIAContextualizados({
                   >
                     <div className="flex items-center gap-2">
                       <Brain className="w-4 h-4 text-white" />
-                      <span className="text-white font-bold text-[10px]">Qualidade RAG</span>
+                      <span className="text-white font-bold text-[10px]">Qualidade da Base</span>
                       <Badge className="bg-white/20 text-white text-[8px] px-1 py-0">
                         {statsQualidade.scoreGeral}%
                       </Badge>

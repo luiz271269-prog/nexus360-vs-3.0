@@ -30,7 +30,7 @@ export default function TestesIntegracao() {
     },
     {
       id: 'ia_end_to_end',
-      nome: 'IA End-to-End: Classificação → RAG → Resposta',
+      nome: 'IA End-to-End: Classificação → Base de Conhecimento → Resposta',
       descricao: 'Testa pipeline completo de IA'
     },
     {
@@ -188,7 +188,7 @@ export default function TestesIntegracao() {
       action: 'query_rag',
       pergunta: 'Qual o horário de funcionamento?'
     });
-    passos.push(`✓ RAG: ${ragResponse.data.conhecimentos?.length || 0} conhecimentos`);
+    passos.push(`✓ Base de Conhecimento: ${ragResponse.data.conhecimentos?.length || 0} conhecimentos`);
 
     return {
       sucesso: true,

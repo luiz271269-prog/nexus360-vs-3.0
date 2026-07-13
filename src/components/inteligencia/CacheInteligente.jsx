@@ -12,7 +12,6 @@ export class CacheInteligente {
     this.caches = {
       llm: new Map(),           // Cache de respostas da IA
       queries: new Map(),       // Cache de queries ao banco
-      rag: new Map(),           // Cache de buscas RAG
       computacoes: new Map()    // Cache de cálculos pesados
     };
     
@@ -95,31 +94,6 @@ export class CacheInteligente {
   }
 
   /**
-   * Cache para buscas RAG (Base de Conhecimento)
-   */
-  async cacheRAG(termosBusca, funcaoBusca, ttlMinutos = 30) {
-    const chave = this.gerarChave('rag', { termos: termosBusca });
-    const cacheado = this.caches.rag.get(chave);
-    
-    if (cacheado && Date.now() - cacheado.timestamp < ttlMinutos * 60 * 1000) {
-      this.stats.hits++;
-      console.log(`[CACHE] ✅ HIT RAG`);
-      return cacheado.resultados;
-    }
-    
-    this.stats.misses++;
-    console.log(`[CACHE] ❌ MISS RAG - buscando conhecimento...`);
-    const resultados = await funcaoBusca();
-    
-    this.caches.rag.set(chave, {
-      resultados,
-      timestamp: Date.now()
-    });
-    
-    return resultados;
-  }
-
-  /**
    * Invalidar cache de uma entidade específica
    */
   invalidarEntidade(nomeEntidade) {
@@ -142,7 +116,7 @@ export class CacheInteligente {
     
     for (const [tipo, cache] of Object.entries(this.caches)) {
       for (const [chave, valor] of cache.entries()) {
-        const ttl = tipo === 'llm' ? 60 : tipo === 'rag' ? 30 : 5;
+        const ttl = tipo === 'llm' ? 60 : 5;
         if (agora - valor.timestamp > ttl * 60 * 1000) {
           cache.delete(chave);
           removidos++;
@@ -171,7 +145,6 @@ export class CacheInteligente {
       tamanhos_cache: {
         llm: this.caches.llm.size,
         queries: this.caches.queries.size,
-        rag: this.caches.rag.size,
         computacoes: this.caches.computacoes.size
       }
     };

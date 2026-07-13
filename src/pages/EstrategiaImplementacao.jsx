@@ -251,13 +251,13 @@ export default function EstrategiaImplementacao() {
         "Conceito de agente multiagente bem definido",
         "Camadas claras: Percepção → Processamento → Núcleo IA",
         "MotorRaciocinio para planejamento multi-passos",
-        "Base de Conhecimento para RAG"
+        "Base de Conhecimento para respostas contextuais"
       ],
       fracos: [
         "Nexus Engine não é invocado automaticamente após mensagens",
         "Falta integração entre camadas",
         "Sem feedback loop explícito de aprendizado",
-        "RAG não está indexado com embeddings"
+        "Base de Conhecimento limitada à busca textual"
       ],
       impacto: { performance: "alta", ux: "alta", prioridade: "alta" }
     }
