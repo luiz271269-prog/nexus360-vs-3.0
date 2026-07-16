@@ -771,7 +771,10 @@ export default function Comunicacao() {
   // ═══════════════════════════════════════════════════════════════════════════════
   const handleSelecionarThread = React.useCallback(async (threadData) => {
     // ✅ Aceita { id, contatoPreCarregado } ou thread direta
-    const thread = threadData.id ? { id: threadData.id } : threadData;
+    // ⚡ FIX: preservar TODOS os campos da thread (is_contact_only, contact_id,
+    // status, merged_into) — o strip para {id} quebrava o CASO 2 (Sem conversa
+    // ativa), abrindo uma thread fantasma sem contato/integração que não envia.
+    const { contatoPreCarregado: _preIgnorado, ...thread } = threadData;
     const contatoPre = threadData.contatoPreCarregado || threadData.contato || null;
     
     console.log('🖱️ [Comunicacao] Selecionando:', thread.id, contatoPre ? '(com contato pré-carregado)' : '');
