@@ -882,6 +882,17 @@ export default function Comunicacao() {
           // Verificar permissão antes de abrir (EXCETO fidelizados)
           const contatoObj = contatos.find((c) => c.id === thread.contact_id);
 
+          // ✅ SEM CONVERSA ATIVA: thread vazia (0 mensagens) nunca bloqueia.
+          // O bloqueio de fidelização protege conversas EM ANDAMENTO —
+          // uma thread sem mensagens não tem conversa a proteger.
+          const threadSemConversa = !(threadsExistentes[0].total_mensagens > 0) &&
+            !threadsExistentes[0].last_message_content;
+          if (threadSemConversa) {
+            console.log('[Comunicacao] ✅ Thread sem conversa ativa - abrindo livre (sem bloqueio)');
+            setThreadAtiva(threadsExistentes[0]);
+            return;
+          }
+
           // ✅ FIDELIZADO: SEMPRE pode abrir (ignora TODAS as restrições)
           const isFidelizadoAoUsuario = contatoFidelizadoAoUsuario(contatoObj, usuario);
           if (isFidelizadoAoUsuario) {
