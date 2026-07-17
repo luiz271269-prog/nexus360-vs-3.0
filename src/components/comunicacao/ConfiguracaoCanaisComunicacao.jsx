@@ -205,6 +205,19 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ✅ TELA DINÂMICA: re-sincroniza a integração selecionada quando a lista atualiza
+  // (sem isso, o badge de status do card fica obsoleto após conectar/desconectar)
+  useEffect(() => {
+    if (!integracaoSelecionada) return;
+    const atualizada = integracoes.find(i => i.id === integracaoSelecionada.id);
+    if (atualizada && (
+      atualizada.status !== integracaoSelecionada.status ||
+      atualizada.numero_telefone !== integracaoSelecionada.numero_telefone
+    )) {
+      setIntegracaoSelecionada(atualizada);
+    }
+  }, [integracoes]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const carregarTodasIntegracoes = async () => {
     try {
       const [instagram, facebook, goto] = await Promise.all([
@@ -261,27 +274,7 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
 
   const [novaIntegracao, setNovaIntegracao] = useState(initialNovaIntegracaoState);
   const [corrigindoWebhooks, setCorrigindoWebhooks] = useState(false);
-  const [qrCodeData, setQrCodeData] = useState({});
-
-  // Carregar QR Code/Pairing Code persistidos quando selecionar integração
-  useEffect(() => {
-    if (integracaoSelecionada) {
-      const dados = {};
-      if (integracaoSelecionada.qr_code_url) {
-        dados.qrCodeUrl = integracaoSelecionada.qr_code_url;
-      }
-      if (integracaoSelecionada.pairing_code) {
-        dados.pairingCode = integracaoSelecionada.pairing_code;
-      }
-      if (Object.keys(dados).length > 0) {
-        setQrCodeData(prev => ({
-          ...prev,
-          [integracaoSelecionada.id]: dados
-        }));
-      }
-    }
-  }, [integracaoSelecionada]);
-  const [gerandoQR, setGerandoQR] = useState(null);
+  // ✅ QR Code/Pairing agora são gerenciados pelo ConexaoWhatsAppPanel (server-side, com validade)
   const [criandoInstanciaIntegrador, setCriandoInstanciaIntegrador] = useState(false);
   const [whatsappSubTab, setWhatsappSubTab] = useState("conexoes");
   const [instanciasProvedor, setInstanciasProvedor] = useState([]);
@@ -656,7 +649,6 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       }
       
       await base44.entities.WhatsAppIntegration.delete(integracao.id);
-      setQrCodeData(prev => { const n = {...prev}; delete n[integracao.id]; return n; });
       toast.success("✅ Integração removida do sistema!");
       if (onRecarregar) await onRecarregar();
       setIntegracaoSelecionada(null);
@@ -707,75 +699,6 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
       toast.error(`Erro ao testar: ${error.message}`);
     } finally {
       setTestando(null);
-    }
-  };
-
-  // Gerar QR Code / Pairing Code para W-API
-  const gerarQRCode = async (integracao, usarPairingCode = false) => {
-    setGerandoQR(integracao.id);
-    try {
-      const provider = PROVIDERS[integracao.api_provider];
-      
-      // Aceita W-API normal ou integrador (modo === 'integrator')
-      if (integracao.api_provider !== 'w_api' && integracao.modo !== 'integrator') {
-        toast.info("QR Code é gerenciado diretamente no painel da Z-API");
-        setGerandoQR(null);
-        return;
-      }
-
-      let url;
-      if (usarPairingCode) {
-        const telefone = integracao.numero_telefone.replace(/\D/g, '');
-        url = `https://api.w-api.app/v1/instance/pairing-code?instanceId=${integracao.instance_id_provider}&phoneNumber=${telefone}`;
-      } else {
-        url = `https://api.w-api.app/v1/instance/qr-code?instanceId=${integracao.instance_id_provider}&image=enable`;
-      }
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${integracao.api_key_provider}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (usarPairingCode) {
-        setQrCodeData(prev => ({
-          ...prev,
-          [integracao.id]: { pairingCode: data.pairingCode || data.code, qrCodeUrl: null }
-        }));
-        toast.success("Código de pareamento gerado!");
-
-        // Persistir código de pareamento no banco
-        await base44.entities.WhatsAppIntegration.update(integracao.id, {
-          status: "pendente_qrcode",
-          pairing_code: data.pairingCode || data.code,
-          pairing_code_gerado_em: new Date().toISOString()
-        });
-      } else {
-        setQrCodeData(prev => ({
-          ...prev,
-          [integracao.id]: { qrCodeUrl: data.qrcode || data.base64 || data.image, pairingCode: null }
-        }));
-        toast.success("QR Code gerado!");
-
-        // Persistir QR Code no banco
-        await base44.entities.WhatsAppIntegration.update(integracao.id, {
-          status: "pendente_qrcode",
-          qr_code_url: data.qrcode || data.base64 || data.image,
-          qr_code_gerado_em: new Date().toISOString()
-        });
-      }
-
-      if (onRecarregar) await onRecarregar();
-
-    } catch (error) {
-      console.error('[QR] Erro:', error);
-      toast.error(`Erro ao gerar código: ${error.message}`);
-    } finally {
-      setGerandoQR(null);
     }
   };
 
