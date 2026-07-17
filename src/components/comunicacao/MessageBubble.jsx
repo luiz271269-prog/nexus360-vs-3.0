@@ -46,6 +46,7 @@ import { renderInternalDispatchLog } from './skills/internalDispatchLogSkill';
 import AcessosRapidosCard, { isAcessosRapidosMessage } from './AcessosRapidosCard';
 import { mobileEstiloMensagem } from './skills/mobileSkill';
 import SeloEtiquetagem from './SeloEtiquetagem';
+import CanalOrigemBadge from './CanalOrigemBadge';
 
 // Cache de blob URLs de áudio, por URL de origem (módulo-level, persiste entre remontagens)
 const audioBlobCache = new Map();
@@ -1318,17 +1319,10 @@ export default React.memo(function MessageBubble({
               </span>
               {(() => {
               const integracaoId = message?.metadata?.whatsapp_integration_id || thread?.whatsapp_integration_id;
-              if (!integracaoId || integracoes.length <= 1) return null;
-
-              const integracao = integracoes.find((i) => i.id === integracaoId);
-              if (!integracao) return null;
-
-              const displayNumero = integracao.numero_telefone || integracao.nome_instancia;
-              return (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
-                    📱 {displayNumero}
-                  </span>);
-
+              const integracao = integracaoId ? integracoes.find((i) => i.id === integracaoId) : null;
+              const displayNumero = integracoes.length > 1 && integracao ?
+              integracao.numero_telefone || integracao.nome_instancia : null;
+              return <CanalOrigemBadge channel={message.channel || thread?.channel} numero={displayNumero} />;
             })()}
             </div> :
           null}
@@ -1980,9 +1974,7 @@ export default React.memo(function MessageBubble({
                         }
                         </>
                       }
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                        📱 {displayNumero}
-                      </span>
+                      <CanalOrigemBadge channel={message.channel || thread?.channel} numero={displayNumero} />
                     </>);
 
                 })()}
