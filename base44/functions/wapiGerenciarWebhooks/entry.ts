@@ -68,7 +68,9 @@ Deno.serve(async (req) => {
 
     // ✅ USAR INTEGRATOR TOKEN para modo integrador, token individual caso contrário
     const INTEGRATOR_TOKEN = Deno.env.get('WAPI_INTEGRATOR_TOKEN');
-    const usarIntegrator = integration.modo === 'integrator' && INTEGRATOR_TOKEN;
+    // ✅ Endpoint /integrator/instance/webhooks foi removido pela W-API (404).
+    // Preferir sempre os endpoints oficiais por instância quando houver token individual.
+    const usarIntegrator = integration.modo === 'integrator' && INTEGRATOR_TOKEN && !integration.api_key_provider;
 
     console.log(`[WAPI-WEBHOOK] 🔑 INTEGRATOR_TOKEN presente: ${!!INTEGRATOR_TOKEN}`);
     console.log(`[WAPI-WEBHOOK] 🎯 Usar Integrador: ${usarIntegrator}`);
@@ -216,7 +218,8 @@ Deno.serve(async (req) => {
             const response = await fetch(ep.url, {
               method: 'PUT',
               headers,
-              body: JSON.stringify({ value: webhookUrl })
+              body: JSON.stringify({ value: webhookUrl }),
+              signal: AbortSignal.timeout(20000)
             });
             const responseText = await response.text();
             let data;
