@@ -46,9 +46,47 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
-    // Para W-API, verificar se webhook está configurado e acessível
-    // (a W-API não tem endpoint /instance/status público documentado)
-    
+    // ✅ FIX: FONTE DE VERDADE — consultar status REAL via API do Integrador.
+    // O teste antigo só pingava a URL do webhook e SEMPRE retornava conectado=true.
+    const INTEGRATOR_TOKEN = Deno.env.get('WAPI_INTEGRATOR_TOKEN');
+    if (INTEGRATOR_TOKEN) {
+      try {
+        const r = await fetch('https://api.w-api.app/v1/integrator/instances?pageSize=100&page=1', {
+          headers: { 'Authorization': `Bearer ${INTEGRATOR_TOKEN}` },
+          signal: AbortSignal.timeout(10000)
+        });
+        const data = await r.json();
+        if (data.error === false) {
+          const inst = (data.data || []).find((i) => i.instanceId === integracao.instance_id_provider);
+          if (inst) {
+            const conectado = !!inst.connected;
+            await base44.asServiceRole.entities.WhatsAppIntegration.update(integration_id, {
+              status: conectado ? 'conectado' : 'desconectado',
+              numero_telefone: inst.connectedPhone || integracao.numero_telefone,
+              token_status: 'valido',
+              token_ultima_verificacao: new Date().toISOString(),
+              ultima_atividade: new Date().toISOString()
+            });
+            console.log(`[TESTE WAPI] ✅ Status real (integrator): ${conectado ? 'conectado' : 'desconectado'}`);
+            return Response.json({
+              success: true,
+              dados: {
+                conectado,
+                smartphoneConectado: conectado,
+                telefone: inst.connectedPhone || null,
+                instanceId: integracao.instance_id_provider,
+                status: conectado ? 'conectado' : 'desconectado',
+                fonte: 'integrator'
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('[TESTE WAPI] Integrator indisponível, fallback para teste de webhook:', e.message);
+      }
+    }
+
+    // Fallback legado: verificar se webhook está configurado e acessível
     console.log('[TESTE WAPI] Verificando configuração...');
 
     // Verificar se o webhook está registrado fazendo um GET simples

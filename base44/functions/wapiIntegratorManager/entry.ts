@@ -13,12 +13,18 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
 
-    if (!user || user.role !== 'admin') {
-      return Response.json({ error: 'Apenas admins podem gerenciar instâncias' }, { status: 403 });
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const payload = await req.json();
     const { action } = payload;
+
+    // Ações de mutação exigem admin; leitura de status liberada para usuários logados
+    const ACOES_ADMIN = ['createInstance', 'deleteInstance', 'disconnect'];
+    if (ACOES_ADMIN.includes(action) && user.role !== 'admin') {
+      return Response.json({ error: 'Apenas admins podem gerenciar instâncias' }, { status: 403 });
+    }
 
     const INTEGRATOR_TOKEN = Deno.env.get('WAPI_INTEGRATOR_TOKEN');
     if (!INTEGRATOR_TOKEN) {
@@ -174,7 +180,190 @@ Deno.serve(async (req) => {
       }
     }
 
-    return Response.json({ error: 'Ação inválida. Use: createInstance, listInstances ou deleteInstance' }, { status: 400 });
+    // ========================================================================
+    // AÇÃO: STATUS DE TODAS (auto-teste ao entrar na tela — 1 chamada ao provedor)
+    // ========================================================================
+    if (action === 'getStatusAll') {
+      try {
+        const r = await fetch('https://api.w-api.app/v1/integrator/instances?pageSize=100&page=1', {
+          headers: { 'Authorization': `Bearer ${INTEGRATOR_TOKEN}` },
+          signal: AbortSignal.timeout(15000)
+        });
+        const data = await r.json();
+        if (data.error !== false) {
+          return Response.json({ success: false, error: data.message || 'Erro ao listar instâncias' }, { status: 400 });
+        }
+        const instancias = data.data || [];
+        const locais = await base44.asServiceRole.entities.WhatsAppIntegration.filter(
+          { api_provider: 'w_api' }, '-created_date', 100
+        );
+        let atualizadas = 0;
+        const statusMap: Record<string, unknown> = {};
+        for (const local of locais) {
+          const inst = instancias.find((i) => i.instanceId === local.instance_id_provider);
+          if (!inst) { statusMap[local.id] = { encontrada: false }; continue; }
+          const statusReal = inst.connected ? 'conectado' : 'desconectado';
+          statusMap[local.id] = { encontrada: true, connected: !!inst.connected, phone: inst.connectedPhone || null };
+          if (local.status !== statusReal || (inst.connectedPhone && local.numero_telefone !== inst.connectedPhone)) {
+            await base44.asServiceRole.entities.WhatsAppIntegration.update(local.id, {
+              status: statusReal,
+              numero_telefone: inst.connectedPhone || local.numero_telefone,
+              ultima_atividade: new Date().toISOString()
+            });
+            atualizadas++;
+          }
+        }
+        console.log(`[WAPI-INTEGRATOR] ✅ getStatusAll: ${atualizadas} atualizada(s)`);
+        return Response.json({ success: true, atualizadas, status: statusMap });
+      } catch (error) {
+        return Response.json({ success: false, error: error.message }, { status: 500 });
+      }
+    }
+
+    // ========================================================================
+    // AÇÃO: STATUS DE UMA INSTÂNCIA (fonte de verdade: API do Integrador)
+    // ========================================================================
+    if (action === 'getStatus') {
+      const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(payload.integration_id);
+      if (!integracao) return Response.json({ success: false, error: 'Integração não encontrada' }, { status: 404 });
+
+      try {
+        const r = await fetch('https://api.w-api.app/v1/integrator/instances?pageSize=100&page=1', {
+          headers: { 'Authorization': `Bearer ${INTEGRATOR_TOKEN}` },
+          signal: AbortSignal.timeout(15000)
+        });
+        const data = await r.json();
+        const inst = data.error === false
+          ? (data.data || []).find((i) => i.instanceId === integracao.instance_id_provider)
+          : null;
+
+        if (!inst) {
+          // Não encontrada no integrador — devolve o que o banco sabe
+          return Response.json({
+            success: true,
+            connected: integracao.status === 'conectado',
+            phone: integracao.numero_telefone || null,
+            fonte: 'banco'
+          });
+        }
+
+        const connected = !!inst.connected;
+        const statusReal = connected ? 'conectado' : 'desconectado';
+        if (integracao.status !== statusReal || (inst.connectedPhone && integracao.numero_telefone !== inst.connectedPhone)) {
+          await base44.asServiceRole.entities.WhatsAppIntegration.update(integracao.id, {
+            status: statusReal,
+            numero_telefone: inst.connectedPhone || integracao.numero_telefone,
+            ultima_atividade: new Date().toISOString()
+          });
+        }
+        return Response.json({ success: true, connected, phone: inst.connectedPhone || null, fonte: 'integrator' });
+      } catch (error) {
+        return Response.json({ success: false, error: error.message }, { status: 500 });
+      }
+    }
+
+    // ========================================================================
+    // AÇÃO: GERAR QR CODE (server-side — resolve CORS e protege o token)
+    // ========================================================================
+    if (action === 'getQrCode') {
+      const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(payload.integration_id);
+      if (!integracao) return Response.json({ success: false, error: 'Integração não encontrada' }, { status: 404 });
+
+      try {
+        const url = `https://api.w-api.app/v1/instance/qr-code?instanceId=${integracao.instance_id_provider}&image=enable`;
+        const r = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${integracao.api_key_provider}` },
+          signal: AbortSignal.timeout(15000)
+        });
+        const data = await r.json().catch(() => null);
+        const qrcode = data?.qrcode || data?.base64 || data?.image;
+        if (!r.ok || !qrcode) {
+          return Response.json({
+            success: false,
+            error: data?.message || `Falha ao gerar QR Code (HTTP ${r.status}). A instância pode já estar conectada.`
+          }, { status: 400 });
+        }
+        await base44.asServiceRole.entities.WhatsAppIntegration.update(integracao.id, {
+          status: 'pendente_qrcode',
+          qr_code_url: qrcode,
+          qr_code_gerado_em: new Date().toISOString()
+        });
+        return Response.json({ success: true, qrcode });
+      } catch (error) {
+        return Response.json({ success: false, error: error.message }, { status: 500 });
+      }
+    }
+
+    // ========================================================================
+    // AÇÃO: GERAR PAIRING CODE (server-side)
+    // ========================================================================
+    if (action === 'getPairingCode') {
+      const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(payload.integration_id);
+      if (!integracao) return Response.json({ success: false, error: 'Integração não encontrada' }, { status: 404 });
+
+      const telefone = String(payload.phoneNumber || integracao.numero_telefone || '').replace(/\D/g, '');
+      if (!telefone) {
+        return Response.json({ success: false, error: 'Número de telefone não cadastrado nesta instância. Edite a conexão e informe o número.' }, { status: 400 });
+      }
+
+      try {
+        const url = `https://api.w-api.app/v1/instance/pairing-code?instanceId=${integracao.instance_id_provider}&phoneNumber=${telefone}`;
+        const r = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${integracao.api_key_provider}` },
+          signal: AbortSignal.timeout(15000)
+        });
+        const data = await r.json().catch(() => null);
+        const pairingCode = data?.pairingCode || data?.code;
+        if (!r.ok || !pairingCode) {
+          return Response.json({
+            success: false,
+            error: data?.message || `Falha ao gerar código de pareamento (HTTP ${r.status}). A instância pode já estar conectada.`
+          }, { status: 400 });
+        }
+        await base44.asServiceRole.entities.WhatsAppIntegration.update(integracao.id, {
+          status: 'pendente_qrcode',
+          pairing_code: pairingCode,
+          pairing_code_gerado_em: new Date().toISOString()
+        });
+        return Response.json({ success: true, pairingCode });
+      } catch (error) {
+        return Response.json({ success: false, error: error.message }, { status: 500 });
+      }
+    }
+
+    // ========================================================================
+    // AÇÃO: DESCONECTAR APARELHO (logout da sessão WhatsApp)
+    // ========================================================================
+    if (action === 'disconnect') {
+      const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(payload.integration_id);
+      if (!integracao) return Response.json({ success: false, error: 'Integração não encontrada' }, { status: 404 });
+
+      try {
+        const url = `https://api.w-api.app/v1/instance/logout?instanceId=${integracao.instance_id_provider}`;
+        const r = await fetch(url, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${integracao.api_key_provider}` },
+          signal: AbortSignal.timeout(15000)
+        });
+        const data = await r.json().catch(() => null);
+        if (!r.ok || data?.error === true) {
+          return Response.json({
+            success: false,
+            error: data?.message || `Falha ao desconectar (HTTP ${r.status})`
+          }, { status: 400 });
+        }
+        await base44.asServiceRole.entities.WhatsAppIntegration.update(integracao.id, {
+          status: 'desconectado',
+          ultima_atividade: new Date().toISOString()
+        });
+        console.log('[WAPI-INTEGRATOR] 📴 Instância desconectada:', integracao.instance_id_provider);
+        return Response.json({ success: true, message: 'Aparelho desconectado' });
+      } catch (error) {
+        return Response.json({ success: false, error: error.message }, { status: 500 });
+      }
+    }
+
+    return Response.json({ error: 'Ação inválida. Use: createInstance, listInstances, deleteInstance, getStatus, getStatusAll, getQrCode, getPairingCode ou disconnect' }, { status: 400 });
 
   } catch (error) {
     console.error('[WAPI-INTEGRATOR] ❌ Erro geral:', error);

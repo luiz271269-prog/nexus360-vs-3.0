@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -81,6 +81,7 @@ import InstagramConnectionSetup from "./InstagramConnectionSetup";
 import FacebookConnectionSetup from "./FacebookConnectionSetup";
 import GoToConnectionSetup from "./GoToConnectionSetup";
 import MetaCloudAPISetup from "./MetaCloudAPISetup";
+import ConexaoWhatsAppPanel from "./ConexaoWhatsAppPanel";
 
 // Configuração dos provedores
 const PROVIDERS = {
@@ -181,6 +182,28 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
   useEffect(() => {
     carregarTodasIntegracoes();
   }, []);
+
+  // ✅ AUTO-TESTE: ao entrar na tela, verificar status REAL de todas as conexões W-API
+  // (1 chamada ao provedor — atualiza os status divergentes no banco)
+  const autoTestouRef = useRef(false);
+  useEffect(() => {
+    if (autoTestouRef.current) return;
+    autoTestouRef.current = true;
+    (async () => {
+      try {
+        const resp = await base44.functions.invoke('wapiIntegratorManager', { action: 'getStatusAll' });
+        if (resp?.data?.success) {
+          if (resp.data.atualizadas > 0) {
+            toast.info(`🔄 ${resp.data.atualizadas} conexão(ões) com status atualizado`);
+            if (onRecarregar) await onRecarregar();
+          }
+          console.log('[CONFIG] ✅ Auto-teste de conexões concluído:', resp.data);
+        }
+      } catch (e) {
+        console.warn('[CONFIG] ⚠️ Auto-teste de conexões falhou:', e.message);
+      }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const carregarTodasIntegracoes = async () => {
     try {
@@ -1555,54 +1578,13 @@ export default function ConfiguracaoCanaisComunicacao({ integracoes, onRecarrega
                         </div>
                       </div>
                       
-                      {(integracaoSelecionada?.api_provider === 'w_api' || integracaoSelecionada?.modo === 'integrator') && integracaoSelecionada?.status !== 'conectado' && (
+                      {(integracaoSelecionada?.api_provider === 'w_api' || integracaoSelecionada?.modo === 'integrator') && (
                         <div className="border-t pt-2.5">
-                          <p className="text-[10px] text-slate-500 mb-1.5">Conectar WhatsApp:</p>
-                          <div className="flex gap-1.5">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => gerarQRCode(integracaoSelecionada, false)}
-                              disabled={gerandoQR === integracaoSelecionada.id}
-                              className="h-7 text-xs"
-                            >
-                              {gerandoQR === integracaoSelecionada.id ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <QrCode className="w-3 h-3 mr-1" />}
-                              QR Code
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => gerarQRCode(integracaoSelecionada, true)}
-                              disabled={gerandoQR === integracaoSelecionada.id}
-                              className="h-7 text-xs"
-                            >
-                              <Smartphone className="w-3 h-3 mr-1" />
-                              Pareamento
-                            </Button>
-                          </div>
-                          
-                          {/* Mostrar QR Code ou Pairing Code */}
-                          {qrCodeData[integracaoSelecionada.id] && (
-                            <div className="mt-3 p-3 bg-white rounded-lg border-2 border-green-200">
-                              {qrCodeData[integracaoSelecionada.id].pairingCode && (
-                                <div className="text-center">
-                                  <p className="text-xs text-slate-500 mb-2">Digite no celular:</p>
-                                  <p className="text-2xl font-mono font-bold tracking-widest">
-                                    {qrCodeData[integracaoSelecionada.id].pairingCode}
-                                  </p>
-                                </div>
-                              )}
-                              {qrCodeData[integracaoSelecionada.id].qrCodeUrl && (
-                                <div className="flex justify-center">
-                                  <img 
-                                    src={qrCodeData[integracaoSelecionada.id].qrCodeUrl} 
-                                    alt="QR Code" 
-                                    className="w-40 h-40 border-2 border-green-500 rounded"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          <ConexaoWhatsAppPanel
+                            integracao={integracaoSelecionada}
+                            onRecarregar={onRecarregar}
+                            podeGerenciar={podeReiniciar}
+                          />
                         </div>
                       )}
                       
