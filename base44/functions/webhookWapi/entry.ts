@@ -385,7 +385,17 @@ function normalizarPayload(payload) {
 
     if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
 
-    const msgContent = payload.msgContent || {};
+    let msgContent = payload.msgContent || {};
+    // ✅ UNWRAP ephemeralMessage: chats com "mensagens temporárias" embrulham
+    // o conteúdo real (audio/image/video/texto) dentro de ephemeralMessage.message.
+    // Sem o unwrap, a mensagem caía em TIPO_DESCONHECIDO → descartada.
+    if (msgContent.ephemeralMessage?.message) {
+      msgContent = {
+        ...msgContent.ephemeralMessage.message,
+        messageContextInfo: msgContent.messageContextInfo
+      };
+      console.log('[WAPI-NORM] 📦 ephemeralMessage desembrulhada | msgId=' + (payload.messageId || 'N/A'));
+    }
     let mediaType = 'none';
     let conteudoRaw = payload.text?.message || payload.body || '';
     let conteudo = '';
