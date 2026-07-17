@@ -135,6 +135,30 @@
       "type": "number",
       "description": "Valor m\u00e9dio mensal de compras"
     },
+    "etiqueta_recorrencia": {
+      "type": "string",
+      "enum": [
+        "ouro",
+        "prata",
+        "risco",
+        "none"
+      ],
+      "default": "none",
+      "description": "Etiqueta de recorr\u00eancia mensal persistida (ouro=comprou nos 3 \u00faltimos meses, prata=1-2 meses, risco=sem compras nos \u00faltimos 3 meses, none=sem NF)"
+    },
+    "recorrencia_qtd_notas": {
+      "type": "number",
+      "description": "Qtd de NFs consideradas no \u00faltimo c\u00e1lculo de recorr\u00eancia"
+    },
+    "recorrencia_ultima_compra": {
+      "type": "string",
+      "description": "Data da \u00faltima NF emitida (YYYY-MM-DD) no \u00faltimo c\u00e1lculo"
+    },
+    "recorrencia_atualizada_em": {
+      "type": "string",
+      "format": "datetime",
+      "description": "Quando a etiqueta de recorr\u00eancia foi recalculada pela \u00faltima vez"
+    },
     "data_primeiro_contrato": {
       "type": "string",
       "format": "date"
