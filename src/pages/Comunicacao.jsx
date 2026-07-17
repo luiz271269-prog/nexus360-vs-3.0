@@ -654,12 +654,25 @@ export default function Comunicacao() {
           return ultimasMensagens.reverse();
         }
 
-        // ⚡ Buscar APENAS mensagens da thread atual
-        // Cada thread é uma conversa independente (não mesclar com outras)
+        // ⚡ HISTÓRICO DO CONTATO: incluir mensagens de threads anteriores
+        // do mesmo contato (nova conversa nunca abre "vazia" se há histórico).
+        let filtroMensagens = { thread_id: threadAtiva.id };
+        if (threadAtiva.contact_id) {
+          const threadsDoContato = await base44.entities.MessageThread.filter(
+            { contact_id: threadAtiva.contact_id },
+            '-last_message_at',
+            10
+          );
+          const idsThreads = [...new Set([threadAtiva.id, ...threadsDoContato.map((t) => t.id)])];
+          if (idsThreads.length > 1) {
+            filtroMensagens = { thread_id: { $in: idsThreads } };
+          }
+        }
+
         const msgs = await base44.entities.Message.filter(
-          { thread_id: threadAtiva.id },
+          filtroMensagens,
           '-sent_at',
-          20
+          30
         );
 
         return msgs.reverse();
