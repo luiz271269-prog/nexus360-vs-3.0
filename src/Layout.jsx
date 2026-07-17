@@ -27,7 +27,8 @@ import {
   FileText,
   ShoppingCart,
   Mail,
-  Map
+  Map,
+  Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,7 @@ import NovasMensagensAlert from "@/components/global/NovasMensagensAlert";
 import IncomingCallAlert from "@/components/comunicacao/IncomingCallAlert";
 import WakeUpManager from "@/components/global/WakeUpManager";
 import EmailsPendentesBadge from "@/components/global/EmailsPendentesBadge";
+import BuscaGlobalModal from "@/components/global/BuscaGlobalModal";
 
 const USUARIO_SESSION_CACHE_KEY = 'nexus360:globalUsuario';
 
@@ -139,7 +141,7 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
 
 
 
-function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, onOpenCopiloto, agentSession, onToggle, isAdmin, podeVerNeuralFin, podeVerCompras, podeVerRH, podeVerNeuralSite }) {
+function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, onOpenCopiloto, onOpenBusca, agentSession, onToggle, isAdmin, podeVerNeuralFin, podeVerCompras, podeVerRH, podeVerNeuralSite }) {
   return (
     <aside
         className={`fixed inset-y-0 left-0 z-50 w-20 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transform ${
@@ -164,6 +166,19 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
         </div>
 
         <nav className="flex-1 px-2 py-4 space-y-2 overflow-y-auto">
+          {/* Botão Busca Global (estilo WhatsApp) */}
+          <button
+            onClick={onOpenBusca}
+            className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-500/25 transition-all duration-300 hover:scale-105 group relative"
+            title="Busca Global (Ctrl+K)"
+          >
+            <Search className="h-6 w-6 text-white" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
+            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
+              🔍 Busca Global <span className="text-emerald-400 ml-1">Ctrl+K</span>
+            </div>
+          </button>
+
           {/* Botão Nexus AI no topo */}
           <button
             onClick={onOpenNexus}
@@ -302,6 +317,7 @@ export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [nexusOpen, setNexusOpen] = useState(false);
   const [copilotoOpen, setCopilotoOpen] = useState(false);
+  const [buscaGlobalOpen, setBuscaGlobalOpen] = useState(false);
   const [globalUsuario, setGlobalUsuario] = useState(lerUsuarioDaSessao);
   const [loadingUsuario, setLoadingUsuario] = useState(true);
   const [badges, setBadges] = useState({});
@@ -581,6 +597,18 @@ export default function Layout({ children, currentPageName }) {
     }
   }, []);
 
+  // Atalho Ctrl+K para abrir Busca Global (estilo WhatsApp)
+  useEffect(() => {
+    const handlerBusca = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setBuscaGlobalOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handlerBusca);
+    return () => window.removeEventListener('keydown', handlerBusca);
+  }, []);
+
   // Atalho Ctrl+Shift+A para abrir Copiloto
   useEffect(() => {
     const handler = (e) => {
@@ -641,7 +669,16 @@ export default function Layout({ children, currentPageName }) {
           <Menu className="h-5 w-5 text-white" />
         </button>
         <span className="text-white font-semibold text-sm truncate max-w-[200px]">{currentPageName}</span>
-        <UserAuthWidget usuario={globalUsuario} loadingUsuario={loadingUsuario} onLogout={handleLogout} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setBuscaGlobalOpen(true)}
+            className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center shadow-lg"
+            title="Busca Global"
+          >
+            <Search className="h-5 w-5 text-white" />
+          </button>
+          <UserAuthWidget usuario={globalUsuario} loadingUsuario={loadingUsuario} onLogout={handleLogout} />
+        </div>
       </header>
 
       <SideBar
@@ -653,6 +690,7 @@ export default function Layout({ children, currentPageName }) {
         onLogout={handleLogout}
         onOpenNexus={() => setNexusOpen(true)}
         onOpenCopiloto={() => setCopilotoOpen(true)}
+        onOpenBusca={() => setBuscaGlobalOpen(true)}
         agentSession={agentSession}
         onToggle={() => setSidebarOpen(prev => !prev)}
         isAdmin={globalUsuario?.role === 'admin'}
@@ -720,6 +758,9 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Alertas de chamada WebRTC entrante (global para todos os atendentes) */}
       {globalUsuario && <IncomingCallAlert usuario={globalUsuario} />}
+
+      {/* Busca Global estilo WhatsApp (Ctrl+K) */}
+      <BuscaGlobalModal isOpen={buscaGlobalOpen} onClose={() => setBuscaGlobalOpen(false)} />
 
       {/* Copiloto IA — painel lateral com Superagent */}
       <CopilotoIA
