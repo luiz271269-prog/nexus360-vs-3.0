@@ -196,6 +196,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 🕓 Registrar "quando e para quem" na mensagem ORIGINAL (histórico de encaminhamentos)
+    const historicoEnc = Array.isArray(mensagem.metadata?.encaminhamentos) ? mensagem.metadata.encaminhamentos : [];
+    historicoEnc.push({
+      para: target_phone,
+      thread_destino_id: threadDestino?.id || null,
+      em: new Date().toISOString(),
+      por: user.full_name || user.email
+    });
+    await base44.asServiceRole.entities.Message.update(message_id, {
+      metadata: { ...(mensagem.metadata || {}), encaminhamentos: historicoEnc }
+    }).catch((e) => console.warn('[ENCAMINHAR] ⚠️ Falha ao registrar histórico:', e.message));
+
     console.log('[ENCAMINHAR] ✅ Mensagem encaminhada com sucesso');
 
     return new Response(

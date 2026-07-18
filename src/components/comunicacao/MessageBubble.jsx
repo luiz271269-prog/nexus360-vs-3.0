@@ -805,6 +805,11 @@ export default React.memo(function MessageBubble({
       setContatosSelecionados([]);
       setBuscaContato("");
 
+      // Atualiza a conversa para exibir "encaminhada para X às Y" na mensagem original
+      if (sucessos > 0 && thread?.id) {
+        queryClient.invalidateQueries({ queryKey: ['mensagens', thread.id] });
+      }
+
       const tipo = tipoEncaminhamento;
       setTimeout(() => {
         if (sucessos > 0) {
@@ -1392,6 +1397,26 @@ export default React.memo(function MessageBubble({
             {!isThreadInterna &&
             <SeloEtiquetagem message={message} categoriasDB={categoriasDB} isOwn={isOwn} />
             }
+            {/* ↪ Selo "Encaminhada" universal para mídias (texto já tem o próprio) */}
+            {message?.metadata?.is_forwarded && message?.media_type && message.media_type !== 'none' &&
+            <div className="flex items-center gap-1 text-slate-400 italic text-[11px] px-2 pt-1.5">
+                <Forward className="w-3 h-3" />
+                <span>Encaminhada</span>
+              </div>
+            }
+            {/* 🕓 Histórico: quando e para quem esta mensagem foi encaminhada */}
+            {(() => {
+              const hist = message?.metadata?.encaminhamentos;
+              if (!Array.isArray(hist) || hist.length === 0) return null;
+              const ult = hist[hist.length - 1];
+              return (
+                <div
+                  className="flex items-center gap-1 text-[10px] text-blue-500 px-2 pt-1"
+                  title={hist.map((h) => `${h.para} — ${format(new Date(h.em), 'dd/MM HH:mm')}${h.por ? ` por ${h.por}` : ''}`).join('\n')}>
+                  <Forward className="w-3 h-3" />
+                  <span>Encaminhada {hist.length > 1 ? `${hist.length}x — última ` : ''}para {ult.para} às {format(new Date(ult.em), 'dd/MM HH:mm')}</span>
+                </div>);
+            })()}
             {!modoSelecao && !isTransferMessage &&
             <div className="absolute -top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20">
                   {onResponder &&
@@ -2295,5 +2320,6 @@ export default React.memo(function MessageBubble({
   if (prev.message?.content !== next.message?.content) return false;
   if (JSON.stringify(prev.message?.categorias) !== JSON.stringify(next.message?.categorias)) return false;
   if (prev.message?.metadata?.deleted !== next.message?.metadata?.deleted) return false;
+  if ((prev.message?.metadata?.encaminhamentos?.length || 0) !== (next.message?.metadata?.encaminhamentos?.length || 0)) return false;
   return true; // mesma mensagem, sem mudanças relevantes — não re-renderizar
 });
