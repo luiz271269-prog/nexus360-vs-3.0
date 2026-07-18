@@ -110,7 +110,18 @@ Deno.serve(async (req) => {
       } else {
         dadosEnvio.media_url = mensagem.media_url;
         dadosEnvio.media_type = mensagem.media_type;
-        dadosEnvio.media_caption = mensagem.media_caption || mensagem.content || '';
+        // Rastro visível no WhatsApp do destinatário: marca "Encaminhada" na legenda.
+        // Placeholders tipo "[Vídeo recebido]" não são enviados como legenda.
+        const captionReal = (mensagem.media_caption || '').trim();
+        const ehPlaceholder = /^\s*\S{0,2}\s*\[.*recebid.*\]\s*$/i.test(captionReal) || /\[.*recebid.*\]/i.test(mensagem.content || '') && !captionReal;
+        if (mensagem.media_type === 'document') {
+          // Em documentos a legenda vira o nome do arquivo — manter original
+          dadosEnvio.media_caption = captionReal || mensagem.content || '';
+        } else {
+          dadosEnvio.media_caption = ehPlaceholder || !captionReal
+            ? '📨 Encaminhada'
+            : `📨 Encaminhada\n${captionReal}`;
+        }
       }
       conteudoEncaminhado = `[${mensagem.media_type}] ${mensagem.media_caption || mensagem.content || ''}`.trim();
     } else if (mensagem.content) {
