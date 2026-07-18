@@ -72,9 +72,10 @@ async function buscarMensagensWAPI({ base44Instance, integration, from, to, phon
         // Extrair dados da mensagem do payload W-API
         const msg = payload.data || payload.message || payload;
         
-        // Normalizar telefone
+        // Normalizar telefone — ✅ FIX @lid: pular identidades anônimas (@lid)
         const telefone = normalizarTelefone(
-          msg.from || msg.phone || msg.sender?.id || msg.chatId || log.telefone_normalizado
+          [msg.from, msg.phone, msg.sender?.id, msg.chat?.id, msg.chatId, log.telefone_normalizado]
+            .find(c => c && !String(c).includes('@lid')) || ''
         );
         
         // Filtrar por telefone se especificado

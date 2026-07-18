@@ -49,14 +49,22 @@ async function fetchWapiLogs({ base44, integrationId, from, to }) {
 /**
  * Normaliza payload W-API para formato do processInboundEvent
  */
+// ✅ FIX @lid: resolver telefone real pulando identidades anônimas (@lid)
+// e lendo também sender.id/chat.id (payloads W-API modernos)
+function resolverTelefoneReal(data) {
+  return [data.from, data.number, data.phone, data.sender?.id, data.chat?.id]
+    .find(c => c && !String(c).includes('@lid')) || '';
+}
+
 function normalizarPayloadReplay(rawEvent) {
   // Estrutura esperada do W-API ReceivedCallback
   const data = rawEvent.data || rawEvent;
-  
+  const telefoneBruto = resolverTelefoneReal(data);
+
   return {
     contact: {
-      telefone: normalizarTelefone(data.from || data.number),
-      nome: data.pushName || data.from
+      telefone: normalizarTelefone(telefoneBruto),
+      nome: data.pushName || data.sender?.pushName || telefoneBruto
     },
     thread: {
       // Thread será criada/buscada pelo processInboundEvent
@@ -136,7 +144,7 @@ Deno.serve(async (req) => {
       
       // Filtrar por telefone se especificado
       if (phone) {
-        const phoneNorm = normalizarTelefone(data.from || data.number);
+        const phoneNorm = normalizarTelefone(resolverTelefoneReal(data));
         const filterNorm = normalizarTelefone(phone);
         if (phoneNorm !== filterNorm) return false;
       }
