@@ -192,6 +192,7 @@
     "metadata": {
       "type": "object",
       "description": "Metadados adicionais",
+      "additionalProperties": true,
       "properties": {
         "analise_multimodal": {
           "type": "object",
@@ -204,6 +205,49 @@
         "deleted": {
           "type": "boolean",
           "description": "Se a mensagem foi apagada"
+        },
+        "is_forwarded": {
+          "type": "boolean",
+          "description": "Se esta mensagem \u00e9 uma c\u00f3pia encaminhada de outra mensagem"
+        },
+        "original_message_id": {
+          "type": "string",
+          "description": "ID da mensagem original (se is_forwarded=true)"
+        },
+        "forwarded_by": {
+          "type": "string",
+          "description": "ID do User que encaminhou (se is_forwarded=true)"
+        },
+        "forwarded_at": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Quando foi encaminhada (se is_forwarded=true)"
+        },
+        "encaminhamentos": {
+          "type": "array",
+          "description": "Hist\u00f3rico de encaminhamentos DESTA mensagem original: para quem, quando e por quem",
+          "items": {
+            "type": "object",
+            "properties": {
+              "para": {
+                "type": "string",
+                "description": "Telefone de destino"
+              },
+              "thread_destino_id": {
+                "type": "string",
+                "description": "ID da thread de destino"
+              },
+              "em": {
+                "type": "string",
+                "format": "datetime",
+                "description": "Quando foi encaminhada"
+              },
+              "por": {
+                "type": "string",
+                "description": "Nome/e-mail de quem encaminhou"
+              }
+            }
+          }
         },
         "whatsapp_integration_id": {
           "type": "string",
