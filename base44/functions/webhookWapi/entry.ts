@@ -295,11 +295,27 @@ function deveIgnorar(payload, classification) {
     phone.includes('-broadcast') ||
     phone.includes('status@') ||
     phone.includes('@broadcast') ||
-    phone.includes('@lid') ||
     phone.includes('@g.us') ||
     isGroup
   ) {
     return 'jid_sistema';
+  }
+
+  // ✅ FIX @lid (caso Auanna): antes de descartar evento identificado só por
+  // @lid (identidade anônima do WhatsApp), tentar resolver o telefone real
+  // pelos demais campos do payload. Se nenhum campo tiver telefone real,
+  // descartar COM LOG (antes era descarte silencioso sem rastro).
+  if (phone.includes('@lid')) {
+    const candidatos = [payload.phone, payload.from, payload.sender?.id, payload.chat?.id];
+    const telefoneReal = candidatos.find(c => {
+      const s = String(c || '');
+      return s && !s.includes('@') && s.replace(/\D/g, '').length >= 10;
+    });
+    if (!telefoneReal) {
+      console.warn(`[WAPI-LID] 🔴 DESCARTE @lid sem telefone real | msgId=${payload.messageId || 'N/A'} | phone=${phone} | senderId=${payload.sender?.id || 'N/A'} | msgContentKeys=${Object.keys(payload.msgContent || {}).join(',')}`);
+      return 'jid_sistema';
+    }
+    console.log(`[WAPI-LID] ✅ @lid resolvido para telefone real: ${telefoneReal} | msgId=${payload.messageId || 'N/A'}`);
   }
 
   if (tipo.includes('qrcode') || tipo.includes('connection')) {
@@ -380,7 +396,10 @@ function normalizarPayload(payload) {
       };
     }
 
-    const telefone = payload.phone || payload.from || payload.sender?.id || payload.chat?.id || '';
+    // ✅ FIX @lid: pular campos com identidade anônima (@lid) na extração do
+    // telefone — usar o primeiro campo com telefone real (caso Auanna).
+    const telefone = [payload.phone, payload.from, payload.sender?.id, payload.chat?.id]
+      .find(c => c && !String(c).includes('@lid')) || '';
     const numeroLimpo = normalizarTelefone(telefone);
 
     if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
