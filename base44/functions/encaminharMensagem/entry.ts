@@ -103,13 +103,7 @@ Deno.serve(async (req) => {
     let conteudoEncaminhado = '';
 
     // Verificar tipo de conteúdo
-    if (cartaoLegendaLinks) {
-      // Cartão: imagem (visual do app) + legenda com links clicáveis (mesma execução)
-      dadosEnvio.media_url = CARTAO_IMAGEM_URL;
-      dadosEnvio.media_type = 'image';
-      dadosEnvio.media_caption = cartaoLegendaLinks;
-      conteudoEncaminhado = cartaoLegendaLinks;
-    } else if (mensagem.media_url && mensagem.media_type !== 'none') {
+    if (mensagem.media_url && mensagem.media_type !== 'none') {
       // Encaminhar mídia — áudio usa campo 'audio_url'; demais usam 'media_url' + 'media_type'
       if (mensagem.media_type === 'audio') {
         dadosEnvio.audio_url = mensagem.media_url;
