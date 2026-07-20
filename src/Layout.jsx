@@ -179,50 +179,6 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
             </div>
           </button>
 
-          {/* Botão Nexus AI no topo */}
-          <button
-            onClick={onOpenNexus}
-            className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 shadow-lg shadow-purple-500/25 transition-all duration-300 hover:scale-105 group relative"
-            title="Nexus AI"
-          >
-            <Sparkles className="h-6 w-6 text-white" />
-            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
-            {(() => {
-              const getAgentBadge = (session) => {
-                if (session.status === 'offline') {
-                  return { text: 'OFF', color: 'bg-red-500', pulse: false, tooltip: 'Agente offline' };
-                }
-                if (session.status === 'degraded') {
-                  return { text: 'SLOW', color: 'bg-yellow-500', pulse: true, tooltip: 'Processamento degradado' };
-                }
-                if (session.activeRuns > 0) {
-                  return { 
-                    text: `${session.activeRuns}`, 
-                    color: 'bg-blue-500', 
-                    pulse: true,
-                    tooltip: `${session.activeRuns} execuções ativas`
-                  };
-                }
-                return { text: 'ON', color: 'bg-green-500', pulse: false, tooltip: 'Agente online' };
-              };
-
-              const badge = getAgentBadge(agentSession);
-
-              return (
-                <Badge 
-                  className={`absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center text-[9px] font-bold px-1 ${badge.color} text-white rounded-full shadow-lg ${badge.pulse ? 'animate-pulse' : ''}`}
-                  title={badge.tooltip}
-                >
-                  {badge.text}
-                </Badge>
-              );
-            })()}
-            {/* Tooltip */}
-            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
-              🤖 Nexus AI <span className="text-green-400 ml-1">Online</span>
-            </div>
-          </button>
-
           {menuItems.map((item) => (
             <NavItem
               key={item.page}
