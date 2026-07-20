@@ -32,7 +32,7 @@ Seu foco: análise em tempo real, sugestões de ação, interpretação de dados
 
 Seja direto. Sem fluff. Foco em AÇÃO.`;
 
-export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usuario = null }) {
+export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usuario = null, embedded = false }) {
   const [mensagens, setMensagens] = useState([]);
   const [input, setInput] = useState('');
   const [carregando, setCarregando] = useState(false);
@@ -338,18 +338,20 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
   return (
     <>
       {/* Backdrop */}
-      {isOpen && (
+      {isOpen && !embedded && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[60]"
           onClick={onClose}
         />
       )}
 
-      {/* Drawer lateral */}
+      {/* Drawer lateral (ou painel embutido) */}
       <div
-        className={`fixed top-0 right-0 h-full z-[61] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        } w-full md:w-[420px]`}
+        className={embedded
+          ? 'relative w-full h-full bg-white flex flex-col overflow-hidden'
+          : `fixed top-0 right-0 h-full z-[61] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
+              isOpen ? 'translate-x-0' : 'translate-x-full'
+            } w-full md:w-[420px]`}
       >
         {/* Cabeçalho */}
         <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-purple-700 to-violet-800 flex-shrink-0">
@@ -372,12 +374,14 @@ export default function CopilotoIA({ isOpen, onClose, contextoAtivo = null, usua
                 <Trash2 className="w-4 h-4" />
               </button>
             )}
-            <button
-              onClick={onClose}
-              className="w-8 h-8 text-white/70 hover:text-white hover:bg-white/20 rounded-lg flex items-center justify-center transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {!embedded && (
+              <button
+                onClick={onClose}
+                className="w-8 h-8 text-white/70 hover:text-white hover:bg-white/20 rounded-lg flex items-center justify-center transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
 

@@ -360,7 +360,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Produtos", icon: Package, page: "Produtos" },
     { name: "Automações", icon: Workflow, page: "Automacoes" },
     { name: "Métricas de Inteligência", icon: Brain, page: "InteligenciaMetricas" },
-    { name: "Aprendizados Semanais", icon: Sparkles, page: "AprendizadosSemanais" },
+
     { name: "Importação", icon: Upload, page: "Importacao" },
     { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" },
     { name: "Ferramentas de Migração", icon: Activity, page: "FerramentasMigracao" },
@@ -369,7 +369,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Configuração do Sistema", icon: Settings, page: "ConfiguracaoIA" },
     { name: "Notas Fiscais", icon: FileText, page: "NotasFiscais" },
     { name: "Central de E-mail", icon: Mail, page: "Emails" },
-    { name: "Super Agente", icon: Zap, page: "SuperAgente" },
+    { name: "Central IA", icon: Bot, page: "CentralIA" },
     { name: "Compras", icon: ShoppingCart, page: "Compras" }
     // ⚠️ DEPRECATED: TagManager removido do menu - usar GerenciadorEtiquetasUnificado em Automações
   ];

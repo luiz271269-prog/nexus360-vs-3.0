@@ -206,7 +206,7 @@ export default function SuperAgente() {
   }, [skills]);
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-purple-50/20 to-indigo-50/20">
+    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-purple-50/20 to-indigo-50/20">
       {/* Header Fixo */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between max-w-[1800px] mx-auto">

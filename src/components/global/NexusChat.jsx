@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
-export default function NexusChat({ isOpen, onToggle, agentContext = {}, agentSession = {} }) {
+export default function NexusChat({ isOpen, onToggle, agentContext = {}, agentSession = {}, embedded = false }) {
   const [mensagens, setMensagens] = useState([]);
   const [inputMensagem, setInputMensagem] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -261,7 +261,9 @@ export default function NexusChat({ isOpen, onToggle, agentContext = {}, agentSe
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="fixed bottom-6 right-6 w-[min(480px,calc(100vw-48px))] h-[min(680px,calc(100vh-120px))] bg-white rounded-2xl shadow-2xl border-2 border-purple-200 flex flex-col z-50 overflow-hidden"
+          className={embedded
+            ? "relative w-full h-full bg-white rounded-2xl shadow-sm border border-purple-200 flex flex-col overflow-hidden"
+            : "fixed bottom-6 right-6 w-[min(480px,calc(100vw-48px))] h-[min(680px,calc(100vh-120px))] bg-white rounded-2xl shadow-2xl border-2 border-purple-200 flex flex-col z-50 overflow-hidden"}
         >
           {/* Header */}
           <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 p-4 rounded-t-2xl flex items-center justify-between">
@@ -296,9 +298,11 @@ export default function NexusChat({ isOpen, onToggle, agentContext = {}, agentSe
               >
                 <RefreshCw className="w-4 h-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={onToggle} className="text-white hover:bg-white/20">
-                <X className="w-5 h-5" />
-              </Button>
+              {!embedded && (
+                <Button variant="ghost" size="icon" onClick={onToggle} className="text-white hover:bg-white/20">
+                  <X className="w-5 h-5" />
+                </Button>
+              )}
             </div>
           </div>
 
