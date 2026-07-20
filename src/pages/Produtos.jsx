@@ -12,7 +12,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Package, Tag } from "lucide-react";
+import { Package, Tag, Instagram, MessagesSquare } from "lucide-react";
+import InstagramPublicacao from "./InstagramPublicacao";
+import TextosSociais from "./TextosSociais";
 
 import ProdutoFiltros from "../components/produtos/ProdutoFiltros";
 import ProdutoTable from "../components/produtos/ProdutoTable";
@@ -437,8 +439,10 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
     };
   }, [produtosComAnalise]);
 
+  const tabInicial = new URLSearchParams(window.location.search).get('tab') || 'catalogo';
+
   return (
-    <Tabs defaultValue="catalogo" className="flex flex-col h-screen bg-transparent">
+    <Tabs defaultValue={tabInicial} className="flex flex-col h-screen bg-transparent">
       <div className="px-4 pt-3 flex-shrink-0">
         <TabsList className="bg-white/70 border border-orange-200 shadow-sm">
           <TabsTrigger value="catalogo" className="gap-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
@@ -446,6 +450,12 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
           </TabsTrigger>
           <TabsTrigger value="promocoes" className="gap-2 data-[state=active]:bg-green-500 data-[state=active]:text-white">
             <Tag className="w-4 h-4" /> Promoções
+          </TabsTrigger>
+          <TabsTrigger value="instagram" className="gap-2 data-[state=active]:bg-pink-500 data-[state=active]:text-white">
+            <Instagram className="w-4 h-4" /> Publicar no Instagram
+          </TabsTrigger>
+          <TabsTrigger value="textos" className="gap-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+            <MessagesSquare className="w-4 h-4" /> Textos para Publicação
           </TabsTrigger>
         </TabsList>
       </div>
@@ -688,6 +698,14 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
             <VisaoCombinadaPromocoes />
           </TabsContent>
         </Tabs>
+      </TabsContent>
+
+      <TabsContent value="instagram" className="flex-1 min-h-0 overflow-y-auto m-0">
+        <InstagramPublicacao />
+      </TabsContent>
+
+      <TabsContent value="textos" className="flex-1 min-h-0 overflow-y-auto m-0">
+        <TextosSociais />
       </TabsContent>
 
       {showFormModal && (
