@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useContatosInteligentes } from '../components/hooks/useContatosInteligentes';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +25,29 @@ import {
   Cpu
 } from 'lucide-react';
 
-export default function InteligenciaMetricas() {
+const STAGE_LABELS = {
+  consideration: 'Consideração',
+  'consideração': 'Consideração',
+  consideracao: 'Consideração',
+  discovery: 'Descoberta',
+  descoberta: 'Descoberta',
+  negotiation: 'Negociação',
+  'negociação': 'Negociação',
+  negociacao: 'Negociação',
+  qualification: 'Qualificação',
+  'qualificação': 'Qualificação',
+  qualificacao: 'Qualificação',
+  decision: 'Decisão',
+  'decisão': 'Decisão',
+  decisao: 'Decisão'
+};
+
+const normalizarStage = (stage) => {
+  const key = String(stage).toLowerCase().trim();
+  return STAGE_LABELS[key] || key.replace(/_/g, ' ');
+};
+
+export function MetricasInteligenciaConteudo() {
   const [usuario, setUsuario] = useState(null);
   const [metricas, setMetricas] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -137,7 +160,8 @@ export default function InteligenciaMetricas() {
       todasAnalises.forEach(a => {
         const stage = a.insights?.stage?.current;
         if (stage && stage !== 'desconhecido') {
-          porStage[stage] = (porStage[stage] || 0) + 1;
+          const stageNormalizado = normalizarStage(stage);
+          porStage[stageNormalizado] = (porStage[stageNormalizado] || 0) + 1;
         }
       });
 
@@ -754,6 +778,10 @@ export default function InteligenciaMetricas() {
       </div>
     </div>
   );
+}
+
+export default function InteligenciaMetricas() {
+  return <Navigate to="/CentralInteligencia?tab=metricas" replace />;
 }
 
 function ScoreBar({ label, value, color }) {

@@ -11,11 +11,11 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import SplashScreen from '@/components/global/SplashScreen';
 import CentralIA from '@/pages/CentralIA';
+import CentralInteligencia from '@/pages/CentralInteligencia';
 import NotasFiscais from '@/pages/NotasFiscais';
 import CustoAutomacoes from '@/pages/CustoAutomacoes';
 import Compras from '@/pages/Compras';
 import MonitorPromocoes from '@/pages/MonitorPromocoes';
-import TelemetriaPreAtendimento from '@/pages/TelemetriaPreAtendimento';
 import CentralSaneamento from '@/pages/CentralSaneamento';
 import MonitorWAL from '@/pages/MonitorWAL';
 import Emails from '@/pages/Emails';
@@ -128,11 +128,12 @@ const AuthenticatedApp = () => {
             </LayoutWrapper>
           } 
         />
+        <Route path="/TelemetriaPreAtendimento" element={<Navigate to="/CentralInteligencia?tab=telemetria" replace />} />
         <Route 
-          path="/TelemetriaPreAtendimento" 
+          path="/CentralInteligencia" 
           element={
-            <LayoutWrapper currentPageName="TelemetriaPreAtendimento">
-              <TelemetriaPreAtendimento />
+            <LayoutWrapper currentPageName="CentralInteligencia">
+              <CentralInteligencia />
             </LayoutWrapper>
           } 
         />

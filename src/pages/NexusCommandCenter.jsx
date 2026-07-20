@@ -1,11 +1,6 @@
-
 import React from "react";
-import ControlCenter from "../components/dashboard/ControlCenter";
+import { Navigate } from "react-router-dom";
 
 export default function NexusCommandCenter() {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <ControlCenter />
-    </div>
-  );
+  return <Navigate to="/CentralInteligencia?tab=command" replace />;
 }
