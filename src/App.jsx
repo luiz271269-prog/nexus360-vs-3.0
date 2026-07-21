@@ -14,7 +14,6 @@ import CentralIA from '@/pages/CentralIA';
 import CentralInteligencia from '@/pages/CentralInteligencia';
 import NotasFiscais from '@/pages/NotasFiscais';
 import CustoAutomacoes from '@/pages/CustoAutomacoes';
-import Compras from '@/pages/Compras';
 import MonitorPromocoes from '@/pages/MonitorPromocoes';
 import CentralSaneamento from '@/pages/CentralSaneamento';
 import MonitorWAL from '@/pages/MonitorWAL';
@@ -109,14 +108,6 @@ const AuthenticatedApp = () => {
           element={
             <LayoutWrapper currentPageName="CustoAutomacoes">
               <CustoAutomacoes />
-            </LayoutWrapper>
-          } 
-        />
-        <Route 
-          path="/Compras" 
-          element={
-            <LayoutWrapper currentPageName="Compras">
-              <Compras />
             </LayoutWrapper>
           } 
         />

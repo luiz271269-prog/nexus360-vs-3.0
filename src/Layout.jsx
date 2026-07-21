@@ -311,8 +311,7 @@ export default function Layout({ children, currentPageName }) {
     { name: "Configuração do Sistema", icon: Settings, page: "ConfiguracaoIA" },
     { name: "Notas Fiscais", icon: FileText, page: "NotasFiscais" },
     { name: "Central de E-mail", icon: Mail, page: "Emails" },
-    { name: "Central IA", icon: Bot, page: "CentralIA" },
-    { name: "Compras", icon: ShoppingCart, page: "Compras" }
+    { name: "Central IA", icon: Bot, page: "CentralIA" }
     // ⚠️ DEPRECATED: TagManager removido do menu - usar GerenciadorEtiquetasUnificado em Automações
   ];
 
@@ -360,7 +359,7 @@ export default function Layout({ children, currentPageName }) {
         }
         if (setor === 'compras') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Compras', 'Produtos', 'Dashboard', 'NotasFiscais'
+          'Comunicacao', 'Produtos', 'Dashboard', 'NotasFiscais'
         ].includes(item.page));
         }
         // Gerência geral
@@ -385,7 +384,7 @@ export default function Layout({ children, currentPageName }) {
       }
       if (setor === 'compras') {
         return todosMenuItems.filter(item => [
-          'Comunicacao', 'Compras', 'Produtos', 'Dashboard', 'NotasFiscais'
+          'Comunicacao', 'Produtos', 'Dashboard', 'NotasFiscais'
         ].includes(item.page));
       }
       if (setor === 'fornecedor') {
@@ -404,7 +403,7 @@ export default function Layout({ children, currentPageName }) {
     }
     if (setor === 'compras') {
       return todosMenuItems.filter(item => [
-        'Comunicacao', 'Compras', 'Produtos', 'Dashboard', 'NotasFiscais'
+        'Comunicacao', 'Produtos', 'Dashboard', 'NotasFiscais'
       ].includes(item.page));
     }
     if (setor === 'fornecedor') {
