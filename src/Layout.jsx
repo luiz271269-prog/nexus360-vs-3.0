@@ -487,6 +487,8 @@ export default function Layout({ children, currentPageName }) {
       if (!user) { setLoadingUsuario(false); return; }
       salvarUsuarioNaSessao(user);
       setGlobalUsuario(user);
+      // Libera o widget do usuário IMEDIATAMENTE — os lembretes (pesados) continuam em background
+      setLoadingUsuario(false);
 
       if (user) {
         try {

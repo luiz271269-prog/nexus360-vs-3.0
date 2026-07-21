@@ -22,8 +22,8 @@ export default function UserAuthWidget({ usuario, loadingUsuario, onLogout }) {
     base44.auth.redirectToLogin();
   };
 
-  // Estado de carregamento
-  if (loadingUsuario) {
+  // Estado de carregamento — só mostra spinner se ainda não temos usuário (cache de sessão renderiza direto)
+  if (loadingUsuario && !usuario) {
     return (
       <div className="w-full flex items-center justify-center p-3 rounded-xl bg-slate-800/30">
         <div className="w-10 h-10 rounded-full border-2 border-slate-600 border-t-amber-500 animate-spin" />
