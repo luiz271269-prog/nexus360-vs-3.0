@@ -117,13 +117,15 @@ function limparTexto(txt) {
 function extrairCorpoLegivel(raw) {
   const texto = String(raw || '');
 
-  // Detecta boundary multipart
-  const boundaryMatch = texto.match(/boundary="?([^"\r\n;]+)"?/i);
+  // Detecta TODOS os boundaries (multipart aninhado: mixed > alternative > related)
+  const boundaries = [...texto.matchAll(/boundary="?([^"\r\n;]+)"?/gi)].map((m) => m[1]);
+  const boundariesUnicos = [...new Set(boundaries)];
   let partes = [texto];
-  if (boundaryMatch) {
-    const boundary = boundaryMatch[1];
-    partes = texto.split(new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g'));
+  for (const boundary of boundariesUnicos) {
+    const rx = new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
+    partes = partes.flatMap((p) => p.split(rx));
   }
+  const boundaryMatch = boundariesUnicos.length > 0;
 
   let plainText = '';
   let htmlText = '';
@@ -161,6 +163,14 @@ function extrairCorpoLegivel(raw) {
   } else {
     resultado = plainText || htmlText || htmlParaTexto(texto);
   }
+
+  // Fallback: se ainda restaram artefatos quoted-printable não decodificados
+  // (ex: =0D=0A, =C3=A1), decodifica o resultado inteiro como QP + UTF-8.
+  if (/(=0D=0A)|(?:=[0-9A-Fa-f]{2}){2,}/.test(resultado)) {
+    const decodificado = bytesParaTexto(decodeQuotedPrintable(resultado), 'utf-8').replace(/\r/g, '');
+    resultado = limparTexto(/<[a-z][\s\S]*?>/i.test(decodificado) ? htmlParaTexto(decodificado) : decodificado);
+  }
+
   return String(resultado).trim();
 }
 
