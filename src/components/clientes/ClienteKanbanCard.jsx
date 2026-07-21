@@ -21,10 +21,13 @@ import AtribuidorAtendenteRapido from '../comunicacao/AtribuidorAtendenteRapido'
 import ClienteHistoricoDrawer from './ClienteHistoricoDrawer';
 import ClienteChatDrawer from './ClienteChatDrawer';
 import { diasParado } from './LegendaTotalizadoresClientes';
+import useChatIndicadores from '../crm/useChatIndicadores';
 
 export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, onViewDetails, statusGradient }) {
   const [historicoOpen, setHistoricoOpen] = React.useState(false);
   const [chatOpen, setChatOpen] = React.useState(false);
+  const { getIndicadorCliente } = useChatIndicadores();
+  const indicadorChat = getIndicadorCliente(cliente);
   const temTelefone = cliente?.telefone || cliente?.celular;
   const dias = diasParado(cliente);
 
@@ -197,12 +200,17 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
             title={temTelefone ? 'Abrir chat aqui mesmo' : 'Sem telefone cadastrado'}
             className={`flex flex-col items-center gap-1 group/btn ${!temTelefone ? 'cursor-not-allowed opacity-40' : ''}`}
           >
-            <span className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-150 ${
+            <span className={`relative w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-150 ${
               temTelefone
                 ? 'border-slate-300 bg-white text-slate-700 group-hover/btn:bg-green-500 group-hover/btn:text-white group-hover/btn:border-green-500 group-hover/btn:shadow-md'
                 : 'border-slate-200 bg-slate-100 text-slate-400'
             }`}>
               <MessageSquare className="w-4 h-4" />
+              {indicadorChat?.naoLidas > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+                  {indicadorChat.naoLidas > 99 ? '99+' : indicadorChat.naoLidas}
+                </span>
+              )}
             </span>
             <span className="text-[10px] text-slate-700">Chat</span>
           </button>

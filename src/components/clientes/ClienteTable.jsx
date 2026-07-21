@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreHorizontal, Edit, Trash2, Eye, Users } from "lucide-react";
 import AtribuidorAtendenteRapido from '../comunicacao/AtribuidorAtendenteRapido';
 import EtiquetaRecorrencia from './EtiquetaRecorrencia';
+import BotaoAbrirChat from '../crm/BotaoAbrirChat';
 
 export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails }) {
 
@@ -39,6 +40,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
             <TableHead>Segmento</TableHead>
             <TableHead className="text-right">Faturado (NF)</TableHead>
             <TableHead className="text-right">Valor Mensal</TableHead>
+            <TableHead className="w-[60px] text-center">Chat</TableHead>
             <TableHead className="w-[100px] text-center">Ações</TableHead>
           </TableRow>
         </TableHeader>
@@ -78,6 +80,9 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
                 )}
               </TableCell>
               <TableCell className="text-right font-medium text-slate-700">{formatCurrency(cliente.valor_recorrente_mensal)}</TableCell>
+              <TableCell className="text-center">
+                <BotaoAbrirChat cliente={cliente} />
+              </TableCell>
               <TableCell className="text-center">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

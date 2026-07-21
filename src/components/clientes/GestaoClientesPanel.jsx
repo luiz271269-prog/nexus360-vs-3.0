@@ -28,6 +28,7 @@ import HistoricoQualificacaoCliente from "./HistoricoQualificacaoCliente";
 import ClientesNaoCadastrados from "./ClientesNaoCadastrados";
 import FiltrosClientesPanel from "./FiltrosClientesPanel";
 import EtiquetaRecorrencia from "./EtiquetaRecorrencia";
+import BotaoAbrirChat from "../crm/BotaoAbrirChat";
 import ListasVendedorPanel from "./ListasVendedorPanel";
 import { MobileDrawer } from "@/components/mobile/mobileSkillGlobal";
 import { getFaturamentoPorCliente } from "@/functions/getFaturamentoPorCliente";
@@ -477,6 +478,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
                         <th className="px-6 py-3 text-left font-semibold text-slate-700">Sem Contato</th>
                         <th className="px-6 py-3 text-left font-semibold text-slate-700">Segmento</th>
                         <th className="px-6 py-3 text-left font-semibold text-slate-700">Score Engajamento</th>
+                        <th className="px-6 py-3 text-center font-semibold text-slate-700">Chat</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -564,6 +566,9 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
                                 </div>
                                 <span className="font-semibold text-slate-900">{contato.score_engajamento || 0}</span>
                               </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <BotaoAbrirChat contato={contato} />
                             </td>
                           </tr>
                         );
