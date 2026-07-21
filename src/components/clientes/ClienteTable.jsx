@@ -3,10 +3,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash2, Eye, Users } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Eye, Users, Phone } from "lucide-react";
 import AtribuidorAtendenteRapido from '../comunicacao/AtribuidorAtendenteRapido';
 import EtiquetaRecorrencia from './EtiquetaRecorrencia';
 import BotaoAbrirChat from '../crm/BotaoAbrirChat';
+import BotaoNotasCliente from './BotaoNotasCliente';
+import { diasParado } from './LegendaTotalizadoresClientes';
+
+const getDiasColor = (d) => {
+  if (d === null) return null;
+  if (d > 60) return 'bg-red-500 text-white';
+  if (d >= 21) return 'bg-amber-400 text-amber-900';
+  return 'bg-emerald-500 text-white';
+};
 
 export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails }) {
 
@@ -40,19 +49,34 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
             <TableHead>Segmento</TableHead>
             <TableHead className="text-right">Faturado (NF)</TableHead>
             <TableHead className="text-right">Valor Mensal</TableHead>
-            <TableHead className="w-[60px] text-center">Chat</TableHead>
+            <TableHead className="w-[100px] text-center">Chat / Notas</TableHead>
             <TableHead className="w-[100px] text-center">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {clientes.map((cliente) => (
+          {clientes.map((cliente) => {
+            const dias = diasParado(cliente);
+            return (
             <TableRow key={cliente.id} className="hover:bg-slate-50/50">
               <TableCell>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium text-slate-800">{cliente.razao_social}</span>
                   <EtiquetaRecorrencia etiqueta={cliente.faturamento?.etiqueta} />
+                  {dias !== null && (
+                    <span
+                      title="Dias desde o último contato"
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${getDiasColor(dias)}`}
+                    >
+                      {dias}d parado
+                    </span>
+                  )}
                 </div>
                 <div className="text-sm text-slate-500">{cliente.nome_fantasia}</div>
+                {cliente.telefone && (
+                  <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                    <Phone className="w-3 h-3" /> {cliente.telefone}
+                  </div>
+                )}
               </TableCell>
               <TableCell className="font-mono text-sm text-slate-600">{cliente.cnpj}</TableCell>
               <TableCell>
@@ -81,7 +105,10 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
               </TableCell>
               <TableCell className="text-right font-medium text-slate-700">{formatCurrency(cliente.valor_recorrente_mensal)}</TableCell>
               <TableCell className="text-center">
-                <BotaoAbrirChat cliente={cliente} />
+                <div className="flex items-center justify-center gap-1.5">
+                  <BotaoAbrirChat cliente={cliente} />
+                  <BotaoNotasCliente cliente={cliente} />
+                </div>
               </TableCell>
               <TableCell className="text-center">
                 <DropdownMenu>
@@ -108,7 +135,8 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
                 </DropdownMenu>
               </TableCell>
             </TableRow>
-          ))}
+            );
+          })}
         </TableBody>
       </Table>
     </div>
