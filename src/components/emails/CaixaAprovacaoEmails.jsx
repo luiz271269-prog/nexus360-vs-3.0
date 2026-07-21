@@ -59,6 +59,19 @@ const dominioDe = (login = '') => {
 // Conta de e-mail completa (ex: luiz@liesch.com.br)
 const contaDe = (login = '') => (login || '').toLowerCase().trim() || 'outros';
 
+// Formata a data do e-mail (cabeçalho original) ou a data de sincronização
+const formatarDataEmail = (e) => {
+  const raw = e?.data_email || e?.created_date;
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return '';
+  const hoje = new Date();
+  const mesmoDia = d.toDateString() === hoje.toDateString();
+  if (mesmoDia) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) +
+    ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+};
+
 export default function CaixaAprovacaoEmails() {
   const [pendentes, setPendentes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -209,6 +222,10 @@ export default function CaixaAprovacaoEmails() {
                             </span>
                           )}
                         </div>
+
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {formatarDataEmail(e)}
+                        </p>
 
                         <p className="font-semibold text-slate-800 text-[13px] mt-0.5 truncate">
                           {e.assunto || '(sem assunto)'}

@@ -11,6 +11,15 @@ const URGENCIA_BADGE = {
 };
 const URGENCIA_LABEL = { alta: 'URGENTE', media: 'ATENÇÃO', baixa: 'NORMAL' };
 
+// Formata a data do cabeçalho do e-mail em pt-BR (fallback: texto original)
+const formatarData = (raw) => {
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+    ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+};
+
 // Painel lateral de leitura do e-mail selecionado
 export default function PainelLeituraEmail({ email, onFechar, onAprovar, onRejeitar, processando }) {
   const [corpo, setCorpo] = useState('');
@@ -86,7 +95,7 @@ export default function PainelLeituraEmail({ email, onFechar, onAprovar, onRejei
         </span>
         {email.data_email && (
           <span className="inline-flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5" /> {email.data_email}
+            <Clock className="w-3.5 h-3.5" /> {formatarData(email.data_email)}
           </span>
         )}
         {email.setor_classificado && (
