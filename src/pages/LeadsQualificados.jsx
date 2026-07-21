@@ -566,7 +566,7 @@ export default function LeadsQualificados() {
               {podeVerTodos && (
                 <>
                   <Select value={filtroVendedorGlobal} onValueChange={setFiltroVendedorGlobal}>
-                    <SelectTrigger className="h-7 w-[140px] text-[11px] bg-slate-800/60 border-slate-700 text-white">
+                    <SelectTrigger className="h-7 w-[120px] sm:w-[140px] text-[11px] bg-slate-800/60 border-slate-700 text-white">
                       <SelectValue placeholder="👤 Vendedor" />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-800 text-white border-slate-700">
@@ -609,7 +609,7 @@ export default function LeadsQualificados() {
                 <div className="bg-slate-900/95 rounded-lg border border-slate-700/50 px-2 py-1.5">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
                 {/* TABS - underline animado */}
-                <TabsList className="bg-transparent h-8 p-0 gap-0.5 overflow-x-auto flex-wrap sm:flex-nowrap w-full sm:w-auto">
+                <TabsList className="bg-transparent h-8 p-0 gap-0.5 overflow-x-auto no-scrollbar flex-nowrap justify-start w-full sm:w-auto">
                 <TabsTrigger
                   value="orcamentos"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
@@ -655,8 +655,8 @@ export default function LeadsQualificados() {
                 </TabsList>
 
                 {/* FILTROS COMPACTOS */}
-                <div className="flex items-center gap-1 w-full sm:w-auto">
-                <div className="relative">
+                <div className="flex flex-wrap items-center gap-1 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-none min-w-[140px]">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
                   <Input
                     placeholder="Buscar..."

@@ -26,7 +26,8 @@ import ClienteTable from "./ClienteTable";
 import ClienteKanban from "./ClienteKanban";
 import HistoricoQualificacaoCliente from "./HistoricoQualificacaoCliente";
 import ClientesNaoCadastrados from "./ClientesNaoCadastrados";
-import FiltroRecorrencia from "./FiltroRecorrencia";
+import FiltrosClientesPanel from "./FiltrosClientesPanel";
+import { MobileDrawer } from "@/components/mobile/mobileSkillGlobal";
 import { getFaturamentoPorCliente } from "@/functions/getFaturamentoPorCliente";
 import { cadastrarClienteDeNF } from "@/functions/cadastrarClienteDeNF";
 
@@ -235,6 +236,16 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
     return true;
   });
 
+  // Contador de filtros ativos (para o botão da gaveta mobile)
+  const filtrosAtivos = [
+    filtros.busca,
+    filtros.status !== 'todos',
+    filtros.classificacao !== 'todos',
+    filtros.segmento !== 'todos',
+    filtros.responsavel !== 'todos',
+    filtros.recorrencia !== 'todos'
+  ].filter(Boolean).length;
+
   const clientesComScore = clientesFiltrados.map(cliente => ({
     ...cliente,
     score: (clientesScores || []).find(s => s.cliente_id === cliente.id),
@@ -341,13 +352,34 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
             variant={aba === 'contatos_fidelizados' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setAba('contatos_fidelizados')}
-            className={`h-8 px-3 ${aba === 'contatos_fidelizados' ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' : 'text-slate-300 hover:text-white'}`}
+            className={`h-8 px-2 sm:px-3 text-xs sm:text-sm ${aba === 'contatos_fidelizados' ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' : 'text-slate-300 hover:text-white'}`}
           >
-            👤 Contatos Fidelizados
+            👤 Fidelizados
           </Button>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Filtros em gaveta no mobile (Skill Mobile Global) */}
+          <MobileDrawer
+            triggerLabel={`Filtros${filtrosAtivos > 0 ? ` (${filtrosAtivos})` : ''}`}
+            side="right"
+            width={320}
+            className="bg-white"
+          >
+            <div className="p-4 pt-10">
+              <h3 className="text-base font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <Search className="w-4 h-4 text-blue-600" /> Filtros
+              </h3>
+              <FiltrosClientesPanel
+                filtros={filtros}
+                setFiltros={setFiltros}
+                vendedores={vendedores}
+                aba={aba}
+                clientes={clientes}
+                faturamentoPorCliente={faturamentoPorCliente}
+              />
+            </div>
+          </MobileDrawer>
           {aba === 'clientes' && (
             <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-1 border border-slate-600/50">
               <Button
@@ -371,70 +403,22 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
         </div>
       </div>
 
-      {/* FILTROS */}
-      <Card className="bg-white/80 backdrop-blur-lg border-2 border-slate-200/50 shadow-lg">
+      {/* FILTROS — Card visível só no desktop; no mobile ficam na gaveta acima */}
+      <Card className="hidden md:block bg-white/80 backdrop-blur-lg border-2 border-slate-200/50 shadow-lg">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2 text-slate-700">
             <Search className="w-4 h-4 text-blue-600" /> Filtros
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-0 space-y-3">
-          {aba === 'clientes' && (
-            <FiltroRecorrencia
-              valor={filtros.recorrencia}
-              onChange={(value) => setFiltros({ ...filtros, recorrencia: value })}
-              clientes={clientes}
-              faturamentoPorCliente={faturamentoPorCliente}
-            />
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-            <div className="lg:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  placeholder="Buscar cliente por nome, CNPJ, telefone ou email..."
-                  value={filtros.busca}
-                  onChange={(e) => setFiltros({ ...filtros, busca: e.target.value })}
-                  className="pl-10 h-9 border-slate-300 focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            <Select value={filtros.status} onValueChange={(value) => setFiltros({ ...filtros, status: value })}>
-              <SelectTrigger className="h-9 border-slate-300 focus:border-blue-500"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os Status</SelectItem>
-                <SelectItem value="Ativo">Ativo</SelectItem>
-                <SelectItem value="Inativo">Inativo</SelectItem>
-                <SelectItem value="Em Risco">Em Risco</SelectItem>
-                <SelectItem value="Promotor">Promotor</SelectItem>
-                <SelectItem value="Prospect">Prospect</SelectItem>
-                <SelectItem value="Lead Qualificado">Lead Qualificado</SelectItem>
-                <SelectItem value="Lead Frio">Lead Frio</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filtros.classificacao} onValueChange={(value) => setFiltros({ ...filtros, classificacao: value })}>
-              <SelectTrigger className="h-9 border-slate-300 focus:border-blue-500"><SelectValue placeholder="Classificação" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todas as Classificações</SelectItem>
-                <SelectItem value="A - Alto Potencial">A - Alto Potencial</SelectItem>
-                <SelectItem value="B - Médio Potencial">B - Médio Potencial</SelectItem>
-                <SelectItem value="C - Baixo Potencial">C - Baixo Potencial</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filtros.responsavel} onValueChange={(value) => setFiltros({ ...filtros, responsavel: value })}>
-              <SelectTrigger className="h-9 border-slate-300 focus:border-blue-500"><SelectValue placeholder="👤 Responsável" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os Responsáveis</SelectItem>
-                {vendedores.map((vendedor) => (
-                  <SelectItem key={vendedor.value} value={vendedor.value}>{vendedor.label}</SelectItem>
-                ))}
-                <SelectItem value="nao_atribuido">Não Atribuído</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <CardContent className="pt-0">
+          <FiltrosClientesPanel
+            filtros={filtros}
+            setFiltros={setFiltros}
+            vendedores={vendedores}
+            aba={aba}
+            clientes={clientes}
+            faturamentoPorCliente={faturamentoPorCliente}
+          />
         </CardContent>
       </Card>
 
