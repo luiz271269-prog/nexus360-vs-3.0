@@ -1,0 +1,104 @@
+{
+  "name": "ListaVendedor",
+  "type": "object",
+  "description": "Listas de trabalho de clientes por vendedor (ex: Top 30, Estrat\u00e9gicos, Reativa\u00e7\u00e3o)",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome da lista (ex: Lista 1 - Top 30)"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o/objetivo da lista"
+    },
+    "vendedor_id": {
+      "type": "string",
+      "description": "User.id do vendedor dono da lista"
+    },
+    "vendedor_nome": {
+      "type": "string",
+      "description": "Nome do vendedor (cache para exibi\u00e7\u00e3o)"
+    },
+    "cliente_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "IDs dos Clientes que fazem parte da lista"
+    },
+    "cor": {
+      "type": "string",
+      "enum": [
+        "blue",
+        "green",
+        "purple",
+        "orange",
+        "pink",
+        "teal",
+        "red",
+        "amber"
+      ],
+      "default": "blue",
+      "description": "Cor do badge da lista"
+    },
+    "ordem": {
+      "type": "number",
+      "default": 10,
+      "description": "Ordem de exibi\u00e7\u00e3o (menor primeiro)"
+    },
+    "ativa": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "nome",
+    "vendedor_id"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "data.vendedor_id": "{{user.id}}"
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.vendedor_id": "{{user.id}}"
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.vendedor_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

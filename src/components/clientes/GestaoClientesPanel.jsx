@@ -27,6 +27,7 @@ import ClienteKanban from "./ClienteKanban";
 import HistoricoQualificacaoCliente from "./HistoricoQualificacaoCliente";
 import ClientesNaoCadastrados from "./ClientesNaoCadastrados";
 import FiltrosClientesPanel from "./FiltrosClientesPanel";
+import ListasVendedorPanel from "./ListasVendedorPanel";
 import { MobileDrawer } from "@/components/mobile/mobileSkillGlobal";
 import { getFaturamentoPorCliente } from "@/functions/getFaturamentoPorCliente";
 import { cadastrarClienteDeNF } from "@/functions/cadastrarClienteDeNF";
@@ -356,6 +357,14 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
           >
             👤 Fidelizados
           </Button>
+          <Button
+            variant={aba === 'listas' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setAba('listas')}
+            className={`h-8 px-2 sm:px-3 text-xs sm:text-sm ${aba === 'listas' ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white' : 'text-slate-300 hover:text-white'}`}
+          >
+            📋 Listas
+          </Button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -404,7 +413,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
       </div>
 
       {/* FILTROS — Card visível só no desktop; no mobile ficam na gaveta acima */}
-      <Card className="hidden md:block bg-white/80 backdrop-blur-lg border-2 border-slate-200/50 shadow-lg">
+      <Card className={`${aba === 'listas' ? 'hidden' : 'hidden md:block'} bg-white/80 backdrop-blur-lg border-2 border-slate-200/50 shadow-lg`}>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2 text-slate-700">
             <Search className="w-4 h-4 text-blue-600" /> Filtros
@@ -423,7 +432,14 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
       </Card>
 
       {/* CONTEÚDO */}
-      {aba === 'contatos_fidelizados' ? (
+      {aba === 'listas' ? (
+        <ListasVendedorPanel
+          usuarioAtual={usuarioAtual}
+          vendedores={vendedores}
+          clientes={clientes}
+          onViewDetails={setViewingDetails}
+        />
+      ) : aba === 'contatos_fidelizados' ? (
         <>
           {isLoadingContatos ? (
             <div className="flex items-center justify-center py-20 bg-white/80 backdrop-blur-lg rounded-xl shadow-lg border-2 border-slate-200/50">
