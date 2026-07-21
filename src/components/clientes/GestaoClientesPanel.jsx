@@ -27,6 +27,7 @@ import ClienteKanban from "./ClienteKanban";
 import HistoricoQualificacaoCliente from "./HistoricoQualificacaoCliente";
 import ClientesNaoCadastrados from "./ClientesNaoCadastrados";
 import FiltrosClientesPanel from "./FiltrosClientesPanel";
+import EtiquetaRecorrencia from "./EtiquetaRecorrencia";
 import ListasVendedorPanel from "./ListasVendedorPanel";
 import { MobileDrawer } from "@/components/mobile/mobileSkillGlobal";
 import { getFaturamentoPorCliente } from "@/functions/getFaturamentoPorCliente";
@@ -65,7 +66,10 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
     queryKey: ['contatosFidelizados'],
     queryFn: async () => {
       const contatos = await base44.entities.Contact.list('-updated_date', 2000);
+      // Fornecedores não são clientes fidelizados — ficam fora desta listagem
       return (contatos || []).filter(c =>
+        c.tipo_contato !== 'fornecedor'
+      ).filter(c =>
         c.is_cliente_fidelizado ||
         c.is_vip ||
         c.atendente_fidelizado_vendas ||
@@ -467,6 +471,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
                       <tr>
                         <th className="px-6 py-3 text-left font-semibold text-slate-700">Empresa / Nome</th>
                         <th className="px-6 py-3 text-left font-semibold text-slate-700">Tipo</th>
+                        <th className="px-6 py-3 text-left font-semibold text-slate-700">Recorrência</th>
                         <th className="px-6 py-3 text-left font-semibold text-slate-700">Telefone</th>
                         <th className="px-6 py-3 text-left font-semibold text-slate-700">Atendentes Fidelizados</th>
                         <th className="px-6 py-3 text-left font-semibold text-slate-700">Sem Contato</th>
@@ -520,6 +525,11 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
                               </div>
                             </td>
                             <td className="px-6 py-4"><Badge className={`${tipoCfg.cor} text-white hover:opacity-90`}>{tipoCfg.label}</Badge></td>
+                            <td className="px-6 py-4">
+                              {faturamentoPorCliente[contato.cliente_id]?.etiqueta
+                                ? <EtiquetaRecorrencia etiqueta={faturamentoPorCliente[contato.cliente_id].etiqueta} />
+                                : <span className="text-xs text-slate-400">—</span>}
+                            </td>
                             <td className="px-6 py-4 text-slate-700">{contato.telefone || '-'}</td>
                             <td className="px-6 py-4">
                               {setores.length === 0 ? (
