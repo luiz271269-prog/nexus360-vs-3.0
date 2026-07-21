@@ -1,0 +1,34 @@
+{
+  "name": "Confirma\u00e7\u00e3o de Recebimento de E-mail",
+  "description": "Envia uma confirma\u00e7\u00e3o de recebimento amig\u00e1vel via Gmail sempre que chega um novo e-mail de um remetente j\u00e1 cadastrado no CRM (status auto_aprovado). Dispara automaticamente quando os e-mails come\u00e7arem a entrar.",
+  "trigger": {
+    "condition": "${ (.trigger.data.status_aprovacao == \"auto_aprovado\") }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "EmailSincronizado"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "confirma_o_de_recebimento_de_e_mail",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "enviarConfirmacaoRecebimentoEmail",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "Limpeza CallSessions \u00d3rf\u00e3s",
+  "description": "Encerra CallSessions com status 'chamando' >5min ou 'ativa' >2h. Evita ac\u00famulo de sess\u00f5es zumbis no buscarChamadasEntrantes.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 15,
+      "interval_unit": "minutes",
+      "interval_anchor": "2026-05-19T22:19:02.421000",
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "limpeza_callsessions_rf_s",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "limparCallSessionsOrfas",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

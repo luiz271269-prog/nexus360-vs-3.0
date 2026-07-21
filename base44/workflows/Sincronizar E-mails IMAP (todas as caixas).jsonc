@@ -1,0 +1,44 @@
+{
+  "name": "Sincronizar E-mails IMAP (todas as caixas)",
+  "description": "L\u00ea novos e-mails de todas as caixas Zimbra ativas (IMAP) a cada 15 minutos, faz match com CRM e roteia conhecidos para a Central / desconhecidos para aprova\u00e7\u00e3o.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 15,
+      "interval_unit": "minutes",
+      "interval_anchor": "2026-06-03T16:00:42.844000",
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "sincronizar_e_mails_imap_todas_as_caixas",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sincronizarTodasCaixasImap",
+            "args": {
+              "email_address": "luiz@liesch.com.br",
+              "max_messages": 30
+            }
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

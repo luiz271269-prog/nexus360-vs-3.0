@@ -1,0 +1,35 @@
+{
+  "name": "Wake-Up Push \u2014 Nova mensagem de contato",
+  "description": "Dispara notifica\u00e7\u00e3o push (Wake-Up) com app fechado em qualquer nova mensagem de thread (externa OU interna). A pr\u00f3pria fun\u00e7\u00e3o notificarWakeUpMensagem diferencia o caminho interno/externo e respeita participantes e permiss\u00f5es.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create",
+        "update"
+      ],
+      "entity_name": "MessageThread"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "wake_up_push_nova_mensagem_de_contato",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notificarWakeUpMensagem",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

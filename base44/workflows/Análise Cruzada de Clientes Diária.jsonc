@@ -1,0 +1,41 @@
+{
+  "name": "An\u00e1lise Cruzada de Clientes Di\u00e1ria",
+  "description": "Roda a an\u00e1lise cruzada (NFes Neural Fin \u00d7 CRM) todo dia \u00e0s 07:30 BRT: reclassifica segmentos dos contatos, reconcilia status/score/ABC dos clientes e notifica os vendedores sobre clientes cr\u00edticos.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "30 10 * * *",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "an_lise_cruzada_de_clientes_di_ria",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "analiseCruzadaClientes",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

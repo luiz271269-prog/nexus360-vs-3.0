@@ -1,0 +1,35 @@
+{
+  "name": "Auto-Cura de Contato",
+  "description": "Sanitiza\u00e7\u00e3o autom\u00e1tica de contatos: corrige telefone_canonico corrompido/divergente e remove tags 'merged'/'duplicata' acumuladas. Roda s\u00edncrono em <1s. Para sanitiza\u00e7\u00e3o profunda (mensagens \u00f3rf\u00e3s, dedup, merges), usar skillSanitizacaoContato manualmente.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create",
+        "update"
+      ],
+      "entity_name": "Contact"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_cura_de_contato",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "autoSanitizeContactHook",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

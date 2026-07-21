@@ -1,0 +1,41 @@
+{
+  "name": "Resumo Compras Di\u00e1rio (07:00)",
+  "description": "Compila vendas + or\u00e7amentos das \u00faltimas 24h, top produtos e rank de vendedores. Envia resumo para setores fornecedor e vendas via nexusNotificar.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 10 * * *",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "resumo_compras_di_rio_07_00",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "resumoComprasDiario",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

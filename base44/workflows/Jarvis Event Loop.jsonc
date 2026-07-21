@@ -1,0 +1,41 @@
+{
+  "name": "Jarvis Event Loop",
+  "description": "Executa o ciclo do agente aut\u00f4nomo a cada 5 minutos para processar eventos, threads paradas e or\u00e7amentos sem follow-up",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 15,
+      "interval_unit": "minutes",
+      "interval_anchor": "2026-01-30T21:09:05.922000",
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "jarvis_event_loop",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "jarvisEventLoop",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

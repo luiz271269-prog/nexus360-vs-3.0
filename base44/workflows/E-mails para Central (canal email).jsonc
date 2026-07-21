@@ -1,0 +1,41 @@
+{
+  "name": "E-mails para Central (canal email)",
+  "description": "Leva e-mails sincronizados vinculados a contatos para a Central de Comunica\u00e7\u00e3o como conversas do canal email.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 15,
+      "interval_unit": "minutes",
+      "interval_anchor": "2026-05-30T23:03:13.257000",
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "e_mails_para_central_canal_email",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "emailsParaCentral",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

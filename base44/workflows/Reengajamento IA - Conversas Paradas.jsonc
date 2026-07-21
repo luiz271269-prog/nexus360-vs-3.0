@@ -1,0 +1,43 @@
+{
+  "name": "Reengajamento IA - Conversas Paradas",
+  "description": "Dias \u00fateis \u00e0s 10:30: analisa com IA as \u00faltimas 20 mensagens de conversas WhatsApp paradas (7-90 dias) e envia mensagem de reengajamento personalizada. M\u00e1x 5 envios/dia, cooldown 14 dias por conversa, s\u00f3 em hor\u00e1rio comercial.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "30 13 * * 1,2,3,4,5",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "reengajamento_ia_conversas_paradas",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "reengajarClientesIA",
+            "args": {
+              "limite": 5
+            }
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

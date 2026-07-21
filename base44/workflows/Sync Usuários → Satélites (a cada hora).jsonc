@@ -1,0 +1,41 @@
+{
+  "name": "Sync Usu\u00e1rios \u2192 Sat\u00e9lites (a cada hora)",
+  "description": "Replica automaticamente o diret\u00f3rio de usu\u00e1rios e celulares do Nexus360 para todos os sat\u00e9lites ativos, a cada hora.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 1,
+      "interval_unit": "hours",
+      "interval_anchor": "2026-07-03T06:00:00",
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "sync_usu_rios_sat_lites_a_cada_hora",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sincronizarUsuariosSatelites",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

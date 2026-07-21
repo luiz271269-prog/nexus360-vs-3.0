@@ -1,0 +1,35 @@
+{
+  "name": "Gmail \u2192 Central (e-mails novos)",
+  "description": "Quando chega um e-mail novo no Gmail conectado, transforma automaticamente em conversa na Central de Comunica\u00e7\u00e3o.",
+  "trigger": {
+    "condition": "${ (.trigger.data.has_new_messages == true) }",
+    "config": {
+      "trigger_type": "connector",
+      "events": [
+        "mailbox"
+      ],
+      "integration_type": "gmail",
+      "resource_id": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "gmail_central_e_mails_novos",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "gmailWebhookHandler",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "Etiqueta \u2192 Pipeline CRM (MessageThread)",
+  "description": "Quando categorias de uma MessageThread mudam (cotacao/venda), move or\u00e7amento no pipeline, promove contato e registra log",
+  "trigger": {
+    "condition": "${ (.trigger.changed_fields | index(\"categorias\") != null) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "MessageThread"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "etiqueta_pipeline_crm_messagethread",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sincronizarEtiquetaOrcamento",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "An\u00e1lise Di\u00e1ria de Contatos (Intelig\u00eancia)",
+  "description": "Processa lote de 12 contatos sem an\u00e1lise nas \u00faltimas 24h. Roda a cada 15 min distribuindo o trabalho ao longo do dia. IA comportamental + urg\u00eancia.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 30,
+      "interval_unit": "minutes",
+      "interval_anchor": "2026-03-19T17:10:18.855000",
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "an_lise_di_ria_de_contatos_intelig_ncia",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "analisarContatosDaily",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

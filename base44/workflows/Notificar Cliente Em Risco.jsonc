@@ -1,0 +1,34 @@
+{
+  "name": "Notificar Cliente Em Risco",
+  "description": "Avisa o vendedor respons\u00e1vel no Dashboard quando um cliente muda de status para 'Em Risco'",
+  "trigger": {
+    "condition": "${ ((.trigger.changed_fields | index(\"status\") != null) and (.trigger.data.status == \"Em Risco\")) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "Cliente"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "notificar_cliente_em_risco",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notificarClienteEmRisco",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

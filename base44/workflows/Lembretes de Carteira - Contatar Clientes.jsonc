@@ -1,0 +1,41 @@
+{
+  "name": "Lembretes de Carteira - Contatar Clientes",
+  "description": "Todo dia \u00fatil \u00e0s 09:00 avisa cada vendedor sobre clientes da carteira sem contato h\u00e1 mais de 14 dias (7 dias se Em Risco)",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 12 * * 1,2,3,4,5",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "lembretes_de_carteira_contatar_clientes",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "lembretesCarteiraClientes",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

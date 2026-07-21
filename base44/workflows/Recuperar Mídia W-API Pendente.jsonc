@@ -1,0 +1,41 @@
+{
+  "name": "Recuperar M\u00eddia W-API Pendente",
+  "description": "Reprocessa m\u00eddias W-API presas em pending_download/failed_download, retentando o download em background (padroniza com o fluxo Z-API).",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 10,
+      "interval_unit": "minutes",
+      "interval_anchor": "2026-06-24T01:20:48.939000",
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "recuperar_m_dia_w_api_pendente",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "recuperarMidiaWapiPendente",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

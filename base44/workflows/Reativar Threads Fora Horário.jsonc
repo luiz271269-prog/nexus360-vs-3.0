@@ -1,0 +1,41 @@
+{
+  "name": "Reativar Threads Fora Hor\u00e1rio",
+  "description": "Reativa threads que chegaram fora do hor\u00e1rio de atendimento, classifica inten\u00e7\u00e3o e roteia para o atendente correto",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 11 * * 1-6",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "reativar_threads_fora_hor_rio",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "reativarThreadsForaHorario",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

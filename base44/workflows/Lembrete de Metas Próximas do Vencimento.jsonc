@@ -1,0 +1,41 @@
+{
+  "name": "Lembrete de Metas Pr\u00f3ximas do Vencimento",
+  "description": "Verifica diariamente quais vendedores t\u00eam meta mensal pr\u00f3xima do vencimento (fim do m\u00eas) e ainda n\u00e3o atingiram o valor, enviando um lembrete push para cada um.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 12 * * *",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "lembrete_de_metas_pr_ximas_do_vencimento",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "lembreteMetasVencimento",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}
