@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Loader2, X, MessageSquare } from 'lucide-react';
 import ChatWindow from '@/components/comunicacao/ChatWindow';
+import IniciarConversaForm from '@/components/crm/IniciarConversaForm';
 import { toast } from 'sonner';
 
 /**
@@ -267,10 +268,20 @@ export default function ClienteChatDrawer({ cliente, isOpen, onClose }) {
               <p className="text-sm">Localizando conversa…</p>
             </div>
           ) : erro ? (
-            <div className="flex flex-col items-center justify-center h-full text-center px-6">
-              <MessageSquare className="w-12 h-12 text-slate-300 mb-3" />
-              <p className="text-slate-700 font-medium mb-2">Não foi possível abrir a conversa</p>
-              <p className="text-sm text-slate-500">{erro}</p>
+            <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-4 overflow-y-auto py-8">
+              <div>
+                <MessageSquare className="w-10 h-10 text-slate-300 mb-2 mx-auto" />
+                <p className="text-slate-700 font-medium mb-1">Nenhuma conversa encontrada</p>
+                <p className="text-xs text-slate-500">Confira/corrija os dados abaixo para iniciar a conversa agora mesmo.</p>
+              </div>
+              <IniciarConversaForm
+                cliente={cliente}
+                onConversaCriada={(novoContato, novaThread) => {
+                  setContato(novoContato);
+                  setThread(novaThread);
+                  setErro(null);
+                }}
+              />
             </div>
           ) : thread ? (
             <ChatWindow
