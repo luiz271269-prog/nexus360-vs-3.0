@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Brain, Gauge } from 'lucide-react';
-import ControlCenter from '@/components/dashboard/ControlCenter';
 import { MetricasInteligenciaConteudo } from '@/pages/InteligenciaMetricas';
 import TelemetriaPreAtendimento from '@/pages/TelemetriaPreAtendimento';
 
@@ -40,9 +39,6 @@ export default function CentralInteligencia() {
         </div>
 
         <TabsContent value="operacao" className="mt-0">
-          <div className="p-4 md:p-6 max-w-7xl mx-auto">
-            <ControlCenter />
-          </div>
           <TelemetriaPreAtendimento />
         </TabsContent>
 

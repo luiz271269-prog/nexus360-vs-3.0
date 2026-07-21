@@ -29,7 +29,6 @@ import { validarMudancaStatus, getMensagemMotivacional, getProximaAcaoSugerida }
 import OrcamentoKanbanOptimized from "../components/orcamentos/OrcamentoKanbanOptimized";
 import IframeHtmlLoader from "../components/iframes/IframeHtmlLoader";
 import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
-import ControlCenter from "../components/dashboard/ControlCenter";
 import { createPageUrl } from "@/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -642,12 +641,6 @@ export default function LeadsQualificados() {
                   <Badge variant="secondary" className="ml-1 bg-white/20 text-white text-[9px] h-3.5 px-1">{leadsFiltrados.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
-                  value="nexus"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
-                  <Zap className="w-3 h-3 mr-1" />
-                  Nexus
-                </TabsTrigger>
-                <TabsTrigger
                   value="listas"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
                   <List className="w-3 h-3 mr-1" />
@@ -794,11 +787,6 @@ export default function LeadsQualificados() {
                 etapasVisiveis={['interna']}
                 />
                 )}
-                </TabsContent>
-
-                {/* TAB: NEXUS COMMAND CENTER */}
-                <TabsContent value="nexus" className="mt-2">
-                <ControlCenter />
                 </TabsContent>
 
                 {/* TAB: LISTAS DE TRABALHO */}
