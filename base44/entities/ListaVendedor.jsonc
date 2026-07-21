@@ -1,7 +1,7 @@
 {
   "name": "ListaVendedor",
   "type": "object",
-  "description": "Listas de trabalho de clientes por vendedor (ex: Top 30, Estrat\u00e9gicos, Reativa\u00e7\u00e3o)",
+  "description": "Listas de trabalho de clientes/contatos por vendedor (ex: Top 30, Estrat\u00e9gicos, Reativa\u00e7\u00e3o)",
   "properties": {
     "nome": {
       "type": "string",
@@ -26,6 +26,39 @@
       },
       "default": [],
       "description": "IDs dos Clientes que fazem parte da lista"
+    },
+    "contato_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "IDs dos Contacts (contatos avulsos) que fazem parte da lista"
+    },
+    "itens_importados": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "cnpj": {
+            "type": "string"
+          },
+          "telefone": {
+            "type": "string"
+          },
+          "cidade": {
+            "type": "string"
+          },
+          "observacao": {
+            "type": "string"
+          }
+        }
+      },
+      "default": [],
+      "description": "Itens importados de arquivo que n\u00e3o foram vinculados a nenhum cliente/contato existente (mantidos na lista para trabalho)"
     },
     "cor": {
       "type": "string",
