@@ -39,7 +39,6 @@ import {
   podeInteragirNaThread } from
 "../components/lib/threadVisibility";
 import ModalSemPermissaoConversa from "../components/comunicacao/ModalSemPermissaoConversa";
-import BibliotecaAutomacoes from "../components/automacao/BibliotecaAutomacoes";
 import CentralControleOperacional from "../components/comunicacao/CentralControleOperacional";
 import DiagnosticoCirurgicoEmbed from "../components/comunicacao/DiagnosticoCirurgicoEmbed";
 import GerenciadorEtiquetasUnificado from "../components/comunicacao/GerenciadorEtiquetasUnificado";
@@ -1865,13 +1864,6 @@ export default function Comunicacao() {
                   onSelecionarThread={handleSelecionarThread}
                   usuarioAtual={usuario} />
 
-              </div>
-            </TabsContent>
-
-            {/* TAB: AUTOMAÇÃO */}
-            <TabsContent value="automacao" className="h-full m-0 overflow-hidden">
-              <div className="h-full overflow-y-auto p-6">
-                <BibliotecaAutomacoes />
               </div>
             </TabsContent>
 
