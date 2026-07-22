@@ -13,6 +13,7 @@ import OrcamentoChatDrawer from './OrcamentoChatDrawer';
 import RejeicaoMotivoModal from './RejeicaoMotivoModal';
 import LegendaTotalizadoresOrcamentos, { classificarOrcamento } from './LegendaTotalizadoresOrcamentos';
 import AnaliseProdutosPanel from '../inteligencia/AnaliseProdutosPanel';
+import useChatIndicadores from '../crm/useChatIndicadores';
 
 const statusLabels = {
   em_cotacao: 'Em Cotação',
@@ -76,7 +77,7 @@ const bordaCategoria = {
 };
 
 // ─── Card memorizado ──────────────────────────────────────────────────────────
-const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, isSaving, fotoVendedor }) => {
+const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, isSaving, fotoVendedor, chatNaoLidas = 0 }) => {
   const catParado = classificarOrcamento(orcamento);
   const bordaCat = bordaCategoria[catParado] || gradient.border;
   return (
@@ -223,10 +224,15 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); onAbrirChat(orcamento); }}
-                  className="flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-[9px] font-semibold transition-all"
-                  title="Abrir chat"
+                  className="relative flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-[9px] font-semibold transition-all"
+                  title={chatNaoLidas > 0 ? `${chatNaoLidas} mensagem(ns) não lida(s) — abrir chat` : 'Abrir chat'}
                 >
                   <Send className="w-2.5 h-2.5" />
+                  {chatNaoLidas > 0 && (
+                    <span className="absolute -top-2 -right-2 min-w-[16px] h-[16px] px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+                      {chatNaoLidas > 99 ? '99+' : chatNaoLidas}
+                    </span>
+                  )}
                 </button>
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
@@ -261,7 +267,7 @@ const resolverFotoVendedor = (orcamento, fotosVendedorMap) => {
   return nome ? (fotosVendedorMap.byName[nome] || null) : null;
 };
 
-const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamentos, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, savingId, fotosVendedorMap }) => {
+const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamentos, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, savingId, fotosVendedorMap, chatBadges }) => {
   const gradient = statusGradients[status];
   const totalValor = useMemo(() => colOrcamentos.reduce((s, o) => s + (o.valor_total || 0), 0), [colOrcamentos]);
 
@@ -312,6 +318,7 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
                   etiquetasMap={etiquetasMap}
                   isSaving={savingId === orc.id}
                   fotoVendedor={resolverFotoVendedor(orc, fotosVendedorMap)}
+                  chatNaoLidas={chatBadges?.[orc.id] || 0}
               />
             )}
             {provided.placeholder}
@@ -334,6 +341,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   const [categoriaPrioritaria, setCategoriaPrioritaria] = useState(null); // 'criticos' | 'vermelhos' | 'amarelos' | 'ativos' | null
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { getIndicadorCliente } = useChatIndicadores();
 
   useEffect(() => {
     base44.entities.EtiquetaOrcamento.list().then((data) => setEtiquetas(data || [])).catch(() => {});
@@ -366,6 +374,20 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
   }, [orcamentosProps]);
 
   const orcamentos = localOrcamentos ?? orcamentosProps;
+
+  // Mapa orcamento.id → nº de mensagens não lidas (mesma fonte da tela de Fidelizados)
+  const chatBadges = useMemo(() => {
+    const m = {};
+    for (const o of orcamentos) {
+      const info = getIndicadorCliente({
+        id: o.cliente_id,
+        telefone: o.cliente_telefone,
+        celular: o.cliente_celular
+      });
+      if (info?.naoLidas) m[o.id] = info.naoLidas;
+    }
+    return m;
+  }, [orcamentos, getIndicadorCliente]);
 
   const prevOrcamentosRef = useRef(orcamentosProps);
   useEffect(() => {
@@ -661,6 +683,7 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
                       etiquetasMap={etiquetasMap}
                       savingId={savingId}
                       fotosVendedorMap={fotosVendedorMap}
+                      chatBadges={chatBadges}
                     />
                   )}
                 </div>
