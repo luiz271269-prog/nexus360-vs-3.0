@@ -110,6 +110,10 @@
       "default": "M\u00e9dia",
       "description": "Probabilidade de fechamento"
     },
+    "probabilidade_percentual": {
+      "type": "number",
+      "description": "% de possibilidade de fechamento calculado pela IA (base: vendas efetivadas + or\u00e7amentos decididos por fam\u00edlia de produto)"
+    },
     "condicao_pagamento": {
       "type": "string",
       "description": "Condi\u00e7\u00e3o de pagamento"

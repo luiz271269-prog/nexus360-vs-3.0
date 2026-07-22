@@ -96,6 +96,27 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
               <h4 className="font-semibold text-slate-800 text-[11px] leading-tight truncate flex-1 uppercase">
                 {orcamento.cliente_nome || '—'}
               </h4>
+              {(() => {
+                const refData = orcamento.data_orcamento || orcamento.created_date;
+                if (!refData) return null;
+                const diasParado = Math.floor((Date.now() - new Date(refData).getTime()) / (1000 * 60 * 60 * 24));
+                const cat = classificarOrcamento(orcamento);
+                const cor = {
+                  criticos: 'bg-slate-900 text-white',
+                  vermelhos: 'bg-red-500 text-white',
+                  amarelos: 'bg-amber-400 text-amber-900',
+                  ativos: 'bg-emerald-500 text-white'
+                }[cat] || 'bg-slate-300 text-slate-700';
+                return (
+                  <span
+                    title={`${diasParado} dia(s) parado nesta etapa`}
+                    className={`flex-shrink-0 w-6 h-6 rounded-full flex flex-col items-center justify-center leading-none shadow-sm ${cor}`}
+                  >
+                    <span className="text-[10px] font-black">{diasParado}</span>
+                    <span className="text-[5px] font-semibold uppercase opacity-80">dias</span>
+                  </span>
+                );
+              })()}
             </div>
 
             <div className="flex items-center justify-between">
@@ -155,7 +176,10 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                   orcamento.probabilidade === 'Alta' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                   orcamento.probabilidade === 'Média' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                   'bg-red-50 text-red-700 border-red-200'
-                }`}>{orcamento.probabilidade}</span>
+                }`}>
+                  {orcamento.probabilidade}
+                  {typeof orcamento.probabilidade_percentual === 'number' && ` · ${orcamento.probabilidade_percentual}%`}
+                </span>
               }
               <div className="ml-auto flex gap-1">
                 <button

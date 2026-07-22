@@ -76,6 +76,7 @@ Deno.serve(async (req) => {
 
     await base44.asServiceRole.entities.Orcamento.update(orcamentoId, {
       probabilidade,
+      probabilidade_percentual: percentual,
       historico_interno: [
         ...historico,
         { id: `prob-${Date.now()}`, autor_nome: 'Nexus IA', data: new Date().toISOString(), tipo: 'sistema', texto }
