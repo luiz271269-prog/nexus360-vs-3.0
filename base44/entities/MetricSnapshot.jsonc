@@ -16,7 +16,8 @@
         "tempo_resposta",
         "engajamento",
         "faturamento_previsto",
-        "taxa_abandono"
+        "taxa_abandono",
+        "analise_produtos"
       ],
       "description": "Tipo de m\u00e9trica capturada"
     },
@@ -80,6 +81,11 @@
         }
       },
       "description": "Objeto com as m\u00e9tricas calculadas"
+    },
+    "detalhe": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Payload detalhado da m\u00e9trica (ex: analise_produtos guarda resumo + topFamilias)"
     },
     "periodo": {
       "type": "object",

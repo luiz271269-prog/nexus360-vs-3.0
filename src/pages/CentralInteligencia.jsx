@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Brain, Gauge } from 'lucide-react';
+import { Brain, Gauge, Package } from 'lucide-react';
 import { MetricasInteligenciaConteudo } from '@/pages/InteligenciaMetricas';
 import TelemetriaPreAtendimento from '@/pages/TelemetriaPreAtendimento';
+import AnaliseProdutosPanel from '@/components/inteligencia/AnaliseProdutosPanel';
 
 // Aliases de rotas legadas: command/telemetria → aba unificada "operacao"
 const normalizarTab = (t) => {
   if (t === 'metricas') return 'metricas';
+  if (t === 'produtos') return 'produtos';
   return 'operacao';
 };
 
@@ -34,6 +36,10 @@ export default function CentralInteligencia() {
                 <Brain className="w-4 h-4" />
                 Métricas IA
               </TabsTrigger>
+              <TabsTrigger value="produtos" className="gap-2">
+                <Package className="w-4 h-4" />
+                Análise de Produtos
+              </TabsTrigger>
             </TabsList>
           </div>
         </div>
@@ -44,6 +50,10 @@ export default function CentralInteligencia() {
 
         <TabsContent value="metricas" className="mt-0">
           <MetricasInteligenciaConteudo />
+        </TabsContent>
+
+        <TabsContent value="produtos" className="mt-0">
+          <AnaliseProdutosPanel />
         </TabsContent>
       </Tabs>
     </div>
