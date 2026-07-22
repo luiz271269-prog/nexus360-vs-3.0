@@ -104,7 +104,7 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
               ? 'none'
               : provided.draggableProps.style?.transition
           }}
-          className={`${etapaCotacao ? 'bg-cyan-50/80 border-dashed' : 'bg-white'} rounded-lg border-2 ${bordaCat} hover:shadow-lg cursor-grab active:cursor-grabbing group relative ${
+          className={`${etapaCotacao ? 'bg-slate-900 border border-slate-700 rounded-2xl shadow-lg' : `bg-white rounded-lg border-2 ${bordaCat}`} hover:shadow-lg cursor-grab active:cursor-grabbing group relative ${
             snapshot.isDragging && !snapshot.isDropAnimating ? 'shadow-2xl ring-2 ' + gradient.ring + ' rotate-1 opacity-95 scale-105 z-50' : ''
           }`}
         >
@@ -113,6 +113,60 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
               <div className="w-4 h-4 border-2 border-slate-400 border-t-orange-500 rounded-full animate-spin" />
             </div>
           }
+          {etapaCotacao ? (
+          <div className="p-2.5 space-y-1.5">
+            {/* Estilo notificação push */}
+            <div className="flex items-center gap-1.5">
+              <span className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0">
+                {(orcamento.cliente_nome || '?').charAt(0)}
+              </span>
+              <span className="text-[9px] text-slate-400 truncate flex-1">
+                {(orcamento.vendedor || '').split(' ')[0] || 'Cotação'}
+              </span>
+              <span className="text-[9px] text-slate-400 flex-shrink-0">
+                {formatDate(orcamento.data_orcamento || orcamento.created_date)}
+              </span>
+            </div>
+            <h4 className="font-bold text-white text-[11px] leading-tight truncate uppercase">
+              {orcamento.cliente_nome || '—'}
+            </h4>
+            <p className="text-[10px] text-slate-300 leading-snug">
+              O.C. {orcamento.numero_orcamento ? `#${orcamento.numero_orcamento}` : `#${orcamento.id?.slice(-4)}`} — <span className={`font-semibold ${etapaCotacao === 'liberado' ? 'text-emerald-400' : 'text-cyan-300'}`}>{statusLabels[etapaCotacao] || etapaCotacao}</span>
+              <br />
+              Valor: <span className="font-bold text-emerald-400">{formatCurrency(orcamento.valor_total)}</span>
+            </p>
+            <div className="flex items-center justify-around pt-1.5 border-t border-slate-700">
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onTag?.(orcamento); }}
+                className="text-[10px] font-semibold text-slate-200 hover:text-amber-400 px-1"
+              >
+                Etiquetar
+              </button>
+              <span className="text-slate-600">|</span>
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onAbrirChat(orcamento); }}
+                className="relative text-[10px] font-semibold text-slate-200 hover:text-emerald-400 px-1"
+              >
+                Chat
+                {chatNaoLidas > 0 && (
+                  <span className="absolute -top-2 -right-2.5 min-w-[15px] h-[15px] px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                    {chatNaoLidas > 99 ? '99+' : chatNaoLidas}
+                  </span>
+                )}
+              </button>
+              <span className="text-slate-600">|</span>
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onEdit?.(orcamento); }}
+                className="text-[10px] font-semibold text-slate-200 hover:text-orange-400 px-1"
+              >
+                Editar
+              </button>
+            </div>
+          </div>
+          ) : (
           <div className="p-2 space-y-0">
             <div className="flex items-start justify-between gap-1">
               <h4 className="font-semibold text-slate-800 text-[11px] leading-tight truncate flex-1 uppercase">
@@ -140,14 +194,6 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                 );
               })()}
             </div>
-
-            {etapaCotacao && (
-              <div className="pt-0.5">
-                <span className={`inline-flex items-center px-1.5 py-px rounded-full text-[8px] font-bold uppercase border ${coresEtapaCotacao[etapaCotacao]?.badge || 'bg-cyan-100 text-cyan-700 border-cyan-300'}`}>
-                  {statusLabels[etapaCotacao] || etapaCotacao}
-                </span>
-              </div>
-            )}
 
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono text-slate-400">
@@ -261,6 +307,7 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
               </div>
             </div>
           </div>
+          )}
         </div>
       }
     </Draggable>
