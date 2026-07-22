@@ -31,7 +31,6 @@ import OrcamentoKanbanOptimized from "../components/orcamentos/OrcamentoKanbanOp
 import IframeHtmlLoader from "../components/iframes/IframeHtmlLoader";
 import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
 import AnaliseProdutosPanel from "../components/inteligencia/AnaliseProdutosPanel";
-import ContatosInteligentesPanel from "../components/inteligencia/ContatosInteligentesPanel";
 import { createPageUrl } from "@/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -43,7 +42,9 @@ export default function LeadsQualificados() {
   const [activeTab, setActiveTab] = useState(() => {
     // Permite abrir direto numa aba via ?tab= (ex: redirecionamento de Contatos Inteligentes)
     const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('tab') || 'orcamentos';
+    const tab = urlParams.get('tab') || 'orcamentos';
+    // 'contatos_ia' foi migrada para dentro da aba Clientes (sub-abas Análise IA / Urgentes / Broadcast)
+    return tab === 'contatos_ia' ? 'clientes' : tab;
   });
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const [showClienteForm, setShowClienteForm] = useState(false);
@@ -648,12 +649,6 @@ export default function LeadsQualificados() {
                   <Badge variant="secondary" className="ml-1 bg-white/20 text-white text-[9px] h-3.5 px-1">{leadsFiltrados.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
-                  value="contatos_ia"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
-                  <Zap className="w-3 h-3 mr-1" />
-                  Contatos IA
-                </TabsTrigger>
-                <TabsTrigger
                   value="produtos"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
                   <Package className="w-3 h-3 mr-1" />
@@ -806,13 +801,6 @@ export default function LeadsQualificados() {
                 etapasVisiveis={['interna']}
                 />
                 )}
-                </TabsContent>
-
-                {/* TAB: CONTATOS INTELIGENTES (análise IA de prioridades) */}
-                <TabsContent value="contatos_ia" className="mt-2">
-                  <div className="bg-white rounded-lg border border-slate-200 p-4">
-                    <ContatosInteligentesPanel />
-                  </div>
                 </TabsContent>
 
                 {/* TAB: ANÁLISE DE PRODUTOS (itens dos orçamentos) */}

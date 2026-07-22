@@ -21,10 +21,6 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import ModalEnvioMassa from '../comunicacao/ModalEnvioMassa';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Zap, Megaphone } from 'lucide-react';
-import ContatosRequerendoAtencaoKanban from '../comunicacao/ContatosRequerendoAtencaoKanban';
-import BroadcastThreadsPanel from './BroadcastThreadsPanel';
 
 export default function ContatosInteligentesPanel() {
   const [usuario, setUsuario] = useState(null);
@@ -192,39 +188,6 @@ export default function ContatosInteligentesPanel() {
 
   return (
     <div className="w-full">
-      <Tabs defaultValue="analise">
-        <TabsList className="mb-4 bg-white border border-slate-200 shadow-sm">
-          <TabsTrigger value="analise" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
-            <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Análise IA
-          </TabsTrigger>
-          <TabsTrigger value="urgentes" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
-            <Zap className="w-3.5 h-3.5 mr-1.5" /> Contatos Urgentes
-          </TabsTrigger>
-          <TabsTrigger value="broadcast" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
-            <Megaphone className="w-3.5 h-3.5 mr-1.5" /> Broadcast
-          </TabsTrigger>
-        </TabsList>
-
-        {/* TAB: CONTATOS URGENTES (kanban migrado da Central de Comunicação) */}
-        <TabsContent value="urgentes" className="m-0">
-          <div className="h-[75vh] rounded-xl overflow-hidden border border-slate-200">
-            {usuario ? (
-              <ContatosRequerendoAtencaoKanban usuario={usuario} onSelecionarContato={() => {}} />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* TAB: BROADCAST (acompanhamento migrado da Central de Comunicação) */}
-        <TabsContent value="broadcast" className="m-0">
-          <BroadcastThreadsPanel />
-        </TabsContent>
-
-        {/* TAB: ANÁLISE IA (conteúdo original) */}
-        <TabsContent value="analise" className="m-0">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
@@ -497,8 +460,6 @@ export default function ContatosInteligentesPanel() {
           }}
         />
       )}
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }

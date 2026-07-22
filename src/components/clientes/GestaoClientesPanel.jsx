@@ -30,6 +30,9 @@ import FiltrosClientesPanel from "./FiltrosClientesPanel";
 import EtiquetaRecorrencia from "./EtiquetaRecorrencia";
 import BotaoAbrirChat from "../crm/BotaoAbrirChat";
 import ListasVendedorPanel from "./ListasVendedorPanel";
+import ContatosInteligentesPanel from "../inteligencia/ContatosInteligentesPanel";
+import ContatosRequerendoAtencaoKanban from "../comunicacao/ContatosRequerendoAtencaoKanban";
+import BroadcastThreadsPanel from "../inteligencia/BroadcastThreadsPanel";
 import { MobileDrawer } from "@/components/mobile/mobileSkillGlobal";
 import { getFaturamentoPorCliente } from "@/functions/getFaturamentoPorCliente";
 import { cadastrarClienteDeNF } from "@/functions/cadastrarClienteDeNF";
@@ -370,11 +373,35 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
           >
             📋 Listas
           </Button>
+          <Button
+            variant={aba === 'analise_ia' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setAba('analise_ia')}
+            className={`h-8 px-2 sm:px-3 text-xs sm:text-sm ${aba === 'analise_ia' ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white' : 'text-slate-300 hover:text-white'}`}
+          >
+            ✨ Análise IA
+          </Button>
+          <Button
+            variant={aba === 'urgentes' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setAba('urgentes')}
+            className={`h-8 px-2 sm:px-3 text-xs sm:text-sm ${aba === 'urgentes' ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white' : 'text-slate-300 hover:text-white'}`}
+          >
+            ⚡ Urgentes
+          </Button>
+          <Button
+            variant={aba === 'broadcast' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setAba('broadcast')}
+            className={`h-8 px-2 sm:px-3 text-xs sm:text-sm ${aba === 'broadcast' ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white' : 'text-slate-300 hover:text-white'}`}
+          >
+            📢 Broadcast
+          </Button>
         </div>
 
         <div className="flex items-center gap-2">
           {/* Filtros em gaveta no mobile (Skill Mobile Global) */}
-          <MobileDrawer
+          {!['analise_ia', 'urgentes', 'broadcast'].includes(aba) && <MobileDrawer
             triggerLabel={`Filtros${filtrosAtivos > 0 ? ` (${filtrosAtivos})` : ''}`}
             side="right"
             width={320}
@@ -393,7 +420,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
                 faturamentoPorCliente={faturamentoPorCliente}
               />
             </div>
-          </MobileDrawer>
+          </MobileDrawer>}
           {aba === 'clientes' && (
             <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-1 border border-slate-600/50">
               <Button
@@ -418,7 +445,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
       </div>
 
       {/* FILTROS — Card visível só no desktop; no mobile ficam na gaveta acima */}
-      <Card className={`${aba === 'listas' ? 'hidden' : 'hidden md:block'} bg-white/80 backdrop-blur-lg border-2 border-slate-200/50 shadow-lg`}>
+      <Card className={`${['listas', 'analise_ia', 'urgentes', 'broadcast'].includes(aba) ? 'hidden' : 'hidden md:block'} bg-white/80 backdrop-blur-lg border-2 border-slate-200/50 shadow-lg`}>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2 text-slate-700">
             <Search className="w-4 h-4 text-blue-600" /> Filtros
@@ -437,7 +464,23 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
       </Card>
 
       {/* CONTEÚDO */}
-      {aba === 'listas' ? (
+      {aba === 'analise_ia' ? (
+        <div className="bg-white rounded-lg border border-slate-200 p-4">
+          <ContatosInteligentesPanel />
+        </div>
+      ) : aba === 'urgentes' ? (
+        <div className="h-[75vh] rounded-xl overflow-hidden border border-slate-200 bg-white">
+          {usuarioAtual ? (
+            <ContatosRequerendoAtencaoKanban usuario={usuarioAtual} onSelecionarContato={() => {}} />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+            </div>
+          )}
+        </div>
+      ) : aba === 'broadcast' ? (
+        <BroadcastThreadsPanel />
+      ) : aba === 'listas' ? (
         <ListasVendedorPanel
           usuarioAtual={usuarioAtual}
           vendedores={vendedores}
