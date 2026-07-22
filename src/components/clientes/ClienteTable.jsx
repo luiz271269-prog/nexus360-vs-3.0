@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreHorizontal, Edit, Trash2, Eye, Users, Phone } from "lucide-react";
 import AtribuidorAtendenteRapido from '../comunicacao/AtribuidorAtendenteRapido';
 import EtiquetaRecorrencia from './EtiquetaRecorrencia';
+import EtiquetaFaixaFaturamento from './EtiquetaFaixaFaturamento';
 import BotaoAbrirChat from '../crm/BotaoAbrirChat';
 import BotaoNotasCliente from './BotaoNotasCliente';
 import { diasParado } from './LegendaTotalizadoresClientes';
@@ -61,7 +62,8 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
               <TableCell>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium text-slate-800">{cliente.razao_social}</span>
-                  <EtiquetaRecorrencia etiqueta={cliente.faturamento?.etiqueta} />
+                  <EtiquetaRecorrencia etiqueta={cliente.etiqueta_recorrencia || cliente.faturamento?.etiqueta} />
+                  <EtiquetaFaixaFaturamento faixa={cliente.faixa_faturamento} />
                   {dias !== null && (
                     <span
                       title="Dias desde o último contato"

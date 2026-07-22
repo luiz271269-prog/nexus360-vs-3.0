@@ -19,6 +19,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import AtribuidorAtendenteRapido from '../comunicacao/AtribuidorAtendenteRapido';
 import ClienteHistoricoDrawer from './ClienteHistoricoDrawer';
+import EtiquetaRecorrencia from './EtiquetaRecorrencia';
+import EtiquetaFaixaFaturamento from './EtiquetaFaixaFaturamento';
 import ClienteChatDrawer from './ClienteChatDrawer';
 import { diasParado } from './LegendaTotalizadoresClientes';
 import useChatIndicadores from '../crm/useChatIndicadores';
@@ -105,6 +107,14 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
       </div>
 
       <CardContent className="p-3 space-y-2.5">
+        {/* Etiquetas de recorrência e faixa de faturamento (fonte: campos persistidos) */}
+        {(cliente.etiqueta_recorrencia && cliente.etiqueta_recorrencia !== 'none') || (cliente.faixa_faturamento && cliente.faixa_faturamento !== 'none') ? (
+          <div className="flex flex-wrap gap-1">
+            <EtiquetaRecorrencia etiqueta={cliente.etiqueta_recorrencia} />
+            <EtiquetaFaixaFaturamento faixa={cliente.faixa_faturamento} />
+          </div>
+        ) : null}
+
         {/* Contatos em coluna */}
         <div className="space-y-1.5 text-[11px]">
           {cliente.telefone && (

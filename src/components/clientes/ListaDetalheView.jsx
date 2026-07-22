@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import AdicionarClientesListaDialog from "./AdicionarClientesListaDialog";
 import AdicionarContatosListaDialog from "./AdicionarContatosListaDialog";
 import ImportarListaDialog from "./ImportarListaDialog";
+import EtiquetaRecorrencia from "./EtiquetaRecorrencia";
+import EtiquetaFaixaFaturamento from "./EtiquetaFaixaFaturamento";
 
 const CORES = {
   blue: 'bg-blue-100 text-blue-800 border-blue-300',
@@ -176,9 +178,13 @@ export default function ListaDetalheView({ lista, setLista, onVoltar, onExcluir,
                     <tr key={`cli-${c.id}`} className="border-b border-slate-100 hover:bg-slate-50/50">
                       <td className="px-4 py-3"><Badge className="bg-blue-100 text-blue-800">Cliente</Badge></td>
                       <td className="px-4 py-3">
-                        <button className="font-medium text-blue-700 hover:underline text-left" onClick={() => onViewDetails?.(c)}>
-                          {c.razao_social || c.nome_fantasia}
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button className="font-medium text-blue-700 hover:underline text-left" onClick={() => onViewDetails?.(c)}>
+                            {c.razao_social || c.nome_fantasia}
+                          </button>
+                          <EtiquetaRecorrencia etiqueta={c.etiqueta_recorrencia} />
+                          <EtiquetaFaixaFaturamento faixa={c.faixa_faturamento} />
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-slate-700">{c.telefone || '—'}</td>
                       <td className="px-4 py-3 text-slate-600 text-xs">{c.vendedor_responsavel || '—'}{c.cidade ? ` · ${c.cidade}` : ''}</td>

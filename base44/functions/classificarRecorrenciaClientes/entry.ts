@@ -70,12 +70,17 @@ Deno.serve(async (req) => {
       if (!nome) continue;
       const clienteId = acharClienteId(nome);
       if (!clienteId) continue;
-      if (!porCliente[clienteId]) porCliente[clienteId] = { meses: {}, qtdNotas: 0, ultimaEmissao: '' };
+      if (!porCliente[clienteId]) porCliente[clienteId] = { meses: {}, valorPorMes: {}, qtdNotas: 0, ultimaEmissao: '' };
       const reg = porCliente[clienteId];
       reg.qtdNotas++;
       const emissao = n.data_emissao || '';
+      const valor = Number(n.valor_total) || 0;
       if (emissao > reg.ultimaEmissao) reg.ultimaEmissao = emissao;
-      if (emissao.length >= 7) reg.meses[emissao.substring(0, 7)] = true;
+      if (emissao.length >= 7) {
+        const mes = emissao.substring(0, 7);
+        reg.meses[mes] = true;
+        reg.valorPorMes[mes] = (reg.valorPorMes[mes] || 0) + valor;
+      }
     }
 
     // 4) Calcular etiqueta (3 últimos meses) e montar updates apenas do que mudou
@@ -87,25 +92,45 @@ Deno.serve(async (req) => {
     const nowIso = agora.toISOString();
     const updates = [];
     const contagem = { ouro: 0, prata: 0, risco: 0, none: 0 };
+    const contagemFaixa = { diamante: 0, alto: 0, medio: 0, baixo: 0, none: 0 };
+
+    // Faixas de faturamento mensal (média dos últimos 3 meses)
+    const calcularFaixa = (media) => {
+      if (media >= 20000) return 'diamante';
+      if (media >= 5000) return 'alto';
+      if (media >= 1000) return 'medio';
+      if (media > 0) return 'baixo';
+      return 'baixo'; // já comprou (tem NF) mas sem valor nos 3 últimos meses
+    };
 
     for (const c of clientes) {
       const reg = porCliente[c.id];
       let etiqueta = 'none';
+      let faixa = 'none';
+      let mediaMensal = 0;
       if (reg) {
         const mesesRecentes = ultimos3Meses.filter((m) => reg.meses[m]).length;
         etiqueta = mesesRecentes === 3 ? 'ouro' : mesesRecentes >= 1 ? 'prata' : 'risco';
+        const totalUlt3 = ultimos3Meses.reduce((soma, m) => soma + (reg.valorPorMes[m] || 0), 0);
+        mediaMensal = Math.round((totalUlt3 / 3) * 100) / 100;
+        faixa = calcularFaixa(mediaMensal);
       }
       contagem[etiqueta]++;
+      contagemFaixa[faixa]++;
       const ultimaCompra = reg ? (reg.ultimaEmissao || '').substring(0, 10) : '';
       const qtdNotas = reg ? reg.qtdNotas : 0;
 
       const mudou = c.etiqueta_recorrencia !== etiqueta
+        || (c.faixa_faturamento || 'none') !== faixa
+        || (c.valor_recorrente_mensal || 0) !== mediaMensal
         || (c.recorrencia_qtd_notas || 0) !== qtdNotas
         || (c.recorrencia_ultima_compra || '') !== ultimaCompra;
       if (mudou) {
         updates.push({
           id: c.id,
           etiqueta_recorrencia: etiqueta,
+          faixa_faturamento: faixa,
+          valor_recorrente_mensal: mediaMensal,
           recorrencia_qtd_notas: qtdNotas,
           recorrencia_ultima_compra: ultimaCompra,
           recorrencia_atualizada_em: nowIso
@@ -128,6 +153,7 @@ Deno.serve(async (req) => {
       atualizados,
       semMudanca: clientes.length - atualizados,
       contagem,
+      contagemFaixa,
       mesesReferencia: ultimos3Meses
     });
   } catch (error) {

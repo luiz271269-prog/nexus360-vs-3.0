@@ -133,7 +133,19 @@
     },
     "valor_recorrente_mensal": {
       "type": "number",
-      "description": "Valor m\u00e9dio mensal de compras"
+      "description": "Valor m\u00e9dio mensal de compras (m\u00e9dia dos \u00faltimos 3 meses de NF, persistido pela classifica\u00e7\u00e3o di\u00e1ria)"
+    },
+    "faixa_faturamento": {
+      "type": "string",
+      "enum": [
+        "diamante",
+        "alto",
+        "medio",
+        "baixo",
+        "none"
+      ],
+      "default": "none",
+      "description": "Faixa de faturamento mensal persistida (m\u00e9dia \u00faltimos 3 meses): diamante >= 20000, alto >= 5000, medio >= 1000, baixo > 0, none = sem NF"
     },
     "etiqueta_recorrencia": {
       "type": "string",
