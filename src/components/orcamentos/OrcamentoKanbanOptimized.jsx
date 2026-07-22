@@ -68,6 +68,14 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 };
 
+// Cores das etapas internas exibidas na coluna agregada "Em Cotação"
+const coresEtapaCotacao = {
+  rascunho: { chip: 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40', badge: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
+  aguardando_cotacao: { chip: 'bg-sky-500/30 text-sky-200 border border-sky-400/40', badge: 'bg-sky-100 text-sky-700 border-sky-300' },
+  analisando: { chip: 'bg-violet-500/30 text-violet-200 border border-violet-400/40', badge: 'bg-violet-100 text-violet-700 border-violet-300' },
+  liberado: { chip: 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/40', badge: 'bg-emerald-100 text-emerald-700 border-emerald-300' }
+};
+
 // Borda radiante do card na cor da categoria de dias parados
 const bordaCategoria = {
   criticos:  'border-slate-900 shadow-[0_0_10px_rgba(15,23,42,0.55)]',
@@ -77,7 +85,7 @@ const bordaCategoria = {
 };
 
 // ─── Card memorizado ──────────────────────────────────────────────────────────
-const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, isSaving, fotoVendedor, chatNaoLidas = 0 }) => {
+const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, isSaving, fotoVendedor, chatNaoLidas = 0, etapaCotacao = null }) => {
   const catParado = classificarOrcamento(orcamento);
   const bordaCat = bordaCategoria[catParado] || gradient.border;
   return (
@@ -96,7 +104,7 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
               ? 'none'
               : provided.draggableProps.style?.transition
           }}
-          className={`bg-white rounded-lg border-2 ${bordaCat} hover:shadow-lg cursor-grab active:cursor-grabbing group relative ${
+          className={`${etapaCotacao ? 'bg-cyan-50/80 border-dashed' : 'bg-white'} rounded-lg border-2 ${bordaCat} hover:shadow-lg cursor-grab active:cursor-grabbing group relative ${
             snapshot.isDragging && !snapshot.isDropAnimating ? 'shadow-2xl ring-2 ' + gradient.ring + ' rotate-1 opacity-95 scale-105 z-50' : ''
           }`}
         >
@@ -132,6 +140,14 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                 );
               })()}
             </div>
+
+            {etapaCotacao && (
+              <div className="pt-0.5">
+                <span className={`inline-flex items-center px-1.5 py-px rounded-full text-[8px] font-bold uppercase border ${coresEtapaCotacao[etapaCotacao]?.badge || 'bg-cyan-100 text-cyan-700 border-cyan-300'}`}>
+                  {statusLabels[etapaCotacao] || etapaCotacao}
+                </span>
+              </div>
+            )}
 
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono text-slate-400">
@@ -270,6 +286,11 @@ const resolverFotoVendedor = (orcamento, fotosVendedorMap) => {
 const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamentos, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, savingId, fotosVendedorMap, chatBadges }) => {
   const gradient = statusGradients[status];
   const totalValor = useMemo(() => colOrcamentos.reduce((s, o) => s + (o.valor_total || 0), 0), [colOrcamentos]);
+  const isCotacao = status === 'em_cotacao';
+  const contagemEtapas = useMemo(() => {
+    if (!isCotacao) return null;
+    return colOrcamentos.reduce((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {});
+  }, [isCotacao, colOrcamentos]);
 
   return (
     // ✅ FIX 2: clamp() — cresce com viewport, respeita min/max
@@ -290,6 +311,15 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
           <DollarSign className={`w-3 h-3 ${gradient.accent} flex-shrink-0 self-center`} />
           <span className={`text-sm font-black ${gradient.accent} truncate tracking-tight`}>{formatCurrency(totalValor)}</span>
         </div>
+        {isCotacao && (
+          <div className="relative flex flex-wrap gap-1 mt-1.5">
+            {etapasFluxo.interna.statuses.map((st) => (
+              <span key={st} className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${coresEtapaCotacao[st]?.chip || 'bg-white/10 text-white'}`}>
+                {statusLabels[st]}: {contagemEtapas?.[st] || 0}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <Droppable droppableId={status}>
@@ -298,8 +328,8 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
             ref={provided.innerRef}
             {...provided.droppableProps}
             // ✅ FIX 3: borda por status (identidade visual restaurada)
-            className={`px-1 pt-1.5 rounded-b-xl border-l-4 border-r-4 border-b-4 ${gradient.border} space-y-1.5 flex-1 transition-colors duration-150 ${
-              snapshot.isDraggingOver ? 'bg-orange-50' : 'bg-slate-50'
+            className={`px-1 pt-1.5 rounded-b-xl border-l-4 border-r-4 border-b-4 ${isCotacao ? 'border-dashed' : ''} ${gradient.border} space-y-1.5 flex-1 transition-colors duration-150 ${
+              snapshot.isDraggingOver ? 'bg-orange-50' : (isCotacao ? 'bg-cyan-50/60' : 'bg-slate-50')
             }`}
             style={{ minHeight: 400 }}
           >
@@ -319,6 +349,7 @@ const KanbanColumn = React.memo(({ status, etapaConfig, orcamentos: colOrcamento
                   isSaving={savingId === orc.id}
                   fotoVendedor={resolverFotoVendedor(orc, fotosVendedorMap)}
                   chatNaoLidas={chatBadges?.[orc.id] || 0}
+                  etapaCotacao={isCotacao ? orc.status : null}
               />
             )}
             {provided.placeholder}
