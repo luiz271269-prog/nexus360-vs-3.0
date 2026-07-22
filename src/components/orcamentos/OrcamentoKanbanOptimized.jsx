@@ -15,6 +15,7 @@ import LegendaTotalizadoresOrcamentos, { classificarOrcamento } from './LegendaT
 import AnaliseProdutosPanel from '../inteligencia/AnaliseProdutosPanel';
 
 const statusLabels = {
+  em_cotacao: 'Em Cotação',
   rascunho: 'Rascunho',
   aguardando_cotacao: 'Aguard. Cotação',
   analisando: 'Analisando',
@@ -27,6 +28,7 @@ const statusLabels = {
 };
 
 const statusGradients = {
+  em_cotacao: { border: 'border-cyan-400/60', ring: 'ring-cyan-500', temp: '🛒 Cotando', header: 'from-slate-800 via-cyan-900 to-slate-900', accent: 'text-cyan-300', dot: 'bg-cyan-400' },
   rascunho: { border: 'border-indigo-400/60', ring: 'ring-indigo-500', temp: '❄️ Frio', header: 'from-slate-800 via-indigo-900 to-slate-900', accent: 'text-indigo-300', dot: 'bg-indigo-400' },
   aguardando_cotacao: { border: 'border-sky-400/60', ring: 'ring-sky-500', temp: '🌡️ Morno', header: 'from-slate-800 via-sky-900 to-slate-900', accent: 'text-sky-300', dot: 'bg-sky-400' },
   analisando: { border: 'border-violet-400/60', ring: 'ring-violet-600', temp: '🔥 Aquecendo', header: 'from-slate-800 via-violet-900 to-slate-900', accent: 'text-violet-300', dot: 'bg-violet-400' },
@@ -49,7 +51,7 @@ const etapasFluxo = {
   },
   negociacao: {
     title: 'Etapa de Negociação',
-    statuses: ['enviado', 'negociando', 'aprovado', 'rejeitado', 'vencido'],
+    statuses: ['em_cotacao', 'enviado', 'negociando', 'aprovado', 'rejeitado', 'vencido'],
     headerGradient: 'from-slate-900 via-orange-900 to-red-900',
     icon: Handshake,
     badgeGradient: 'from-yellow-400 via-orange-500 to-red-600',
@@ -382,7 +384,9 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     const todos = Object.values(etapasFluxo).flatMap((e) => e.statuses);
     return todos.reduce((acc, status) => {
       acc[status] = orcamentos
-        .filter((o) => o.status === status)
+        .filter((o) => status === 'em_cotacao'
+          ? etapasFluxo.interna.statuses.includes(o.status)
+          : o.status === status)
         .sort((a, b) => {
           // Se há categoria priorizada, os orçamentos dela sobem para o topo
           if (categoriaPrioritaria) {
@@ -407,7 +411,13 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
     const novoStatus = destination.droppableId;
-    const statusAnterior = source.droppableId;
+    // Coluna agregada "Em Cotação" é somente visualização — não recebe drops
+    if (novoStatus === 'em_cotacao') return;
+    // Se o card veio da coluna agregada, usa o status real do orçamento para rollback
+    const baseAtual = localOrcamentos ?? orcamentosProps;
+    const statusAnterior = source.droppableId === 'em_cotacao'
+      ? (baseAtual.find((o) => o.id === draggableId)?.status || source.droppableId)
+      : source.droppableId;
 
     // Calcula a posição (kanban_order) com base nos vizinhos no ponto do drop
     const colDestino = (orcamentosPorStatus[novoStatus] || []).filter((o) => o.id !== draggableId);
@@ -588,8 +598,9 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
           <TabsList className={`${etapasFiltradas.length === 1 ? 'hidden' : 'grid'} w-full grid-cols-2 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-1 rounded-xl shadow-2xl border border-slate-700`}>
             {etapasFiltradas.map(([key, etapa]) => {
               const Icon = etapa.icon;
-              const total = etapa.statuses.reduce((s, st) => s + (orcamentosPorStatus[st]?.length || 0), 0);
-              const valor = etapa.statuses.reduce((s, st) => s + (orcamentosPorStatus[st]?.reduce((a, o) => a + (o.valor_total || 0), 0) || 0), 0);
+              const statusesProprios = etapa.statuses.filter((st) => st !== 'em_cotacao');
+              const total = statusesProprios.reduce((s, st) => s + (orcamentosPorStatus[st]?.length || 0), 0);
+              const valor = statusesProprios.reduce((s, st) => s + (orcamentosPorStatus[st]?.reduce((a, o) => a + (o.valor_total || 0), 0) || 0), 0);
               return (
                 <TabsTrigger key={key} value={key}
                   className="relative px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200
