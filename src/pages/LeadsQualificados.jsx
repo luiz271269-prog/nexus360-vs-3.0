@@ -611,7 +611,7 @@ export default function LeadsQualificados() {
                 <div className="bg-slate-900/95 rounded-lg border border-slate-700/50 px-2 py-1.5">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
                 {/* TABS - underline animado */}
-                <TabsList className="bg-transparent h-8 p-0 gap-0.5 overflow-x-auto no-scrollbar flex-nowrap justify-start w-full sm:w-auto">
+                <TabsList className="bg-transparent h-auto sm:h-8 p-0 gap-0.5 flex-wrap sm:flex-nowrap sm:overflow-x-auto no-scrollbar justify-start w-full sm:w-auto">
                 <TabsTrigger
                   value="orcamentos"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
