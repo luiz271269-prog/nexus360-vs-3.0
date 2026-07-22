@@ -89,8 +89,9 @@ export default function AnaliseProdutosPanel() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-emerald-600 text-xs font-semibold"><TrendingUp className="w-4 h-4" /> Ganho</div>
+            <div className="flex items-center gap-2 text-emerald-600 text-xs font-semibold"><TrendingUp className="w-4 h-4" /> Ganho + Vendas</div>
             <div className="text-xl font-bold text-emerald-600 mt-1">{fmt(r.ganhoValor)}</div>
+            <div className="text-[11px] text-emerald-500">{r.vendasQtd || 0} itens vendidos · {fmt(r.vendasValor)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -152,7 +153,8 @@ export default function AnaliseProdutosPanel() {
                   <TableHead className="text-right">Perdido</TableHead>
                   <TableHead className="text-right">Em aberto</TableHead>
                   <TableHead className="text-right">Ganho</TableHead>
-                  <TableHead className="text-center">Conversão</TableHead>
+                  <TableHead className="text-right">Vendas</TableHead>
+                  <TableHead className="text-center">Prob. Fechar</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -174,18 +176,24 @@ export default function AnaliseProdutosPanel() {
                     <TableCell className="text-right text-red-600">{f.perdidoValor > 0 ? fmt(f.perdidoValor) : <span className="text-slate-300">—</span>}</TableCell>
                     <TableCell className="text-right text-blue-600">{f.abertoValor > 0 ? fmt(f.abertoValor) : <span className="text-slate-300">—</span>}</TableCell>
                     <TableCell className="text-right text-emerald-600">{f.ganhoValor > 0 ? fmt(f.ganhoValor) : <span className="text-slate-300">—</span>}</TableCell>
+                    <TableCell className="text-right text-teal-600">
+                      {f.vendasQtd > 0 ? <>{fmt(f.vendasValor)} <span className="text-[10px] text-teal-400">({f.vendasQtd})</span></> : <span className="text-slate-300">—</span>}
+                    </TableCell>
                     <TableCell className="text-center">
-                      {f.taxaConversao === null ? (
-                        <span className="text-slate-300 text-xs">só aberto</span>
+                      {f.probFechamento === null || f.probFechamento === undefined ? (
+                        <span className="text-slate-300 text-xs">sem histórico</span>
                       ) : (
-                        <span className={`text-xs font-semibold ${f.taxaConversao > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{f.taxaConversao}%</span>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          f.probFechamento >= 60 ? 'bg-emerald-100 text-emerald-700' :
+                          f.probFechamento >= 30 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'
+                        }`}>{f.probFechamento}%</span>
                       )}
                     </TableCell>
                   </TableRow>
                 ))}
                 {familias.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={etapa !== 'todas' ? 8 : 7} className="text-center text-slate-400 py-8">Nenhuma família encontrada</TableCell>
+                    <TableCell colSpan={etapa !== 'todas' ? 9 : 8} className="text-center text-slate-400 py-8">Nenhuma família encontrada</TableCell>
                   </TableRow>
                 )}
               </TableBody>

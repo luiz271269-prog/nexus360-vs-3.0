@@ -1,0 +1,41 @@
+{
+  "name": "M\u00e9trica de Fechamento ao Gravar Or\u00e7amento",
+  "description": "Ao criar um or\u00e7amento (ou alterar seus itens), calcula o % de possibilidade de fechamento baseado nas vendas efetivadas e no hist\u00f3rico por fam\u00edlia de produto, atualizando o campo probabilidade.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Orcamento",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.event_type == \"create\" or ((.trigger.changed_fields // []) | index(\"produtos\") != null) }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "metrica_fechamento_orcamento",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "calcular_probabilidade": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "calcularProbabilidadeOrcamento",
+            "args": {
+              "orcamento_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Calcular probabilidade",
+            "description": "Vendas efetivadas por fam\u00edlia"
+          }
+        }
+      }
+    ]
+  }
+}

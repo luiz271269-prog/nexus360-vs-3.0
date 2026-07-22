@@ -59,9 +59,36 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Vendas efetivadas por família (base real de fechamento)
+    const vendasList = await base44.asServiceRole.entities.Venda.list('-data_venda', 2000);
+    let totVendasValor = 0, totVendasQtd = 0;
+    for (const v of vendasList) {
+      if (v.status === 'Cancelado') continue;
+      const prods = Array.isArray(v.produtos) ? v.produtos : [];
+      for (const p of prods) {
+        const f = familia(p.nome || p.descricao);
+        if (!stats[f]) {
+          stats[f] = {
+            familia: f, orcIds: new Set(), clientes: new Set(),
+            perdidoValor: 0, perdidoQtd: 0, abertoValor: 0, abertoQtd: 0, ganhoValor: 0, ganhoQtd: 0,
+            etapas: {}
+          };
+        }
+        const s = stats[f];
+        const val = Number(p.valor_total) || 0;
+        s.vendasValor = (s.vendasValor || 0) + val;
+        s.vendasQtd = (s.vendasQtd || 0) + 1;
+        totVendasValor += val;
+        totVendasQtd++;
+      }
+    }
+
     const familias = Object.values(stats).map((s) => {
       const totalValor = s.perdidoValor + s.abertoValor + s.ganhoValor;
       const fechado = s.perdidoValor + s.ganhoValor;
+      const vendasQtd = s.vendasQtd || 0;
+      const fechamentos = s.ganhoQtd + vendasQtd;
+      const decididos = fechamentos + s.perdidoQtd;
       return {
         familia: s.familia,
         orcamentos: s.orcIds.size,
@@ -74,6 +101,9 @@ Deno.serve(async (req) => {
         ganhoQtd: s.ganhoQtd,
         totalValor: Math.round(totalValor),
         taxaConversao: fechado > 0 ? Math.round((s.ganhoValor / fechado) * 100) : null,
+        vendasValor: Math.round(s.vendasValor || 0),
+        vendasQtd,
+        probFechamento: decididos > 0 ? Math.round((fechamentos / decididos) * 100) : null,
         etapas: Object.fromEntries(Object.entries(s.etapas).map(([k, e]) => [k, { valor: Math.round(e.valor), qtd: e.qtd }]))
       };
     }).sort((a, b) => b.totalValor - a.totalValor);
@@ -87,6 +117,8 @@ Deno.serve(async (req) => {
       perdidoValor: Math.round(totPerdido),
       abertoValor: Math.round(totAberto),
       ganhoValor: Math.round(totGanho),
+      vendasValor: Math.round(totVendasValor),
+      vendasQtd: totVendasQtd,
       etapas: Object.fromEntries(Object.entries(etapasResumo).map(([k, e]) => [k, { valor: Math.round(e.valor), qtd: e.qtd }]))
     };
 
