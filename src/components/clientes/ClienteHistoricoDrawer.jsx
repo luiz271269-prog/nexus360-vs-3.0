@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { Loader2, X, MessageSquare, Send, Mic, StopCircle, Phone, MapPin, Bell, Trash2, Play, Pause } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAudioRecorder } from '@/components/comunicacao/useAudioRecorder';
+import TimelineCliente360 from '@/components/clientes/TimelineCliente360';
 
 /**
  * Drawer de Histórico Interno do Cliente.
@@ -56,6 +57,7 @@ export default function ClienteHistoricoDrawer({ cliente, isOpen, onClose, onSav
   const [tipo, setTipo] = React.useState('nota');
   const [salvando, setSalvando] = React.useState(false);
   const [enviandoAudio, setEnviandoAudio] = React.useState(false);
+  const [aba, setAba] = React.useState('registros');
 
   const { gravando, iniciarGravacao, pararGravacao, audioBlob, duracaoSegundos } = useAudioRecorder();
 
@@ -215,6 +217,29 @@ export default function ClienteHistoricoDrawer({ cliente, isOpen, onClose, onSav
           </button>
         </div>
 
+        <div className="flex border-b border-slate-700 flex-shrink-0">
+          {[
+            { id: 'registros', label: 'Registros' },
+            { id: 'timeline', label: 'Timeline 360°' },
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setAba(t.id)}
+              className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                aba === t.id ? 'text-amber-400 border-b-2 border-amber-400 bg-slate-800/50' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {aba === 'timeline' ? (
+          <div className="flex-1 overflow-y-auto p-3">
+            <TimelineCliente360 cliente={cliente} />
+          </div>
+        ) : (
+        <>
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {loading ? (
             <div className="flex items-center justify-center py-12">
@@ -351,6 +376,8 @@ export default function ClienteHistoricoDrawer({ cliente, isOpen, onClose, onSav
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
     </>
   );
