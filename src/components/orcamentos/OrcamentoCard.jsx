@@ -12,6 +12,14 @@ const probCores = {
   'Baixa': 'bg-red-50 text-red-700 border-red-200',
 };
 
+// Borda radiante do card na cor da categoria de dias parados
+const bordaCores = {
+  criticos:  'border-slate-900 shadow-[0_0_10px_rgba(15,23,42,0.55)]',
+  vermelhos: 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.55)]',
+  amarelos:  'border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]',
+  ativos:    'border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]',
+};
+
 // Cores da bolinha de dias parado por categoria
 const bolinhaCores = {
   criticos:  'bg-slate-900 text-white',
@@ -66,6 +74,7 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
     : null;
   const categoriaBolinha = classificarOrcamento(orcamento);
   const bolinhaCor = bolinhaCores[categoriaBolinha] || 'bg-slate-300 text-slate-700';
+  const bordaCor = bordaCores[categoriaBolinha] || 'border-slate-200';
   // Mostrar apenas primeiro nome do vendedor
   const vendedorNome = (orcamento.vendedor || '').split(' ')[0] || null;
   const dataFormatada = formatDate(orcamento.data_orcamento);
@@ -73,7 +82,7 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
   return (
     <>
     <div
-      className="bg-white rounded-lg border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all cursor-pointer group"
+      className={`bg-white rounded-lg border-2 ${bordaCor} hover:shadow-lg transition-all cursor-pointer group`}
       onClick={() => navigate(createPageUrl(`OrcamentoDetalhes?id=${orcamento.id}`))}
     >
       {/* Imagem do chat (se existir) */}

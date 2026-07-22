@@ -64,8 +64,18 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 };
 
+// Borda radiante do card na cor da categoria de dias parados
+const bordaCategoria = {
+  criticos:  'border-slate-900 shadow-[0_0_10px_rgba(15,23,42,0.55)]',
+  vermelhos: 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.55)]',
+  amarelos:  'border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]',
+  ativos:    'border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]',
+};
+
 // ─── Card memorizado ──────────────────────────────────────────────────────────
 const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostrarInsightsIA, onAbrirChat, onTag, onAtendido, etiquetasMap, isSaving, fotoVendedor }) => {
+  const catParado = classificarOrcamento(orcamento);
+  const bordaCat = bordaCategoria[catParado] || gradient.border;
   return (
     <Draggable draggableId={orcamento.id} index={index}>
       {(provided, snapshot) =>
@@ -82,7 +92,7 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
               ? 'none'
               : provided.draggableProps.style?.transition
           }}
-          className={`bg-white rounded-lg border ${gradient.border} hover:shadow-md cursor-grab active:cursor-grabbing group relative ${
+          className={`bg-white rounded-lg border-2 ${bordaCat} hover:shadow-lg cursor-grab active:cursor-grabbing group relative ${
             snapshot.isDragging && !snapshot.isDropAnimating ? 'shadow-2xl ring-2 ' + gradient.ring + ' rotate-1 opacity-95 scale-105 z-50' : ''
           }`}
         >
