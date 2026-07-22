@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useContatosInteligentes } from "@/components/hooks/useContatosInteligentes";
+import { useMenuOrdemGlobal } from "@/components/hooks/useMenuOrdemGlobal";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import {
   BarChart3,
   Users,
@@ -141,7 +143,7 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor, lembretesCount })
 
 
 
-function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, onOpenCopiloto, onOpenBusca, agentSession, onToggle, isAdmin, podeVerNeuralFin, podeVerCompras, podeVerRH, podeVerNeuralSite }) {
+function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuario, onLogout, onOpenNexus, onOpenCopiloto, onOpenBusca, agentSession, onToggle, isAdmin, onReordenarMenu, podeVerNeuralFin, podeVerCompras, podeVerRH, podeVerNeuralSite }) {
   return (
     <aside
         className={`fixed inset-y-0 left-0 z-50 w-20 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white transform ${
@@ -179,17 +181,31 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
             </div>
           </button>
 
-          {menuItems.map((item) => (
-            <NavItem
-              key={item.page}
-              href={createPageUrl(item.page)}
-              icon={item.icon}
-              label={item.name}
-              badge={item.badge}
-              badgeColor={item.badgeColor}
-              lembretesCount={contadoresLembretes[item.page] || 0}
-            />
-          ))}
+          <DragDropContext onDragEnd={onReordenarMenu}>
+            <Droppable droppableId="menu-lateral">
+              {(provided) => (
+                <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2">
+                  {menuItems.map((item, index) => (
+                    <Draggable key={item.page} draggableId={item.page} index={index} isDragDisabled={!isAdmin}>
+                      {(prov) => (
+                        <div ref={prov.innerRef} {...prov.draggableProps} {...prov.dragHandleProps}>
+                          <NavItem
+                            href={createPageUrl(item.page)}
+                            icon={item.icon}
+                            label={item.name}
+                            badge={item.badge}
+                            badgeColor={item.badgeColor}
+                            lembretesCount={contadoresLembretes[item.page] || 0}
+                          />
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
 
           {/* Atalho Neural Fin Flow */}
           {podeVerNeuralFin && <a
@@ -274,6 +290,7 @@ export default function Layout({ children, currentPageName }) {
   });
   const navigate = useNavigate();
   const ultimaAtualizacaoRef = useRef(0);
+  const { aplicarOrdem, salvarOrdem } = useMenuOrdemGlobal();
   
   // ✅ SEMPRE chamar hook (regra de hooks do React - sem condicionais)
   const contatosInteligentes = useContatosInteligentes(globalUsuario, {
@@ -579,11 +596,20 @@ export default function Layout({ children, currentPageName }) {
     };
   }, []); // ✅ Throttle interno impede excesso de chamadas
 
-  const menuItems = baseMenuItems.map((item) => ({
+  const menuItems = aplicarOrdem(baseMenuItems).map((item) => ({
     ...item,
     badge: badges[item.name]?.count,
     badgeColor: badges[item.name]?.color
   }));
+
+  // Reordenação global do menu (arrastar-e-soltar, admin) — vale para todos os usuários
+  const handleReordenarMenu = (result) => {
+    if (!result.destination || result.destination.index === result.source.index) return;
+    const pages = menuItems.map(i => i.page);
+    const [movido] = pages.splice(result.source.index, 1);
+    pages.splice(result.destination.index, 0, movido);
+    salvarOrdem(pages);
+  };
 
   // Soma e-mails pendentes ao contador (badge) do item "Central de Comunicacao"
   const contadoresComEmail = {
@@ -635,6 +661,7 @@ export default function Layout({ children, currentPageName }) {
         agentSession={agentSession}
         onToggle={() => setSidebarOpen(prev => !prev)}
         isAdmin={globalUsuario?.role === 'admin'}
+        onReordenarMenu={handleReordenarMenu}
         podeVerNeuralFin={globalUsuario?.role === 'admin' || (globalUsuario?.paginas_acesso || []).includes('NeuralFinFlow')}
         podeVerCompras={globalUsuario?.role === 'admin' || (globalUsuario?.paginas_acesso || []).includes('Compras')}
         podeVerRH={globalUsuario?.role === 'admin' || (globalUsuario?.paginas_acesso || []).includes('RHNexus')}
