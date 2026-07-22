@@ -145,6 +145,7 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
           {orcamento.probabilidade && (
             <span className={`inline-flex text-[9px] font-semibold px-1.5 py-0.5 rounded border ${probCor}`}>
               {orcamento.probabilidade}
+              {typeof orcamento.probabilidade_percentual === 'number' && ` · ${orcamento.probabilidade_percentual}%`}
             </span>
           )}
           <div className="ml-auto flex items-center gap-1.5">
