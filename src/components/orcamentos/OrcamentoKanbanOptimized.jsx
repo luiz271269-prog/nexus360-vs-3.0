@@ -12,6 +12,7 @@ import OrcamentoTagModal from './OrcamentoTagModal';
 import OrcamentoChatDrawer from './OrcamentoChatDrawer';
 import RejeicaoMotivoModal from './RejeicaoMotivoModal';
 import LegendaTotalizadoresOrcamentos, { classificarOrcamento } from './LegendaTotalizadoresOrcamentos';
+import AnaliseProdutosPanel from '../inteligencia/AnaliseProdutosPanel';
 
 const statusLabels = {
   rascunho: 'Rascunho',
@@ -566,6 +567,17 @@ export default function OrcamentoKanbanOptimized({ orcamentos: orcamentosProps, 
           categoriaAtiva={categoriaPrioritaria}
           onSelecionar={setCategoriaPrioritaria}
         />
+        {/* 📦 Análise de Produtos — migrada da aba "Produtos" (só na etapa de Negociação) */}
+        {(!etapasVisiveis || etapasVisiveis.includes('negociacao')) && (
+          <details className="bg-white rounded-lg border border-slate-200 shadow-sm">
+            <summary className="cursor-pointer select-none px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-lg">
+              📦 Produtos — Ranking por família <span className="text-slate-400 font-normal ml-1">(clique para expandir)</span>
+            </summary>
+            <div className="p-3 border-t border-slate-100">
+              <AnaliseProdutosPanel />
+            </div>
+          </details>
+        )}
         {(() => {
           const etapasFiltradas = Object.entries(etapasFluxo).filter(
             ([key]) => !etapasVisiveis || etapasVisiveis.includes(key)
