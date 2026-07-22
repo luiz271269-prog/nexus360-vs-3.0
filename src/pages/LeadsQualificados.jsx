@@ -17,7 +17,8 @@ import {
   Plus,
   FileText,
   Zap,
-  ShoppingCart
+  ShoppingCart,
+  Package
 } from "lucide-react";
 import { toast } from "sonner";
 import ClienteKanban from "../components/clientes/ClienteKanban";
@@ -29,6 +30,7 @@ import { validarMudancaStatus, getMensagemMotivacional, getProximaAcaoSugerida }
 import OrcamentoKanbanOptimized from "../components/orcamentos/OrcamentoKanbanOptimized";
 import IframeHtmlLoader from "../components/iframes/IframeHtmlLoader";
 import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
+import AnaliseProdutosPanel from "../components/inteligencia/AnaliseProdutosPanel";
 import { createPageUrl } from "@/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -641,6 +643,12 @@ export default function LeadsQualificados() {
                   <Badge variant="secondary" className="ml-1 bg-white/20 text-white text-[9px] h-3.5 px-1">{leadsFiltrados.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
+                  value="produtos"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
+                  <Package className="w-3 h-3 mr-1" />
+                  Produtos
+                </TabsTrigger>
+                <TabsTrigger
                   value="listas"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
                   <List className="w-3 h-3 mr-1" />
@@ -787,6 +795,11 @@ export default function LeadsQualificados() {
                 etapasVisiveis={['interna']}
                 />
                 )}
+                </TabsContent>
+
+                {/* TAB: ANÁLISE DE PRODUTOS (itens dos orçamentos) */}
+                <TabsContent value="produtos" className="mt-2">
+                  <AnaliseProdutosPanel />
                 </TabsContent>
 
                 {/* TAB: LISTAS DE TRABALHO */}
