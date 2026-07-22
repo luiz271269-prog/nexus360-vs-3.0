@@ -23,19 +23,22 @@ Deno.serve(async (req) => {
     const stats = {};
     let orcsComItens = 0, orcsSemItens = 0, totalItens = 0;
     let totPerdido = 0, totAberto = 0, totGanho = 0;
+    const etapasResumo = {};
 
     for (const o of orcs) {
       const prods = Array.isArray(o.produtos) ? o.produtos : [];
       if (prods.length === 0) { orcsSemItens++; continue; }
       orcsComItens++;
       const bucket = PERDIDO.includes(o.status) ? 'perdido' : GANHO.includes(o.status) ? 'ganho' : 'aberto';
+      const etapa = o.status || 'rascunho';
       for (const p of prods) {
         totalItens++;
         const f = familia(p.nome || p.descricao);
         if (!stats[f]) {
           stats[f] = {
             familia: f, orcIds: new Set(), clientes: new Set(),
-            perdidoValor: 0, perdidoQtd: 0, abertoValor: 0, abertoQtd: 0, ganhoValor: 0, ganhoQtd: 0
+            perdidoValor: 0, perdidoQtd: 0, abertoValor: 0, abertoQtd: 0, ganhoValor: 0, ganhoQtd: 0,
+            etapas: {}
           };
         }
         const s = stats[f];
@@ -44,6 +47,12 @@ Deno.serve(async (req) => {
         const v = Number(p.valor_total) || 0;
         s[bucket + 'Valor'] += v;
         s[bucket + 'Qtd']++;
+        if (!s.etapas[etapa]) s.etapas[etapa] = { valor: 0, qtd: 0 };
+        s.etapas[etapa].valor += v;
+        s.etapas[etapa].qtd++;
+        if (!etapasResumo[etapa]) etapasResumo[etapa] = { valor: 0, qtd: 0 };
+        etapasResumo[etapa].valor += v;
+        etapasResumo[etapa].qtd++;
         if (bucket === 'perdido') totPerdido += v;
         else if (bucket === 'ganho') totGanho += v;
         else totAberto += v;
@@ -64,7 +73,8 @@ Deno.serve(async (req) => {
         ganhoValor: Math.round(s.ganhoValor),
         ganhoQtd: s.ganhoQtd,
         totalValor: Math.round(totalValor),
-        taxaConversao: fechado > 0 ? Math.round((s.ganhoValor / fechado) * 100) : null
+        taxaConversao: fechado > 0 ? Math.round((s.ganhoValor / fechado) * 100) : null,
+        etapas: Object.fromEntries(Object.entries(s.etapas).map(([k, e]) => [k, { valor: Math.round(e.valor), qtd: e.qtd }]))
       };
     }).sort((a, b) => b.totalValor - a.totalValor);
 
@@ -76,7 +86,8 @@ Deno.serve(async (req) => {
       familiasDistintas: familias.length,
       perdidoValor: Math.round(totPerdido),
       abertoValor: Math.round(totAberto),
-      ganhoValor: Math.round(totGanho)
+      ganhoValor: Math.round(totGanho),
+      etapas: Object.fromEntries(Object.entries(etapasResumo).map(([k, e]) => [k, { valor: Math.round(e.valor), qtd: e.qtd }]))
     };
 
     // Persistir snapshot diário (idempotente por dia)

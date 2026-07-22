@@ -16,9 +16,26 @@ const ORDENACOES = [
   { key: 'totalValor', label: 'Maior valor total' }
 ];
 
+const ETAPAS = [
+  { valor: 'todas', label: 'Todas as etapas' },
+  { valor: 'rascunho', label: 'Rascunho' },
+  { valor: 'aguardando_cotacao', label: 'Aguardando Cotação' },
+  { valor: 'cotando', label: 'Cotando' },
+  { valor: 'aguardando_analise', label: 'Aguardando Análise' },
+  { valor: 'analisando', label: 'Analisando' },
+  { valor: 'aguardando_liberacao', label: 'Aguardando Liberação' },
+  { valor: 'liberado', label: 'Liberado' },
+  { valor: 'enviado', label: 'Enviado' },
+  { valor: 'negociando', label: 'Negociando' },
+  { valor: 'aprovado', label: 'Aprovado' },
+  { valor: 'rejeitado', label: 'Rejeitado' },
+  { valor: 'vencido', label: 'Vencido' }
+];
+
 export default function AnaliseProdutosPanel() {
   const [busca, setBusca] = useState('');
   const [ordem, setOrdem] = useState('perdidoValor');
+  const [etapa, setEtapa] = useState('todas');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['analise-produtos-orcamentos'],
@@ -30,10 +47,16 @@ export default function AnaliseProdutosPanel() {
   const familias = useMemo(() => {
     if (!data?.familias) return [];
     const termo = busca.trim().toUpperCase();
-    return data.familias
-      .filter((f) => !termo || f.familia.includes(termo))
-      .sort((a, b) => (b[ordem] || 0) - (a[ordem] || 0));
-  }, [data, busca, ordem]);
+    let lista = data.familias.filter((f) => !termo || f.familia.includes(termo));
+    if (etapa !== 'todas') {
+      lista = lista
+        .filter((f) => f.etapas?.[etapa]?.qtd > 0)
+        .sort((a, b) => (b.etapas[etapa]?.valor || 0) - (a.etapas[etapa]?.valor || 0));
+    } else {
+      lista = [...lista].sort((a, b) => (b[ordem] || 0) - (a[ordem] || 0));
+    }
+    return lista;
+  }, [data, busca, ordem, etapa]);
 
   if (isLoading) {
     return (
@@ -85,6 +108,15 @@ export default function AnaliseProdutosPanel() {
           <div className="flex flex-col md:flex-row md:items-center gap-3 md:justify-between">
             <CardTitle className="text-base">Ranking por família de produto</CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={etapa}
+                onChange={(e) => setEtapa(e.target.value)}
+                className="h-9 px-2 text-xs border border-slate-200 rounded-md bg-white text-slate-700 font-medium"
+              >
+                {ETAPAS.map((e) => (
+                  <option key={e.valor} value={e.valor}>{e.label}</option>
+                ))}
+              </select>
               {ORDENACOES.map((o) => (
                 <button
                   key={o.key}
@@ -116,6 +148,7 @@ export default function AnaliseProdutosPanel() {
                   <TableHead>Família</TableHead>
                   <TableHead className="text-center">Orçamentos</TableHead>
                   <TableHead className="text-center">Clientes</TableHead>
+                  {etapa !== 'todas' && <TableHead className="text-right bg-violet-50 text-violet-700">Na etapa</TableHead>}
                   <TableHead className="text-right">Perdido</TableHead>
                   <TableHead className="text-right">Em aberto</TableHead>
                   <TableHead className="text-right">Ganho</TableHead>
@@ -133,6 +166,11 @@ export default function AnaliseProdutosPanel() {
                     </TableCell>
                     <TableCell className="text-center text-slate-600">{f.orcamentos}</TableCell>
                     <TableCell className="text-center text-slate-600">{f.clientesDistintos}</TableCell>
+                    {etapa !== 'todas' && (
+                      <TableCell className="text-right bg-violet-50/50 font-semibold text-violet-700">
+                        {fmt(f.etapas?.[etapa]?.valor)} <span className="text-[10px] text-violet-400">({f.etapas?.[etapa]?.qtd})</span>
+                      </TableCell>
+                    )}
                     <TableCell className="text-right text-red-600">{f.perdidoValor > 0 ? fmt(f.perdidoValor) : <span className="text-slate-300">—</span>}</TableCell>
                     <TableCell className="text-right text-blue-600">{f.abertoValor > 0 ? fmt(f.abertoValor) : <span className="text-slate-300">—</span>}</TableCell>
                     <TableCell className="text-right text-emerald-600">{f.ganhoValor > 0 ? fmt(f.ganhoValor) : <span className="text-slate-300">—</span>}</TableCell>
@@ -147,7 +185,7 @@ export default function AnaliseProdutosPanel() {
                 ))}
                 {familias.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-slate-400 py-8">Nenhuma família encontrada</TableCell>
+                    <TableCell colSpan={etapa !== 'todas' ? 8 : 7} className="text-center text-slate-400 py-8">Nenhuma família encontrada</TableCell>
                   </TableRow>
                 )}
               </TableBody>
