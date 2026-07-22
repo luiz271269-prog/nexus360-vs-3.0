@@ -49,6 +49,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
             <TableHead>Status</TableHead>
             <TableHead>Segmento</TableHead>
             <TableHead className="text-right">Faturado (NF)</TableHead>
+            <TableHead className="text-right">Pipeline (Orç.)</TableHead>
             <TableHead className="text-right">Valor Mensal</TableHead>
             <TableHead className="w-[100px] text-center">Chat / Notas</TableHead>
             <TableHead className="w-[100px] text-center">Ações</TableHead>
@@ -100,6 +101,24 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
                   <div>
                     <div className="font-semibold text-emerald-600">{formatCurrency(cliente.faturamento.totalFaturado)}</div>
                     <div className="text-xs text-slate-400">{cliente.faturamento.qtdNotas} NF</div>
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-300">—</span>
+                )}
+              </TableCell>
+              <TableCell className="text-right">
+                {(cliente.pipeline_potencial_qtd > 0 || cliente.pipeline_perdido_qtd > 0) ? (
+                  <div className="text-xs space-y-0.5">
+                    {cliente.pipeline_potencial_qtd > 0 && (
+                      <div className="text-blue-600 font-semibold" title="Potencial: orçamentos em aberto">
+                        ▲ {formatCurrency(cliente.pipeline_potencial_valor)} <span className="text-slate-400 font-normal">({cliente.pipeline_potencial_qtd})</span>
+                      </div>
+                    )}
+                    {cliente.pipeline_perdido_qtd > 0 && (
+                      <div className="text-red-500" title="Perdas: orçamentos rejeitados ou vencidos">
+                        ▼ {formatCurrency(cliente.pipeline_perdido_valor)} <span className="text-slate-400">({cliente.pipeline_perdido_qtd})</span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <span className="text-xs text-slate-300">—</span>

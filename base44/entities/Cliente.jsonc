@@ -171,6 +171,30 @@
       "format": "datetime",
       "description": "Quando a etiqueta de recorr\u00eancia foi recalculada pela \u00faltima vez"
     },
+    "pipeline_potencial_valor": {
+      "type": "number",
+      "description": "Soma dos or\u00e7amentos em aberto (potencial): rascunho, enviado, negociando, cotando, liberado etc. Persistido pela classifica\u00e7\u00e3o di\u00e1ria"
+    },
+    "pipeline_potencial_qtd": {
+      "type": "number",
+      "description": "Qtd de or\u00e7amentos em aberto (potencial)"
+    },
+    "pipeline_perdido_valor": {
+      "type": "number",
+      "description": "Soma dos or\u00e7amentos perdidos (rejeitado + vencido). Persistido pela classifica\u00e7\u00e3o di\u00e1ria"
+    },
+    "pipeline_perdido_qtd": {
+      "type": "number",
+      "description": "Qtd de or\u00e7amentos perdidos (rejeitado + vencido)"
+    },
+    "pipeline_ganho_valor": {
+      "type": "number",
+      "description": "Soma dos or\u00e7amentos aprovados. Persistido pela classifica\u00e7\u00e3o di\u00e1ria"
+    },
+    "pipeline_ganho_qtd": {
+      "type": "number",
+      "description": "Qtd de or\u00e7amentos aprovados"
+    },
     "data_primeiro_contrato": {
       "type": "string",
       "format": "date"

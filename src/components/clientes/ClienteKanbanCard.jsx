@@ -175,6 +175,22 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
           </p>
         )}
 
+        {/* Pipeline de orçamentos: potencial aberto x perdas */}
+        {(cliente.pipeline_potencial_valor > 0 || cliente.pipeline_perdido_valor > 0) && (
+          <div className="flex flex-wrap gap-2 text-[11px]">
+            {cliente.pipeline_potencial_valor > 0 && (
+              <span className="text-blue-700 font-semibold" title="Potencial: orçamentos em aberto">
+                ▲ R$ {cliente.pipeline_potencial_valor.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+              </span>
+            )}
+            {cliente.pipeline_perdido_valor > 0 && (
+              <span className="text-red-600" title="Perdas: orçamentos rejeitados ou vencidos">
+                ▼ R$ {cliente.pipeline_perdido_valor.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Próxima Ação (da IA) */}
         {score?.proxima_melhor_acao && (
           <div className="text-[11px] p-2 bg-slate-100 rounded-lg">

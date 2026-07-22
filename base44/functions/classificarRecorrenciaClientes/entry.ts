@@ -63,6 +63,23 @@ Deno.serve(async (req) => {
       return null;
     };
 
+    // 2b) Pipeline de orçamentos por cliente: potencial (aberto) x perdas (rejeitado/vencido) x ganhos (aprovado)
+    const orcamentos = await base44.asServiceRole.entities.Orcamento.list('-updated_date', 2000);
+    const STATUS_PERDIDO = ['rejeitado', 'vencido'];
+    const STATUS_GANHO = ['aprovado'];
+    const pipelinePorCliente = {};
+    for (const o of orcamentos) {
+      if (!o.cliente_id) continue;
+      if (!pipelinePorCliente[o.cliente_id]) {
+        pipelinePorCliente[o.cliente_id] = { potencialValor: 0, potencialQtd: 0, perdidoValor: 0, perdidoQtd: 0, ganhoValor: 0, ganhoQtd: 0 };
+      }
+      const p = pipelinePorCliente[o.cliente_id];
+      const v = Number(o.valor_total) || 0;
+      if (STATUS_PERDIDO.includes(o.status)) { p.perdidoValor += v; p.perdidoQtd++; }
+      else if (STATUS_GANHO.includes(o.status)) { p.ganhoValor += v; p.ganhoQtd++; }
+      else { p.potencialValor += v; p.potencialQtd++; }
+    }
+
     // 3) Agregar meses de compra por cliente
     const porCliente = {};
     for (const n of notas) {
@@ -119,12 +136,22 @@ Deno.serve(async (req) => {
       contagemFaixa[faixa]++;
       const ultimaCompra = reg ? (reg.ultimaEmissao || '').substring(0, 10) : '';
       const qtdNotas = reg ? reg.qtdNotas : 0;
+      const pipe = pipelinePorCliente[c.id] || { potencialValor: 0, potencialQtd: 0, perdidoValor: 0, perdidoQtd: 0, ganhoValor: 0, ganhoQtd: 0 };
+      const potencialValor = Math.round(pipe.potencialValor * 100) / 100;
+      const perdidoValor = Math.round(pipe.perdidoValor * 100) / 100;
+      const ganhoValor = Math.round(pipe.ganhoValor * 100) / 100;
 
       const mudou = c.etiqueta_recorrencia !== etiqueta
         || (c.faixa_faturamento || 'none') !== faixa
         || (c.valor_recorrente_mensal || 0) !== mediaMensal
         || (c.recorrencia_qtd_notas || 0) !== qtdNotas
-        || (c.recorrencia_ultima_compra || '') !== ultimaCompra;
+        || (c.recorrencia_ultima_compra || '') !== ultimaCompra
+        || (c.pipeline_potencial_valor || 0) !== potencialValor
+        || (c.pipeline_perdido_valor || 0) !== perdidoValor
+        || (c.pipeline_ganho_valor || 0) !== ganhoValor
+        || (c.pipeline_potencial_qtd || 0) !== pipe.potencialQtd
+        || (c.pipeline_perdido_qtd || 0) !== pipe.perdidoQtd
+        || (c.pipeline_ganho_qtd || 0) !== pipe.ganhoQtd;
       if (mudou) {
         updates.push({
           id: c.id,
@@ -133,7 +160,13 @@ Deno.serve(async (req) => {
           valor_recorrente_mensal: mediaMensal,
           recorrencia_qtd_notas: qtdNotas,
           recorrencia_ultima_compra: ultimaCompra,
-          recorrencia_atualizada_em: nowIso
+          recorrencia_atualizada_em: nowIso,
+          pipeline_potencial_valor: potencialValor,
+          pipeline_potencial_qtd: pipe.potencialQtd,
+          pipeline_perdido_valor: perdidoValor,
+          pipeline_perdido_qtd: pipe.perdidoQtd,
+          pipeline_ganho_valor: ganhoValor,
+          pipeline_ganho_qtd: pipe.ganhoQtd
         });
       }
     }
@@ -154,6 +187,7 @@ Deno.serve(async (req) => {
       semMudanca: clientes.length - atualizados,
       contagem,
       contagemFaixa,
+      orcamentosConsiderados: orcamentos.length,
       mesesReferencia: ultimos3Meses
     });
   } catch (error) {
