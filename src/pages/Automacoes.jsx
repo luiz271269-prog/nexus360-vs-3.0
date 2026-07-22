@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Zap, Workflow, Gift, MessageSquare, BarChart3, Tag, Copy } from 'lucide-react';
+import { Zap, Workflow, Gift, MessageSquare, BarChart3, Tag, Copy, Database } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import BibliotecaAutomacoes from '../components/automacao/BibliotecaAutomacoes';
 import GerenciadorRegrasRoteamento from '../components/comunicacao/GerenciadorRegrasRoteamento';
 import GerenciadorEtiquetasCentral from '../components/comunicacao/GerenciadorEtiquetasCentral';
+import FerramentasMigracaoPanel from '../components/automacao/FerramentasMigracaoPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function AutomacoesPage() {
@@ -87,7 +88,7 @@ export default function AutomacoesPage() {
       
       {/* COMPONENTE PRINCIPAL */}
       <div className="max-w-7xl mx-auto">
-        <Tabs defaultValue="automacoes">
+        <Tabs defaultValue={new URLSearchParams(window.location.search).get('tab') || 'automacoes'}>
           <TabsList className="mb-4 bg-white border border-slate-200 shadow-sm">
             <TabsTrigger value="automacoes" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
               <Zap className="w-3.5 h-3.5 mr-1.5" /> Automações
@@ -97,6 +98,9 @@ export default function AutomacoesPage() {
             </TabsTrigger>
             <TabsTrigger value="etiquetas" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
               <Tag className="w-3.5 h-3.5 mr-1.5" /> Etiquetas
+            </TabsTrigger>
+            <TabsTrigger value="migracao" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+              <Database className="w-3.5 h-3.5 mr-1.5" /> Migração
             </TabsTrigger>
           </TabsList>
           <TabsContent value="automacoes">
@@ -110,6 +114,11 @@ export default function AutomacoesPage() {
           <TabsContent value="etiquetas">
             <div className="bg-white rounded-xl border border-slate-200 p-6">
               <GerenciadorEtiquetasCentral usuarioAtual={usuarioAtual} />
+            </div>
+          </TabsContent>
+          <TabsContent value="migracao">
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <FerramentasMigracaoPanel />
             </div>
           </TabsContent>
         </Tabs>

@@ -322,7 +322,6 @@ export default function Layout({ children, currentPageName }) {
 
     { name: "Importação", icon: Upload, page: "Importacao" },
     { name: "Gerenciamento de Usuários", icon: UserCog, page: "Usuarios" },
-    { name: "Ferramentas de Migração", icon: Activity, page: "FerramentasMigracao" },
     { name: "Auditoria", icon: Shield, page: "Auditoria" },
     { name: "Configuração do Sistema", icon: Settings, page: "ConfiguracaoIA" },
     { name: "Notas Fiscais", icon: FileText, page: "NotasFiscais" },
