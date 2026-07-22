@@ -3,10 +3,9 @@ import { format } from "date-fns";
 import {
   CheckCheck, Check, AlertCircle, Image, Video, Mic, FileText,
   UserCheck, Columns, Users, Send, ArrowRightLeft, Plus, CalendarCheck,
-  AlertTriangle, MessagesSquare, Pause, Zap, LayoutList, CheckSquare, BookOpen, Bot, Megaphone
+  AlertTriangle, MessagesSquare, Pause, LayoutList, CheckSquare, BookOpen, Bot
 } from "lucide-react";
 import ManualJarvis from "./ManualJarvis";
-import ContatosRequerendoAtencaoKanban from "./ContatosRequerendoAtencaoKanban";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -254,7 +253,7 @@ export default function ChatSidebarKanban({
   }, [idsSelecionados, setContatosSelecionados]);
 
   // Modos válidos — qualquer modo não listado aqui cai no fallback do renderKanbanBody
-  const MODOS_VALIDOS = ['parados_nao_atrib', 'usuario', 'integracao', 'urgentes', 'broadcast'];
+  const MODOS_VALIDOS = ['parados_nao_atrib', 'usuario', 'integracao'];
   const [kanbanMode, setKanbanMode] = React.useState('usuario');
   const [internalComposerOpen, setInternalComposerOpen] = React.useState(false);
   const [delegateMode, setDelegateMode] = React.useState(false);
@@ -404,57 +403,7 @@ export default function ChatSidebarKanban({
     return Object.values(mapa).filter(c => c.threads.length > 0 || integracoesVisiveis.find(i => i.id === c.id));
   }, [externasKanban, integracoesVisiveis, usuarioAtual, isAdmin]);
 
-  // ── VISUALIZAÇÃO 4: Threads que receberam Broadcast — agrupadas por URGÊNCIA ─
-  const colunasPorBroadcast = React.useMemo(() => {
-    const agora = Date.now();
-    const H24 = 24 * 60 * 60 * 1000;
-
-    const threadsBroadcast = externasKanban.filter(t =>
-      t.last_message_content?.startsWith('[Broadcast]') ||
-      t.metadata?.ultima_mensagem_origem === 'broadcast_massa'
-    );
-
-    const colunas = {
-      respondeu_aguardando: { id: 'respondeu_aguardando', nome: '🔥 Respondeu — Aguardando', cor: 'from-red-600 to-rose-700',     borda: 'border-red-300',     threads: [] },
-      sem_resposta_velho:   { id: 'sem_resposta_velho',   nome: '⚡ Sem resposta +24h',       cor: 'from-orange-500 to-amber-600', borda: 'border-orange-300',  threads: [] },
-      sem_resposta_novo:    { id: 'sem_resposta_novo',    nome: '⏱️ Sem resposta <24h',       cor: 'from-yellow-500 to-amber-500', borda: 'border-yellow-300',  threads: [] },
-      atendido:             { id: 'atendido',             nome: '✅ Atendido',                 cor: 'from-emerald-600 to-teal-700', borda: 'border-emerald-300', threads: [] },
-    };
-
-    threadsBroadcast.forEach(thread => {
-      const lastInbound  = thread.last_inbound_at  ? new Date(thread.last_inbound_at).getTime()  : 0;
-      const lastOutbound = thread.last_outbound_at ? new Date(thread.last_outbound_at).getTime() : 0;
-      const lastHuman    = thread.last_human_message_at ? new Date(thread.last_human_message_at).getTime() : 0;
-      const ultimaSender = thread.last_message_sender;
-
-      // Cliente respondeu e atendente humano já retornou após a resposta → atendido
-      if (lastInbound > 0 && lastHuman > lastInbound) {
-        colunas.atendido.threads.push(thread);
-      }
-      // Cliente respondeu mas ninguém retornou ainda → URGENTE
-      else if (ultimaSender === 'contact' && lastInbound > 0) {
-        colunas.respondeu_aguardando.threads.push(thread);
-      }
-      // Broadcast enviado, sem resposta — classificar por idade
-      else {
-        const idadeMs = agora - (lastOutbound || new Date(thread.last_message_at || 0).getTime());
-        if (idadeMs >= H24) colunas.sem_resposta_velho.threads.push(thread);
-        else colunas.sem_resposta_novo.threads.push(thread);
-      }
-    });
-
-    // Ordenar cada coluna: mais urgente primeiro
-    colunas.respondeu_aguardando.threads.sort((a, b) =>
-      new Date(a.last_inbound_at || 0) - new Date(b.last_inbound_at || 0)); // resposta mais antiga primeiro
-    colunas.sem_resposta_velho.threads.sort((a, b) =>
-      new Date(a.last_outbound_at || 0) - new Date(b.last_outbound_at || 0));
-    colunas.sem_resposta_novo.threads.sort((a, b) =>
-      new Date(b.last_outbound_at || 0) - new Date(a.last_outbound_at || 0));
-    colunas.atendido.threads.sort((a, b) =>
-      new Date(b.last_human_message_at || 0) - new Date(a.last_human_message_at || 0));
-
-    return Object.values(colunas).filter(c => c.threads.length > 0);
-  }, [externasKanban]);
+  // ✅ Visualizações "Urgentes" e "Broadcast" migradas para CRM → Contatos IA
 
   const corConfig = {
     blue: 'bg-blue-600', green: 'bg-green-600', purple: 'bg-purple-600',
@@ -467,19 +416,6 @@ export default function ChatSidebarKanban({
   };
 
   // ─── Sub-funções de render por modo ────────────────────────────────────
-
-  const renderModoUrgentes = () => (
-    <div className="flex-1 min-w-0 overflow-hidden rounded-xl">
-      <ContatosRequerendoAtencaoKanban
-        usuario={usuarioAtual}
-        onSelecionarContato={onSelecionarThread}
-        onClose={() => setKanbanMode('usuario')}
-        threads={threads}
-        integracoes={integracoes}
-        atendentes={atendentes}
-      />
-    </div>
-  );
 
   const renderModoParados = () => (
     <div className="flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 border-yellow-400 overflow-hidden shadow-md">
@@ -587,62 +523,13 @@ export default function ChatSidebarKanban({
     );
   };
 
-  const renderModoBroadcast = () => {
-    if (colunasPorBroadcast.length === 0) return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center text-slate-400">
-          <Megaphone className="w-10 h-10 mx-auto mb-2 opacity-30" />
-          <p className="text-sm font-medium">Nenhuma campanha em massa enviada</p>
-          <p className="text-xs mt-1">Threads que receberam broadcast aparecerão aqui agrupadas por atendente.</p>
-        </div>
-      </div>
-    );
-    return colunasPorBroadcast.map(coluna => {
-      const todosSelecionados = modoSelecaoMultipla && coluna.threads.length > 0
-        && coluna.threads.filter(t => t.contact_id).every(t => isThreadSelecionada(t));
-      return (
-      <div key={coluna.id} className={`flex flex-col flex-shrink-0 w-72 min-w-[260px] bg-white rounded-xl border-2 ${coluna.borda} overflow-hidden shadow-md`}>
-        <div className={`bg-gradient-to-r ${coluna.cor} px-3 py-2 flex items-center justify-between`}>
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Megaphone className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
-            <span className="text-white font-semibold text-xs truncate">{coluna.nome}</span>
-          </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-white/80 text-[10px]">{coluna.threads.length}</span>
-            {modoSelecaoMultipla && coluna.threads.length > 0 && (
-              <button
-                onClick={() => toggleSelecaoColuna(coluna.threads)}
-                title={todosSelecionados ? 'Desmarcar todos da coluna' : 'Selecionar todos da coluna'}
-                className="text-white hover:bg-white/20 rounded px-1.5 py-0.5 text-[11px] font-bold transition-colors"
-              >
-                {todosSelecionados ? '❌' : '✅'}
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-          {coluna.threads.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-xs">Sem conversas</div>
-          ) : coluna.threads.map(thread => (
-            <ThreadRowSidebar key={thread.id} thread={thread} isAtiva={threadAtiva?.id === thread.id}
-              usuarioAtual={usuarioAtual} atendentes={atendentes} integracoes={integracoes} onSelecionarThread={onSelecionarThread}
-              modoSelecaoMultipla={modoSelecaoMultipla} isSelecionado={isThreadSelecionada(thread)} onToggleSelecao={toggleSelecaoThread} />
-          ))}
-        </div>
-      </div>
-      );
-    });
-  };
-
   // ─── Dispatcher principal — ÚNICO ponto de controle de modos ───────────
   // Adicionar novo modo: 1) inclui no MODOS_VALIDOS 2) cria renderModoXxx() 3) adiciona chave aqui.
   const renderKanbanBody = () => {
     const modoAtivo = MODOS_VALIDOS.includes(kanbanMode) ? kanbanMode : 'usuario';
     const modos = {
-      urgentes:           renderModoUrgentes,
       usuario:            renderModoUsuario,
       integracao:         renderModoIntegracao,
-      broadcast:          renderModoBroadcast,
       parados_nao_atrib:  () => <>{renderModoNaoAtribuidos()}{renderModoParados()}</>,
     };
     return modos[modoAtivo]();
@@ -653,8 +540,6 @@ export default function ChatSidebarKanban({
     { key: 'usuario',           label: 'Atendente',          icon: Users,          cor: 'bg-indigo-500' },
     { key: 'parados_nao_atrib', label: 'Parados / S/Atend.', icon: AlertTriangle,  cor: 'bg-red-500' },
     { key: 'integracao',        label: 'Canal',              icon: Columns,        cor: 'bg-orange-500' },
-    { key: 'urgentes',          label: 'Urgentes',           icon: Zap,            cor: 'bg-purple-600' },
-    { key: 'broadcast',         label: 'Broadcast',          icon: Megaphone,      cor: 'bg-emerald-600' },
   ];
 
   return (
@@ -826,18 +711,6 @@ export default function ChatSidebarKanban({
               <Columns className="w-3 h-3" />Canal
             </button>
           </div>
-
-          {/* Urgentes */}
-          <button onClick={() => setKanbanMode('urgentes')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'urgentes' ? 'bg-purple-600 text-white shadow' : 'text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100'}`}>
-            <Zap className="w-3.5 h-3.5 flex-shrink-0" />Urgentes
-          </button>
-
-          {/* Broadcast */}
-          <button onClick={() => setKanbanMode('broadcast')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${kanbanMode === 'broadcast' ? 'bg-emerald-600 text-white shadow' : 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'}`}>
-            <Megaphone className="w-3.5 h-3.5 flex-shrink-0" />Broadcast
-          </button>
 
           <div className="h-5 w-px bg-slate-200" />
 
