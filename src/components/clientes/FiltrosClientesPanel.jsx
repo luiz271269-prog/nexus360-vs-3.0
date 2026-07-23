@@ -11,7 +11,7 @@ import FiltroRecorrencia from "./FiltroRecorrencia";
 export default function FiltrosClientesPanel({ filtros, setFiltros, vendedores = [], aba, clientes, faturamentoPorCliente }) {
   return (
     <div className="space-y-3">
-      {aba === 'clientes' && (
+      {['clientes', 'contatos_fidelizados'].includes(aba) && (
         <FiltroRecorrencia
           valor={filtros.recorrencia}
           onChange={(value) => setFiltros({ ...filtros, recorrencia: value })}

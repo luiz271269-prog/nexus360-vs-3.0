@@ -255,6 +255,20 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
     filtros.recorrencia !== 'todos'
   ].filter(Boolean).length;
 
+  // GAP 2 — Recorrência na aba Fidelizados: resolve etiqueta (ao vivo → persistida) e filtra
+  const etiquetaDoContato = (contato) =>
+    faturamentoPorCliente[contato.cliente_id]?.etiqueta
+    || (clientes || []).find(c => c.id === contato.cliente_id)?.etiqueta_recorrencia;
+
+  const contatosFidelizadosFiltrados = filtros.recorrencia === 'todos'
+    ? contatosFidelizados
+    : contatosFidelizados.filter(ct => etiquetaDoContato(ct) === filtros.recorrencia);
+
+  // Contadores do FiltroRecorrencia na aba Fidelizados: só clientes vinculados aos fidelizados
+  const clientesParaFiltroRecorrencia = aba === 'contatos_fidelizados'
+    ? (clientes || []).filter(c => contatosFidelizados.some(ct => ct.cliente_id === c.id))
+    : clientes;
+
   const clientesComScore = clientesFiltrados.map(cliente => ({
     ...cliente,
     score: (clientesScores || []).find(s => s.cliente_id === cliente.id),
@@ -416,7 +430,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
                 setFiltros={setFiltros}
                 vendedores={vendedores}
                 aba={aba}
-                clientes={clientes}
+                clientes={clientesParaFiltroRecorrencia}
                 faturamentoPorCliente={faturamentoPorCliente}
               />
             </div>
@@ -457,7 +471,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
             setFiltros={setFiltros}
             vendedores={vendedores}
             aba={aba}
-            clientes={clientes}
+            clientes={clientesParaFiltroRecorrencia}
             faturamentoPorCliente={faturamentoPorCliente}
           />
         </CardContent>
@@ -494,7 +508,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
               <Loader2 className="w-8 h-8 animate-spin text-green-600" />
               <span className="ml-3 text-slate-600">Carregando contatos fidelizados...</span>
             </div>
-          ) : contatosFidelizados.length === 0 ? (
+          ) : contatosFidelizadosFiltrados.length === 0 ? (
             <div className="text-center py-20 bg-white/80 backdrop-blur-lg rounded-xl shadow-lg border-2 border-slate-200/50">
               <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
               <p className="text-lg text-slate-600 font-medium">Nenhum contato fidelizado encontrado.</p>
@@ -505,7 +519,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
               <CardHeader className="pb-3 bg-white/80 backdrop-blur-lg rounded-t-xl border-b border-slate-200">
                 <CardTitle className="text-lg text-slate-700 flex items-center gap-2">
                   <Users className="w-5 h-5 text-green-600" />
-                  {contatosFidelizados.length} Contatos Fidelizados
+                  {contatosFidelizadosFiltrados.length} Contatos Fidelizados
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -525,7 +539,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {contatosFidelizados.map((contato) => {
+                      {contatosFidelizadosFiltrados.map((contato) => {
                         const resolverNome = (userId) => {
                           if (!userId) return null;
                           const u = usuarios.find(u => u.id === userId || u.full_name === userId || u.email === userId);

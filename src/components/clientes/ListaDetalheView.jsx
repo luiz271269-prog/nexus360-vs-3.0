@@ -11,6 +11,7 @@ import AdicionarContatosListaDialog from "./AdicionarContatosListaDialog";
 import ImportarListaDialog from "./ImportarListaDialog";
 import EtiquetaRecorrencia from "./EtiquetaRecorrencia";
 import EtiquetaFaixaFaturamento from "./EtiquetaFaixaFaturamento";
+import FiltroRecorrencia from "./FiltroRecorrencia";
 
 const CORES = {
   blue: 'bg-blue-100 text-blue-800 border-blue-300',
@@ -32,8 +33,12 @@ export default function ListaDetalheView({ lista, setLista, onVoltar, onExcluir,
   const [showAddClientes, setShowAddClientes] = useState(false);
   const [showAddContatos, setShowAddContatos] = useState(false);
   const [showImportar, setShowImportar] = useState(false);
+  const [filtroRecorrencia, setFiltroRecorrencia] = useState('todos');
 
   const clientesDaLista = clientes.filter(c => (lista.cliente_ids || []).includes(c.id));
+  const clientesExibidos = filtroRecorrencia === 'todos'
+    ? clientesDaLista
+    : clientesDaLista.filter(c => c.etiqueta_recorrencia === filtroRecorrencia);
   const contatoIds = lista.contato_ids || [];
   const itensImportados = lista.itens_importados || [];
 
@@ -157,6 +162,14 @@ export default function ListaDetalheView({ lista, setLista, onVoltar, onExcluir,
         </div>
       </div>
 
+      {clientesDaLista.length > 0 && (
+        <FiltroRecorrencia
+          valor={filtroRecorrencia}
+          onChange={setFiltroRecorrencia}
+          clientes={clientesDaLista}
+        />
+      )}
+
       <Card className="shadow-lg border-2 border-slate-200/50">
         <CardContent className="p-0">
           {totalItens === 0 ? (
@@ -174,7 +187,7 @@ export default function ListaDetalheView({ lista, setLista, onVoltar, onExcluir,
                   </tr>
                 </thead>
                 <tbody>
-                  {clientesDaLista.map(c => (
+                  {clientesExibidos.map(c => (
                     <tr key={`cli-${c.id}`} className="border-b border-slate-100 hover:bg-slate-50/50">
                       <td className="px-4 py-3"><Badge className="bg-blue-100 text-blue-800">Cliente</Badge></td>
                       <td className="px-4 py-3">
