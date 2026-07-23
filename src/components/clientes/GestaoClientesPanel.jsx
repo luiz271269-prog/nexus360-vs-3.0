@@ -571,9 +571,13 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
                             </td>
                             <td className="px-6 py-4"><Badge className={`${tipoCfg.cor} text-white hover:opacity-90`}>{tipoCfg.label}</Badge></td>
                             <td className="px-6 py-4">
-                              {faturamentoPorCliente[contato.cliente_id]?.etiqueta
-                                ? <EtiquetaRecorrencia etiqueta={faturamentoPorCliente[contato.cliente_id].etiqueta} />
-                                : <span className="text-xs text-slate-400">—</span>}
+                              {(() => {
+                                const etiqueta = faturamentoPorCliente[contato.cliente_id]?.etiqueta
+                                  || (clientes || []).find(c => c.id === contato.cliente_id)?.etiqueta_recorrencia;
+                                return (etiqueta && etiqueta !== 'none')
+                                  ? <EtiquetaRecorrencia etiqueta={etiqueta} />
+                                  : <span className="text-xs text-slate-400">—</span>;
+                              })()}
                             </td>
                             <td className="px-6 py-4 text-slate-700">{contato.telefone || '-'}</td>
                             <td className="px-6 py-4">
