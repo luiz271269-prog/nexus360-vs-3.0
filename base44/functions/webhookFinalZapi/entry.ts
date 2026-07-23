@@ -1246,6 +1246,17 @@ async function handleMessage(dados, payloadBruto, base44) {
       console.log(`[${VERSION}] ✅ Worker mídia concluído (awaited)`);
     } catch (e) {
       console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message);
+      // URL temporária da Z-API expira em minutos — sem retry possível depois.
+      // Marca como falha definitiva para a UI mostrar "mídia indisponível"
+      // em vez de "Processando..." eterno.
+      await base44.asServiceRole.entities.Message.update(mensagem.id, {
+        media_url: 'failed_download',
+        metadata: {
+          ...(mensagem.metadata || {}),
+          download_failed_reason: `worker_erro: ${e?.message || 'desconhecido'}`,
+          download_failed_at: new Date().toISOString()
+        }
+      }).catch(() => {});
     }
   }
 

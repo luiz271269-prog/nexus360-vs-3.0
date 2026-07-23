@@ -202,6 +202,49 @@
           "type": "boolean",
           "description": "Se a m\u00eddia foi salva permanentemente"
         },
+        "downloadSpec": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Especifica\u00e7\u00e3o de download da m\u00eddia (W-API: url/mediaKey/directPath/mediaId). CR\u00cdTICO: usado pelo watchdog recuperarMidiaWapiPendente para retry"
+        },
+        "media_url_status": {
+          "type": "string",
+          "description": "Status inicial da media_url no momento da cria\u00e7\u00e3o (pending_download/failed_download)"
+        },
+        "processed_by": {
+          "type": "string",
+          "description": "Vers\u00e3o do webhook/worker que processou esta mensagem"
+        },
+        "provider": {
+          "type": "string",
+          "description": "Provedor de origem no metadata (z_api, w_api)"
+        },
+        "synced_from_whatsapp_web": {
+          "type": "boolean",
+          "description": "Se veio de sincroniza\u00e7\u00e3o fromMe (WhatsApp Web)"
+        },
+        "download_failed_reason": {
+          "type": "string",
+          "description": "Motivo da falha definitiva de download da m\u00eddia"
+        },
+        "download_failed_at": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Quando o download foi marcado como falho"
+        },
+        "original_media_url": {
+          "type": "string",
+          "description": "URL tempor\u00e1ria original do provedor (auditoria)"
+        },
+        "original_temp_url": {
+          "type": "string",
+          "description": "URL tempor\u00e1ria original do provedor (auditoria, alias)"
+        },
+        "persisted_at": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Quando a m\u00eddia foi persistida no storage permanente"
+        },
         "deleted": {
           "type": "boolean",
           "description": "Se a mensagem foi apagada"
