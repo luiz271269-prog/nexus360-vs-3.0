@@ -36,8 +36,16 @@ Deno.serve(async (req) => {
     // Mensagens pendentes dentro da janela [24h .. 10min] atrás
     // ⚠️ FIX: filtro created_date no banco não casa com o formato armazenado
     // (sem timezone) — busca só por media_url e filtra a janela em memória.
+    // ✅ FIX TZ: created_date vem sem timezone e é UTC — forçar 'Z' para o parse
+    // não usar o fuso local do runtime (senão msgs recentes parecem "no futuro"
+    // e ficam fora da janela por até 1h+).
+    const parseUtc = (s) => {
+      if (!s) return NaN;
+      const str = String(s);
+      return new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(str) ? str : str + 'Z').getTime();
+    };
     const dentroDaJanela = (m) => {
-      const t = new Date(m.created_date).getTime();
+      const t = parseUtc(m.created_date);
       return t <= new Date(limiteRecente).getTime() && t >= new Date(limiteAntigo).getTime();
     };
     const pendentesTodas = await base44.asServiceRole.entities.Message.filter(
