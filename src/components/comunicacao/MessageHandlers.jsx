@@ -2,6 +2,7 @@ import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { ensureJpegIfHeic, isHeic } from '@/components/lib/heicConverter';
+import { extensaoDoAudio } from '@/components/comunicacao/useAudioRecorder';
 
 /**
  * Hooks para handlers de mensagens
@@ -42,8 +43,9 @@ export function useMessageHandlers({
     try {
       if (audioBlob) {
         const timestamp = Date.now();
-        const audioFile = new File([audioBlob], `audio-internal-${timestamp}.ogg`, {
-          type: 'audio/ogg; codecs=opus',
+        const tipoAudio = audioBlob.type || 'audio/webm';
+        const audioFile = new File([audioBlob], `audio-internal-${timestamp}.${extensaoDoAudio(tipoAudio)}`, {
+          type: tipoAudio,
           lastModified: timestamp
         });
 

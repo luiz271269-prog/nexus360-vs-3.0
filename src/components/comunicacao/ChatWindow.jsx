@@ -55,7 +55,7 @@ import CentralInteligenciaContato, {
 import MessageInput from './MessageInput';
 import AlertaPedidoTransferencia from './AlertaPedidoTransferencia';
 import useScrollPaginacao from './useScrollPaginacao';
-import { useAudioRecorder } from './useAudioRecorder';
+import { useAudioRecorder, extensaoDoAudio } from './useAudioRecorder';
 import FloatingConversationBubble from './FloatingConversationBubble';
 import BotaoVideochamada from './BotaoVideochamada';
 
@@ -537,7 +537,8 @@ export default function ChatWindow({
         setEnviando(false); return;
       }
       const timestamp = new Date().getTime();
-      const audioFile = new File([audioBlob], `audio-${timestamp}.ogg`, { type: 'audio/ogg; codecs=opus', lastModified: timestamp });
+      const tipoAudio = audioBlob.type || 'audio/webm';
+      const audioFile = new File([audioBlob], `audio-${timestamp}.${extensaoDoAudio(tipoAudio)}`, { type: tipoAudio, lastModified: timestamp });
       toast.info('📤 Fazendo upload do áudio...');
       const { file_url: audioUrl } = await base44.integrations.Core.UploadFile({ file: audioFile });
       if (modoSelecaoMultipla && contatosSelecionados.length > 0) {

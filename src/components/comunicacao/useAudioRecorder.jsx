@@ -1,6 +1,27 @@
 import { useState, useRef, useCallback } from 'react';
 
 /**
+ * Escolhe o melhor formato REAL suportado pelo navegador.
+ * Prioridade: OGG/Opus (padrão WhatsApp) > MP4/AAC (toca em qualquer Android, inclusive antigos) > WebM.
+ * IMPORTANTE: nunca rotular o blob com um tipo diferente do gravado — Androids antigos
+ * não conseguem tocar WebM disfarçado de .ogg.
+ */
+function escolherMimeType() {
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return '';
+  const preferencias = ['audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
+  return preferencias.find((t) => MediaRecorder.isTypeSupported(t)) || '';
+}
+
+/** Extensão de arquivo correta para o mimeType real gravado */
+export function extensaoDoAudio(mimeType) {
+  const t = (mimeType || '').toLowerCase();
+  if (t.includes('ogg')) return 'ogg';
+  if (t.includes('mp4') || t.includes('aac') || t.includes('m4a')) return 'm4a';
+  if (t.includes('mpeg') || t.includes('mp3')) return 'mp3';
+  return 'webm';
+}
+
+/**
  * Hook que encapsula toda a lógica de gravação de áudio via MediaRecorder.
  * @returns {{ gravando: boolean, iniciarGravacao: function, pararGravacao: function, cancelarGravacao: function, audioBlob: Blob|null }}
  */
@@ -15,7 +36,8 @@ export function useAudioRecorder() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioStreamRef.current = stream;
-      const recorder = new MediaRecorder(stream);
+      const mimeType = escolherMimeType();
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       chunksRef.current = [];
 
       recorder.ondataavailable = (e) => {
@@ -25,7 +47,9 @@ export function useAudioRecorder() {
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/ogg; codecs=opus' });
+        // ✅ Usar o tipo REAL gravado (não forçar ogg) — compatibilidade com Androids antigos
+        const tipoReal = recorder.mimeType || mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: tipoReal });
 
         if (audioStreamRef.current) {
           audioStreamRef.current.getTracks().forEach((track) => track.stop());
