@@ -203,6 +203,29 @@
       "type": "string",
       "format": "date"
     },
+    "ultimo_contato_real": {
+      "type": "string",
+      "format": "datetime",
+      "description": "\u00daltimo contato REAL (WhatsApp humano/inbound + CRM + \u00faltima compra). Persistido diariamente pelo watchdogCarteiraOuro \u2014 fonte \u00fanica de verdade para 'dias parado'"
+    },
+    "dias_sem_contato_real": {
+      "type": "number",
+      "description": "Dias desde o \u00faltimo contato real, no momento do \u00faltimo c\u00e1lculo (persistido pelo watchdogCarteiraOuro)"
+    },
+    "sla_contato_status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "violado",
+        "none"
+      ],
+      "default": "none",
+      "description": "Status do SLA de contato por tier (ouro 10d / prata 14d / risco 21d). none = sem tier de recorr\u00eancia"
+    },
+    "sla_contato_dias": {
+      "type": "number",
+      "description": "Limite de SLA em dias aplicado ao tier do cliente no \u00faltimo c\u00e1lculo"
+    },
     "proximo_contato": {
       "type": "string",
       "format": "date"

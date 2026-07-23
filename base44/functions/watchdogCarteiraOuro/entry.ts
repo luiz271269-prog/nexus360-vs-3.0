@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
     // ── 1) Carregar dados-base em paralelo ─────────────────────────────────
     const [clientes, usuarios, contatosVinculados, threads] = await Promise.all([
-      svc.entities.Cliente.filter({ etiqueta_recorrencia: { $in: ['ouro', 'prata', 'risco'] } }, '-updated_date', 1000),
+      svc.entities.Cliente.list('-updated_date', 1000),
       svc.entities.User.list(),
       svc.entities.Contact.filter({ cliente_id: { $ne: null } }, '-updated_date', 1000),
       svc.entities.MessageThread.filter({ thread_type: 'contact_external' }, '-last_message_at', 1000)
@@ -81,12 +81,11 @@ Deno.serve(async (req) => {
     // ── 2) Avaliar SLA por cliente ─────────────────────────────────────────
     const statusIgnorados = ['desqualificado', 'Inativo'];
     const violacoes = [];
+    const updatesPersist = [];
 
     for (const cliente of clientes) {
-      if (statusIgnorados.includes(cliente.status)) continue;
       const etiqueta = cliente.etiqueta_recorrencia;
       const slaDias = SLA_DIAS[etiqueta];
-      if (!slaDias) continue;
 
       const contatos = contatosPorCliente[cliente.id] || [];
 
@@ -104,6 +103,25 @@ Deno.serve(async (req) => {
 
       const ultimoContatoReal = Math.max(...timestamps);
       const dias = Math.floor((agora - ultimoContatoReal) / 86400000);
+
+      // ── Persistir fonte única de verdade (last activity) no Cliente ─────
+      const isoReal = new Date(ultimoContatoReal).toISOString();
+      const slaStatus = slaDias ? (dias >= slaDias ? 'violado' : 'ok') : 'none';
+      if (
+        cliente.ultimo_contato_real !== isoReal ||
+        cliente.dias_sem_contato_real !== dias ||
+        cliente.sla_contato_status !== slaStatus
+      ) {
+        updatesPersist.push({
+          id: cliente.id,
+          ultimo_contato_real: isoReal,
+          dias_sem_contato_real: dias,
+          sla_contato_status: slaStatus,
+          ...(slaDias ? { sla_contato_dias: slaDias } : {})
+        });
+      }
+
+      if (!slaDias || statusIgnorados.includes(cliente.status)) continue;
       if (dias < slaDias) continue;
 
       // Elevação por etiquetas do contato (VIP / classe A)
@@ -209,8 +227,18 @@ Deno.serve(async (req) => {
       notificacoesCriadas++;
     }
 
+    // ── Gravar campos persistidos (fonte única para todo o frontend) ──────
+    let persistidos = 0;
+    for (let i = 0; i < updatesPersist.length; i += 400) {
+      const lote = updatesPersist.slice(i, i + 400);
+      await svc.entities.Cliente.bulkUpdate(lote)
+        .then(() => { persistidos += lote.length; })
+        .catch(e => console.warn(`[CARTEIRA-OURO] bulkUpdate falhou: ${e.message}`));
+    }
+
     const resumo = {
       success: true,
+      clientes_persistidos: persistidos,
       clientes_avaliados: clientes.length,
       violacoes_sla: violacoes.length,
       por_etiqueta: violacoes.reduce((acc, v) => { acc[v.etiqueta] = (acc[v.etiqueta] || 0) + 1; return acc; }, {}),

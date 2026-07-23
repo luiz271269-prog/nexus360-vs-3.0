@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Badge } from '@/components/ui/badge';
 import ClienteKanbanCard from './ClienteKanbanCard';
-import LegendaTotalizadoresClientes, { classificarCliente } from './LegendaTotalizadoresClientes';
+import LegendaTotalizadoresClientes, { matchCategoria } from './LegendaTotalizadoresClientes';
 import {
   UserPlus,
   Phone,
@@ -161,8 +161,8 @@ export default function ClienteKanban({
   const ordenarComPrioridade = (lista) => {
     if (!categoriaPrioritaria) return lista;
     return [...lista].sort((a, b) => {
-      const aPrio = classificarCliente(a) === categoriaPrioritaria ? 0 : 1;
-      const bPrio = classificarCliente(b) === categoriaPrioritaria ? 0 : 1;
+      const aPrio = matchCategoria(a, categoriaPrioritaria) ? 0 : 1;
+      const bPrio = matchCategoria(b, categoriaPrioritaria) ? 0 : 1;
       return aPrio - bPrio;
     });
   };

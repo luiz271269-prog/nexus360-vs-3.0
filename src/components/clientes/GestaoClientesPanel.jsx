@@ -28,6 +28,7 @@ import HistoricoQualificacaoCliente from "./HistoricoQualificacaoCliente";
 import ClientesNaoCadastrados from "./ClientesNaoCadastrados";
 import FiltrosClientesPanel from "./FiltrosClientesPanel";
 import EtiquetaRecorrencia from "./EtiquetaRecorrencia";
+import BadgeDiasParado from "./BadgeDiasParado";
 import BotaoAbrirChat from "../crm/BotaoAbrirChat";
 import ListasVendedorPanel from "./ListasVendedorPanel";
 import ContatosInteligentesPanel from "../inteligencia/ContatosInteligentesPanel";
@@ -562,15 +563,14 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
                           novo: { label: 'Novo', cor: 'bg-slate-400' },
                         }[contato.tipo_contato || 'novo'] || { label: contato.tipo_contato || '—', cor: 'bg-slate-400' };
 
-                        const dataRef = contato.ultima_interacao || contato.updated_date;
+                        // Fonte única: ultimo_contato_real do Cliente vinculado (watchdogCarteiraOuro)
+                        const clienteVinculado = (clientes || []).find(c => c.id === contato.cliente_id);
+                        const dataRef = clienteVinculado?.ultimo_contato_real
+                          || contato.ultima_interacao
+                          || clienteVinculado?.ultimo_contato;
                         const diasSemContato = dataRef
                           ? Math.floor((Date.now() - new Date(dataRef).getTime()) / (1000 * 60 * 60 * 24))
                           : null;
-                        const corDias = diasSemContato === null
-                          ? 'bg-slate-100 text-slate-500'
-                          : diasSemContato <= 7 ? 'bg-green-100 text-green-700'
-                          : diasSemContato <= 30 ? 'bg-amber-100 text-amber-700'
-                          : 'bg-red-100 text-red-700';
 
                         return (
                           <tr key={contato.id} className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors">
@@ -609,9 +609,11 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
                               )}
                             </td>
                             <td className="px-6 py-4">
-                              <Badge className={`${corDias} hover:opacity-90`}>
-                                {diasSemContato === null ? 'Sem registro' : diasSemContato === 0 ? 'Hoje' : `${diasSemContato} ${diasSemContato === 1 ? 'dia' : 'dias'}`}
-                              </Badge>
+                              {diasSemContato === null ? (
+                                <Badge className="bg-slate-100 text-slate-500 hover:opacity-90">Sem registro</Badge>
+                              ) : (
+                                <BadgeDiasParado dias={diasSemContato} etiqueta={etiquetaDoContato(contato)} />
+                              )}
                             </td>
                             <td className="px-6 py-4"><Badge variant="outline">{contato.segmento_atual || 'N/A'}</Badge></td>
                             <td className="px-6 py-4">

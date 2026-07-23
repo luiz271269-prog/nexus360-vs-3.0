@@ -22,7 +22,7 @@ import ClienteHistoricoDrawer from './ClienteHistoricoDrawer';
 import EtiquetaRecorrencia from './EtiquetaRecorrencia';
 import EtiquetaFaixaFaturamento from './EtiquetaFaixaFaturamento';
 import ClienteChatDrawer from './ClienteChatDrawer';
-import { diasParado } from './LegendaTotalizadoresClientes';
+import BadgeDiasParado from './BadgeDiasParado';
 import useChatIndicadores from '../crm/useChatIndicadores';
 
 export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, onViewDetails, statusGradient }) {
@@ -31,14 +31,6 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
   const { getIndicadorCliente } = useChatIndicadores();
   const indicadorChat = getIndicadorCliente(cliente);
   const temTelefone = cliente?.telefone || cliente?.celular;
-  const dias = diasParado(cliente);
-
-  const getDiasColor = (d) => {
-    if (d === null) return null;
-    if (d > 60) return 'bg-red-500 text-white';
-    if (d >= 21) return 'bg-amber-400 text-amber-900';
-    return 'bg-emerald-500 text-white';
-  };
   const getScoreColor = (scoreTotal) => {
     if (!scoreTotal) return 'text-slate-600 bg-slate-100';
     if (scoreTotal >= 700) return 'text-green-700 bg-green-100';
@@ -85,14 +77,7 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
           )}
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          {dias !== null && (
-            <span
-              title="Dias desde o último contato"
-              className={`rounded-full px-2 py-0.5 text-[10px] font-black shadow-sm ${getDiasColor(dias)}`}
-            >
-              {dias}d parado
-            </span>
-          )}
+          <BadgeDiasParado cliente={cliente} />
           {score?.score_total && (
             <span className="bg-white text-slate-900 rounded-full px-2.5 py-0.5 text-[11px] font-black shadow-sm">
               {score.score_total}

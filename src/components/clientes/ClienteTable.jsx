@@ -9,14 +9,7 @@ import EtiquetaRecorrencia from './EtiquetaRecorrencia';
 import EtiquetaFaixaFaturamento from './EtiquetaFaixaFaturamento';
 import BotaoAbrirChat from '../crm/BotaoAbrirChat';
 import BotaoNotasCliente from './BotaoNotasCliente';
-import { diasParado } from './LegendaTotalizadoresClientes';
-
-const getDiasColor = (d) => {
-  if (d === null) return null;
-  if (d > 60) return 'bg-red-500 text-white';
-  if (d >= 21) return 'bg-amber-400 text-amber-900';
-  return 'bg-emerald-500 text-white';
-};
+import BadgeDiasParado from './BadgeDiasParado';
 
 export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails }) {
 
@@ -57,7 +50,6 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
         </TableHeader>
         <TableBody>
           {clientes.map((cliente) => {
-            const dias = diasParado(cliente);
             return (
             <TableRow key={cliente.id} className="hover:bg-slate-50/50">
               <TableCell>
@@ -65,14 +57,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
                   <span className="font-medium text-slate-800">{cliente.razao_social}</span>
                   <EtiquetaRecorrencia etiqueta={cliente.etiqueta_recorrencia || cliente.faturamento?.etiqueta} />
                   <EtiquetaFaixaFaturamento faixa={cliente.faixa_faturamento} />
-                  {dias !== null && (
-                    <span
-                      title="Dias desde o último contato"
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${getDiasColor(dias)}`}
-                    >
-                      {dias}d parado
-                    </span>
-                  )}
+                  <BadgeDiasParado cliente={cliente} />
                 </div>
                 <div className="text-sm text-slate-500">{cliente.nome_fantasia}</div>
                 {cliente.telefone && (
