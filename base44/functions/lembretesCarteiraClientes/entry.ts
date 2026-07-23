@@ -42,10 +42,14 @@ Deno.serve(async (req) => {
 
     for (const cliente of clientes || []) {
       if (statusIgnorados.includes(cliente.status)) continue;
+      // Clientes com etiqueta de recorrência são cobertos pelo watchdogCarteiraOuro (SLA por tier)
+      if (['ouro', 'prata', 'risco'].includes(cliente.etiqueta_recorrencia)) continue;
       const vendedorId = resolverVendedorId(cliente);
       if (!vendedorId) continue;
 
-      const dataRef = cliente.ultimo_contato || cliente.updated_date;
+      // NUNCA usar updated_date como referência: automações salvam o cliente
+      // diariamente e "resetam" o relógio de inatividade (causa-raiz do bug)
+      const dataRef = cliente.ultimo_contato;
       if (!dataRef) continue;
       const dias = Math.floor((agora - new Date(dataRef).getTime()) / 86400000);
       const limite = cliente.status === 'Em Risco' ? DIAS_RISCO : DIAS_PADRAO;

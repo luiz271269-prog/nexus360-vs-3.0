@@ -1,0 +1,45 @@
+{
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "watchdog_carteira_ouro",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "avaliar_sla_carteira": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "watchdogCarteiraOuro",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Avaliar SLA da carteira",
+            "description": "Ouro 10d / Prata 14d / Risco 21d"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "30 8 * * *",
+      "one_time_date": null,
+      "timezone": "America/Sao_Paulo",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "description": "Diariamente \u00e0s 08:30 (BRT), ap\u00f3s a classifica\u00e7\u00e3o de recorr\u00eancia, avalia o SLA de contato por tier (Ouro >10d, Prata >14d, Risco >21d) usando o \u00faltimo contato REAL (WhatsApp + CRM) e cria tarefas de follow-up + notifica\u00e7\u00f5es cr\u00edticas para os vendedores.",
+  "name": "Watchdog Carteira Ouro (SLA por Tier)"
+}
