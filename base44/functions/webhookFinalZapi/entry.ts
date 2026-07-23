@@ -40,7 +40,7 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.7.0-SKIP-SYSTEM-PRE-SDK';
+const VERSION = 'v11.8.0-AWAIT-MIDIA-WORKER';
 const BUILD_DATE = '2026-05-28';
 const CLASSIFIER_VERSION = 'v3-skip-system-pre-sdk'; // deveIgnorar roda antes do SDK; preserva MessageStatusCallback
 
@@ -1227,16 +1227,26 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonServerError({ success: false, error: 'erro_salvar_mensagem' });
   }
 
-  // WORKER DE MÍDIA (fire-and-forget)
+  // WORKER DE MÍDIA — ✅ FIX pending_download eterno: AGUARDAR a persistência.
+  // Fire-and-forget matava o worker no teardown do webhook: o persistirMidiaZapi
+  // baixava e fazia upload com sucesso, mas era abortado ANTES do Message.update,
+  // deixando a mensagem travada em 'pending_download' para sempre.
+  // O download B2 da Z-API é rápido (~2s) e a URL temporária expira em minutos,
+  // então aguardar aqui é obrigatório. Erro no worker NÃO falha o webhook.
   if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none' && !midiaPersistida) {
-    base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
-      file_id: dados.messageId || mensagem.id,
-      integration_id: integracaoId,
-      media_type: dados.mediaType,
-      media_url: dados.mediaUrl,
-      message_id: mensagem.id,
-      filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
-    }).catch(e => console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message));
+    try {
+      await base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
+        file_id: dados.messageId || mensagem.id,
+        integration_id: integracaoId,
+        media_type: dados.mediaType,
+        media_url: dados.mediaUrl,
+        message_id: mensagem.id,
+        filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+      });
+      console.log(`[${VERSION}] ✅ Worker mídia concluído (awaited)`);
+    } catch (e) {
+      console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message);
+    }
   }
 
   // ATUALIZAR THREAD
