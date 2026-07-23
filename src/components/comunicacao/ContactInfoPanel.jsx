@@ -28,6 +28,8 @@ import UsuarioDisplay from './UsuarioDisplay';
 import CallHistoryPanel from './CallHistoryPanel';
 import PainelSaneamentoContato from '../saneamento/PainelSaneamentoContato';
 import CardEnriquecimentoIA from './CardEnriquecimentoIA';
+import EtiquetaRecorrencia from '../clientes/EtiquetaRecorrencia';
+import EtiquetaFaixaFaturamento from '../clientes/EtiquetaFaixaFaturamento';
 
 export default function ContactInfoPanel({ 
   contact, 
@@ -267,6 +269,11 @@ export default function ContactInfoPanel({
     { value: 'novo',       label: 'Sem definição', icon: '❓', cor: 'from-gray-400 to-gray-500',   desc: 'Não classificado' },
   ];
   const tipoAtual = tiposContato.find(t => t.value === formData.tipo_contato) || tiposContato[6];
+
+  // GAP 3 — Cliente vinculado (etiquetas de recorrência/faturamento persistidas, sem query nova)
+  const clienteVinculado = formData.cliente_id
+    ? clientes.find(c => c.id === formData.cliente_id)
+    : null;
 
   // Renderizar seletor de atendente usando UsuarioDisplay
   const renderSeletorAtendente = (campo, placeholder, setorFiltro = null) => {
@@ -628,6 +635,12 @@ export default function ContactInfoPanel({
                       ))}
                     </SelectContent>
                   </Select>
+                  {clienteVinculado && (
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                      <EtiquetaRecorrencia etiqueta={clienteVinculado.etiqueta_recorrencia} />
+                      <EtiquetaFaixaFaturamento faixa={clienteVinculado.faixa_faturamento} />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
