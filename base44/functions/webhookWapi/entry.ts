@@ -220,6 +220,66 @@ function buildDownloadSpec(type, msg, extra = {}) {
 }
 
 // ============================================================================
+// ✅ MÉTODO DIRETO DE MÍDIA (comprovado em produção):
+// download-media (W-API) → fileLink → fetch → UploadFile → Message.update
+// Elimina a dependência do invoke cross-function (que falha com 502 intermitente).
+// ============================================================================
+const MIME_EXT = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+  'video/mp4': 'mp4', 'video/3gpp': '3gp',
+  'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/aac': 'aac',
+  'application/pdf': 'pdf'
+};
+
+function extPorMime(ct, mediaType) {
+  const clean = String(ct || '').split(';')[0].trim();
+  if (MIME_EXT[clean]) return MIME_EXT[clean];
+  if (mediaType === 'audio') return 'ogg';
+  if (mediaType === 'video') return 'mp4';
+  if (mediaType === 'document') return 'bin';
+  return 'jpg';
+}
+
+async function baixarMidiaDiretoWapi(base44, mensagem, integracaoId, downloadSpec, mediaType) {
+  const integ = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
+  if (!integ) throw new Error('integracao_nao_encontrada');
+  const baseUrl = (integ.base_url_provider || 'https://api.w-api.app/v1').replace(/\/+$/, '');
+  const resp = await fetch(`${baseUrl}/message/download-media?instanceId=${integ.instance_id_provider}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
+    body: JSON.stringify({
+      mediaKey: downloadSpec.mediaKey,
+      directPath: downloadSpec.directPath,
+      type: downloadSpec.type,
+      mimetype: downloadSpec.mimetype
+    }),
+    signal: AbortSignal.timeout(15000)
+  });
+  const data = await resp.json().catch(() => ({}));
+  const link = data.fileLink || data.link || data.url;
+  if (!resp.ok || !link) throw new Error(`download-media sem fileLink (status ${resp.status})`);
+  const dl = await fetch(link, { signal: AbortSignal.timeout(20000) });
+  if (!dl.ok) throw new Error(`fileLink status ${dl.status}`);
+  const ct = (dl.headers.get('content-type') || downloadSpec.mimetype || '').split(';')[0].trim();
+  const buf = await dl.arrayBuffer();
+  if (!buf.byteLength) throw new Error('arquivo_vazio');
+  const ext = extPorMime(ct, mediaType);
+  const file = new File([buf], `wapi_${String(mensagem.id).substring(0, 8)}_${Date.now()}.${ext}`, { type: ct || 'application/octet-stream' });
+  const up = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+  if (!up?.file_url) throw new Error('upload_sem_file_url');
+  await base44.asServiceRole.entities.Message.update(mensagem.id, {
+    media_url: up.file_url,
+    metadata: {
+      ...(mensagem.metadata || {}),
+      midia_persistida: true,
+      persisted_at: new Date().toISOString(),
+      persist_method: 'inline_direct'
+    }
+  });
+  return up.file_url;
+}
+
+// ============================================================================
 // CLASSIFICADOR
 // ============================================================================
 function classifyWapiEvent(payload) {
@@ -1179,30 +1239,47 @@ async function handleMessage(dados, payloadBruto, base44) {
   // watchdog recuperarMidiaWapiPendente recupera via metadata.downloadSpec
   // (agora persistido no schema da Message).
   if (dados.downloadSpec) {
-    console.log('[WAPI] 🏛️ Executando worker de mídia (awaited)...', {
-      message_id: mensagem.id,
-      integration_id: integracaoId,
-      type: dados.downloadSpec.type,
-      hasUrl: !!dados.downloadSpec.url,
-      hasKeyPath: !!(dados.downloadSpec.mediaKey && dados.downloadSpec.directPath),
-      hasMediaId: !!dados.downloadSpec.mediaId
-    });
-    try {
-      await Promise.race([
-        base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
-          message_id: mensagem.id,
-          integration_id: integracaoId,
-          downloadSpec: dados.downloadSpec,
-          media_type: dados.mediaType,
-          filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
-        }),
-        new Promise((resolve) => setTimeout(() => resolve('timeout_25s'), 25000))
-      ]).then(r => {
-        if (r === 'timeout_25s') console.warn(`[WAPI] ⏱️ Worker mídia excedeu 25s — watchdog recupera | msgId=${mensagem.id}`);
-        else console.log(`[WAPI] ✅ Worker mídia concluído (awaited) | msgId=${mensagem.id}`);
+    const spec = dados.downloadSpec;
+    let midiaOk = false;
+
+    // 1️⃣ MÉTODO DIRETO (comprovado): sem invoke cross-function, sem 502.
+    if (spec.mediaKey && spec.directPath && integracaoId) {
+      try {
+        const urlPermanente = await baixarMidiaDiretoWapi(base44, mensagem, integracaoId, spec, dados.mediaType);
+        midiaOk = true;
+        console.log(`[WAPI] ✅ Mídia persistida INLINE (método direto): ${urlPermanente.substring(0, 60)}`);
+      } catch (e) {
+        console.warn(`[WAPI] ⚠️ Método direto inline falhou (${e?.message}) — fallback para worker`);
+      }
+    }
+
+    // 2️⃣ FALLBACK: worker persistirMidiaWapi (multi-caminho: url/mediaId)
+    if (!midiaOk) {
+      console.log('[WAPI] 🏛️ Executando worker de mídia (awaited)...', {
+        message_id: mensagem.id,
+        integration_id: integracaoId,
+        type: spec.type,
+        hasUrl: !!spec.url,
+        hasKeyPath: !!(spec.mediaKey && spec.directPath),
+        hasMediaId: !!spec.mediaId
       });
-    } catch (e) {
-      console.error(`[WAPI] ⚠️ Worker mídia erro:`, e?.message);
+      try {
+        await Promise.race([
+          base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
+            message_id: mensagem.id,
+            integration_id: integracaoId,
+            downloadSpec: spec,
+            media_type: dados.mediaType,
+            filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+          }),
+          new Promise((resolve) => setTimeout(() => resolve('timeout_25s'), 25000))
+        ]).then(r => {
+          if (r === 'timeout_25s') console.warn(`[WAPI] ⏱️ Worker mídia excedeu 25s — watchdog recupera | msgId=${mensagem.id}`);
+          else console.log(`[WAPI] ✅ Worker mídia concluído (awaited) | msgId=${mensagem.id}`);
+        });
+      } catch (e) {
+        console.error(`[WAPI] ⚠️ Worker mídia erro (watchdog recupera):`, e?.message);
+      }
     }
   } else if (mediaUrlInicial === 'failed_download') {
     console.warn(`[WAPI] ⚠️ MEDIA_FAILED | msgId=${mensagem.id} | type=${dados.mediaType} | Sem dados para download`);

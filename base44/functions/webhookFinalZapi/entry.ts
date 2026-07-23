@@ -692,6 +692,50 @@ async function handleMessageUpdate(dados, base44) {
   return jsonOk({ success: true, processed: 'status_update' });
 }
 
+// ============================================================================
+// ✅ MÉTODO DIRETO DE MÍDIA (comprovado em produção):
+// fetch da URL temporária → UploadFile → Message.update
+// Elimina a dependência do invoke cross-function (que falha com 502 intermitente).
+// ============================================================================
+const MIME_EXT_ZAPI = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+  'video/mp4': 'mp4', 'video/3gpp': '3gp',
+  'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/aac': 'aac',
+  'application/pdf': 'pdf'
+};
+
+function extPorMimeZapi(ct, mediaType) {
+  const clean = String(ct || '').split(';')[0].trim();
+  if (MIME_EXT_ZAPI[clean]) return MIME_EXT_ZAPI[clean];
+  if (mediaType === 'audio') return 'ogg';
+  if (mediaType === 'video') return 'mp4';
+  if (mediaType === 'document') return 'bin';
+  return 'jpg';
+}
+
+async function baixarMidiaDiretoZapi(base44, mensagem, mediaUrl, mediaType) {
+  const dl = await fetch(mediaUrl, { signal: AbortSignal.timeout(20000) });
+  if (!dl.ok) throw new Error(`download status ${dl.status}`);
+  const ct = (dl.headers.get('content-type') || '').split(';')[0].trim();
+  const buf = await dl.arrayBuffer();
+  if (!buf.byteLength) throw new Error('arquivo_vazio');
+  const ext = extPorMimeZapi(ct, mediaType);
+  const file = new File([buf], `zapi_${String(mensagem.id).substring(0, 8)}_${Date.now()}.${ext}`, { type: ct || 'application/octet-stream' });
+  const up = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+  if (!up?.file_url) throw new Error('upload_sem_file_url');
+  await base44.asServiceRole.entities.Message.update(mensagem.id, {
+    media_url: up.file_url,
+    metadata: {
+      ...(mensagem.metadata || {}),
+      midia_persistida: true,
+      persisted_at: new Date().toISOString(),
+      persist_method: 'inline_direct',
+      original_temp_url: mediaUrl
+    }
+  });
+  return up.file_url;
+}
+
 async function handleMessage(dados, payloadBruto, base44) {
   const inicio = Date.now();
   const _tsInicio = Date.now();
@@ -1234,44 +1278,57 @@ async function handleMessage(dados, payloadBruto, base44) {
   // O download B2 da Z-API é rápido (~2s) e a URL temporária expira em minutos,
   // então aguardar aqui é obrigatório. Erro no worker NÃO falha o webhook.
   if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none' && !midiaPersistida) {
+    let midiaOk = false;
+
+    // 1️⃣ MÉTODO DIRETO (comprovado): fetch da URL temporária → upload → update.
+    // Sem invoke cross-function = sem 502 intermitente.
     try {
-      const respWorker = await base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
-        file_id: dados.messageId || mensagem.id,
-        integration_id: integracaoId,
-        media_type: dados.mediaType,
-        media_url: dados.mediaUrl,
-        message_id: mensagem.id,
-        filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
-      });
-      // ✅ Grava a URL permanente AQUI no webhook (não depende do worker atualizar):
-      // a revisão em produção do persistirMidiaZapi pode não ter o passo de update.
-      const urlPermanente = respWorker?.data?.url;
-      if (!urlPermanente) {
-        throw new Error(respWorker?.data?.error || 'worker não retornou url permanente');
-      }
-      await base44.asServiceRole.entities.Message.update(mensagem.id, {
-        media_url: urlPermanente,
-        metadata: {
-          ...(mensagem.metadata || {}),
-          midia_persistida: true,
-          persisted_at: new Date().toISOString(),
-          original_temp_url: dados.mediaUrl
-        }
-      });
-      console.log(`[${VERSION}] ✅ Worker mídia concluído + URL gravada: ${urlPermanente.substring(0, 60)}`);
+      const urlPermanente = await baixarMidiaDiretoZapi(base44, mensagem, dados.mediaUrl, dados.mediaType);
+      midiaOk = true;
+      console.log(`[${VERSION}] ✅ Mídia persistida INLINE (método direto): ${urlPermanente.substring(0, 60)}`);
     } catch (e) {
-      console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message);
-      // URL temporária da Z-API expira em minutos — sem retry possível depois.
-      // Marca como falha definitiva para a UI mostrar "mídia indisponível"
-      // em vez de "Processando..." eterno.
-      await base44.asServiceRole.entities.Message.update(mensagem.id, {
-        media_url: 'failed_download',
-        metadata: {
-          ...(mensagem.metadata || {}),
-          download_failed_reason: `worker_erro: ${e?.message || 'desconhecido'}`,
-          download_failed_at: new Date().toISOString()
+      console.warn(`[${VERSION}] ⚠️ Método direto inline falhou (${e?.message}) — fallback para worker`);
+    }
+
+    // 2️⃣ FALLBACK: worker persistirMidiaZapi
+    if (!midiaOk) {
+      try {
+        const respWorker = await base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
+          file_id: dados.messageId || mensagem.id,
+          integration_id: integracaoId,
+          media_type: dados.mediaType,
+          media_url: dados.mediaUrl,
+          message_id: mensagem.id,
+          filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+        });
+        const urlPermanente = respWorker?.data?.url;
+        if (!urlPermanente) {
+          throw new Error(respWorker?.data?.error || 'worker não retornou url permanente');
         }
-      }).catch(() => {});
+        await base44.asServiceRole.entities.Message.update(mensagem.id, {
+          media_url: urlPermanente,
+          metadata: {
+            ...(mensagem.metadata || {}),
+            midia_persistida: true,
+            persisted_at: new Date().toISOString(),
+            original_temp_url: dados.mediaUrl
+          }
+        });
+        console.log(`[${VERSION}] ✅ Worker mídia concluído + URL gravada: ${urlPermanente.substring(0, 60)}`);
+      } catch (e) {
+        console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message);
+        // URL temporária da Z-API expira em minutos — sem retry possível depois.
+        // Marca como falha definitiva para a UI mostrar "mídia indisponível"
+        // em vez de "Processando..." eterno.
+        await base44.asServiceRole.entities.Message.update(mensagem.id, {
+          media_url: 'failed_download',
+          metadata: {
+            ...(mensagem.metadata || {}),
+            download_failed_reason: `worker_erro: ${e?.message || 'desconhecido'}`,
+            download_failed_at: new Date().toISOString()
+          }
+        }).catch(() => {});
+      }
     }
   }
 
