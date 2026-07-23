@@ -530,6 +530,7 @@ export default function ChatWindow({
   const enviarAudio = React.useCallback(async (audioBlob) => {
     if (!podeEnviarAudios) { toast.error("❌ Sem permissão para enviar áudios"); return; }
     setEnviando(true); setErro(null);
+    let etapaAudio = 'preparação';
     try {
       if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
         if (onSendInternalMessageOptimistic) { onSendInternalMessageOptimistic({ audioBlob, replyToMessage: mensagemResposta }); setMensagemResposta(null); }
@@ -540,7 +541,9 @@ export default function ChatWindow({
       const tipoAudio = audioBlob.type || 'audio/webm';
       const audioFile = new File([audioBlob], `audio-${timestamp}.${extensaoDoAudio(tipoAudio)}`, { type: tipoAudio, lastModified: timestamp });
       toast.info('📤 Fazendo upload do áudio...');
+      etapaAudio = 'upload do áudio';
       const { file_url: audioUrl } = await base44.integrations.Core.UploadFile({ file: audioFile });
+      etapaAudio = 'envio ao WhatsApp';
       if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
         await handleEnviarBroadcast({ mediaUrl: audioUrl, mediaType: 'audio', isAudio: true });
         setEnviando(false); return;
@@ -558,8 +561,14 @@ export default function ChatWindow({
         await base44.entities.MessageThread.update(thread.id, { last_message_content: "[Áudio]", last_message_at: new Date().toISOString(), last_message_sender: "user", last_human_message_at: new Date().toISOString(), whatsapp_integration_id: integrationIdParaUso, pre_atendimento_ativo: false });
         toast.success("✅ Áudio enviado!"); setMensagemResposta(null);
         if (onAtualizarMensagens) onAtualizarMensagens();
-      } else throw new Error(resultado.data.error || 'Erro ao enviar áudio');
-    } catch (error) { setErro(error.message); toast.error(error.message); } finally { setEnviando(false); }
+      } else throw new Error(resultado.data.error_message || resultado.data.error || 'Erro ao enviar áudio');
+    } catch (error) {
+      const detalheServidor = error.response?.data?.error_message || error.response?.data?.error;
+      const msgFinal = `Falha na etapa "${etapaAudio}": ${detalheServidor || error.message}`;
+      console.error('[CHAT] ❌ Erro ao enviar áudio:', msgFinal, error.response?.data || error);
+      setErro(msgFinal);
+      toast.error(`❌ ${msgFinal}`, { duration: 10000 });
+    } finally { setEnviando(false); }
   }, [podeEnviarAudios, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, carregandoContato, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario, onSendInternalMessageOptimistic]);
 
   // Enviar áudio quando o hook terminar a gravação
