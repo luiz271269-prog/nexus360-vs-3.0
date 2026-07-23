@@ -1235,7 +1235,7 @@ async function handleMessage(dados, payloadBruto, base44) {
   // então aguardar aqui é obrigatório. Erro no worker NÃO falha o webhook.
   if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none' && !midiaPersistida) {
     try {
-      await base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
+      const respWorker = await base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
         file_id: dados.messageId || mensagem.id,
         integration_id: integracaoId,
         media_type: dados.mediaType,
@@ -1243,7 +1243,22 @@ async function handleMessage(dados, payloadBruto, base44) {
         message_id: mensagem.id,
         filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
       });
-      console.log(`[${VERSION}] ✅ Worker mídia concluído (awaited)`);
+      // ✅ Grava a URL permanente AQUI no webhook (não depende do worker atualizar):
+      // a revisão em produção do persistirMidiaZapi pode não ter o passo de update.
+      const urlPermanente = respWorker?.data?.url;
+      if (!urlPermanente) {
+        throw new Error(respWorker?.data?.error || 'worker não retornou url permanente');
+      }
+      await base44.asServiceRole.entities.Message.update(mensagem.id, {
+        media_url: urlPermanente,
+        metadata: {
+          ...(mensagem.metadata || {}),
+          midia_persistida: true,
+          persisted_at: new Date().toISOString(),
+          original_temp_url: dados.mediaUrl
+        }
+      });
+      console.log(`[${VERSION}] ✅ Worker mídia concluído + URL gravada: ${urlPermanente.substring(0, 60)}`);
     } catch (e) {
       console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message);
       // URL temporária da Z-API expira em minutos — sem retry possível depois.
