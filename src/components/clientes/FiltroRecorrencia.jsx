@@ -12,7 +12,7 @@ const OPCOES = [
 export default function FiltroRecorrencia({ valor, onChange, clientes, faturamentoPorCliente }) {
   const contagem = { todos: (clientes || []).length, ouro: 0, prata: 0, risco: 0 };
   (clientes || []).forEach(c => {
-    const etiqueta = faturamentoPorCliente?.[c.id]?.etiqueta;
+    const etiqueta = faturamentoPorCliente?.[c.id]?.etiqueta || c.etiqueta_recorrencia;
     if (contagem[etiqueta] !== undefined) contagem[etiqueta]++;
   });
 

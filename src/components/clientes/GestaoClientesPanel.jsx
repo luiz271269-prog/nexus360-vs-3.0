@@ -228,7 +228,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
       if (!match) return false;
     }
 
-    if (filtros.recorrencia !== 'todos' && faturamentoPorCliente[cliente.id]?.etiqueta !== filtros.recorrencia) return false;
+    if (filtros.recorrencia !== 'todos' && (faturamentoPorCliente[cliente.id]?.etiqueta || cliente.etiqueta_recorrencia) !== filtros.recorrencia) return false;
     if (filtros.status !== 'todos' && cliente.status !== filtros.status) return false;
     if (filtros.classificacao !== 'todos' && cliente.classificacao !== filtros.classificacao) return false;
     if (filtros.segmento !== 'todos' && cliente.segmento !== filtros.segmento) return false;
