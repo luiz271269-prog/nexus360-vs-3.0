@@ -725,7 +725,10 @@ Deno.serve(async (req) => {
     }
 
     if (!response.ok || result.error) {
-      const errorMsg = result.error || result.message || `Erro HTTP ${response.status}`;
+      // W-API responde { error: true, message: "motivo" } — priorizar a mensagem real
+      const errorMsg = (typeof result.error === 'string' && result.error) ||
+        result.message || result.error_message || result.reason ||
+        (result.error === true ? `HTTP ${response.status} — resposta: ${responseText.substring(0, 300)}` : `Erro HTTP ${response.status}`);
       console.error(`[ENVIAR-WHATSAPP-UNIFICADO] ❌ ERRO ${providerName}:`, {
         status_http: response.status,
         erro: errorMsg,
