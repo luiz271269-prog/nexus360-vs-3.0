@@ -44,7 +44,7 @@ import { cadastrarClienteDeNF } from "@/functions/cadastrarClienteDeNF";
  * Recebe usuarioAtual e vendedores da Central; gerencia seus próprios filtros,
  * modo de visualização, aba de fidelizados, form e "ver detalhes".
  */
-export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
+export default function GestaoClientesPanel({ usuarioAtual, vendedores = [], filtroVendedorGlobal = 'todos' }) {
   const queryClient = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
@@ -216,6 +216,18 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [] }) {
     const temPermissaoVerOutros = ['admin', 'gerente', 'coordenador'].includes(usuarioAtual?.attendant_role) || usuarioAtual?.role === 'admin';
     if (!temPermissaoVerOutros) {
       if (nomeResponsavel !== usuarioAtual?.full_name) return false;
+    }
+
+    // Filtro global de vendedor (herdado da Central) — só aplica a quem pode ver outros
+    if (temPermissaoVerOutros && filtroVendedorGlobal && filtroVendedorGlobal !== 'todos') {
+      if (filtroVendedorGlobal === 'meus') {
+        if (cliente.usuario_id !== usuarioAtual?.id && nomeResponsavel !== usuarioAtual?.full_name) return false;
+      } else {
+        const alvo = (vendedores || []).find(v => v.label === filtroVendedorGlobal);
+        const okId = alvo && cliente.usuario_id === alvo.value;
+        const okNome = nomeResponsavel === filtroVendedorGlobal;
+        if (!okId && !okNome) return false;
+      }
     }
 
     if (filtros.busca) {

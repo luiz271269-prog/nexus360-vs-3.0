@@ -100,7 +100,7 @@ export default function LeadsQualificados() {
   const { data: orcamentos = [], isLoading: loadingOrcamentos } = useQuery({
     queryKey: ['orcamentos'],
     queryFn: async () => {
-      const data = await base44.entities.Orcamento.list();
+      const data = await base44.entities.Orcamento.list('-updated_date', 1000);
       return data;
     },
   });
@@ -622,7 +622,7 @@ export default function LeadsQualificados() {
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-400 hover:text-slate-200 h-8 px-2 sm:px-3 text-[11px] font-semibold whitespace-nowrap rounded-md">
                   <FileText className="w-3 h-3 mr-1" />
                   Orçamentos
-                  <Badge variant="secondary" className="ml-1 bg-white/20 text-white text-[9px] h-3.5 px-1 data-[state=inactive]:bg-slate-700 data-[state=inactive]:text-slate-300">{orcamentos.length}</Badge>
+                  <Badge variant="secondary" className="ml-1 bg-white/20 text-white text-[9px] h-3.5 px-1 data-[state=inactive]:bg-slate-700 data-[state=inactive]:text-slate-300">{orcamentosFiltrados.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger
                   value="cotacoes"
@@ -630,7 +630,7 @@ export default function LeadsQualificados() {
                   <ShoppingCart className="w-3 h-3 mr-1" />
                   Cotações
                   <Badge variant="secondary" className="ml-1 bg-white/20 text-white text-[9px] h-3.5 px-1">
-                    {orcamentos.filter(o => ['rascunho','aguardando_cotacao','analisando','liberado'].includes(o.status)).length}
+                    {orcamentosFiltrados.filter(o => ['rascunho','aguardando_cotacao','analisando','liberado'].includes(o.status)).length}
                   </Badge>
                 </TabsTrigger>
                 <TabsTrigger
@@ -667,9 +667,9 @@ export default function LeadsQualificados() {
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
                   <Input
                     placeholder="Buscar..."
-                    value={activeTab === 'orcamentos' ? searchTerm : (activeTab === 'leads' ? filtrosLeads.busca : filtrosClientes.busca)}
+                    value={(activeTab === 'orcamentos' || activeTab === 'cotacoes') ? searchTerm : (activeTab === 'leads' ? filtrosLeads.busca : filtrosClientes.busca)}
                     onChange={(e) => {
-                      if (activeTab === 'orcamentos') setSearchTerm(e.target.value);
+                      if (activeTab === 'orcamentos' || activeTab === 'cotacoes') setSearchTerm(e.target.value);
                       else if (activeTab === 'leads') setFiltrosLeads({ ...filtrosLeads, busca: e.target.value });
                       else setFiltrosClientes({ ...filtrosClientes, busca: e.target.value });
                     }}
@@ -744,6 +744,7 @@ export default function LeadsQualificados() {
                 <GestaoClientesPanel
                 usuarioAtual={usuarioAtual}
                 vendedores={atendentes}
+                filtroVendedorGlobal={podeVerTodos ? filtroVendedorGlobal : 'todos'}
                 />
                 </TabsContent>
 
