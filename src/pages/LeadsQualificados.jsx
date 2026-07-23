@@ -29,6 +29,7 @@ import { listarVendedoresParaSelect, sincronizarClientesComVendedores, sincroniz
 import { validarMudancaStatus, getMensagemMotivacional, getProximaAcaoSugerida } from '../components/clientes/ClienteFormValidation';
 import OrcamentoKanbanOptimized from "../components/orcamentos/OrcamentoKanbanOptimized";
 import IframeHtmlLoader from "../components/iframes/IframeHtmlLoader";
+import ListasVendedorPanel from "../components/clientes/ListasVendedorPanel";
 import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
 import { createPageUrl } from "@/utils";
 import { useNavigate } from "react-router-dom";
@@ -73,6 +74,9 @@ export default function LeadsQualificados() {
 
   // Filtro global único de vendedor — aplicado a todas as tabs
   const [filtroVendedorGlobal, setFiltroVendedorGlobal] = useState('todos'); // 'todos' | 'meus' | nome-vendedor
+
+  // Cliente a abrir em detalhes na aba Clientes (UX do "Ver Detalhes")
+  const [clienteDetalhe, setClienteDetalhe] = useState(null);
 
   const [filtrosLeads, setFiltrosLeads] = useState({
     busca: '',
@@ -375,7 +379,8 @@ export default function LeadsQualificados() {
   };
 
   const verDetalhes = (cliente) => {
-    // Abre a Central na aba de Clientes (a página dedicada foi unificada aqui)
+    // Abre a Central na aba de Clientes já com o cliente selecionado em detalhes
+    setClienteDetalhe(cliente || null);
     setActiveTab('clientes');
   };
 
@@ -745,6 +750,8 @@ export default function LeadsQualificados() {
                 usuarioAtual={usuarioAtual}
                 vendedores={atendentes}
                 filtroVendedorGlobal={podeVerTodos ? filtroVendedorGlobal : 'todos'}
+                clienteDetalheInicial={clienteDetalhe}
+                onDetalheConsumido={() => setClienteDetalhe(null)}
                 />
                 </TabsContent>
 
@@ -797,11 +804,13 @@ export default function LeadsQualificados() {
                 )}
                 </TabsContent>
 
-                {/* TAB: LISTAS DE TRABALHO */}
+                {/* TAB: LISTAS DE TRABALHO — componente vivo (dados reais de ListaVendedor) */}
                 <TabsContent value="listas" className="mt-2">
-                  <IframeHtmlLoader
-                    url="https://media.base44.com/files/public/68a7d067890527304dbe8477/25e42c650_listas_trabalho_upload.html"
-                    title="Listas de Trabalho"
+                  <ListasVendedorPanel
+                    usuarioAtual={usuarioAtual}
+                    vendedores={atendentes}
+                    clientes={clientes}
+                    onViewDetails={verDetalhes}
                   />
                 </TabsContent>
 

@@ -44,7 +44,7 @@ import { cadastrarClienteDeNF } from "@/functions/cadastrarClienteDeNF";
  * Recebe usuarioAtual e vendedores da Central; gerencia seus próprios filtros,
  * modo de visualização, aba de fidelizados, form e "ver detalhes".
  */
-export default function GestaoClientesPanel({ usuarioAtual, vendedores = [], filtroVendedorGlobal = 'todos' }) {
+export default function GestaoClientesPanel({ usuarioAtual, vendedores = [], filtroVendedorGlobal = 'todos', clienteDetalheInicial = null, onDetalheConsumido }) {
   const queryClient = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
@@ -61,6 +61,14 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [], fil
     responsavel: 'todos',
     recorrencia: 'todos'
   });
+
+  // Abre detalhes do cliente vindo da Central (UX do "Ver Detalhes" nas abas Leads/Listas)
+  useEffect(() => {
+    if (clienteDetalheInicial) {
+      setViewingDetails(clienteDetalheInicial);
+      onDetalheConsumido?.();
+    }
+  }, [clienteDetalheInicial]);
 
   const { data: clientes = [], isLoading } = useQuery({
     queryKey: ['clientes'],
