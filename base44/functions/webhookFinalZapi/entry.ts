@@ -40,7 +40,7 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.8.0-AWAIT-MIDIA-WORKER';
+const VERSION = 'v11.9.0-RETRY-RECUPERA-MIDIA';
 const BUILD_DATE = '2026-05-28';
 const CLASSIFIER_VERSION = 'v3-skip-system-pre-sdk'; // deveIgnorar roda antes do SDK; preserva MessageStatusCallback
 
@@ -736,6 +736,19 @@ async function baixarMidiaDiretoZapi(base44, mensagem, mediaUrl, mediaType) {
   return up.file_url;
 }
 
+// ♻️ FIX pending_download: se o retry do provedor encontra duplicata com mídia
+// ainda pendente (execução anterior abortada no teardown), reaproveita o retry
+// para completar o download em vez de descartar.
+async function recuperarMidiaPendenteDup(base44, msgExistente, dados) {
+  if (!msgExistente || msgExistente.media_url !== 'pending_download' || !dados.mediaUrl) return;
+  try {
+    await baixarMidiaDiretoZapi(base44, msgExistente, dados.mediaUrl, dados.mediaType || msgExistente.media_type);
+    console.log(`[${VERSION}] ♻️ Mídia pendente recuperada no retry: ${msgExistente.id}`);
+  } catch (e) {
+    console.warn(`[${VERSION}] ⚠️ Retry de mídia pendente falhou (watchdog cobre):`, e?.message);
+  }
+}
+
 async function handleMessage(dados, payloadBruto, base44) {
   const inicio = Date.now();
   const _tsInicio = Date.now();
@@ -757,7 +770,9 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // ⚡ CAMADA 0: CACHE EM MEMÓRIA — dedup instantâneo, 0 queries, imune a 429
   // Cobre retries da Z-API (>5s timeout) que chegam na MESMA instância Deno
-  if (dados.messageId && jaProcessado(dados.messageId)) {
+  // ♻️ Mensagens COM mídia não usam o atalho de cache: o retry precisa chegar
+  // ao dedup de banco para poder completar um download pendente/abortado.
+  if (dados.messageId && jaProcessado(dados.messageId) && (!dados.mediaType || dados.mediaType === 'none')) {
     console.log(`[${VERSION}] ⚡ CACHE HIT: messageId ${dados.messageId} já processado recentemente — IGNORADO`);
     return jsonOk({ success: true, ignored: true, reason: 'duplicata_cache_memoria' });
   }
@@ -826,6 +841,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       ), 5, 1500);
       if (dup.length > 0) {
         console.log(`[${VERSION}] ⏭️ DUPLICATA por messageId: ${dados.messageId}`);
+        await recuperarMidiaPendenteDup(base44, dup[0], dados);
         return jsonOk({ success: true, ignored: true, reason: 'duplicata_message_id' });
       }
     } catch (err) {
@@ -1131,6 +1147,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       ), 2, 800);
       if (recheckMsg && recheckMsg.length > 0) {
         console.log(`[${VERSION}] ⏭️ RECHECK por messageId: duplicata detectada (${recheckMsg[0].id}) — NÃO criar Message`);
+        await recuperarMidiaPendenteDup(base44, recheckMsg[0], dados);
         // Marcar audit atual como duplicata (preservar erro_detalhes anterior se houver)
         if (payloadBruto.__auditPayloadId) {
           try {
