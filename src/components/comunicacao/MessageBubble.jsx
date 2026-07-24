@@ -864,6 +864,12 @@ export default React.memo(function MessageBubble({
       const found = mensagens.find((m) => m.id === message.reply_to_message_id);
       if (found) return found;
     }
+    // 1.5. Buscar por stanzaID (whatsapp_message_id da original) — W-API
+    const stanzaId = message?.metadata?.quoted_stanza_id;
+    if (stanzaId && mensagens) {
+      const foundByWa = mensagens.find((m) => m.whatsapp_message_id === stanzaId);
+      if (foundByWa) return foundByWa;
+    }
     // 2. Fallback: quoted_message do metadata (W-API/WhatsApp nativo)
     const qm = message?.metadata?.quoted_message;
     if (qm) {
@@ -895,7 +901,7 @@ export default React.memo(function MessageBubble({
       }
     }
     return null;
-  }, [message?.reply_to_message_id, message?.metadata?.quoted_message, mensagens]);
+  }, [message?.reply_to_message_id, message?.metadata?.quoted_stanza_id, message?.metadata?.quoted_message, mensagens]);
 
   // ✅ Clicar na citação rola até a mensagem original (igual WhatsApp)
   const irParaMensagemOriginal = React.useCallback((e) => {

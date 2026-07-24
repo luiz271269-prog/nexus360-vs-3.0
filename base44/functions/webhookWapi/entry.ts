@@ -650,7 +650,17 @@ function normalizarPayload(payload) {
                 payload.text?.senderName || payload.sender?.verifiedBizName,
       vcard:    msgContent.contactMessage || msgContent.contactsArrayMessage,
       location: msgContent.locationMessage || msgContent.liveLocationMessage,
-      quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage
+      quotedMessage: payload.quotedMsg || msgContent.extendedTextMessage?.contextInfo?.quotedMessage,
+      // ✅ stanzaID = whatsapp_message_id da mensagem original citada (permite "ir para original" no frontend)
+      quotedStanzaId: (() => {
+        const ctx = msgContent.extendedTextMessage?.contextInfo ||
+                    msgContent.imageMessage?.contextInfo ||
+                    msgContent.videoMessage?.contextInfo ||
+                    msgContent.audioMessage?.contextInfo ||
+                    msgContent.documentMessage?.contextInfo ||
+                    msgContent.stickerMessage?.contextInfo || null;
+        return ctx?.stanzaID || ctx?.stanzaId || payload.quotedMsg?.stanzaID || payload.quotedMsg?.id || null;
+      })()
     };
 
   } catch (err) {
@@ -1182,6 +1192,7 @@ async function handleMessage(dados, payloadBruto, base44) {
         vcard: dados.vcard ?? null,
         location: dados.location ?? null,
         quoted_message: dados.quotedMessage ?? null,
+        quoted_stanza_id: dados.quotedStanzaId ?? null,
         downloadSpec: dados.downloadSpec ?? null,
         media_url_status: mediaUrlInicial,
         processed_by: VERSION,
