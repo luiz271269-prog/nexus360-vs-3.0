@@ -37,6 +37,7 @@ import MessageBubble from "./MessageBubble";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { ensureJpegIfHeic, isHeic } from "@/components/lib/heicConverter";
+import { converterAudioParaMp3SeNecessario } from "@/components/lib/audioMp3Converter";
 
 import AIResponseAssistant from './AIResponseAssistant';
 import BroadcastRecipientsList from './BroadcastRecipientsList';
@@ -538,8 +539,18 @@ export default function ChatWindow({
         setEnviando(false); return;
       }
       const timestamp = new Date().getTime();
-      const tipoAudio = audioBlob.type || 'audio/webm';
-      const audioFile = new File([audioBlob], `audio-${timestamp}.${extensaoDoAudio(tipoAudio)}`, { type: tipoAudio, lastModified: timestamp });
+      // W-API só aceita .mp3/.ogg — converte m4a/webm gravados por Samsung/iPhone para MP3
+      etapaAudio = 'conversão do áudio';
+      let blobParaEnvio = audioBlob;
+      try {
+        blobParaEnvio = await converterAudioParaMp3SeNecessario(audioBlob);
+      } catch (convError) {
+        console.warn('[CHAT] ⚠️ Conversão para MP3 falhou, enviando formato original:', convError);
+        blobParaEnvio = audioBlob;
+      }
+      const tipoAudio = blobParaEnvio.type || 'audio/webm';
+      const extensaoAudio = tipoAudio.includes('mpeg') ? 'mp3' : extensaoDoAudio(tipoAudio);
+      const audioFile = new File([blobParaEnvio], `audio-${timestamp}.${extensaoAudio}`, { type: tipoAudio, lastModified: timestamp });
       toast.info('📤 Fazendo upload do áudio...');
       etapaAudio = 'upload do áudio';
       const { file_url: audioUrl } = await base44.integrations.Core.UploadFile({ file: audioFile });
