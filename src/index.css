@@ -159,6 +159,15 @@ button:focus-visible {
   }
 }
 
+/* Destaque temporário da mensagem original ao clicar numa citação (igual WhatsApp) */
+@keyframes msg-highlight-flash {
+  0%, 60% { background-color: rgba(59, 130, 246, 0.18); border-radius: 8px; }
+  100% { background-color: transparent; }
+}
+.msg-highlight {
+  animation: msg-highlight-flash 2s ease-out;
+}
+
 /* Esconder scrollbar mantendo scroll funcional (usado em tabs mobile) */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

@@ -897,6 +897,24 @@ export default React.memo(function MessageBubble({
     return null;
   }, [message?.reply_to_message_id, message?.metadata?.quoted_message, mensagens]);
 
+  // ✅ Clicar na citação rola até a mensagem original (igual WhatsApp)
+  const irParaMensagemOriginal = React.useCallback((e) => {
+    e.stopPropagation();
+    const idOriginal = mensagemOriginal?.id;
+    if (!idOriginal) {
+      toast.info('Mensagem original não está carregada nesta conversa');
+      return;
+    }
+    const el = document.querySelector(`[data-message-id="${idOriginal}"]`);
+    if (!el) {
+      toast.info('Mensagem original fora da tela — role para cima para carregá-la');
+      return;
+    }
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('msg-highlight');
+    setTimeout(() => el.classList.remove('msg-highlight'), 2000);
+  }, [mensagemOriginal]);
+
   const normalizarCategorias = (categorias) => {
     if (!Array.isArray(categorias)) return [];
     return categorias.map((cat) => {
@@ -1285,6 +1303,7 @@ export default React.memo(function MessageBubble({
         mobileEstiloMensagem.linha,
         isOwn ? "justify-end" : "justify-start"
       )}
+      data-message-id={message?.id}
       onClick={() => modoSelecao && onToggleSelecao?.(message.id)}>
 
         {modoSelecao &&
@@ -1334,8 +1353,11 @@ export default React.memo(function MessageBubble({
 
           {/* ✅ QUOTE/RESPOSTA - Estilo WhatsApp */}
           {mensagemOriginal &&
-          <div className={cn(
-            "mb-1.5 mx-2 mt-2 px-2 py-1.5 rounded-md border-l-[3px]",
+          <div
+            onClick={irParaMensagemOriginal}
+            title="Ir para a mensagem original"
+            className={cn(
+            "mb-1.5 mx-2 mt-2 px-2 py-1.5 rounded-md border-l-[3px] cursor-pointer hover:brightness-95 active:brightness-90 transition-all",
             isThreadInterna ?
             isOwn ? "bg-blue-50/50 border-blue-400" : "bg-slate-50 border-slate-400" :
             isOwn ? "bg-emerald-50/50 border-emerald-500" : "bg-slate-50 border-slate-400"
