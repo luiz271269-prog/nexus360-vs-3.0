@@ -879,12 +879,12 @@ export default React.memo(function MessageBubble({
       qm.imageMessage?.caption ||
       qm.videoMessage?.caption ||
       qm.documentMessage?.caption ||
-      qm.audioMessage ? '🎤 Áudio' :
+      (qm.audioMessage ? '🎤 Áudio' :
       qm.imageMessage ? '📷 Imagem' :
       qm.videoMessage ? '🎥 Vídeo' :
       qm.documentMessage ? `📄 ${qm.documentMessage.fileName || 'Documento'}` :
       qm.stickerMessage ? '🎨 Sticker' :
-      null;
+      null);
       if (texto) {
         return {
           id: null,
