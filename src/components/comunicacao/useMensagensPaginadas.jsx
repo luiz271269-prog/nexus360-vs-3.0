@@ -167,12 +167,15 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
       const { threadId: alvoThreadId, mensagem } = e.detail || {};
       if (!alvoThreadId || alvoThreadId !== threadId || !mensagem?.id) return;
       try {
-        const marco = mensagem.created_date || mensagem.sent_at;
-        const trecho = await base44.entities.Message.filter(
-          { thread_id: threadId, created_date: { $gte: marco } },
-          'created_date',
-          400
-        ).catch(() => []);
+        // ⚠️ Filtro em sent_at: $gte/$lt NÃO funcionam em created_date (campo built-in)
+        const marco = mensagem.sent_at || mensagem.created_date;
+        const trecho = mensagem.sent_at
+          ? await base44.entities.Message.filter(
+              { thread_id: threadId, sent_at: { $gte: mensagem.sent_at } },
+              'sent_at',
+              400
+            ).catch(() => [])
+          : [];
         const lote = [mensagem, ...trecho];
         setMessages(prev => {
           const byId = new Map();

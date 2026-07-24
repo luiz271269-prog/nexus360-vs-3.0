@@ -941,16 +941,18 @@ export default React.memo(function MessageBubble({
       if (!original && threadId && mensagemOriginal?.content && (mensagemOriginal.media_type || 'none') === 'none') {
         const chave = String(mensagemOriginal.content).replace(/\.\.\.$/, '').slice(0, 40).trim();
         if (chave.length >= 8) {
+          // ⚠️ Cursor em sent_at: filtros $lt/$gte NÃO funcionam em created_date (campo built-in)
           let cursor = null;
           for (let pagina = 0; pagina < 5 && !original; pagina++) {
             const filtro = cursor
-              ? { thread_id: threadId, created_date: { $lt: cursor } }
+              ? { thread_id: threadId, sent_at: { $lt: cursor } }
               : { thread_id: threadId };
-            const lote = await base44.entities.Message.filter(filtro, '-created_date', 200).catch(() => []);
+            const lote = await base44.entities.Message.filter(filtro, '-sent_at', 200).catch(() => []);
             if (!lote.length) break;
             original = lote.find((m) => m.id !== message?.id && String(m.content || '').trim().startsWith(chave)) || null;
-            cursor = lote[lote.length - 1]?.created_date;
-            if (lote.length < 200) break;
+            const ultimo = [...lote].reverse().find((m) => m.sent_at);
+            cursor = ultimo?.sent_at;
+            if (!cursor || lote.length < 200) break;
           }
         }
       }
