@@ -7,7 +7,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
  * ╚══════════════════════════════════════════════════════════════╝
  */
 
-const VERSION = 'v3.1.0-UPDATE-MESSAGE';
+const VERSION = 'v3.1.1-REDEPLOY';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const DOWNLOAD_TIMEOUT = 30000; // 30 segundos
 

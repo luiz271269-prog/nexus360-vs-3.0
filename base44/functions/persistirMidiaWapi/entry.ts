@@ -9,7 +9,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 //     segurança anti-SSRF mantidas intactas.
 // ============================================================================
 
-const VERSION = 'v10.0.0-FILELINK-HOST-OFICIAL';
+const VERSION = 'v10.0.1-REDEPLOY';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const DOWNLOAD_TIMEOUT = 30000; // 30s (igual ao Z-API)
 const RESOLVE_TIMEOUT = 20000;  // 20s — POST que resolve o fileLink na W-API

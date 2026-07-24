@@ -10,7 +10,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 // Admin-only / cron.
 // ============================================================================
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.1.0-ZAPI-RECOVERY';
 const IDADE_MINIMA_MIN = 10;   // só mexe no que está pendente há ≥ 10 min
 const IDADE_MAXIMA_MIN = 1440; // ignora muito antigo (>24h): URL já expirou
 const LOTE = 20;
@@ -78,6 +78,25 @@ Deno.serve(async (req) => {
     for (const msg of pendentes) {
       const spec = msg.metadata?.downloadSpec;
       const integrationId = msg.metadata?.whatsapp_integration_id;
+
+      // ✅ v1.1: mensagens Z-API não têm downloadSpec, mas têm a URL temporária
+      // pública (original_media_url, B2) → recuperar via persistirMidiaZapi.
+      const urlTempZapi = msg.metadata?.original_media_url;
+      if ((!spec || !integrationId) && urlTempZapi && integrationId) {
+        try {
+          const respZ = await base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
+            message_id: msg.id,
+            integration_id: integrationId,
+            file_id: msg.whatsapp_message_id || msg.id,
+            media_url: urlTempZapi,
+            media_type: msg.media_type,
+            filename: `${msg.media_type}_${Date.now()}`
+          });
+          if (respZ?.data?.success === true) { reprocessadas++; continue; }
+        } catch (e) {
+          console.error(`[RECUPERAR-MIDIA-WAPI] ❌ Z-API msgId=${msg.id}:`, e.message);
+        }
+      }
 
       // Sem dados para baixar → não há como recuperar: marcar failed_download.
       if (!spec || !integrationId) {
