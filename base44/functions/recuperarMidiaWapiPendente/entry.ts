@@ -10,10 +10,44 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 // Admin-only / cron.
 // ============================================================================
 
-const VERSION = 'v1.1.0-ZAPI-RECOVERY';
-const IDADE_MINIMA_MIN = 10;   // só mexe no que está pendente há ≥ 10 min
+const VERSION = 'v1.2.0-ZAPI-DIRECT';
+const IDADE_MINIMA_MIN = 2;    // só mexe no que está pendente há ≥ 2 min
 const IDADE_MAXIMA_MIN = 1440; // ignora muito antigo (>24h): URL já expirou
 const LOTE = 20;
+
+const MIME_EXT = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+  'video/mp4': 'mp4', 'video/3gpp': '3gp',
+  'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/aac': 'aac',
+  'application/pdf': 'pdf'
+};
+const DEFAULT_EXT = { image: 'jpg', video: 'mp4', audio: 'ogg', document: 'bin' };
+const isUrlZapi = (u) => !!u && /backblazeb2\.com|z-api\.io|temp-file-download/.test(String(u));
+
+// Download direto da URL temporária Z-API → upload → update.
+// Sem invoke cross-function (evita 502 intermitente) e sem exigir integrationId.
+async function recuperarZapiDireto(base44, msg, urlTemp) {
+  const dl = await fetch(urlTemp, { signal: AbortSignal.timeout(25000) });
+  if (!dl.ok) throw new Error(`http_${dl.status}`);
+  const buf = await dl.arrayBuffer();
+  if (!buf.byteLength) throw new Error('arquivo_vazio');
+  const ct = (dl.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim();
+  const ext = MIME_EXT[ct] || DEFAULT_EXT[msg.media_type] || 'bin';
+  const file = new File([buf], `zapi_rec_${String(msg.id).slice(-8)}.${ext}`, { type: ct });
+  const up = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+  if (!up?.file_url) throw new Error('upload_sem_file_url');
+  await base44.asServiceRole.entities.Message.update(msg.id, {
+    media_url: up.file_url,
+    metadata: {
+      ...(msg.metadata || {}),
+      midia_persistida: true,
+      persisted_at: new Date().toISOString(),
+      persist_method: 'watchdog_zapi_direct',
+      download_failed_reason: null
+    }
+  });
+  return up.file_url;
+}
 
 Deno.serve(async (req) => {
   const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' };
@@ -65,8 +99,11 @@ Deno.serve(async (req) => {
       100
     );
     const falhadasRaw = falhadasTodas.filter(dentroDaJanela).slice(0, LOTE);
-    // Só reprocessa falhadas que preservaram downloadSpec (sem ele não há o que baixar)
-    const falhadas = falhadasRaw.filter(m => m.metadata?.downloadSpec && m.metadata?.whatsapp_integration_id);
+    // Só reprocessa falhadas que preservaram downloadSpec (W-API) ou URL temporária Z-API
+    const falhadas = falhadasRaw.filter(m =>
+      (m.metadata?.downloadSpec && m.metadata?.whatsapp_integration_id) ||
+      isUrlZapi(m.metadata?.original_media_url || m.metadata?.original_temp_url)
+    );
 
     const pendentes = [...pendentesRaw, ...falhadas];
 
@@ -79,22 +116,27 @@ Deno.serve(async (req) => {
       const spec = msg.metadata?.downloadSpec;
       const integrationId = msg.metadata?.whatsapp_integration_id;
 
-      // ✅ v1.1: mensagens Z-API não têm downloadSpec, mas têm a URL temporária
-      // pública (original_media_url, B2) → recuperar via persistirMidiaZapi.
-      const urlTempZapi = msg.metadata?.original_media_url;
-      if ((!spec || !integrationId) && urlTempZapi && integrationId) {
+      // ✅ v1.2: mensagens Z-API não têm downloadSpec, mas têm a URL temporária
+      // pública (original_media_url, B2) → download DIRETO inline (comprovado),
+      // sem invoke cross-function e sem exigir integrationId.
+      const urlTempZapi = msg.metadata?.original_media_url || msg.metadata?.original_temp_url;
+      if ((!spec || !integrationId) && isUrlZapi(urlTempZapi)) {
         try {
-          const respZ = await base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
-            message_id: msg.id,
-            integration_id: integrationId,
-            file_id: msg.whatsapp_message_id || msg.id,
-            media_url: urlTempZapi,
-            media_type: msg.media_type,
-            filename: `${msg.media_type}_${Date.now()}`
-          });
-          if (respZ?.data?.success === true) { reprocessadas++; continue; }
+          const url = await recuperarZapiDireto(base44, msg, urlTempZapi);
+          console.log(`[RECUPERAR-MIDIA-WAPI] ✅ Z-API direto msgId=${msg.id}: ${url.substring(0, 60)}`);
+          reprocessadas++;
+          continue;
         } catch (e) {
-          console.error(`[RECUPERAR-MIDIA-WAPI] ❌ Z-API msgId=${msg.id}:`, e.message);
+          console.error(`[RECUPERAR-MIDIA-WAPI] ❌ Z-API direto msgId=${msg.id}:`, e.message);
+          // Só marca failed se AINDA estava pending (não sobrescrever repetidamente)
+          if (msg.media_url === 'pending_download') {
+            await base44.asServiceRole.entities.Message.update(msg.id, {
+              media_url: 'failed_download',
+              metadata: { ...(msg.metadata || {}), download_failed_reason: `zapi_direct: ${e.message}`, download_failed_at: new Date().toISOString() }
+            }).catch(() => {});
+            marcadasFalha++;
+          }
+          continue;
         }
       }
 

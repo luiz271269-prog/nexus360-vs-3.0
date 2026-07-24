@@ -740,7 +740,8 @@ async function baixarMidiaDiretoZapi(base44, mensagem, mediaUrl, mediaType) {
 // ainda pendente (execução anterior abortada no teardown), reaproveita o retry
 // para completar o download em vez de descartar.
 async function recuperarMidiaPendenteDup(base44, msgExistente, dados) {
-  if (!msgExistente || msgExistente.media_url !== 'pending_download' || !dados.mediaUrl) return;
+  const recuperavel = msgExistente && ['pending_download', 'failed_download'].includes(msgExistente.media_url);
+  if (!recuperavel || !dados.mediaUrl) return;
   try {
     await baixarMidiaDiretoZapi(base44, msgExistente, dados.mediaUrl, dados.mediaType || msgExistente.media_type);
     console.log(`[${VERSION}] ♻️ Mídia pendente recuperada no retry: ${msgExistente.id}`);
