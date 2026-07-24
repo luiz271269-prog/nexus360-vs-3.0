@@ -904,22 +904,72 @@ export default React.memo(function MessageBubble({
   }, [message?.reply_to_message_id, message?.metadata?.quoted_stanza_id, message?.metadata?.quoted_message, mensagens]);
 
   // ✅ Clicar na citação rola até a mensagem original (igual WhatsApp)
-  const irParaMensagemOriginal = React.useCallback((e) => {
-    e.stopPropagation();
-    const idOriginal = mensagemOriginal?.id;
-    if (!idOriginal) {
-      toast.info('Mensagem original não está carregada nesta conversa');
-      return;
-    }
-    const el = document.querySelector(`[data-message-id="${idOriginal}"]`);
-    if (!el) {
-      toast.info('Mensagem original fora da tela — role para cima para carregá-la');
-      return;
-    }
+  // Se a original não estiver carregada, busca no banco e carrega o trecho do histórico até ela.
+  const scrollAteMensagem = React.useCallback((id) => {
+    const el = document.querySelector(`[data-message-id="${id}"]`);
+    if (!el) return false;
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     el.classList.add('msg-highlight');
     setTimeout(() => el.classList.remove('msg-highlight'), 2000);
-  }, [mensagemOriginal]);
+    return true;
+  }, []);
+
+  const irParaMensagemOriginal = React.useCallback(async (e) => {
+    e.stopPropagation();
+
+    // 1. Já está na tela? Rola direto (caso mais comum)
+    if (mensagemOriginal?.id && scrollAteMensagem(mensagemOriginal.id)) return;
+
+    const threadId = thread?.id;
+    try {
+      // 2. Resolver a mensagem original no banco (por id da resposta ou stanzaID do WhatsApp)
+      let original = null;
+      const replyId = message?.reply_to_message_id;
+      const stanzaId = message?.metadata?.quoted_stanza_id;
+      if (mensagemOriginal?.id) {
+        original = await base44.entities.Message.get(mensagemOriginal.id).catch(() => null);
+      }
+      if (!original && replyId) {
+        original = await base44.entities.Message.get(replyId).catch(() => null);
+      }
+      if (!original && stanzaId) {
+        const found = await base44.entities.Message.filter({ whatsapp_message_id: stanzaId }, '-created_date', 1);
+        original = found[0] || null;
+      }
+      if (!original?.id) {
+        toast.info('Mensagem original não encontrada nesta conversa');
+        return;
+      }
+
+      // 3. Carregar o trecho do histórico da original até agora (igual WhatsApp)
+      if (threadId) {
+        const marco = original.sent_at || original.created_date;
+        const trecho = await base44.entities.Message.filter(
+          { thread_id: threadId, sent_at: { $gte: marco } },
+          'sent_at', 300
+        ).catch(() => []);
+        const lote = [original, ...trecho];
+        queryClient.setQueryData(['mensagens', threadId], (atuais = []) => {
+          const byId = new Map();
+          [...lote, ...(atuais || [])].forEach((m) => { if (m?.id) byId.set(m.id, m); });
+          return Array.from(byId.values()).sort((a, b) =>
+            (a.sent_at || a.created_date || '').localeCompare(b.sent_at || b.created_date || ''));
+        });
+      }
+
+      // 4. Aguardar o render e rolar até a original (com retry)
+      let tentativas = 0;
+      const tentar = () => {
+        if (scrollAteMensagem(original.id)) return;
+        if (++tentativas < 12) setTimeout(tentar, 150);
+        else toast.info('Role para cima para localizar a mensagem original');
+      };
+      setTimeout(tentar, 120);
+    } catch (err) {
+      console.error('[BUBBLE] Erro ao ir para mensagem original:', err);
+      toast.error('Não foi possível localizar a mensagem original');
+    }
+  }, [mensagemOriginal, message, thread?.id, queryClient, scrollAteMensagem]);
 
   const normalizarCategorias = (categorias) => {
     if (!Array.isArray(categorias)) return [];
@@ -2349,5 +2399,8 @@ export default React.memo(function MessageBubble({
   if (JSON.stringify(prev.message?.categorias) !== JSON.stringify(next.message?.categorias)) return false;
   if (prev.message?.metadata?.deleted !== next.message?.metadata?.deleted) return false;
   if ((prev.message?.metadata?.encaminhamentos?.length || 0) !== (next.message?.metadata?.encaminhamentos?.length || 0)) return false;
+  // ✅ Bolhas com citação recalculam a mensagem original quando o histórico carrega mais mensagens
+  const temCitacao = next.message?.reply_to_message_id || next.message?.metadata?.quoted_stanza_id || next.message?.metadata?.quoted_message;
+  if (temCitacao && (prev.mensagens?.length || 0) !== (next.mensagens?.length || 0)) return false;
   return true; // mesma mensagem, sem mudanças relevantes — não re-renderizar
 });
