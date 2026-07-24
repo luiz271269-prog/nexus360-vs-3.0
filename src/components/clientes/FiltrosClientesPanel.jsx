@@ -41,8 +41,7 @@ export default function FiltrosClientesPanel({ filtros, setFiltros, vendedores =
             <SelectItem value="Em Risco">Em Risco</SelectItem>
             <SelectItem value="Promotor">Promotor</SelectItem>
             <SelectItem value="Prospect">Prospect</SelectItem>
-            <SelectItem value="Lead Qualificado">Lead Qualificado</SelectItem>
-            <SelectItem value="Lead Frio">Lead Frio</SelectItem>
+            <SelectItem value="novo_lead">Novo Lead</SelectItem>
           </SelectContent>
         </Select>
 
