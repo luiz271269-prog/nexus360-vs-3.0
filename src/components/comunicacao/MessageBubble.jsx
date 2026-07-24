@@ -936,6 +936,14 @@ export default React.memo(function MessageBubble({
         const found = await base44.entities.Message.filter({ whatsapp_message_id: stanzaId }, '-created_date', 1);
         original = found[0] || null;
       }
+      // 2.5. Último recurso: localizar pelo TEXTO citado (respostas sem id/stanza gravados)
+      if (!original && threadId && mensagemOriginal?.content && (mensagemOriginal.media_type || 'none') === 'none') {
+        const chave = String(mensagemOriginal.content).replace(/\.\.\.$/, '').slice(0, 40).trim();
+        if (chave.length >= 8) {
+          const recentes = await base44.entities.Message.filter({ thread_id: threadId }, '-sent_at', 200).catch(() => []);
+          original = recentes.find((m) => m.id !== message?.id && String(m.content || '').trim().startsWith(chave)) || null;
+        }
+      }
       if (!original?.id) {
         toast.info('Mensagem original não encontrada nesta conversa');
         return;
@@ -1133,6 +1141,7 @@ export default React.memo(function MessageBubble({
   if (isAcessosRapidosMessage(message, isOwn)) {
     return (
       <>
+        <div data-message-id={message?.id}>
         <AcessosRapidosCard
           message={message}
           onEncaminhar={podeEncaminhar ? () => {
@@ -1141,6 +1150,7 @@ export default React.memo(function MessageBubble({
             setBuscaContato("");
             setTipoEncaminhamento('contatos');
           } : undefined} />
+        </div>
         
 
         <Dialog open={mostrarDialogEncaminhar} onOpenChange={(open) => {
