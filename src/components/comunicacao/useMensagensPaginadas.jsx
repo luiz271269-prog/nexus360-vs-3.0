@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { getInternalMessages } from '@/functions/getInternalMessages';
 
@@ -157,6 +157,39 @@ export const useMensagensPaginadas = (threadId, isThreadInterna = false) => {
       setIsLoadingMore(false);
     }
   }, [threadId, oldestLoadedAt, hasMore, isLoadingMore]);
+
+  // 🎯 IR PARA MENSAGEM ORIGINAL (citação/reply, igual WhatsApp):
+  // O MessageBubble dispara 'nexus:carregar-ate-mensagem' com a mensagem alvo.
+  // Carregamos o trecho do histórico a partir dela e mesclamos na lista renderizada
+  // (esta lista local É a fonte da tela — não o cache do react-query).
+  useEffect(() => {
+    const handler = async (e) => {
+      const { threadId: alvoThreadId, mensagem } = e.detail || {};
+      if (!alvoThreadId || alvoThreadId !== threadId || !mensagem?.id) return;
+      try {
+        const marco = mensagem.created_date || mensagem.sent_at;
+        const trecho = await base44.entities.Message.filter(
+          { thread_id: threadId, created_date: { $gte: marco } },
+          'created_date',
+          400
+        ).catch(() => []);
+        const lote = [mensagem, ...trecho];
+        setMessages(prev => {
+          const byId = new Map();
+          [...lote, ...prev].forEach(m => { if (m?.id) byId.set(m.id, m); });
+          const next = Array.from(byId.values()).sort((a, b) =>
+            (a.created_date || a.sent_at || '').localeCompare(b.created_date || b.sent_at || ''));
+          cacheSet(threadId, next);
+          return next;
+        });
+        setOldestLoadedAt(prev => (!prev || marco < prev) ? marco : prev);
+      } catch (err) {
+        console.warn('[PAGINACAO] Falha ao carregar até a mensagem original:', err?.message);
+      }
+    };
+    window.addEventListener('nexus:carregar-ate-mensagem', handler);
+    return () => window.removeEventListener('nexus:carregar-ate-mensagem', handler);
+  }, [threadId]);
 
   return {
     messages,

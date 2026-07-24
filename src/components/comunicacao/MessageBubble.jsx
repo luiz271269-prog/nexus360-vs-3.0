@@ -936,12 +936,22 @@ export default React.memo(function MessageBubble({
         const found = await base44.entities.Message.filter({ whatsapp_message_id: stanzaId }, '-created_date', 1);
         original = found[0] || null;
       }
-      // 2.5. Último recurso: localizar pelo TEXTO citado (respostas sem id/stanza gravados)
+      // 2.5. Último recurso: localizar pelo TEXTO citado (respostas sem id/stanza gravados).
+      // Pagina para trás no histórico (até ~1000 msgs) — a original pode ser antiga.
       if (!original && threadId && mensagemOriginal?.content && (mensagemOriginal.media_type || 'none') === 'none') {
         const chave = String(mensagemOriginal.content).replace(/\.\.\.$/, '').slice(0, 40).trim();
         if (chave.length >= 8) {
-          const recentes = await base44.entities.Message.filter({ thread_id: threadId }, '-sent_at', 200).catch(() => []);
-          original = recentes.find((m) => m.id !== message?.id && String(m.content || '').trim().startsWith(chave)) || null;
+          let cursor = null;
+          for (let pagina = 0; pagina < 5 && !original; pagina++) {
+            const filtro = cursor
+              ? { thread_id: threadId, created_date: { $lt: cursor } }
+              : { thread_id: threadId };
+            const lote = await base44.entities.Message.filter(filtro, '-created_date', 200).catch(() => []);
+            if (!lote.length) break;
+            original = lote.find((m) => m.id !== message?.id && String(m.content || '').trim().startsWith(chave)) || null;
+            cursor = lote[lote.length - 1]?.created_date;
+            if (lote.length < 200) break;
+          }
         }
       }
       if (!original?.id) {
@@ -949,27 +959,20 @@ export default React.memo(function MessageBubble({
         return;
       }
 
-      // 3. Carregar o trecho do histórico da original até agora (igual WhatsApp)
+      // 3. Carregar o histórico até a original NA LISTA DA TELA (igual WhatsApp).
+      // A lista renderizada vem do useMensagensPaginadas (estado local) — o evento
+      // abaixo faz o hook mesclar o trecho da original até agora e re-renderizar.
       if (threadId) {
-        const marco = original.sent_at || original.created_date;
-        const trecho = await base44.entities.Message.filter(
-          { thread_id: threadId, sent_at: { $gte: marco } },
-          'sent_at', 300
-        ).catch(() => []);
-        const lote = [original, ...trecho];
-        queryClient.setQueryData(['mensagens', threadId], (atuais = []) => {
-          const byId = new Map();
-          [...lote, ...(atuais || [])].forEach((m) => { if (m?.id) byId.set(m.id, m); });
-          return Array.from(byId.values()).sort((a, b) =>
-            (a.sent_at || a.created_date || '').localeCompare(b.sent_at || b.created_date || ''));
-        });
+        window.dispatchEvent(new CustomEvent('nexus:carregar-ate-mensagem', {
+          detail: { threadId, mensagem: original }
+        }));
       }
 
       // 4. Aguardar o render e rolar até a original (com retry)
       let tentativas = 0;
       const tentar = () => {
         if (scrollAteMensagem(original.id)) return;
-        if (++tentativas < 12) setTimeout(tentar, 150);
+        if (++tentativas < 20) setTimeout(tentar, 200);
         else toast.info('Role para cima para localizar a mensagem original');
       };
       setTimeout(tentar, 120);
