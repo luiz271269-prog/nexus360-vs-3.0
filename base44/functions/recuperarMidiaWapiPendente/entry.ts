@@ -10,7 +10,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 // Admin-only / cron.
 // ============================================================================
 
-const VERSION = 'v1.3.0-LOTE-PEQUENO';
+const VERSION = 'v1.4.0-ESGOTA-URL-MORTA';
 const IDADE_MINIMA_MIN = 2;    // só mexe no que está pendente há ≥ 2 min
 const IDADE_MAXIMA_MIN = 1440; // ignora muito antigo (>24h): URL já expirou
 const LOTE = 5;                // lote pequeno: evita estourar o runtime (antes 20 → 106s+)
@@ -103,11 +103,16 @@ Deno.serve(async (req) => {
     const falhadasRaw = falhadasTodas.filter(dentroDaJanela).slice(0, LOTE);
     // Só reprocessa falhadas que preservaram downloadSpec (W-API) ou URL temporária Z-API
     const falhadas = falhadasRaw.filter(m =>
-      (m.metadata?.downloadSpec && m.metadata?.whatsapp_integration_id) ||
-      isUrlZapi(m.metadata?.original_media_url || m.metadata?.original_temp_url)
+      !m.metadata?.recuperacao_esgotada && (
+        (m.metadata?.downloadSpec && m.metadata?.whatsapp_integration_id) ||
+        isUrlZapi(m.metadata?.original_media_url || m.metadata?.original_temp_url)
+      )
     );
 
-    const pendentes = [...pendentesRaw, ...falhadas].slice(0, LOTE);
+    // Z-API direto é rápido (~1-2s) — vai primeiro para não ser starved pelos invokes W-API (até 30s)
+    const ehZapiRapida = (m) => isUrlZapi(m.metadata?.original_media_url || m.metadata?.original_temp_url);
+    const candidatas = [...pendentesRaw, ...falhadas];
+    const pendentes = [...candidatas.filter(ehZapiRapida), ...candidatas.filter(m => !ehZapiRapida(m))].slice(0, LOTE);
 
     console.log(`[RECUPERAR-MIDIA-WAPI] ${VERSION} | pendentes=${pendentesRaw.length} | failed_recuperáveis=${falhadas.length} | lote=${pendentes.length}`);
 
@@ -136,14 +141,18 @@ Deno.serve(async (req) => {
           continue;
         } catch (e) {
           console.error(`[RECUPERAR-MIDIA-WAPI] ❌ Z-API direto msgId=${msg.id}:`, e.message);
-          // Só marca failed se AINDA estava pending (não sobrescrever repetidamente)
-          if (msg.media_url === 'pending_download') {
-            await base44.asServiceRole.entities.Message.update(msg.id, {
-              media_url: 'failed_download',
-              metadata: { ...(msg.metadata || {}), download_failed_reason: `zapi_direct: ${e.message}`, download_failed_at: new Date().toISOString() }
-            }).catch(() => {});
-            marcadasFalha++;
-          }
+          // URL morta (404/410/403): esgotar — nunca mais re-tentar (parava o lote para sempre)
+          const urlMorta = /http_(404|410|403)/.test(e.message);
+          await base44.asServiceRole.entities.Message.update(msg.id, {
+            media_url: 'failed_download',
+            metadata: {
+              ...(msg.metadata || {}),
+              download_failed_reason: `zapi_direct: ${e.message}`,
+              download_failed_at: new Date().toISOString(),
+              ...(urlMorta ? { recuperacao_esgotada: true } : {})
+            }
+          }).catch(() => {});
+          marcadasFalha++;
           continue;
         }
       }
