@@ -10,7 +10,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 // Admin-only / cron.
 // ============================================================================
 
-const VERSION = 'v1.5.0-WAPI-DIRETO-RETRY';
+const VERSION = 'v1.6.0-DEADLINE-POR-ITEM';
 const IDADE_MINIMA_MIN = 2;    // só mexe no que está pendente há ≥ 2 min
 const IDADE_MAXIMA_MIN = 43200; // 30 dias — limite oficial da Z-API (developer.z-api.io/tips/file-expiration); W-API regenera link via mediaKey/directPath
 const LOTE = 5;                // lote pequeno: evita estourar o runtime (antes 20 → 106s+)
@@ -56,26 +56,30 @@ async function recuperarZapiDireto(base44, msg, urlTemp) {
 // backoff 2s/4s — sem invoke cross-function (evita 502/timeout do worker).
 async function recuperarWapiDireto(base44, msg, integ, spec) {
   const baseUrl = (integ.base_url_provider || 'https://api.w-api.app/v1').replace(/\/+$/, '');
+  // ✅ v1.6 FIX CAUSA-RAIZ: teto DURO de 25s para todo o processo deste item.
+  // Antes: 3×(12s+15s)+backoffs = até ~87s num item só → runtime matava a função (502).
+  const deadline = Date.now() + 25_000;
   let dl = null;
   let ultimoErro = null;
   for (let t = 1; t <= 3; t++) {
+    if (Date.now() > deadline) { ultimoErro = ultimoErro || new Error('deadline_item_25s'); break; }
     try {
       const resp = await fetch(`${baseUrl}/message/download-media?instanceId=${integ.instance_id_provider}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
         body: JSON.stringify({ mediaKey: spec.mediaKey, directPath: spec.directPath, type: spec.type, mimetype: spec.mimetype }),
-        signal: AbortSignal.timeout(12000)
+        signal: AbortSignal.timeout(8000)
       });
       const data = await resp.json().catch(() => ({}));
       const link = data.fileLink || data.link || data.url;
       if (!resp.ok || !link) throw new Error(`download-media sem fileLink (status ${resp.status})`);
-      const dlTry = await fetch(link, { signal: AbortSignal.timeout(15000) });
+      const dlTry = await fetch(link, { signal: AbortSignal.timeout(12000) });
       if (!dlTry.ok) throw new Error(`fileLink status ${dlTry.status}`);
       dl = dlTry;
       break;
     } catch (e) {
       ultimoErro = e;
-      if (t < 3) await new Promise(r => setTimeout(r, t * 2000));
+      if (t < 3 && Date.now() < deadline) await new Promise(r => setTimeout(r, t * 2000));
     }
   }
   if (!dl) throw ultimoErro || new Error('download_direto_falhou');
@@ -230,6 +234,13 @@ Deno.serve(async (req) => {
         } catch (e) {
           console.warn(`[RECUPERAR-MIDIA-WAPI] ⚠️ W-API direto falhou (${e.message}) — fallback para worker | msgId=${msg.id}`);
         }
+      }
+
+      // ✅ v1.6: só entra no fallback do worker (30s) se ainda houver orçamento.
+      // Antes: direto (até 87s) + worker (30s) no MESMO item = 502 garantido.
+      if (Date.now() - inicioLoop > TEMPO_MAX_MS - TIMEOUT_ITEM_MS) {
+        console.warn(`[RECUPERAR-MIDIA-WAPI] ⏱️ Sem orçamento para o worker — msgId=${msg.id} fica para a próxima rodada`);
+        break;
       }
 
       try {
