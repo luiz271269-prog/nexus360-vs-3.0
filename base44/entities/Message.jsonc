@@ -232,6 +232,14 @@
           "format": "datetime",
           "description": "Quando o download foi marcado como falho"
         },
+        "recuperacao_esgotada": {
+          "type": "boolean",
+          "description": "URL tempor\u00e1ria morta (404/410) \u2014 watchdog n\u00e3o deve mais tentar recuperar esta m\u00eddia"
+        },
+        "persist_method": {
+          "type": "string",
+          "description": "M\u00e9todo que persistiu a m\u00eddia (worker, watchdog_zapi_direct, batch_zapi_direct)"
+        },
         "original_media_url": {
           "type": "string",
           "description": "URL tempor\u00e1ria original do provedor (auditoria)"
