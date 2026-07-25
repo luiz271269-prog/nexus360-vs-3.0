@@ -146,11 +146,24 @@ Deno.serve(async (req) => {
     console.log(`[${VERSION}] 📥 Baixando de URL direta Z-API (B2): ${downloadUrl.substring(0, 100)}...`);
 
     // 3. BAIXAR ARQUIVO (URL B2 é pública, sem headers de auth)
-    const downloadResponse = await fetchWithTimeout(downloadUrl, {}, DOWNLOAD_TIMEOUT);
-
-    if (!downloadResponse.ok) {
-      throw new Error(`HTTP ${downloadResponse.status}: ${downloadResponse.statusText}`);
+    // ✅ RETRY NA ENTRADA: no instante do webhook o arquivo pode ainda não estar
+    // disponível no B2 (upload da Z-API em andamento) — 3 tentativas com backoff
+    // (2s/4s) resolvem na hora, sem deixar a mídia travada para o watchdog.
+    let downloadResponse = null;
+    let ultimoErroDl = null;
+    for (let tentativa = 1; tentativa <= 3; tentativa++) {
+      try {
+        const r = await fetchWithTimeout(downloadUrl, {}, DOWNLOAD_TIMEOUT);
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+        downloadResponse = r;
+        break;
+      } catch (e) {
+        ultimoErroDl = e;
+        console.warn(`[${VERSION}] ⚠️ Download tentativa ${tentativa}/3 falhou: ${e.message}`);
+        if (tentativa < 3) await new Promise(res => setTimeout(res, tentativa * 2000));
+      }
     }
+    if (!downloadResponse) throw ultimoErroDl || new Error('download_falhou');
 
     // ✅ FIX 415: usar Content-Type do header HTTP (blob.type pode vir vazio da Z-API)
     const contentTypeHeader = downloadResponse.headers.get('content-type') || '';

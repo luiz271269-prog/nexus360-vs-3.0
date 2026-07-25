@@ -244,22 +244,42 @@ async function baixarMidiaDiretoWapi(base44, mensagem, integracaoId, downloadSpe
   const integ = await base44.asServiceRole.entities.WhatsAppIntegration.get(integracaoId);
   if (!integ) throw new Error('integracao_nao_encontrada');
   const baseUrl = (integ.base_url_provider || 'https://api.w-api.app/v1').replace(/\/+$/, '');
-  const resp = await fetch(`${baseUrl}/message/download-media?instanceId=${integ.instance_id_provider}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
-    body: JSON.stringify({
-      mediaKey: downloadSpec.mediaKey,
-      directPath: downloadSpec.directPath,
-      type: downloadSpec.type,
-      mimetype: downloadSpec.mimetype
-    }),
-    signal: AbortSignal.timeout(15000)
-  });
-  const data = await resp.json().catch(() => ({}));
-  const link = data.fileLink || data.link || data.url;
-  if (!resp.ok || !link) throw new Error(`download-media sem fileLink (status ${resp.status})`);
-  const dl = await fetch(link, { signal: AbortSignal.timeout(20000) });
-  if (!dl.ok) throw new Error(`fileLink status ${dl.status}`);
+
+  // ✅ RETRY NA ENTRADA: o servidor de mídia da W-API é intermitente — a mesma
+  // requisição falha agora e funciona segundos depois. 3 tentativas com backoff
+  // (2s/4s) resolvem na hora do recebimento, sem depender do watchdog.
+  const inicioRetry = Date.now();
+  let ultimoErro = null;
+  let dl = null;
+  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+    try {
+      const resp = await fetch(`${baseUrl}/message/download-media?instanceId=${integ.instance_id_provider}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
+        body: JSON.stringify({
+          mediaKey: downloadSpec.mediaKey,
+          directPath: downloadSpec.directPath,
+          type: downloadSpec.type,
+          mimetype: downloadSpec.mimetype
+        }),
+        signal: AbortSignal.timeout(15000)
+      });
+      const data = await resp.json().catch(() => ({}));
+      const link = data.fileLink || data.link || data.url;
+      if (!resp.ok || !link) throw new Error(`download-media sem fileLink (status ${resp.status})`);
+      const dlTry = await fetch(link, { signal: AbortSignal.timeout(20000) });
+      if (!dlTry.ok) throw new Error(`fileLink status ${dlTry.status}`);
+      dl = dlTry;
+      break;
+    } catch (e) {
+      ultimoErro = e;
+      console.warn(`[WAPI] ⚠️ Download direto tentativa ${tentativa}/3 falhou: ${e.message}`);
+      // Orçamento: não passar de ~40s no total dentro do webhook
+      if (tentativa === 3 || Date.now() - inicioRetry > 40000) break;
+      await new Promise(r => setTimeout(r, tentativa * 2000));
+    }
+  }
+  if (!dl) throw ultimoErro || new Error('download_direto_falhou');
   const ct = (dl.headers.get('content-type') || downloadSpec.mimetype || '').split(';')[0].trim();
   const buf = await dl.arrayBuffer();
   if (!buf.byteLength) throw new Error('arquivo_vazio');
