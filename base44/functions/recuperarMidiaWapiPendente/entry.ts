@@ -10,7 +10,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 // Admin-only / cron.
 // ============================================================================
 
-const VERSION = 'v1.4.0-ESGOTA-URL-MORTA';
+const VERSION = 'v1.5.0-WAPI-DIRETO-RETRY';
 const IDADE_MINIMA_MIN = 2;    // só mexe no que está pendente há ≥ 2 min
 const IDADE_MAXIMA_MIN = 1440; // ignora muito antigo (>24h): URL já expirou
 const LOTE = 5;                // lote pequeno: evita estourar o runtime (antes 20 → 106s+)
@@ -45,6 +45,54 @@ async function recuperarZapiDireto(base44, msg, urlTemp) {
       midia_persistida: true,
       persisted_at: new Date().toISOString(),
       persist_method: 'watchdog_zapi_direct',
+      download_failed_reason: null
+    }
+  });
+  return up.file_url;
+}
+
+// ✅ v1.5: Download DIRETO W-API (mesmo método da recuperação manual comprovada):
+// pede fileLink novo ao provedor (download-media) e baixa, com 3 tentativas e
+// backoff 2s/4s — sem invoke cross-function (evita 502/timeout do worker).
+async function recuperarWapiDireto(base44, msg, integ, spec) {
+  const baseUrl = (integ.base_url_provider || 'https://api.w-api.app/v1').replace(/\/+$/, '');
+  let dl = null;
+  let ultimoErro = null;
+  for (let t = 1; t <= 3; t++) {
+    try {
+      const resp = await fetch(`${baseUrl}/message/download-media?instanceId=${integ.instance_id_provider}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${integ.api_key_provider}` },
+        body: JSON.stringify({ mediaKey: spec.mediaKey, directPath: spec.directPath, type: spec.type, mimetype: spec.mimetype }),
+        signal: AbortSignal.timeout(12000)
+      });
+      const data = await resp.json().catch(() => ({}));
+      const link = data.fileLink || data.link || data.url;
+      if (!resp.ok || !link) throw new Error(`download-media sem fileLink (status ${resp.status})`);
+      const dlTry = await fetch(link, { signal: AbortSignal.timeout(15000) });
+      if (!dlTry.ok) throw new Error(`fileLink status ${dlTry.status}`);
+      dl = dlTry;
+      break;
+    } catch (e) {
+      ultimoErro = e;
+      if (t < 3) await new Promise(r => setTimeout(r, t * 2000));
+    }
+  }
+  if (!dl) throw ultimoErro || new Error('download_direto_falhou');
+  const buf = await dl.arrayBuffer();
+  if (!buf.byteLength) throw new Error('arquivo_vazio');
+  const ct = (dl.headers.get('content-type') || spec.mimetype || 'application/octet-stream').split(';')[0].trim();
+  const ext = MIME_EXT[ct] || DEFAULT_EXT[msg.media_type] || 'bin';
+  const file = new File([buf], `wapi_rec_${String(msg.id).slice(-8)}.${ext}`, { type: ct });
+  const up = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+  if (!up?.file_url) throw new Error('upload_sem_file_url');
+  await base44.asServiceRole.entities.Message.update(msg.id, {
+    media_url: up.file_url,
+    metadata: {
+      ...(msg.metadata || {}),
+      midia_persistida: true,
+      persisted_at: new Date().toISOString(),
+      persist_method: 'watchdog_wapi_direct',
       download_failed_reason: null
     }
   });
@@ -169,6 +217,19 @@ Deno.serve(async (req) => {
         }).catch(() => {});
         marcadasFalha++;
         continue;
+      }
+
+      // ✅ v1.5: MÉTODO DIRETO primeiro (igual à recuperação manual comprovada)
+      if (spec.mediaKey && spec.directPath) {
+        try {
+          const integ = await base44.asServiceRole.entities.WhatsAppIntegration.get(integrationId);
+          const url = await recuperarWapiDireto(base44, msg, integ, spec);
+          console.log(`[RECUPERAR-MIDIA-WAPI] ✅ W-API direto msgId=${msg.id}: ${url.substring(0, 60)}`);
+          reprocessadas++;
+          continue;
+        } catch (e) {
+          console.warn(`[RECUPERAR-MIDIA-WAPI] ⚠️ W-API direto falhou (${e.message}) — fallback para worker | msgId=${msg.id}`);
+        }
       }
 
       try {
