@@ -10,12 +10,12 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 // Admin-only / cron.
 // ============================================================================
 
-const VERSION = 'v1.6.0-DEADLINE-POR-ITEM';
+const VERSION = 'v1.7.0-PARALELO-RESILIENTE';
 const IDADE_MINIMA_MIN = 2;    // só mexe no que está pendente há ≥ 2 min
 const IDADE_MAXIMA_MIN = 43200; // 30 dias — limite oficial da Z-API (developer.z-api.io/tips/file-expiration); W-API regenera link via mediaKey/directPath
-const LOTE = 5;                // lote pequeno: evita estourar o runtime (antes 20 → 106s+)
-const TEMPO_MAX_MS = 60_000;   // orçamento total de execução — para o loop antes do runtime matar
-const TIMEOUT_ITEM_MS = 30_000; // teto por item no invoke do worker W-API
+const LOTE = 5;                 // itens por rodada (processados em PARALELO)
+const TIMEOUT_ITEM_MS = 30_000; // teto no invoke do worker W-API (fallback)
+const TETO_ITEM_MS = 60_000;    // teto ABSOLUTO por item (direto 25s + worker 30s + folga)
 
 const MIME_EXT = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
@@ -29,8 +29,23 @@ const isUrlZapi = (u) => !!u && /backblazeb2\.com|z-api\.io|temp-file-download/.
 // Download direto da URL temporária Z-API → upload → update.
 // Sem invoke cross-function (evita 502 intermitente) e sem exigir integrationId.
 async function recuperarZapiDireto(base44, msg, urlTemp) {
-  const dl = await fetch(urlTemp, { signal: AbortSignal.timeout(25000) });
-  if (!dl.ok) throw new Error(`http_${dl.status}`);
+  // ✅ v1.7: 2 tentativas com backoff curto — protege contra oscilação de rede.
+  // URL morta (404/410/403) aborta na hora: re-tentar não resolve.
+  let dl = null;
+  let ultimoErro = null;
+  for (let t = 1; t <= 2; t++) {
+    try {
+      const dlTry = await fetch(urlTemp, { signal: AbortSignal.timeout(15000) });
+      if (!dlTry.ok) throw new Error(`http_${dlTry.status}`);
+      dl = dlTry;
+      break;
+    } catch (e) {
+      ultimoErro = e;
+      if (/http_(404|410|403)/.test(e.message)) throw e;
+      if (t < 2) await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+  if (!dl) throw ultimoErro || new Error('download_falhou');
   const buf = await dl.arrayBuffer();
   if (!buf.byteLength) throw new Error('arquivo_vazio');
   const ct = (dl.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim();
@@ -168,16 +183,10 @@ Deno.serve(async (req) => {
 
     console.log(`[RECUPERAR-MIDIA-WAPI] ${VERSION} | pendentes=${pendentesRaw.length} | failed_recuperáveis=${falhadas.length} | lote=${pendentes.length}`);
 
-    let reprocessadas = 0;
-    let marcadasFalha = 0;
-    const inicioLoop = Date.now();
-
-    for (const msg of pendentes) {
-      // Orçamento de tempo: parar antes do runtime abortar a função (causa dos 502)
-      if (Date.now() - inicioLoop > TEMPO_MAX_MS) {
-        console.warn(`[RECUPERAR-MIDIA-WAPI] ⏱️ Orçamento de ${TEMPO_MAX_MS / 1000}s esgotado — restante fica para a próxima rodada`);
-        break;
-      }
+    // ✅ v1.7: itens processados em PARALELO — o tempo total é o do item mais
+    // lento (máx 60s), nunca a soma de todos. Um item com internet lenta não
+    // trava os demais nem derruba a função.
+    const processarMensagem = async (msg) => {
       const spec = msg.metadata?.downloadSpec;
       const integrationId = msg.metadata?.whatsapp_integration_id;
 
@@ -189,8 +198,7 @@ Deno.serve(async (req) => {
         try {
           const url = await recuperarZapiDireto(base44, msg, urlTempZapi);
           console.log(`[RECUPERAR-MIDIA-WAPI] ✅ Z-API direto msgId=${msg.id}: ${url.substring(0, 60)}`);
-          reprocessadas++;
-          continue;
+          return 'ok';
         } catch (e) {
           console.error(`[RECUPERAR-MIDIA-WAPI] ❌ Z-API direto msgId=${msg.id}:`, e.message);
           // URL morta (404/410/403): esgotar — nunca mais re-tentar (parava o lote para sempre)
@@ -204,8 +212,7 @@ Deno.serve(async (req) => {
               ...(urlMorta ? { recuperacao_esgotada: true } : {})
             }
           }).catch(() => {});
-          marcadasFalha++;
-          continue;
+          return 'falha';
         }
       }
 
@@ -219,8 +226,7 @@ Deno.serve(async (req) => {
             download_failed_at: new Date().toISOString()
           }
         }).catch(() => {});
-        marcadasFalha++;
-        continue;
+        return 'falha';
       }
 
       // ✅ v1.5: MÉTODO DIRETO primeiro (igual à recuperação manual comprovada)
@@ -229,18 +235,10 @@ Deno.serve(async (req) => {
           const integ = await base44.asServiceRole.entities.WhatsAppIntegration.get(integrationId);
           const url = await recuperarWapiDireto(base44, msg, integ, spec);
           console.log(`[RECUPERAR-MIDIA-WAPI] ✅ W-API direto msgId=${msg.id}: ${url.substring(0, 60)}`);
-          reprocessadas++;
-          continue;
+          return 'ok';
         } catch (e) {
           console.warn(`[RECUPERAR-MIDIA-WAPI] ⚠️ W-API direto falhou (${e.message}) — fallback para worker | msgId=${msg.id}`);
         }
-      }
-
-      // ✅ v1.6: só entra no fallback do worker (30s) se ainda houver orçamento.
-      // Antes: direto (até 87s) + worker (30s) no MESMO item = 502 garantido.
-      if (Date.now() - inicioLoop > TEMPO_MAX_MS - TIMEOUT_ITEM_MS) {
-        console.warn(`[RECUPERAR-MIDIA-WAPI] ⏱️ Sem orçamento para o worker — msgId=${msg.id} fica para a próxima rodada`);
-        break;
       }
 
       try {
@@ -255,12 +253,8 @@ Deno.serve(async (req) => {
           }),
           new Promise((_, rej) => setTimeout(() => rej(new Error('timeout_item_30s')), TIMEOUT_ITEM_MS))
         ]);
-        if (resp?.data?.success === true) {
-          reprocessadas++;
-        } else {
-          // Worker já marca failed_download internamente nas falhas definitivas.
-          marcadasFalha++;
-        }
+        // Worker já marca failed_download internamente nas falhas definitivas.
+        return resp?.data?.success === true ? 'ok' : 'falha';
       } catch (e) {
         console.error(`[RECUPERAR-MIDIA-WAPI] ❌ msgId=${msg.id}:`, e.message);
         const atual = await base44.asServiceRole.entities.Message.get(msg.id).catch(() => null);
@@ -269,9 +263,24 @@ Deno.serve(async (req) => {
             media_url: 'failed_download',
             metadata: { ...(atual.metadata || {}), download_failed_reason: `recuperacao_erro: ${e.message}`, download_failed_at: new Date().toISOString() }
           }).catch(() => {});
-          marcadasFalha++;
         }
+        return 'falha';
       }
+    };
+
+    // Teto duro ABSOLUTO por item: se estourar, a mensagem NÃO é marcada como
+    // falha — continua pendente e é retomada na próxima rodada (a cada 10min).
+    const resultados = await Promise.allSettled(pendentes.map((msg) =>
+      Promise.race([
+        processarMensagem(msg),
+        new Promise((_, rej) => setTimeout(() => rej(new Error(`teto_item_${TETO_ITEM_MS / 1000}s`)), TETO_ITEM_MS))
+      ])
+    ));
+    const reprocessadas = resultados.filter(r => r.status === 'fulfilled' && r.value === 'ok').length;
+    const marcadasFalha = resultados.filter(r => r.status === 'fulfilled' && r.value === 'falha').length;
+    const adiadas = resultados.filter(r => r.status === 'rejected').length;
+    if (adiadas > 0) {
+      console.warn(`[RECUPERAR-MIDIA-WAPI] ⏱️ ${adiadas} item(ns) estouraram o teto de ${TETO_ITEM_MS / 1000}s — ficam para a próxima rodada`);
     }
 
     return Response.json({
@@ -279,7 +288,8 @@ Deno.serve(async (req) => {
       version: VERSION,
       total_pendentes: pendentes.length,
       reprocessadas,
-      marcadas_falha: marcadasFalha
+      marcadas_falha: marcadasFalha,
+      adiadas
     }, { headers });
 
   } catch (error) {
