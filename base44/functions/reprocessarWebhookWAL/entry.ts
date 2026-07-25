@@ -18,8 +18,6 @@ const APP_BASE_URL = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304
 function resolveWebhookBaseUrl(body) {
   const fromBody = String(body?.webhook_base_url || '').trim();
   if (fromBody) return fromBody.replace(/\/$/, '');
-  const fromEnv = String(Deno.env.get('BASE44_WEBHOOK_BASE_URL') || '').trim();
-  if (fromEnv) return fromEnv.replace(/\/$/, '');
   return APP_BASE_URL;
 }
 
@@ -40,8 +38,10 @@ Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204 });
 
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user || user.role !== 'admin') {
+    // Cron/automação roda sem usuário; chamada manual exige admin (mesmo padrão do recuperarMidiaWapiPendente).
+    let user = null;
+    try { user = await base44.auth.me(); } catch (_) {}
+    if (user && user.role !== 'admin') {
       return Response.json({ success: false, error: 'forbidden_admin_only' }, { status: 403 });
     }
 

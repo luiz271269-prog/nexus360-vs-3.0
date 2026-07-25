@@ -10,10 +10,12 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 // Admin-only / cron.
 // ============================================================================
 
-const VERSION = 'v1.2.0-ZAPI-DIRECT';
+const VERSION = 'v1.3.0-LOTE-PEQUENO';
 const IDADE_MINIMA_MIN = 2;    // só mexe no que está pendente há ≥ 2 min
 const IDADE_MAXIMA_MIN = 1440; // ignora muito antigo (>24h): URL já expirou
-const LOTE = 20;
+const LOTE = 5;                // lote pequeno: evita estourar o runtime (antes 20 → 106s+)
+const TEMPO_MAX_MS = 60_000;   // orçamento total de execução — para o loop antes do runtime matar
+const TIMEOUT_ITEM_MS = 30_000; // teto por item no invoke do worker W-API
 
 const MIME_EXT = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
@@ -105,14 +107,20 @@ Deno.serve(async (req) => {
       isUrlZapi(m.metadata?.original_media_url || m.metadata?.original_temp_url)
     );
 
-    const pendentes = [...pendentesRaw, ...falhadas];
+    const pendentes = [...pendentesRaw, ...falhadas].slice(0, LOTE);
 
-    console.log(`[RECUPERAR-MIDIA-WAPI] ${VERSION} | pendentes=${pendentesRaw.length} | failed_recuperáveis=${falhadas.length}`);
+    console.log(`[RECUPERAR-MIDIA-WAPI] ${VERSION} | pendentes=${pendentesRaw.length} | failed_recuperáveis=${falhadas.length} | lote=${pendentes.length}`);
 
     let reprocessadas = 0;
     let marcadasFalha = 0;
+    const inicioLoop = Date.now();
 
     for (const msg of pendentes) {
+      // Orçamento de tempo: parar antes do runtime abortar a função (causa dos 502)
+      if (Date.now() - inicioLoop > TEMPO_MAX_MS) {
+        console.warn(`[RECUPERAR-MIDIA-WAPI] ⏱️ Orçamento de ${TEMPO_MAX_MS / 1000}s esgotado — restante fica para a próxima rodada`);
+        break;
+      }
       const spec = msg.metadata?.downloadSpec;
       const integrationId = msg.metadata?.whatsapp_integration_id;
 
@@ -155,13 +163,17 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const resp = await base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
-          message_id: msg.id,
-          integration_id: integrationId,
-          downloadSpec: spec,
-          media_type: msg.media_type,
-          filename: `${msg.media_type}_${Date.now()}`
-        });
+        // Uma tentativa por item, com teto de 30s — o worker interno já tem retries próprios
+        const resp = await Promise.race([
+          base44.asServiceRole.functions.invoke('persistirMidiaWapi', {
+            message_id: msg.id,
+            integration_id: integrationId,
+            downloadSpec: spec,
+            media_type: msg.media_type,
+            filename: `${msg.media_type}_${Date.now()}`
+          }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout_item_30s')), TIMEOUT_ITEM_MS))
+        ]);
         if (resp?.data?.success === true) {
           reprocessadas++;
         } else {
