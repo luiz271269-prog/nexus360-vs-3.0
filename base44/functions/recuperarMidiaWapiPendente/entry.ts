@@ -12,7 +12,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 const VERSION = 'v1.5.0-WAPI-DIRETO-RETRY';
 const IDADE_MINIMA_MIN = 2;    // só mexe no que está pendente há ≥ 2 min
-const IDADE_MAXIMA_MIN = 1440; // ignora muito antigo (>24h): URL já expirou
+const IDADE_MAXIMA_MIN = 43200; // 30 dias — limite oficial da Z-API (developer.z-api.io/tips/file-expiration); W-API regenera link via mediaKey/directPath
 const LOTE = 5;                // lote pequeno: evita estourar o runtime (antes 20 → 106s+)
 const TEMPO_MAX_MS = 60_000;   // orçamento total de execução — para o loop antes do runtime matar
 const TIMEOUT_ITEM_MS = 30_000; // teto por item no invoke do worker W-API
