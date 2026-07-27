@@ -28,7 +28,7 @@ const isUrlZapi = (u) => !!u && /backblazeb2\.com|z-api\.io|temp-file-download/.
 
 // Download direto da URL temporária Z-API → upload → update.
 // Sem invoke cross-function (evita 502 intermitente) e sem exigir integrationId.
-async function recuperarZapiDireto(base44, msg, urlTemp) {
+async function recuperarZapiDireto(base44, msg, urlTemp, updateMensagemApi) {
   const t0 = Date.now();
   const marca = (etapa) => console.log(`[RECUPERAR-MIDIA-WAPI] [trace ${String(msg.id).slice(-6)}] ${etapa} +${Date.now() - t0}ms`);
   marca('inicio');
@@ -59,7 +59,8 @@ async function recuperarZapiDireto(base44, msg, urlTemp) {
   const up = await base44.asServiceRole.integrations.Core.UploadFile({ file });
   marca('upload_ok');
   if (!up?.file_url) throw new Error('upload_sem_file_url');
-  await base44.asServiceRole.entities.Message.update(msg.id, {
+  // ✅ Update via API direta (SDK trava pós-upload)
+  await updateMensagemApi(msg.id, {
     media_url: up.file_url,
     metadata: {
       ...(msg.metadata || {}),
@@ -75,7 +76,7 @@ async function recuperarZapiDireto(base44, msg, urlTemp) {
 // ✅ v1.5: Download DIRETO W-API (mesmo método da recuperação manual comprovada):
 // pede fileLink novo ao provedor (download-media) e baixa, com 3 tentativas e
 // backoff 2s/4s — sem invoke cross-function (evita 502/timeout do worker).
-async function recuperarWapiDireto(base44, msg, integ, spec) {
+async function recuperarWapiDireto(base44, msg, integ, spec, updateMensagemApi) {
   const baseUrl = (integ.base_url_provider || 'https://api.w-api.app/v1').replace(/\/+$/, '');
   // ✅ v1.6 FIX CAUSA-RAIZ: teto DURO de 25s para todo o processo deste item.
   // Antes: 3×(12s+15s)+backoffs = até ~87s num item só → runtime matava a função (502).
@@ -111,7 +112,8 @@ async function recuperarWapiDireto(base44, msg, integ, spec) {
   const file = new File([buf], `wapi_rec_${String(msg.id).slice(-8)}.${ext}`, { type: ct });
   const up = await base44.asServiceRole.integrations.Core.UploadFile({ file });
   if (!up?.file_url) throw new Error('upload_sem_file_url');
-  await base44.asServiceRole.entities.Message.update(msg.id, {
+  // ✅ Update via API direta (SDK trava pós-upload)
+  await updateMensagemApi(msg.id, {
     media_url: up.file_url,
     metadata: {
       ...(msg.metadata || {}),
@@ -130,6 +132,33 @@ Deno.serve(async (req) => {
 
   try {
     const base44 = createClientFromRequest(req);
+
+    // ✅ WORKAROUND CAUSA-RAIZ (jul/2026): após UploadFile, o cliente SDK trava
+    // em QUALQUER chamada de entidade (update nunca resolve → runtime mata a
+    // função e a mídia volta a ficar pendente). Updates pós-upload usam a API
+    // REST direta, comprovada em diagnóstico.
+    const appId = Deno.env.get('BASE44_APP_ID');
+    const apiHeaders = {
+      'Authorization': req.headers.get('authorization') || '',
+      'api_key': req.headers.get('api_key') || '',
+      'Content-Type': 'application/json'
+    };
+    const msgApiUrl = (id) => `https://base44.app/api/apps/${appId}/entities/Message/${id}`;
+    const getMensagemApi = async (id) => {
+      try {
+        const r = await fetch(msgApiUrl(id), { headers: apiHeaders, signal: AbortSignal.timeout(15000) });
+        return r.ok ? await r.json() : null;
+      } catch (_) { return null; }
+    };
+    const updateMensagemApi = async (id, data) => {
+      const r = await fetch(msgApiUrl(id), {
+        method: 'PUT',
+        headers: apiHeaders,
+        signal: AbortSignal.timeout(15000),
+        body: JSON.stringify(data)
+      });
+      if (!r.ok) throw new Error(`update_api_http_${r.status}`);
+    };
 
     // Cron roda sem usuário; chamada manual exige admin.
     let user = null;
@@ -202,14 +231,15 @@ Deno.serve(async (req) => {
       const urlTempZapi = msg.metadata?.original_media_url || msg.metadata?.original_temp_url;
       if ((!spec || !integrationId) && isUrlZapi(urlTempZapi)) {
         try {
-          const url = await recuperarZapiDireto(base44, msg, urlTempZapi);
+          const url = await recuperarZapiDireto(base44, msg, urlTempZapi, updateMensagemApi);
           console.log(`[RECUPERAR-MIDIA-WAPI] ✅ Z-API direto msgId=${msg.id}: ${url.substring(0, 60)}`);
           return 'ok';
         } catch (e) {
           console.error(`[RECUPERAR-MIDIA-WAPI] ❌ Z-API direto msgId=${msg.id}:`, e.message);
           // URL morta (404/410/403): esgotar — nunca mais re-tentar (parava o lote para sempre)
           const urlMorta = /http_(404|410|403)/.test(e.message);
-          await base44.asServiceRole.entities.Message.update(msg.id, {
+          // ✅ API direta: o SDK pode estar travado se o UploadFile chegou a rodar
+          await updateMensagemApi(msg.id, {
             media_url: 'failed_download',
             metadata: {
               ...(msg.metadata || {}),
@@ -239,7 +269,7 @@ Deno.serve(async (req) => {
       if (spec.mediaKey && spec.directPath) {
         try {
           const integ = await base44.asServiceRole.entities.WhatsAppIntegration.get(integrationId);
-          const url = await recuperarWapiDireto(base44, msg, integ, spec);
+          const url = await recuperarWapiDireto(base44, msg, integ, spec, updateMensagemApi);
           console.log(`[RECUPERAR-MIDIA-WAPI] ✅ W-API direto msgId=${msg.id}: ${url.substring(0, 60)}`);
           return 'ok';
         } catch (e) {
@@ -263,9 +293,9 @@ Deno.serve(async (req) => {
         return resp?.data?.success === true ? 'ok' : 'falha';
       } catch (e) {
         console.error(`[RECUPERAR-MIDIA-WAPI] ❌ msgId=${msg.id}:`, e.message);
-        const atual = await base44.asServiceRole.entities.Message.get(msg.id).catch(() => null);
+        const atual = await getMensagemApi(msg.id);
         if (atual && atual.media_url === 'pending_download') {
-          await base44.asServiceRole.entities.Message.update(msg.id, {
+          await updateMensagemApi(msg.id, {
             media_url: 'failed_download',
             metadata: { ...(atual.metadata || {}), download_failed_reason: `recuperacao_erro: ${e.message}`, download_failed_at: new Date().toISOString() }
           }).catch(() => {});
