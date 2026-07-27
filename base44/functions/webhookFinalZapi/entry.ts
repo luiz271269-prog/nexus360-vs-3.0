@@ -1296,57 +1296,32 @@ async function handleMessage(dados, payloadBruto, base44) {
   // O download B2 da Z-API é rápido (~2s) e a URL temporária expira em minutos,
   // então aguardar aqui é obrigatório. Erro no worker NÃO falha o webhook.
   if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none' && !midiaPersistida) {
-    let midiaOk = false;
-
-    // 1️⃣ MÉTODO DIRETO (comprovado): fetch da URL temporária → upload → update.
-    // Sem invoke cross-function = sem 502 intermitente.
+    // ⛔ MÉTODO DIRETO INLINE REMOVIDO (jul/2026): o UploadFile dentro do webhook
+    // travava o cliente SDK no Message.update seguinte (lock pós-upload) — o runtime
+    // matava a função, a mídia ficava pending_download até o watchdog (5-15min) e
+    // etapas seguintes (thread/processInbound) eram perdidas. O worker
+    // persistirMidiaZapi agora baixa, faz upload E grava a URL via API REST direta
+    // (imune ao lock) — ele é o caminho imediato.
     try {
-      const urlPermanente = await baixarMidiaDiretoZapi(base44, mensagem, dados.mediaUrl, dados.mediaType);
-      midiaOk = true;
-      console.log(`[${VERSION}] ✅ Mídia persistida INLINE (método direto): ${urlPermanente.substring(0, 60)}`);
-    } catch (e) {
-      console.warn(`[${VERSION}] ⚠️ Método direto inline falhou (${e?.message}) — fallback para worker`);
-    }
-
-    // 2️⃣ FALLBACK: worker persistirMidiaZapi
-    if (!midiaOk) {
-      try {
-        const respWorker = await base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
-          file_id: dados.messageId || mensagem.id,
-          integration_id: integracaoId,
-          media_type: dados.mediaType,
-          media_url: dados.mediaUrl,
-          message_id: mensagem.id,
-          filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
-        });
-        const urlPermanente = respWorker?.data?.url;
-        if (!urlPermanente) {
-          throw new Error(respWorker?.data?.error || 'worker não retornou url permanente');
-        }
-        await base44.asServiceRole.entities.Message.update(mensagem.id, {
-          media_url: urlPermanente,
-          metadata: {
-            ...(mensagem.metadata || {}),
-            midia_persistida: true,
-            persisted_at: new Date().toISOString(),
-            original_temp_url: dados.mediaUrl
-          }
-        });
-        console.log(`[${VERSION}] ✅ Worker mídia concluído + URL gravada: ${urlPermanente.substring(0, 60)}`);
-      } catch (e) {
-        console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message);
-        // URL temporária da Z-API expira em minutos — sem retry possível depois.
-        // Marca como falha definitiva para a UI mostrar "mídia indisponível"
-        // em vez de "Processando..." eterno.
-        await base44.asServiceRole.entities.Message.update(mensagem.id, {
-          media_url: 'failed_download',
-          metadata: {
-            ...(mensagem.metadata || {}),
-            download_failed_reason: `worker_erro: ${e?.message || 'desconhecido'}`,
-            download_failed_at: new Date().toISOString()
-          }
-        }).catch(() => {});
+      const respWorker = await base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
+        file_id: dados.messageId || mensagem.id,
+        integration_id: integracaoId,
+        media_type: dados.mediaType,
+        media_url: dados.mediaUrl,
+        message_id: mensagem.id,
+        filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+      });
+      const urlPermanente = respWorker?.data?.url;
+      if (!urlPermanente) {
+        throw new Error(respWorker?.data?.error || 'worker não retornou url permanente');
       }
+      // ✅ O worker já gravou media_url + metadata via REST direto — nada a atualizar aqui.
+      console.log(`[${VERSION}] ✅ Worker mídia concluído (URL gravada pelo worker via REST): ${urlPermanente.substring(0, 60)}`);
+    } catch (e) {
+      console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message);
+      // Mantém pending_download: a URL B2 da Z-API fica válida por horas e o
+      // watchdog (a cada 10min) recupera via metadata.original_media_url.
+      // (Marcar failed_download aqui esconderia mídia recuperável da UI.)
     }
   }
 
