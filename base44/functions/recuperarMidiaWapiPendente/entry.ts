@@ -29,6 +29,9 @@ const isUrlZapi = (u) => !!u && /backblazeb2\.com|z-api\.io|temp-file-download/.
 // Download direto da URL temporária Z-API → upload → update.
 // Sem invoke cross-function (evita 502 intermitente) e sem exigir integrationId.
 async function recuperarZapiDireto(base44, msg, urlTemp) {
+  const t0 = Date.now();
+  const marca = (etapa) => console.log(`[RECUPERAR-MIDIA-WAPI] [trace ${String(msg.id).slice(-6)}] ${etapa} +${Date.now() - t0}ms`);
+  marca('inicio');
   // ✅ v1.7: 2 tentativas com backoff curto — protege contra oscilação de rede.
   // URL morta (404/410/403) aborta na hora: re-tentar não resolve.
   let dl = null;
@@ -46,12 +49,15 @@ async function recuperarZapiDireto(base44, msg, urlTemp) {
     }
   }
   if (!dl) throw ultimoErro || new Error('download_falhou');
+  marca('fetch_ok');
   const buf = await dl.arrayBuffer();
+  marca(`body_ok ${buf.byteLength}b`);
   if (!buf.byteLength) throw new Error('arquivo_vazio');
   const ct = (dl.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim();
   const ext = MIME_EXT[ct] || DEFAULT_EXT[msg.media_type] || 'bin';
   const file = new File([buf], `zapi_rec_${String(msg.id).slice(-8)}.${ext}`, { type: ct });
   const up = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+  marca('upload_ok');
   if (!up?.file_url) throw new Error('upload_sem_file_url');
   await base44.asServiceRole.entities.Message.update(msg.id, {
     media_url: up.file_url,
