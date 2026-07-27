@@ -7,7 +7,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
  * ╚══════════════════════════════════════════════════════════════╝
  */
 
-const VERSION = 'v3.1.1-REDEPLOY';
+const VERSION = 'v3.2.0-UPDATE-REST-DIRETO';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const DOWNLOAD_TIMEOUT = 30000; // 30 segundos
 
@@ -113,6 +113,18 @@ Deno.serve(async (req) => {
   } catch {
     return Response.json({ success: false, error: 'JSON inválido' }, { status: 400, headers: corsHeaders });
   }
+
+  // ✅ WORKAROUND CAUSA-RAIZ (jul/2026): após UploadFile, o cliente SDK trava em
+  // QUALQUER chamada de entidade (update nunca resolve → runtime mata a função e
+  // a mídia fica pending_download até o watchdog, 5-15min depois). Updates
+  // pós-upload usam a API REST direta — padrão comprovado no recuperarMidiaWapiPendente.
+  const appId = Deno.env.get('BASE44_APP_ID');
+  const apiHeaders = {
+    'Authorization': req.headers.get('authorization') || '',
+    'api_key': req.headers.get('api_key') || '',
+    'Content-Type': 'application/json'
+  };
+  const msgApiUrl = (id) => `https://base44.app/api/apps/${appId}/entities/Message/${id}`;
 
   const { file_id, integration_id, media_type, filename } = body;
 
@@ -221,22 +233,30 @@ Deno.serve(async (req) => {
     console.log(`[${VERSION}] ✅ Sucesso em ${processingTime}ms: ${permanentUrl}`);
 
     // 6. ATUALIZAR MENSAGEM COM URL PERMANENTE (se message_id informado)
+    // ✅ API REST DIRETA: o SDK trava pós-UploadFile — get/update via fetch com timeout.
     if (body.message_id) {
       try {
-        // ✅ FIX: preserva metadados existentes (canal_nome, instance_id, connected_phone, etc.)
-        const existingMessage = await base44.asServiceRole.entities.Message.get(body.message_id);
+        const rGet = await fetch(msgApiUrl(body.message_id), { headers: apiHeaders, signal: AbortSignal.timeout(15000) });
+        const existingMessage = rGet.ok ? await rGet.json() : null;
         const existingMetadata = existingMessage?.metadata || {};
 
-        await base44.asServiceRole.entities.Message.update(body.message_id, {
-          media_url: permanentUrl,
-          metadata: {
-            ...existingMetadata,
-            midia_persistida: true,
-            persisted_at: new Date().toISOString(),
-            original_temp_url: body.media_url || null
-          }
+        const rUpd = await fetch(msgApiUrl(body.message_id), {
+          method: 'PUT',
+          headers: apiHeaders,
+          signal: AbortSignal.timeout(15000),
+          body: JSON.stringify({
+            media_url: permanentUrl,
+            metadata: {
+              ...existingMetadata,
+              midia_persistida: true,
+              persisted_at: new Date().toISOString(),
+              persist_method: 'worker_zapi_rest',
+              original_temp_url: body.media_url || null
+            }
+          })
         });
-        console.log(`[${VERSION}] ✅ Mensagem ${body.message_id} atualizada com URL permanente`);
+        if (!rUpd.ok) throw new Error(`update_api_http_${rUpd.status}`);
+        console.log(`[${VERSION}] ✅ Mensagem ${body.message_id} atualizada com URL permanente (REST direto)`);
       } catch (updErr) {
         console.warn(`[${VERSION}] ⚠️ Erro ao atualizar mensagem:`, updErr.message);
       }

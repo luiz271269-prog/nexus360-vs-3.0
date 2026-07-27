@@ -1271,20 +1271,16 @@ async function handleMessage(dados, payloadBruto, base44) {
   // (agora persistido no schema da Message).
   if (dados.downloadSpec) {
     const spec = dados.downloadSpec;
-    let midiaOk = false;
+    const midiaOk = false;
 
-    // 1️⃣ MÉTODO DIRETO (comprovado): sem invoke cross-function, sem 502.
-    if (spec.mediaKey && spec.directPath && integracaoId) {
-      try {
-        const urlPermanente = await baixarMidiaDiretoWapi(base44, mensagem, integracaoId, spec, dados.mediaType);
-        midiaOk = true;
-        console.log(`[WAPI] ✅ Mídia persistida INLINE (método direto): ${urlPermanente.substring(0, 60)}`);
-      } catch (e) {
-        console.warn(`[WAPI] ⚠️ Método direto inline falhou (${e?.message}) — fallback para worker`);
-      }
-    }
+    // ⛔ MÉTODO DIRETO INLINE REMOVIDO (jul/2026): o UploadFile dentro do webhook
+    // travava o cliente SDK no Message.update seguinte (lock pós-upload) — o runtime
+    // matava a função inteira, a mídia ficava pending_download até o watchdog
+    // (5-15min) e o processInbound (URA) nem chegava a disparar. O worker
+    // persistirMidiaWapi agora grava via API REST direta (imune ao lock) e é o
+    // caminho imediato.
 
-    // 2️⃣ FALLBACK: worker persistirMidiaWapi (multi-caminho: url/mediaId)
+    // 1️⃣ WORKER persistirMidiaWapi (multi-caminho: url/mediaKey+directPath/mediaId)
     if (!midiaOk) {
       console.log('[WAPI] 🏛️ Executando worker de mídia (awaited)...', {
         message_id: mensagem.id,

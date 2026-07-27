@@ -9,7 +9,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 //     segurança anti-SSRF mantidas intactas.
 // ============================================================================
 
-const VERSION = 'v10.0.1-REDEPLOY';
+const VERSION = 'v11.0.0-UPDATE-REST-DIRETO';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const DOWNLOAD_TIMEOUT = 30000; // 30s (igual ao Z-API)
 const RESOLVE_TIMEOUT = 20000;  // 20s — POST que resolve o fileLink na W-API
@@ -88,6 +88,18 @@ Deno.serve(async (req) => {
   // ✅ BUG FIX #1: Criar cliente ANTES de ler body (evita consumo do stream)
   const base44 = createClientFromRequest(req);
   console.log('[PERSISTIR-MIDIA-WAPI] ✅ Cliente criado via createClientFromRequest');
+
+  // ✅ WORKAROUND CAUSA-RAIZ (jul/2026): após UploadFile, o cliente SDK trava em
+  // QUALQUER chamada de entidade (update nunca resolve → runtime mata a função e
+  // a mídia fica pending_download até o watchdog, 5-15min depois). Updates
+  // pós-upload usam a API REST direta — padrão comprovado no recuperarMidiaWapiPendente.
+  const appId = Deno.env.get('BASE44_APP_ID');
+  const apiHeaders = {
+    'Authorization': req.headers.get('authorization') || '',
+    'api_key': req.headers.get('api_key') || '',
+    'Content-Type': 'application/json'
+  };
+  const msgApiUrl = (id) => `https://base44.app/api/apps/${appId}/entities/Message/${id}`;
 
   // Helper: marca failed_download preservando metadata existente (padronização)
   const marcarFalha = async (msgId, motivo, extra = {}) => {
@@ -400,6 +412,10 @@ Deno.serve(async (req) => {
     const baseF = sanitizeFilename(filename?.replace(/\.[^.]+$/, '') || downloadSpec.type || 'media').substring(0, 40) || 'media';
     const nomeArquivo = `wapi_${message_id.substring(0, 8)}_${timestamp}_${baseF}.${extensao}`;
 
+    // ✅ Ler metadata atual ANTES do upload (SDK ainda seguro neste ponto)
+    let mensagemAtual;
+    try { mensagemAtual = await base44.asServiceRole.entities.Message.get(message_id); } catch (_) {}
+
     // ✅ UPLOAD PARA BASE44 (URLs W-API expiram em 24h)
     // Converter blob para File para upload via SDK
     const file = new File([blob], nomeArquivo, { type: contentType });
@@ -419,10 +435,6 @@ Deno.serve(async (req) => {
       uploadOk = false;
     }
 
-    // Buscar metadata atual para preservar
-    let mensagemAtual;
-    try { mensagemAtual = await base44.asServiceRole.entities.Message.get(message_id); } catch (_) {}
-
     // ✅ BUG FIX #4: URL limpa + flags separadas no metadata (não #ttl-24h na URL)
     const isTemporary = !uploadOk;
      const metadata = {
@@ -431,6 +443,7 @@ Deno.serve(async (req) => {
        caminho_usado: caminhoUsado,
        url_original: mediaUrl,
        persistida_em: new Date().toISOString(),
+       persist_method: 'worker_wapi_rest',
        tamanho_bytes: blob.size,
        mimetype_detectado: contentType,
        url_provider: uploadOk ? 'base44' : 'wapi'
@@ -441,10 +454,14 @@ Deno.serve(async (req) => {
        metadata.media_expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
      }
 
-     await base44.asServiceRole.entities.Message.update(message_id, {
-       media_url: permanentUrl,
-       metadata
+     // ✅ API REST DIRETA: o SDK trava pós-UploadFile — update via fetch com timeout.
+     const rUpd = await fetch(msgApiUrl(message_id), {
+       method: 'PUT',
+       headers: apiHeaders,
+       signal: AbortSignal.timeout(15000),
+       body: JSON.stringify({ media_url: permanentUrl, metadata })
      });
+     if (!rUpd.ok) throw new Error(`update_api_http_${rUpd.status}`);
 
      // ✅ LOG FINAL: confirmar URL salva (storage real, não fixo)
      const storage = uploadOk ? 'base44' : 'wapi_temp';
