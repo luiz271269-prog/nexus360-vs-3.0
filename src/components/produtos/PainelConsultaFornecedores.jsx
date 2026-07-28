@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Loader2, ShoppingCart } from "lucide-react";
+import { RefreshCw, Loader2, ShoppingCart, SlidersHorizontal } from "lucide-react";
+import ModalConfigPrecificacaoLojas from "./ModalConfigPrecificacaoLojas";
+import { CHAVE_PRECIFICACAO, configDaLoja, custoEmReais, precoDeVenda } from "./precificacaoFornecedor";
 import FiltrosFornecedorSidebar from "./FiltrosFornecedorSidebar";
 import CardProdutoFornecedor from "./CardProdutoFornecedor";
 import ModalDetalheFornecedor from "./ModalDetalheFornecedor";
@@ -24,6 +26,10 @@ export default function PainelConsultaFornecedores() {
   const [marcasSelecionadas, setMarcasSelecionadas] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [configMargemId, setConfigMargemId] = useState(null);
+  const [precoConfigs, setPrecoConfigs] = useState({});
+  const [precoConfigId, setPrecoConfigId] = useState(null);
+  const [configAberta, setConfigAberta] = useState(false);
+  const [cotacaoSite, setCotacaoSite] = useState(null);
 
   // Margem padrão do sistema (somente admin edita; todos consomem)
   useEffect(() => {
@@ -39,8 +45,37 @@ export default function PainelConsultaFornecedores() {
           if (cfg.valor?.margem != null) setMargem(String(cfg.valor.margem));
         }
       } catch (e) { console.warn('[FORNECEDOR] margem padrão não carregada', e); }
+      try {
+        const [cfg] = await base44.entities.ConfiguracaoSistema.filter({ chave: CHAVE_PRECIFICACAO });
+        if (cfg) {
+          setPrecoConfigId(cfg.id);
+          setPrecoConfigs(cfg.valor?.lojas || {});
+        }
+      } catch (e) { console.warn('[FORNECEDOR] precificação não carregada', e); }
     })();
   }, []);
+
+  const salvarPrecificacao = async (lojas) => {
+    setPrecoConfigs(lojas);
+    if (!isAdmin) return;
+    const payload = {
+      valor: { lojas },
+      ultima_atualizacao: new Date().toISOString(),
+    };
+    try {
+      if (precoConfigId) {
+        await base44.entities.ConfiguracaoSistema.update(precoConfigId, payload);
+      } else {
+        const criado = await base44.entities.ConfiguracaoSistema.create({
+          chave: CHAVE_PRECIFICACAO,
+          categoria: 'geral',
+          descricao: 'Precificação por loja do fornecedor (dólar, frete e margem)',
+          ...payload,
+        });
+        setPrecoConfigId(criado.id);
+      }
+    } catch (e) { console.warn('[FORNECEDOR] falha ao salvar precificação', e); }
+  };
 
   const salvarMargemPadrao = async (valor) => {
     setMargem(valor);
@@ -71,7 +106,14 @@ export default function PainelConsultaFornecedores() {
     setErro(null);
     try {
       const { data } = await base44.functions.invoke("buscarProdutosFornecedor", { q: termo });
-      setProdutos(classificarProdutos(Array.isArray(data?.produtos) ? data.produtos : []));
+      const brutos = Array.isArray(data?.produtos) ? data.produtos : [];
+      // Mantém marca/categoria que já vêm do site (Visão VIP) e classifica o resto
+      setProdutos(classificarProdutos(brutos).map((p, i) => ({
+        ...p,
+        marca: brutos[i]?.marca || p.marca,
+        tipo_item: brutos[i]?.tipo_item || p.tipo_item,
+      })));
+      setCotacaoSite(data?.cotacao_dolar_site || null);
       setAtualizadoEm(data?.atualizado_em || null);
       if (data?.erros?.length) setErro(data.erros.join(" | "));
     } catch (e) {
@@ -104,6 +146,12 @@ export default function PainelConsultaFornecedores() {
   const minNum = parseFloat(String(precoMin).replace(",", ".")) || 0;
   const maxNum = parseFloat(String(precoMax).replace(",", ".")) || Infinity;
 
+  // Config de preço da loja (usa a margem geral quando a loja ainda não foi configurada)
+  const cfgDe = (lojaId) => {
+    const cfg = configDaLoja(precoConfigs, lojaId);
+    return precoConfigs?.[lojaId] ? cfg : { ...cfg, margem: margemNum };
+  };
+
   const filtrados = useMemo(() => {
     return produtos.filter((p) => {
       if (busca && !p.nome.toLowerCase().includes(busca.toLowerCase())) return false;
@@ -111,10 +159,11 @@ export default function PainelConsultaFornecedores() {
       if (tiposSelecionados.length && !tiposSelecionados.includes(p.tipo_item)) return false;
       if (marcasSelecionadas.length && !marcasSelecionadas.includes(p.marca)) return false;
       if (somenteDisponiveis && !p.disponivel) return false;
-      if (p.preco_fornecedor < minNum || p.preco_fornecedor > maxNum) return false;
+      const custo = custoEmReais(p, configDaLoja(precoConfigs, p.loja_id));
+      if (custo < minNum || custo > maxNum) return false;
       return true;
     });
-  }, [produtos, busca, lojasSelecionadas, tiposSelecionados, marcasSelecionadas, somenteDisponiveis, minNum, maxNum]);
+  }, [produtos, busca, lojasSelecionadas, tiposSelecionados, marcasSelecionadas, somenteDisponiveis, minNum, maxNum, precoConfigs]);
 
   const criarToggle = (setter) => (valor) =>
     setter((prev) => (prev.includes(valor) ? prev.filter((x) => x !== valor) : [...prev, valor]));
@@ -150,6 +199,12 @@ export default function PainelConsultaFornecedores() {
             <h2 className="text-base md:text-lg font-bold text-orange-600 leading-tight truncate">Catálogo do Fornecedor</h2>
             <p className="text-xs text-slate-500">{filtrados.length} produtos{isAdmin ? ` · margem +${margemNum}%` : ""}</p>
           </div>
+          {isAdmin && (
+            <Button size="sm" variant="outline" onClick={() => setConfigAberta(true)} className="border-orange-300 gap-1.5 px-2 md:px-3">
+              <SlidersHorizontal className="w-4 h-4" />
+              <span className="hidden md:inline">Precificação</span>
+            </Button>
+          )}
           <MobileDrawer triggerLabel="Filtros" className="bg-gradient-to-br from-amber-50 to-orange-50">
             {filtrosEl}
           </MobileDrawer>
@@ -184,9 +239,11 @@ export default function PainelConsultaFornecedores() {
                   produto={p}
                   margem={margemNum}
                   mostrarCusto={isAdmin}
+                  precoVenda={precoDeVenda(p, cfgDe(p.loja_id))}
+                  precoCusto={custoEmReais(p, cfgDe(p.loja_id))}
                   onAbrir={(prod) => {
-                    // Admin abre direto a página do produto no site do fornecedor
-                    if (isAdmin && prod.url) window.open(prod.url, "_blank", "noopener");
+                    // Admin (e produtos da Visão VIP) abrem direto no site do fornecedor
+                    if ((isAdmin || prod.loja_id === "visaovip") && prod.url) window.open(prod.url, "_blank", "noopener");
                     else setProdutoAberto(prod);
                   }}
                 />
@@ -201,6 +258,14 @@ export default function PainelConsultaFornecedores() {
           </p>
         )}
       </div>
+
+      <ModalConfigPrecificacaoLojas
+        aberto={configAberta}
+        configs={precoConfigs}
+        cotacaoSite={cotacaoSite}
+        onSalvar={salvarPrecificacao}
+        onClose={() => setConfigAberta(false)}
+      />
 
       <ModalDetalheFornecedor
         produto={produtoAberto}

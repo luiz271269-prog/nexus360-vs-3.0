@@ -7,12 +7,14 @@ const CORES_LOJA = {
   tubarao: "bg-blue-100 text-blue-700 border-blue-300",
   garopaba: "bg-emerald-100 text-emerald-700 border-emerald-300",
   criciuma: "bg-purple-100 text-purple-700 border-purple-300",
+  visaovip: "bg-cyan-100 text-cyan-700 border-cyan-300",
 };
 
 const fmtBRL = (v) => (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export default function CardProdutoFornecedor({ produto, margem, onAbrir, mostrarCusto = false }) {
-  const precoVenda = produto.preco_fornecedor * (1 + margem / 100);
+export default function CardProdutoFornecedor({ produto, margem, onAbrir, mostrarCusto = false, precoVenda: precoVendaProp, precoCusto }) {
+  const precoVenda = precoVendaProp != null ? precoVendaProp : produto.preco_fornecedor * (1 + margem / 100);
+  const custo = precoCusto != null ? precoCusto : produto.preco_fornecedor;
 
   return (
     <button
@@ -51,7 +53,10 @@ export default function CardProdutoFornecedor({ produto, margem, onAbrir, mostra
         </p>
         <div className="mt-auto pt-2">
           {mostrarCusto && (
-            <p className="text-[11px] text-slate-400">Fornecedor: {fmtBRL(produto.preco_fornecedor)}</p>
+            <p className="text-[11px] text-slate-400">
+              Fornecedor: {fmtBRL(custo)}
+              {produto.moeda === "USD" && <span className="ml-1">(U$ {produto.preco_fornecedor})</span>}
+            </p>
           )}
           <p className="text-base font-bold text-emerald-700 flex items-center gap-1">
             {fmtBRL(precoVenda)}
