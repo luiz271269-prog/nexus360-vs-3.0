@@ -12,7 +12,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Package, Tag, Instagram, MessagesSquare } from "lucide-react";
+import { Package, Tag, Instagram, MessagesSquare, Store } from "lucide-react";
+import PainelConsultaFornecedores from "../components/produtos/PainelConsultaFornecedores";
 import InstagramPublicacao from "./InstagramPublicacao";
 import TextosSociais from "./TextosSociais";
 
@@ -457,6 +458,9 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
           <TabsTrigger value="textos" className="gap-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white">
             <MessagesSquare className="w-4 h-4" /> Textos para Publicação
           </TabsTrigger>
+          <TabsTrigger value="fornecedores" className="gap-2 data-[state=active]:bg-teal-600 data-[state=active]:text-white">
+            <Store className="w-4 h-4" /> Fornecedores
+          </TabsTrigger>
         </TabsList>
       </div>
 
@@ -706,6 +710,10 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
 
       <TabsContent value="textos" className="flex-1 min-h-0 overflow-y-auto m-0">
         <TextosSociais />
+      </TabsContent>
+
+      <TabsContent value="fornecedores" className="flex-1 min-h-0 m-0">
+        <PainelConsultaFornecedores />
       </TabsContent>
 
       {showFormModal && (
