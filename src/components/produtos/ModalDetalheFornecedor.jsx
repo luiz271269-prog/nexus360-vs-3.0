@@ -6,7 +6,7 @@ import { Loader2, Package, ImageOff } from "lucide-react";
 
 const fmtBRL = (v) => (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export default function ModalDetalheFornecedor({ produto, margem, onClose }) {
+export default function ModalDetalheFornecedor({ produto, margem, onClose, mostrarCusto = false }) {
   const [detalhe, setDetalhe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
@@ -74,9 +74,11 @@ export default function ModalDetalheFornecedor({ produto, margem, onClose }) {
               <h2 className="text-xl font-bold text-slate-800 leading-snug">{nome}</h2>
 
               <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-4">
-                <p className="text-xs text-slate-500">Preço de venda (custo +{margem}%)</p>
+                <p className="text-xs text-slate-500">Preço de venda</p>
                 <p className="text-3xl font-bold text-emerald-700">{fmtBRL(precoVenda)}</p>
-                <p className="text-xs text-slate-500 mt-1">Custo fornecedor: {fmtBRL(precoFornecedor)}</p>
+                {mostrarCusto && (
+                  <p className="text-xs text-slate-500 mt-1">Custo fornecedor: {fmtBRL(precoFornecedor)} (+{margem}%)</p>
+                )}
               </div>
 
               <div className="flex items-center gap-2 text-sm">

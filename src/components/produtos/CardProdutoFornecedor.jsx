@@ -11,7 +11,7 @@ const CORES_LOJA = {
 
 const fmtBRL = (v) => (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export default function CardProdutoFornecedor({ produto, margem, onAbrir }) {
+export default function CardProdutoFornecedor({ produto, margem, onAbrir, mostrarCusto = false }) {
   const precoVenda = produto.preco_fornecedor * (1 + margem / 100);
 
   return (
@@ -50,7 +50,9 @@ export default function CardProdutoFornecedor({ produto, margem, onAbrir }) {
           {produto.nome}
         </p>
         <div className="mt-auto pt-2">
-          <p className="text-[11px] text-slate-400">Fornecedor: {fmtBRL(produto.preco_fornecedor)}</p>
+          {mostrarCusto && (
+            <p className="text-[11px] text-slate-400">Fornecedor: {fmtBRL(produto.preco_fornecedor)}</p>
+          )}
           <p className="text-base font-bold text-emerald-700 flex items-center gap-1">
             {fmtBRL(precoVenda)}
             <Eye className="w-3.5 h-3.5 text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />

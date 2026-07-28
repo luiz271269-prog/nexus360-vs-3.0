@@ -175,7 +175,17 @@ export default function PainelConsultaFornecedores() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
               {filtrados.map((p, idx) => (
-                <CardProdutoFornecedor key={`${p.loja_id}-${idx}`} produto={p} margem={margemNum} onAbrir={setProdutoAberto} />
+                <CardProdutoFornecedor
+                  key={`${p.loja_id}-${idx}`}
+                  produto={p}
+                  margem={margemNum}
+                  mostrarCusto={isAdmin}
+                  onAbrir={(prod) => {
+                    // Admin abre direto a página do produto no site do fornecedor
+                    if (isAdmin && prod.url) window.open(prod.url, "_blank", "noopener");
+                    else setProdutoAberto(prod);
+                  }}
+                />
               ))}
             </div>
           )}
@@ -191,6 +201,7 @@ export default function PainelConsultaFornecedores() {
       <ModalDetalheFornecedor
         produto={produtoAberto}
         margem={margemNum}
+        mostrarCusto={isAdmin}
         onClose={() => setProdutoAberto(null)}
       />
     </div>
