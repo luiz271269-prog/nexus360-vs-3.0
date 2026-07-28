@@ -444,8 +444,8 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
 
   return (
     <Tabs defaultValue={tabInicial} className="flex flex-col h-screen bg-transparent">
-      <div className="px-4 pt-3 flex-shrink-0">
-        <TabsList className="bg-white/70 border border-orange-200 shadow-sm">
+      <div className="px-2 md:px-4 pt-3 flex-shrink-0 overflow-x-auto no-scrollbar">
+        <TabsList className="bg-white/70 border border-orange-200 shadow-sm w-max flex-nowrap">
           <TabsTrigger value="catalogo" className="gap-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
             <Package className="w-4 h-4" /> Catálogo
           </TabsTrigger>

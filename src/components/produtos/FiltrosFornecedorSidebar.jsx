@@ -13,7 +13,7 @@ export default function FiltrosFornecedorSidebar({
   precoMin, setPrecoMin, precoMax, setPrecoMax,
 }) {
   return (
-    <div className="w-full lg:w-64 flex-shrink-0 space-y-3 overflow-y-auto">
+    <div className="w-full md:w-64 flex-shrink-0 space-y-3 overflow-y-auto p-1">
       {/* Busca rápida */}
       <div className="rounded-xl overflow-hidden border-2 border-orange-200 bg-white shadow-sm">
         <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white">

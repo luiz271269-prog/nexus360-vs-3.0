@@ -5,6 +5,7 @@ import { RefreshCw, Loader2, ShoppingCart } from "lucide-react";
 import FiltrosFornecedorSidebar from "./FiltrosFornecedorSidebar";
 import CardProdutoFornecedor from "./CardProdutoFornecedor";
 import ModalDetalheFornecedor from "./ModalDetalheFornecedor";
+import MobileDrawer from "@/components/mobile/MobileDrawer";
 import { classificarProdutos, contarPor } from "./classificarProdutoFornecedor";
 
 export default function PainelConsultaFornecedores() {
@@ -118,18 +119,22 @@ export default function PainelConsultaFornecedores() {
   const toggleTipo = criarToggle(setTiposSelecionados);
   const toggleMarca = criarToggle(setMarcasSelecionadas);
 
+  const filtrosEl = (
+    <FiltrosFornecedorSidebar
+      busca={busca} setBusca={setBusca}
+      lojas={lojas} lojasSelecionadas={lojasSelecionadas} toggleLoja={toggleLoja}
+      tipos={tipos} tiposSelecionados={tiposSelecionados} toggleTipo={toggleTipo}
+      marcas={marcas} marcasSelecionadas={marcasSelecionadas} toggleMarca={toggleMarca}
+      somenteDisponiveis={somenteDisponiveis} setSomenteDisponiveis={setSomenteDisponiveis}
+      margem={margem} setMargem={salvarMargemPadrao} podeEditarMargem={isAdmin}
+      precoMin={precoMin} setPrecoMin={setPrecoMin}
+      precoMax={precoMax} setPrecoMax={setPrecoMax}
+    />
+  );
+
   return (
-    <div className="flex flex-col lg:flex-row gap-3 p-3 h-full">
-      <FiltrosFornecedorSidebar
-        busca={busca} setBusca={setBusca}
-        lojas={lojas} lojasSelecionadas={lojasSelecionadas} toggleLoja={toggleLoja}
-        tipos={tipos} tiposSelecionados={tiposSelecionados} toggleTipo={toggleTipo}
-        marcas={marcas} marcasSelecionadas={marcasSelecionadas} toggleMarca={toggleMarca}
-        somenteDisponiveis={somenteDisponiveis} setSomenteDisponiveis={setSomenteDisponiveis}
-        margem={margem} setMargem={salvarMargemPadrao} podeEditarMargem={isAdmin}
-        precoMin={precoMin} setPrecoMin={setPrecoMin}
-        precoMax={precoMax} setPrecoMax={setPrecoMax}
-      />
+    <div className="flex flex-col lg:flex-row gap-3 p-2 md:p-3 h-full">
+      <div className="hidden md:block flex-shrink-0">{filtrosEl}</div>
 
       <div className="flex-1 min-w-0 flex flex-col gap-3">
         {/* Cabeçalho */}
@@ -138,11 +143,15 @@ export default function PainelConsultaFornecedores() {
             <ShoppingCart className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-orange-600 leading-tight">Catálogo do Fornecedor</h2>
+            <h2 className="text-base md:text-lg font-bold text-orange-600 leading-tight truncate">Catálogo do Fornecedor</h2>
             <p className="text-xs text-slate-500">{filtrados.length} produtos{isAdmin ? ` · margem +${margemNum}%` : ""}</p>
           </div>
-          <Button size="sm" variant="outline" onClick={carregar} disabled={loading} className="border-orange-300 gap-1.5">
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Atualizar
+          <MobileDrawer triggerLabel="Filtros" className="bg-gradient-to-br from-amber-50 to-orange-50">
+            {filtrosEl}
+          </MobileDrawer>
+          <Button size="sm" variant="outline" onClick={carregar} disabled={loading} className="border-orange-300 gap-1.5 px-2 md:px-3">
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden md:inline">Atualizar</span>
           </Button>
         </div>
 
