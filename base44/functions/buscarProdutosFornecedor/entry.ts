@@ -219,8 +219,10 @@ Deno.serve(async (req) => {
     produtos.push(...(visao?.produtos || []));
 
     return Response.json({
-      produtos,
       total: produtos.length,
+      total_por_loja: produtos.reduce((acc, p) => ({ ...acc, [p.loja_id]: (acc[p.loja_id] || 0) + 1 }), {}),
+      erros,
+      produtos,
       margem_aplicada: MARGEM,
       cotacao_dolar_site: visao?.cotacao || null,
       erros,
