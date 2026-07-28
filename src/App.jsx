@@ -21,6 +21,7 @@ import Emails from '@/pages/Emails';
 import PortalCliente from '@/pages/PortalCliente';
 import MapaClientes from '@/pages/MapaClientes';
 import PainelMetas from '@/pages/PainelMetas';
+import FornecedoresPortal from '@/pages/FornecedoresPortal';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -170,6 +171,15 @@ const AuthenticatedApp = () => {
             </LayoutWrapper>
           } 
         />
+        <Route 
+          path="/FornecedoresPortal" 
+          element={
+            <LayoutWrapper currentPageName="FornecedoresPortal">
+              <FornecedoresPortal />
+            </LayoutWrapper>
+          } 
+        />
+        <Route path="/fornecedores" element={<Navigate to="/FornecedoresPortal" replace />} />
         <Route path="/AprendizadosSemanais" element={<Navigate to="/CentralIA?tab=aprendizados" replace />} />
         <Route path="/PortalCliente" element={<PortalCliente />} />
         <Route path="/MinhaCaixaEmail" element={<Navigate to="/Emails" replace />} />

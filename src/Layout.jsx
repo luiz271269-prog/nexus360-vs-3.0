@@ -326,7 +326,8 @@ export default function Layout({ children, currentPageName }) {
     { name: "Configuração do Sistema", icon: Settings, page: "ConfiguracaoIA" },
     { name: "Notas Fiscais", icon: FileText, page: "NotasFiscais" },
     { name: "Central de E-mail", icon: Mail, page: "Emails" },
-    { name: "Central IA", icon: Bot, page: "CentralIA" }
+    { name: "Central IA", icon: Bot, page: "CentralIA" },
+    { name: "Fornecedores", icon: ShoppingCart, page: "FornecedoresPortal" }
     // ⚠️ DEPRECATED: TagManager removido do menu - usar GerenciadorEtiquetasUnificado em Automações
   ];
 
