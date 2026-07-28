@@ -7,7 +7,7 @@ const LOJAS = [
   { id: "criciuma", nome: "Criciúma", base: "https://asvezestemcriciuma.com.br/eletronicos/" },
 ];
 
-const PAGINAS = 3;
+const PAGINAS = 8; // 12 produtos por página (?page=N) — mpage não funciona server-side
 const MARGEM = 1.5; // %
 
 function parsePreco(txt) {
