@@ -1,11 +1,13 @@
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Store, Tags, DollarSign } from "lucide-react";
+import { Search, Store, Tags, Tag, DollarSign } from "lucide-react";
 
 export default function FiltrosFornecedorSidebar({
   busca, setBusca,
   lojas, lojasSelecionadas, toggleLoja,
+  tipos, tiposSelecionados, toggleTipo,
+  marcas, marcasSelecionadas, toggleMarca,
   somenteDisponiveis, setSomenteDisponiveis,
   margem, setMargem,
   precoMin, setPrecoMin, precoMax, setPrecoMax,
@@ -43,6 +45,40 @@ export default function FiltrosFornecedorSidebar({
               />
               <span className="text-sm text-slate-700 flex-1 group-hover:text-orange-600">{l.nome}</span>
               <span className="text-xs text-slate-400 font-medium">{l.total}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Categorias (tipo do item) */}
+      <div className="rounded-xl overflow-hidden border-2 border-orange-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-slate-800 to-slate-700 text-white">
+          <Tags className="w-4 h-4" />
+          <span className="text-sm font-bold">Categorias</span>
+        </div>
+        <div className="p-3 space-y-2 max-h-56 overflow-y-auto">
+          {tipos.map((t) => (
+            <label key={t.valor} className="flex items-center gap-2 cursor-pointer group">
+              <Checkbox checked={tiposSelecionados.includes(t.valor)} onCheckedChange={() => toggleTipo(t.valor)} />
+              <span className="text-sm text-slate-700 flex-1 group-hover:text-orange-600">{t.valor}</span>
+              <span className="text-xs text-slate-400 font-medium">{t.total}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Marcas */}
+      <div className="rounded-xl overflow-hidden border-2 border-orange-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-slate-800 to-slate-700 text-white">
+          <Tag className="w-4 h-4" />
+          <span className="text-sm font-bold">Marcas</span>
+        </div>
+        <div className="p-3 space-y-2 max-h-56 overflow-y-auto">
+          {marcas.map((m) => (
+            <label key={m.valor} className="flex items-center gap-2 cursor-pointer group">
+              <Checkbox checked={marcasSelecionadas.includes(m.valor)} onCheckedChange={() => toggleMarca(m.valor)} />
+              <span className="text-sm text-slate-700 flex-1 group-hover:text-orange-600">{m.valor}</span>
+              <span className="text-xs text-slate-400 font-medium">{m.total}</span>
             </label>
           ))}
         </div>

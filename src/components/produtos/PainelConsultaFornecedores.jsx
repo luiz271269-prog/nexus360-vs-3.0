@@ -5,6 +5,7 @@ import { RefreshCw, Loader2, ShoppingCart } from "lucide-react";
 import FiltrosFornecedorSidebar from "./FiltrosFornecedorSidebar";
 import CardProdutoFornecedor from "./CardProdutoFornecedor";
 import ModalDetalheFornecedor from "./ModalDetalheFornecedor";
+import { classificarProdutos, contarPor } from "./classificarProdutoFornecedor";
 
 export default function PainelConsultaFornecedores() {
   const [produtos, setProdutos] = useState([]);
@@ -18,13 +19,15 @@ export default function PainelConsultaFornecedores() {
   const [precoMax, setPrecoMax] = useState("");
   const [atualizadoEm, setAtualizadoEm] = useState(null);
   const [produtoAberto, setProdutoAberto] = useState(null);
+  const [tiposSelecionados, setTiposSelecionados] = useState([]);
+  const [marcasSelecionadas, setMarcasSelecionadas] = useState([]);
 
   const carregar = async () => {
     setLoading(true);
     setErro(null);
     try {
       const { data } = await base44.functions.invoke("buscarProdutosFornecedor", {});
-      setProdutos(Array.isArray(data?.produtos) ? data.produtos : []);
+      setProdutos(classificarProdutos(Array.isArray(data?.produtos) ? data.produtos : []));
       setAtualizadoEm(data?.atualizado_em || null);
       if (data?.erros?.length) setErro(data.erros.join(" | "));
     } catch (e) {
@@ -46,6 +49,9 @@ export default function PainelConsultaFornecedores() {
     return Array.from(map.values());
   }, [produtos]);
 
+  const tipos = useMemo(() => contarPor(produtos, "tipo_item"), [produtos]);
+  const marcas = useMemo(() => contarPor(produtos, "marca"), [produtos]);
+
   const margemNum = parseFloat(String(margem).replace(",", ".")) || 0;
   const minNum = parseFloat(String(precoMin).replace(",", ".")) || 0;
   const maxNum = parseFloat(String(precoMax).replace(",", ".")) || Infinity;
@@ -54,20 +60,28 @@ export default function PainelConsultaFornecedores() {
     return produtos.filter((p) => {
       if (busca && !p.nome.toLowerCase().includes(busca.toLowerCase())) return false;
       if (lojasSelecionadas.length && !lojasSelecionadas.includes(p.loja_id)) return false;
+      if (tiposSelecionados.length && !tiposSelecionados.includes(p.tipo_item)) return false;
+      if (marcasSelecionadas.length && !marcasSelecionadas.includes(p.marca)) return false;
       if (somenteDisponiveis && !p.disponivel) return false;
       if (p.preco_fornecedor < minNum || p.preco_fornecedor > maxNum) return false;
       return true;
     });
-  }, [produtos, busca, lojasSelecionadas, somenteDisponiveis, minNum, maxNum]);
+  }, [produtos, busca, lojasSelecionadas, tiposSelecionados, marcasSelecionadas, somenteDisponiveis, minNum, maxNum]);
 
-  const toggleLoja = (id) =>
-    setLojasSelecionadas((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const criarToggle = (setter) => (valor) =>
+    setter((prev) => (prev.includes(valor) ? prev.filter((x) => x !== valor) : [...prev, valor]));
+
+  const toggleLoja = criarToggle(setLojasSelecionadas);
+  const toggleTipo = criarToggle(setTiposSelecionados);
+  const toggleMarca = criarToggle(setMarcasSelecionadas);
 
   return (
     <div className="flex flex-col lg:flex-row gap-3 p-3 h-full">
       <FiltrosFornecedorSidebar
         busca={busca} setBusca={setBusca}
         lojas={lojas} lojasSelecionadas={lojasSelecionadas} toggleLoja={toggleLoja}
+        tipos={tipos} tiposSelecionados={tiposSelecionados} toggleTipo={toggleTipo}
+        marcas={marcas} marcasSelecionadas={marcasSelecionadas} toggleMarca={toggleMarca}
         somenteDisponiveis={somenteDisponiveis} setSomenteDisponiveis={setSomenteDisponiveis}
         margem={margem} setMargem={setMargem}
         precoMin={precoMin} setPrecoMin={setPrecoMin}
