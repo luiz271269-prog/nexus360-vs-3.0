@@ -66,11 +66,11 @@ export default function PainelConsultaFornecedores() {
     } catch (e) { console.warn('[FORNECEDOR] falha ao salvar margem padrão', e); }
   };
 
-  const carregar = async () => {
+  const carregar = async (termo = "") => {
     setLoading(true);
     setErro(null);
     try {
-      const { data } = await base44.functions.invoke("buscarProdutosFornecedor", {});
+      const { data } = await base44.functions.invoke("buscarProdutosFornecedor", { q: termo });
       setProdutos(classificarProdutos(Array.isArray(data?.produtos) ? data.produtos : []));
       setAtualizadoEm(data?.atualizado_em || null);
       if (data?.erros?.length) setErro(data.erros.join(" | "));
@@ -81,7 +81,11 @@ export default function PainelConsultaFornecedores() {
     setLoading(false);
   };
 
-  useEffect(() => { carregar(); }, []);
+  // Busca no site do fornecedor (debounce) — vazio volta ao catálogo geral
+  useEffect(() => {
+    const t = setTimeout(() => carregar(busca.trim()), busca.trim() ? 600 : 0);
+    return () => clearTimeout(t);
+  }, [busca]);
 
   const lojas = useMemo(() => {
     const map = new Map();
@@ -149,7 +153,7 @@ export default function PainelConsultaFornecedores() {
           <MobileDrawer triggerLabel="Filtros" className="bg-gradient-to-br from-amber-50 to-orange-50">
             {filtrosEl}
           </MobileDrawer>
-          <Button size="sm" variant="outline" onClick={carregar} disabled={loading} className="border-orange-300 gap-1.5 px-2 md:px-3">
+          <Button size="sm" variant="outline" onClick={() => carregar(busca.trim())} disabled={loading} className="border-orange-300 gap-1.5 px-2 md:px-3">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             <span className="hidden md:inline">Atualizar</span>
           </Button>

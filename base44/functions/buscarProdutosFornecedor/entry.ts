@@ -61,10 +61,18 @@ function extrairProdutos(html, loja) {
   return produtos;
 }
 
-async function buscarLoja(loja) {
+async function buscarLoja(loja, termo = '') {
   const urls = [];
-  for (let p = 1; p <= PAGINAS; p++) {
-    urls.push(p === 1 ? loja.base : `${loja.base}?page=${p}`);
+  if (termo) {
+    // Busca no próprio site do fornecedor (pega itens fora das primeiras páginas do catálogo)
+    const origem = new URL(loja.base).origin;
+    for (let p = 1; p <= PAGINAS; p++) {
+      urls.push(`${origem}/search/?q=${encodeURIComponent(termo)}&page=${p}`);
+    }
+  } else {
+    for (let p = 1; p <= PAGINAS; p++) {
+      urls.push(p === 1 ? loja.base : `${loja.base}?page=${p}`);
+    }
   }
   const paginas = await Promise.allSettled(
     urls.map((u) => fetch(u, {
@@ -92,12 +100,19 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const resultados = await Promise.allSettled(LOJAS.map(buscarLoja));
+    let termo = '';
+    try {
+      const body = await req.json();
+      termo = (body?.q || '').toString().trim();
+    } catch { /* sem body */ }
+
+    const resultados = await Promise.allSettled(LOJAS.map((l) => buscarLoja(l, termo)));
 
     const produtos = [];
     const erros = [];
     resultados.forEach((r, i) => {
-      if (r.status === 'fulfilled') produtos.push(...r.value);
+      // Sempre retornar apenas itens com estoque disponível
+      if (r.status === 'fulfilled') produtos.push(...r.value.filter((p) => p.disponivel));
       else erros.push(`${LOJAS[i].nome}: ${r.reason?.message || 'falha'}`);
     });
 
