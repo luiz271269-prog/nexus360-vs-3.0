@@ -9,7 +9,7 @@ export default function FiltrosFornecedorSidebar({
   tipos, tiposSelecionados, toggleTipo,
   marcas, marcasSelecionadas, toggleMarca,
   somenteDisponiveis, setSomenteDisponiveis,
-  margem, setMargem,
+  margem, setMargem, podeEditarMargem = false,
   precoMin, setPrecoMin, precoMax, setPrecoMax,
 }) {
   return (
@@ -104,12 +104,15 @@ export default function FiltrosFornecedorSidebar({
             </div>
           </div>
 
-          <div>
-            <p className="text-xs text-slate-500 mb-1.5 flex items-center gap-1">
-              <DollarSign className="w-3 h-3" /> Margem de venda (%)
-            </p>
-            <Input value={margem} onChange={(e) => setMargem(e.target.value)} className="h-8 text-sm" />
-          </div>
+          {podeEditarMargem && (
+            <div>
+              <p className="text-xs text-slate-500 mb-1.5 flex items-center gap-1">
+                <DollarSign className="w-3 h-3" /> Margem de venda padrão (%)
+              </p>
+              <Input value={margem} onChange={(e) => setMargem(e.target.value)} className="h-8 text-sm" />
+              <p className="text-[11px] text-slate-400 mt-1">Salvo automaticamente como padrão do sistema.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

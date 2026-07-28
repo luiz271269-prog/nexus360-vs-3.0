@@ -21,6 +21,49 @@ export default function PainelConsultaFornecedores() {
   const [produtoAberto, setProdutoAberto] = useState(null);
   const [tiposSelecionados, setTiposSelecionados] = useState([]);
   const [marcasSelecionadas, setMarcasSelecionadas] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [configMargemId, setConfigMargemId] = useState(null);
+
+  // Margem padrão do sistema (somente admin edita; todos consomem)
+  useEffect(() => {
+    (async () => {
+      try {
+        const user = await base44.auth.me();
+        setIsAdmin(user?.role === 'admin');
+      } catch { setIsAdmin(false); }
+      try {
+        const [cfg] = await base44.entities.ConfiguracaoSistema.filter({ chave: 'margem_fornecedor_padrao' });
+        if (cfg) {
+          setConfigMargemId(cfg.id);
+          if (cfg.valor?.margem != null) setMargem(String(cfg.valor.margem));
+        }
+      } catch (e) { console.warn('[FORNECEDOR] margem padrão não carregada', e); }
+    })();
+  }, []);
+
+  const salvarMargemPadrao = async (valor) => {
+    setMargem(valor);
+    if (!isAdmin) return;
+    const num = parseFloat(String(valor).replace(",", "."));
+    if (!Number.isFinite(num)) return;
+    try {
+      if (configMargemId) {
+        await base44.entities.ConfiguracaoSistema.update(configMargemId, {
+          valor: { margem: num },
+          ultima_atualizacao: new Date().toISOString()
+        });
+      } else {
+        const criado = await base44.entities.ConfiguracaoSistema.create({
+          chave: 'margem_fornecedor_padrao',
+          categoria: 'geral',
+          valor: { margem: num },
+          descricao: 'Margem padrão (%) aplicada aos produtos do fornecedor',
+          ultima_atualizacao: new Date().toISOString()
+        });
+        setConfigMargemId(criado.id);
+      }
+    } catch (e) { console.warn('[FORNECEDOR] falha ao salvar margem padrão', e); }
+  };
 
   const carregar = async () => {
     setLoading(true);
@@ -83,7 +126,7 @@ export default function PainelConsultaFornecedores() {
         tipos={tipos} tiposSelecionados={tiposSelecionados} toggleTipo={toggleTipo}
         marcas={marcas} marcasSelecionadas={marcasSelecionadas} toggleMarca={toggleMarca}
         somenteDisponiveis={somenteDisponiveis} setSomenteDisponiveis={setSomenteDisponiveis}
-        margem={margem} setMargem={setMargem}
+        margem={margem} setMargem={salvarMargemPadrao} podeEditarMargem={isAdmin}
         precoMin={precoMin} setPrecoMin={setPrecoMin}
         precoMax={precoMax} setPrecoMax={setPrecoMax}
       />
@@ -96,7 +139,7 @@ export default function PainelConsultaFornecedores() {
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-orange-600 leading-tight">Catálogo do Fornecedor</h2>
-            <p className="text-xs text-slate-500">{filtrados.length} produtos · margem +{margemNum}%</p>
+            <p className="text-xs text-slate-500">{filtrados.length} produtos{isAdmin ? ` · margem +${margemNum}%` : ""}</p>
           </div>
           <Button size="sm" variant="outline" onClick={carregar} disabled={loading} className="border-orange-300 gap-1.5">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Atualizar
