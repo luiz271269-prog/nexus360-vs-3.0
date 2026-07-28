@@ -1,6 +1,6 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, ImageOff } from "lucide-react";
+import { Eye, ImageOff } from "lucide-react";
 
 const CORES_LOJA = {
   matriz: "bg-orange-100 text-orange-700 border-orange-300",
@@ -11,17 +11,16 @@ const CORES_LOJA = {
 
 const fmtBRL = (v) => (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export default function CardProdutoFornecedor({ produto, margem }) {
+export default function CardProdutoFornecedor({ produto, margem, onAbrir }) {
   const precoVenda = produto.preco_fornecedor * (1 + margem / 100);
 
   return (
-    <a
-      href={produto.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group flex flex-col bg-white rounded-xl border-2 border-slate-200 hover:border-orange-400 hover:shadow-lg transition-all overflow-hidden"
+    <button
+      type="button"
+      onClick={() => onAbrir?.(produto)}
+      className="group w-full flex flex-col text-left bg-white rounded-xl border-2 border-slate-200 hover:border-orange-400 hover:shadow-lg transition-all overflow-hidden"
     >
-      <div className="relative aspect-square bg-slate-50 flex items-center justify-center overflow-hidden">
+      <div className="relative aspect-square w-full bg-slate-50 flex items-center justify-center overflow-hidden">
         {produto.imagem ? (
           <img
             src={produto.imagem}
@@ -42,7 +41,7 @@ export default function CardProdutoFornecedor({ produto, margem }) {
         )}
       </div>
 
-      <div className="p-3 flex flex-col gap-1 flex-1">
+      <div className="p-3 flex flex-col gap-1 flex-1 w-full">
         <p
           className="text-sm font-semibold text-slate-800 leading-snug group-hover:text-orange-600"
           style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
@@ -54,10 +53,10 @@ export default function CardProdutoFornecedor({ produto, margem }) {
           <p className="text-[11px] text-slate-400">Fornecedor: {fmtBRL(produto.preco_fornecedor)}</p>
           <p className="text-base font-bold text-emerald-700 flex items-center gap-1">
             {fmtBRL(precoVenda)}
-            <ExternalLink className="w-3 h-3 text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Eye className="w-3.5 h-3.5 text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
           </p>
         </div>
       </div>
-    </a>
+    </button>
   );
 }

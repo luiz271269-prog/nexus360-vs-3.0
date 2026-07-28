@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2, ShoppingCart } from "lucide-react";
 import FiltrosFornecedorSidebar from "./FiltrosFornecedorSidebar";
 import CardProdutoFornecedor from "./CardProdutoFornecedor";
+import ModalDetalheFornecedor from "./ModalDetalheFornecedor";
 
 export default function PainelConsultaFornecedores() {
   const [produtos, setProdutos] = useState([]);
@@ -16,6 +17,7 @@ export default function PainelConsultaFornecedores() {
   const [precoMin, setPrecoMin] = useState("");
   const [precoMax, setPrecoMax] = useState("");
   const [atualizadoEm, setAtualizadoEm] = useState(null);
+  const [produtoAberto, setProdutoAberto] = useState(null);
 
   const carregar = async () => {
     setLoading(true);
@@ -107,7 +109,7 @@ export default function PainelConsultaFornecedores() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
               {filtrados.map((p, idx) => (
-                <CardProdutoFornecedor key={`${p.loja_id}-${idx}`} produto={p} margem={margemNum} />
+                <CardProdutoFornecedor key={`${p.loja_id}-${idx}`} produto={p} margem={margemNum} onAbrir={setProdutoAberto} />
               ))}
             </div>
           )}
@@ -119,6 +121,12 @@ export default function PainelConsultaFornecedores() {
           </p>
         )}
       </div>
+
+      <ModalDetalheFornecedor
+        produto={produtoAberto}
+        margem={margemNum}
+        onClose={() => setProdutoAberto(null)}
+      />
     </div>
   );
 }
