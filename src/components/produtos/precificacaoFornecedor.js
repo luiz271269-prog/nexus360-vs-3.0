@@ -20,8 +20,9 @@ export function custoEmReais(produto, cfg) {
   return produto.moeda === 'USD' ? base * (cfg.dolar || 0) : base;
 }
 
-/** Preço de venda: (custo em R$ + frete) × margem */
+/** Preço de venda: custo em R$ × (1 + frete%) × (1 + margem%)
+ *  Ex.: US$ 1.000 × 5,22 × 1,20 (frete 20%) × 1,35 (margem 35%) = R$ 8.456,40 */
 export function precoDeVenda(produto, cfg) {
   const custo = custoEmReais(produto, cfg);
-  return (custo + (cfg.frete || 0)) * (1 + (cfg.margem || 0) / 100);
+  return custo * (1 + (cfg.frete || 0) / 100) * (1 + (cfg.margem || 0) / 100);
 }

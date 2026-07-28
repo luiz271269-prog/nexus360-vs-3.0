@@ -39,6 +39,10 @@ export default function ModalConfigPrecificacaoLojas({ aberto, configs, cotacaoS
           </p>
         )}
 
+        <p className="text-xs text-slate-500">
+          Cálculo: custo × dólar × (1 + frete%) × (1 + margem%). Ex.: US$ 1.000 × 5,22 × 1,20 × 1,35 = R$ 8.456,40.
+        </p>
+
         <div className="space-y-3">
           {LOJAS_FORNECEDOR.map((loja) => {
             const cfg = configDaLoja(local, loja.id);
@@ -59,7 +63,7 @@ export default function ModalConfigPrecificacaoLojas({ aberto, configs, cotacaoS
                     />
                   </div>
                   <div>
-                    <Label className="text-[11px] text-slate-500">Frete (R$)</Label>
+                    <Label className="text-[11px] text-slate-500">Frete (%)</Label>
                     <Input value={cfg.frete} onChange={(e) => setCampo(loja.id, "frete", e.target.value)} className="h-8 text-sm" />
                   </div>
                   <div>
