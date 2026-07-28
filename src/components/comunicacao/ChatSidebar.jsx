@@ -801,18 +801,16 @@ export default function ChatSidebar({
                 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' :
                 'bg-gradient-to-br from-slate-400 to-slate-500'}`
                 }>
-                  {contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' ?
+                  {/* Letra sempre no fundo — a foto (se existir) fica por cima e permanece após a leitura */}
+                  <span className="absolute inset-0 flex items-center justify-center">
+                    {nomeExibicao.charAt(0).toUpperCase()}
+                  </span>
+                  {contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' &&
                   <img
                     src={contato.foto_perfil_url}
                     alt={nomeExibicao}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.parentElement.textContent = nomeExibicao.charAt(0).toUpperCase();
-                    }} /> :
-
-
-                  nomeExibicao.charAt(0).toUpperCase()
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => {e.target.style.display = 'none';}} />
                   }
                 </div>
               </div>
