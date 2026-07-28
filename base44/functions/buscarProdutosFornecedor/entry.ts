@@ -30,9 +30,17 @@ function extrairProdutos(html, loja) {
     const precos = precosTxt.map(parsePreco).filter((p) => p > 0);
     const preco = precos.length ? Math.max(...precos) : 0;
 
-    const imgMatch = bloco.match(/src="(\/\/[^"\s]+\.(?:webp|jpg|jpeg|png)[^"\s]*)"/) ||
-      bloco.match(/src="(https?:\/\/[^"\s]+\.(?:webp|jpg|jpeg|png)[^"\s]*)"/);
-    let imagem = imgMatch ? imgMatch[1] : null;
+    // Imagens são lazy-load: a URL real está em data-srcset (src é um GIF base64 placeholder)
+    const srcset = bloco.match(/data-srcset="([^"]+)"/);
+    let imagem = null;
+    if (srcset) {
+      const candidatos = srcset[1].split(',').map((s) => s.trim().split(/\s+/)[0]);
+      imagem = candidatos.find((c) => c.includes('-480-')) || candidatos[candidatos.length - 1] || null;
+    }
+    if (!imagem) {
+      const imgMatch = bloco.match(/(?:data-src|src)="((?:\/\/|https?:\/\/)[^"\s]+\.(?:webp|jpg|jpeg|png)[^"\s]*)"/);
+      imagem = imgMatch ? imgMatch[1] : null;
+    }
     if (imagem && imagem.startsWith('//')) imagem = 'https:' + imagem;
 
     // Rótulo "Esgotado" existe em todos os cards; produto está esgotado quando NÃO tem display:none
