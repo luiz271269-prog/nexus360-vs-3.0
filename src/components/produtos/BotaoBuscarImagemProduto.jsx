@@ -16,10 +16,29 @@ export default function BotaoBuscarImagemProduto({ produto, onAtualizado }) {
     setCarregando(true);
     setErro(false);
     try {
-      const termo = [produto.marca, produto.modelo || produto.nome].filter(Boolean).join(" ");
-      const { data } = await base44.functions.buscarProdutosFornecedor({ q: termo });
-      const achado = (data?.produtos || []).find((p) => p.imagem || p.imagem_url);
-      const url = achado?.imagem || achado?.imagem_url;
+      const nome = (produto.nome || "").replace(/[^\w\s.]/g, " ").replace(/\s+/g, " ").trim();
+      const palavras = nome.split(" ");
+      // Vai do termo mais específico para o mais genérico até achar resultado
+      const termos = [
+        nome,
+        palavras.slice(0, 4).join(" "),
+        [produto.marca, palavras.find((w) => /\d/.test(w))].filter(Boolean).join(" "),
+        [produto.marca, palavras[0]].filter(Boolean).join(" "),
+      ].filter((t, i, arr) => t && t.length > 2 && arr.indexOf(t) === i);
+
+      let url = null;
+      for (const termo of termos) {
+        const { data } = await base44.functions.buscarProdutosFornecedor({ q: termo });
+        const lista = (data?.produtos || []).filter((p) => p.imagem);
+        if (!lista.length) continue;
+        // escolhe o item com maior sobreposição de palavras com o nome do produto
+        const chaves = palavras.filter((w) => w.length > 2).map((w) => w.toLowerCase());
+        const melhor = lista
+          .map((p) => ({ p, score: chaves.filter((k) => (p.nome || "").toLowerCase().includes(k)).length }))
+          .sort((a, b) => b.score - a.score)[0];
+        url = melhor?.p?.imagem;
+        if (url) break;
+      }
       if (!url) { setErro(true); return; }
       await base44.entities.Produto.update(produto.id, { imagem_url: url });
       onAtualizado?.(produto.id, url);
