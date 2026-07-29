@@ -22,11 +22,32 @@ export default function ListaSelecaoProdutos({ itens, onRemover, onLimpar }) {
       "",
       `*Total: ${fmtBRL(total)}*`,
     ].join("\n");
+    // Versão com imagens (cola em e-mail, Word, Docs). Onde só há texto, cai no fallback.
+    const html = `<div style="font-family:sans-serif">
+      <h3 style="color:#ea580c">Minha lista de interesse</h3>
+      ${itens.map((i) => `<div style="display:flex;gap:12px;align-items:center;margin:10px 0">
+        ${i.imagem ? `<img src="${i.imagem}" width="64" height="64" style="object-fit:contain" />` : ""}
+        <div><div>${i.nome}</div><b style="color:#047857">${fmtBRL(i.preco_venda)}</b></div>
+      </div>`).join("")}
+      <p><b>Total: ${fmtBRL(total)}</b></p>
+    </div>`;
+
     try {
-      await navigator.clipboard.writeText(texto);
+      if (window.ClipboardItem) {
+        await navigator.clipboard.write([
+          new window.ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([texto], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(texto);
+      }
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
-    } catch { /* clipboard indisponível */ }
+    } catch {
+      try { await navigator.clipboard.writeText(texto); setCopiado(true); setTimeout(() => setCopiado(false), 2000); } catch { /* indisponível */ }
+    }
   };
 
   return (
