@@ -447,22 +447,23 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
   return (
     <Tabs defaultValue={tabInicial} className="flex flex-col h-screen bg-transparent">
       <div className="px-2 md:px-4 pt-3 flex-shrink-0 overflow-x-auto no-scrollbar">
-        <TabsList className="bg-white/70 border border-orange-200 shadow-sm w-max flex-nowrap">
-          <TabsTrigger value="catalogo" className="gap-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-            <Package className="w-4 h-4" /> Catálogo
-          </TabsTrigger>
-          <TabsTrigger value="promocoes" className="gap-2 data-[state=active]:bg-green-500 data-[state=active]:text-white">
-            <Tag className="w-4 h-4" /> Promoções
-          </TabsTrigger>
-          <TabsTrigger value="instagram" className="gap-2 data-[state=active]:bg-pink-500 data-[state=active]:text-white">
-            <Instagram className="w-4 h-4" /> Publicar no Instagram
-          </TabsTrigger>
-          <TabsTrigger value="textos" className="gap-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white">
-            <MessagesSquare className="w-4 h-4" /> Textos para Publicação
-          </TabsTrigger>
-          <TabsTrigger value="fornecedores" className="gap-2 data-[state=active]:bg-teal-600 data-[state=active]:text-white">
-            <Store className="w-4 h-4" /> Fornecedores
-          </TabsTrigger>
+        <TabsList className="h-auto w-full grid grid-cols-5 gap-0 p-0 rounded-2xl overflow-hidden bg-[#0D1626]/60 backdrop-blur-xl border border-[#1E3A8A] shadow-[0_8px_30px_rgba(0,0,0,0.45)]">
+          {[
+            { value: 'catalogo', icon: Package, label: 'Catálogo' },
+            { value: 'promocoes', icon: Tag, label: 'Promoções' },
+            { value: 'instagram', icon: Instagram, label: 'Publicar no Instagram' },
+            { value: 'textos', icon: MessagesSquare, label: 'Textos para Publicação' },
+            { value: 'fornecedores', icon: Store, label: 'Fornecedores' }
+          ].map(({ value, icon: Icon, label }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="flex flex-col items-center justify-center gap-2 h-full min-h-[92px] px-2 py-4 rounded-none whitespace-normal text-center text-sm font-normal text-[#E2E8F0]/70 bg-transparent shadow-none data-[state=active]:shadow-none data-[state=active]:text-[#F5C86B] data-[state=active]:bg-gradient-to-b data-[state=active]:from-[#0B1E4A] data-[state=active]:to-[#C79A3C]/70"
+            >
+              <Icon className="w-6 h-6" strokeWidth={1.5} />
+              <span className="leading-tight">{label}</span>
+            </TabsTrigger>
+          ))}
         </TabsList>
       </div>
 
