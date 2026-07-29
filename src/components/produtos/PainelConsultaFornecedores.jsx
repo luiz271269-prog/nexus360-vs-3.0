@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Loader2, ShoppingCart, SlidersHorizontal } from "lucide-react";
+import { RefreshCw, Loader2, ShoppingCart, SlidersHorizontal, LayoutGrid, List } from "lucide-react";
+import LinhaProdutoFornecedor from "./LinhaProdutoFornecedor";
 import ModalConfigPrecificacaoLojas from "./ModalConfigPrecificacaoLojas";
 import { CHAVE_PRECIFICACAO, configDaLoja, custoEmReais, precoDeVenda } from "./precificacaoFornecedor";
 import FiltrosFornecedorSidebar from "./FiltrosFornecedorSidebar";
@@ -32,6 +33,7 @@ export default function PainelConsultaFornecedores({ publico = false }) {
   const [configAberta, setConfigAberta] = useState(false);
   const [cotacaoSite, setCotacaoSite] = useState(null);
   const [selecionados, setSelecionados] = useState([]);
+  const [modoVisao, setModoVisao] = useState("grade"); // 'grade' | 'lista'
 
   const chaveProduto = (p) => `${p.loja_id}::${p.nome}`;
 
@@ -231,6 +233,16 @@ export default function PainelConsultaFornecedores({ publico = false }) {
               <span className="hidden md:inline">Precificação</span>
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setModoVisao((m) => (m === "grade" ? "lista" : "grade"))}
+            title={modoVisao === "grade" ? "Ver em lista" : "Ver em grade"}
+            className="border-orange-300 gap-1.5 px-2 md:px-3"
+          >
+            {modoVisao === "grade" ? <List className="w-4 h-4" /> : <LayoutGrid className="w-4 h-4" />}
+            <span className="hidden md:inline">{modoVisao === "grade" ? "Lista" : "Grade"}</span>
+          </Button>
           <MobileDrawer triggerLabel="Filtros" className="bg-gradient-to-br from-amber-50 to-orange-50">
             {filtrosEl}
           </MobileDrawer>
@@ -258,24 +270,22 @@ export default function PainelConsultaFornecedores({ publico = false }) {
               Nenhum produto encontrado com esses filtros.
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-              {filtrados.map((p, idx) => (
-                <CardProdutoFornecedor
-                  key={`${p.loja_id}-${idx}`}
-                  produto={p}
-                  margem={margemNum}
-                  mostrarCusto={isAdmin}
-                  selecionado={selecionados.some((i) => i.chave === chaveProduto(p))}
-                  onToggleSelecao={(prod) => toggleSelecao(prod, precoDeVenda(prod, cfgDe(prod.loja_id)))}
-                  precoVenda={precoDeVenda(p, cfgDe(p.loja_id))}
-                  precoCusto={custoEmReais(p, cfgDe(p.loja_id))}
-                  onAbrir={(prod) => {
+            <div className={modoVisao === "grade" ? "grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3" : "flex flex-col gap-2"}>
+              {filtrados.map((p, idx) => React.createElement(modoVisao === "grade" ? CardProdutoFornecedor : LinhaProdutoFornecedor, {
+                  key: `${p.loja_id}-${idx}`,
+                  produto: p,
+                  margem: margemNum,
+                  mostrarCusto: isAdmin,
+                  selecionado: selecionados.some((i) => i.chave === chaveProduto(p)),
+                  onToggleSelecao: (prod) => toggleSelecao(prod, precoDeVenda(prod, cfgDe(prod.loja_id))),
+                  precoVenda: precoDeVenda(p, cfgDe(p.loja_id)),
+                  precoCusto: custoEmReais(p, cfgDe(p.loja_id)),
+                  onAbrir: (prod) => {
                     // Admin (e produtos da Visão VIP) abrem direto no site do fornecedor
                     if (!publico && (isAdmin || prod.loja_id === "visaovip") && prod.url) window.open(prod.url, "_blank", "noopener");
                     else setProdutoAberto(prod);
-                  }}
-                />
-              ))}
+                  },
+              }))}
             </div>
           )}
         </div>

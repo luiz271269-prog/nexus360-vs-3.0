@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { Plus, Upload, ShoppingCart, Loader2, Calculator, DollarSign, X, CheckCircle, ListFilter, Columns, FileDown, Search } from "lucide-react";
+import { Plus, Upload, ShoppingCart, Loader2, Calculator, DollarSign, X, CheckCircle, ListFilter, Columns, FileDown, Search, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import TextosSociais from "./TextosSociais";
 
 import ProdutoFiltros from "../components/produtos/ProdutoFiltros";
 import ProdutoTable from "../components/produtos/ProdutoTable";
+import ProdutoGrade from "../components/produtos/ProdutoGrade";
 import CarrinhoCotacoes from "../components/produtos/CarrinhoCotacoes";
 import ProdutoFormModal from "../components/produtos/ProdutoFormModal";
 import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
@@ -53,6 +54,7 @@ export default function Produtos() {
   const [modoCorrecao, setModoCorrecao] = useState(false);
   const [modalInsightsAberto, setModalInsightsAberto] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState([]);
+  const [modoVisao, setModoVisao] = useState('lista'); // 'lista' | 'grade'
   const [columnVisibility, setColumnVisibility] = useState({
     produto: true,
     marca: true,
@@ -548,6 +550,19 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                       </SheetContent>
                     </Sheet>
 
+                    <Button
+                      onClick={() => setModoVisao((m) => (m === 'lista' ? 'grade' : 'lista'))}
+                      variant="outline"
+                      size="sm"
+                      className="bg-white border-2 border-orange-300 hover:border-orange-500 h-9 text-xs"
+                      title={modoVisao === 'lista' ? 'Ver em grade' : 'Ver em lista'}
+                    >
+                      {modoVisao === 'lista'
+                        ? <LayoutGrid className="mr-1.5 h-3.5 w-3.5" />
+                        : <ListFilter className="mr-1.5 h-3.5 w-3.5" />}
+                      {modoVisao === 'lista' ? 'Grade' : 'Lista'}
+                    </Button>
+
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -669,6 +684,12 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                   <div className="flex justify-center items-center h-full">
                     <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
                   </div>
+                ) : modoVisao === 'grade' ? (
+                  <ProdutoGrade
+                    produtos={produtosFiltrados}
+                    onEdit={handleEdit}
+                    onAddToCart={handleAddToCart}
+                  />
                 ) : (
                   <ProdutoTable
                     produtos={produtosFiltrados}
