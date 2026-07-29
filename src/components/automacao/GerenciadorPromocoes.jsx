@@ -13,8 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Plus, Pencil, Trash2, Tag, Calendar, DollarSign, AlertCircle,
-  Upload, X, TrendingUp, Send, Clock, CheckCircle2, Target, Zap, Megaphone
-} from 'lucide-react';
+  Upload, X, TrendingUp, Send, Clock, CheckCircle2, Target, Zap, Megaphone } from
+'lucide-react';
 import { toast } from 'sonner';
 import ModalEnvioMassaPromocao from './ModalEnvioMassaPromocao';
 
@@ -159,7 +159,7 @@ export default function GerenciadorPromocoes() {
     setUploading(true);
     try {
       const result = await base44.integrations.Core.UploadFile({ file });
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         imagem_url: result.file_url,
         tipo_midia: 'image'
@@ -222,27 +222,27 @@ export default function GerenciadorPromocoes() {
   };
 
   const toggleContactType = (type) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const current = prev.target_contact_types || [];
-      const updated = current.includes(type)
-        ? current.filter(t => t !== type)
-        : [...current, type];
+      const updated = current.includes(type) ?
+      current.filter((t) => t !== type) :
+      [...current, type];
       return { ...prev, target_contact_types: updated };
     });
   };
 
   const toggleSector = (sector) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const current = prev.target_sectors || [];
-      const updated = current.includes(sector)
-        ? current.filter(s => s !== sector)
-        : [...current, sector];
+      const updated = current.includes(sector) ?
+      current.filter((s) => s !== sector) :
+      [...current, sector];
       return { ...prev, target_sectors: updated };
     });
   };
 
-  const promocoesAtivas = promocoes.filter(p => p.ativo);
-  const promocoesInativas = promocoes.filter(p => !p.ativo);
+  const promocoesAtivas = promocoes.filter((p) => p.ativo);
+  const promocoesInativas = promocoes.filter((p) => !p.ativo);
 
   const totalEnvios = promocoes.reduce((sum, p) => sum + (p.contador_envios || 0), 0);
   const totalRespostas = promocoes.reduce((sum, p) => sum + (p.contador_respostas || 0), 0);
@@ -252,7 +252,7 @@ export default function GerenciadorPromocoes() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900">🎁 Promoções & Ofertas</h2>
+          <h2 className="text-3xl font-bold text-[hsl(var(--chart-4))]">🎁 Promoções & Ofertas</h2>
           <p className="text-sm text-slate-600 mt-1">
             Sistema inteligente de recuperação automática (6h / 12h / 24h)
           </p>
@@ -265,8 +265,8 @@ export default function GerenciadorPromocoes() {
                 resetForm();
                 setDialogOpen(true);
               }}
-              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
-            >
+              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600">
+              
               <Plus className="w-4 h-4 mr-2" />
               Nova Promoção
             </Button>
@@ -285,35 +285,35 @@ export default function GerenciadorPromocoes() {
                 <div className="col-span-2">
                   <Label>Imagem da Promoção</Label>
                   <div className="mt-2">
-                    {formData.imagem_url ? (
-                      <div className="relative">
+                    {formData.imagem_url ?
+                    <div className="relative">
                         <img
-                          src={formData.imagem_url}
-                          alt="Preview"
-                          className="w-full h-48 object-cover rounded-lg border-2 border-slate-200"
-                        />
+                        src={formData.imagem_url}
+                        alt="Preview"
+                        className="w-full h-48 object-cover rounded-lg border-2 border-slate-200" />
+                      
                         <Button
-                          type="button"
-                          size="icon"
-                          variant="destructive"
-                          className="absolute top-2 right-2"
-                          onClick={() => setFormData({ ...formData, imagem_url: '', tipo_midia: 'none' })}
-                        >
+                        type="button"
+                        size="icon"
+                        variant="destructive"
+                        className="absolute top-2 right-2"
+                        onClick={() => setFormData({ ...formData, imagem_url: '', tipo_midia: 'none' })}>
+                        
                           <X className="w-4 h-4" />
                         </Button>
-                      </div>
-                    ) : (
-                      <div
-                        className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-orange-500 hover:bg-orange-50 transition-all"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
+                      </div> :
+
+                    <div
+                      className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-orange-500 hover:bg-orange-50 transition-all"
+                      onClick={() => fileInputRef.current?.click()}>
+                      
                         <Upload className="w-12 h-12 mx-auto text-slate-400 mb-3" />
                         <p className="text-sm text-slate-600 mb-1">
                           {uploading ? '⏳ Enviando...' : 'Clique ou Cole (Ctrl+V) uma imagem'}
                         </p>
                         <p className="text-xs text-slate-400">PNG, JPG até 10MB</p>
                       </div>
-                    )}
+                    }
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -322,8 +322,8 @@ export default function GerenciadorPromocoes() {
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) handleFileSelect(file);
-                      }}
-                    />
+                      }} />
+                    
                   </div>
                 </div>
 
@@ -335,8 +335,8 @@ export default function GerenciadorPromocoes() {
                     value={formData.titulo}
                     onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
                     placeholder="Ex: Notebook Dell i5 Gamer com 15% OFF"
-                    required
-                  />
+                    required />
+                  
                 </div>
 
                 {/* Descrição Curta (Teaser) */}
@@ -347,8 +347,8 @@ export default function GerenciadorPromocoes() {
                     value={formData.descricao_curta}
                     onChange={(e) => setFormData({ ...formData, descricao_curta: e.target.value })}
                     placeholder="Ex: Notebook Dell i5, 8GB RAM, SSD 256GB - Apenas 5 unidades!"
-                    maxLength={120}
-                  />
+                    maxLength={120} />
+                  
                   <p className="text-xs text-slate-500 mt-1">
                     {formData.descricao_curta.length}/120 caracteres
                   </p>
@@ -363,8 +363,8 @@ export default function GerenciadorPromocoes() {
                     onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                     placeholder="Use {{nome}} e {{empresa}} para personalizar. Ex: Olá {{nome}}! Temos uma oferta especial..."
                     rows={4}
-                    required
-                  />
+                    required />
+                  
                   <p className="text-xs text-slate-500 mt-1">
                     💡 Placeholders disponíveis: {`{{nome}}, {{empresa}}`}
                   </p>
@@ -377,8 +377,8 @@ export default function GerenciadorPromocoes() {
                     id="price_info"
                     value={formData.price_info}
                     onChange={(e) => setFormData({ ...formData, price_info: e.target.value })}
-                    placeholder="Ex: De R$ 4.000 por R$ 3.500 ou 15% OFF"
-                  />
+                    placeholder="Ex: De R$ 4.000 por R$ 3.500 ou 15% OFF" />
+                  
                 </div>
 
                 {/* Estágio (6h/12h/24h) */}
@@ -386,24 +386,24 @@ export default function GerenciadorPromocoes() {
                   <Label htmlFor="stage">Estágio de Envio *</Label>
                   <Select
                     value={formData.stage}
-                    onValueChange={(value) => setFormData({ ...formData, stage: value })}
-                  >
+                    onValueChange={(value) => setFormData({ ...formData, stage: value })}>
+                    
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(STAGES).map(([key, config]) => (
-                        <SelectItem key={key} value={key}>
+                      {Object.entries(STAGES).map(([key, config]) =>
+                      <SelectItem key={key} value={key}>
                           {config.label} - {config.desc}
                         </SelectItem>
-                      ))}
+                      )}
                     </SelectContent>
                   </Select>
-                  {formData.stage === '24h' && (
-                    <p className="text-xs text-red-600 mt-1 font-medium">
+                  {formData.stage === '24h' &&
+                  <p className="text-xs text-red-600 mt-1 font-medium">
                       ⚠️ Requer template aprovado do WhatsApp
                     </p>
-                  )}
+                  }
                 </div>
 
                 {/* Formato */}
@@ -411,8 +411,8 @@ export default function GerenciadorPromocoes() {
                   <Label htmlFor="formato">Formato da Mensagem</Label>
                   <Select
                     value={formData.formato}
-                    onValueChange={(value) => setFormData({ ...formData, formato: value })}
-                  >
+                    onValueChange={(value) => setFormData({ ...formData, formato: value })}>
+                    
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -424,41 +424,41 @@ export default function GerenciadorPromocoes() {
                 </div>
 
                 {/* Template WhatsApp (somente para 24h) */}
-                {formData.stage === '24h' && (
-                  <>
+                {formData.stage === '24h' &&
+                <>
                     <div className="col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-4">
                       <h4 className="text-sm font-semibold text-amber-900 mb-2">
                         📋 Configuração de Template (Obrigatório para 24h)
                       </h4>
                       <Label htmlFor="whatsapp_template_name">Nome do Template Aprovado *</Label>
                       <Input
-                        id="whatsapp_template_name"
-                        value={formData.whatsapp_template_name}
-                        onChange={(e) => setFormData({ ...formData, whatsapp_template_name: e.target.value })}
-                        placeholder="Ex: oferta_especial_v2"
-                        required={formData.stage === '24h'}
-                      />
+                      id="whatsapp_template_name"
+                      value={formData.whatsapp_template_name}
+                      onChange={(e) => setFormData({ ...formData, whatsapp_template_name: e.target.value })}
+                      placeholder="Ex: oferta_especial_v2"
+                      required={formData.stage === '24h'} />
+                    
                       <p className="text-xs text-amber-700 mt-2">
                         ⚠️ O template deve estar aprovado no Meta Business Manager
                       </p>
                     </div>
                   </>
-                )}
+                }
 
                 {/* Categoria e Prioridade */}
                 <div>
                   <Label htmlFor="categoria">Categoria</Label>
                   <Select
                     value={formData.categoria}
-                    onValueChange={(value) => setFormData({ ...formData, categoria: value })}
-                  >
+                    onValueChange={(value) => setFormData({ ...formData, categoria: value })}>
+                    
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(CATEGORIAS).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>{label}</SelectItem>
-                      ))}
+                      {Object.entries(CATEGORIAS).map(([key, label]) =>
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -470,8 +470,8 @@ export default function GerenciadorPromocoes() {
                     type="number"
                     value={formData.priority}
                     onChange={(e) => setFormData({ ...formData, priority: Number(e.target.value) || 10 })}
-                    placeholder="10"
-                  />
+                    placeholder="10" />
+                  
                   <p className="text-xs text-slate-500 mt-1">Menor número = maior prioridade</p>
                 </div>
 
@@ -483,8 +483,8 @@ export default function GerenciadorPromocoes() {
                     type="number"
                     value={formData.cooldown_hours}
                     onChange={(e) => setFormData({ ...formData, cooldown_hours: Number(e.target.value) || 6 })}
-                    placeholder="6"
-                  />
+                    placeholder="6" />
+                  
                   <p className="text-xs text-slate-500 mt-1">Intervalo mínimo entre envios</p>
                 </div>
 
@@ -495,8 +495,8 @@ export default function GerenciadorPromocoes() {
                     id="validade"
                     type="date"
                     value={formData.validade}
-                    onChange={(e) => setFormData({ ...formData, validade: e.target.value })}
-                  />
+                    onChange={(e) => setFormData({ ...formData, validade: e.target.value })} />
+                  
                 </div>
 
                 {/* Link e Campaign ID */}
@@ -506,8 +506,8 @@ export default function GerenciadorPromocoes() {
                     id="link_produto"
                     value={formData.link_produto}
                     onChange={(e) => setFormData({ ...formData, link_produto: e.target.value })}
-                    placeholder="https://..."
-                  />
+                    placeholder="https://..." />
+                  
                 </div>
 
                 <div>
@@ -516,26 +516,26 @@ export default function GerenciadorPromocoes() {
                     id="campaign_id"
                     value={formData.campaign_id}
                     onChange={(e) => setFormData({ ...formData, campaign_id: e.target.value })}
-                    placeholder="Ex: NATAL2025"
-                  />
+                    placeholder="Ex: NATAL2025" />
+                  
                 </div>
 
                 {/* Tipos de Contato Elegíveis */}
                 <div className="col-span-2">
                   <Label className="mb-3 block">Tipos de Contato Elegíveis</Label>
                   <div className="grid grid-cols-3 gap-3">
-                    {['novo', 'lead', 'cliente', 'parceiro'].map(type => (
-                      <div key={type} className="flex items-center space-x-2">
+                    {['novo', 'lead', 'cliente', 'parceiro'].map((type) =>
+                    <div key={type} className="flex items-center space-x-2">
                         <Checkbox
-                          id={`type-${type}`}
-                          checked={formData.target_contact_types.includes(type)}
-                          onCheckedChange={() => toggleContactType(type)}
-                        />
+                        id={`type-${type}`}
+                        checked={formData.target_contact_types.includes(type)}
+                        onCheckedChange={() => toggleContactType(type)} />
+                      
                         <label htmlFor={`type-${type}`} className="text-sm capitalize">
                           {type}
                         </label>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
 
@@ -543,18 +543,18 @@ export default function GerenciadorPromocoes() {
                 <div className="col-span-2">
                   <Label className="mb-3 block">Setores Elegíveis</Label>
                   <div className="grid grid-cols-3 gap-3">
-                    {['vendas', 'assistencia', 'financeiro', 'geral'].map(sector => (
-                      <div key={sector} className="flex items-center space-x-2">
+                    {['vendas', 'assistencia', 'financeiro', 'geral'].map((sector) =>
+                    <div key={sector} className="flex items-center space-x-2">
                         <Checkbox
-                          id={`sector-${sector}`}
-                          checked={formData.target_sectors.includes(sector)}
-                          onCheckedChange={() => toggleSector(sector)}
-                        />
+                        id={`sector-${sector}`}
+                        checked={formData.target_sectors.includes(sector)}
+                        onCheckedChange={() => toggleSector(sector)} />
+                      
                         <label htmlFor={`sector-${sector}`} className="text-sm capitalize">
                           {sector}
                         </label>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
 
@@ -566,8 +566,8 @@ export default function GerenciadorPromocoes() {
                   </div>
                   <Switch
                     checked={formData.ativo}
-                    onCheckedChange={(checked) => setFormData({ ...formData, ativo: checked })}
-                  />
+                    onCheckedChange={(checked) => setFormData({ ...formData, ativo: checked })} />
+                  
                 </div>
               </div>
 
@@ -578,8 +578,8 @@ export default function GerenciadorPromocoes() {
                 <Button
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  className="bg-gradient-to-r from-orange-500 to-red-500"
-                >
+                  className="bg-gradient-to-r from-orange-500 to-red-500">
+                  
                   {editingPromo ? '💾 Salvar' : '➕ Criar'} Promoção
                 </Button>
               </DialogFooter>
@@ -632,7 +632,7 @@ export default function GerenciadorPromocoes() {
               <div>
                 <p className="text-sm text-slate-600">Taxa de Resposta</p>
                 <p className="text-2xl font-bold text-purple-600">
-                  {totalEnvios > 0 ? ((totalRespostas / totalEnvios) * 100).toFixed(1) : 0}%
+                  {totalEnvios > 0 ? (totalRespostas / totalEnvios * 100).toFixed(1) : 0}%
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-purple-400" />
@@ -642,21 +642,21 @@ export default function GerenciadorPromocoes() {
       </div>
 
       {/* Promoções Ativas */}
-      {promocoesAtivas.length > 0 && (
-        <div>
+      {promocoesAtivas.length > 0 &&
+      <div>
           <h3 className="text-lg font-semibold text-slate-900 mb-4">✅ Promoções Ativas</h3>
           <div className="grid gap-4">
-            {promocoesAtivas.map((promo) => (
-              <Card key={promo.id} className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
+            {promocoesAtivas.map((promo) =>
+          <Card key={promo.id} className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-4">
-                    {promo.imagem_url && (
-                      <img
-                        src={promo.imagem_url}
-                        alt={promo.titulo}
-                        className="w-32 h-32 object-cover rounded-lg border-2 border-slate-200 flex-shrink-0"
-                      />
-                    )}
+                    {promo.imagem_url &&
+                <img
+                  src={promo.imagem_url}
+                  alt={promo.titulo}
+                  className="w-32 h-32 object-cover rounded-lg border-2 border-slate-200 flex-shrink-0" />
+
+                }
 
                     <div className="flex-1">
                       <div className="flex items-start justify-between gap-2 mb-2">
@@ -675,25 +675,25 @@ export default function GerenciadorPromocoes() {
                           {CATEGORIAS[promo.categoria] || promo.categoria}
                         </Badge>
 
-                        {promo.price_info && (
-                          <Badge className="bg-green-100 text-green-800">
+                        {promo.price_info &&
+                    <Badge className="bg-green-100 text-green-800">
                             <DollarSign className="w-3 h-3 mr-1" />
                             {promo.price_info}
                           </Badge>
-                        )}
+                    }
 
-                        {promo.campaign_id && (
-                          <Badge className="bg-purple-100 text-purple-800">
+                        {promo.campaign_id &&
+                    <Badge className="bg-purple-100 text-purple-800">
                             🎟️ {promo.campaign_id}
                           </Badge>
-                        )}
+                    }
 
-                        {promo.validade && (
-                          <Badge variant="outline" className="text-slate-600">
+                        {promo.validade &&
+                    <Badge variant="outline" className="text-slate-600">
                             <Calendar className="w-3 h-3 mr-1" />
                             Até {new Date(promo.validade).toLocaleDateString('pt-BR')}
                           </Badge>
-                        )}
+                    }
 
                         <Badge variant="outline" className="text-slate-600">
                           <Target className="w-3 h-3 mr-1" />
@@ -705,32 +705,32 @@ export default function GerenciadorPromocoes() {
                           Cooldown: {promo.cooldown_hours}h
                         </Badge>
 
-                        {Array.isArray(promo.target_contact_types) && promo.target_contact_types.length > 0 && (
-                          promo.target_contact_types.map(t => (
-                            <Badge key={`type-${t}`} className="bg-indigo-100 text-indigo-800 capitalize">
+                        {Array.isArray(promo.target_contact_types) && promo.target_contact_types.length > 0 &&
+                    promo.target_contact_types.map((t) =>
+                    <Badge key={`type-${t}`} className="bg-indigo-100 text-indigo-800 capitalize">
                               👤 {t}
                             </Badge>
-                          ))
-                        )}
+                    )
+                    }
 
-                        {Array.isArray(promo.target_tags) && promo.target_tags.length > 0 && (
-                          promo.target_tags.map(tag => (
-                            <Badge key={`tag-${tag}`} className="bg-amber-100 text-amber-800">
+                        {Array.isArray(promo.target_tags) && promo.target_tags.length > 0 &&
+                    promo.target_tags.map((tag) =>
+                    <Badge key={`tag-${tag}`} className="bg-amber-100 text-amber-800">
                               🏷️ {tag}
                             </Badge>
-                          ))
-                        )}
+                    )
+                    }
 
-                        {promo.whatsapp_template_name && (
-                          <Badge className="bg-blue-100 text-blue-800">
+                        {promo.whatsapp_template_name &&
+                    <Badge className="bg-blue-100 text-blue-800">
                             📋 Template: {promo.whatsapp_template_name}
                           </Badge>
-                        )}
+                    }
                       </div>
 
                       {/* Métricas */}
-                      {(promo.contador_envios > 0 || promo.contador_respostas > 0) && (
-                        <div className="flex items-center gap-4 mt-3 text-xs text-slate-600">
+                      {(promo.contador_envios > 0 || promo.contador_respostas > 0) &&
+                  <div className="flex items-center gap-4 mt-3 text-xs text-slate-600">
                           <span className="flex items-center gap-1">
                             <Send className="w-3 h-3" />
                             {promo.contador_envios || 0} envios
@@ -739,82 +739,82 @@ export default function GerenciadorPromocoes() {
                             <TrendingUp className="w-3 h-3" />
                             {promo.contador_respostas || 0} respostas
                           </span>
-                          {promo.contador_envios > 0 && (
-                            <span className="flex items-center gap-1 text-green-600 font-medium">
+                          {promo.contador_envios > 0 &&
+                    <span className="flex items-center gap-1 text-green-600 font-medium">
                               <Zap className="w-3 h-3" />
                               {((promo.contador_respostas || 0) / promo.contador_envios * 100).toFixed(1)}% taxa
                             </span>
-                          )}
+                    }
                         </div>
-                      )}
+                  }
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {/* Nível 2: Enviar em massa agora */}
                       <Button
-                        size="sm"
-                        onClick={() => setEnvioMassaPromo(promo)}
-                        className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
-                        title="Enviar em massa agora (respeita limites de anti-ban)"
-                      >
+                    size="sm"
+                    onClick={() => setEnvioMassaPromo(promo)}
+                    className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
+                    title="Enviar em massa agora (respeita limites de anti-ban)">
+                    
                         <Megaphone className="w-4 h-4 mr-1" />
                         Enviar em massa
                       </Button>
 
                       <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => handleEdit(promo)}
-                      >
+                    size="icon"
+                    variant="outline"
+                    onClick={() => handleEdit(promo)}>
+                    
                         <Pencil className="w-4 h-4" />
                       </Button>
 
                       <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => toggleActive(promo)}
-                        className="text-orange-600 hover:text-orange-700"
-                      >
+                    size="icon"
+                    variant="outline"
+                    onClick={() => toggleActive(promo)}
+                    className="text-orange-600 hover:text-orange-700">
+                    
                         <AlertCircle className="w-4 h-4" />
                       </Button>
 
                       <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => {
-                          if (confirm('❌ Remover esta promoção permanentemente?')) {
-                            deleteMutation.mutate(promo.id);
-                          }
-                        }}
-                        className="text-red-600 hover:text-red-700"
-                      >
+                    size="icon"
+                    variant="outline"
+                    onClick={() => {
+                      if (confirm('❌ Remover esta promoção permanentemente?')) {
+                        deleteMutation.mutate(promo.id);
+                      }
+                    }}
+                    className="text-red-600 hover:text-red-700">
+                    
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
               </Card>
-            ))}
+          )}
           </div>
         </div>
-      )}
+      }
 
       {/* Promoções Inativas */}
-      {promocoesInativas.length > 0 && (
-        <div>
+      {promocoesInativas.length > 0 &&
+      <div>
           <h3 className="text-lg font-semibold text-slate-500 mb-4">💤 Promoções Inativas</h3>
           <div className="grid gap-4">
-            {promocoesInativas.map((promo) => (
-              <Card key={promo.id} className="border-l-4 border-l-slate-300 opacity-60">
+            {promocoesInativas.map((promo) =>
+          <Card key={promo.id} className="border-l-4 border-l-slate-300 opacity-60">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-4">
-                    {promo.imagem_url && (
-                      <img
-                        src={promo.imagem_url}
-                        alt={promo.titulo}
-                        className="w-24 h-24 object-cover rounded-lg border-2 border-slate-200 flex-shrink-0 opacity-60"
-                      />
-                    )}
+                    {promo.imagem_url &&
+                <img
+                  src={promo.imagem_url}
+                  alt={promo.titulo}
+                  className="w-24 h-24 object-cover rounded-lg border-2 border-slate-200 flex-shrink-0 opacity-60" />
+
+                }
 
                     <div className="flex-1">
                       <CardTitle className="text-lg text-slate-600">{promo.titulo}</CardTitle>
@@ -823,53 +823,53 @@ export default function GerenciadorPromocoes() {
 
                     <div className="flex items-center gap-2">
                       <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => handleEdit(promo)}
-                      >
+                    size="icon"
+                    variant="outline"
+                    onClick={() => handleEdit(promo)}>
+                    
                         <Pencil className="w-4 h-4" />
                       </Button>
 
                       <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => toggleActive(promo)}
-                        className="text-green-600 hover:text-green-700"
-                      >
+                    size="icon"
+                    variant="outline"
+                    onClick={() => toggleActive(promo)}
+                    className="text-green-600 hover:text-green-700">
+                    
                         <CheckCircle2 className="w-4 h-4" />
                       </Button>
 
                       <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => {
-                          if (confirm('Remover esta promoção?')) {
-                            deleteMutation.mutate(promo.id);
-                          }
-                        }}
-                        className="text-red-600 hover:text-red-700"
-                      >
+                    size="icon"
+                    variant="outline"
+                    onClick={() => {
+                      if (confirm('Remover esta promoção?')) {
+                        deleteMutation.mutate(promo.id);
+                      }
+                    }}
+                    className="text-red-600 hover:text-red-700">
+                    
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
               </Card>
-            ))}
+          )}
           </div>
         </div>
-      )}
+      }
 
       {/* Modal de envio em massa (Nível 2) */}
       <ModalEnvioMassaPromocao
         open={!!envioMassaPromo}
         onClose={() => setEnvioMassaPromo(null)}
-        promocao={envioMassaPromo}
-      />
+        promocao={envioMassaPromo} />
+      
 
       {/* Estado Vazio */}
-      {promocoes.length === 0 && !isLoading && (
-        <Card className="border-dashed">
+      {promocoes.length === 0 && !isLoading &&
+      <Card className="border-dashed">
           <CardContent className="pt-12 pb-12 text-center">
             <Tag className="w-16 h-16 mx-auto text-slate-300 mb-4" />
             <h3 className="text-lg font-semibold text-slate-900 mb-2">
@@ -879,18 +879,18 @@ export default function GerenciadorPromocoes() {
               Crie promoções automáticas para recuperar conversas paradas
             </p>
             <Button
-              onClick={() => {
-                resetForm();
-                setDialogOpen(true);
-              }}
-              className="bg-gradient-to-r from-orange-500 to-red-500"
-            >
+            onClick={() => {
+              resetForm();
+              setDialogOpen(true);
+            }}
+            className="bg-gradient-to-r from-orange-500 to-red-500">
+            
               <Plus className="w-4 h-4 mr-2" />
               Criar Primeira Promoção
             </Button>
           </CardContent>
         </Card>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 }
