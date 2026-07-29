@@ -446,7 +446,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
 
   return (
     <Tabs defaultValue={tabInicial} className="relative flex flex-col h-screen bg-slate-50">
-      <div className="px-2 md:px-4 pt-3 flex-shrink-0 overflow-x-auto no-scrollbar bg-[#050A14]">
+      <div className="px-2 md:px-4 flex-shrink-0 overflow-x-auto no-scrollbar bg-[#050A14]">
         <TabsList className="h-auto w-full grid grid-cols-5 gap-0 p-0 rounded-2xl overflow-hidden bg-[#0D1626]/60 backdrop-blur-xl border border-[#1E3A8A] shadow-[0_8px_30px_rgba(0,0,0,0.45)]">
           {[
           { value: 'catalogo', icon: Package, label: 'Catálogo' },
