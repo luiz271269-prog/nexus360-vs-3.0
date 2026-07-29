@@ -2,10 +2,13 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Package, ShoppingCart, Pencil } from "lucide-react";
+import BotaoBuscarImagemProduto from "./BotaoBuscarImagemProduto";
 
 const fmtBRL = (v) => (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function ProdutoGrade({ produtos, onEdit, onAddToCart }) {
+  const [imagens, setImagens] = React.useState({});
+
   if (!produtos.length) {
     return <div className="flex items-center justify-center h-64 text-slate-400 text-sm">Nenhum produto encontrado.</div>;
   }
@@ -16,14 +19,15 @@ export default function ProdutoGrade({ produtos, onEdit, onAddToCart }) {
         {produtos.map((p) => (
           <div key={p.id} className="group bg-white rounded-xl border-2 border-slate-200 hover:border-orange-400 hover:shadow-lg transition-all overflow-hidden flex flex-col">
             <div className="aspect-square w-full bg-slate-50 flex items-center justify-center overflow-hidden">
-              {p.imagem_url || p.foto_url ? (
-                <img src={p.imagem_url || p.foto_url} alt={p.nome} loading="lazy" className="w-full h-full object-contain group-hover:scale-105 transition-transform" />
+              {imagens[p.id] || p.imagem_url || p.foto_url ? (
+                <img src={imagens[p.id] || p.imagem_url || p.foto_url} alt={p.nome} loading="lazy" className="w-full h-full object-contain group-hover:scale-105 transition-transform" />
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-slate-100 to-slate-200">
-                  <Package className="w-8 h-8 text-slate-400" />
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide text-center px-2 line-clamp-1">
-                    {p.marca || p.categoria || "Produto"}
-                  </span>
+                <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-slate-100 to-slate-200">
+                  <Package className="w-7 h-7 text-slate-400" />
+                  <BotaoBuscarImagemProduto
+                    produto={p}
+                    onAtualizado={(id, url) => setImagens((prev) => ({ ...prev, [id]: url }))}
+                  />
                 </div>
               )}
             </div>
