@@ -182,7 +182,12 @@ export default function PainelConsultaFornecedores({ publico = false }) {
 
   const filtrados = useMemo(() => {
     return produtos.filter((p) => {
-      if (busca && !p.nome.toLowerCase().includes(busca.toLowerCase())) return false;
+      if (busca) {
+        // Padrão Google: cada palavra do termo deve existir no nome, em qualquer ordem
+        const alvo = p.nome.toLowerCase();
+        const termos = busca.toLowerCase().split(/\s+/).filter(Boolean);
+        if (!termos.every((t) => alvo.includes(t))) return false;
+      }
       if (lojasSelecionadas.length && !lojasSelecionadas.includes(p.loja_id)) return false;
       if (tiposSelecionados.length && !tiposSelecionados.includes(p.tipo_item)) return false;
       if (marcasSelecionadas.length && !marcasSelecionadas.includes(p.marca)) return false;
