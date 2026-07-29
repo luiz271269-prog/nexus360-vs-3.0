@@ -8,6 +8,7 @@ import FiltrosFornecedorSidebar from "./FiltrosFornecedorSidebar";
 import CardProdutoFornecedor from "./CardProdutoFornecedor";
 import ModalDetalheFornecedor from "./ModalDetalheFornecedor";
 import MobileDrawer from "@/components/mobile/MobileDrawer";
+import ListaSelecaoProdutos from "./ListaSelecaoProdutos";
 import { classificarProdutos, contarPor } from "./classificarProdutoFornecedor";
 
 export default function PainelConsultaFornecedores({ publico = false }) {
@@ -30,6 +31,18 @@ export default function PainelConsultaFornecedores({ publico = false }) {
   const [precoConfigId, setPrecoConfigId] = useState(null);
   const [configAberta, setConfigAberta] = useState(false);
   const [cotacaoSite, setCotacaoSite] = useState(null);
+  const [selecionados, setSelecionados] = useState([]);
+
+  const chaveProduto = (p) => `${p.loja_id}::${p.nome}`;
+
+  const toggleSelecao = (produto, precoVenda) => {
+    const chave = chaveProduto(produto);
+    setSelecionados((prev) =>
+      prev.some((i) => i.chave === chave)
+        ? prev.filter((i) => i.chave !== chave)
+        : [...prev, { chave, nome: produto.nome, imagem: produto.imagem, preco_venda: precoVenda }]
+    );
+  };
 
   // Margem padrão do sistema (somente admin edita; todos consomem)
   useEffect(() => {
@@ -241,6 +254,8 @@ export default function PainelConsultaFornecedores({ publico = false }) {
                   produto={p}
                   margem={margemNum}
                   mostrarCusto={isAdmin}
+                  selecionado={selecionados.some((i) => i.chave === chaveProduto(p))}
+                  onToggleSelecao={(prod) => toggleSelecao(prod, precoDeVenda(prod, cfgDe(prod.loja_id)))}
                   precoVenda={precoDeVenda(p, cfgDe(p.loja_id))}
                   precoCusto={custoEmReais(p, cfgDe(p.loja_id))}
                   onAbrir={(prod) => {
@@ -260,6 +275,12 @@ export default function PainelConsultaFornecedores({ publico = false }) {
           </p>
         )}
       </div>
+
+      <ListaSelecaoProdutos
+        itens={selecionados}
+        onRemover={(chave) => setSelecionados((prev) => prev.filter((i) => i.chave !== chave))}
+        onLimpar={() => setSelecionados([])}
+      />
 
       <ModalConfigPrecificacaoLojas
         aberto={configAberta}

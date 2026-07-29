@@ -1,6 +1,6 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Eye, ImageOff } from "lucide-react";
+import { Eye, ImageOff, Check, Plus } from "lucide-react";
 
 const CORES_LOJA = {
   matriz: "bg-orange-100 text-orange-700 border-orange-300",
@@ -12,7 +12,7 @@ const CORES_LOJA = {
 
 const fmtBRL = (v) => (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export default function CardProdutoFornecedor({ produto, margem, onAbrir, mostrarCusto = false, precoVenda: precoVendaProp, precoCusto }) {
+export default function CardProdutoFornecedor({ produto, margem, onAbrir, mostrarCusto = false, precoVenda: precoVendaProp, precoCusto, selecionado = false, onToggleSelecao }) {
   const precoVenda = precoVendaProp != null ? precoVendaProp : produto.preco_fornecedor * (1 + margem / 100);
   const custo = precoCusto != null ? precoCusto : produto.preco_fornecedor;
 
@@ -20,8 +20,25 @@ export default function CardProdutoFornecedor({ produto, margem, onAbrir, mostra
     <button
       type="button"
       onClick={() => onAbrir?.(produto)}
-      className="group w-full flex flex-col text-left bg-white rounded-xl border-2 border-slate-200 hover:border-orange-400 hover:shadow-lg transition-all overflow-hidden"
+      className={`group relative w-full flex flex-col text-left bg-white rounded-xl border-2 transition-all overflow-hidden hover:shadow-lg ${
+        selecionado ? "border-emerald-500 ring-2 ring-emerald-200" : "border-slate-200 hover:border-orange-400"
+      }`}
     >
+      {onToggleSelecao && (
+        <span
+          role="checkbox"
+          aria-checked={selecionado}
+          tabIndex={0}
+          onClick={(e) => { e.stopPropagation(); onToggleSelecao(produto); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onToggleSelecao(produto); } }}
+          title={selecionado ? "Remover da minha lista" : "Adicionar à minha lista"}
+          className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center shadow-md cursor-pointer transition-colors ${
+            selecionado ? "bg-emerald-500 text-white" : "bg-white/95 text-slate-500 hover:bg-orange-500 hover:text-white"
+          }`}
+        >
+          {selecionado ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+        </span>
+      )}
       <div className="relative aspect-square w-full bg-slate-50 flex items-center justify-center overflow-hidden">
         {produto.imagem ? (
           <img
