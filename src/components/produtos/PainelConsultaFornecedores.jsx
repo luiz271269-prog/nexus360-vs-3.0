@@ -156,6 +156,17 @@ export default function PainelConsultaFornecedores({ publico = false }) {
   const tipos = useMemo(() => contarPor(produtos, "tipo_item"), [produtos]);
   const marcas = useMemo(() => contarPor(produtos, "marca"), [produtos]);
 
+  // Ao trocar o resultado (nova busca), descarta filtros que não existem mais —
+  // senão a combinação antiga zera a lista (ex.: "Informática" some no resultado da Visão VIP)
+  useEffect(() => {
+    if (!produtos.length) return;
+    const manter = (sel, lista, campo) =>
+      sel.filter((v) => lista.some((x) => (campo ? x[campo] : x.valor) === v));
+    setLojasSelecionadas((prev) => manter(prev, lojas, "id"));
+    setTiposSelecionados((prev) => manter(prev, tipos));
+    setMarcasSelecionadas((prev) => manter(prev, marcas));
+  }, [produtos]);
+
   const margemNum = publico ? 0 : (parseFloat(String(margem).replace(",", ".")) || 0);
   const minNum = parseFloat(String(precoMin).replace(",", ".")) || 0;
   const maxNum = parseFloat(String(precoMax).replace(",", ".")) || Infinity;
