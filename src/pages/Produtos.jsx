@@ -62,7 +62,7 @@ export default function Produtos() {
     modelo: true,
     fornecedor: true,
     precoVenda: true,
-    acoes: true,
+    acoes: true
   });
 
   useEffect(() => {
@@ -115,9 +115,9 @@ export default function Produtos() {
       }
 
       let nivelQualidade = 'baixo';
-      if (scoreQualidade >= 80) nivelQualidade = 'excelente';
-      else if (scoreQualidade >= 60) nivelQualidade = 'bom';
-      else if (scoreQualidade >= 40) nivelQualidade = 'medio';
+      if (scoreQualidade >= 80) nivelQualidade = 'excelente';else
+      if (scoreQualidade >= 60) nivelQualidade = 'bom';else
+      if (scoreQualidade >= 40) nivelQualidade = 'medio';
 
       if (scoreQualidade < 60) {
         alertas.push({
@@ -160,7 +160,7 @@ export default function Produtos() {
         margem_media: produtosComPreco.reduce((sum, p) => {
           const margem = (p.preco_venda - p.preco_custo) / p.preco_venda * 100;
           return sum + margem;
-        }, 0) / produtosComPreco.length,
+        }, 0) / produtosComPreco.length
       };
 
       const analise = await base44.integrations.Core.InvokeLLM({
@@ -284,9 +284,9 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
 
   const handleSelectProduct = (productId) => {
     setSelectedProductIds((prev) =>
-      prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
+    prev.includes(productId) ?
+    prev.filter((id) => id !== productId) :
+    [...prev, productId]
     );
   };
 
@@ -328,8 +328,8 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
       toast.info("Selecione produtos para cotar.");
       return;
     }
-    const produtosParaCotar = produtos.filter(p => selectedProductIds.includes(p.id));
-    produtosParaCotar.forEach(p => handleAddToCart(p));
+    const produtosParaCotar = produtos.filter((p) => selectedProductIds.includes(p.id));
+    produtosParaCotar.forEach((p) => handleAddToCart(p));
     toast.success(`${produtosParaCotar.length} produto(s) adicionado(s) ao carrinho para cotação.`);
     setSelectedProductIds([]);
   };
@@ -342,23 +342,23 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
       if (!produto) return false;
 
       const matchBusca = !filtros.busca ||
-        (produto.nome && produto.nome.toLowerCase().includes(filtros.busca.toLowerCase())) ||
-        (produto.codigo && produto.codigo.toLowerCase().includes(filtros.busca.toLowerCase())) ||
-        (produto.fornecedor && produto.fornecedor.toLowerCase().includes(filtros.busca.toLowerCase())) ||
-        (produto.marca && produto.marca.toLowerCase().includes(filtros.busca.toLowerCase())) ||
-        (produto.modelo && produto.modelo.toLowerCase().includes(filtros.busca.toLowerCase()));
+      produto.nome && produto.nome.toLowerCase().includes(filtros.busca.toLowerCase()) ||
+      produto.codigo && produto.codigo.toLowerCase().includes(filtros.busca.toLowerCase()) ||
+      produto.fornecedor && produto.fornecedor.toLowerCase().includes(filtros.busca.toLowerCase()) ||
+      produto.marca && produto.marca.toLowerCase().includes(filtros.busca.toLowerCase()) ||
+      produto.modelo && produto.modelo.toLowerCase().includes(filtros.busca.toLowerCase());
 
       const matchCategoria = !filtros.categorias || filtros.categorias.length === 0 ||
-        (produto.categoria && filtros.categorias.includes(produto.categoria));
+      produto.categoria && filtros.categorias.includes(produto.categoria);
 
       const matchMarca = !filtros.marcas || filtros.marcas.length === 0 ||
-        (produto.marca && filtros.marcas.includes(produto.marca));
+      produto.marca && filtros.marcas.includes(produto.marca);
 
       const matchFornecedor = !filtros.fornecedor || filtros.fornecedor === 'todos' ||
-        (produto.fornecedor && produto.fornecedor === filtros.fornecedor);
+      produto.fornecedor && produto.fornecedor === filtros.fornecedor;
 
       const matchModelo = !filtros.modelos || filtros.modelos.length === 0 ||
-        (produto.modelo && filtros.modelos.includes(produto.modelo));
+      produto.modelo && filtros.modelos.includes(produto.modelo);
 
       const matchPeriodoAtualizacao = (() => {
         if (!filtros.periodoAtualizacao || filtros.periodoAtualizacao === 'todos') return true;
@@ -395,7 +395,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
 
     if (modoCorrecao) {
       produtosFinal = produtosFinal.filter((p) =>
-        p.qualidade_rag && (p.qualidade_rag.nivel === 'baixo' || p.qualidade_rag.nivel === 'medio')
+      p.qualidade_rag && (p.qualidade_rag.nivel === 'baixo' || p.qualidade_rag.nivel === 'medio')
       );
     }
 
@@ -451,21 +451,21 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
       <div className="px-2 md:px-4 pt-3 flex-shrink-0 overflow-x-auto no-scrollbar">
         <TabsList className="h-auto w-full grid grid-cols-5 gap-0 p-0 rounded-2xl overflow-hidden bg-[#0D1626]/60 backdrop-blur-xl border border-[#1E3A8A] shadow-[0_8px_30px_rgba(0,0,0,0.45)]">
           {[
-            { value: 'catalogo', icon: Package, label: 'Catálogo' },
-            { value: 'promocoes', icon: Tag, label: 'Promoções' },
-            { value: 'instagram', icon: Instagram, label: 'Publicar no Instagram' },
-            { value: 'textos', icon: MessagesSquare, label: 'Textos para Publicação' },
-            { value: 'fornecedores', icon: Store, label: 'Fornecedores' }
-          ].map(({ value, icon: Icon, label }) => (
-            <TabsTrigger
-              key={value}
-              value={value}
-              className="flex flex-col items-center justify-center gap-2 h-full min-h-[92px] px-2 py-4 rounded-none whitespace-normal text-center text-sm font-normal text-[#E2E8F0]/70 bg-transparent shadow-none data-[state=active]:shadow-none data-[state=active]:text-[#F5C86B] data-[state=active]:bg-gradient-to-b data-[state=active]:from-[#0B1E4A] data-[state=active]:to-[#C79A3C]/70"
-            >
+          { value: 'catalogo', icon: Package, label: 'Catálogo' },
+          { value: 'promocoes', icon: Tag, label: 'Promoções' },
+          { value: 'instagram', icon: Instagram, label: 'Publicar no Instagram' },
+          { value: 'textos', icon: MessagesSquare, label: 'Textos para Publicação' },
+          { value: 'fornecedores', icon: Store, label: 'Fornecedores' }].
+          map(({ value, icon: Icon, label }) =>
+          <TabsTrigger
+            key={value}
+            value={value}
+            className="flex flex-col items-center justify-center gap-2 h-full min-h-[92px] px-2 rounded-none whitespace-normal text-center font-normal text-[#E2E8F0]/70 bg-transparent shadow-none data-[state=active]:shadow-none data-[state=active]:text-[#F5C86B] data-[state=active]:bg-gradient-to-b data-[state=active]:from-[#0B1E4A] data-[state=active]:to-[#C79A3C]/70 text-xs py-2">
+            
               <Icon className="w-6 h-6" strokeWidth={1.5} />
               <span className="leading-tight">{label}</span>
             </TabsTrigger>
-          ))}
+          )}
         </TabsList>
       </div>
 
@@ -477,8 +477,8 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
               <ProdutoFiltros
                 produtos={produtos}
                 filtros={filtros}
-                onFiltrosChange={handleFiltrosChange}
-              />
+                onFiltrosChange={handleFiltrosChange} />
+              
             </div>
           </aside>
 
@@ -501,11 +501,11 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                       </h1>
                       <div className="flex items-center gap-2 mt-0.5">
                         <p className="text-xs md:text-sm text-[#E2E8F0]/60">{produtosFiltrados.length} produtos</p>
-                        {modoCorrecao && (
-                          <Badge className="bg-[#D4AF37] text-[#050A14] font-bold text-xs">
+                        {modoCorrecao &&
+                        <Badge className="bg-[#D4AF37] text-[#050A14] font-bold text-xs">
                             Modo Correção
                           </Badge>
-                        )}
+                        }
                       </div>
                     </div>
                   </div>
@@ -517,20 +517,20 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                       <ProdutoFiltros
                         produtos={produtos}
                         filtros={filtros}
-                        onFiltrosChange={handleFiltrosChange}
-                      />
+                        onFiltrosChange={handleFiltrosChange} />
+                      
                     </MobileDrawer>
 
-                    {modoCorrecao && (
-                      <Button
-                        onClick={() => setModoCorrecao(false)}
-                        variant="outline"
-                        size="sm"
-                        className="bg-[#0D1626]/80 text-[#E2E8F0] hover:bg-[#132038] border border-[#1E3A8A] h-9 text-xs"
-                      >
+                    {modoCorrecao &&
+                    <Button
+                      onClick={() => setModoCorrecao(false)}
+                      variant="outline"
+                      size="sm"
+                      className="bg-[#0D1626]/80 text-[#E2E8F0] hover:bg-[#132038] border border-[#1E3A8A] h-9 text-xs">
+                      
                         Sair Correção
                       </Button>
-                    )}
+                    }
 
                     <Sheet>
                       <SheetTrigger asChild>
@@ -548,21 +548,21 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                         <CarrinhoCotacoes
                           carrinho={carrinho}
                           onRemove={handleRemoveFromCart}
-                          onClear={handleClearCart}
-                        />
+                          onClear={handleClearCart} />
+                        
                       </SheetContent>
                     </Sheet>
 
                     <Button
-                      onClick={() => setModoVisao((m) => (m === 'lista' ? 'grade' : 'lista'))}
+                      onClick={() => setModoVisao((m) => m === 'lista' ? 'grade' : 'lista')}
                       variant="outline"
                       size="sm"
                       className="bg-[#0D1626]/80 text-[#E2E8F0] hover:bg-[#132038] hover:text-[#FCD34D] border border-[#D4AF37]/30 hover:border-[#D4AF37] h-9 text-xs"
-                      title={modoVisao === 'lista' ? 'Ver em grade' : 'Ver em lista'}
-                    >
-                      {modoVisao === 'lista'
-                        ? <LayoutGrid className="mr-1.5 h-3.5 w-3.5" />
-                        : <ListFilter className="mr-1.5 h-3.5 w-3.5" />}
+                      title={modoVisao === 'lista' ? 'Ver em grade' : 'Ver em lista'}>
+                      
+                      {modoVisao === 'lista' ?
+                      <LayoutGrid className="mr-1.5 h-3.5 w-3.5" /> :
+                      <ListFilter className="mr-1.5 h-3.5 w-3.5" />}
                       {modoVisao === 'lista' ? 'Grade' : 'Lista'}
                     </Button>
 
@@ -571,23 +571,23 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                         <Button
                           variant="outline"
                           size="sm"
-                          className="bg-[#0D1626]/80 text-[#E2E8F0] hover:bg-[#132038] hover:text-[#FCD34D] border border-[#D4AF37]/30 hover:border-[#D4AF37] h-9 text-xs"
-                        >
+                          className="bg-[#0D1626]/80 text-[#E2E8F0] hover:bg-[#132038] hover:text-[#FCD34D] border border-[#D4AF37]/30 hover:border-[#D4AF37] h-9 text-xs">
+                          
                           <Columns className="mr-1.5 h-3.5 w-3.5" />
                           Colunas
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-48 bg-white p-4 shadow-lg rounded-lg">
                         <div className="grid gap-2">
-                          {Object.keys(columnVisibility).map((key) => (
-                            <div key={key} className="flex items-center space-x-2">
+                          {Object.keys(columnVisibility).map((key) =>
+                          <div key={key} className="flex items-center space-x-2">
                               <Checkbox
-                                id={key}
-                                checked={columnVisibility[key]}
-                                onCheckedChange={(checked) =>
-                                  setColumnVisibility((prev) => ({ ...prev, [key]: checked }))
-                                }
-                              />
+                              id={key}
+                              checked={columnVisibility[key]}
+                              onCheckedChange={(checked) =>
+                              setColumnVisibility((prev) => ({ ...prev, [key]: checked }))
+                              } />
+                            
                               <label htmlFor={key} className="text-sm font-medium leading-none">
                                 {key === 'precoVenda' && 'Preço Venda'}
                                 {key === 'acoes' && 'Ações'}
@@ -597,7 +597,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                                 {key === 'fornecedor' && 'Fornecedor'}
                               </label>
                             </div>
-                          ))}
+                          )}
                         </div>
                       </PopoverContent>
                     </Popover>
@@ -606,8 +606,8 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                       onClick={() => navigate(createPageUrl('Precificacao'))}
                       variant="outline"
                       size="sm"
-                      className="bg-[#0D1626]/80 text-[#E2E8F0] hover:bg-[#132038] hover:text-[#FCD34D] border border-[#D4AF37]/30 hover:border-[#D4AF37] h-9 text-xs"
-                    >
+                      className="bg-[#0D1626]/80 text-[#E2E8F0] hover:bg-[#132038] hover:text-[#FCD34D] border border-[#D4AF37]/30 hover:border-[#D4AF37] h-9 text-xs">
+                      
                       <Upload className="mr-1.5 h-3.5 w-3.5" />
                       Importar (IA)
                     </Button>
@@ -615,34 +615,34 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                     <Button
                       onClick={handleNew}
                       size="sm"
-                      className="bg-gradient-to-r from-[#FCD34D] to-[#D4AF37] hover:from-[#FFE08A] hover:to-[#E0BC4A] text-[#050A14] font-semibold shadow-[0_0_15px_rgba(212,175,55,0.45)] transition-all transform hover:scale-105 h-9 text-xs"
-                    >
+                      className="bg-gradient-to-r from-[#FCD34D] to-[#D4AF37] hover:from-[#FFE08A] hover:to-[#E0BC4A] text-[#050A14] font-semibold shadow-[0_0_15px_rgba(212,175,55,0.45)] transition-all transform hover:scale-105 h-9 text-xs">
+                      
                       <Plus className="w-3.5 h-3.5 mr-1.5" />
                       Novo
                     </Button>
                   </div>
                 </div>
 
-                {selectedProductIds.length > 0 && (
-                  <div className="flex justify-end gap-2 mt-3">
+                {selectedProductIds.length > 0 &&
+                <div className="flex justify-end gap-2 mt-3">
                     <Button
-                      onClick={handleExcludeSelected}
-                      variant="destructive"
-                      size="sm"
-                      className="gap-1.5 h-8 text-xs"
-                    >
+                    onClick={handleExcludeSelected}
+                    variant="destructive"
+                    size="sm"
+                    className="gap-1.5 h-8 text-xs">
+                    
                       <X className="w-3.5 h-3.5" /> Excluir ({selectedProductIds.length})
                     </Button>
                     <Button
-                      onClick={handleCotarSelected}
-                      variant="secondary"
-                      size="sm"
-                      className="gap-1.5 h-8 text-xs"
-                    >
+                    onClick={handleCotarSelected}
+                    variant="secondary"
+                    size="sm"
+                    className="gap-1.5 h-8 text-xs">
+                    
                       <DollarSign className="w-3.5 h-3.5" /> Cotar ({selectedProductIds.length})
                     </Button>
                   </div>
-                )}
+                }
               </div>
 
               <BotaoNexusFlutuante
@@ -651,8 +651,8 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                   if (alertasQualidade.length > 0) {
                     toast.info(`📊 ${alertasQualidade.length} produtos precisam de atenção`);
                   }
-                }}
-              />
+                }} />
+              
 
               <LembretesIAContextualizados
                 lembretes={lembretesIA}
@@ -666,11 +666,11 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                     return;
                   }
                   setLembretesIA((prev) => prev.filter((l) => l.id !== lembrete.id));
-                }}
-              />
+                }} />
+              
 
-              {analisandoIA && (
-                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-3">
+              {analisandoIA &&
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-3">
                   <div className="flex items-center gap-3">
                     <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
                     <div>
@@ -679,34 +679,34 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                     </div>
                   </div>
                 </div>
-              )}
+              }
 
               {/* GRADE COM ALTURA TOTAL */}
               <div className="flex-1 overflow-hidden">
-                {loading ? (
-                  <div className="flex justify-center items-center h-full">
+                {loading ?
+                <div className="flex justify-center items-center h-full">
                     <Loader2 className="w-8 h-8 text-[#D4AF37] animate-spin" />
-                  </div>
-                ) : modoVisao === 'grade' ? (
-                  <ProdutoGrade
-                    produtos={produtosFiltrados}
-                    onEdit={handleEdit}
-                    onAddToCart={handleAddToCart}
-                  />
-                ) : (
-                  <ProdutoTable
-                    produtos={produtosFiltrados}
-                    onEdit={handleEdit}
-                    onAddToCart={handleAddToCart}
-                    onSugerirPreco={handleSugerirPreco}
-                    analisandoIA={analisandoIA}
-                    selectedProductIds={selectedProductIds}
-                    onSelectProduct={handleSelectProduct}
-                    onSelectAllProducts={handleSelectAllProducts}
-                    allProductsSelected={selectedProductIds.length === produtosFiltrados.length && produtosFiltrados.length > 0}
-                    columnVisibility={columnVisibility}
-                  />
-                )}
+                  </div> :
+                modoVisao === 'grade' ?
+                <ProdutoGrade
+                  produtos={produtosFiltrados}
+                  onEdit={handleEdit}
+                  onAddToCart={handleAddToCart} /> :
+
+
+                <ProdutoTable
+                  produtos={produtosFiltrados}
+                  onEdit={handleEdit}
+                  onAddToCart={handleAddToCart}
+                  onSugerirPreco={handleSugerirPreco}
+                  analisandoIA={analisandoIA}
+                  selectedProductIds={selectedProductIds}
+                  onSelectProduct={handleSelectProduct}
+                  onSelectAllProducts={handleSelectAllProducts}
+                  allProductsSelected={selectedProductIds.length === produtosFiltrados.length && produtosFiltrados.length > 0}
+                  columnVisibility={columnVisibility} />
+
+                }
               </div>
             </div>
           </main>
@@ -740,35 +740,35 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
         <PainelConsultaFornecedores />
       </TabsContent>
 
-      {showFormModal && (
-        <ProdutoFormModal
-          produto={produtoEdit}
-          onSave={handleSave}
-          onClose={() => {
-            setShowFormModal(false);
-            setProdutoEdit(null);
-          }}
-        />
-      )}
+      {showFormModal &&
+      <ProdutoFormModal
+        produto={produtoEdit}
+        onSave={handleSave}
+        onClose={() => {
+          setShowFormModal(false);
+          setProdutoEdit(null);
+        }} />
 
-      {modalInsightsAberto && insightsIA && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      }
+
+      {modalInsightsAberto && insightsIA &&
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden"
-          >
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden">
+          
             <div className="bg-gradient-to-r from-amber-500 to-orange-600 p-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <DollarSign className="w-8 h-8 text-white" />
                 <h2 className="text-2xl font-bold text-white">Insights de Precificação IA</h2>
               </div>
               <Button
-                onClick={() => setModalInsightsAberto(false)}
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-white/20"
-              >
+              onClick={() => setModalInsightsAberto(false)}
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/20">
+              
                 <X className="w-6 h-6" />
               </Button>
             </div>
@@ -778,44 +778,44 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                 <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
                   📊 Análise da Margem
                   <Badge className={
-                    insightsIA.analise_margem?.status === 'saudavel' ? 'bg-green-500' :
-                    insightsIA.analise_margem?.status === 'critico' ? 'bg-red-500' :
-                    'bg-orange-500'
-                  }>
+                insightsIA.analise_margem?.status === 'saudavel' ? 'bg-green-500' :
+                insightsIA.analise_margem?.status === 'critico' ? 'bg-red-500' :
+                'bg-orange-500'
+                }>
                     {insightsIA.analise_margem?.status === 'saudavel' ? 'Saudável' :
-                    insightsIA.analise_margem?.status === 'critico' ? 'Crítico' : 'Atenção'}
+                  insightsIA.analise_margem?.status === 'critico' ? 'Crítico' : 'Atenção'}
                   </Badge>
                 </h3>
                 <p className="text-slate-700">{insightsIA.analise_margem?.comentario}</p>
               </div>
 
-              {insightsIA.oportunidades_bundling && insightsIA.oportunidades_bundling.length > 0 && (
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border-2 border-green-200">
+              {insightsIA.oportunidades_bundling && insightsIA.oportunidades_bundling.length > 0 &&
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border-2 border-green-200">
                   <h3 className="font-bold text-lg mb-3">💡 Oportunidades de Bundling</h3>
                   <ul className="space-y-2">
-                    {insightsIA.oportunidades_bundling.map((oportunidade, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
+                    {insightsIA.oportunidades_bundling.map((oportunidade, idx) =>
+                <li key={idx} className="flex items-start gap-2">
                         <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                         <span className="text-slate-700">{oportunidade}</span>
                       </li>
-                    ))}
+                )}
                   </ul>
                 </div>
-              )}
+            }
 
-              {insightsIA.produtos_sugeridos && insightsIA.produtos_sugeridos.length > 0 && (
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border-2 border-purple-200">
+              {insightsIA.produtos_sugeridos && insightsIA.produtos_sugeridos.length > 0 &&
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border-2 border-purple-200">
                   <h3 className="font-bold text-lg mb-3">🎯 Produtos Sugeridos</h3>
                   <ul className="space-y-2">
-                    {insightsIA.produtos_sugeridos.map((produto, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
+                    {insightsIA.produtos_sugeridos.map((produto, idx) =>
+                <li key={idx} className="flex items-start gap-2">
                         <Plus className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
                         <span className="text-slate-700">{produto}</span>
                       </li>
-                    ))}
+                )}
                   </ul>
                 </div>
-              )}
+            }
 
               <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border-2 border-amber-200">
                 <h3 className="font-bold text-lg mb-2">🎯 Estratégia Geral</h3>
@@ -824,7 +824,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
             </div>
           </motion.div>
         </div>
-      )}
-    </Tabs>
-  );
+      }
+    </Tabs>);
+
 }
