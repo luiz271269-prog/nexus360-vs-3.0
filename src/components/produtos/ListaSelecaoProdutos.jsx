@@ -14,9 +14,14 @@ export default function ListaSelecaoProdutos({ itens, onRemover, onLimpar }) {
   const total = itens.reduce((s, i) => s + (i.preco_venda || 0), 0);
 
   const copiar = async () => {
-    const texto = itens
-      .map((i) => `• ${i.nome} — ${fmtBRL(i.preco_venda)}`)
-      .join("\n") + `\n\nTotal: ${fmtBRL(total)}`;
+    const linhas = itens.map((i, n) => `${n + 1}. ${i.nome}\n${fmtBRL(i.preco_venda)}`);
+    const texto = [
+      "*Minha lista de interesse*",
+      "",
+      linhas.join("\n\n"),
+      "",
+      `*Total: ${fmtBRL(total)}*`,
+    ].join("\n");
     try {
       await navigator.clipboard.writeText(texto);
       setCopiado(true);
