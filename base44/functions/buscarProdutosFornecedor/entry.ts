@@ -236,17 +236,29 @@ Deno.serve(async (req) => {
         const cfg = { dolar: 5.22, frete: 0, margem: MARGEM, ...(lojasCfg[p.loja_id] || {}) };
         const custo = p.moeda === 'USD' ? (p.preco_fornecedor || 0) * (cfg.dolar || 0) : (p.preco_fornecedor || 0);
         const venda = Math.round(custo * (1 + (cfg.frete || 0) / 100) * (1 + (cfg.margem || 0) / 100) * 100) / 100;
-        return { ...p, moeda: 'BRL', preco_fornecedor: venda, preco_venda: venda };
+        // Vitrine pública: entrega SÓ o necessário — sem url do fornecedor, sem loja, sem custo
+        return {
+          nome: p.nome,
+          imagem: p.imagem,
+          moeda: 'BRL',
+          preco_fornecedor: venda,
+          preco_venda: venda,
+          disponivel: p.disponivel !== false,
+          marca: p.marca || '',
+          tipo_item: p.tipo_item || '',
+          loja_id: 'catalogo',
+          loja_nome: 'Catálogo',
+        };
       });
     }
 
     return Response.json({
       total: saida.length,
-      total_por_loja: saida.reduce((acc, p) => ({ ...acc, [p.loja_id]: (acc[p.loja_id] || 0) + 1 }), {}),
+      total_por_loja: publico ? {} : saida.reduce((acc, p) => ({ ...acc, [p.loja_id]: (acc[p.loja_id] || 0) + 1 }), {}),
       produtos: saida,
       margem_aplicada: MARGEM,
       cotacao_dolar_site: publico ? null : (visao?.cotacao || null),
-      erros,
+      erros: publico ? [] : erros,
       atualizado_em: new Date().toISOString(),
     });
   } catch (error) {
