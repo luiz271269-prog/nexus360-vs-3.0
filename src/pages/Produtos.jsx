@@ -28,7 +28,6 @@ import PainelAlertasQualidade from '../components/global/PainelAlertasQualidade'
 import GerenciadorPromocoes from '../components/automacao/GerenciadorPromocoes';
 import VisaoCombinadaPromocoes from '../components/automacao/VisaoCombinadaPromocoes';
 import { MobileDrawer } from '../components/mobile/mobileSkillGlobal';
-import FundoNeural from '../components/global/FundoNeural';
 
 export default function Produtos() {
   const [produtos, setProdutos] = useState([]);
@@ -446,9 +445,8 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
   const tabInicial = new URLSearchParams(window.location.search).get('tab') || 'catalogo';
 
   return (
-    <Tabs defaultValue={tabInicial} className="relative flex flex-col h-screen bg-[#050A14]">
-      <FundoNeural />
-      <div className="px-2 md:px-4 pt-3 flex-shrink-0 overflow-x-auto no-scrollbar">
+    <Tabs defaultValue={tabInicial} className="relative flex flex-col h-screen bg-slate-50">
+      <div className="px-2 md:px-4 pt-3 flex-shrink-0 overflow-x-auto no-scrollbar bg-[#050A14]">
         <TabsList className="h-auto w-full grid grid-cols-5 gap-0 p-0 rounded-2xl overflow-hidden bg-[#0D1626]/60 backdrop-blur-xl border border-[#1E3A8A] shadow-[0_8px_30px_rgba(0,0,0,0.45)]">
           {[
           { value: 'catalogo', icon: Package, label: 'Catálogo' },
@@ -470,9 +468,9 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
       </div>
 
       <TabsContent value="catalogo" className="flex-1 min-h-0 m-0">
-        <div className="flex h-full bg-transparent">
+        <div className="flex h-full bg-slate-50">
           {/* Sidebar de filtros - fixa apenas no desktop */}
-          <aside className="hidden md:block bg-[#0D1626]/70 backdrop-blur-xl w-[280px] min-w-[280px] max-w-[280px] border-r border-[#D4AF37]/20 shadow-[0_0_30px_rgba(0,0,0,0.5)] overflow-hidden">
+          <aside className="hidden md:block bg-white w-[280px] min-w-[280px] max-w-[280px] border-r border-slate-200 shadow-sm overflow-hidden">
             <div className="h-full flex flex-col">
               <ProdutoFiltros
                 produtos={produtos}
