@@ -28,6 +28,7 @@ import PainelAlertasQualidade from '../components/global/PainelAlertasQualidade'
 import GerenciadorPromocoes from '../components/automacao/GerenciadorPromocoes';
 import VisaoCombinadaPromocoes from '../components/automacao/VisaoCombinadaPromocoes';
 import { MobileDrawer } from '../components/mobile/mobileSkillGlobal';
+import FundoNeural from '../components/global/FundoNeural';
 
 export default function Produtos() {
   const [produtos, setProdutos] = useState([]);
@@ -445,7 +446,8 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
   const tabInicial = new URLSearchParams(window.location.search).get('tab') || 'catalogo';
 
   return (
-    <Tabs defaultValue={tabInicial} className="flex flex-col h-screen bg-transparent">
+    <Tabs defaultValue={tabInicial} className="relative flex flex-col h-screen bg-[#050A14]">
+      <FundoNeural />
       <div className="px-2 md:px-4 pt-3 flex-shrink-0 overflow-x-auto no-scrollbar">
         <TabsList className="h-auto w-full grid grid-cols-5 gap-0 p-0 rounded-2xl overflow-hidden bg-[#0D1626]/60 backdrop-blur-xl border border-[#1E3A8A] shadow-[0_8px_30px_rgba(0,0,0,0.45)]">
           {[
@@ -470,7 +472,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
       <TabsContent value="catalogo" className="flex-1 min-h-0 m-0">
         <div className="flex h-full bg-transparent">
           {/* Sidebar de filtros - fixa apenas no desktop */}
-          <aside className="hidden md:block bg-gradient-to-br from-amber-100 via-orange-100 to-red-100 backdrop-blur-lg w-[280px] min-w-[280px] max-w-[280px] border-r border-orange-200/50 shadow-lg overflow-hidden">
+          <aside className="hidden md:block bg-[#0D1626]/70 backdrop-blur-xl w-[280px] min-w-[280px] max-w-[280px] border-r border-[#D4AF37]/20 shadow-[0_0_30px_rgba(0,0,0,0.5)] overflow-hidden">
             <div className="h-full flex flex-col">
               <ProdutoFiltros
                 produtos={produtos}
@@ -483,24 +485,24 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
           <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
             <div className="flex-1 flex flex-col p-2 md:p-4 gap-3 overflow-hidden">
               {/* HEADER COMPACTO NO TOPO */}
-              <div className="bg-gradient-to-br from-amber-400/20 via-orange-400/20 to-red-500/20 rounded-xl shadow-xl border-2 border-orange-300 backdrop-blur-sm relative overflow-hidden p-3 flex-shrink-0">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-amber-400/20 to-orange-500/20 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-orange-400/20 to-red-500/20 rounded-full blur-3xl"></div>
+              <div className="bg-[#0D1626]/70 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.5)] border border-[#D4AF37]/25 backdrop-blur-xl relative overflow-hidden p-3 flex-shrink-0">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-[#D4AF37]/10 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#1E3A8A]/30 rounded-full blur-3xl"></div>
 
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 relative z-10">
                   {/* TÍTULO COMPACTO */}
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/50 flex-shrink-0">
-                      <ShoppingCart className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-[#FCD34D] to-[#D4AF37] rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(212,175,55,0.4)] flex-shrink-0">
+                      <ShoppingCart className="w-5 h-5 md:w-6 md:h-6 text-[#050A14]" />
                     </div>
                     <div className="min-w-0">
-                      <h1 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 bg-clip-text text-transparent truncate">
+                      <h1 className="text-lg md:text-2xl font-bold bg-gradient-to-r from-[#FCD34D] to-[#D4AF37] bg-clip-text text-transparent truncate">
                         Catálogo de Produtos
                       </h1>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-xs md:text-sm text-slate-600">{produtosFiltrados.length} produtos</p>
+                        <p className="text-xs md:text-sm text-[#E2E8F0]/60">{produtosFiltrados.length} produtos</p>
                         {modoCorrecao && (
-                          <Badge className="bg-orange-500 text-white font-bold text-xs">
+                          <Badge className="bg-[#D4AF37] text-[#050A14] font-bold text-xs">
                             Modo Correção
                           </Badge>
                         )}
@@ -524,7 +526,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                         onClick={() => setModoCorrecao(false)}
                         variant="outline"
                         size="sm"
-                        className="bg-white hover:bg-slate-100 border-2 border-slate-300 h-9 text-xs"
+                        className="bg-[#0D1626]/80 text-[#E2E8F0] hover:bg-[#132038] border border-[#1E3A8A] h-9 text-xs"
                       >
                         Sair Correção
                       </Button>
@@ -532,7 +534,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
 
                     <Sheet>
                       <SheetTrigger asChild>
-                        <Button variant="outline" size="sm" className="bg-white hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 border-2 border-orange-300 hover:border-orange-500 h-9 text-xs">
+                        <Button variant="outline" size="sm" className="bg-[#0D1626]/80 text-[#E2E8F0] hover:bg-[#132038] hover:text-[#FCD34D] border border-[#D4AF37]/30 hover:border-[#D4AF37] h-9 text-xs">
                           <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
                           Carrinho ({carrinho.length})
                         </Button>
@@ -555,7 +557,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                       onClick={() => setModoVisao((m) => (m === 'lista' ? 'grade' : 'lista'))}
                       variant="outline"
                       size="sm"
-                      className="bg-white border-2 border-orange-300 hover:border-orange-500 h-9 text-xs"
+                      className="bg-[#0D1626]/80 text-[#E2E8F0] hover:bg-[#132038] hover:text-[#FCD34D] border border-[#D4AF37]/30 hover:border-[#D4AF37] h-9 text-xs"
                       title={modoVisao === 'lista' ? 'Ver em grade' : 'Ver em lista'}
                     >
                       {modoVisao === 'lista'
@@ -569,7 +571,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                         <Button
                           variant="outline"
                           size="sm"
-                          className="bg-white hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 border-2 border-orange-300 hover:border-orange-500 h-9 text-xs"
+                          className="bg-[#0D1626]/80 text-[#E2E8F0] hover:bg-[#132038] hover:text-[#FCD34D] border border-[#D4AF37]/30 hover:border-[#D4AF37] h-9 text-xs"
                         >
                           <Columns className="mr-1.5 h-3.5 w-3.5" />
                           Colunas
@@ -604,7 +606,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                       onClick={() => navigate(createPageUrl('Precificacao'))}
                       variant="outline"
                       size="sm"
-                      className="bg-white hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 border-2 border-orange-300 hover:border-orange-500 h-9 text-xs"
+                      className="bg-[#0D1626]/80 text-[#E2E8F0] hover:bg-[#132038] hover:text-[#FCD34D] border border-[#D4AF37]/30 hover:border-[#D4AF37] h-9 text-xs"
                     >
                       <Upload className="mr-1.5 h-3.5 w-3.5" />
                       Importar (IA)
@@ -613,7 +615,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
                     <Button
                       onClick={handleNew}
                       size="sm"
-                      className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 text-white font-semibold shadow-lg shadow-orange-500/50 transition-all transform hover:scale-105 h-9 text-xs"
+                      className="bg-gradient-to-r from-[#FCD34D] to-[#D4AF37] hover:from-[#FFE08A] hover:to-[#E0BC4A] text-[#050A14] font-semibold shadow-[0_0_15px_rgba(212,175,55,0.45)] transition-all transform hover:scale-105 h-9 text-xs"
                     >
                       <Plus className="w-3.5 h-3.5 mr-1.5" />
                       Novo
@@ -683,7 +685,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
               <div className="flex-1 overflow-hidden">
                 {loading ? (
                   <div className="flex justify-center items-center h-full">
-                    <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+                    <Loader2 className="w-8 h-8 text-[#D4AF37] animate-spin" />
                   </div>
                 ) : modoVisao === 'grade' ? (
                   <ProdutoGrade
