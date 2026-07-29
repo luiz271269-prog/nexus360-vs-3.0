@@ -485,7 +485,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
           <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
             <div className="flex-1 flex flex-col p-2 md:p-4 gap-3 overflow-hidden">
               {/* HEADER COMPACTO NO TOPO */}
-              <div className="bg-[#0D1626]/70 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.5)] border border-[#D4AF37]/25 backdrop-blur-xl relative overflow-hidden p-3 flex-shrink-0">
+              <div className="bg-[#0D1626]/70 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.5)] border border-[#D4AF37]/25 backdrop-blur-xl relative overflow-hidden flex-shrink-0 px-3">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-[#D4AF37]/10 rounded-full blur-3xl"></div>
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#1E3A8A]/30 rounded-full blur-3xl"></div>
 
