@@ -22,6 +22,7 @@ import PortalCliente from '@/pages/PortalCliente';
 import MapaClientes from '@/pages/MapaClientes';
 import PainelMetas from '@/pages/PainelMetas';
 import FornecedoresPortal from '@/pages/FornecedoresPortal';
+import VitrinePublica from '@/pages/VitrinePublica';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -182,6 +183,8 @@ const AuthenticatedApp = () => {
         <Route path="/fornecedores" element={<Navigate to="/FornecedoresPortal" replace />} />
         <Route path="/AprendizadosSemanais" element={<Navigate to="/CentralIA?tab=aprendizados" replace />} />
         <Route path="/PortalCliente" element={<PortalCliente />} />
+        <Route path="/Vitrine" element={<VitrinePublica />} />
+        <Route path="/vitrine" element={<Navigate to="/Vitrine" replace />} />
         <Route path="/MinhaCaixaEmail" element={<Navigate to="/Emails" replace />} />
         <Route path="/Clientes" element={<Navigate to="/LeadsQualificados" replace />} />
         <Route path="/orcamentos" element={<Navigate to="/LeadsQualificados" replace />} />

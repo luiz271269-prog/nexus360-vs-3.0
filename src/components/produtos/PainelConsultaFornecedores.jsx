@@ -10,7 +10,7 @@ import ModalDetalheFornecedor from "./ModalDetalheFornecedor";
 import MobileDrawer from "@/components/mobile/MobileDrawer";
 import { classificarProdutos, contarPor } from "./classificarProdutoFornecedor";
 
-export default function PainelConsultaFornecedores() {
+export default function PainelConsultaFornecedores({ publico = false }) {
   const [produtos, setProdutos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
@@ -33,6 +33,7 @@ export default function PainelConsultaFornecedores() {
 
   // Margem padrão do sistema (somente admin edita; todos consomem)
   useEffect(() => {
+    if (publico) return; // vitrine pública: preço já vem calculado do servidor
     (async () => {
       try {
         const user = await base44.auth.me();
@@ -105,7 +106,7 @@ export default function PainelConsultaFornecedores() {
     setLoading(true);
     setErro(null);
     try {
-      const { data } = await base44.functions.invoke("buscarProdutosFornecedor", { q: termo });
+      const { data } = await base44.functions.invoke("buscarProdutosFornecedor", { q: termo, publico });
       const brutos = Array.isArray(data?.produtos) ? data.produtos : [];
       // Mantém marca/categoria que já vêm do site (Visão VIP) e classifica o resto
       setProdutos(classificarProdutos(brutos).map((p, i) => ({
@@ -142,12 +143,13 @@ export default function PainelConsultaFornecedores() {
   const tipos = useMemo(() => contarPor(produtos, "tipo_item"), [produtos]);
   const marcas = useMemo(() => contarPor(produtos, "marca"), [produtos]);
 
-  const margemNum = parseFloat(String(margem).replace(",", ".")) || 0;
+  const margemNum = publico ? 0 : (parseFloat(String(margem).replace(",", ".")) || 0);
   const minNum = parseFloat(String(precoMin).replace(",", ".")) || 0;
   const maxNum = parseFloat(String(precoMax).replace(",", ".")) || Infinity;
 
   // Config de preço da loja (usa a margem geral quando a loja ainda não foi configurada)
   const cfgDe = (lojaId) => {
+    if (publico) return { dolar: 1, frete: 0, margem: 0 };
     const cfg = configDaLoja(precoConfigs, lojaId);
     return precoConfigs?.[lojaId] ? cfg : { ...cfg, margem: margemNum };
   };
@@ -175,7 +177,7 @@ export default function PainelConsultaFornecedores() {
   const filtrosEl = (
     <FiltrosFornecedorSidebar
       busca={busca} setBusca={setBusca}
-      lojas={lojas} lojasSelecionadas={lojasSelecionadas} toggleLoja={toggleLoja}
+      lojas={publico ? [] : lojas} lojasSelecionadas={lojasSelecionadas} toggleLoja={toggleLoja}
       tipos={tipos} tiposSelecionados={tiposSelecionados} toggleTipo={toggleTipo}
       marcas={marcas} marcasSelecionadas={marcasSelecionadas} toggleMarca={toggleMarca}
       somenteDisponiveis={somenteDisponiveis} setSomenteDisponiveis={setSomenteDisponiveis}
@@ -196,7 +198,7 @@ export default function PainelConsultaFornecedores() {
             <ShoppingCart className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-base md:text-lg font-bold text-orange-600 leading-tight truncate">Catálogo do Fornecedor</h2>
+            <h2 className="text-base md:text-lg font-bold text-orange-600 leading-tight truncate">{publico ? "Catálogo de Produtos" : "Catálogo do Fornecedor"}</h2>
             <p className="text-xs text-slate-500">{filtrados.length} produtos{isAdmin ? ` · margem +${margemNum}%` : ""}</p>
           </div>
           {isAdmin && (
@@ -243,7 +245,7 @@ export default function PainelConsultaFornecedores() {
                   precoCusto={custoEmReais(p, cfgDe(p.loja_id))}
                   onAbrir={(prod) => {
                     // Admin (e produtos da Visão VIP) abrem direto no site do fornecedor
-                    if ((isAdmin || prod.loja_id === "visaovip") && prod.url) window.open(prod.url, "_blank", "noopener");
+                    if (!publico && (isAdmin || prod.loja_id === "visaovip") && prod.url) window.open(prod.url, "_blank", "noopener");
                     else setProdutoAberto(prod);
                   }}
                 />

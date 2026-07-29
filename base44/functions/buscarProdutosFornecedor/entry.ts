@@ -193,14 +193,19 @@ async function buscarVisaoVip(termo = '') {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     let termo = '';
+    let publico = false;
     try {
       const body = await req.json();
       termo = (body?.q || '').toString().trim();
+      publico = body?.publico === true;
     } catch { /* sem body */ }
+
+    // Modo público (vitrine compartilhável): dispensa login, mas nunca expõe custo
+    let user = null;
+    try { user = await base44.auth.me(); } catch { /* visitante */ }
+    if (!user && !publico) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const [resultados, visao] = await Promise.all([
       Promise.allSettled(LOJAS.map((l) => buscarLoja(l, termo))),
@@ -218,13 +223,29 @@ Deno.serve(async (req) => {
     if (visao?.erro) erros.push(`${VISAOVIP.nome}: ${visao.erro}`);
     produtos.push(...(visao?.produtos || []));
 
+    // Vitrine pública: aplica a precificação configurada e devolve SOMENTE o preço final em R$
+    let saida = produtos;
+    if (publico) {
+      let lojasCfg = {};
+      try {
+        const [cfg] = await base44.asServiceRole.entities.ConfiguracaoSistema.filter({ chave: 'precificacao_fornecedores' });
+        lojasCfg = cfg?.valor?.lojas || {};
+      } catch { /* usa padrão */ }
+
+      saida = produtos.map((p) => {
+        const cfg = { dolar: 5.22, frete: 0, margem: MARGEM, ...(lojasCfg[p.loja_id] || {}) };
+        const custo = p.moeda === 'USD' ? (p.preco_fornecedor || 0) * (cfg.dolar || 0) : (p.preco_fornecedor || 0);
+        const venda = Math.round(custo * (1 + (cfg.frete || 0) / 100) * (1 + (cfg.margem || 0) / 100) * 100) / 100;
+        return { ...p, moeda: 'BRL', preco_fornecedor: venda, preco_venda: venda };
+      });
+    }
+
     return Response.json({
-      total: produtos.length,
-      total_por_loja: produtos.reduce((acc, p) => ({ ...acc, [p.loja_id]: (acc[p.loja_id] || 0) + 1 }), {}),
-      erros,
-      produtos,
+      total: saida.length,
+      total_por_loja: saida.reduce((acc, p) => ({ ...acc, [p.loja_id]: (acc[p.loja_id] || 0) + 1 }), {}),
+      produtos: saida,
       margem_aplicada: MARGEM,
-      cotacao_dolar_site: visao?.cotacao || null,
+      cotacao_dolar_site: publico ? null : (visao?.cotacao || null),
       erros,
       atualizado_em: new Date().toISOString(),
     });
