@@ -1,7 +1,7 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ImageOff, ShoppingCart, Pencil } from "lucide-react";
+import { Package, ShoppingCart, Pencil } from "lucide-react";
 
 const fmtBRL = (v) => (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -19,7 +19,12 @@ export default function ProdutoGrade({ produtos, onEdit, onAddToCart }) {
               {p.imagem_url || p.foto_url ? (
                 <img src={p.imagem_url || p.foto_url} alt={p.nome} loading="lazy" className="w-full h-full object-contain group-hover:scale-105 transition-transform" />
               ) : (
-                <ImageOff className="w-8 h-8 text-slate-300" />
+                <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-slate-100 to-slate-200">
+                  <Package className="w-8 h-8 text-slate-400" />
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide text-center px-2 line-clamp-1">
+                    {p.marca || p.categoria || "Produto"}
+                  </span>
+                </div>
               )}
             </div>
             <div className="p-3 flex flex-col gap-1 flex-1">
