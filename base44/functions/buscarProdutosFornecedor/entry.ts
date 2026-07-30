@@ -190,6 +190,18 @@ async function buscarVisaoVip(termo = '') {
   };
 }
 
+/* ───────────── Cache de vitrine pública (ExternalSourceCache) ─────────────
+   Evita o disparo de dezenas de fetches externos a cada busca pública.
+   Chave = termo normalizado; TTL de 6 horas. */
+
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+async function sha256Hex(texto: string) {
+  const data = new TextEncoder().encode(texto);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -206,6 +218,23 @@ Deno.serve(async (req) => {
     let user = null;
     try { user = await base44.auth.me(); } catch { /* visitante */ }
     if (!user && !publico) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // ── CACHE (somente modo público): responde direto sem tocar nos fornecedores ──
+    const cacheUrl = `vitrine-publica://busca?q=${encodeURIComponent(termo.toLowerCase())}`;
+    const cacheHash = publico ? await sha256Hex(cacheUrl) : null;
+    let cacheRegistro = null;
+    if (publico && cacheHash) {
+      try {
+        const [hit] = await base44.asServiceRole.entities.ExternalSourceCache.filter({ source_url_hash: cacheHash });
+        cacheRegistro = hit || null;
+        if (hit?.success && hit.expires_at && new Date(hit.expires_at) > new Date() && hit.content_text) {
+          const payload = JSON.parse(hit.content_text);
+          return Response.json({ ...payload, cache: true });
+        }
+      } catch { /* cache indisponível: segue busca ao vivo */ }
+    }
+
+    const inicioBusca = Date.now();
 
     const [resultados, visao] = await Promise.all([
       Promise.allSettled(LOJAS.map((l) => buscarLoja(l, termo))),
@@ -252,7 +281,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return Response.json({
+    const resposta = {
       total: saida.length,
       total_por_loja: publico ? {} : saida.reduce((acc, p) => ({ ...acc, [p.loja_id]: (acc[p.loja_id] || 0) + 1 }), {}),
       produtos: saida,
@@ -260,7 +289,32 @@ Deno.serve(async (req) => {
       cotacao_dolar_site: publico ? null : (visao?.cotacao || null),
       erros: publico ? [] : erros,
       atualizado_em: new Date().toISOString(),
-    });
+    };
+
+    // ── Grava o cache público (apenas quando a busca ao vivo teve resultado) ──
+    if (publico && cacheHash && saida.length > 0) {
+      const agora = new Date();
+      const registro = {
+        source_url: cacheUrl,
+        source_url_hash: cacheHash,
+        source_type: 'web_scrape',
+        content_text: JSON.stringify(resposta),
+        fetched_at: agora.toISOString(),
+        expires_at: new Date(agora.getTime() + CACHE_TTL_MS).toISOString(),
+        fetch_duration_ms: Date.now() - inicioBusca,
+        success: true,
+        error_message: '',
+      };
+      try {
+        if (cacheRegistro?.id) {
+          await base44.asServiceRole.entities.ExternalSourceCache.update(cacheRegistro.id, registro);
+        } else {
+          await base44.asServiceRole.entities.ExternalSourceCache.create(registro);
+        }
+      } catch { /* falha ao gravar cache não afeta a resposta */ }
+    }
+
+    return Response.json(resposta);
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
