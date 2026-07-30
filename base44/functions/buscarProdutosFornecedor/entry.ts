@@ -214,10 +214,12 @@ Deno.serve(async (req) => {
       publico = body?.publico === true;
     } catch { /* sem body */ }
 
-    // Modo público (vitrine compartilhável): dispensa login, mas nunca expõe custo
+    // Modo público (vitrine compartilhável): dispensa login, mas nunca expõe custo.
+    // A sessão é a fonte de verdade: sem sessão válida no servidor o modo público é
+    // FORÇADO, então nenhum visitante consegue pedir a visão interna via body.
     let user = null;
     try { user = await base44.auth.me(); } catch { /* visitante */ }
-    if (!user && !publico) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) publico = true;
 
     // ── CACHE (somente modo público): responde direto sem tocar nos fornecedores ──
     const cacheUrl = `vitrine-publica://busca?q=${encodeURIComponent(termo.toLowerCase())}`;
