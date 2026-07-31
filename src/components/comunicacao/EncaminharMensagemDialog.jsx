@@ -106,11 +106,11 @@ export default function EncaminharMensagemDialog({
 
     setEnviando(true);
     try {
-      const { sucessos, erros } = await encaminharParaThreadsInternas({ message, threadIds });
+      const { sucessos, erros, falhas = [] } = await encaminharParaThreadsInternas({ message, threadIds });
       onClose();
       setTimeout(() => {
-        if (sucessos > 0) toast.success(`✅ Mensagem encaminhada para ${sucessos} destino(s) interno(s)!`);
-        if (erros > 0) toast.error(`❌ ${erros} encaminhamento(s) internos falharam`);
+        if (sucessos > 0) toast.success(`✅ Encaminhada para ${sucessos} de ${threadIds.length} destino(s) interno(s)`);
+        if (erros > 0) toast.error(`❌ ${erros} falharam: ${falhas.map((f) => f.motivo).join(' | ')}`, { duration: 8000 });
       }, 0);
       onSucesso?.();
     } finally {

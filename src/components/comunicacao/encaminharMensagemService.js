@@ -85,20 +85,30 @@ export async function encaminharParaThreadsInternas({ message, threadIds = [] })
   const mediaType = message?.media_type && message.media_type !== 'none' ? message.media_type : 'none';
 
   let sucessos = 0, erros = 0;
+  const falhas = [];
   for (const threadId of threadIds) {
     try {
-      await base44.functions.invoke('sendInternalMessage', {
+      const res = await base44.functions.invoke('sendInternalMessage', {
         thread_id: threadId,
         content,
         media_type: mediaType,
         media_url: message?.media_url || null,
         media_caption: message?.media_caption || null
       });
-      sucessos++;
+      // ✅ A função retorna 4xx com { success:false, error } sem lançar exceção —
+      // sem esta checagem um destino que falhou era contado como enviado.
+      const ok = res?.data?.success ?? res?.success;
+      if (ok) sucessos++;
+      else {
+        erros++;
+        falhas.push({ threadId, motivo: res?.data?.error || res?.error || 'resposta sem success' });
+        console.error('[ENCAMINHAR-INTERNO] Falha na thread', threadId, res?.data || res);
+      }
     } catch (error) {
-      console.error('[ENCAMINHAR-INTERNO] Erro:', error);
+      console.error('[ENCAMINHAR-INTERNO] Erro:', threadId, error);
       erros++;
+      falhas.push({ threadId, motivo: error.message });
     }
   }
-  return { sucessos, erros };
+  return { sucessos, erros, falhas };
 }
