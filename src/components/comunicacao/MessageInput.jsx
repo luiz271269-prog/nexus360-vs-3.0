@@ -519,7 +519,7 @@ export default function MessageInput({
               type="button"
               variant="ghost"
               size="icon"
-              className="bg-transparent text-slate-50 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-8 w-8 md:h-9 md:w-9 flex-shrink-0"
+              className="bg-transparent text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-8 w-8 md:h-9 md:w-9 flex-shrink-0 text-[hsl(var(--chart-5))]"
               disabled={enviando || thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group' && carregandoContato || gravandoAudio || modoSelecao || !podeEnviarMidias}
               onClick={() => setShowAttachMenu(!showAttachMenu)}
               title={!podeEnviarMidias ? "Sem permissão para enviar mídias" : "Anexar arquivo"}>
