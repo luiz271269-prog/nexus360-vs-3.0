@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
-} from '@/components/ui/alert-dialog';
+  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from
+'@/components/ui/alert-dialog';
 import { Check, X, RefreshCw, Inbox, MailQuestion, Ban, Server } from 'lucide-react';
 import PainelLeituraEmail from '@/components/emails/PainelLeituraEmail';
 import SeletorCaixasEmail from '@/components/emails/SeletorCaixasEmail';
@@ -14,7 +14,7 @@ import SeletorCaixasEmail from '@/components/emails/SeletorCaixasEmail';
 const URGENCIA_BADGE = {
   alta: 'bg-red-500 text-white',
   media: 'bg-amber-400 text-white',
-  baixa: 'bg-slate-400 text-white',
+  baixa: 'bg-slate-400 text-white'
 };
 const URGENCIA_LABEL = { alta: 'URGENT', media: 'ATENÇÃO', baixa: 'NORMAL' };
 
@@ -28,18 +28,18 @@ const TIPO_CONTATO_STYLE = {
   ex_cliente: 'bg-rose-100 text-rose-700 border-rose-200',
   novo: 'bg-slate-100 text-slate-600 border-slate-200',
   email: 'bg-slate-100 text-slate-600 border-slate-200',
-  desconhecido: 'bg-slate-100 text-slate-500 border-slate-200',
+  desconhecido: 'bg-slate-100 text-slate-500 border-slate-200'
 };
 const TIPO_CONTATO_LABEL = {
   cliente: 'Cliente', lead: 'Lead', fornecedor: 'Fornecedor', parceiro: 'Parceiro',
   eventual: 'Eventual', ex_cliente: 'Ex-cliente', novo: 'Novo', email: 'E-mail',
-  desconhecido: 'Desconhecido',
+  desconhecido: 'Desconhecido'
 };
 
 const AVATAR_COLORS = [
-  'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-orange-500',
-  'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-rose-500',
-];
+'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-orange-500',
+'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-rose-500'];
+
 const corAvatar = (str = '') => {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
@@ -69,7 +69,7 @@ const formatarDataEmail = (e) => {
   const mesmoDia = d.toDateString() === hoje.toDateString();
   if (mesmoDia) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) +
-    ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 };
 
 export default function CaixaAprovacaoEmails() {
@@ -94,7 +94,7 @@ export default function CaixaAprovacaoEmails() {
     }
   };
 
-  useEffect(() => { carregar(); }, []);
+  useEffect(() => {carregar();}, []);
 
   const decidir = async (email_id, acao, bloquear_remetente = false) => {
     setProcessando(email_id);
@@ -106,7 +106,7 @@ export default function CaixaAprovacaoEmails() {
       } else {
         setPendentes((prev) => prev.filter((e) => e.id !== email_id));
       }
-      setEmailSelecionado((prev) => (prev?.id === email_id ? null : prev));
+      setEmailSelecionado((prev) => prev?.id === email_id ? null : prev);
     } catch (e) {
       console.error('Erro ao decidir:', e);
     } finally {
@@ -120,14 +120,14 @@ export default function CaixaAprovacaoEmails() {
     const dom = dominioDe(e.account_login);
     (gruposDominio[dom] = gruposDominio[dom] || []).push(e);
   }
-  const caixasDisponiveis = Object.entries(gruposDominio)
-    .sort((a, b) => b[1].length - a[1].length)
-    .map(([dominio, lista]) => ({ dominio, total: lista.length }));
+  const caixasDisponiveis = Object.entries(gruposDominio).
+  sort((a, b) => b[1].length - a[1].length).
+  map(([dominio, lista]) => ({ dominio, total: lista.length }));
 
   // E-mails do domínio ativo (ou todos)
-  const pendentesFiltrados = caixaAtiva === 'todas'
-    ? pendentes
-    : pendentes.filter((e) => dominioDe(e.account_login) === caixaAtiva);
+  const pendentesFiltrados = caixaAtiva === 'todas' ?
+  pendentes :
+  pendentes.filter((e) => dominioDe(e.account_login) === caixaAtiva);
 
   // Colunas: 1 por CONTA de e-mail (ex: luiz@..., comercial@...) dentro do domínio selecionado
   const gruposConta = {};
@@ -155,29 +155,29 @@ export default function CaixaAprovacaoEmails() {
       </div>
 
       {/* Seletor de caixas (filtra por domínio que o usuário tem acesso) */}
-      {!loading && caixasDisponiveis.length > 1 && (
-        <SeletorCaixasEmail
-          caixas={caixasDisponiveis}
-          ativa={caixaAtiva}
-          onSelecionar={setCaixaAtiva}
-        />
-      )}
+      {!loading && caixasDisponiveis.length > 1 &&
+      <SeletorCaixasEmail
+        caixas={caixasDisponiveis}
+        ativa={caixaAtiva}
+        onSelecionar={setCaixaAtiva} />
 
-      {loading ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-slate-400">
+      }
+
+      {loading ?
+      <div className="flex items-center justify-center gap-2 py-12 text-slate-400">
           <RefreshCw className="w-5 h-5 animate-spin" /> Carregando...
-        </div>
-      ) : pendentes.length === 0 ? (
-        <div className="py-16 text-center text-slate-400 bg-white rounded-2xl border border-slate-100">
+        </div> :
+      pendentes.length === 0 ?
+      <div className="py-16 text-center text-slate-400 bg-white rounded-2xl border border-slate-100">
           <Inbox className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="text-sm">Nenhum e-mail aguardando aprovação.</p>
-        </div>
-      ) : (
-        <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-start">
+        </div> :
+
+      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-start">
         {/* Kanban: colunas horizontais por domínio */}
         <div className="flex gap-4 overflow-x-auto pb-3 kanban-scroll w-full md:w-auto">
-          {colunas.map(([conta, lista]) => (
-            <div key={conta} className="flex-shrink-0 w-[85vw] sm:w-[320px] bg-slate-50 rounded-2xl border border-slate-200">
+          {colunas.map(([conta, lista]) =>
+          <div key={conta} className="flex-shrink-0 w-[85vw] sm:w-[320px] bg-slate-50 rounded-2xl border border-slate-200">
               {/* Cabeçalho da coluna */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 sticky top-0 bg-slate-50 rounded-t-2xl">
                 <Server className="w-4 h-4 text-slate-400" />
@@ -189,18 +189,18 @@ export default function CaixaAprovacaoEmails() {
 
               {/* Cards da coluna */}
               <div className="p-2.5 space-y-2.5 max-h-[calc(100vh-280px)] overflow-y-auto">
-                {lista.map((e) => (
-                  <div
-                    key={e.id}
-                    onClick={() => setEmailSelecionado(e)}
-                    className={`group relative bg-white rounded-xl border shadow-sm hover:shadow-md transition-shadow p-3 cursor-pointer ${emailSelecionado?.id === e.id ? 'border-blue-400 ring-1 ring-blue-200' : 'border-slate-100'}`}
-                  >
+                {lista.map((e) =>
+              <div
+                key={e.id}
+                onClick={() => setEmailSelecionado(e)}
+                className={`group relative bg-white rounded-xl border shadow-sm hover:shadow-md transition-shadow cursor-pointer px-1 ${emailSelecionado?.id === e.id ? 'border-blue-400 ring-1 ring-blue-200' : 'border-slate-100'}`}>
+                
                     {/* Botão fechar (descartar visualmente da fila) */}
                     <button
-                      onClick={(ev) => { ev.stopPropagation(); setPendentes((prev) => prev.filter((x) => x.id !== e.id)); }}
-                      title="Fechar (remover da lista sem decidir)"
-                      className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors z-10"
-                    >
+                  onClick={(ev) => {ev.stopPropagation();setPendentes((prev) => prev.filter((x) => x.id !== e.id));}}
+                  title="Fechar (remover da lista sem decidir)"
+                  className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors z-10">
+                  
                       <X className="w-3.5 h-3.5" />
                     </button>
                     <div className="flex items-start gap-2.5">
@@ -213,14 +213,14 @@ export default function CaixaAprovacaoEmails() {
                           <span className="font-semibold text-slate-900 text-[13px] truncate">
                             {e.remetente_nome || e.remetente_email}
                           </span>
-                          {e.urgencia && (
-                            <span
-                              title={e.motivo_classificacao || ''}
-                              className={`flex-shrink-0 text-[9px] font-bold tracking-wide px-2 py-0.5 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}
-                            >
+                          {e.urgencia &&
+                      <span
+                        title={e.motivo_classificacao || ''}
+                        className={`flex-shrink-0 text-[9px] font-bold tracking-wide px-2 py-0.5 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}>
+                        
                               {URGENCIA_LABEL[e.urgencia] || 'NORMAL'}
                             </span>
-                          )}
+                      }
                         </div>
 
                         <p className="text-[10px] text-slate-400 mt-0.5">
@@ -240,40 +240,40 @@ export default function CaixaAprovacaoEmails() {
                           <Badge variant="outline" className={`text-[9px] px-1.5 py-0 rounded-full font-medium ${TIPO_CONTATO_STYLE[e.tipo_contato_remetente] || TIPO_CONTATO_STYLE.desconhecido}`}>
                             {TIPO_CONTATO_LABEL[e.tipo_contato_remetente] || 'Desconhecido'}
                           </Badge>
-                          {e.setor_classificado && (
-                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-full font-normal bg-slate-50 text-slate-500 border-slate-200">
+                          {e.setor_classificado &&
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-full font-normal bg-slate-50 text-slate-500 border-slate-200">
                               {e.setor_classificado}
                             </Badge>
-                          )}
+                      }
                         </div>
 
                         {/* Ações */}
                         <div className="flex gap-1.5 mt-2">
                           <Button
-                            size="sm"
-                            onClick={(ev) => { ev.stopPropagation(); decidir(e.id, 'aprovar'); }}
-                            disabled={processando === e.id}
-                            className="gap-1 h-7 px-2.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 flex-1"
-                          >
+                        size="sm"
+                        onClick={(ev) => {ev.stopPropagation();decidir(e.id, 'aprovar');}}
+                        disabled={processando === e.id}
+                        className="gap-1 h-7 px-2.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 flex-1">
+                        
                             <Check className="w-3.5 h-3.5" /> Aprovar
                           </Button>
                           <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(ev) => { ev.stopPropagation(); setEmailRejeitar(e); }}
-                            disabled={processando === e.id}
-                            className="gap-1 h-7 px-2.5 text-xs rounded-lg text-red-600 border-red-200 hover:bg-red-50 flex-1"
-                          >
+                        size="sm"
+                        variant="outline"
+                        onClick={(ev) => {ev.stopPropagation();setEmailRejeitar(e);}}
+                        disabled={processando === e.id}
+                        className="gap-1 h-7 px-2.5 text-xs rounded-lg text-red-600 border-red-200 hover:bg-red-50 flex-1">
+                        
                             <X className="w-3.5 h-3.5" /> Rejeitar
                           </Button>
                         </div>
                       </div>
                     </div>
                   </div>
-                ))}
+              )}
               </div>
             </div>
-          ))}
+          )}
         </div>
 
         {/* Painel de leitura — DESKTOP: lado a lado (sticky) */}
@@ -283,24 +283,24 @@ export default function CaixaAprovacaoEmails() {
             onFechar={() => setEmailSelecionado(null)}
             onAprovar={(id) => decidir(id, 'aprovar')}
             onRejeitar={(em) => setEmailRejeitar(em)}
-            processando={processando}
-          />
+            processando={processando} />
+          
         </div>
 
         {/* Painel de leitura — MOBILE: overlay full-screen quando há e-mail selecionado */}
-        {emailSelecionado && (
-          <div className="md:hidden fixed inset-0 z-50 bg-white">
+        {emailSelecionado &&
+        <div className="md:hidden fixed inset-0 z-50 bg-white">
             <PainelLeituraEmail
-              email={emailSelecionado}
-              onFechar={() => setEmailSelecionado(null)}
-              onAprovar={(id) => decidir(id, 'aprovar')}
-              onRejeitar={(em) => setEmailRejeitar(em)}
-              processando={processando}
-            />
+            email={emailSelecionado}
+            onFechar={() => setEmailSelecionado(null)}
+            onAprovar={(id) => decidir(id, 'aprovar')}
+            onRejeitar={(em) => setEmailRejeitar(em)}
+            processando={processando} />
+          
           </div>
-        )}
+        }
         </div>
-      )}
+      }
 
       {/* Diálogo de rejeição */}
       <AlertDialog open={!!emailRejeitar} onOpenChange={(o) => !o && setEmailRejeitar(null)}>
@@ -314,22 +314,22 @@ export default function CaixaAprovacaoEmails() {
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-col gap-2">
             <AlertDialogAction
-              onClick={() => { const id = emailRejeitar.id; setEmailRejeitar(null); decidir(id, 'rejeitar', true); }}
-              className="w-full gap-2 bg-red-600 hover:bg-red-700"
-            >
+              onClick={() => {const id = emailRejeitar.id;setEmailRejeitar(null);decidir(id, 'rejeitar', true);}}
+              className="w-full gap-2 bg-red-600 hover:bg-red-700">
+              
               <Ban className="w-4 h-4" /> Bloquear e apagar no Zimbra
             </AlertDialogAction>
             <Button
               variant="outline"
-              onClick={() => { const id = emailRejeitar.id; setEmailRejeitar(null); decidir(id, 'rejeitar', false); }}
-              className="w-full"
-            >
+              onClick={() => {const id = emailRejeitar.id;setEmailRejeitar(null);decidir(id, 'rejeitar', false);}}
+              className="w-full">
+              
               Apenas rejeitar este e-mail
             </Button>
             <AlertDialogCancel className="w-full mt-0">Cancelar</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  );
+    </div>);
+
 }
