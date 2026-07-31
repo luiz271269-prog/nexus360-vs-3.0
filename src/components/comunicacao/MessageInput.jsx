@@ -53,6 +53,8 @@ import AIResponseAssistant from './AIResponseAssistant';
 import PerguntarSobreContato from './PerguntarSobreContato';
 import { PixDialog, LocalizacaoDialog } from './PixLocalizacaoMenu';
 import { QrCode, MapPin } from 'lucide-react';
+import { useClassificacaoObrigatoria } from './useClassificacaoObrigatoria';
+import BarraClassificacaoObrigatoria from './BarraClassificacaoObrigatoria';
 
 export default function MessageInput({
   onSendMessage,
@@ -98,6 +100,9 @@ export default function MessageInput({
   const [showLocalizacaoDialog, setShowLocalizacaoDialog] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]); // array de {file, type, preview}
   const [recordingTime, setRecordingTime] = useState(0);
+
+  // 🔒 Classificação obrigatória do contato antes de continuar a conversa
+  const { bloqueado: classificacaoPendente, classificar } = useClassificacaoObrigatoria(thread);
 
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -243,6 +248,12 @@ export default function MessageInput({
 
     if (selectedFiles.length === 0 && !mensagemTexto.trim() && !pastedImage) return;
 
+    // 🔒 Bloqueio: contato sem definição com conversa em andamento
+    if (classificacaoPendente) {
+      toast.error('Classifique o contato antes de enviar a próxima mensagem.');
+      return;
+    }
+
     // ✅ Cancelar micro-URA se atendente responder
     if (thread?.id && usuario?.id) {
       base44.functions.invoke('cancelarMicroURASeAtendenteResponder', {
@@ -277,7 +288,7 @@ export default function MessageInput({
       onSendMessage({ texto: mensagemTexto.trim() });
       setMensagemTexto("");
     }
-  }, [mensagemTexto, pastedImage, pastedImagePreview, selectedFiles, onSendMessage, thread, usuario, cancelarTodosArquivos]);
+  }, [mensagemTexto, pastedImage, pastedImagePreview, selectedFiles, onSendMessage, thread, usuario, cancelarTodosArquivos, classificacaoPendente]);
 
   const handleEnviar = useCallback((e) => {
     e?.preventDefault();
@@ -373,6 +384,9 @@ export default function MessageInput({
         integrationId={canalSelecionado}
         onClose={() => setShowLocalizacaoDialog(false)} />
 
+      }
+      {classificacaoPendente &&
+      <BarraClassificacaoObrigatoria nomeContato={nomeContato} onClassificar={classificar} />
       }
       <div className="px-2 md:px-3">
       {/* Inputs ocultos para arquivos */}
@@ -781,13 +795,15 @@ export default function MessageInput({
               "Legenda..." :
               pastedImagePreview ?
               "Legenda..." :
+              classificacaoPendente ?
+              "Classifique o contato para continuar..." :
               !podeEnviarMensagens ?
               "Sem permissão" :
               "Digite..."
               }
               rows={Math.max(1, Math.min(4, mensagemTexto.split('\n').length))}
               className="w-full md:p-3 text-sm border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 pr-1 pb-4 pl-1 pt-5"
-              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens} />
+              disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens || classificacaoPendente} />
             
         </div>
 
@@ -795,7 +811,7 @@ export default function MessageInput({
           <Button
             type="button"
             onClick={handleEnviar}
-            disabled={enviando || carregandoContato || uploadingPastedFile || !podeEnviarMidias}
+            disabled={enviando || carregandoContato || uploadingPastedFile || !podeEnviarMidias || classificacaoPendente}
             className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white flex-shrink-0 h-8 w-8 md:h-9 md:w-auto md:px-3 p-0"
             title={selectedFiles.length > 0 ? "Enviar arquivo(s)" : "Enviar imagem colada"}>
             
@@ -815,6 +831,7 @@ export default function MessageInput({
             modoSelecao ||
             uploadingPastedFile ||
             !podeEnviarMensagens ||
+            classificacaoPendente ||
             !modoSelecaoMultipla && carregandoContato && thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group' ||
             !mensagemTexto.trim() && !pastedImage && selectedFiles.length === 0
             }
