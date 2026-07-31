@@ -388,7 +388,7 @@ export default function MessageInput({
       {classificacaoPendente &&
       <BarraClassificacaoObrigatoria nomeContato={nomeContato} onClassificar={classificar} />
       }
-      <div className="px-2 md:px-3">
+      <div className="px-2 md:px-3 text-[hsl(var(--background))]">
       {/* Inputs ocultos para arquivos */}
       <input
           ref={imageInputRef}
