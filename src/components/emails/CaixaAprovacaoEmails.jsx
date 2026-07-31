@@ -253,7 +253,7 @@ export default function CaixaAprovacaoEmails() {
                         size="sm"
                         onClick={(ev) => {ev.stopPropagation();decidir(e.id, 'aprovar');}}
                         disabled={processando === e.id}
-                        className="gap-1 h-7 px-2.5 text-xs rounded-lg hover:bg-emerald-700 flex-1 bg-[#64c9a7]">
+                        className="gap-1 h-7 px-2.5 text-xs rounded-lg hover:bg-emerald-700 flex-1 bg-[#51675e]">
                         
                             <Check className="w-3.5 h-3.5" /> Aprovar
                           </Button>
