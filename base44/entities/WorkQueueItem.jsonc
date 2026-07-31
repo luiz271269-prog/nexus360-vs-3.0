@@ -7,6 +7,7 @@
       "enum": [
         "idle_reativacao",
         "enviar_promocao",
+        "enviar_broadcast_avulso",
         "follow_up",
         "manual",
         "sem_atendente"
@@ -61,6 +62,8 @@
       "type": "string",
       "enum": [
         "agendado",
+        "pendente",
+        "processando",
         "open",
         "in_progress",
         "processado",

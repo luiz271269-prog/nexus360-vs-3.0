@@ -772,10 +772,11 @@ export default React.memo(function MessageBubble({
             if (item._tipo === 'user') {
               // 1:1 — buscar/criar thread com o usuário
               const res = await base44.functions.invoke('getOrCreateInternalThread', {
-                user_ids: [usuarioAtual.id, itemId]
+                target_user_id: itemId
               });
-              // Suporta retorno: { thread_id } ou { thread: { id } } ou { id }
-              threadId = res?.data?.thread_id || res?.data?.thread?.id || res?.data?.id;
+              // Suporta retorno: { thread: { id } } ou { thread_id } ou { id }
+              threadId = res?.data?.thread?.id || res?.data?.thread_id || res?.data?.id;
+              if (!threadId) console.error('[ENCAMINHAR-INTERNO] Sem thread:', res?.data);
             } else {
               // sector_group ou team_group — thread já existe, usar direto
               threadId = item._thread_id;
