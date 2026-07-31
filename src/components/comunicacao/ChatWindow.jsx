@@ -232,19 +232,19 @@ export default function ChatWindow({
   // 🔐 Construir userPermissions para o banner de status
   const userPermissions = React.useMemo(() => {
     if (!usuario) return null;
-    
+
     const whatsappPerms = usuario.whatsapp_permissions || [];
     const integracoesMap = {};
-    
-    integracoes.forEach(integracao => {
-      const perm = whatsappPerms.find(p => p.integration_id === integracao.id);
+
+    integracoes.forEach((integracao) => {
+      const perm = whatsappPerms.find((p) => p.integration_id === integracao.id);
       integracoesMap[integracao.id] = {
         can_view: perm?.can_view ?? true,
         can_send: perm?.can_send ?? true,
         integration_name: integracao.nome_instancia
       };
     });
-    
+
     return { integracoes: integracoesMap };
   }, [usuario, integracoes]);
 
@@ -261,39 +261,39 @@ export default function ChatWindow({
   // Se thread está atribuída/transferida ao usuário, IGNORA bloqueios de instância
   // ═══════════════════════════════════════════════════════════════════════════════
   const norm = (v) => String(v || '').toLowerCase().trim();
-  const isAtribuidaOuTransferida = 
-    norm(thread?.assigned_user_id) === norm(usuario?.id) ||
-    norm(thread?.transfer_requested_user_id) === norm(usuario?.id);
+  const isAtribuidaOuTransferida =
+  norm(thread?.assigned_user_id) === norm(usuario?.id) ||
+  norm(thread?.transfer_requested_user_id) === norm(usuario?.id);
 
   // ✅ Threads internas NUNCA devem ser bloqueadas por permissões de instância WhatsApp
   const isThreadInterna = thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group';
 
   // Lógica de permissão: Atribuição/Transferência OVERRIDE permissões de instância
   // ✅ MODO BROADCAST/MASSA: Se está em seleção múltipla, libera com permissão geral
-  const podeEnviarMensagens = isBroadcastInternoAtivo 
-    ? temPermissaoGeralEnvio 
-    : modoSelecaoMultipla 
-    ? temPermissaoGeralEnvio
-    : isThreadInterna
-    ? temPermissaoGeralEnvio  // Internas: apenas permissão geral, sem checar instância
-    : (isAtribuidaOuTransferida && temPermissaoGeralEnvio) || (podeInteragirNaThread && temPermissaoGeralEnvio && podeEnviarPorInstancia);
-    
-  const podeEnviarMidias = isBroadcastInternoAtivo 
-    ? temPermissaoGeralMidia 
-    : modoSelecaoMultipla
-    ? temPermissaoGeralMidia
-    : isThreadInterna
-    ? temPermissaoGeralMidia
-    : (isAtribuidaOuTransferida && temPermissaoGeralMidia) || (podeInteragirNaThread && temPermissaoGeralMidia && podeEnviarPorInstancia);
-    
-  const podeEnviarAudios = isBroadcastInternoAtivo 
-    ? temPermissaoGeralAudio 
-    : modoSelecaoMultipla
-    ? temPermissaoGeralAudio
-    : isThreadInterna
-    ? temPermissaoGeralAudio
-    : (isAtribuidaOuTransferida && temPermissaoGeralAudio) || (podeInteragirNaThread && temPermissaoGeralAudio && podeEnviarPorInstancia);
-    
+  const podeEnviarMensagens = isBroadcastInternoAtivo ?
+  temPermissaoGeralEnvio :
+  modoSelecaoMultipla ?
+  temPermissaoGeralEnvio :
+  isThreadInterna ?
+  temPermissaoGeralEnvio // Internas: apenas permissão geral, sem checar instância
+  : isAtribuidaOuTransferida && temPermissaoGeralEnvio || podeInteragirNaThread && temPermissaoGeralEnvio && podeEnviarPorInstancia;
+
+  const podeEnviarMidias = isBroadcastInternoAtivo ?
+  temPermissaoGeralMidia :
+  modoSelecaoMultipla ?
+  temPermissaoGeralMidia :
+  isThreadInterna ?
+  temPermissaoGeralMidia :
+  isAtribuidaOuTransferida && temPermissaoGeralMidia || podeInteragirNaThread && temPermissaoGeralMidia && podeEnviarPorInstancia;
+
+  const podeEnviarAudios = isBroadcastInternoAtivo ?
+  temPermissaoGeralAudio :
+  modoSelecaoMultipla ?
+  temPermissaoGeralAudio :
+  isThreadInterna ?
+  temPermissaoGeralAudio :
+  isAtribuidaOuTransferida && temPermissaoGeralAudio || podeInteragirNaThread && temPermissaoGeralAudio && podeEnviarPorInstancia;
+
   const podeApagarMensagens = permNexus.podeApagarMensagens ?? permLegado.pode_apagar_mensagens ?? false;
   const podeTransferirConversas = permNexus.podeTransferirConversa ?? true;
 
@@ -336,14 +336,14 @@ export default function ChatWindow({
         // ✅ AUTO-ENRIQUECIMENTO IMEDIATO: Contatos vazios buscam dados do WhatsApp
         const nome = (contato.nome || '').trim();
         const telefone = (contato.telefone || '').replace(/\D/g, '');
-        const estaVazio = (
-          (!nome || nome === contato.telefone || nome === '+' + telefone) &&
-          !contato.empresa &&
-          !contato.cargo
-        );
+        const estaVazio =
+        (!nome || nome === contato.telefone || nome === '+' + telefone) &&
+        !contato.empresa &&
+        !contato.cargo;
+
 
         const isContatoReal = contato.telefone &&
-          !/^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(contato.telefone);
+        !/^[\+\d\s]+@(lid|broadcast|s\.whatsapp\.net|c\.us)/i.test(contato.telefone);
 
         if (estaVazio && isContatoReal && thread.whatsapp_integration_id) {
           console.log('[CHAT] 🔍 Contato vazio detectado - enriquecendo IMEDIATAMENTE...');
@@ -379,8 +379,8 @@ export default function ChatWindow({
         } else if (isContatoReal && thread.whatsapp_integration_id) {
           // Buscar foto se desatualizada (lógica existente para contatos completos)
           const deveBuscarFoto = !contato.foto_perfil_url ||
-            !contato.foto_perfil_atualizada_em ||
-            new Date() - new Date(contato.foto_perfil_atualizada_em) > 24 * 60 * 60 * 1000;
+          !contato.foto_perfil_atualizada_em ||
+          new Date() - new Date(contato.foto_perfil_atualizada_em) > 24 * 60 * 60 * 1000;
 
           const chaveCache = `${contato.id}-${thread.whatsapp_integration_id}`;
 
@@ -403,13 +403,13 @@ export default function ChatWindow({
                     foto_perfil_url: resultadoFoto.data.profilePictureUrl,
                     foto_perfil_atualizada_em: new Date().toISOString()
                   });
-                  
-                  setContatoCompleto((prev) => 
-                    prev?.id === contato.id ? {
-                      ...prev,
-                      foto_perfil_url: resultadoFoto.data.profilePictureUrl,
-                      foto_perfil_atualizada_em: new Date().toISOString()
-                    } : prev
+
+                  setContatoCompleto((prev) =>
+                  prev?.id === contato.id ? {
+                    ...prev,
+                    foto_perfil_url: resultadoFoto.data.profilePictureUrl,
+                    foto_perfil_atualizada_em: new Date().toISOString()
+                  } : prev
                   );
                 }
               } catch (error) {
@@ -457,16 +457,16 @@ export default function ChatWindow({
       await base44.entities.MessageThread.update(threadAtual.id, { assigned_user_id: usuario.id, status: 'aberta', routing_stage: 'ASSIGNED' });
       await base44.entities.AutomationLog.create({ acao: 'auto_atribuicao_resposta', contato_id: threadAtual.contact_id, thread_id: threadAtual.id, usuario_id: usuario.id, resultado: 'sucesso', timestamp: new Date().toISOString(), detalhes: { mensagem: 'Conversa auto-atribuída ao responder', atendente: usuario.full_name || usuario.email, trigger: 'primeira_resposta' }, origem: 'sistema', prioridade: 'normal' });
       return true;
-    } catch (e) { console.warn('[CHAT] Auto-atribuição falhou:', e.message); return false; }
+    } catch (e) {console.warn('[CHAT] Auto-atribuição falhou:', e.message);return false;}
   }, [usuario]);
 
   const handleEnviarBroadcast = React.useCallback(async ({ texto = '', mediaUrl = null, mediaType = null, mediaCaption = null, isAudio = false } = {}) => {
-    if (!podeEnviarMensagens) { toast.error("❌ Sem permissão para enviar mensagens"); return; }
-    if (!texto.trim() && !mediaUrl) { toast.error("Digite uma mensagem ou anexe uma mídia"); return; }
+    if (!podeEnviarMensagens) {toast.error("❌ Sem permissão para enviar mensagens");return;}
+    if (!texto.trim() && !mediaUrl) {toast.error("Digite uma mensagem ou anexe uma mídia");return;}
     if (broadcastInterno?.destinations) {
       setEnviandoBroadcast(true);
       setProgressoBroadcast({ enviados: 0, erros: 0, total: broadcastInterno.destinations.length });
-      let enviados = 0, erros = 0;
+      let enviados = 0,erros = 0;
       const erroDetalhes = [];
       for (const dest of broadcastInterno.destinations) {
         const destNome = dest.name || dest.user_id || dest.thread_id || 'destino';
@@ -474,9 +474,9 @@ export default function ChatWindow({
           if (!dest.thread_id) {
             console.error('[BROADCAST_INTERNO] ❌ Destino sem thread_id:', dest);
             erroDetalhes.push(`${destNome}: sem thread_id`);
-            erros++; continue;
+            erros++;continue;
           }
-          if (!usuario?.id) { erros++; continue; }
+          if (!usuario?.id) {erros++;continue;}
           const resp = await base44.functions.invoke('sendInternalMessage', { thread_id: dest.thread_id, content: texto.trim() || (mediaUrl ? `[${mediaType}]` : ''), media_type: mediaType || 'none', media_url: mediaUrl, media_caption: mediaCaption });
           if (resp?.data?.success === false) {
             console.error(`[BROADCAST_INTERNO] ❌ Falha ${destNome}:`, resp.data.error);
@@ -491,7 +491,7 @@ export default function ChatWindow({
           erros++;
         }
         setProgressoBroadcast({ enviados, erros, total: broadcastInterno.destinations.length });
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 300));
       }
       if (erros > 0 && erroDetalhes.length > 0) {
         console.warn('[BROADCAST_INTERNO] Detalhes dos erros:', erroDetalhes);
@@ -503,14 +503,14 @@ export default function ChatWindow({
       if (onAtualizarMensagens) onAtualizarMensagens();
       return;
     }
-    if (contatosSelecionados.length === 0) { toast.error("Nenhum contato selecionado"); return; }
+    if (contatosSelecionados.length === 0) {toast.error("Nenhum contato selecionado");return;}
     setEnviandoBroadcast(true);
     setProgressoBroadcast({ enviados: 0, erros: 0, total: contatosSelecionados.length });
     try {
       let mensagemFinal = texto.trim();
       const nomeAtendente = usuario?.display_name || usuario?.full_name;
       if (nomeAtendente && usuario?.attendant_sector) mensagemFinal = `${mensagemFinal}\n\n_~ ${nomeAtendente.split(' ')[0]} (${usuario.attendant_sector})_`;
-      const resultado = await base44.functions.invoke('enviarCampanhaLote', { contact_ids: contatosSelecionados.map(c => c.contact_id || c.id), modo: 'broadcast', mensagem: mensagemFinal, personalizar: false, media_url: mediaUrl, media_type: mediaType, media_caption: mediaCaption, integration_id: canalSelecionado || null });
+      const resultado = await base44.functions.invoke('enviarCampanhaLote', { contact_ids: contatosSelecionados.map((c) => c.contact_id || c.id), modo: 'broadcast', mensagem: mensagemFinal, personalizar: false, media_url: mediaUrl, media_type: mediaType, media_caption: mediaCaption, integration_id: canalSelecionado || null });
       setEnviandoBroadcast(false);
       if (resultado.data?.success) {
         const { enviados, erros } = resultado.data;
@@ -529,14 +529,14 @@ export default function ChatWindow({
   }, [podeEnviarMensagens, contatosSelecionados, broadcastInterno, usuario, onCancelarSelecao, onAtualizarMensagens, queryClient]);
 
   const enviarAudio = React.useCallback(async (audioBlob) => {
-    if (!podeEnviarAudios) { toast.error("❌ Sem permissão para enviar áudios"); return; }
-    setEnviando(true); setErro(null);
+    if (!podeEnviarAudios) {toast.error("❌ Sem permissão para enviar áudios");return;}
+    setEnviando(true);setErro(null);
     let etapaAudio = 'preparação';
     try {
       if (thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group') {
-        if (onSendInternalMessageOptimistic) { onSendInternalMessageOptimistic({ audioBlob, replyToMessage: mensagemResposta }); setMensagemResposta(null); }
-        else toast.error("Handler de envio interno não configurado");
-        setEnviando(false); return;
+        if (onSendInternalMessageOptimistic) {onSendInternalMessageOptimistic({ audioBlob, replyToMessage: mensagemResposta });setMensagemResposta(null);} else
+        toast.error("Handler de envio interno não configurado");
+        setEnviando(false);return;
       }
       const timestamp = new Date().getTime();
       // W-API só aceita .mp3/.ogg — converte m4a/webm gravados por Samsung/iPhone para MP3
@@ -557,11 +557,11 @@ export default function ChatWindow({
       etapaAudio = 'envio ao WhatsApp';
       if (modoSelecaoMultipla && contatosSelecionados.length > 0) {
         await handleEnviarBroadcast({ mediaUrl: audioUrl, mediaType: 'audio', isAudio: true });
-        setEnviando(false); return;
+        setEnviando(false);return;
       }
-      if (!thread || !usuario || carregandoContato || !contatoCompleto) { toast.error('Dados da conversa não disponíveis.'); setEnviando(false); return; }
+      if (!thread || !usuario || carregandoContato || !contatoCompleto) {toast.error('Dados da conversa não disponíveis.');setEnviando(false);return;}
       const telefone = contatoEfetivo.telefone || contatoEfetivo.celular;
-      if (!telefone) { toast.error('Contato sem telefone.'); setEnviando(false); return; }
+      if (!telefone) {toast.error('Contato sem telefone.');setEnviando(false);return;}
       const integrationIdParaUso = canalSelecionado || thread.whatsapp_integration_id;
       await autoAtribuirThreadSeNecessario(thread);
       const dadosEnvio = { integration_id: integrationIdParaUso, numero_destino: telefone, audio_url: audioUrl, media_type: 'audio' };
@@ -570,7 +570,7 @@ export default function ChatWindow({
       if (resultado.data.success) {
         await base44.entities.Message.create({ thread_id: thread.id, sender_id: usuario.id, sender_type: "user", recipient_id: thread.contact_id, recipient_type: "contact", content: "[Áudio]", channel: "whatsapp", status: "enviada", whatsapp_message_id: resultado.data.message_id, sent_at: new Date().toISOString(), media_url: audioUrl, media_type: 'audio', reply_to_message_id: mensagemResposta?.id || null, metadata: { whatsapp_integration_id: integrationIdParaUso } });
         await base44.entities.MessageThread.update(thread.id, { last_message_content: "[Áudio]", last_message_at: new Date().toISOString(), last_message_sender: "user", last_human_message_at: new Date().toISOString(), whatsapp_integration_id: integrationIdParaUso, pre_atendimento_ativo: false });
-        toast.success("✅ Áudio enviado!"); setMensagemResposta(null);
+        toast.success("✅ Áudio enviado!");setMensagemResposta(null);
         if (onAtualizarMensagens) onAtualizarMensagens();
       } else throw new Error(resultado.data.error_message || resultado.data.error || 'Erro ao enviar áudio');
     } catch (error) {
@@ -579,7 +579,7 @@ export default function ChatWindow({
       console.error('[CHAT] ❌ Erro ao enviar áudio:', msgFinal, error.response?.data || error);
       setErro(msgFinal);
       toast.error(`❌ ${msgFinal}`, { duration: 10000 });
-    } finally { setEnviando(false); }
+    } finally {setEnviando(false);}
   }, [podeEnviarAudios, modoSelecaoMultipla, contatosSelecionados, handleEnviarBroadcast, thread, usuario, carregandoContato, contatoCompleto, canalSelecionado, mensagemResposta, onAtualizarMensagens, autoAtribuirThreadSeNecessario, onSendInternalMessageOptimistic]);
 
   // Enviar áudio quando o hook terminar a gravação
@@ -983,9 +983,9 @@ export default function ChatWindow({
   const marcarLidaAoResponder = React.useCallback(() => {
     if (!thread) return;
     const temNaoLidas =
-      (thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group')
-        ? (thread.unread_by?.[usuario?.id] || 0) > 0
-        : (thread.unread_count || 0) > 0;
+    thread.thread_type === 'team_internal' || thread.thread_type === 'sector_group' ?
+    (thread.unread_by?.[usuario?.id] || 0) > 0 :
+    (thread.unread_count || 0) > 0;
     if (temNaoLidas && !marcarComoLidaMutation.isPending) {
       marcarComoLidaMutation.mutate();
     }
@@ -1152,36 +1152,36 @@ export default function ChatWindow({
   }, []);
 
   const ativarModoSelecao = React.useCallback(() => {
-    if (!podeApagarMensagens) { toast.error("❌ Sem permissão para apagar mensagens"); return; }
-    setModoSelecao(true); setMensagensSelecionadas([]); setMensagemResposta(null); setMostrarSugestor(false);
+    if (!podeApagarMensagens) {toast.error("❌ Sem permissão para apagar mensagens");return;}
+    setModoSelecao(true);setMensagensSelecionadas([]);setMensagemResposta(null);setMostrarSugestor(false);
   }, [podeApagarMensagens]);
 
-  const cancelarModoSelecao = React.useCallback(() => { setModoSelecao(false); setMensagensSelecionadas([]); }, []);
+  const cancelarModoSelecao = React.useCallback(() => {setModoSelecao(false);setMensagensSelecionadas([]);}, []);
 
   const toggleSelecionarMensagem = React.useCallback((mensagemId) => {
-    setMensagensSelecionadas((prev) => prev.includes(mensagemId) ? prev.filter(id => id !== mensagemId) : [...prev, mensagemId]);
+    setMensagensSelecionadas((prev) => prev.includes(mensagemId) ? prev.filter((id) => id !== mensagemId) : [...prev, mensagemId]);
   }, []);
 
   const apagarMensagensSelecionadas = React.useCallback(async () => {
-    if (!podeApagarMensagens) { toast.error("❌ Sem permissão para apagar mensagens"); return; }
-    if (mensagensSelecionadas.length === 0) { toast.error("Selecione pelo menos uma mensagem."); return; }
+    if (!podeApagarMensagens) {toast.error("❌ Sem permissão para apagar mensagens");return;}
+    if (mensagensSelecionadas.length === 0) {toast.error("Selecione pelo menos uma mensagem.");return;}
     if (!confirm(`Apagar ${mensagensSelecionadas.length} mensagem(ns)? Irreversível.`)) return;
     setEnviando(true);
     try {
-      let sucessos = 0, erros = 0;
+      let sucessos = 0,erros = 0;
       for (const mensagemId of mensagensSelecionadas) {
         try {
-          const m = mensagens.find(msg => msg.id === mensagemId);
-          if (!m?.whatsapp_message_id) { erros++; continue; }
+          const m = mensagens.find((msg) => msg.id === mensagemId);
+          if (!m?.whatsapp_message_id) {erros++;continue;}
           const r = await base44.functions.invoke('apagarWhatsAppMessage', { integration_id: thread.whatsapp_integration_id, whatsapp_message_id: m.whatsapp_message_id, thread_id: thread.id, message_db_id: m.id });
           r.data.success ? sucessos++ : erros++;
-        } catch (_) { erros++; }
+        } catch (_) {erros++;}
       }
       if (sucessos > 0) toast.success(`✅ ${sucessos} mensagem(ns) apagada(s)!`);
       if (erros > 0) toast.error(`❌ ${erros} não puderam ser apagadas.`);
-      setModoSelecao(false); setMensagensSelecionadas([]);
+      setModoSelecao(false);setMensagensSelecionadas([]);
       if (onAtualizarMensagens) onAtualizarMensagens();
-    } catch (error) { toast.error(`Erro: ${error.message}`); } finally { setEnviando(false); }
+    } catch (error) {toast.error(`Erro: ${error.message}`);} finally {setEnviando(false);}
   }, [podeApagarMensagens, mensagensSelecionadas, mensagens, thread, onAtualizarMensagens]);
 
   // marcarComoLidaMutation e marcarLidaAoResponder estão declarados ACIMA (antes de handleEnviarFromInput)
@@ -1202,7 +1202,7 @@ export default function ChatWindow({
       scrollDoneRef.current = false; // Sempre resetar ao trocar de thread
     }
     if (scrollDoneRef.current) return;
-    const unreadIdx = mensagens.findIndex(m => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada');
+    const unreadIdx = mensagens.findIndex((m) => m.sender_type === 'contact' && m.status !== 'lida' && m.status !== 'apagada');
     const t = setTimeout(() => {
       scrollDoneRef.current = true;
       if (unreadIdx !== -1 && thread?.unread_count > 0 && unreadSeparatorRef.current) {
@@ -1229,7 +1229,7 @@ export default function ChatWindow({
     let cancelled = false;
     base44.entities.ContactBehaviorAnalysis.filter(
       { contact_id: thread.contact_id }, '-analyzed_at', 1
-    ).then(analises => {
+    ).then((analises) => {
       if (cancelled) return;
       if (analises.length > 0) {
         setAnaliseComportamental(analises[0]);
@@ -1239,7 +1239,7 @@ export default function ChatWindow({
       }
     }).catch(() => {}); // silencioso — não bloquear UI
 
-    return () => { cancelled = true; };
+    return () => {cancelled = true;};
   }, [thread?.contact_id]);
 
   React.useEffect(() => {
@@ -1270,14 +1270,14 @@ export default function ChatWindow({
   // Handler global para criar oportunidade via chat (usado pelo MessageBubble)
   React.useEffect(() => {
     const criarOportunidade = async (mensagem, threadData, statusInicial = 'rascunho', destino = 'orcamentos') => {
-      if (!contatoCompleto) { toast.error('Aguarde o carregamento do contato'); return; }
+      if (!contatoCompleto) {toast.error('Aguarde o carregamento do contato');return;}
       const toastId = toast.loading('🤖 IA analisando e criando oportunidade...');
       try {
         let dadosExtraidos = null;
         if (mensagem.content?.trim().length > 10) {
-          try { dadosExtraidos = await base44.integrations.Core.InvokeLLM({ prompt: `Analise esta mensagem e extraia dados para orçamento:\n${mensagem.content}\nRetorne JSON com itens, valor_total, condicao_pagamento, observacoes_extraidas.`, response_json_schema: { type: "object", properties: { itens: { type: "array", items: { type: "object", properties: { nome_produto: { type: "string" }, quantidade: { type: "number" }, valor_unitario: { type: "number" } } } }, valor_total: { type: "number" }, condicao_pagamento: { type: "string" }, observacoes_extraidas: { type: "string" } } } }); } catch (_) {}
+          try {dadosExtraidos = await base44.integrations.Core.InvokeLLM({ prompt: `Analise esta mensagem e extraia dados para orçamento:\n${mensagem.content}\nRetorne JSON com itens, valor_total, condicao_pagamento, observacoes_extraidas.`, response_json_schema: { type: "object", properties: { itens: { type: "array", items: { type: "object", properties: { nome_produto: { type: "string" }, quantidade: { type: "number" }, valor_unitario: { type: "number" } } } }, valor_total: { type: "number" }, condicao_pagamento: { type: "string" }, observacoes_extraidas: { type: "string" } } } });} catch (_) {}
         }
-        const nomeRem = mensagem.sender_type === 'user' ? (usuario?.full_name || 'Atendente') : (contatoCompleto?.nome || 'Cliente');
+        const nomeRem = mensagem.sender_type === 'user' ? usuario?.full_name || 'Atendente' : contatoCompleto?.nome || 'Cliente';
         const obs = `[💬 Chat ${threadData.id?.slice(-8)} - ${new Date().toLocaleString('pt-BR')}]\n👤 ${nomeRem}\n\n${mensagem.content || `[${mensagem.media_type || 'Mídia'}]`}${dadosExtraidos?.observacoes_extraidas ? `\n\n📋 IA: ${dadosExtraidos.observacoes_extraidas}` : ''}`;
         if (destino === 'leads') {
           if (threadData.contact_id) await base44.entities.Contact.update(threadData.contact_id, { tipo_contato: 'lead' });
@@ -1285,23 +1285,23 @@ export default function ChatWindow({
           if (threadData.contact_id && novoLead?.id) {
             await base44.entities.Contact.update(threadData.contact_id, { cliente_id: novoLead.id });
           }
-          toast.dismiss(toastId); toast.success('🎯 Lead criado!', { duration: 5000, action: { label: 'Ver Leads', onClick: () => navigate(createPageUrl('LeadsQualificados') + '?tab=leads') } }); return;
+          toast.dismiss(toastId);toast.success('🎯 Lead criado!', { duration: 5000, action: { label: 'Ver Leads', onClick: () => navigate(createPageUrl('LeadsQualificados') + '?tab=leads') } });return;
         }
         if (destino === 'clientes') {
           const novoCliente = await base44.entities.Cliente.create({ razao_social: contatoCompleto.nome || 'Cliente do Chat', telefone: contatoCompleto.telefone || '', status: 'Ativo', vendedor_id: usuario?.id || '', observacoes: obs, origem_campanha: { canal_entrada: 'whatsapp' } });
           if (threadData.contact_id && novoCliente?.id) {
             await base44.entities.Contact.update(threadData.contact_id, { cliente_id: novoCliente.id });
           }
-          toast.dismiss(toastId); toast.success('👥 Cliente criado!', { duration: 5000, action: { label: 'Ver Clientes', onClick: () => navigate(createPageUrl('LeadsQualificados')) } }); return;
+          toast.dismiss(toastId);toast.success('👥 Cliente criado!', { duration: 5000, action: { label: 'Ver Clientes', onClick: () => navigate(createPageUrl('LeadsQualificados')) } });return;
         }
-        const response = await base44.functions.invoke('criarOportunidadeDoChat', { message_id: mensagem.id, thread_id: threadData.id, contact_id: threadData.contact_id, cliente_nome: contatoCompleto.nome || '', cliente_telefone: contatoCompleto.telefone || '', cliente_email: contatoCompleto.email || '', vendedor: usuario?.full_name || '', status: statusInicial, valor_total: dadosExtraidos?.valor_total || 0, produtos: dadosExtraidos?.itens?.map(i => ({ nome: i.nome_produto || '', quantidade: i.quantidade || 1, valor_unitario: i.valor_unitario || 0, valor_total: (i.quantidade || 1) * (i.valor_unitario || 0) })) || [], observacoes: obs, media_url: mensagem.media_url || '', media_type: mensagem.media_type || 'text' });
+        const response = await base44.functions.invoke('criarOportunidadeDoChat', { message_id: mensagem.id, thread_id: threadData.id, contact_id: threadData.contact_id, cliente_nome: contatoCompleto.nome || '', cliente_telefone: contatoCompleto.telefone || '', cliente_email: contatoCompleto.email || '', vendedor: usuario?.full_name || '', status: statusInicial, valor_total: dadosExtraidos?.valor_total || 0, produtos: dadosExtraidos?.itens?.map((i) => ({ nome: i.nome_produto || '', quantidade: i.quantidade || 1, valor_unitario: i.valor_unitario || 0, valor_total: (i.quantidade || 1) * (i.valor_unitario || 0) })) || [], observacoes: obs, media_url: mensagem.media_url || '', media_type: mensagem.media_type || 'text' });
         if (!response?.data?.success) throw new Error(response?.data?.error || 'Erro ao criar');
-        toast.dismiss(toastId); toast.success(`✅ Oportunidade ${response.data.numero_orcamento} criada!`, { duration: 5000, action: { label: 'Ver Kanban', onClick: () => navigate(createPageUrl('Orcamentos')) } });
+        toast.dismiss(toastId);toast.success(`✅ Oportunidade ${response.data.numero_orcamento} criada!`, { duration: 5000, action: { label: 'Ver Kanban', onClick: () => navigate(createPageUrl('Orcamentos')) } });
         window.dispatchEvent(new CustomEvent('orcamentos:refresh'));
-      } catch (error) { toast.dismiss(toastId); toast.error('Erro ao criar oportunidade: ' + error.message); }
+      } catch (error) {toast.dismiss(toastId);toast.error('Erro ao criar oportunidade: ' + error.message);}
     };
     window.handleCriarOportunidadeDeChat = criarOportunidade;
-    return () => { delete window.handleCriarOportunidadeDeChat; };
+    return () => {delete window.handleCriarOportunidadeDeChat;};
   }, [contatoCompleto, usuario, navigate]);
 
   // 🎯 MEMOIZAÇÃO: Processar mensagens ANTES de qualquer early return
@@ -1329,7 +1329,7 @@ export default function ChatWindow({
         const isInterna = m.channel === 'interno' && m.sender_type === 'user';
         if (!isInterna) return false;
         const content = (m.content || '').trim();
-        const hasMidia = (m.media_type && m.media_type !== 'none') || m.media_url;
+        const hasMidia = m.media_type && m.media_type !== 'none' || m.media_url;
         return content.length > 0 || hasMidia;
       });
     }
@@ -1337,8 +1337,8 @@ export default function ChatWindow({
     // ✅ Permissão de visibilidade: admin/gerente/coordenador veem TODAS as mensagens
     // senior/pleno/junior veem apenas suas mensagens + as do contato
     const podeVerTodasMensagens =
-      usuario?.role === 'admin' ||
-      ['gerente', 'coordenador'].includes(usuario?.attendant_role);
+    usuario?.role === 'admin' ||
+    ['gerente', 'coordenador'].includes(usuario?.attendant_role);
 
     // ✅ Para threads externas (WhatsApp): filtrar mensagens desta thread específica
     return mensagensFiltradas.filter((m) => {
@@ -1349,11 +1349,11 @@ export default function ChatWindow({
 
       // Ocultar mensagens de outros atendentes se não tem permissão de ver todas
       if (
-        !podeVerTodasMensagens &&
-        m.sender_type === 'user' &&
-        m.sender_id !== usuario?.id &&
-        !m.metadata?.optimistic
-      ) {
+      !podeVerTodasMensagens &&
+      m.sender_type === 'user' &&
+      m.sender_id !== usuario?.id &&
+      !m.metadata?.optimistic)
+      {
         return false;
       }
 
@@ -1416,11 +1416,11 @@ export default function ChatWindow({
     if (outroParticipanteThreadIdRef.current === thread.id) return;
     outroParticipanteThreadIdRef.current = thread.id;
 
-    const outroId = thread.participants?.find(id => id !== usuario?.id);
-    if (!outroId) { setOutroParticipanteNome('Usuário'); setOutroParticipanteFoto(null); return; }
+    const outroId = thread.participants?.find((id) => id !== usuario?.id);
+    if (!outroId) {setOutroParticipanteNome('Usuário');setOutroParticipanteFoto(null);return;}
 
     // Tentar cache local (atendentes já carregados) antes de ir ao banco
-    const atendenteLocal = atendentes.find(a => a.id === outroId);
+    const atendenteLocal = atendentes.find((a) => a.id === outroId);
     if (atendenteLocal) {
       const nome = atendenteLocal.display_name || atendenteLocal.full_name || atendenteLocal.email;
       const setor = atendenteLocal.attendant_sector || 'geral';
@@ -1431,15 +1431,15 @@ export default function ChatWindow({
 
     // Fallback: buscar no banco apenas se não encontrado no cache
     let cancelled = false;
-    base44.entities.User.get(outroId).then(outroUser => {
+    base44.entities.User.get(outroId).then((outroUser) => {
       if (cancelled) return;
       const nome = outroUser.full_name || outroUser.email;
       const setor = outroUser.attendant_sector || 'geral';
       setOutroParticipanteNome(`${nome} • ${setor}`);
       setOutroParticipanteFoto(outroUser.foto_url || outroUser.foto_perfil_url || null);
-    }).catch(() => { if (!cancelled) { setOutroParticipanteNome('Usuário'); setOutroParticipanteFoto(null); } });
+    }).catch(() => {if (!cancelled) {setOutroParticipanteNome('Usuário');setOutroParticipanteFoto(null);}});
 
-    return () => { cancelled = true; };
+    return () => {cancelled = true;};
   }, [thread?.id, thread?.participants, usuario?.id, atendentes]);
 
   // Se está em modo broadcast com contatos selecionados, mostrar interface de envio
@@ -1466,7 +1466,7 @@ export default function ChatWindow({
     celular: contatoCompleto?.celular || contatoPreCarregado?.celular || thread?.contato?.celular || ''
   };
   const _c = contatoEfetivo;
-  let nomeContato = [_c?.empresa, _c?.cargo, (_c?.nome !== _c?.telefone ? _c?.nome : null)].filter(Boolean).join(' - ') || _c?.telefone || 'Contato';
+  let nomeContato = [_c?.empresa, _c?.cargo, _c?.nome !== _c?.telefone ? _c?.nome : null].filter(Boolean).join(' - ') || _c?.telefone || 'Contato';
   const telefoneExibicao = _c?.telefone || _c?.celular || 'Sem telefone';
 
   const tipoAtual = TIPOS_CONTATO.find((t) => t.value === contatoCompleto?.tipo_contato);
@@ -1481,18 +1481,18 @@ export default function ChatWindow({
   };
 
   const isManager = usuario?.role === 'admin' || usuario?.role === 'supervisor' ||
-    ['gerente', 'coordenador'].includes(usuario?.attendant_role);
+  ['gerente', 'coordenador'].includes(usuario?.attendant_role);
   const canManageConversation = isManager || thread?.assigned_user_id === usuario?.id || !thread?.assigned_user_id;
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-[#efeae2] overflow-hidden">
         {/* Header - Modo Broadcast ou Central de Inteligência do Cliente */}
         {mostrarInterfaceBroadcast ?
-        <div className={`text-white px-4 py-3 border-b flex-shrink-0 shadow-sm flex items-center justify-between ${
-        broadcastInterno ?
-        'bg-gradient-to-r from-purple-500 to-indigo-500' :
-        'bg-gradient-to-r from-orange-500 to-amber-500'}`
-        }>
+      <div className={`text-white px-4 py-3 border-b flex-shrink-0 shadow-sm flex items-center justify-between ${
+      broadcastInterno ?
+      'bg-gradient-to-r from-purple-500 to-indigo-500' :
+      'bg-gradient-to-r from-orange-500 to-amber-500'}`
+      }>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
@@ -1519,42 +1519,42 @@ export default function ChatWindow({
             </div>
           </div> :
 
-        <div className={`px-3 py-2 border-b flex-shrink-0 shadow-sm text-slate-50 ${
-          thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group'
-            ? 'bg-gradient-to-r from-purple-600 to-indigo-600'
-            : 'bg-[#a2bbcd]'
-        } ${thread?.thread_type === 'sector_group' ? 'border-purple-300' : 'border-orange-200'}`}>
+      <div className={`px-3 py-2 border-b flex-shrink-0 shadow-sm text-slate-50 bg-[#3d6d8f] ${
+      thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' ?
+      'bg-gradient-to-r from-purple-600 to-indigo-600' :
+      ""} ${
+      thread?.thread_type === 'sector_group' ? 'border-purple-300' : 'border-orange-200'}`}>
             {/* LINHA 1: Avatar + Identificação */}
             <div className="flex items-center gap-3">
               {/* Avatar + Próxima Ação */}
               <div className="relative flex-shrink-0">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg overflow-hidden ${
-                  thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group'
-                    ? 'bg-gradient-to-br from-purple-400 to-indigo-600'
-                    : 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500'
-                }`}>
-                  {thread?.thread_type === 'sector_group' ? (
-                    'G'
-                  ) : thread?.thread_type === 'team_internal' && thread?.is_group_chat ? (
-                    'G'
-                  ) : thread?.thread_type === 'team_internal' && !thread?.is_group_chat ? (
-                    outroParticipanteFoto ?
-                      <img
-                        src={outroParticipanteFoto}
-                        alt={outroParticipanteNome}
-                        className="w-full h-full object-cover"
-                        onError={(e) => { e.target.style.display = 'none'; }} /> :
-                      <span>{getInitials(outroParticipanteNome)}</span>
-                  ) : contatoCompleto?.foto_perfil_url ?
-                <img
-                  src={contatoCompleto.foto_perfil_url}
-                  alt={nomeContato}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                  }} /> :
-                <span>{getInitials(nomeContato)}</span>
-                }
+            thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' ?
+            'bg-gradient-to-br from-purple-400 to-indigo-600' :
+            'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500'}`
+            }>
+                  {thread?.thread_type === 'sector_group' ?
+              'G' :
+              thread?.thread_type === 'team_internal' && thread?.is_group_chat ?
+              'G' :
+              thread?.thread_type === 'team_internal' && !thread?.is_group_chat ?
+              outroParticipanteFoto ?
+              <img
+                src={outroParticipanteFoto}
+                alt={outroParticipanteNome}
+                className="w-full h-full object-cover"
+                onError={(e) => {e.target.style.display = 'none';}} /> :
+              <span>{getInitials(outroParticipanteNome)}</span> :
+              contatoCompleto?.foto_perfil_url ?
+              <img
+                src={contatoCompleto.foto_perfil_url}
+                alt={nomeContato}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }} /> :
+              <span>{getInitials(nomeContato)}</span>
+              }
                 </div>
 
               {/* Próxima Ação Sugerida - canto inferior */}
@@ -1572,24 +1572,24 @@ export default function ChatWindow({
             {/* Nome + Telefone/Setor */}
             <div className="flex-1 min-w-0">
               <h3 className="text-slate-50 font-bold text-sm truncate mb-1" translate="no">
-                {thread?.thread_type === 'sector_group'
-                  ? `Setor ${thread.sector_key?.replace('sector:', '') || 'Geral'}`
-                  : thread?.thread_type === 'team_internal' && thread?.is_group_chat
-                  ? thread.group_name || 'Grupo'
-                  : thread?.thread_type === 'team_internal' && !thread?.is_group_chat
-                  ? outroParticipanteNome || 'Contato'
-                  : nomeContato}
+                {thread?.thread_type === 'sector_group' ?
+              `Setor ${thread.sector_key?.replace('sector:', '') || 'Geral'}` :
+              thread?.thread_type === 'team_internal' && thread?.is_group_chat ?
+              thread.group_name || 'Grupo' :
+              thread?.thread_type === 'team_internal' && !thread?.is_group_chat ?
+              outroParticipanteNome || 'Contato' :
+              nomeContato}
               </h3>
               <p className="text-slate-200 text-xs" translate="no">
-                {thread?.thread_type === 'team_internal' && !thread?.is_group_chat ? (
-                  '1:1 interno'
-                ) : thread?.thread_type === 'sector_group' ? (
-                  `${thread.participants?.length || 0} membros`
-                ) : thread?.thread_type === 'team_internal' && thread?.is_group_chat ? (
-                  `${thread.participants?.length || 0} membros`
-                ) : (
-                  telefoneExibicao
-                )}
+                {thread?.thread_type === 'team_internal' && !thread?.is_group_chat ?
+              '1:1 interno' :
+              thread?.thread_type === 'sector_group' ?
+              `${thread.participants?.length || 0} membros` :
+              thread?.thread_type === 'team_internal' && thread?.is_group_chat ?
+              `${thread.participants?.length || 0} membros` :
+
+              telefoneExibicao
+              }
               </p>
             </div>
 
@@ -1637,24 +1637,24 @@ export default function ChatWindow({
             }
 
               {/* Botão Videochamada — externo (telefone) ou interno (thread interna) */}
-              {(contatoCompleto?.telefone || isThreadInterna) && (
-                <BotaoVideochamada
-                  contato={contatoCompleto}
-                  thread={thread}
-                  usuario={usuario}
-                  integracoes={integracoes}
-                />
-              )}
+              {(contatoCompleto?.telefone || isThreadInterna) &&
+            <BotaoVideochamada
+              contato={contatoCompleto}
+              thread={thread}
+              usuario={usuario}
+              integracoes={integracoes} />
+
+            }
 
               {/* Botão E-mail — disponível para qualquer contato com e-mail cadastrado */}
-              {onNovoEmail && (thread?.channel === 'email' || contatoEfetivo?.email) && (
-                <button
-                  onClick={onNovoEmail}
-                  className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-1.5 shadow-md flex items-center justify-center hover:from-orange-600 hover:to-orange-700 hover:shadow-lg transition-all"
-                  title={thread?.channel === 'email' ? 'Responder por e-mail' : 'Enviar e-mail'}>
+              {onNovoEmail && (thread?.channel === 'email' || contatoEfetivo?.email) &&
+            <button
+              onClick={onNovoEmail}
+              className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-1.5 shadow-md flex items-center justify-center hover:from-orange-600 hover:to-orange-700 hover:shadow-lg transition-all"
+              title={thread?.channel === 'email' ? 'Responder por e-mail' : 'Enviar e-mail'}>
                   <Mail className="w-3.5 h-3.5" />
                 </button>
-              )}
+            }
 
               {/* Botão Ver Detalhes */}
               <button
@@ -1665,14 +1665,14 @@ export default function ChatWindow({
               </button>
 
               {/* Botão Fechar - sempre visível se disponível */}
-              {onFecharChat && (
-                <button
-                  onClick={onFecharChat}
-                  className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg p-1.5 shadow-md flex items-center justify-center hover:from-red-600 hover:to-red-700 hover:shadow-lg transition-all"
-                  title="Fechar chat">
+              {onFecharChat &&
+            <button
+              onClick={onFecharChat}
+              className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg p-1.5 shadow-md flex items-center justify-center hover:from-red-600 hover:to-red-700 hover:shadow-lg transition-all"
+              title="Fechar chat">
                   <X className="w-3.5 h-3.5" />
                 </button>
-              )}
+            }
             </div>
           </div>
 
@@ -1727,50 +1727,50 @@ export default function ChatWindow({
 
             }
             return null;
-            })()}
+          })()}
             </div>
         </div>
       }
 
         {/* Banner de Status da Integração */}
-        {!mostrarInterfaceBroadcast && thread?.whatsapp_integration_id && userPermissions && (
-          <IntegrationStatusBanner 
-            integrationId={thread.whatsapp_integration_id}
-            userPermissions={userPermissions}
-          />
-        )}
+        {!mostrarInterfaceBroadcast && thread?.whatsapp_integration_id && userPermissions &&
+      <IntegrationStatusBanner
+        integrationId={thread.whatsapp_integration_id}
+        userPermissions={userPermissions} />
+
+      }
 
         {/* Alerta de Pedido de Transferência - Micro-URA */}
-        {!mostrarInterfaceBroadcast && thread && (
-          <AlertaPedidoTransferencia
-            thread={thread}
-            atendentes={atendentes}
-            usuarioAtual={usuario}
-            onTransferirAgora={async () => {
-              const sector_id = thread.transfer_requested_sector_id;
-              const user_id = thread.transfer_requested_user_id;
-              if (user_id) {
-                await base44.entities.MessageThread.update(thread.id, {
-                  assigned_user_id: user_id,
-                  sector_id: sector_id || thread.sector_id,
-                  transfer_pending: false,
-                  transfer_confirmed: false
-                });
-              } else if (sector_id) {
-                await base44.entities.MessageThread.update(thread.id, {
-                  sector_id: sector_id,
-                  transfer_pending: false,
-                  transfer_confirmed: false
-                });
-              }
-              if (onAtualizarMensagens) onAtualizarMensagens();
-              toast.success('✅ Conversa transferida!');
-            }}
-            onCancelar={() => {
-              if (onAtualizarMensagens) onAtualizarMensagens();
-            }}
-          />
-        )}
+        {!mostrarInterfaceBroadcast && thread &&
+      <AlertaPedidoTransferencia
+        thread={thread}
+        atendentes={atendentes}
+        usuarioAtual={usuario}
+        onTransferirAgora={async () => {
+          const sector_id = thread.transfer_requested_sector_id;
+          const user_id = thread.transfer_requested_user_id;
+          if (user_id) {
+            await base44.entities.MessageThread.update(thread.id, {
+              assigned_user_id: user_id,
+              sector_id: sector_id || thread.sector_id,
+              transfer_pending: false,
+              transfer_confirmed: false
+            });
+          } else if (sector_id) {
+            await base44.entities.MessageThread.update(thread.id, {
+              sector_id: sector_id,
+              transfer_pending: false,
+              transfer_confirmed: false
+            });
+          }
+          if (onAtualizarMensagens) onAtualizarMensagens();
+          toast.success('✅ Conversa transferida!');
+        }}
+        onCancelar={() => {
+          if (onAtualizarMensagens) onAtualizarMensagens();
+        }} />
+
+      }
 
         {mensagemResposta && !mostrarInterfaceBroadcast &&
       <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 flex-shrink-0">
@@ -1800,24 +1800,24 @@ export default function ChatWindow({
 
       <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 pt-2 space-y-1 bg-[#efeae2]" style={{ backgroundImage: "url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAMAAAAp4XiDAAAAUVBMVEWFhYWDg4N3d3dtbW17e3t1dXWBgYGHh4d5eXlzc3Oeli7////l5eXm5ubU1NTg4ODk5OTh4eHf39/e3t7d3d3c3NzS0tLX19fZ2dnPz8/R0dHLKKyVAAAAG3RSTlNAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAvEOwtAAABhklEQVRIx5WWW47DIAxFMTiYNwEC5NF9L/TPxFJpR5rMGRBfDhdn/XoXKMOGaVhmWQ/WwBEqLwKqrg6hcbKkSBAlR4qAIpNIYXAkI1IYFNEIMYJ4NAQKaAQQKKQRQKCYRgCBkhoAApU0AoiU1gAQKaMRQKSsRgCR8hoARCpoBBCpqBFApJJGAJEqGgBE6mgEEKmrAUCknkYAkfoaAEQaagQQaawRQKSJBgCR5hoBRFprBBBppxFApL1GAJEOGgBEOmoEEOmsEUCki0YAka4aAETaawQQGaIRQGSYRgCRkRoBRMZoBBCZoBFAZJJGAJGpGgFE5mkAEFmoEUBkqUYAkQ0aAUQ2agQQ2aQBQGSbRgCR7RoBRHZqBBDZpQFAZJ9GAJH9GgFEDmoEEDmkAUDkiEYAkaMaAUROaAQQOakBQOScRgCR8xoBRC5qBBC5pAFA5LpGAJEbGgFEbmoEELmjEUDkngYAkYcaAUSeaAQQeaoRQOSFBgCRtxoBRD5oBBD5pAFAhP4Bp4OMj0wjNOcAAAAASUVORK5CYII=')" }}>
         {/* ✅ Loading e marcador de início DENTRO do container */}
-        {permissionError && (
-          <div className="text-center text-xs text-red-500 py-2 px-4 bg-red-50 rounded">
+        {permissionError &&
+        <div className="text-center text-xs text-red-500 py-2 px-4 bg-red-50 rounded">
             🚫 {permissionError}
           </div>
-        )}
+        }
 
-        {loadingOlder && !permissionError && (
-          <div className="flex justify-center py-2">
+        {loadingOlder && !permissionError &&
+        <div className="flex justify-center py-2">
             <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
             <span className="text-xs text-blue-600 ml-2">Carregando histórico...</span>
           </div>
-        )}
+        }
 
-        {isHistoryStart && !loadingOlder && !permissionError && (
-          <div className="text-center text-xs text-slate-400 py-2">
+        {isHistoryStart && !loadingOlder && !permissionError &&
+        <div className="text-center text-xs text-slate-400 py-2">
             ✅ Início da conversa
           </div>
-        )}
+        }
 
         {loadingMensagens && mensagens.length === 0 ?
         <div className="flex flex-col items-center justify-center h-full gap-3">
@@ -1868,9 +1868,9 @@ export default function ChatWindow({
                   <MessageBubble
                 message={mensagem}
                 isOwn={
-                  thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group'
-                    ? mensagem.sender_id === usuario?.id  // Interno: só suas mensagens à direita
-                    : mensagem.sender_type === 'user'     // Externo: qualquer atendente à direita
+                thread?.thread_type === 'team_internal' || thread?.thread_type === 'sector_group' ?
+                mensagem.sender_id === usuario?.id // Interno: só suas mensagens à direita
+                : mensagem.sender_type === 'user' // Externo: qualquer atendente à direita
                 }
                 thread={thread}
                 onResponder={handleResponderMensagem}
@@ -1926,36 +1926,36 @@ export default function ChatWindow({
 
       {/* ✅ COMPONENTE ISOLADO - Zero re-render no ChatWindow ao digitar */}
       <MessageInput
-          onSendMessage={handleEnviarFromInput}
-          mensagemResposta={mensagemResposta}
-          onClearResposta={() => setMensagemResposta(null)}
-          nomeContato={nomeContato}
-          gravandoAudio={gravandoAudio}
-          onStartRecording={iniciarGravacaoAudio}
-          onStopRecording={pararGravacaoAudio}
-          mostrarMediaSystem={mostrarMediaSystem}
-          onToggleMediaSystem={() => setMostrarMediaSystem(!mostrarMediaSystem)}
-          ultimaMensagemCliente={ultimaMensagemCliente}
-          mostrarSugestor={mostrarSugestor}
-          onToggleSugestor={() => setMostrarSugestor(!mostrarSugestor)}
-          podeEnviarMensagens={podeEnviarMensagens}
-          podeEnviarMidias={podeEnviarMidias}
-          podeEnviarAudios={podeEnviarAudios}
-          enviando={enviando}
-          carregandoContato={carregandoContato}
-          uploadingPastedFile={uploadingPastedFile}
-          modoSelecao={modoSelecao}
-          integracoes={integracoesPermitidas}
-          canalSelecionado={canalSelecionado}
-          onCanalChange={setCanalSelecionado}
-          thread={thread}
-          usuario={usuario}
-          modoSelecaoMultipla={modoSelecaoMultipla}
-          contatosSelecionados={contatosSelecionados}
-          onCancelarSelecao={onCancelarSelecao}
-          enviandoBroadcast={enviandoBroadcast}
-          progressoBroadcast={progressoBroadcast}
-        />
+        onSendMessage={handleEnviarFromInput}
+        mensagemResposta={mensagemResposta}
+        onClearResposta={() => setMensagemResposta(null)}
+        nomeContato={nomeContato}
+        gravandoAudio={gravandoAudio}
+        onStartRecording={iniciarGravacaoAudio}
+        onStopRecording={pararGravacaoAudio}
+        mostrarMediaSystem={mostrarMediaSystem}
+        onToggleMediaSystem={() => setMostrarMediaSystem(!mostrarMediaSystem)}
+        ultimaMensagemCliente={ultimaMensagemCliente}
+        mostrarSugestor={mostrarSugestor}
+        onToggleSugestor={() => setMostrarSugestor(!mostrarSugestor)}
+        podeEnviarMensagens={podeEnviarMensagens}
+        podeEnviarMidias={podeEnviarMidias}
+        podeEnviarAudios={podeEnviarAudios}
+        enviando={enviando}
+        carregandoContato={carregandoContato}
+        uploadingPastedFile={uploadingPastedFile}
+        modoSelecao={modoSelecao}
+        integracoes={integracoesPermitidas}
+        canalSelecionado={canalSelecionado}
+        onCanalChange={setCanalSelecionado}
+        thread={thread}
+        usuario={usuario}
+        modoSelecaoMultipla={modoSelecaoMultipla}
+        contatosSelecionados={contatosSelecionados}
+        onCancelarSelecao={onCancelarSelecao}
+        enviandoBroadcast={enviandoBroadcast}
+        progressoBroadcast={progressoBroadcast} />
+      
 
 
       {/* 🎯 SISTEMA INTELIGENTE DE SUGESTÕES */}
@@ -1967,8 +1967,8 @@ export default function ChatWindow({
         contatoCompleto={contatoCompleto}
         analiseComportamental={analiseComportamental}
         usuario={usuario}
-        onFecharReativacao={() => setMostrarReativacaoRapida(false)}
-      />
+        onFecharReativacao={() => setMostrarReativacaoRapida(false)} />
+      
 
       {/* Modal removido - agora usa MediaAttachmentSystem */}
 
@@ -1990,15 +1990,15 @@ export default function ChatWindow({
         }} />
 
       {/* 💬 BOLHA FLUTUANTE - CONVERSA INTERNA SOBRE O CONTATO */}
-      {thread?.thread_type === 'contact_external' && isManager && (
-        <FloatingConversationBubble
-          threadId={thread?.id}
-          contato={contatoCompleto}
-          usuarioAtual={usuario}
-          atendentes={atendentes}
-          hasPermission={isManager}
-        />
-      )}
+      {thread?.thread_type === 'contact_external' && isManager &&
+      <FloatingConversationBubble
+        threadId={thread?.id}
+        contato={contatoCompleto}
+        usuarioAtual={usuario}
+        atendentes={atendentes}
+        hasPermission={isManager} />
+
+      }
 
       {/* MODAL DE COMPARTILHAMENTO */}
       <AtribuirConversaModal
