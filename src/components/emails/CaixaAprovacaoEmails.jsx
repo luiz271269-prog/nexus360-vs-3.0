@@ -179,9 +179,9 @@ export default function CaixaAprovacaoEmails() {
           {colunas.map(([conta, lista]) =>
           <div key={conta} className="flex-shrink-0 w-[85vw] sm:w-[320px] bg-slate-50 rounded-2xl border border-slate-200">
               {/* Cabeçalho da coluna */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 sticky top-0 bg-slate-50 rounded-t-2xl">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 sticky top-0 bg-slate-50 rounded-t-2xl text-[hsl(var(--chart-4))]">
                 <Server className="w-4 h-4 text-slate-400" />
-                <span className="font-semibold text-slate-700 text-sm truncate" title={conta}>{conta}</span>
+                <span className="font-semibold text-sm truncate text-[hsl(var(--chart-1))]" title={conta}>{conta}</span>
                 <span className="ml-auto inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-slate-200 text-slate-600 text-xs font-bold">
                   {lista.length}
                 </span>
