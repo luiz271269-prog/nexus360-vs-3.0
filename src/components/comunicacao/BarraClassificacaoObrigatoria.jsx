@@ -28,7 +28,7 @@ export default function BarraClassificacaoObrigatoria({ nomeContato, onClassific
 
   return (
     <div className="mx-2 md:mx-3 mb-2 mt-2 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 shadow-sm overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-center gap-3 px-3 mx-2 bg-[hsl(var(--chart-4))]">
+      <div className="flex flex-col md:flex-row md:items-center gap-3 px-3 mx-2 bg-[#8d3b97]">
         <div className="flex items-center gap-2.5 md:max-w-[280px] flex-shrink-0">
           <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
             <AlertTriangle className="w-4 h-4 text-amber-600" />
