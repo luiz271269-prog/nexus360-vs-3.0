@@ -519,12 +519,12 @@ export default function MessageInput({
               type="button"
               variant="ghost"
               size="icon"
-              className="bg-transparent text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-8 w-8 md:h-9 md:w-9 flex-shrink-0 text-[hsl(var(--chart-5))]"
+              className="text-sm font-medium rounded-full inline-flex items-center justify-center gap-2 whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 h-8 w-8 md:h-9 md:w-9 flex-shrink-0 bg-gradient-to-b from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg shadow-orange-500/40"
               disabled={enviando || thread?.thread_type !== 'team_internal' && thread?.thread_type !== 'sector_group' && carregandoContato || gravandoAudio || modoSelecao || !podeEnviarMidias}
               onClick={() => setShowAttachMenu(!showAttachMenu)}
               title={!podeEnviarMidias ? "Sem permissão para enviar mídias" : "Anexar arquivo"}>
               
-            <Paperclip className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
+            <Paperclip className="w-4 h-4 md:w-[18px] md:h-[18px] text-white" />
           </Button>
 
           {/* Menu de Anexos - Estilo WhatsApp */}
