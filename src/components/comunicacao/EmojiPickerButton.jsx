@@ -149,10 +149,10 @@ export default function EmojiPickerButton({ onEmojiSelect, disabled }) {
         size="icon"
         onClick={() => setIsOpen(!isOpen)}
         disabled={disabled}
-        className="text-slate-600 hover:text-slate-800 hover:bg-slate-100 h-9 w-9 flex-shrink-0"
+        className="h-9 w-9 flex-shrink-0 rounded-full bg-gradient-to-b from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white hover:text-white shadow-lg shadow-orange-500/40 transition-all"
         title="Inserir emoji"
       >
-        <Smile className="w-5 h-5" />
+        <Smile className="w-[18px] h-[18px]" />
       </Button>
       {picker}
     </>
