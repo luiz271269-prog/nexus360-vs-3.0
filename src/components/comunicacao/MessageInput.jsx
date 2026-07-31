@@ -356,7 +356,7 @@ export default function MessageInput({
   const mostrarInterfaceBroadcast = modoSelecaoMultipla && contatosSelecionados.length > 0;
 
   return (
-    <form onSubmit={handleEnviar} className="text-gray-950 rounded-lg border-t flex-shrink-0 pb-safe relative bg-[#162446]" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+    <form onSubmit={handleEnviar} className="text-gray-950 rounded-lg border-t flex-shrink-0 pb-safe relative bg-[#162446] opacity-70" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
       {/* Assistente IA flutuante acima do input */}
       <AIResponseAssistant
         visible={mostrarSugestor}
