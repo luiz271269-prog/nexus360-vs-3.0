@@ -650,10 +650,10 @@ export default function MessageInput({
             variant="ghost"
             size="icon"
             className={cn(
-              "text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-8 w-8 md:h-9 md:w-9 flex-shrink-0",
+              "text-sm font-medium rounded-full inline-flex items-center justify-center gap-2 whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 h-8 w-8 md:h-9 md:w-9 flex-shrink-0 text-white shadow-lg",
               gravandoAudio ?
-              "bg-red-500 hover:bg-red-600 text-white" :
-              "text-zinc-950 hover:bg-accent hover:text-accent-foreground"
+              "bg-gradient-to-b from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-red-500/40 focus-visible:ring-red-400" :
+              "bg-gradient-to-b from-slate-500 to-slate-700 hover:from-slate-600 hover:to-slate-800 shadow-slate-500/40 focus-visible:ring-slate-400"
             )}
             disabled={enviando || carregandoContato || modoSelecao || uploadingPastedFile || !podeEnviarAudios}
             onClick={gravandoAudio ? onStopRecording : onStartRecording}
@@ -662,7 +662,7 @@ export default function MessageInput({
           {gravandoAudio ?
             <StopCircle className="w-4 h-4 md:w-5 md:h-5" /> :
 
-            <Mic className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
+            <Mic className="w-4 h-4 md:w-[18px] md:h-[18px] text-white" />
             }
         </Button>
 
@@ -679,15 +679,15 @@ export default function MessageInput({
             variant="ghost"
             size="icon"
             className={cn(
-              "text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-8 w-8 md:h-9 md:w-9 flex-shrink-0",
+              "text-sm font-medium rounded-full inline-flex items-center justify-center gap-2 whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 h-8 w-8 md:h-9 md:w-9 flex-shrink-0 text-white shadow-lg shadow-indigo-500/40 bg-gradient-to-b",
               showPerguntar ?
-              "bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 shadow-lg" :
-              "text-indigo-600 hover:bg-indigo-50"
+              "from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800" :
+              "from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
             )}
             title="Perguntar sobre o cliente (respostas exatas com dados reais)"
             disabled={gravandoAudio || modoSelecao}>
             
-            <Database className="w-4 h-4 md:w-5 md:h-5" />
+            <Database className="w-4 h-4 md:w-[18px] md:h-[18px]" />
           </Button>
           }
 
@@ -697,12 +697,12 @@ export default function MessageInput({
             type="button"
             variant="ghost"
             size="icon"
-            className="md:hidden text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-8 w-8 flex-shrink-0"
+            className="md:hidden text-sm font-medium rounded-full inline-flex items-center justify-center gap-2 whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 h-8 w-8 flex-shrink-0 bg-gradient-to-b from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/40"
             disabled={enviando || gravandoAudio || modoSelecao || uploadingPastedFile || false}
             onClick={() => cameraInputRef.current?.click()}
             title="Foto / Vídeo">
             
-            <Camera className="w-4 h-4 text-slate-600" />
+            <Camera className="w-4 h-4 text-white" />
           </Button>
           }
 
@@ -714,16 +714,16 @@ export default function MessageInput({
             variant="ghost"
             size="icon"
             className={cn(
-              "text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-8 w-8 md:h-9 md:w-9 flex-shrink-0 relative",
+              "text-sm font-medium rounded-full inline-flex items-center justify-center gap-2 whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 h-8 w-8 md:h-9 md:w-9 flex-shrink-0 relative text-white shadow-lg shadow-purple-500/40 bg-gradient-to-b",
               mostrarSugestor ?
-              "bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 shadow-lg" :
-              "text-purple-600 hover:bg-purple-50",
+              "from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800" :
+              "from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700",
               ultimaMensagemCliente && "animate-pulse"
             )}
             title="Sugestões de Resposta IA (últimas 50-100 mensagens)"
             disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile}>
             
-            <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
+            <Sparkles className="w-4 h-4 md:w-[18px] md:h-[18px]" />
             {ultimaMensagemCliente && !mostrarSugestor &&
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-ping" />
             }
