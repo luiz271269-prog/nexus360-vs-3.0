@@ -188,12 +188,12 @@ export default function CaixaAprovacaoEmails() {
               </div>
 
               {/* Cards da coluna */}
-              <div className="p-2.5 space-y-2.5 max-h-[calc(100vh-280px)] overflow-y-auto">
+              <div className="p-2 space-y-1.5 max-h-[calc(100vh-280px)] overflow-y-auto">
                 {lista.map((e) =>
               <div
                 key={e.id}
                 onClick={() => setEmailSelecionado(e)}
-                className={`group relative bg-white rounded-xl border shadow-sm hover:shadow-md transition-shadow cursor-pointer px-1 ${emailSelecionado?.id === e.id ? 'border-blue-400 ring-1 ring-blue-200' : 'border-slate-100'}`}>
+                className={`group relative bg-white rounded-xl border shadow-sm hover:shadow-md transition-shadow cursor-pointer px-2 py-1.5 ${emailSelecionado?.id === e.id ? 'border-blue-400 ring-1 ring-blue-200' : 'border-slate-100'}`}>
                 
                     {/* Botão fechar (descartar visualmente da fila) */}
                     <button
@@ -203,70 +203,61 @@ export default function CaixaAprovacaoEmails() {
                   
                       <X className="w-3.5 h-3.5" />
                     </button>
-                    <div className="flex items-start gap-2.5">
-                      <div className={`flex-shrink-0 w-9 h-9 rounded-full ${corAvatar(e.remetente_email)} flex items-center justify-center text-white font-semibold text-xs shadow-sm`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`flex-shrink-0 w-7 h-7 rounded-full ${corAvatar(e.remetente_email)} flex items-center justify-center text-white font-semibold text-[9px] shadow-sm`}>
                         {iniciais(e.remetente_nome, e.remetente_email)}
                       </div>
 
-                      <div className="min-w-0 flex-1 pr-5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900 text-[13px] truncate">
+                      <div className="min-w-0 flex-1 pr-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-900 text-[12px] truncate">
                             {e.remetente_nome || e.remetente_email}
                           </span>
                           {e.urgencia &&
                       <span
                         title={e.motivo_classificacao || ''}
-                        className={`flex-shrink-0 text-[9px] font-bold tracking-wide px-2 py-0.5 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}>
+                        className={`flex-shrink-0 text-[8px] font-bold tracking-wide px-1.5 py-0 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}>
                         
                               {URGENCIA_LABEL[e.urgencia] || 'NORMAL'}
                             </span>
                       }
+                          <span className="ml-auto flex-shrink-0 text-[9px] text-slate-400">
+                            {formatarDataEmail(e)}
+                          </span>
                         </div>
 
-                        <p className="text-[10px] text-slate-400 mt-0.5">
-                          {formatarDataEmail(e)}
-                        </p>
-
-                        <p className="font-semibold text-slate-800 text-[13px] mt-0.5 truncate">
+                        <p className="text-[11px] text-slate-600 truncate">
                           {e.assunto || '(sem assunto)'}
                         </p>
 
-                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
-                          {e.corpo_preview?.trim() || e.remetente_email}
-                        </p>
-
-                        {/* Tags: tipo de contato + setor */}
-                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 rounded-full font-medium ${TIPO_CONTATO_STYLE[e.tipo_contato_remetente] || TIPO_CONTATO_STYLE.desconhecido}`}>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Badge variant="outline" className={`text-[8px] px-1 py-0 rounded-full font-medium ${TIPO_CONTATO_STYLE[e.tipo_contato_remetente] || TIPO_CONTATO_STYLE.desconhecido}`}>
                             {TIPO_CONTATO_LABEL[e.tipo_contato_remetente] || 'Desconhecido'}
                           </Badge>
                           {e.setor_classificado &&
-                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-full font-normal bg-slate-50 text-slate-500 border-slate-200">
+                      <Badge variant="outline" className="text-[8px] px-1 py-0 rounded-full font-normal bg-slate-50 text-slate-500 border-slate-200">
                               {e.setor_classificado}
                             </Badge>
                       }
                         </div>
+                      </div>
 
-                        {/* Ações */}
-                        <div className="flex gap-1.5 mt-2">
-                          <Button
-                        size="sm"
-                        onClick={(ev) => {ev.stopPropagation();decidir(e.id, 'aprovar');}}
-                        disabled={processando === e.id}
-                        className="gap-1 h-7 px-2.5 text-xs hover:bg-emerald-700 flex-1 bg-[#51675e] rounded">
-                        
-                            <Check className="w-3.5 h-3.5" /> Aprovar
-                          </Button>
-                          <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(ev) => {ev.stopPropagation();setEmailRejeitar(e);}}
-                        disabled={processando === e.id}
-                        className="gap-1 h-7 px-2.5 text-xs rounded-lg text-red-600 border-red-200 hover:bg-red-50 flex-1">
-                        
-                            <X className="w-3.5 h-3.5" /> Rejeitar
-                          </Button>
-                        </div>
+                      {/* Ações compactas em ícones */}
+                      <div className="flex flex-col gap-1 flex-shrink-0">
+                        <button
+                          onClick={(ev) => {ev.stopPropagation();decidir(e.id, 'aprovar');}}
+                          disabled={processando === e.id}
+                          title="Aprovar"
+                          className="w-6 h-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center disabled:opacity-50 transition-colors">
+                          <Check className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(ev) => {ev.stopPropagation();setEmailRejeitar(e);}}
+                          disabled={processando === e.id}
+                          title="Rejeitar"
+                          className="w-6 h-6 rounded-full border border-red-200 text-red-600 hover:bg-red-50 flex items-center justify-center disabled:opacity-50 transition-colors">
+                          <X className="w-3 h-3" />
+                        </button>
                       </div>
                     </div>
                   </div>
