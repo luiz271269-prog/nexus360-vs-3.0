@@ -203,60 +203,70 @@ export default function CaixaAprovacaoEmails() {
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
-                    <div className="flex items-center gap-2.5">
-                      <div className={`flex-shrink-0 w-8 h-8 rounded-full ${corAvatar(e.remetente_email)} flex items-center justify-center text-white font-semibold text-[11px]`}>
+                    <div className="flex items-start gap-2.5">
+                      <div className={`flex-shrink-0 w-9 h-9 rounded-full ${corAvatar(e.remetente_email)} flex items-center justify-center text-white font-semibold text-xs shadow-sm`}>
                         {iniciais(e.remetente_nome, e.remetente_email)}
                       </div>
 
-                      <div className="min-w-0 flex-1 pr-4">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="font-bold text-slate-900 text-[13px] truncate">
+                      <div className="min-w-0 flex-1 pr-5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-900 text-[13px] truncate">
                             {e.remetente_nome || e.remetente_email}
                           </span>
                           {e.urgencia && (
                             <span
                               title={e.motivo_classificacao || ''}
-                              className={`flex-shrink-0 text-[9px] font-bold tracking-wide px-1.5 py-0.5 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}
+                              className={`flex-shrink-0 text-[9px] font-bold tracking-wide px-2 py-0.5 rounded-full ${URGENCIA_BADGE[e.urgencia] || URGENCIA_BADGE.baixa}`}
                             >
                               {URGENCIA_LABEL[e.urgencia] || 'NORMAL'}
                             </span>
                           )}
-                          <span className="flex-shrink-0 text-[10px] text-slate-400">· {formatarDataEmail(e)}</span>
                         </div>
 
-                        <div className="flex items-center gap-1.5 min-w-0 mt-0.5">
-                          <p className="text-slate-700 text-[12px] truncate flex-1">
-                            {e.assunto || '(sem assunto)'}
-                          </p>
-                          <Badge variant="outline" className={`flex-shrink-0 text-[9px] px-1.5 py-0 rounded-full font-medium ${TIPO_CONTATO_STYLE[e.tipo_contato_remetente] || TIPO_CONTATO_STYLE.desconhecido}`}>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {formatarDataEmail(e)}
+                        </p>
+
+                        <p className="font-semibold text-slate-800 text-[13px] mt-0.5 truncate">
+                          {e.assunto || '(sem assunto)'}
+                        </p>
+
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                          {e.corpo_preview?.trim() || e.remetente_email}
+                        </p>
+
+                        {/* Tags: tipo de contato + setor */}
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 rounded-full font-medium ${TIPO_CONTATO_STYLE[e.tipo_contato_remetente] || TIPO_CONTATO_STYLE.desconhecido}`}>
                             {TIPO_CONTATO_LABEL[e.tipo_contato_remetente] || 'Desconhecido'}
                           </Badge>
                           {e.setor_classificado && (
-                            <Badge variant="outline" className="flex-shrink-0 text-[9px] px-1.5 py-0 rounded-full font-normal bg-emerald-50 text-emerald-700 border-emerald-100">
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-full font-normal bg-slate-50 text-slate-500 border-slate-200">
                               {e.setor_classificado}
                             </Badge>
                           )}
                         </div>
-                      </div>
 
-                      {/* Ações — ícones circulares */}
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <button
-                          onClick={(ev) => { ev.stopPropagation(); decidir(e.id, 'aprovar'); }}
-                          disabled={processando === e.id}
-                          title="Aprovar"
-                          className="w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center disabled:opacity-50 transition-colors"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(ev) => { ev.stopPropagation(); setEmailRejeitar(e); }}
-                          disabled={processando === e.id}
-                          title="Rejeitar"
-                          className="w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center disabled:opacity-50 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                        {/* Ações */}
+                        <div className="flex gap-1.5 mt-2">
+                          <Button
+                            size="sm"
+                            onClick={(ev) => { ev.stopPropagation(); decidir(e.id, 'aprovar'); }}
+                            disabled={processando === e.id}
+                            className="gap-1 h-7 px-2.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 flex-1"
+                          >
+                            <Check className="w-3.5 h-3.5" /> Aprovar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(ev) => { ev.stopPropagation(); setEmailRejeitar(e); }}
+                            disabled={processando === e.id}
+                            className="gap-1 h-7 px-2.5 text-xs rounded-lg text-red-600 border-red-200 hover:bg-red-50 flex-1"
+                          >
+                            <X className="w-3.5 h-3.5" /> Rejeitar
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
