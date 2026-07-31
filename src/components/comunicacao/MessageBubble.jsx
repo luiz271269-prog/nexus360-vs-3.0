@@ -1706,6 +1706,35 @@ export default React.memo(function MessageBubble({
             </div>
             }
 
+            {/* STICKER/FIGURINHA - ✅ webp (inclusive animado) renderiza direto no <img> */}
+            {message.media_type === 'sticker' &&
+            <div className="flex flex-col gap-1 p-2">
+              {message.media_url === 'pending_download' ?
+              <div className="flex items-center justify-center bg-slate-100 rounded-lg w-[140px] h-[140px]">
+                  <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                </div> :
+              !message.media_url || message.media_url === 'failed_download' ?
+              <div className="flex flex-col items-center justify-center bg-slate-100 rounded-lg w-[140px] h-[140px]">
+                  <ImageIcon className="w-8 h-8 text-slate-400 mb-1" />
+                  <span className="text-[11px] text-slate-500">Figurinha indisponível</span>
+                </div> :
+              <img
+                src={message.media_url}
+                alt="Figurinha"
+                className="w-[140px] h-[140px] object-contain cursor-pointer"
+                onClick={() => window.open(message.media_url, '_blank')} />
+              }
+              <div className="flex items-center justify-end gap-1">
+                <span className="text-[10px] text-slate-500">
+                  {format(new Date(message.sent_at || message.created_date), 'dd/MM HH:mm')}
+                </span>
+                {isOwn && message.status === 'enviada' && <Check className="w-3.5 h-3.5 text-slate-500" />}
+                {isOwn && message.status === 'entregue' && <CheckCheck className="w-3.5 h-3.5 text-slate-600" />}
+                {isOwn && message.status === 'lida' && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
+              </div>
+            </div>
+            }
+
             {/* ÁUDIO - ✅ AGNÓSTICO: Funciona para WhatsApp E Interno */}
             {message?.media_type === 'audio' && (message?.media_url || message.content?.includes('[Áudio]')) &&
             <div className={cn(

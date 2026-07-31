@@ -120,7 +120,7 @@ export default function MediaRichMessage({ message }) {
 
   // Mídia ainda não baixada / falha de download: mostrar placeholder claro
   // em vez de um player/imagem quebrado.
-  if (['image', 'video', 'audio', 'document'].includes(media_type) && isMediaIndisponivel(media_url)) {
+  if (['image', 'video', 'audio', 'document', 'sticker'].includes(media_type) && isMediaIndisponivel(media_url)) {
     return (
       <div className="space-y-2">
         {message.content && (
@@ -146,6 +146,16 @@ export default function MediaRichMessage({ message }) {
             onClick={() => window.open(media_url, '_blank')}
           />
         </div>
+      );
+
+    case 'sticker':
+      return (
+        <img
+          src={media_url}
+          alt="Figurinha"
+          className="w-32 h-32 object-contain cursor-pointer"
+          onClick={() => window.open(media_url, '_blank')}
+        />
       );
 
     case 'video':
