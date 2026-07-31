@@ -27,26 +27,36 @@ export default function BarraClassificacaoObrigatoria({ nomeContato, onClassific
   };
 
   return (
-    <div className="mx-2 md:mx-3 mb-2 mt-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
-      <div className="flex items-start gap-2 mb-2">
-        <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-        <p className="text-xs text-amber-900 font-medium">
-          Classificação obrigatória: defina o tipo de <strong>{nomeContato || 'contato'}</strong> para continuar respondendo.
-        </p>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {OPCOES.map((o) => (
-          <button
-            key={o.valor}
-            type="button"
-            disabled={!!salvando}
-            onClick={() => handleClick(o.valor)}
-            className={`px-3 py-1.5 rounded-lg text-white text-xs font-semibold disabled:opacity-60 flex items-center gap-1.5 ${o.cor}`}
-          >
-            {salvando === o.valor && <Loader2 className="w-3 h-3 animate-spin" />}
-            {o.label}
-          </button>
-        ))}
+    <div className="mx-2 md:mx-3 mb-2 mt-2 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 shadow-sm overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center gap-3 p-3">
+        <div className="flex items-center gap-2.5 md:max-w-[280px] flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-wide font-bold text-amber-700">Classificação obrigatória</p>
+            <p className="text-xs text-amber-900/80 truncate">
+              Defina o tipo de <strong>{nomeContato || 'contato'}</strong> para responder.
+            </p>
+          </div>
+        </div>
+
+        <div className="hidden md:block w-px self-stretch bg-amber-200" />
+
+        <div className="flex flex-wrap gap-1.5 flex-1">
+          {OPCOES.map((o) => (
+            <button
+              key={o.valor}
+              type="button"
+              disabled={!!salvando}
+              onClick={() => handleClick(o.valor)}
+              className={`px-3 py-1.5 rounded-full text-white text-xs font-semibold shadow-sm transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-1.5 ${o.cor}`}
+            >
+              {salvando === o.valor && <Loader2 className="w-3 h-3 animate-spin" />}
+              {o.label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
