@@ -512,7 +512,7 @@ export default function MessageInput({
 
 
 
-      <div className="flex items-end gap-1 md:gap-2 relative py-1 text-[hsl(var(--foreground))] opacity-100 bg-[hsl(var(--background))]">
+      <div className="flex items-end gap-1 md:gap-2 relative py-1 text-[hsl(var(--foreground))] opacity-100">
         {/* Botão Anexar com Menu */}
         <div className="relative" ref={attachMenuRef}>
           <Button
@@ -802,7 +802,7 @@ export default function MessageInput({
               "Digite..."
               }
               rows={Math.max(1, Math.min(4, mensagemTexto.split('\n').length))}
-              className="w-full md:p-3 text-sm border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 pr-1 pb-4 pl-1 pt-5"
+              className="w-full md:p-3 text-sm border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 pr-1 pl-1 pt-5 pb-1 opacity-65"
               disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens || classificacaoPendente} />
             
         </div>
