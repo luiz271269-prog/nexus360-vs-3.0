@@ -512,7 +512,7 @@ export default function MessageInput({
 
 
 
-      <div className="flex items-end gap-1 md:gap-2 relative py-1 text-[hsl(var(--foreground))]">
+      <div className="flex items-end gap-1 md:gap-2 relative py-1 text-[hsl(var(--foreground))] opacity-100 bg-[hsl(var(--background))]">
         {/* Botão Anexar com Menu */}
         <div className="relative" ref={attachMenuRef}>
           <Button
