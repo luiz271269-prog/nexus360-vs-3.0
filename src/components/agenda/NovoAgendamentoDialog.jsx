@@ -98,7 +98,7 @@ export default function NovoAgendamentoDialog({ aberto, onFechar, contexto = {},
       const eventos = total === 1 ? [await base44.entities.ScheduleEvent.create(dadosEventos[0])] : await base44.entities.ScheduleEvent.bulkCreate(dadosEventos);
       const minutos = Number(form.antecedencia);
       if (minutos > 0) await base44.entities.ScheduleReminder.bulkCreate(eventos.map(evento => ({ event_id: evento.id, target_user_id: responsavelId, offset_minutes: minutos, send_at: new Date(new Date(evento.start_at).getTime() - minutos * 60000).toISOString(), channel: 'internal', status: 'pending', send_dedupe_key: `${evento.id}:${responsavelId}:${minutos}` })));
-      await base44.entities.ScheduleActivityLog.bulkCreate(eventos.map(evento => ({ event_id: evento.id, acao: 'criada', usuario_id: usuario.id, data_em: new Date().toISOString(), origem: 'usuario', visible_user_ids: [responsavelId, usuario.id] })));
+      await base44.entities.ScheduleActivityLog.bulkCreate(eventos.map(evento => ({ event_id: evento.id, acao: 'criada', usuario_id: usuario?.id || responsavelId, data_em: new Date().toISOString(), origem: 'usuario', visible_user_ids: [responsavelId, usuario?.id].filter(Boolean) })));
       toast.success(total === 1 ? 'Evento criado' : `${total} eventos criados`);
       window.dispatchEvent(new CustomEvent('nexus:agendamento-criado', { detail: eventos[0] }));
       onCriado?.(eventos[0]);
