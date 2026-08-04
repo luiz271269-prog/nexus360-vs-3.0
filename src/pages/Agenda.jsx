@@ -52,6 +52,14 @@ export default function Agenda() {
     () => (filtro ? itens.filter(FILTROS[filtro]) : itens),
     [itens, filtro]
   );
+  // Abrir item direto ao tocar na notificação push (/Agenda?item=<id>)
+  useEffect(() => {
+    const alvo = new URLSearchParams(window.location.search).get('item');
+    if (!alvo || !itens.length) return;
+    const item = itens.find(i => i.id === alvo);
+    if (item) setDetalhe(item);
+  }, [itens]);
+
   const faixas = useMemo(() => agruparPorFaixa(visiveis), [visiveis]);
   const resumo = useMemo(() => calcularResumo(itens), [itens]);
 

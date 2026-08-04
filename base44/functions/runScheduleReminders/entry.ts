@@ -81,6 +81,23 @@ _Agenda Operacional Nexus_`;
         
         // Enviar lembrete via Central de Comunicação
         let enviouComSucesso = false;
+
+        // 🔔 PUSH (padrão smartphone) — abre o item na Agenda ao tocar
+        const enviarPush = async () => {
+          try {
+            const res = await base44.asServiceRole.functions.invoke('enviarWakeUpPush', {
+              target_user_id: reminder.target_user_id,
+              tipo: 'message',
+              title: `🔔 ${itemTitle}`,
+              body: `${formattedAt}${itemDescription ? ` • ${itemDescription}` : ''}`,
+              action_url: `/Agenda?item=${scheduleItem.id}`
+            });
+            return Boolean(res?.sent || res?.data?.sent);
+          } catch (e) {
+            console.warn(`[REMINDER-WORKER] ⚠️ Push falhou: ${e.message}`);
+            return false;
+          }
+        };
         
         if (reminder.channel === 'whatsapp_external') {
           // 📱 ENVIAR VIA WHATSAPP EXTERNO
@@ -151,6 +168,9 @@ _Agenda Operacional Nexus_`;
           } catch (e) {
             console.error(`[REMINDER-WORKER] ❌ Erro WhatsApp externo:`, e.message);
           }
+        } else if (reminder.channel === 'push') {
+          // 📲 SOMENTE PUSH
+          enviouComSucesso = await enviarPush();
         } else if (['app', 'desktop', 'internal', 'whatsapp_internal'].includes(reminder.channel)) {
           // 💬 ENVIAR VIA MENSAGEM INTERNA (SIMPLIFICADO — sem funções extras que podem falhar)
           try {
@@ -208,6 +228,7 @@ _Agenda Operacional Nexus_`;
               
               enviouComSucesso = true;
               console.log(`[REMINDER-WORKER] 💬 Mensagem interna enviada para ${reminder.target_user_id}`);
+              await enviarPush();
             }
           } catch (e) {
             console.warn(`[REMINDER-WORKER] ⚠️ Erro ao enviar interno: ${e.message}`);
