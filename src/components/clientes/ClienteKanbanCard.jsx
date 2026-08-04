@@ -24,6 +24,7 @@ import EtiquetaFaixaFaturamento from './EtiquetaFaixaFaturamento';
 import ClienteChatDrawer from './ClienteChatDrawer';
 import BadgeDiasParado from './BadgeDiasParado';
 import useChatIndicadores from '../crm/useChatIndicadores';
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, onViewDetails, statusGradient }) {
   const [historicoOpen, setHistoricoOpen] = React.useState(false);
@@ -195,6 +196,7 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
             </span>
             <span className="text-[10px] text-slate-700">Editar</span>
           </button>
+          <AgendarRetornoButton contexto={{ titulo: `Retorno — ${cliente.razao_social || cliente.nome_fantasia || 'Cliente'}`, descricao: 'Acompanhamento comercial do cliente.', contextType: 'Cliente', contextId: cliente.id, clienteId: cliente.id, responsavelId: cliente.usuario_id }} className="h-9 border-violet-200 px-2 text-violet-700" />
           <button
             onClick={(e) => { e.stopPropagation(); setHistoricoOpen(true); }}
             title="Histórico interno"

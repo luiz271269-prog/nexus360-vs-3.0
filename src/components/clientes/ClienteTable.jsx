@@ -10,6 +10,7 @@ import EtiquetaFaixaFaturamento from './EtiquetaFaixaFaturamento';
 import BotaoAbrirChat from '../crm/BotaoAbrirChat';
 import BotaoNotasCliente from './BotaoNotasCliente';
 import BadgeDiasParado from './BadgeDiasParado';
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails }) {
 
@@ -114,6 +115,7 @@ export default function ClienteTable({ clientes, onEdit, onDelete, onViewDetails
                 <div className="flex items-center justify-center gap-1.5">
                   <BotaoAbrirChat cliente={cliente} />
                   <BotaoNotasCliente cliente={cliente} />
+                  <AgendarRetornoButton iconOnly contexto={{ titulo: `Retorno — ${cliente.razao_social || cliente.nome_fantasia || 'Cliente'}`, descricao: 'Acompanhamento comercial do cliente.', contextType: 'Cliente', contextId: cliente.id, clienteId: cliente.id, responsavelId: cliente.usuario_id }} className="h-8 w-8 text-violet-700" />
                 </div>
               </TableCell>
               <TableCell className="text-center">

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +8,7 @@ import StatusPipeline from './StatusPipeline';
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from "sonner"; // Changed from 'react-hot-toast' to 'sonner'
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 // Definir as etapas
 const etapasFluxo = {
@@ -206,6 +206,8 @@ export default function OrcamentoTable({ orcamentos, onEdit, onUpdateStatus, usu
                                 >
                                   <Edit className="w-4 h-4" />
                                 </Button>
+
+                                <AgendarRetornoButton iconOnly contexto={{ titulo: `Retorno orçamento #${orcamento.numero_orcamento || orcamento.id?.slice(-6)} — ${orcamento.cliente_nome || 'Cliente'}`, descricao: 'Acompanhamento do orçamento comercial.', contextType: 'Orcamento', contextId: orcamento.id, orcamentoId: orcamento.id, clienteId: orcamento.cliente_id, responsavelId: orcamento.usuario_id || orcamento.vendedor_id }} className="h-7 w-7 text-violet-700" />
 
                                 {/* ✅ BOTÃO WHATSAPP */}
                                 <Button

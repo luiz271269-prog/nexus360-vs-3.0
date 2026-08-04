@@ -30,6 +30,7 @@ import PainelSaneamentoContato from '../saneamento/PainelSaneamentoContato';
 import CardEnriquecimentoIA from './CardEnriquecimentoIA';
 import EtiquetaRecorrencia from '../clientes/EtiquetaRecorrencia';
 import EtiquetaFaixaFaturamento from '../clientes/EtiquetaFaixaFaturamento';
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 export default function ContactInfoPanel({ 
   contact, 
@@ -545,11 +546,14 @@ export default function ContactInfoPanel({
             </button>
             <h3 className="font-medium text-lg">Informações do contato</h3>
           </div>
-          {salvando && (
-            <motion.div className="flex items-center gap-1 text-xs bg-white/20 px-2 py-1 rounded-full">
-              <Loader2 className="w-3 h-3 animate-spin" />
-            </motion.div>
-          )}
+          <div className="flex items-center gap-2">
+            <AgendarRetornoButton iconOnly contexto={{ titulo: `Retorno — ${contact.nome || contact.empresa || contact.telefone || 'Contato'}`, descricao: 'Retorno agendado a partir do cadastro do contato.', contextType: 'Contact', contextId: contact.id, contactId: contact.id, clienteId: contact.cliente_id, threadId: threadAtual?.id, responsavelId: threadAtual?.assigned_user_id || contact.atendente_fidelizado_vendas }} className="h-8 w-8 border-white/40 bg-white/10 text-white hover:bg-white/20" />
+            {salvando && (
+              <motion.div className="flex items-center gap-1 text-xs bg-white/20 px-2 py-1 rounded-full">
+                <Loader2 className="w-3 h-3 animate-spin" />
+              </motion.div>
+            )}
+          </div>
         </div>
       </div>
 

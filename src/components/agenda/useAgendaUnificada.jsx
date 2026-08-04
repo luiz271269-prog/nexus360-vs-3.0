@@ -58,7 +58,8 @@ export default function useAgendaUnificada(usuario) {
     await aplicar(item, dados, 'concluida', 'Concluído', true);
     if (item.entidade === 'ScheduleTask' && item.raw.recorrencia_id) {
       const regra = await base44.entities.ScheduleRecurrence.get(item.raw.recorrencia_id);
-      if (regra?.ativo) {
+      const restantes = Number(regra?.quantidade_ocorrencias || 0);
+      if (regra?.ativo && (restantes === 0 || restantes > 1)) {
         const nextDue = proximaOcorrencia(item.raw.prazo_em, regra.frequencia);
         const nextTask = await base44.entities.ScheduleTask.create({
           titulo: item.raw.titulo,
@@ -76,7 +77,9 @@ export default function useAgendaUnificada(usuario) {
           context_type: item.raw.context_type,
           context_id: item.raw.context_id,
           thread_id: item.raw.thread_id,
-          contact_id: item.raw.contact_id
+          contact_id: item.raw.contact_id,
+          cliente_id: item.raw.cliente_id,
+          orcamento_id: item.raw.orcamento_id
         });
         const reminders = await base44.entities.ScheduleReminder.filter({ task_id: item.id }, 'send_at', 20);
         if (reminders.length) await base44.entities.ScheduleReminder.bulkCreate(reminders.map(r => ({
@@ -87,6 +90,9 @@ export default function useAgendaUnificada(usuario) {
           channel: r.channel,
           send_dedupe_key: `${nextTask.id}:${nextTask.responsavel_id}:${r.offset_minutes || 0}`
         })));
+        if (restantes > 0) await base44.entities.ScheduleRecurrence.update(regra.id, { quantidade_ocorrencias: restantes - 1, ativo: restantes - 1 > 1 });
+      } else if (regra?.ativo && restantes === 1) {
+        await base44.entities.ScheduleRecurrence.update(regra.id, { ativo: false });
       }
       await carregar();
     }

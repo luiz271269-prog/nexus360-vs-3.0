@@ -5,6 +5,7 @@ import { createPageUrl } from '@/utils';
 import OrcamentoChatDrawer from './OrcamentoChatDrawer';
 import OrcamentoHistoricoDrawer from './OrcamentoHistoricoDrawer';
 import { classificarOrcamento } from './LegendaTotalizadoresOrcamentos';
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 const probCores = {
   'Alta':  'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -158,6 +159,7 @@ export default function OrcamentoCard({ orcamento, onEdit, onWhatsApp }) {
             </span>
           )}
           <div className="ml-auto flex items-center gap-1.5">
+            <AgendarRetornoButton contexto={{ titulo: `Retorno orçamento #${orcamento.numero_orcamento || orcamento.id?.slice(-6)} — ${orcamento.cliente_nome || 'Cliente'}`, descricao: `Acompanhar orçamento de ${formatCurrency(orcamento.valor_total)}.`, contextType: 'Orcamento', contextId: orcamento.id, orcamentoId: orcamento.id, clienteId: orcamento.cliente_id, responsavelId: orcamento.usuario_id || orcamento.vendedor_id }} className="h-8 border-violet-200 px-2 text-xs text-violet-700" />
             <button
               className="relative flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 transition-all duration-150 hover:bg-amber-100 hover:shadow-md hover:-translate-y-0.5 hover:scale-105 active:scale-95"
               onClick={(e) => { e.stopPropagation(); setHistoricoOpen(true); }}

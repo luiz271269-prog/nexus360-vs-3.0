@@ -20,6 +20,7 @@ import ClienteCombobox from '../components/orcamentos/ClienteCombobox';
 import OrcamentoChatDrawer from '../components/orcamentos/OrcamentoChatDrawer';
 import { MessageSquare } from 'lucide-react';
 import { getOrCreateCliente } from '@/functions/getOrCreateCliente';
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 export default function OrcamentoDetalhes() {
   const [orcamento, setOrcamento] = useState(null);
@@ -925,6 +926,7 @@ RETORNE o JSON estruturado conforme o schema.`;
                   </SelectContent>
                 </Select>
               </div>
+            {orcamento.id && <AgendarRetornoButton contexto={{ titulo: `Retorno orçamento #${orcamento.numero_orcamento || orcamento.id?.slice(-6)} — ${orcamento.cliente_nome || 'Cliente'}`, descricao: 'Acompanhamento do orçamento comercial.', contextType: 'Orcamento', contextId: orcamento.id, orcamentoId: orcamento.id, clienteId: orcamento.cliente_id, responsavelId: orcamento.usuario_id || orcamento.vendedor_id }} className="border-violet-500/60 bg-violet-500/10 text-white hover:bg-violet-500/20" />}
             <Button
               variant="outline"
               size="sm"

@@ -59,6 +59,7 @@ import useScrollPaginacao from './useScrollPaginacao';
 import { useAudioRecorder, extensaoDoAudio } from './useAudioRecorder';
 import FloatingConversationBubble from './FloatingConversationBubble';
 import BotaoVideochamada from './BotaoVideochamada';
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Contagem de não lidas (externo + interno)
@@ -1604,6 +1605,8 @@ export default function ChatWindow({
               thread={thread}
               contato={contatoCompleto}
               onUpdate={onAtualizarMensagens} />
+
+              {thread?.thread_type === 'contact_external' && <AgendarRetornoButton iconOnly contexto={{ titulo: `Retorno — ${nomeContato}`, descricao: 'Retorno agendado a partir da conversa.', contextType: 'MessageThread', contextId: thread.id, threadId: thread.id, contactId: thread.contact_id, clienteId: contatoCompleto?.cliente_id, responsavelId: thread.assigned_user_id || usuario?.id }} className="h-7 w-7 border-violet-300 bg-violet-600 text-white hover:bg-violet-700" />}
 
               {/* Botão Transferir */}
               {podeTransferirConversas &&
