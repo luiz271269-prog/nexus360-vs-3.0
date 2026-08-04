@@ -188,6 +188,18 @@ Deno.serve(async (req) => {
       ).catch(() => []);
       if (existentes.length > 0) continue;
 
+      // Sem pilha: marca como lidos os alertas de SLA anteriores deste vendedor
+      const anteriores = await svc.entities.NotificationEvent.filter({
+        tipo: 'cliente_em_risco',
+        origem: 'watchdogCarteiraOuro',
+        usuario_id: vendedorId,
+        lida: false
+      }, '-created_date', 100).catch(() => []);
+      for (const a of anteriores) {
+        await svc.entities.NotificationEvent.update(a.id, { lida: true, lida_em: new Date().toISOString() })
+          .catch(() => {});
+      }
+
       const emoji = { ouro: '🥇', prata: '🥈', risco: '⚠️' };
       lista.sort((a, b) => {
         const ordem = { ouro: 0, prata: 1, risco: 2 };
@@ -225,6 +237,31 @@ Deno.serve(async (req) => {
         }
       }).catch(e => console.warn(`[CARTEIRA-OURO] Notificação falhou (${vendedorId}): ${e.message}`));
       notificacoesCriadas++;
+
+      // Item de Agenda (categoria retorno) para virar trabalho rastreável
+      const contextId = `sla_carteira:${vendedorId}:${hoje}`;
+      const agendaExistente = await svc.entities.ScheduleTask.filter({
+        context_type: 'SLACarteira',
+        context_id: contextId
+      }, '-created_date', 1).catch(() => []);
+      if (agendaExistente.length === 0) {
+        const prazo = new Date();
+        prazo.setHours(18, 0, 0, 0);
+        await svc.entities.ScheduleTask.create({
+          titulo: `Contatar ${lista.length} cliente(s) fora do SLA`,
+          descricao: `${linhas}${extras}`,
+          categoria: 'retorno',
+          etapa: 'planejado',
+          tipo_atividade: 'follow_up',
+          origem: 'automacao',
+          prioridade: temOuro ? 'critica' : 'alta',
+          status: 'pendente',
+          responsavel_id: vendedorId,
+          prazo_em: prazo.toISOString(),
+          context_type: 'SLACarteira',
+          context_id: contextId
+        }).catch(e => console.warn(`[CARTEIRA-OURO] Agenda falhou (${vendedorId}): ${e.message}`));
+      }
     }
 
     // ── Gravar campos persistidos (fonte única para todo o frontend) ──────

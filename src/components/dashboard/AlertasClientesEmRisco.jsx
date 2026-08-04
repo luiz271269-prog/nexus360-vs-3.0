@@ -13,11 +13,14 @@ export default function AlertasClientesEmRisco() {
 
   const { data: alertas = [] } = useQuery({
     queryKey: ['alertasClientesEmRisco'],
-    queryFn: () => base44.entities.NotificationEvent.filter(
-      { tipo: 'cliente_em_risco', lida: false },
-      '-created_date',
-      10
-    ),
+    queryFn: async () => {
+      const eu = await base44.auth.me();
+      return base44.entities.NotificationEvent.filter(
+        { tipo: 'cliente_em_risco', lida: false, usuario_id: eu.id },
+        '-created_date',
+        10
+      );
+    },
     refetchInterval: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
