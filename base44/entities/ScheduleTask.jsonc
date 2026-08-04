@@ -1,0 +1,225 @@
+{
+  "name": "ScheduleTask",
+  "type": "object",
+  "properties": {
+    "titulo": {
+      "type": "string"
+    },
+    "descricao": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "confirmada",
+        "em_andamento",
+        "aguardando_terceiro",
+        "concluida",
+        "adiada",
+        "cancelada",
+        "vencida"
+      ],
+      "default": "pendente"
+    },
+    "prioridade": {
+      "type": "string",
+      "enum": [
+        "baixa",
+        "media",
+        "alta",
+        "critica"
+      ],
+      "default": "media"
+    },
+    "tipo_atividade": {
+      "type": "string",
+      "enum": [
+        "tarefa",
+        "follow_up",
+        "ligacao",
+        "reuniao_preparacao",
+        "visita",
+        "cobranca",
+        "orcamento",
+        "atendimento",
+        "documento",
+        "atividade_interna"
+      ],
+      "default": "tarefa"
+    },
+    "origem": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "conversa",
+        "crm",
+        "orcamento",
+        "cobranca",
+        "atendimento",
+        "automacao",
+        "ia",
+        "calendario_externo"
+      ],
+      "default": "manual"
+    },
+    "responsavel_id": {
+      "type": "string"
+    },
+    "setor_id": {
+      "type": "string"
+    },
+    "participantes_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "privada": {
+      "type": "boolean",
+      "default": false
+    },
+    "data_inicio": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "prazo_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "iniciada_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "concluido_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "cancelado_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "adiado_de": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "adiado_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "vencida_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "dia_inteiro": {
+      "type": "boolean",
+      "default": false
+    },
+    "estimativa_minutos": {
+      "type": "number"
+    },
+    "tempo_real_minutos": {
+      "type": "number"
+    },
+    "recorrencia_id": {
+      "type": "string"
+    },
+    "sla_policy_id": {
+      "type": "string"
+    },
+    "context_type": {
+      "type": "string"
+    },
+    "context_id": {
+      "type": "string"
+    },
+    "thread_id": {
+      "type": "string"
+    },
+    "contact_id": {
+      "type": "string"
+    },
+    "cliente_id": {
+      "type": "string"
+    },
+    "opportunity_id": {
+      "type": "string"
+    },
+    "orcamento_id": {
+      "type": "string"
+    },
+    "parent_task_id": {
+      "type": "string"
+    },
+    "dependency_task_id": {
+      "type": "string"
+    },
+    "motivo_adiamento": {
+      "type": "string"
+    },
+    "motivo_cancelamento": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "titulo",
+    "responsavel_id",
+    "prazo_em"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.responsavel_id": "{{user.id}}"
+        },
+        {
+          "data.participantes_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.responsavel_id": "{{user.id}}"
+        },
+        {
+          "data.participantes_ids": {
+            "$in": [
+              "{{user.id}}"
+            ]
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

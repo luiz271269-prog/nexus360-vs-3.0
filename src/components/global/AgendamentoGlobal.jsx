@@ -1,29 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import NovoAgendamentoDialog from '@/components/agenda/NovoAgendamentoDialog';
+import NovaTarefaDialog from '@/components/agenda/NovaTarefaDialog';
 
-/**
- * Monta o diálogo de agendamento uma única vez no Layout, disponível em toda tela.
- * Qualquer componente abre com:
- *   window.dispatchEvent(new CustomEvent('nexus:novo-agendamento', { detail: { titulo, threadId, contactId } }))
- */
 export default function AgendamentoGlobal() {
-  const [aberto, setAberto] = useState(false);
+  const [eventoAberto, setEventoAberto] = useState(false);
+  const [tarefaAberta, setTarefaAberta] = useState(false);
   const [contexto, setContexto] = useState({});
 
   useEffect(() => {
-    const abrir = (e) => {
-      setContexto(e.detail || {});
-      setAberto(true);
+    const abrirEvento = e => { setContexto(e.detail || {}); setEventoAberto(true); };
+    const abrirTarefa = e => { setContexto(e.detail || {}); setTarefaAberta(true); };
+    window.addEventListener('nexus:novo-agendamento', abrirEvento);
+    window.addEventListener('nexus:nova-tarefa', abrirTarefa);
+    return () => {
+      window.removeEventListener('nexus:novo-agendamento', abrirEvento);
+      window.removeEventListener('nexus:nova-tarefa', abrirTarefa);
     };
-    window.addEventListener('nexus:novo-agendamento', abrir);
-    return () => window.removeEventListener('nexus:novo-agendamento', abrir);
   }, []);
 
-  return (
-    <NovoAgendamentoDialog
-      aberto={aberto}
-      contexto={contexto}
-      onFechar={() => setAberto(false)}
-    />
-  );
+  return <>
+    <NovoAgendamentoDialog aberto={eventoAberto} contexto={contexto} onFechar={() => setEventoAberto(false)} />
+    <NovaTarefaDialog aberto={tarefaAberta} contexto={contexto} onFechar={() => setTarefaAberta(false)} />
+  </>;
 }

@@ -2,79 +2,138 @@
   "name": "ScheduleReminder",
   "type": "object",
   "properties": {
+    "task_id": {
+      "type": "string"
+    },
     "event_id": {
-      "type": "string",
-      "description": "ID do ScheduleEvent relacionado"
+      "type": "string"
     },
     "target_user_id": {
-      "type": "string",
-      "description": "ID do User que receber\u00e1 o lembrete"
+      "type": "string"
     },
     "offset_minutes": {
-      "type": "number",
-      "description": "Quantos minutos ANTES do evento disparar (ex: 15 = 15min antes)"
+      "type": "number"
     },
     "send_at": {
       "type": "string",
-      "format": "datetime",
-      "description": "Data/hora calculada para envio (start_at - offset)"
+      "format": "datetime"
+    },
+    "relative_rule": {
+      "type": "string"
     },
     "channel": {
       "type": "string",
       "enum": [
+        "app",
+        "push",
+        "email",
+        "whatsapp",
+        "desktop",
         "whatsapp_internal",
         "whatsapp_external",
-        "internal",
-        "email"
+        "internal"
       ],
-      "default": "internal",
-      "description": "Canal de envio do lembrete. whatsapp_external = envia ao WhatsApp pessoal do usu\u00e1rio (respeita guard de conversa ativa)."
+      "default": "app"
     },
     "status": {
       "type": "string",
       "enum": [
         "pending",
         "sent",
+        "delivered",
+        "viewed",
+        "confirmed",
         "skipped",
         "failed"
       ],
-      "default": "pending",
-      "description": "Status do envio. skipped = n\u00e3o enviado por decis\u00e3o do sistema (evento cancelado/conclu\u00eddo), n\u00e3o \u00e9 erro."
+      "default": "pending"
     },
     "send_dedupe_key": {
-      "type": "string",
-      "description": "Chave \u00fanica (event_id + target_user_id + offset_minutes) para evitar duplica\u00e7\u00e3o"
+      "type": "string"
     },
     "retry_count": {
       "type": "number",
-      "default": 0,
-      "description": "N\u00famero de tentativas de envio"
+      "default": 0
     },
     "sent_at": {
       "type": "string",
-      "format": "datetime",
-      "description": "Quando foi enviado com sucesso"
+      "format": "datetime"
+    },
+    "delivered_at": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "viewed_at": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "confirmed_at": {
+      "type": "string",
+      "format": "datetime"
     },
     "failed_at": {
       "type": "string",
-      "format": "datetime",
-      "description": "Quando falhou definitivamente"
+      "format": "datetime"
     },
     "dead_lettered_at": {
       "type": "string",
-      "format": "datetime",
-      "description": "Quando foi enviado para dead-letter (ap\u00f3s 3+ falhas)"
+      "format": "datetime"
+    },
+    "provider_message_id": {
+      "type": "string"
     },
     "error_details": {
-      "type": "string",
-      "description": "Detalhes do erro (se status = failed) ou motivo do skip"
+      "type": "string"
     }
   },
   "required": [
-    "event_id",
     "target_user_id",
-    "offset_minutes",
     "send_at",
     "send_dedupe_key"
-  ]
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.target_user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.target_user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
 }

@@ -1,0 +1,97 @@
+{
+  "name": "ScheduleActivityLog",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "event_id": {
+      "type": "string"
+    },
+    "acao": {
+      "type": "string",
+      "enum": [
+        "criada",
+        "atribuida",
+        "aceita",
+        "iniciada",
+        "aguardando_terceiro",
+        "reagendada",
+        "lembrete_enviado",
+        "vencida",
+        "escalonada",
+        "concluida",
+        "cancelada",
+        "sincronizada"
+      ]
+    },
+    "usuario_id": {
+      "type": "string"
+    },
+    "data_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "dados_anteriores": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "dados_novos": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "origem": {
+      "type": "string",
+      "enum": [
+        "usuario",
+        "automacao",
+        "ia",
+        "sincronizacao",
+        "sistema"
+      ],
+      "default": "usuario"
+    },
+    "visible_user_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "acao",
+    "usuario_id",
+    "data_em"
+  ],
+  "rls": {
+    "create": {
+      "data.usuario_id": "{{user.id}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.visible_user_ids": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

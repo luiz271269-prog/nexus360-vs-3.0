@@ -1,0 +1,96 @@
+{
+  "name": "ScheduleRecurrence",
+  "type": "object",
+  "properties": {
+    "frequencia": {
+      "type": "string",
+      "enum": [
+        "diaria",
+        "dias_uteis",
+        "semanal",
+        "mensal",
+        "anual",
+        "personalizada"
+      ]
+    },
+    "intervalo": {
+      "type": "number",
+      "default": 1
+    },
+    "dias_semana": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "default": []
+    },
+    "dia_mes": {
+      "type": "number"
+    },
+    "inicio_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "termino_em": {
+      "type": "string",
+      "format": "datetime"
+    },
+    "quantidade_ocorrencias": {
+      "type": "number"
+    },
+    "timezone": {
+      "type": "string",
+      "default": "America/Sao_Paulo"
+    },
+    "regra_rrule": {
+      "type": "string"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "frequencia",
+    "inicio_em"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

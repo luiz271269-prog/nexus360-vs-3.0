@@ -1,0 +1,45 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/15 * * * *",
+      "one_time_date": null,
+      "timezone": "America/Sao_Paulo",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Processar Agenda Operacional",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "processar_agenda_operacional",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "processar_prazos": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "processarAgendaOperacional",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Processar prazos",
+            "description": "Atualiza tarefas vencidas"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Marca tarefas vencidas e registra o hist\u00f3rico operacional a cada 15 minutos."
+}

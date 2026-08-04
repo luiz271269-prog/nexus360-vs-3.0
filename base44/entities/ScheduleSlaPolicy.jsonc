@@ -1,0 +1,90 @@
+{
+  "name": "ScheduleSlaPolicy",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string"
+    },
+    "tipo_atividade": {
+      "type": "string"
+    },
+    "prioridade": {
+      "type": "string",
+      "enum": [
+        "baixa",
+        "media",
+        "alta",
+        "critica"
+      ]
+    },
+    "setor_id": {
+      "type": "string"
+    },
+    "origem": {
+      "type": "string"
+    },
+    "context_type": {
+      "type": "string"
+    },
+    "valor_minimo": {
+      "type": "number"
+    },
+    "prazo_minutos": {
+      "type": "number"
+    },
+    "alertar_antes_minutos": {
+      "type": "number"
+    },
+    "tolerancia_atraso_minutos": {
+      "type": "number"
+    },
+    "escalonar_apos_minutos": {
+      "type": "number"
+    },
+    "escalonar_para_usuario_id": {
+      "type": "string"
+    },
+    "escalonar_para_setor_id": {
+      "type": "string"
+    },
+    "acao_ao_vencer": {
+      "type": "string",
+      "enum": [
+        "marcar_vencida",
+        "notificar_responsavel",
+        "escalonar",
+        "criar_follow_up"
+      ]
+    },
+    "respeitar_horario_comercial": {
+      "type": "boolean",
+      "default": true
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "nome",
+    "prazo_minutos"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -4,7 +4,7 @@ import AgendaItemRow from './AgendaItemRow';
 
 const PASSO = 15;
 
-export default function AgendaSecao({ titulo, itens, cor = 'text-slate-700', recolhida = false, ocupadoId, onConcluir, onAdiar, onCancelar }) {
+export default function AgendaSecao({ titulo, itens, cor = 'text-slate-700', recolhida = false, ocupadoId, onIniciar, onAguardar, onConcluir, onAdiar, onCancelar }) {
   const [aberta, setAberta] = useState(!recolhida);
   const [limite, setLimite] = useState(PASSO);
 
@@ -25,6 +25,8 @@ export default function AgendaSecao({ titulo, itens, cor = 'text-slate-700', rec
               key={`${item.tipo}-${item.id}`}
               item={item}
               ocupado={ocupadoId === item.id}
+              onIniciar={onIniciar}
+              onAguardar={onAguardar}
               onConcluir={onConcluir}
               onAdiar={onAdiar}
               onCancelar={onCancelar}

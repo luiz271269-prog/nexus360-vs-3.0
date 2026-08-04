@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔔 WORKER DE LEMBRETES - AGENDA IA NEXUS
@@ -39,44 +39,45 @@ Deno.serve(async (req) => {
     
     for (const reminder of reminders) {
       try {
-        // Carregar evento relacionado
-        const event = await base44.asServiceRole.entities.ScheduleEvent.get(reminder.event_id);
-        
-        if (!event) {
-          console.warn(`[REMINDER-WORKER] ⚠️ Evento não encontrado: ${reminder.event_id}`);
+        const isTask = Boolean(reminder.task_id);
+        const scheduleItem = isTask
+          ? await base44.asServiceRole.entities.ScheduleTask.get(reminder.task_id).catch(() => null)
+          : await base44.asServiceRole.entities.ScheduleEvent.get(reminder.event_id).catch(() => null);
+
+        if (!scheduleItem) {
           await base44.asServiceRole.entities.ScheduleReminder.update(reminder.id, {
             status: 'failed',
             failed_at: new Date().toISOString(),
-            error_details: 'Evento não encontrado'
+            error_details: isTask ? 'Tarefa não encontrada' : 'Evento não encontrado'
           });
           falhas++;
           continue;
         }
-        
-        // Verificar se evento ainda está válido
-        if (event.status === 'cancelled' || event.status === 'completed') {
-          console.log(`[REMINDER-WORKER] ⏭️ Evento ${event.status}, pulando lembrete`);
+
+        const finalStatuses = isTask ? ['concluida', 'cancelada'] : ['cancelled', 'completed'];
+        if (finalStatuses.includes(scheduleItem.status)) {
           await base44.asServiceRole.entities.ScheduleReminder.update(reminder.id, {
             status: 'skipped',
-            error_details: `Evento ${event.status}`
+            error_details: `Atividade ${scheduleItem.status}`
           });
           continue;
         }
-        
-        // Construir mensagem de lembrete
-        const horaEvento = new Date(event.start_at).toLocaleString('pt-BR', {
-          timeZone: event.timezone || 'America/Sao_Paulo',
+
+        const scheduledAt = scheduleItem.prazo_em || scheduleItem.start_at;
+        const formattedAt = new Date(scheduledAt).toLocaleString('pt-BR', {
+          timeZone: scheduleItem.timezone || 'America/Sao_Paulo',
           dateStyle: 'short',
           timeStyle: 'short'
         });
-        
+        const itemTitle = scheduleItem.titulo || scheduleItem.title;
+        const itemDescription = scheduleItem.descricao || scheduleItem.description;
         const mensagemLembrete = `🔔 **Lembrete de Agenda**
 
-📌 ${event.title}
-📅 ${horaEvento}
-${event.description ? `📝 ${event.description}` : ''}
+📌 ${itemTitle}
+📅 ${formattedAt}
+${itemDescription ? `📝 ${itemDescription}` : ''}
 
-_Agendado via Agenda IA Nexus_`;
+_Agenda Operacional Nexus_`;
         
         // Enviar lembrete via Central de Comunicação
         let enviouComSucesso = false;
@@ -150,7 +151,7 @@ _Agendado via Agenda IA Nexus_`;
           } catch (e) {
             console.error(`[REMINDER-WORKER] ❌ Erro WhatsApp externo:`, e.message);
           }
-        } else if (reminder.channel === 'internal' || reminder.channel === 'whatsapp_internal') {
+        } else if (['app', 'desktop', 'internal', 'whatsapp_internal'].includes(reminder.channel)) {
           // 💬 ENVIAR VIA MENSAGEM INTERNA (SIMPLIFICADO — sem funções extras que podem falhar)
           try {
             // Buscar usuário alvo
@@ -219,7 +220,7 @@ _Agendado via Agenda IA Nexus_`;
 
             await base44.asServiceRole.integrations.Core.SendEmail({
               to: targetUser.email,
-              subject: `🔔 Lembrete de Agenda: ${event.title}`,
+              subject: `🔔 Lembrete de Agenda: ${itemTitle}`,
               body: mensagemLembrete
             });
             enviouComSucesso = true;
@@ -239,10 +240,20 @@ _Agendado via Agenda IA Nexus_`;
         }
         
         if (enviouComSucesso) {
+          const sentAt = new Date().toISOString();
           await base44.asServiceRole.entities.ScheduleReminder.update(reminder.id, {
             status: 'sent',
-            sent_at: new Date().toISOString()
+            sent_at: sentAt
           });
+          await base44.asServiceRole.entities.ScheduleActivityLog.create({
+            task_id: reminder.task_id,
+            event_id: reminder.event_id,
+            acao: 'lembrete_enviado',
+            usuario_id: reminder.target_user_id,
+            data_em: sentAt,
+            origem: 'sistema',
+            visible_user_ids: [reminder.target_user_id]
+          }).catch(() => null);
           enviados++;
           console.log(`[REMINDER-WORKER] ✅ Enviado: ${reminder.id.substring(0, 8)}`);
         } else {

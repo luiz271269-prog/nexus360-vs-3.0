@@ -11,10 +11,10 @@ import { Loader2, CalendarPlus } from 'lucide-react';
 
 const TIPOS = [
   { valor: 'compromisso', rotulo: 'Compromisso' },
-  { valor: 'lembrete', rotulo: 'Lembrete' },
-  { valor: 'follow_up', rotulo: 'Follow-up' },
-  { valor: 'cobranca', rotulo: 'Cobrança' },
-  { valor: 'tarefa', rotulo: 'Tarefa' }
+  { valor: 'reuniao', rotulo: 'Reunião' },
+  { valor: 'ligacao', rotulo: 'Ligação' },
+  { valor: 'visita', rotulo: 'Visita' },
+  { valor: 'bloco_trabalho', rotulo: 'Bloco de trabalho' }
 ];
 
 const ANTECEDENCIAS = [
@@ -81,11 +81,12 @@ export default function NovoAgendamentoDialog({ aberto, onFechar, contexto = {},
       const responsavelId = form.responsavel || usuario?.id;
       const evento = await base44.entities.ScheduleEvent.create({
         created_by_type: 'internal_user',
-        created_by_id: usuario?.id,
+        organizer_id: usuario?.id,
         assigned_user_id: responsavelId,
         title: form.titulo.trim(),
         description: form.notas || undefined,
         start_at: inicio.toISOString(),
+        end_at: new Date(inicio.getTime() + 60 * 60 * 1000).toISOString(),
         timezone: 'America/Sao_Paulo',
         status: 'scheduled',
         event_type: form.tipo,
@@ -109,7 +110,15 @@ export default function NovoAgendamentoDialog({ aberto, onFechar, contexto = {},
         }).catch(() => toast.warning('Evento criado, mas o lembrete falhou'));
       }
 
-      toast.success('Agendamento criado');
+      await base44.entities.ScheduleActivityLog.create({
+        event_id: evento.id,
+        acao: 'criada',
+        usuario_id: usuario.id,
+        data_em: new Date().toISOString(),
+        origem: 'usuario',
+        visible_user_ids: [responsavelId, usuario.id]
+      });
+      toast.success('Evento criado');
       window.dispatchEvent(new CustomEvent('nexus:agendamento-criado', { detail: evento }));
       onCriado?.(evento);
       onFechar?.();
@@ -128,7 +137,7 @@ export default function NovoAgendamentoDialog({ aberto, onFechar, contexto = {},
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarPlus className="w-5 h-5 text-slate-900" />
-            Novo agendamento
+            Novo evento
           </DialogTitle>
         </DialogHeader>
 
@@ -204,7 +213,7 @@ export default function NovoAgendamentoDialog({ aberto, onFechar, contexto = {},
           <Button variant="ghost" onClick={onFechar} disabled={salvando}>Cancelar</Button>
           <Button onClick={salvar} disabled={salvando} className="bg-slate-900 hover:bg-slate-800 text-white">
             {salvando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CalendarPlus className="w-4 h-4 mr-2" />}
-            Agendar
+            Criar evento
           </Button>
         </DialogFooter>
       </DialogContent>

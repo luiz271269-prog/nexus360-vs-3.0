@@ -15,12 +15,12 @@ function Kpi({ valor, rotulo, cor, ativo, onClick }) {
 }
 
 export default function AgendaKPIs({ resumo, filtro, onFiltrar }) {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <Kpi valor={resumo.hoje} rotulo="Para hoje" cor="text-sky-600" ativo={filtro === 'hoje'} onClick={() => onFiltrar(filtro === 'hoje' ? null : 'hoje')} />
-      <Kpi valor={resumo.atrasados} rotulo="Em atraso" cor="text-rose-600" ativo={filtro === 'atrasados'} onClick={() => onFiltrar(filtro === 'atrasados' ? null : 'atrasados')} />
-      <Kpi valor={resumo.criticos} rotulo="Críticas" cor="text-amber-600" ativo={filtro === 'criticos'} onClick={() => onFiltrar(filtro === 'criticos' ? null : 'criticos')} />
-      <Kpi valor={resumo.compromissos} rotulo="Compromissos" cor="text-violet-600" ativo={filtro === 'compromissos'} onClick={() => onFiltrar(filtro === 'compromissos' ? null : 'compromissos')} />
-    </div>
-  );
+  const card = (chave, rotulo, cor) => <Kpi valor={resumo[chave]} rotulo={rotulo} cor={cor} ativo={filtro === chave} onClick={() => onFiltrar(filtro === chave ? null : chave)} />;
+  return <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    {card('atrasados', 'Atrasadas', 'text-rose-600')}
+    {card('hoje', 'Para hoje', 'text-sky-600')}
+    {card('compromissos', 'Eventos', 'text-violet-600')}
+    {card('aguardando', 'Aguardando', 'text-amber-600')}
+    {card('concluidas', 'Concluídas', 'text-emerald-600')}
+  </div>;
 }
