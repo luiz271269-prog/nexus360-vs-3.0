@@ -71,7 +71,7 @@ export default function AgendaIAUnificada({ open, onClose, usuario }) {
     try {
       // Buscar contato AGENDA_IA_NEXUS
       const contatos = await base44.entities.Contact.filter({
-        telefone: '+5548999999999'
+        telefone: '+559999999999'
       }, '-created_date', 1);
 
       if (!contatos || contatos.length === 0) {
@@ -367,7 +367,7 @@ export default function AgendaIAUnificada({ open, onClose, usuario }) {
                         </p>
                       </div>
                       <Badge className="bg-blue-100 text-blue-800">
-                        {lembrete.channel === 'internal' ? '📱 Interno' : '💬 WhatsApp'}
+                        {{ push: '🔔 Push', app: '🔔 Push', desktop: '🔔 Push', internal: '📱 Interno', whatsapp_internal: '📱 Interno', email: '📧 E-mail' }[lembrete.channel] || '💬 WhatsApp'}
                       </Badge>
                     </div>
                   </CardContent>

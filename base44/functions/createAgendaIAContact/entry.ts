@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     
     // Verificar se já existe (usando número real)
     const existing = await base44.asServiceRole.entities.Contact.filter({
-      telefone: '+5548999142800'
+      telefone: '+559999999999'
     }, '-created_date', 1);
     
     if (existing && existing.length > 0) {
@@ -37,7 +37,8 @@ Deno.serve(async (req) => {
     // Criar contato especial
     const contact = await base44.asServiceRole.entities.Contact.create({
       nome: '🤖 Agenda IA Nexus',
-      telefone: '+5548999142800',
+      telefone: '+559999999999',
+      telefone_canonico: '559999999999',
       email: 'agenda@nexus360.ai',
       tipo_contato: 'parceiro',
       observacoes: 'Contato de sistema para Agenda IA. Não deletar.',

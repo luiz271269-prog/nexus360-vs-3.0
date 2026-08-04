@@ -39,7 +39,7 @@ export default function InstrucoesAcessoExternoAgendaIA() {
           <div className="flex items-center justify-center gap-3 p-4 bg-emerald-50 rounded-lg border-2 border-emerald-300">
             <Phone className="w-6 h-6 text-emerald-600" />
             <span className="text-2xl font-bold text-emerald-900 tracking-wider">
-              +55 99 99999-9999
+              +55 99 9999-9999
             </span>
           </div>
           <p className="text-sm text-slate-600 text-center mt-3">
@@ -93,7 +93,7 @@ export default function InstrucoesAcessoExternoAgendaIA() {
                 <div className="mt-2 space-y-2">
                   <Badge className="bg-purple-100 text-purple-800">assistant_mode = 'agenda'</Badge>
                   <span className="text-slate-600 mx-2">OU</span>
-                  <Badge className="bg-green-100 text-green-800">telefone = '+5548999999999'</Badge>
+                  <Badge className="bg-green-100 text-green-800">telefone = '+559999999999'</Badge>
                 </div>
               </div>
             </div>
@@ -223,8 +223,7 @@ export default function InstrucoesAcessoExternoAgendaIA() {
       {/* Alertas Importantes */}
       <Alert className="border-amber-300 bg-amber-50">
         <AlertDescription className="text-sm text-amber-900">
-          ⚠️ <strong>Importante:</strong> O número correto é <code className="bg-amber-100 px-2 py-0.5 rounded">+559999999999</code> (DDD 99 + nove "9s"). 
-          Este é um número virtual exclusivo - DDD 99 não existe no Brasil, garantindo que nenhum cliente real tenha este número.
+          ⚠️ <strong>Importante:</strong> O número correto é <code className="bg-amber-100 px-2 py-0.5 rounded">+559999999999</code> — número virtual exclusivo (DDD 99 não existe no Brasil), o mesmo usado pelo roteador da Agenda IA. Não altere sem atualizar o backend.
         </AlertDescription>
       </Alert>
 
