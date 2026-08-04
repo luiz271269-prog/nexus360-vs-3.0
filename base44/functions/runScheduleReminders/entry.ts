@@ -101,6 +101,25 @@ _Agendado via Agenda IA Nexus_`;
               throw new Error('Usuário sem telefone cadastrado para WhatsApp');
             }
             
+            // 🛡️ BLOQUEIO DE CONTEXTO: se houve conversa recente (2h) na thread
+            // deste contato, adia o lembrete em 24h em vez de disparar no meio da conversa
+            const threadsContato = await base44.asServiceRole.entities.MessageThread.filter({
+              contact_id: contactUser.id,
+              thread_type: 'contact_external',
+              is_canonical: true
+            }, '-last_message_at', 1).catch(() => []);
+            
+            const ultimaAtividade = threadsContato?.[0]?.last_message_at;
+            if (ultimaAtividade && (Date.now() - new Date(ultimaAtividade).getTime()) < 2 * 60 * 60 * 1000) {
+              const novoSendAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+              await base44.asServiceRole.entities.ScheduleReminder.update(reminder.id, {
+                send_at: novoSendAt,
+                error_details: `Adiado por contexto: conversa ativa em ${ultimaAtividade}`
+              });
+              console.log(`[REMINDER-WORKER] 🛡️ Contexto ativo na thread do contato ${contactUser.id} — lembrete adiado 24h`);
+              continue;
+            }
+            
             // Buscar integração WhatsApp ativa
             const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.filter({
               status: 'conectado'
