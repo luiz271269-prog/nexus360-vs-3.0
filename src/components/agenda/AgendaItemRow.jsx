@@ -2,9 +2,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Check, Clock, X, MessageSquare, Mail, Loader2, Play, Hourglass } from 'lucide-react';
+import { Check, Clock, X, Mail, Loader2, Play, Hourglass } from 'lucide-react';
 import { rotuloQuando, diasDeAtraso } from './agendaModel';
 import AgendaCategoriaBadge from './AgendaCategoriaBadge';
+import AgendaChatButton from './AgendaChatButton';
 
 const BARRA = { critica: 'bg-rose-500', alta: 'bg-amber-500', media: 'bg-sky-500', baixa: 'bg-slate-300' };
 
@@ -28,7 +29,7 @@ export default function AgendaItemRow({ item, ocupado, onIniciar, onAguardar, on
       <div className="flex items-center justify-between gap-2">
         <AgendaCategoriaBadge item={item} />
         <div className="flex flex-shrink-0 items-center gap-0.5">{ocupado ? <Loader2 className="mx-2 h-4 w-4 animate-spin text-slate-400" /> : <>
-          {item.threadId && <Button asChild size="icon" variant="ghost" className="h-8 w-8 text-sky-600 hover:bg-sky-50" title="Abrir conversa"><Link to={`/Comunicacao?thread=${item.threadId}`} onClick={e => e.stopPropagation()}><MessageSquare className="h-4 w-4" /></Link></Button>}
+          {(item.threadId || item.raw?.contact_id || item.raw?.cliente_id) && <AgendaChatButton item={item} />}
           {email && <Button asChild size="icon" variant="ghost" className="h-8 w-8 text-slate-600 hover:bg-slate-100" title="Enviar e-mail"><Link to={`/Emails?to=${encodeURIComponent(email)}`} onClick={e => e.stopPropagation()}><Mail className="h-4 w-4" /></Link></Button>}
           {!concluida && <>
             <Button size="icon" variant="ghost" className="h-8 w-8 text-violet-600 hover:bg-violet-50" title="Iniciar" onClick={parar(() => onIniciar(item))}><Play className="h-4 w-4" /></Button>
