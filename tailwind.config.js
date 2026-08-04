@@ -59,8 +59,17 @@ module.exports = {
   				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
+  			},
+  			agenda: {
+  				backdrop: 'hsl(var(--agenda-backdrop))',
+  				panel: 'hsl(var(--agenda-panel))',
+  				border: 'hsl(var(--agenda-border))',
+  				accent: 'hsl(var(--agenda-accent))',
+  				'accent-strong': 'hsl(var(--agenda-accent-strong))',
+  				text: 'hsl(var(--agenda-text))',
+  				muted: 'hsl(var(--agenda-muted))'
   			}
-  		},
+  			},
   		keyframes: {
   			'accordion-down': {
   				from: {

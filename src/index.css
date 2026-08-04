@@ -111,6 +111,13 @@ button:focus-visible {
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --agenda-backdrop: 225 72% 7%;
+    --agenda-panel: 221 31% 24%;
+    --agenda-border: 220 22% 46%;
+    --agenda-accent: 264 84% 62%;
+    --agenda-accent-strong: 268 88% 68%;
+    --agenda-text: 210 40% 98%;
+    --agenda-muted: 215 24% 78%;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -145,6 +152,13 @@ button:focus-visible {
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --agenda-backdrop: 225 72% 7%;
+    --agenda-panel: 221 31% 24%;
+    --agenda-border: 220 22% 46%;
+    --agenda-accent: 264 84% 62%;
+    --agenda-accent-strong: 268 88% 68%;
+    --agenda-text: 210 40% 98%;
+    --agenda-muted: 215 24% 78%;
   }
 }
 
