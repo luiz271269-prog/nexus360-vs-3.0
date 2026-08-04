@@ -63,7 +63,7 @@ export default function Agenda() {
       style={{ backgroundImage: "url('https://media.base44.com/images/public/68a7d067890527304dbe8477/c1f3df29e_generated_image.png')" }}
     >
       <header className="sticky top-0 z-20 border-b border-agenda-border bg-agenda-backdrop/75 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-8">
+        <div className="flex w-full items-center justify-between gap-3 px-4 py-3 md:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-agenda-border bg-agenda-panel/80 shadow-lg shadow-violet-950/40">
               <CalendarCheck className="h-5 w-5 text-agenda-accent" />
@@ -106,7 +106,7 @@ export default function Agenda() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-8 px-4 py-5 md:px-8 md:py-7">
+      <main className="w-full space-y-6 px-4 py-5 md:px-8 md:py-6">
         <AgendaKPIs resumo={resumo} filtro={filtro} onFiltrar={setFiltro} />
 
         {carregando && (
@@ -139,7 +139,7 @@ export default function Agenda() {
         )}
 
         {!carregando && !vazio && modo === 'dia' && (
-          <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {[['Atrasadas', faixas.atrasados, 'text-rose-400', false], ['Hoje', faixas.hoje, 'text-violet-300', false], ['Próximas', faixas.proximos, 'text-sky-300', false], ['Sem horário', faixas.semHorario, 'text-slate-300', false], ['Concluídas', faixas.concluidas, 'text-emerald-300', true]].map(([titulo, lista, cor, recolhida]) => (
               <AgendaSecao key={titulo} titulo={titulo} itens={lista} cor={cor} recolhida={recolhida}
                 ocupadoId={ocupadoId} onIniciar={iniciar} onAguardar={aguardar} onConcluir={concluir} onAdiar={adiar} onCancelar={cancelar} onAbrir={setDetalhe} />

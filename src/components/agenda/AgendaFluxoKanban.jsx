@@ -39,19 +39,19 @@ export default function AgendaFluxoKanban({ itens, onAbrir, onAtualizado }) {
       </div>
 
       <DragDropContext onDragEnd={mover}>
-        <div className="flex gap-3 overflow-x-auto pb-3">
+        <div className="flex min-h-[calc(100vh-19rem)] items-stretch gap-3 overflow-x-auto pb-3">
           {colunas.map(([etapa, rotuloCol]) => {
             const lista = ordenar(doFluxo.filter(i => etapaDoItem(i) === etapa));
             return (
               <Droppable droppableId={etapa} key={etapa}>
                 {(prov, snap) => (
                   <div ref={prov.innerRef} {...prov.droppableProps}
-                    className={`flex w-64 flex-shrink-0 flex-col rounded-2xl border border-agenda-border bg-agenda-panel/50 backdrop-blur-2xl ${snap.isDraggingOver ? 'ring-2 ring-agenda-accent' : ''}`}>
+                    className={`flex min-w-[15rem] flex-1 flex-col rounded-2xl border border-agenda-border bg-agenda-panel/50 backdrop-blur-2xl ${snap.isDraggingOver ? 'ring-2 ring-agenda-accent' : ''}`}>
                     <div className="flex items-center gap-2 border-b border-agenda-border px-3 py-3">
                       <h3 className={`flex-1 truncate text-xs font-semibold ${finais.includes(etapa) ? 'text-emerald-300' : ESPERA.includes(etapa) ? 'text-amber-300' : 'text-agenda-text'}`}>{rotuloCol}</h3>
                       <span className="rounded-full border border-agenda-border px-2 py-0.5 text-[11px] font-semibold text-agenda-muted">{lista.length}</span>
                     </div>
-                    <div className="min-h-[80px] space-y-2 p-2">
+                    <div className="flex-1 space-y-2 overflow-y-auto p-2">
                       {lista.map((item, index) => (
                         <Draggable draggableId={`${item.tipo}-${item.id}`} index={index} key={`${item.tipo}-${item.id}`}>
                           {(p) => (
