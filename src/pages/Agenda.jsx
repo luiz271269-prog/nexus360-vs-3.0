@@ -13,6 +13,7 @@ import AgendaDetalhePanel from '@/components/agenda/AgendaDetalhePanel';
 import ConfiguracaoSincronizacao from '@/components/agenda/ConfiguracaoSincronizacao';
 import ConfiguracaoFluxosAgenda from '@/components/agenda/ConfiguracaoFluxosAgenda';
 import { aplicarFluxosPersonalizados } from '@/components/agenda/agendaFluxos';
+import AgendaUsuarioFiltro from '@/components/agenda/AgendaUsuarioFiltro';
 
 const concluida = i => ['concluida', 'completed'].includes(i.status);
 const FILTROS = {
@@ -31,6 +32,7 @@ export default function Agenda() {
   const [detalhe, setDetalhe] = useState(null);
   const [fluxosAberto, setFluxosAberto] = useState(false);
   const [versaoFluxos, setVersaoFluxos] = useState(0);
+  const [alvoUsuario, setAlvoUsuario] = useState('me');
 
   useEffect(() => {
     base44.auth.me().then(setUsuario).catch(() => setUsuario(null));
@@ -39,7 +41,7 @@ export default function Agenda() {
       .catch(() => {});
   }, []);
 
-  const { itens, carregando, ocupadoId, recarregar, iniciar, aguardar, concluir, cancelar, adiar } = useAgendaUnificada(usuario);
+  const { itens, carregando, ocupadoId, recarregar, iniciar, aguardar, concluir, cancelar, adiar } = useAgendaUnificada(usuario, alvoUsuario);
 
   // Atualiza a lista quando um agendamento é criado em qualquer tela
   useEffect(() => {
@@ -77,7 +79,9 @@ export default function Agenda() {
               <CalendarCheck className="h-5 w-5 text-agenda-accent" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg font-bold leading-tight text-agenda-text md:text-xl">Meu dia</h1>
+              <h1 className="text-lg font-bold leading-tight text-agenda-text md:text-xl">
+                {alvoUsuario === 'all' ? 'Agenda geral' : alvoUsuario === 'me' ? 'Meu dia' : 'Agenda do usuário'}
+              </h1>
               <p className="truncate text-xs text-agenda-muted">
                 {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
               </p>
@@ -90,6 +94,9 @@ export default function Agenda() {
                 <button key={valor} onClick={() => setModo(valor)} className={`px-3 py-1.5 text-xs font-semibold transition-colors ${modo === valor ? 'bg-agenda-accent text-agenda-text' : 'bg-agenda-panel/40 text-agenda-muted hover:text-agenda-text'}`}>{rotulo}</button>
               ))}
             </div>
+            {usuario?.role === 'admin' && (
+              <AgendaUsuarioFiltro valor={alvoUsuario} onChange={setAlvoUsuario} />
+            )}
             {usuario?.role === 'admin' && (
               <Button variant="ghost" size="icon" className="border border-agenda-border bg-agenda-panel/40 text-agenda-muted hover:bg-agenda-panel hover:text-agenda-text" onClick={() => setFluxosAberto(true)} title="Configurar etapas dos fluxos">
                 <SlidersHorizontal className="h-4 w-4" />

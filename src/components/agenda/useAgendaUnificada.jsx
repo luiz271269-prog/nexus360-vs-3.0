@@ -9,7 +9,8 @@ const TASK_STATUS = ['pendente', 'confirmada', 'em_andamento', 'aguardando_terce
 const EVENT_STATUS = ['scheduled', 'pending_review', 'confirmed', 'completed'];
 const hoje = valor => valor && new Date(valor).toDateString() === new Date().toDateString();
 
-export default function useAgendaUnificada(usuario) {
+// alvo: 'me' (padrão) | 'all' (só admin) | id de um usuário (só admin)
+export default function useAgendaUnificada(usuario, alvo = 'me') {
   const [itens, setItens] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [ocupadoId, setOcupadoId] = useState(null);
@@ -27,10 +28,30 @@ export default function useAgendaUnificada(usuario) {
       const novasVisiveis = novas.filter(t => t.status !== 'concluida' || hoje(t.concluido_em));
       const eventosVisiveis = eventos.filter(e => e.status !== 'completed' || hoje(e.completed_at));
       const legadasVisiveis = usuario.role === 'admin' ? legadas : legadas.filter(t => isMinhaTarefa(t, chaves, usuario.id));
-      setItens([...novasVisiveis.map(normalizarScheduleTask), ...legadasVisiveis.map(normalizarTarefa), ...eventosVisiveis.map(normalizarEvento)]);
+
+      // Controle por usuário: admin pode ver tudo ('all') ou a agenda de um usuário específico
+      const alvoId = usuario.role === 'admin' ? alvo : 'me';
+      const userId = alvoId === 'me' ? usuario.id : alvoId;
+      const pertence = t =>
+        alvoId === 'all' ||
+        t.responsavel_id === userId ||
+        t.assigned_user_id === userId ||
+        t.organizer_id === userId ||
+        (t.participantes_ids || []).includes(userId) ||
+        (t.participants_internal || []).includes(userId);
+
+      const legadasFinal = alvoId === 'all'
+        ? legadasVisiveis
+        : legadasVisiveis.filter(t => isMinhaTarefa(t, chaves, userId) || t.contexto_ia?.atendente_user_id === userId);
+
+      setItens([
+        ...novasVisiveis.filter(pertence).map(normalizarScheduleTask),
+        ...legadasFinal.map(normalizarTarefa),
+        ...eventosVisiveis.filter(pertence).map(normalizarEvento)
+      ]);
     } catch (e) { console.error('[AGENDA] erro ao carregar:', e); toast.error('Não foi possível carregar a agenda'); }
     finally { setCarregando(false); }
-  }, [usuario, chaves]);
+  }, [usuario, chaves, alvo]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
