@@ -2,26 +2,31 @@ import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { CATEGORIAS, categoriaDoItem, etapaDoItem, etapasDaCategoria, etapasFinais, ESPERA } from './agendaFluxos';
+import { CATEGORIAS, categoriaDoItem, etapaDoItem, etapasDaCategoria, etapasFinais, etapaInicial, ESPERA } from './agendaFluxos';
 import { ordenar, rotuloQuando } from './agendaModel';
 
 const BARRA = { critica: 'bg-rose-500', alta: 'bg-amber-500', media: 'bg-sky-500', baixa: 'bg-slate-300' };
 
 export default function AgendaFluxoKanban({ itens, onAbrir, onAtualizado }) {
-  const [categoria, setCategoria] = useState('tarefa');
+  const [categoria, setCategoria] = useState('todas');
   const [movendo, setMovendo] = useState(null);
-  const colunas = etapasDaCategoria(categoria);
-  const finais = etapasFinais(categoria).map(([v]) => v);
-  const doFluxo = itens.filter(i => categoriaDoItem(i) === categoria);
+  const porTipo = categoria === 'todas';
+  const colunas = porTipo ? CATEGORIAS : etapasDaCategoria(categoria);
+  const finais = porTipo ? [] : etapasFinais(categoria).map(([v]) => v);
+  const doFluxo = porTipo ? itens : itens.filter(i => categoriaDoItem(i) === categoria);
+  const colunaDoItem = i => (porTipo ? categoriaDoItem(i) : etapaDoItem(i));
 
   const mover = async ({ draggableId, destination }) => {
     if (!destination) return;
     const item = doFluxo.find(i => `${i.tipo}-${i.id}` === draggableId);
-    if (!item || etapaDoItem(item) === destination.droppableId) return;
+    if (!item || colunaDoItem(item) === destination.droppableId) return;
     setMovendo(draggableId);
     try {
       const entidade = item.entidade === 'ScheduleEvent' ? 'ScheduleEvent' : 'ScheduleTask';
-      await base44.entities[entidade].update(item.id, { categoria, etapa: destination.droppableId });
+      const dados = porTipo
+        ? { categoria: destination.droppableId, etapa: etapaInicial(destination.droppableId) }
+        : { categoria, etapa: destination.droppableId };
+      await base44.entities[entidade].update(item.id, dados);
       onAtualizado?.();
     } catch (e) { console.error('[AGENDA FLUXO]', e); toast.error('Não foi possível mover o item'); }
     finally { setMovendo(null); }
@@ -30,7 +35,7 @@ export default function AgendaFluxoKanban({ itens, onAbrir, onAtualizado }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5">
-        {CATEGORIAS.map(([valor, rotulo]) => (
+        {[['todas', 'Todas'], ...CATEGORIAS].map(([valor, rotulo]) => (
           <button key={valor} onClick={() => setCategoria(valor)}
             className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${categoria === valor ? 'border-agenda-accent bg-agenda-accent text-agenda-text' : 'border-agenda-border bg-agenda-panel/40 text-agenda-muted hover:text-agenda-text'}`}>
             {rotulo}
@@ -41,7 +46,7 @@ export default function AgendaFluxoKanban({ itens, onAbrir, onAtualizado }) {
       <DragDropContext onDragEnd={mover}>
         <div className="flex min-h-[calc(100vh-19rem)] items-stretch gap-3 overflow-x-auto pb-3">
           {colunas.map(([etapa, rotuloCol]) => {
-            const lista = ordenar(doFluxo.filter(i => etapaDoItem(i) === etapa));
+            const lista = ordenar(doFluxo.filter(i => colunaDoItem(i) === etapa));
             return (
               <Droppable droppableId={etapa} key={etapa}>
                 {(prov, snap) => (
