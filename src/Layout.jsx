@@ -30,8 +30,7 @@ import {
   ShoppingCart,
   Mail,
   Map,
-  Search,
-  CalendarPlus
+  Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -180,18 +179,6 @@ function SideBar({ isOpen, menuItems, contadoresLembretes, usuario, loadingUsuar
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl" />
             <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
               🔍 Busca Global <span className="text-emerald-400 ml-1">Ctrl+K</span>
-            </div>
-          </button>
-
-          {/* Novo agendamento — disponível em qualquer tela */}
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('nexus:novo-agendamento'))}
-            className="w-full flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-lg shadow-orange-500/25 transition-all duration-300 hover:scale-105 group relative"
-            title="Novo agendamento"
-          >
-            <CalendarPlus className="h-6 w-6 text-white" />
-            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
-              📅 Novo agendamento
             </div>
           </button>
 
