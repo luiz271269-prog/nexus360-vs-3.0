@@ -48,6 +48,7 @@ import { mobileEstiloMensagem } from './skills/mobileSkill';
 import SeloEtiquetagem from './SeloEtiquetagem';
 import CanalOrigemBadge from './CanalOrigemBadge';
 import EncaminharMensagemDialog from './EncaminharMensagemDialog';
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 // Cache de blob URLs de áudio, por URL de origem (módulo-level, persiste entre remontagens)
 const audioBlobCache = new Map();
@@ -1049,6 +1050,22 @@ export default React.memo(function MessageBubble({
                           <Reply className="w-3.5 h-3.5 text-slate-700" />
                         </Button>
               }
+
+                  <AgendarRetornoButton
+                    iconOnly
+                    contexto={{
+                      titulo: `Retorno sobre mensagem — ${contato?.nome || 'Contato'}`,
+                      descricao: String(message.content || message.media_caption || `[${message.media_type || 'Mensagem'}]`).slice(0, 500),
+                      contextType: 'Message',
+                      contextId: message.id,
+                      messageId: message.id,
+                      threadId: thread?.id,
+                      contactId: thread?.contact_id || contato?.id,
+                      clienteId: contato?.cliente_id,
+                      responsavelId: thread?.assigned_user_id || usuarioAtual?.id
+                    }}
+                    className="h-7 w-7 rounded-full border-violet-200 bg-white/90 text-violet-600 shadow-lg hover:bg-violet-50"
+                  />
 
                   {/* 💬 COMENTÁRIOS INTERNOS - Anexado à mensagem */}
                   {!isOwn &&
