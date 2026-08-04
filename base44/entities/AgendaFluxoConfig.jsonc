@@ -1,0 +1,81 @@
+{
+  "name": "AgendaFluxoConfig",
+  "type": "object",
+  "properties": {
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "solicitacao",
+        "tarefa",
+        "agendamento",
+        "lembrete",
+        "retorno"
+      ]
+    },
+    "etapas": {
+      "type": "array",
+      "description": "Etapas intermedi\u00e1rias, em ordem",
+      "items": {
+        "type": "object",
+        "properties": {
+          "valor": {
+            "type": "string"
+          },
+          "rotulo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "valor",
+          "rotulo"
+        ]
+      },
+      "default": []
+    },
+    "finais": {
+      "type": "array",
+      "description": "Etapas de encerramento",
+      "items": {
+        "type": "object",
+        "properties": {
+          "valor": {
+            "type": "string"
+          },
+          "rotulo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "valor",
+          "rotulo"
+        ]
+      },
+      "default": []
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "categoria"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

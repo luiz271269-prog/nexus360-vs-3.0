@@ -16,6 +16,18 @@ export const FLUXOS = {
 
 export const ESPERA = ['aguardando_informacoes', 'aguardando_terceiro', 'aguardando_resposta'];
 
+/** Aplica etapas personalizadas (AgendaFluxoConfig) sobre os fluxos padrão. */
+export function aplicarFluxosPersonalizados(configs = []) {
+  configs.forEach(cfg => {
+    if (!FLUXOS[cfg.categoria] || cfg.ativo === false) return;
+    const mapear = lista => (lista || []).filter(e => e?.valor && e?.rotulo).map(e => [e.valor, e.rotulo]);
+    const etapas = mapear(cfg.etapas);
+    const finais = mapear(cfg.finais);
+    if (etapas.length) FLUXOS[cfg.categoria].etapas = etapas;
+    if (finais.length) FLUXOS[cfg.categoria].finais = finais;
+  });
+}
+
 export const rotuloCategoria = c => (CATEGORIAS.find(([v]) => v === c) || CATEGORIAS[1])[1];
 
 export function etapasDaCategoria(categoria) {

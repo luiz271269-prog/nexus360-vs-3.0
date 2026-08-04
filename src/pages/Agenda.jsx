@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CalendarCheck, RefreshCw, Loader2, Settings, MessageSquare, Plus, ListTodo } from 'lucide-react';
+import { CalendarCheck, RefreshCw, Loader2, Settings, MessageSquare, Plus, ListTodo, SlidersHorizontal } from 'lucide-react';
 import useAgendaUnificada from '@/components/agenda/useAgendaUnificada';
 import { agruparPorFaixa, resumo as calcularResumo, diasDeAtraso } from '@/components/agenda/agendaModel';
 import AgendaKPIs from '@/components/agenda/AgendaKPIs';
@@ -11,6 +11,8 @@ import AgendaPorTipo from '@/components/agenda/AgendaPorTipo';
 import AgendaFluxoKanban from '@/components/agenda/AgendaFluxoKanban';
 import AgendaDetalhePanel from '@/components/agenda/AgendaDetalhePanel';
 import ConfiguracaoSincronizacao from '@/components/agenda/ConfiguracaoSincronizacao';
+import ConfiguracaoFluxosAgenda from '@/components/agenda/ConfiguracaoFluxosAgenda';
+import { aplicarFluxosPersonalizados } from '@/components/agenda/agendaFluxos';
 
 const concluida = i => ['concluida', 'completed'].includes(i.status);
 const FILTROS = {
@@ -27,9 +29,14 @@ export default function Agenda() {
   const [configAberta, setConfigAberta] = useState(false);
   const [modo, setModo] = useState('dia');
   const [detalhe, setDetalhe] = useState(null);
+  const [fluxosAberto, setFluxosAberto] = useState(false);
+  const [versaoFluxos, setVersaoFluxos] = useState(0);
 
   useEffect(() => {
     base44.auth.me().then(setUsuario).catch(() => setUsuario(null));
+    base44.entities.AgendaFluxoConfig.list()
+      .then(cfgs => { aplicarFluxosPersonalizados(cfgs); setVersaoFluxos(v => v + 1); })
+      .catch(() => {});
   }, []);
 
   const { itens, carregando, ocupadoId, recarregar, iniciar, aguardar, concluir, cancelar, adiar } = useAgendaUnificada(usuario);
@@ -75,6 +82,11 @@ export default function Agenda() {
                 <button key={valor} onClick={() => setModo(valor)} className={`px-3 py-1.5 text-xs font-semibold transition-colors ${modo === valor ? 'bg-agenda-accent text-agenda-text' : 'bg-agenda-panel/40 text-agenda-muted hover:text-agenda-text'}`}>{rotulo}</button>
               ))}
             </div>
+            {usuario?.role === 'admin' && (
+              <Button variant="ghost" size="icon" className="border border-agenda-border bg-agenda-panel/40 text-agenda-muted hover:bg-agenda-panel hover:text-agenda-text" onClick={() => setFluxosAberto(true)} title="Configurar etapas dos fluxos">
+                <SlidersHorizontal className="h-4 w-4" />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="border border-agenda-border bg-agenda-panel/40 text-agenda-muted hover:bg-agenda-panel hover:text-agenda-text" onClick={() => setConfigAberta(true)} title="Sincronização de calendários">
               <Settings className="h-4 w-4" />
             </Button>
@@ -118,7 +130,7 @@ export default function Agenda() {
         )}
 
         {!carregando && !vazio && modo === 'fluxo' && (
-          <AgendaFluxoKanban itens={visiveis} onAbrir={setDetalhe} onAtualizado={recarregar} />
+          <AgendaFluxoKanban key={versaoFluxos} itens={visiveis} onAbrir={setDetalhe} onAtualizado={recarregar} />
         )}
 
         {!carregando && !vazio && modo === 'tipo' && (
@@ -137,6 +149,8 @@ export default function Agenda() {
 
         {detalhe && <AgendaDetalhePanel item={detalhe} onFechar={() => setDetalhe(null)} onAtualizado={recarregar} />}
       </main>
+
+      <ConfiguracaoFluxosAgenda aberto={fluxosAberto} onFechar={() => setFluxosAberto(false)} onSalvo={() => setVersaoFluxos(v => v + 1)} />
 
       <Dialog open={configAberta} onOpenChange={setConfigAberta}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto border-agenda-border bg-agenda-backdrop text-agenda-text">
