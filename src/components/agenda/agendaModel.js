@@ -11,7 +11,7 @@ export function normalizarTarefa(t) {
   return {
     id: t.id,
     tipo: 'tarefa',
-    titulo: (t.titulo || 'Tarefa').replace(/^[🔥⚠️✅]\s*/, ''),
+    titulo: (t.titulo || 'Tarefa').replace(/^[^\p{L}\p{N}]+/u, '').trim() || 'Tarefa',
     contexto: t.cliente_nome || '',
     quando: t.data_prazo || null,
     prioridade: t.prioridade || 'media',
