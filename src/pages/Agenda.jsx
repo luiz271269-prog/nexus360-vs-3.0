@@ -11,6 +11,11 @@ import BotaoNexusFlutuante from '../components/global/BotaoNexusFlutuante';
 import PainelInsightsIA from '../components/global/PainelInsightsIA';
 import ConfiguracaoSincronizacao from '../components/agenda/ConfiguracaoSincronizacao';
 import AgendaNexusIA from '../components/agenda/AgendaNexusIA';
+import AgendaResumo from '../components/agenda/AgendaResumo';
+import AgendaHoje from '../components/agenda/AgendaHoje';
+import AgendaBacklog from '../components/agenda/AgendaBacklog';
+import useTarefasAgenda from '../components/agenda/useTarefasAgenda';
+import { separarHojeEBacklog } from '../components/agenda/tarefaHelpers';
 import {
   Calendar,
   CalendarCheck,
@@ -48,6 +53,19 @@ export default function Agenda() {
   const [integracoes, setIntegracoes] = useState([]);
   const [todosUsuarios, setTodosUsuarios] = useState([]);
   const [abaSelecionada, setAbaSelecionada] = useState('tarefas'); // 'tarefas' ou 'agenda_ia'
+
+  // Fila operacional (nova agenda): admin vê tudo, atendente vê só as suas
+  const {
+    tarefas: tarefasAbertas,
+    carregando: carregandoAbertas,
+    ocupadaId,
+    recarregar: recarregarAbertas,
+    concluir,
+    cancelar,
+    adiar
+  } = useTarefasAgenda(usuario);
+
+  const { hoje: tarefasHojeLista, backlog: tarefasBacklog } = separarHojeEBacklog(tarefasAbertas, 10);
 
   const gerarLembretesAgenda = useCallback(async (tarefasData, user) => {
     try {
@@ -413,21 +431,16 @@ export default function Agenda() {
           </div>
 
           <Button
-            onClick={handleGerarTarefas}
-            disabled={gerando}
+            onClick={recarregarAbertas}
+            disabled={carregandoAbertas}
             className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 hover:from-amber-500 hover:via-orange-600 hover:to-red-600 text-white font-bold shadow-lg shadow-orange-500/30"
           >
-            {gerando ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Gerando...
-              </>
+            {carregandoAbertas ? (
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
             ) : (
-              <>
-                <Sparkles className="w-5 h-5 mr-2" />
-                Gerar Tarefas IA
-              </>
+              <RefreshCw className="w-5 h-5 mr-2" />
             )}
+            Atualizar
           </Button>
         </div>
       </div>
@@ -466,183 +479,25 @@ export default function Agenda() {
           </TabsList>
 
           {/* ABA: TAREFAS IA (LEGADO) */}
-          <TabsContent value="tarefas" className="mt-6">
-            <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/70 text-white px-6 py-5 backdrop-blur-lg rounded-2xl border border-slate-700/50 shadow-2xl">
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <Button
-              onClick={carregarDados}
-              variant="outline"
-              className="border-slate-600 hover:bg-slate-700 text-white"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Atualizar
-            </Button>
-          </div>
+          <TabsContent value="tarefas" className="mt-6 space-y-4">
+            <AgendaResumo tarefas={tarefasAbertas} />
 
-
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="bg-slate-800/50 border-slate-700 text-white">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-300">Total Pendentes</CardTitle>
-                <CalendarCheck className="h-4 w-4 text-slate-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{estatisticas.pendentes}</div>
-                <p className="text-xs text-slate-400">Tarefas aguardando execução</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-slate-800/50 border-slate-700 text-white">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-300">Para Hoje</CardTitle>
-                <CalendarCheck className="h-4 w-4 text-slate-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{estatisticas.hoje}</div>
-                <p className="text-xs text-slate-400">Com prazo final para hoje</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-slate-800/50 border-slate-700 text-white">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-300">Atrasadas</CardTitle>
-                <CalendarCheck className="h-4 w-4 text-slate-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-400">{estatisticas.atrasadas}</div>
-                <p className="text-xs text-slate-400">Expiraram o prazo</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-slate-800/50 border-slate-700 text-white">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-300">Críticas</CardTitle>
-                <CalendarCheck className="h-4 w-4 text-slate-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-amber-400">{estatisticas.criticas}</div>
-                <p className="text-xs text-slate-400">Exigem atenção imediata</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="mt-6">
-            <h3 className="text-lg font-semibold mb-2 text-slate-200">Filtrar por:</h3>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <p className="text-sm text-slate-400 mb-1">Status:</p>
-                <Tabs value={filtroStatus} onValueChange={setFiltroStatus} className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 bg-slate-700/50">
-                    <TabsTrigger value="pendente">Pendentes</TabsTrigger>
-                    <TabsTrigger value="concluida">Concluídas</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm text-slate-400 mb-1">Prioridade:</p>
-                <Tabs value={filtroPrioridade} onValueChange={setFiltroPrioridade} className="w-full">
-                  <TabsList className="grid w-full grid-cols-5 bg-slate-700/50">
-                    <TabsTrigger value="todas">Todas</TabsTrigger>
-                    <TabsTrigger value="critica">Crítica</TabsTrigger>
-                    <TabsTrigger value="alta">Alta</TabsTrigger>
-                    <TabsTrigger value="media">Média</TabsTrigger>
-                    <TabsTrigger value="baixa">Baixa</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-4 mt-4">
-              <div className="flex-1">
-                <p className="text-sm text-slate-400 mb-1">Instância WhatsApp:</p>
-                <select
-                  value={filtroInstancia}
-                  onChange={(e) => setFiltroInstancia(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="todas">Todas as instâncias</option>
-                  {integracoes.map(integ => (
-                    <option key={integ.id} value={integ.id}>
-                      {integ.nome_instancia} ({integ.numero_telefone?.slice(-4) || 'N/A'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="flex-1">
-                <p className="text-sm text-slate-400 mb-1">Responsável:</p>
-                <select
-                  value={filtroUsuario}
-                  onChange={(e) => setFiltroUsuario(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="todos">Todos os usuários</option>
-                  {todosUsuarios.map(user => (
-                    <option key={user.id} value={user.full_name}>
-                      {user.full_name || user.email}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            {(filtroData || filtroIA || filtroInstancia !== "todas" || filtroUsuario !== "todos") && (
-              <div className="mt-4 flex items-center gap-2 flex-wrap">
-                <span className="text-sm text-slate-400">Filtros Ativos:</span>
-                {filtroData && <Badge variant="secondary" className="bg-blue-600/50 text-white border-blue-700">Data: {format(new Date(filtroData), 'dd/MM/yyyy', { locale: ptBR })}</Badge>}
-                {filtroIA && <Badge variant="secondary" className="bg-purple-600/50 text-white border-purple-700">Tarefas IA</Badge>}
-                {filtroInstancia !== "todas" && (
-                  <Badge variant="secondary" className="bg-green-600/50 text-white border-green-700">
-                    Instância: {integracoes.find(i => i.id === filtroInstancia)?.nome_instancia || 'N/A'}
-                  </Badge>
-                )}
-                {filtroUsuario !== "todos" && (
-                  <Badge variant="secondary" className="bg-indigo-600/50 text-white border-indigo-700">
-                    Responsável: {filtroUsuario}
-                  </Badge>
-                )}
-                <Button onClick={clearFilters} variant="ghost" size="sm" className="text-slate-400 hover:text-white">
-                  Limpar Filtros
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {mostrarPainelIA && entidadeSelecionadaIA && (
-          <PainelInsightsIA
-            entidade={entidadeSelecionadaIA}
-            entidadeTipo="TarefaInteligente"
-            onClose={() => setMostrarPainelIA(false)}
-          />
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 min-h-[400px] lg:h-[calc(100vh-350px)]">
-          <div className="lg:col-span-1 h-full space-y-4">
-            <PainelPrioridades
-              tarefas={tarefasFiltradas}
-              tarefaSelecionada={tarefaSelecionada}
-              onSelectTarefa={handleConcluirTarefa}
-              carregando={carregando}
+            <AgendaHoje
+              tarefas={tarefasHojeLista}
+              carregando={carregandoAbertas}
+              ocupadaId={ocupadaId}
+              onConcluir={concluir}
+              onAdiar={adiar}
+              onCancelar={cancelar}
             />
-          </div>
 
-          <div className="lg:col-span-2 h-full">
-            {tarefaSelecionada ? (
-              <PainelContexto
-                tarefa={tarefaSelecionada}
-                dados={dadosContexto}
-                onCompletarTarefa={handleSalvarConclusao}
-                carregando={carregandoContexto}
-                onCancelar={() => {
-                  searchParams.delete('tarefaId');
-                  setSearchParams(searchParams);
-                  setTarefaSelecionada(null);
-                }}
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center bg-slate-800/30 rounded-lg border border-slate-700 text-slate-400">
-                <p>Selecione uma tarefa para visualizar detalhes</p>
-              </div>
-            )}
-          </div>
-        </div>
+            <AgendaBacklog
+              tarefas={tarefasBacklog}
+              ocupadaId={ocupadaId}
+              onConcluir={concluir}
+              onAdiar={adiar}
+              onCancelar={cancelar}
+            />
           </TabsContent>
 
           {/* ABA: AGENDA NEXUS IA */}
