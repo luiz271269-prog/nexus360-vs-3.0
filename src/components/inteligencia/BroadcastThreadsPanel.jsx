@@ -6,6 +6,7 @@ import { Megaphone, Loader2, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 const formatarHorario = (timestamp) => {
   if (!timestamp) return '';
@@ -138,6 +139,7 @@ export default function BroadcastThreadsPanel() {
                         {thread.last_message_content || 'Sem mensagens'}
                       </p>
                     </div>
+                    <AgendarRetornoButton iconOnly contexto={{ titulo: `Retorno broadcast — ${nome}`, descricao: thread.last_message_content || 'Acompanhamento após campanha em massa.', contextType: 'MessageThread', contextId: thread.id, threadId: thread.id, contactId: thread.contact_id || contato.id, clienteId: thread.cliente_id, responsavelId: thread.assigned_user_id }} className="h-7 w-7 flex-shrink-0 border-violet-200 bg-violet-50 text-violet-700" />
                   </div>
                 );
               })}

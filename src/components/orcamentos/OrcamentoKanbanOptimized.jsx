@@ -14,6 +14,7 @@ import RejeicaoMotivoModal from './RejeicaoMotivoModal';
 import LegendaTotalizadoresOrcamentos, { classificarOrcamento } from './LegendaTotalizadoresOrcamentos';
 import AnaliseProdutosPanel from '../inteligencia/AnaliseProdutosPanel';
 import useChatIndicadores from '../crm/useChatIndicadores';
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 const statusLabels = {
   em_cotacao: 'Em Cotação',
@@ -157,6 +158,14 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                 )}
               </button>
               <span className="text-slate-600">|</span>
+              <div onPointerDown={(e) => e.stopPropagation()}>
+                <AgendarRetornoButton
+                  iconOnly
+                  contexto={{ titulo: `Retorno orçamento #${orcamento.numero_orcamento || orcamento.id?.slice(-6)} — ${orcamento.cliente_nome || 'Cliente'}`, descricao: 'Acompanhamento da cotação comercial.', contextType: 'Orcamento', contextId: orcamento.id, orcamentoId: orcamento.id, clienteId: orcamento.cliente_id, responsavelId: orcamento.usuario_id || orcamento.vendedor_id }}
+                  className="h-5 w-5 border-violet-400/50 bg-violet-500/20 p-0 text-violet-200 hover:bg-violet-500/40"
+                />
+              </div>
+              <span className="text-slate-600">|</span>
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); onEdit?.(orcamento); }}
@@ -274,6 +283,13 @@ const OrcamentoCard = React.memo(({ orcamento, index, gradient, onEdit, onMostra
                 >
                   <UserCheck className="w-2.5 h-2.5" />
                 </button>
+                <div onPointerDown={(e) => e.stopPropagation()}>
+                  <AgendarRetornoButton
+                    iconOnly
+                    contexto={{ titulo: `Retorno orçamento #${orcamento.numero_orcamento || orcamento.id?.slice(-6)} — ${orcamento.cliente_nome || 'Cliente'}`, descricao: 'Acompanhamento do orçamento comercial.', contextType: 'Orcamento', contextId: orcamento.id, orcamentoId: orcamento.id, clienteId: orcamento.cliente_id, responsavelId: orcamento.usuario_id || orcamento.vendedor_id }}
+                    className="h-5 w-5 border-violet-200 bg-violet-50 p-0 text-violet-700 hover:bg-violet-100"
+                  />
+                </div>
                 {onMostrarInsightsIA &&
                   <button
                     onPointerDown={(e) => e.stopPropagation()}

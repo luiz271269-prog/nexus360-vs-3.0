@@ -12,6 +12,7 @@ import ImportarListaDialog from "./ImportarListaDialog";
 import EtiquetaRecorrencia from "./EtiquetaRecorrencia";
 import EtiquetaFaixaFaturamento from "./EtiquetaFaixaFaturamento";
 import FiltroRecorrencia from "./FiltroRecorrencia";
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 const CORES = {
   blue: 'bg-blue-100 text-blue-800 border-blue-300',
@@ -202,9 +203,12 @@ export default function ListaDetalheView({ lista, setLista, onVoltar, onExcluir,
                       <td className="px-4 py-3 text-slate-700">{c.telefone || '—'}</td>
                       <td className="px-4 py-3 text-slate-600 text-xs">{c.vendedor_responsavel || '—'}{c.cidade ? ` · ${c.cidade}` : ''}</td>
                       <td className="px-4 py-3 text-right">
-                        <Button size="icon" variant="ghost" onClick={() => handleRemoverCliente(c.id)} title="Remover da lista">
-                          <X className="w-4 h-4 text-red-500" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <AgendarRetornoButton iconOnly contexto={{ titulo: `Retorno — ${c.razao_social || c.nome_fantasia || 'Cliente'}`, descricao: `Acompanhamento da lista ${lista.nome}.`, contextType: 'Cliente', contextId: c.id, clienteId: c.id, responsavelId: c.usuario_id || lista.vendedor_id }} className="h-8 w-8 text-violet-700" />
+                          <Button size="icon" variant="ghost" onClick={() => handleRemoverCliente(c.id)} title="Remover da lista">
+                            <X className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -215,9 +219,12 @@ export default function ListaDetalheView({ lista, setLista, onVoltar, onExcluir,
                       <td className="px-4 py-3 text-slate-700">{c.telefone || '—'}</td>
                       <td className="px-4 py-3 text-slate-600 text-xs">{c.tipo_contato || '—'}</td>
                       <td className="px-4 py-3 text-right">
-                        <Button size="icon" variant="ghost" onClick={() => handleRemoverContato(c.id)} title="Remover da lista">
-                          <X className="w-4 h-4 text-red-500" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <AgendarRetornoButton iconOnly contexto={{ titulo: `Retorno — ${c.empresa || c.nome || 'Contato'}`, descricao: `Acompanhamento da lista ${lista.nome}.`, contextType: 'Contact', contextId: c.id, contactId: c.id, clienteId: c.cliente_id, responsavelId: c.atendente_fidelizado_vendas || lista.vendedor_id }} className="h-8 w-8 text-violet-700" />
+                          <Button size="icon" variant="ghost" onClick={() => handleRemoverContato(c.id)} title="Remover da lista">
+                            <X className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}

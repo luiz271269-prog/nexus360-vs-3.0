@@ -35,6 +35,7 @@ import ModalEnvioPromocoesAutomaticas from './ModalEnvioPromocoesAutomaticas';
 import DiagnosticoDiasInativos from './DiagnosticoDiasInativos';
 import ChatWindow from './ChatWindow';
 import TaggingRapidoContato from './TaggingRapidoContato';
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 
 export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarContato, onClose, threads = [], integracoes = [], atendentes = [] }) {
@@ -500,6 +501,7 @@ export default function ContatosRequerendoAtencaoKanban({ usuario, onSelecionarC
               {nomeExibicao}
             </h3>
             <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-0.5 flex-shrink-0">
+              <AgendarRetornoButton iconOnly contexto={{ titulo: `Retorno urgente — ${nomeExibicao}`, descricao: item.suggestedMessage || item.suggested_message || `Contato sem interação há ${item.days_inactive_inbound || 0} dias.`, contextType: 'Contact', contextId: contatoId, contactId: contatoId, clienteId: item.cliente_id, responsavelId: item.vendedor_responsavel || item.assigned_user_id }} className="h-6 w-6 border-violet-200 bg-violet-50 p-0 text-violet-700" />
               <TaggingRapidoContato
                 contactId={contatoId}
                 etiquetasAtuais={item.tags || []}

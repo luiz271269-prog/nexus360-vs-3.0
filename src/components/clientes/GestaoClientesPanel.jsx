@@ -30,6 +30,7 @@ import FiltrosClientesPanel from "./FiltrosClientesPanel";
 import EtiquetaRecorrencia from "./EtiquetaRecorrencia";
 import BadgeDiasParado from "./BadgeDiasParado";
 import BotaoAbrirChat from "../crm/BotaoAbrirChat";
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 import ListasVendedorPanel from "./ListasVendedorPanel";
 import ContatosInteligentesPanel from "../inteligencia/ContatosInteligentesPanel";
 import ContatosRequerendoAtencaoKanban from "../comunicacao/ContatosRequerendoAtencaoKanban";
@@ -318,6 +319,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [], fil
               <Button onClick={() => handleEditarCliente(viewingDetails)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
                 <Edit className="w-4 h-4 mr-2" /> Editar
               </Button>
+              <AgendarRetornoButton contexto={{ titulo: `Retorno — ${viewingDetails.razao_social || viewingDetails.nome_fantasia || 'Cliente'}`, descricao: 'Acompanhamento comercial do cliente.', contextType: 'Cliente', contextId: viewingDetails.id, clienteId: viewingDetails.id, responsavelId: viewingDetails.usuario_id }} className="border-violet-300 bg-white text-violet-700" />
               <Button onClick={() => handleExcluirCliente(viewingDetails.id)} size="sm" variant="destructive">
                 <Trash2 className="w-4 h-4 mr-2" /> Excluir
               </Button>
@@ -556,7 +558,7 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [], fil
                         <th className="px-6 py-3 text-left font-semibold text-slate-700">Sem Contato</th>
                         <th className="px-6 py-3 text-left font-semibold text-slate-700">Segmento</th>
                         <th className="px-6 py-3 text-left font-semibold text-slate-700">Score Engajamento</th>
-                        <th className="px-6 py-3 text-center font-semibold text-slate-700">Chat</th>
+                        <th className="px-6 py-3 text-center font-semibold text-slate-700">Chat / Agenda</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -651,7 +653,10 @@ export default function GestaoClientesPanel({ usuarioAtual, vendedores = [], fil
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
-                              <BotaoAbrirChat contato={contato} />
+                              <div className="flex items-center justify-center gap-1.5">
+                                <BotaoAbrirChat contato={contato} />
+                                <AgendarRetornoButton iconOnly contexto={{ titulo: `Retorno — ${contato.empresa || contato.nome || 'Contato'}`, descricao: 'Acompanhamento do contato fidelizado.', contextType: 'Contact', contextId: contato.id, contactId: contato.id, clienteId: contato.cliente_id, responsavelId: contato.atendente_fidelizado_vendas || contato.vendedor_responsavel }} className="h-8 w-8 text-violet-700" />
+                              </div>
                             </td>
                           </tr>
                         );

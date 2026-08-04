@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import ModalEnvioMassa from '../comunicacao/ModalEnvioMassa';
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 export default function ContatosInteligentesPanel() {
   const [usuario, setUsuario] = useState(null);
@@ -165,6 +166,9 @@ export default function ContatosInteligentesPanel() {
       className="relative"
       onClick={() => modoSelecao && toggleSelecaoContato(cliente.contact_id)}
     >
+      <div className="absolute top-2 right-2 z-20">
+        <AgendarRetornoButton iconOnly contexto={{ titulo: `Retorno — ${cliente.empresa || cliente.nome || 'Contato'}`, descricao: cliente.suggestedMessage || cliente.suggested_message || 'Acompanhamento recomendado pela análise de IA.', contextType: 'Contact', contextId: cliente.contact_id || cliente.id, contactId: cliente.contact_id || cliente.id, clienteId: cliente.cliente_id, responsavelId: cliente.vendedor_responsavel || cliente.assigned_user_id }} className="h-8 w-8 border-violet-200 bg-white/95 text-violet-700 shadow" />
+      </div>
       {modoSelecao && (
         <div className="absolute top-2 left-2 z-10">
           <input
