@@ -478,6 +478,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Guard ATENDIMENTO HUMANO EM CURSO (contexto) ──
+    // O cartão de Acessos Rápidos é para PRIMEIRO CONTATO / conversa sem
+    // atendente. Se a thread já tem atendente atribuído E houve mensagem de
+    // atendente humano nas últimas 72h, o cliente está sendo atendido: mandar
+    // o menu robótico ali é fora de contexto. Só vale para disparo automático
+    // (o atendente ainda pode enviar manualmente).
+    if (trigger === 'auto_primeira_msg' && thread?.assigned_user_id && thread?.last_human_message_at) {
+      const idadeHumano = Date.now() - new Date(thread.last_human_message_at).getTime();
+      if (idadeHumano < 72 * 60 * 60 * 1000) {
+        console.log(`[enviarCartaoAcesso] ⏭️ skip: atendimento humano ativo na thread ${thread.id}`);
+        return Response.json({ success: true, skipped: 'atendimento_humano_ativo' });
+      }
+    }
+
     etapa = 'carregar_contact';
     const contact = await base44.asServiceRole.entities.Contact.get(contactId).catch(() => null);
     if (!contact?.telefone) {
