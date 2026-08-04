@@ -8,6 +8,20 @@
     "descricao": {
       "type": "string"
     },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "solicitacao",
+        "tarefa",
+        "agendamento",
+        "lembrete",
+        "retorno"
+      ],
+      "default": "tarefa"
+    },
+    "etapa": {
+      "type": "string"
+    },
     "status": {
       "type": "string",
       "enum": [

@@ -7,6 +7,8 @@ import useAgendaUnificada from '@/components/agenda/useAgendaUnificada';
 import { agruparPorFaixa, resumo as calcularResumo, diasDeAtraso } from '@/components/agenda/agendaModel';
 import AgendaKPIs from '@/components/agenda/AgendaKPIs';
 import AgendaSecao from '@/components/agenda/AgendaSecao';
+import AgendaPorTipo from '@/components/agenda/AgendaPorTipo';
+import AgendaDetalhePanel from '@/components/agenda/AgendaDetalhePanel';
 import ConfiguracaoSincronizacao from '@/components/agenda/ConfiguracaoSincronizacao';
 
 const concluida = i => ['concluida', 'completed'].includes(i.status);
@@ -22,6 +24,8 @@ export default function Agenda() {
   const [usuario, setUsuario] = useState(null);
   const [filtro, setFiltro] = useState(null);
   const [configAberta, setConfigAberta] = useState(false);
+  const [modo, setModo] = useState('dia');
+  const [detalhe, setDetalhe] = useState(null);
 
   useEffect(() => {
     base44.auth.me().then(setUsuario).catch(() => setUsuario(null));
@@ -65,6 +69,11 @@ export default function Agenda() {
           </div>
 
           <div className="flex items-center gap-2">
+            <div className="hidden overflow-hidden rounded-lg border border-agenda-border md:flex">
+              {[['dia', 'Meu dia'], ['tipo', 'Por tipo']].map(([valor, rotulo]) => (
+                <button key={valor} onClick={() => setModo(valor)} className={`px-3 py-1.5 text-xs font-semibold transition-colors ${modo === valor ? 'bg-agenda-accent text-agenda-text' : 'bg-agenda-panel/40 text-agenda-muted hover:text-agenda-text'}`}>{rotulo}</button>
+              ))}
+            </div>
             <Button variant="ghost" size="icon" className="border border-agenda-border bg-agenda-panel/40 text-agenda-muted hover:bg-agenda-panel hover:text-agenda-text" onClick={() => setConfigAberta(true)} title="Sincronização de calendários">
               <Settings className="h-4 w-4" />
             </Button>
@@ -107,20 +116,21 @@ export default function Agenda() {
           </div>
         )}
 
-        {!carregando && !vazio && (
+        {!carregando && !vazio && modo === 'tipo' && (
+          <AgendaPorTipo itens={visiveis} ocupadoId={ocupadoId} onIniciar={iniciar} onAguardar={aguardar}
+            onConcluir={concluir} onAdiar={adiar} onCancelar={cancelar} onAbrir={setDetalhe} />
+        )}
+
+        {!carregando && !vazio && modo === 'dia' && (
           <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <AgendaSecao titulo="Atrasadas" itens={faixas.atrasados} cor="text-rose-400"
-              ocupadoId={ocupadoId} onIniciar={iniciar} onAguardar={aguardar} onConcluir={concluir} onAdiar={adiar} onCancelar={cancelar} />
-            <AgendaSecao titulo="Hoje" itens={faixas.hoje} cor="text-violet-300"
-              ocupadoId={ocupadoId} onIniciar={iniciar} onAguardar={aguardar} onConcluir={concluir} onAdiar={adiar} onCancelar={cancelar} />
-            <AgendaSecao titulo="Próximas" itens={faixas.proximos} cor="text-sky-300"
-              ocupadoId={ocupadoId} onIniciar={iniciar} onAguardar={aguardar} onConcluir={concluir} onAdiar={adiar} onCancelar={cancelar} />
-            <AgendaSecao titulo="Sem horário" itens={faixas.semHorario} cor="text-slate-300"
-              ocupadoId={ocupadoId} onIniciar={iniciar} onAguardar={aguardar} onConcluir={concluir} onAdiar={adiar} onCancelar={cancelar} />
-            <AgendaSecao titulo="Concluídas" itens={faixas.concluidas} cor="text-emerald-300" recolhida
-              ocupadoId={ocupadoId} onIniciar={iniciar} onAguardar={aguardar} onConcluir={concluir} onAdiar={adiar} onCancelar={cancelar} />
+            {[['Atrasadas', faixas.atrasados, 'text-rose-400', false], ['Hoje', faixas.hoje, 'text-violet-300', false], ['Próximas', faixas.proximos, 'text-sky-300', false], ['Sem horário', faixas.semHorario, 'text-slate-300', false], ['Concluídas', faixas.concluidas, 'text-emerald-300', true]].map(([titulo, lista, cor, recolhida]) => (
+              <AgendaSecao key={titulo} titulo={titulo} itens={lista} cor={cor} recolhida={recolhida}
+                ocupadoId={ocupadoId} onIniciar={iniciar} onAguardar={aguardar} onConcluir={concluir} onAdiar={adiar} onCancelar={cancelar} onAbrir={setDetalhe} />
+            ))}
           </div>
         )}
+
+        {detalhe && <AgendaDetalhePanel item={detalhe} onFechar={() => setDetalhe(null)} onAtualizado={recarregar} />}
       </main>
 
       <Dialog open={configAberta} onOpenChange={setConfigAberta}>

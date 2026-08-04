@@ -21,6 +21,20 @@
     "description": {
       "type": "string"
     },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "solicitacao",
+        "tarefa",
+        "agendamento",
+        "lembrete",
+        "retorno"
+      ],
+      "default": "agendamento"
+    },
+    "etapa": {
+      "type": "string"
+    },
     "start_at": {
       "type": "string",
       "format": "datetime"
@@ -92,6 +106,12 @@
       "type": "string"
     },
     "contact_id": {
+      "type": "string"
+    },
+    "cliente_id": {
+      "type": "string"
+    },
+    "orcamento_id": {
       "type": "string"
     },
     "context_type": {

@@ -90,7 +90,7 @@ export default function NovoAgendamentoDialog({ aberto, onFechar, contexto = {},
         created_by_type: 'internal_user', organizer_id: usuario?.id, assigned_user_id: responsavelId,
         title: form.titulo.trim(), description: form.notas || undefined, start_at: data,
         end_at: new Date(new Date(data).getTime() + 60 * 60 * 1000).toISOString(), timezone: 'America/Sao_Paulo',
-        status: 'scheduled', event_type: form.tipo, location: form.local || undefined,
+        status: 'scheduled', event_type: form.tipo, categoria: 'agendamento', etapa: 'proposto', location: form.local || undefined,
         source_thread_id: contexto.threadId || undefined, source_message_id: contexto.messageId || undefined,
         participants_external: contexto.contactId ? [contexto.contactId] : [],
         contact_id: contexto.contactId, context_type: contexto.contextType, context_id: contexto.contextId, auto_committed: false
