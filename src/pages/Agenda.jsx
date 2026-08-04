@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CalendarCheck, RefreshCw, Loader2, Settings, MessageSquare, Inbox } from 'lucide-react';
+import { CalendarCheck, RefreshCw, Loader2, Settings, MessageSquare, Inbox, Plus } from 'lucide-react';
 import useAgendaUnificada from '@/components/agenda/useAgendaUnificada';
 import { agruparPorFaixa, resumo as calcularResumo, diasDeAtraso } from '@/components/agenda/agendaModel';
 import AgendaKPIs from '@/components/agenda/AgendaKPIs';
@@ -26,6 +26,13 @@ export default function Agenda() {
   }, []);
 
   const { itens, carregando, ocupadoId, recarregar, concluir, cancelar, adiar } = useAgendaUnificada(usuario);
+
+  // Atualiza a lista quando um agendamento é criado em qualquer tela
+  useEffect(() => {
+    const handler = () => recarregar();
+    window.addEventListener('nexus:agendamento-criado', handler);
+    return () => window.removeEventListener('nexus:agendamento-criado', handler);
+  }, [recarregar]);
 
   const visiveis = useMemo(
     () => (filtro ? itens.filter(FILTROS[filtro]) : itens),
@@ -59,8 +66,15 @@ export default function Agenda() {
             <Button variant="outline" size="sm" onClick={recarregar} disabled={carregando}>
               {carregando ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             </Button>
-            <Button asChild size="sm" className="bg-slate-900 hover:bg-slate-800 text-white">
-              <a href="/Comunicacao"><MessageSquare className="w-4 h-4 mr-2" />Agendar por chat</a>
+            <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
+              <a href="/Comunicacao"><MessageSquare className="w-4 h-4 mr-2" />Por chat</a>
+            </Button>
+            <Button
+              size="sm"
+              className="bg-slate-900 hover:bg-slate-800 text-white"
+              onClick={() => window.dispatchEvent(new CustomEvent('nexus:novo-agendamento'))}
+            >
+              <Plus className="w-4 h-4 mr-2" />Novo
             </Button>
           </div>
         </div>
