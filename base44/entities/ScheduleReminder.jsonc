@@ -23,21 +23,23 @@
       "type": "string",
       "enum": [
         "whatsapp_internal",
+        "whatsapp_external",
         "internal",
         "email"
       ],
       "default": "internal",
-      "description": "Canal de envio do lembrete"
+      "description": "Canal de envio do lembrete. whatsapp_external = envia ao WhatsApp pessoal do usu\u00e1rio (respeita guard de conversa ativa)."
     },
     "status": {
       "type": "string",
       "enum": [
         "pending",
         "sent",
+        "skipped",
         "failed"
       ],
       "default": "pending",
-      "description": "Status do envio"
+      "description": "Status do envio. skipped = n\u00e3o enviado por decis\u00e3o do sistema (evento cancelado/conclu\u00eddo), n\u00e3o \u00e9 erro."
     },
     "send_dedupe_key": {
       "type": "string",
@@ -65,7 +67,7 @@
     },
     "error_details": {
       "type": "string",
-      "description": "Detalhes do erro (se status = failed)"
+      "description": "Detalhes do erro (se status = failed) ou motivo do skip"
     }
   },
   "required": [

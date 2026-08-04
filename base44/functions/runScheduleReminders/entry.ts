@@ -3,7 +3,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔔 WORKER DE LEMBRETES - AGENDA IA NEXUS
 // ═══════════════════════════════════════════════════════════════════════════
-// Worker que roda a cada 1 minuto (via scheduled automation):
+// Worker que roda a cada 15 minutos (workflow "Motor de Lembretes Agenda IA"):
 // 1. Busca lembretes pendentes com send_at <= now
 // 2. Envia mensagem interna via Central de Comunicação
 // 3. Marca como sent ou failed (retry limitado a 3x)
@@ -57,8 +57,7 @@ Deno.serve(async (req) => {
         if (event.status === 'cancelled' || event.status === 'completed') {
           console.log(`[REMINDER-WORKER] ⏭️ Evento ${event.status}, pulando lembrete`);
           await base44.asServiceRole.entities.ScheduleReminder.update(reminder.id, {
-            status: 'failed',
-            failed_at: new Date().toISOString(),
+            status: 'skipped',
             error_details: `Evento ${event.status}`
           });
           continue;
@@ -212,6 +211,31 @@ _Agendado via Agenda IA Nexus_`;
           } catch (e) {
             console.warn(`[REMINDER-WORKER] ⚠️ Erro ao enviar interno: ${e.message}`);
           }
+        } else if (reminder.channel === 'email') {
+          // 📧 ENVIAR POR E-MAIL (usuário registrado do app)
+          try {
+            const targetUser = await base44.asServiceRole.entities.User.get(reminder.target_user_id).catch(() => null);
+            if (!targetUser?.email) throw new Error('Usuário sem e-mail cadastrado');
+
+            await base44.asServiceRole.integrations.Core.SendEmail({
+              to: targetUser.email,
+              subject: `🔔 Lembrete de Agenda: ${event.title}`,
+              body: mensagemLembrete
+            });
+            enviouComSucesso = true;
+            console.log(`[REMINDER-WORKER] 📧 E-mail enviado para ${targetUser.email}`);
+          } catch (e) {
+            console.warn(`[REMINDER-WORKER] ⚠️ Erro ao enviar e-mail: ${e.message}`);
+          }
+        } else {
+          // Canal desconhecido — não faz sentido tentar 3x
+          await base44.asServiceRole.entities.ScheduleReminder.update(reminder.id, {
+            status: 'failed',
+            failed_at: new Date().toISOString(),
+            error_details: `Canal não suportado: ${reminder.channel}`
+          });
+          falhas++;
+          continue;
         }
         
         if (enviouComSucesso) {
