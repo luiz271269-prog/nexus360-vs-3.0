@@ -8,6 +8,7 @@ import { agruparPorFaixa, resumo as calcularResumo, diasDeAtraso } from '@/compo
 import AgendaKPIs from '@/components/agenda/AgendaKPIs';
 import AgendaSecao from '@/components/agenda/AgendaSecao';
 import AgendaPorTipo from '@/components/agenda/AgendaPorTipo';
+import AgendaFluxoKanban from '@/components/agenda/AgendaFluxoKanban';
 import AgendaDetalhePanel from '@/components/agenda/AgendaDetalhePanel';
 import ConfiguracaoSincronizacao from '@/components/agenda/ConfiguracaoSincronizacao';
 
@@ -70,7 +71,7 @@ export default function Agenda() {
 
           <div className="flex items-center gap-2">
             <div className="hidden overflow-hidden rounded-lg border border-agenda-border md:flex">
-              {[['dia', 'Meu dia'], ['tipo', 'Por tipo']].map(([valor, rotulo]) => (
+              {[['dia', 'Meu dia'], ['tipo', 'Por tipo'], ['fluxo', 'Fluxo']].map(([valor, rotulo]) => (
                 <button key={valor} onClick={() => setModo(valor)} className={`px-3 py-1.5 text-xs font-semibold transition-colors ${modo === valor ? 'bg-agenda-accent text-agenda-text' : 'bg-agenda-panel/40 text-agenda-muted hover:text-agenda-text'}`}>{rotulo}</button>
               ))}
             </div>
@@ -114,6 +115,10 @@ export default function Agenda() {
               {filtro ? 'Toque no cartão novamente para ver tudo.' : 'Crie uma tarefa ou evento para organizar seu dia.'}
             </p>
           </div>
+        )}
+
+        {!carregando && !vazio && modo === 'fluxo' && (
+          <AgendaFluxoKanban itens={visiveis} onAbrir={setDetalhe} onAtualizado={recarregar} />
         )}
 
         {!carregando && !vazio && modo === 'tipo' && (
