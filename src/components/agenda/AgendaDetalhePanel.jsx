@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Save, ArrowRight } from 'lucide-react';
 import { PRIORITIES } from './agendaTaskUtils';
 import { CATEGORIAS, categoriaDoItem, etapaDoItem, etapasDaCategoria, proximaEtapa, etapasFinais, etapaInicial } from './agendaFluxos';
+import AgendaFluxoEtapas from './AgendaFluxoEtapas';
 
 const paraLocal = valor => {
   if (!valor) return { data: '', hora: '' };
@@ -85,6 +86,9 @@ export default function AgendaDetalhePanel({ item, onFechar, onAtualizado }) {
               </Select>
             </div>
           </div>
+
+          <AgendaFluxoEtapas categoria={form.categoria} etapa={form.etapa} desabilitado={!editavel}
+            onSelecionar={v => setForm(f => ({ ...f, etapa: v }))} />
 
           {seguinte && editavel && (
             <Button variant="outline" size="sm" onClick={() => alterar('etapa', seguinte[0])}>
