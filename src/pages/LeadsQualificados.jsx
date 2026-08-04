@@ -33,6 +33,7 @@ import ListasVendedorPanel from "../components/clientes/ListasVendedorPanel";
 import OrcamentoTable from "../components/orcamentos/OrcamentoTable";
 import { createPageUrl } from "@/utils";
 import { useNavigate } from "react-router-dom";
+import AgendarRetornoButton from '@/components/agenda/AgendarRetornoButton';
 
 export default function LeadsQualificados() {
   const [loading, setLoading] = useState(true);
@@ -574,6 +575,12 @@ export default function LeadsQualificados() {
                 <Plus className="w-3 h-3" />
                 {activeTab === 'orcamentos' ? 'Novo Orçamento' : 'Novo Lead'}
               </Button>
+
+              <AgendarRetornoButton
+                iconOnly
+                contexto={{ titulo: 'Agendamento CRM', descricao: `Criado na aba ${activeTab} do CRM.`, contextType: 'CRM', contextId: activeTab, responsavelId: usuarioAtual?.id }}
+                className="h-7 w-7 border-violet-400/60 bg-violet-500/20 text-violet-100 hover:bg-violet-500/40"
+              />
 
               {podeVerTodos && (
                 <>
