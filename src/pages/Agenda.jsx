@@ -15,6 +15,7 @@ import ConfiguracaoFluxosAgenda from '@/components/agenda/ConfiguracaoFluxosAgen
 import { aplicarFluxosPersonalizados } from '@/components/agenda/agendaFluxos';
 import AgendaUsuarioFiltro from '@/components/agenda/AgendaUsuarioFiltro';
 import RevisaoDiariaObrigatoria, { revisaoJaFeitaHoje } from '@/components/agenda/RevisaoDiariaObrigatoria';
+import BarraComandoAgenda from '@/components/agenda/BarraComandoAgenda';
 
 const concluida = i => ['concluida', 'completed'].includes(i.status);
 const FILTROS = {
@@ -131,6 +132,8 @@ export default function Agenda() {
       </header>
 
       <main className="w-full space-y-6 px-4 py-5 md:px-8 md:py-6">
+        <BarraComandoAgenda onCriado={recarregar} />
+
         <AgendaKPIs resumo={resumo} filtro={filtro} onFiltrar={setFiltro} />
 
         {carregando && (
