@@ -18,9 +18,46 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, mensagem: 'Não autenticado' }, { status: 401 });
     }
 
-    const { texto } = await req.json();
+    const { texto, thread_id } = await req.json();
     if (!texto || !texto.trim()) {
       return Response.json({ success: false, mensagem: 'Comando vazio' }, { status: 400 });
+    }
+
+    // ── Enriquecimento de contexto: quando o comando nasce de uma conversa,
+    // carregamos identificação do contato/cliente e as últimas mensagens.
+    let contextoConversa = '';
+    let vinculo = { thread_id: null, contact_id: null, cliente_id: null };
+
+    if (thread_id) {
+      const thread = await base44.asServiceRole.entities.MessageThread.get(thread_id).catch(() => null);
+      if (thread) {
+        vinculo = {
+          thread_id: thread.id,
+          contact_id: thread.contact_id || null,
+          cliente_id: thread.cliente_id || null
+        };
+
+        let nomeContato = '';
+        if (thread.contact_id) {
+          const contato = await base44.asServiceRole.entities.Contact.get(thread.contact_id).catch(() => null);
+          nomeContato = contato ? `${contato.nome}${contato.empresa ? ` (${contato.empresa})` : ''}` : '';
+        }
+
+        const mensagens = await base44.asServiceRole.entities.Message
+          .filter({ thread_id: thread.id }, '-created_date', 8)
+          .catch(() => []);
+
+        const historico = mensagens.reverse()
+          .map(m => `- ${m.sender_type === 'contact' ? (nomeContato || 'Contato') : 'Nós'}: ${String(m.content || '').slice(0, 300)}`)
+          .join('\n');
+
+        contextoConversa = `
+CONTEXTO DA CONVERSA (use para deixar título e descrição específicos):
+Contato/Empresa: ${nomeContato || 'não identificado'}
+Últimas mensagens:
+${historico || '(sem mensagens recentes)'}
+`;
+      }
     }
 
     const agora = new Date().toLocaleString('pt-BR', {
@@ -78,6 +115,7 @@ Usuário que está falando: ${user.full_name}.
 CATÁLOGO INTERNO (ID, cadastro, pessoa, setor e nomes reconhecidos):
 ${listaNomes}
 
+${contextoConversa}
 COMANDO DO USUÁRIO:
 "${texto}"
 
@@ -89,7 +127,8 @@ Extraia o item de agenda. Regras:
 - tipo_atividade: "ligacao" se for ligar para alguém, "reuniao_preparacao" se for reunião, "visita", "cobranca", "orcamento", "documento", "follow_up" ou "tarefa".
 - prioridade: baixa | media | alta | critica (padrão media).
 - data no formato YYYY-MM-DD e hora HH:MM (24h). Se não houver hora, use 09:00. Se não houver data, use hoje ou o próximo dia útil coerente com o comando.
-- titulo: curto e objetivo, sem a palavra "agendar".`,
+- titulo: curto e objetivo, sem a palavra "agendar". Se houver CONTEXTO DA CONVERSA, o título DEVE citar quem/empresa e o assunto concreto (ex.: "Ligar para Pamplona sobre orçamento das fechaduras") — nunca use termos genéricos como "o fornecedor" ou "o cliente".
+- descricao: 1 a 3 frases com os detalhes concretos do contexto (valores, produtos, prazos e pendências citados). Nunca escreva "conforme combinado" sem dizer o que foi combinado.`,
       response_json_schema: {
         type: 'object',
         properties: {
@@ -137,6 +176,9 @@ Extraia o item de agenda. Regras:
         timezone: 'America/Sao_Paulo',
         status: 'scheduled',
         event_type: tipoAtividade === 'ligacao' ? 'ligacao' : 'reuniao',
+        source_thread_id: vinculo.thread_id,
+        contact_id: vinculo.contact_id,
+        cliente_id: vinculo.cliente_id,
         auto_committed: true
       });
 
@@ -159,6 +201,11 @@ Extraia o item de agenda. Regras:
       origem: 'ia',
       responsavel_id: responsavelId,
       participantes_ids: destinatario ? [user.id] : [],
+      thread_id: vinculo.thread_id,
+      contact_id: vinculo.contact_id,
+      cliente_id: vinculo.cliente_id,
+      context_type: vinculo.thread_id ? 'MessageThread' : null,
+      context_id: vinculo.thread_id,
       prazo_em: quando
     });
 
