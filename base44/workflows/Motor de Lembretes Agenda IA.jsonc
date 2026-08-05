@@ -1,18 +1,18 @@
 {
   "name": "Motor de Lembretes Agenda IA",
-  "description": "Dispara os lembretes pendentes da agenda no hor\u00e1rio agendado (a cada 5 minutos)",
+  "description": "Dispara os lembretes pendentes da agenda uma vez por dia, \u00e0s 07:00 (hor\u00e1rio de Bras\u00edlia)",
   "trigger": {
     "condition": null,
     "config": {
       "trigger_type": "scheduled",
       "events": [],
-      "schedule_mode": "interval",
-      "cron_expression": null,
+      "schedule_mode": "recurring",
+      "cron_expression": "0 7 * * *",
       "one_time_date": null,
-      "timezone": "UTC",
-      "interval_value": 5,
-      "interval_unit": "minutes",
-      "interval_anchor": "2026-02-05T00:56:36.369000",
+      "timezone": "America/Sao_Paulo",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
       "ends_type": "never",
       "ends_on_date": null,
       "ends_after_count": null
@@ -35,7 +35,7 @@
           },
           "then": "end",
           "x-base44": {
-            "title": "Disparar lembretes pendentes",
+            "title": "Disparar lembretes pendentes (07:00)",
             "description": "runScheduleReminders"
           }
         }
