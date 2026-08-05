@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
+import StickerRecebida from './StickerRecebida';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -149,14 +150,7 @@ export default function MediaRichMessage({ message }) {
       );
 
     case 'sticker':
-      return (
-        <img
-          src={media_url}
-          alt="Figurinha"
-          className="w-32 h-32 object-contain cursor-pointer"
-          onClick={() => window.open(media_url, '_blank')}
-        />
-      );
+      return <StickerRecebida mediaUrl={media_url} />;
 
     case 'video':
       return (
