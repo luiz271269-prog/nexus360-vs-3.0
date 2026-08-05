@@ -852,7 +852,8 @@ export default function ChatWindow({
 
     const contentPreview = fileType === 'image' ? '[Imagem]' :
     fileType === 'video' ? '[Vídeo]' :
-    fileType === 'document' ? '[Documento]' : '[Arquivo]';
+    fileType === 'document' ? '[Documento]' :
+    fileType === 'sticker' ? '[Figurinha]' : '[Arquivo]';
 
     let novaMensagem;
     try {

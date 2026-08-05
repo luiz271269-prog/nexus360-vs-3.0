@@ -47,6 +47,7 @@ const GoToLogo = () =>
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import EmojiPickerButton from './EmojiPickerButton';
+import StickerPickerButton from './StickerPickerButton';
 import { useClipboardPaste } from './useClipboardPaste';
 import SeletorPromocoesAtivas from '../automacao/SeletorPromocoesAtivas';
 import AIResponseAssistant from './AIResponseAssistant';
@@ -669,6 +670,11 @@ export default function MessageInput({
         <EmojiPickerButton
             onEmojiSelect={handleEmojiSelect}
             disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMensagens} />
+
+        <StickerPickerButton
+            usuario={usuario}
+            onSendSticker={(file) => onSendMessage({ texto: '', attachedFile: file, attachedFileType: 'sticker' })}
+            disabled={enviando || carregandoContato || gravandoAudio || modoSelecao || uploadingPastedFile || !podeEnviarMidias} />
           
 
         {/* 🔎 BOTÃO PERGUNTAR — respostas exatas com dados reais do cliente */}

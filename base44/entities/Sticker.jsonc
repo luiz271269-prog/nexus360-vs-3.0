@@ -1,0 +1,82 @@
+{
+  "name": "Sticker",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome curto da figurinha"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL p\u00fablica do arquivo .webp 512x512"
+    },
+    "escopo": {
+      "type": "string",
+      "enum": [
+        "pessoal",
+        "equipe"
+      ],
+      "default": "pessoal",
+      "description": "pessoal = s\u00f3 do dono; equipe = vis\u00edvel para todos"
+    },
+    "owner_id": {
+      "type": "string",
+      "description": "ID do User dono da figurinha"
+    },
+    "tamanho_kb": {
+      "type": "number",
+      "description": "Tamanho do arquivo em KB"
+    },
+    "uso_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantas vezes foi enviada"
+    }
+  },
+  "required": [
+    "file_url",
+    "owner_id"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "data.owner_id": "{{user.id}}"
+        },
+        {
+          "data.escopo": "equipe"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.owner_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.owner_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

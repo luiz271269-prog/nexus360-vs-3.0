@@ -18,6 +18,7 @@ const MEDIA_CONFIG = {
   image: { endpoint: 'send-image', zapiField: 'image', wapiField: 'image', caption: true },
   video: { endpoint: 'send-video', zapiField: 'video', wapiField: 'video', caption: true },
   audio: { endpoint: 'send-audio', zapiField: 'audio', wapiField: 'audio', caption: false },
+  sticker: { endpoint: 'send-sticker', zapiField: 'sticker', wapiField: 'sticker', caption: false },
   document: { 
     endpoint: 'send-document', 
     zapiField: 'document', 
@@ -473,8 +474,8 @@ Deno.serve(async (req) => {
       let tipoMidiaReal = media_type;
       
       // Se media_type é 'document', NUNCA deixa detectarTipoMidia sobrescrever para 'image'
-      if (media_type !== 'document') {
-        // Só detectar se media_type NÃO foi explicitamente definido como 'document'
+      if (media_type !== 'document' && media_type !== 'sticker') {
+        // Só detectar se media_type NÃO foi explicitamente definido como 'document'/'sticker'
         tipoMidiaReal = detectarTipoMidia(media_url, media_type);
       }
       
@@ -534,6 +535,13 @@ Deno.serve(async (req) => {
           
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📷 W-API Image - URL original:`, media_url);
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📷 W-API Image - URL limpa:`, urlParaUsar);
+        } else if (tipoMidiaReal === 'sticker') {
+          // W-API FIGURINHA (.webp)
+          body = {
+            phone: numeroFormatado,
+            sticker: media_url.split('?')[0],
+            delayMessage: 1
+          };
         } else if (tipoMidiaReal === 'video') {
           // W-API VÍDEO (com suporte a GIF playback)
           body = {
@@ -623,6 +631,12 @@ Deno.serve(async (req) => {
           if (media_caption) body.caption = media_caption;
           
           console.log(`[ENVIAR-WHATSAPP-UNIFICADO] 📷 Z-API Image URL:`, urlParaUsar);
+        } else if (tipoMidiaReal === 'sticker') {
+          // Z-API FIGURINHA (.webp)
+          body = {
+            phone: numeroFormatado,
+            sticker: media_url.split('?')[0]
+          };
         } else if (tipoMidiaReal === 'video') {
           // Z-API VÍDEO (com suporte a GIF playback)
           body = {
