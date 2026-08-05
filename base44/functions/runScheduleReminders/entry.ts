@@ -81,6 +81,7 @@ _Agenda Operacional Nexus_`;
         
         // Enviar lembrete via Central de Comunicação
         let enviouComSucesso = false;
+        let pushEntregue = null;
 
         // 🔔 PUSH (padrão smartphone) — abre o item na Agenda ao tocar
         const enviarPush = async () => {
@@ -228,7 +229,10 @@ _Agenda Operacional Nexus_`;
               
               enviouComSucesso = true;
               console.log(`[REMINDER-WORKER] 💬 Mensagem interna enviada para ${reminder.target_user_id}`);
-              await enviarPush();
+              pushEntregue = await enviarPush();
+              if (!pushEntregue) {
+                console.warn(`[REMINDER-WORKER] 📵 Push não entregue (chat interno OK) para ${reminder.target_user_id}`);
+              }
             }
           } catch (e) {
             console.warn(`[REMINDER-WORKER] ⚠️ Erro ao enviar interno: ${e.message}`);

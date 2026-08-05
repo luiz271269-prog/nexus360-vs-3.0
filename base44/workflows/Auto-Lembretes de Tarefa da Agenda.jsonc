@@ -1,0 +1,41 @@
+{
+  "name": "Auto-Lembretes de Tarefa da Agenda",
+  "description": "Ao criar uma tarefa (ou alterar seu prazo), gera automaticamente lembretes 24h e 1h antes do vencimento para o respons\u00e1vel, no chat interno + push",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "ScheduleTask",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.event_type == \"create\" or (.trigger.changed_fields | index(\"prazo_em\") != null) }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_lembretes_tarefa_agenda",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "criar_lembretes": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "criarLembretesTarefaAgenda",
+            "args": {
+              "task_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Criar lembretes 24h e 1h antes",
+            "description": "Para o respons\u00e1vel da tarefa"
+          }
+        }
+      }
+    ]
+  }
+}
