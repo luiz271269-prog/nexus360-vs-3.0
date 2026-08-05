@@ -2,8 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Check, Clock, X, Mail, Loader2, Play, Hourglass } from 'lucide-react';
-import { rotuloQuando, diasDeAtraso } from './agendaModel';
+import { Check, Clock, X, Mail, Loader2, Play, Hourglass, AlertTriangle } from 'lucide-react';
+import { rotuloQuando, diasDeAtraso, nivelUrgencia } from './agendaModel';
 import AgendaCategoriaBadge from './AgendaCategoriaBadge';
 import AgendaChatButton from './AgendaChatButton';
 
@@ -12,18 +12,23 @@ const BARRA = { critica: 'bg-rose-500', alta: 'bg-amber-500', media: 'bg-sky-500
 export default function AgendaItemRow({ item, ocupado, onIniciar, onAguardar, onConcluir, onAdiar, onCancelar, onAbrir }) {
   const atrasado = diasDeAtraso(item) > 0;
   const concluida = ['concluida', 'completed'].includes(item.status);
+  const urgencia = nivelUrgencia(item);
   const email = item.raw?.cliente_email || item.raw?.email;
   const parar = fn => e => { e.stopPropagation(); fn(); };
 
-  return <div className={`group flex items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:border-violet-300 hover:shadow-md ${concluida ? 'opacity-60' : ''}`}>
-    <div className={`w-1.5 flex-shrink-0 ${BARRA[item.prioridade] || BARRA.media}`} />
+  return <div className={`group flex items-stretch overflow-hidden rounded-xl border shadow-sm transition-all hover:shadow-md ${concluida ? 'opacity-60' : ''} ${urgencia ? 'border-rose-300 bg-rose-50 ring-1 ring-rose-200 hover:border-rose-400' : 'border-slate-200 bg-white hover:border-violet-300'}`}>
+    <div className={`w-1.5 flex-shrink-0 ${urgencia ? 'bg-rose-600' : (BARRA[item.prioridade] || BARRA.media)}`} />
     <div className="flex min-w-0 flex-1 flex-col gap-2 px-3 py-3">
       <button type="button" onClick={() => onAbrir?.(item)} className="min-w-0 text-left">
         <p className={`truncate text-sm font-semibold ${concluida ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{item.titulo}</p>
         <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
           {item.contexto && <><span className="max-w-[220px] truncate">{item.contexto}</span><span>•</span></>}
-          <span className={atrasado && !concluida ? 'font-semibold text-rose-600' : ''}>{rotuloQuando(item)}</span>
+          <span className={(atrasado || urgencia) && !concluida ? 'font-semibold text-rose-600' : ''}>{rotuloQuando(item)}</span>
         </div>
+        {urgencia && <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-[11px] font-bold text-white">
+          <AlertTriangle className="h-3 w-3" />
+          {urgencia === 'atrasado' ? 'Vencida' : 'Vence em menos de 24h'}
+        </span>}
       </button>
 
       <div className="flex items-center justify-between gap-2">
