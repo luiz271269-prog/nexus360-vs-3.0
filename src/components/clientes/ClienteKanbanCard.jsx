@@ -68,7 +68,7 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
       } bg-white`}
     >
       {/* Header com gradiente laranja→vermelho */}
-      <div className="bg-gradient-to-r from-orange-500 to-red-500 px-2.5 py-1.5 flex items-start justify-between gap-2">
+      <div className="bg-gradient-to-r from-orange-500 to-red-500 px-2 py-1 flex items-center justify-between gap-1.5">
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-white text-[12px] leading-tight truncate">
             {cliente.razao_social || cliente.nome_fantasia || 'Cliente Sem Nome'}
@@ -92,7 +92,7 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
         </div>
       </div>
 
-      <CardContent className="px-2.5 py-2 space-y-1.5">
+      <CardContent className="px-2 py-1.5 space-y-1">
         {/* Etiquetas de recorrência e faixa de faturamento (fonte: campos persistidos) */}
         {(cliente.etiqueta_recorrencia && cliente.etiqueta_recorrencia !== 'none') || (cliente.faixa_faturamento && cliente.faixa_faturamento !== 'none') ? (
           <div className="flex flex-wrap gap-1">
@@ -102,21 +102,21 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
         ) : null}
 
         {/* Contatos em coluna */}
-        <div className="space-y-1 text-[10px]">
+        <div className="space-y-0.5 text-[10px] leading-tight">
           {cliente.telefone && (
             <div className="flex items-center gap-2 text-slate-700">
-              <Phone className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+              <Phone className="w-3 h-3 text-slate-500 flex-shrink-0" />
               <span className="truncate">{cliente.telefone}</span>
             </div>
           )}
           {cliente.email && (
             <div className="flex items-center gap-2 text-slate-700">
-              <Mail className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+              <Mail className="w-3 h-3 text-slate-500 flex-shrink-0" />
               <span className="truncate">{cliente.email}</span>
             </div>
           )}
           <div className="flex items-center gap-2">
-            <Users className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+            <Users className="w-3 h-3 text-slate-500 flex-shrink-0" />
             <AtribuidorAtendenteRapido
               contato={{
                 id: cliente.id,
@@ -189,21 +189,21 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
         <div className="flex items-center justify-between gap-1 pt-0.5">
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(cliente); }}
-            className="flex flex-col items-center gap-0.5 group/btn"
+            className="flex items-center gap-1 group/btn"
           >
-            <span className="w-7 h-7 rounded-full border border-slate-300 bg-white flex items-center justify-center text-slate-700 transition-all duration-150 group-hover/btn:bg-orange-500 group-hover/btn:text-white group-hover/btn:border-orange-500 group-hover/btn:shadow-md">
-              <Edit className="w-3.5 h-3.5" />
+            <span className="w-6 h-6 rounded-full border border-slate-300 bg-white flex items-center justify-center text-slate-700 transition-all duration-150 group-hover/btn:bg-orange-500 group-hover/btn:text-white group-hover/btn:border-orange-500 group-hover/btn:shadow-md">
+              <Edit className="w-3 h-3" />
             </span>
             <span className="text-[9px] text-slate-700">Editar</span>
           </button>
-          <AgendarRetornoButton contexto={{ titulo: `Retorno — ${cliente.razao_social || cliente.nome_fantasia || 'Cliente'}`, descricao: 'Acompanhamento comercial do cliente.', contextType: 'Cliente', contextId: cliente.id, clienteId: cliente.id, responsavelId: cliente.usuario_id }} className="h-7 border-violet-200 px-1.5 text-[10px] text-violet-700" />
+          <AgendarRetornoButton contexto={{ titulo: `Retorno — ${cliente.razao_social || cliente.nome_fantasia || 'Cliente'}`, descricao: 'Acompanhamento comercial do cliente.', contextType: 'Cliente', contextId: cliente.id, clienteId: cliente.id, responsavelId: cliente.usuario_id }} className="h-6 border-violet-200 px-1.5 text-[9px] text-violet-700" />
           <button
             onClick={(e) => { e.stopPropagation(); setHistoricoOpen(true); }}
             title="Histórico interno"
-            className="flex flex-col items-center gap-0.5 group/btn"
+            className="flex items-center gap-1 group/btn"
           >
-            <span className="w-7 h-7 rounded-full border border-slate-300 bg-white flex items-center justify-center text-slate-700 transition-all duration-150 group-hover/btn:bg-amber-500 group-hover/btn:text-white group-hover/btn:border-amber-500 group-hover/btn:shadow-md">
-              <NotebookPen className="w-3.5 h-3.5" />
+            <span className="w-6 h-6 rounded-full border border-slate-300 bg-white flex items-center justify-center text-slate-700 transition-all duration-150 group-hover/btn:bg-amber-500 group-hover/btn:text-white group-hover/btn:border-amber-500 group-hover/btn:shadow-md">
+              <NotebookPen className="w-3 h-3" />
             </span>
             <span className="text-[9px] text-slate-700">Notas</span>
           </button>
@@ -211,14 +211,14 @@ export default function ClienteKanbanCard({ cliente, score, isDragging, onEdit, 
             onClick={(e) => { e.stopPropagation(); if (temTelefone) setChatOpen(true); }}
             disabled={!temTelefone}
             title={temTelefone ? 'Abrir chat aqui mesmo' : 'Sem telefone cadastrado'}
-            className={`flex flex-col items-center gap-0.5 group/btn ${!temTelefone ? 'cursor-not-allowed opacity-40' : ''}`}
+            className={`flex items-center gap-1 group/btn ${!temTelefone ? 'cursor-not-allowed opacity-40' : ''}`}
           >
-            <span className={`relative w-7 h-7 rounded-full border flex items-center justify-center transition-all duration-150 ${
+            <span className={`relative w-6 h-6 rounded-full border flex items-center justify-center transition-all duration-150 ${
               temTelefone
                 ? 'border-slate-300 bg-white text-slate-700 group-hover/btn:bg-green-500 group-hover/btn:text-white group-hover/btn:border-green-500 group-hover/btn:shadow-md'
                 : 'border-slate-200 bg-slate-100 text-slate-400'
             }`}>
-              <MessageSquare className="w-3.5 h-3.5" />
+              <MessageSquare className="w-3 h-3" />
               {indicadorChat?.naoLidas > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white animate-pulse">
                   {indicadorChat.naoLidas > 99 ? '99+' : indicadorChat.naoLidas}
