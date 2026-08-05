@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ConfiguracaoSincronizacao from '../agenda/ConfiguracaoSincronizacao';
+import ComandoNaturalInput from '../agenda/ComandoNaturalInput';
 import InstrucoesAcessoExternoAgendaIA from '../agenda/InstrucoesAcessoExternoAgendaIA';
 
 export default function AgendaIAUnificada({ open, onClose, usuario }) {
@@ -115,8 +116,9 @@ export default function AgendaIAUnificada({ open, onClose, usuario }) {
     }
   }, [open, usuario?.id]);
 
-  const handleEnviarMensagemChat = async () => {
-    if (!mensagemChat.trim() || !threadAgendaIA) return;
+  const handleEnviarMensagemChat = async (textoComando) => {
+    const texto = (typeof textoComando === 'string' ? textoComando : mensagemChat).trim();
+    if (!texto || !threadAgendaIA) return;
 
     setEnviandoChat(true);
     try {
@@ -124,7 +126,7 @@ export default function AgendaIAUnificada({ open, onClose, usuario }) {
       const result = await base44.functions.invoke('processScheduleIntent', {
         thread_id: threadAgendaIA.id,
         message_id: `chat-${Date.now()}`,
-        text: mensagemChat.trim(),
+        text: texto,
         from_type: 'internal_user',
         from_id: usuario.id
       });
@@ -234,33 +236,12 @@ export default function AgendaIAUnificada({ open, onClose, usuario }) {
                   </div>
                 </div>
 
-                {/* Input de comando */}
-                <div className="flex gap-2">
-                  <Input
-                    value={mensagemChat}
-                    onChange={(e) => setMensagemChat(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleEnviarMensagemChat();
-                      }
-                    }}
-                    placeholder="Digite seu comando (ex: agendar reunião amanhã 14h)"
-                    className="flex-1"
-                    disabled={enviandoChat || !threadAgendaIA}
-                  />
-                  <Button
-                    onClick={handleEnviarMensagemChat}
-                    disabled={!mensagemChat.trim() || enviandoChat || !threadAgendaIA}
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                  >
-                    {enviandoChat ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
+                {/* Input de comando: texto, voz ou imagem */}
+                <ComandoNaturalInput
+                  disabled={!threadAgendaIA}
+                  enviando={enviandoChat}
+                  onComando={(texto) => handleEnviarMensagemChat(texto)}
+                />
               </CardContent>
             </Card>
           </TabsContent>
