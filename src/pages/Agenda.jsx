@@ -14,6 +14,7 @@ import ConfiguracaoSincronizacao from '@/components/agenda/ConfiguracaoSincroniz
 import ConfiguracaoFluxosAgenda from '@/components/agenda/ConfiguracaoFluxosAgenda';
 import { aplicarFluxosPersonalizados } from '@/components/agenda/agendaFluxos';
 import AgendaUsuarioFiltro from '@/components/agenda/AgendaUsuarioFiltro';
+import RevisaoDiariaObrigatoria, { revisaoJaFeitaHoje } from '@/components/agenda/RevisaoDiariaObrigatoria';
 
 const concluida = i => ['concluida', 'completed'].includes(i.status);
 const FILTROS = {
@@ -33,6 +34,7 @@ export default function Agenda() {
   const [fluxosAberto, setFluxosAberto] = useState(false);
   const [versaoFluxos, setVersaoFluxos] = useState(0);
   const [alvoUsuario, setAlvoUsuario] = useState('me');
+  const [revisaoAberta, setRevisaoAberta] = useState(false);
 
   useEffect(() => {
     base44.auth.me().then(setUsuario).catch(() => setUsuario(null));
@@ -61,6 +63,13 @@ export default function Agenda() {
     const item = itens.find(i => i.id === alvo);
     if (item) setDetalhe(item);
   }, [itens]);
+
+  // Revisão obrigatória: abre 1x por dia quando existem itens vencidos/vencendo hoje
+  useEffect(() => {
+    if (carregando || !usuario?.id || alvoUsuario !== 'me') return;
+    if (revisaoJaFeitaHoje(usuario.id)) return;
+    if (itens.some(i => FILTROS.hoje(i) || FILTROS.atrasados(i))) setRevisaoAberta(true);
+  }, [carregando, usuario, itens, alvoUsuario]);
 
   const faixas = useMemo(() => agruparPorFaixa(visiveis), [visiveis]);
   const resumo = useMemo(() => calcularResumo(itens), [itens]);
@@ -164,6 +173,11 @@ export default function Agenda() {
 
         {detalhe && <AgendaDetalhePanel item={detalhe} onFechar={() => setDetalhe(null)} onAtualizado={recarregar} />}
       </main>
+
+      {revisaoAberta && (
+        <RevisaoDiariaObrigatoria itens={itens} usuario={usuario} ocupadoId={ocupadoId}
+          onConcluir={concluir} onAdiar={adiar} onFechar={() => setRevisaoAberta(false)} />
+      )}
 
       <ConfiguracaoFluxosAgenda aberto={fluxosAberto} onFechar={() => setFluxosAberto(false)} onSalvo={() => setVersaoFluxos(v => v + 1)} />
 
