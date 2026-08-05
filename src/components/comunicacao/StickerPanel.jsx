@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import ReactDOM from 'react-dom';
-import { Button } from '@/components/ui/button';
-import { Sticker as StickerIcon, Plus, Loader2, Clock, User, Users, Trash2 } from 'lucide-react';
+import { Plus, Loader2, Clock, User, Users, Trash2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -19,27 +17,20 @@ const ABAS = [
   { key: 'pessoal', label: 'Minhas', icon: User },
   { key: 'equipe', label: 'Equipe', icon: Users }];
 
-export default function StickerPickerButton({ onSendSticker, usuario, disabled }) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function StickerPanel({ usuario, onSendSticker, onDone }) {
   const [aba, setAba] = useState('recentes');
-  const [pos, setPos] = useState({ bottom: 0, left: 0 });
   const [stickers, setStickers] = useState([]);
   const [recentes, setRecentes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [criando, setCriando] = useState(false);
-  const buttonRef = useRef(null);
   const fileRef = useRef(null);
-  const carregadoRef = useRef(false);
 
-  // Carrega uma única vez ao abrir (lazy — não pesa ao abrir o chat)
   const carregar = useCallback(async () => {
-    if (carregadoRef.current) return;
     setLoading(true);
     try {
       const lista = await base44.entities.Sticker.list('-updated_date', LIMITE_PESSOAL + LIMITE_EQUIPE);
       setStickers(lista);
-      carregadoRef.current = true;
-    } catch (e) {
+    } catch {
       toast.error('Erro ao carregar figurinhas');
     } finally {
       setLoading(false);
@@ -47,26 +38,9 @@ export default function StickerPickerButton({ onSendSticker, usuario, disabled }
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
     setRecentes(lerRecentes());
     carregar();
-    if (buttonRef.current) {
-      const r = buttonRef.current.getBoundingClientRect();
-      setPos({ bottom: window.innerHeight - r.top + 8, left: Math.min(r.left, window.innerWidth - 288 - 8) });
-    }
-    const fora = (ev) => {
-      if (buttonRef.current?.contains(ev.target)) return;
-      const p = document.getElementById('sticker-picker-portal');
-      if (p && p.contains(ev.target)) return;
-      setIsOpen(false);
-    };
-    document.addEventListener('mousedown', fora);
-    document.addEventListener('touchstart', fora);
-    return () => {
-      document.removeEventListener('mousedown', fora);
-      document.removeEventListener('touchstart', fora);
-    };
-  }, [isOpen, carregar]);
+  }, [carregar]);
 
   const meus = stickers.filter((s) => s.escopo !== 'equipe' && s.owner_id === usuario?.id);
   const equipe = stickers.filter((s) => s.escopo === 'equipe');
@@ -105,7 +79,7 @@ export default function StickerPickerButton({ onSendSticker, usuario, disabled }
   };
 
   const handleEnviar = async (s) => {
-    setIsOpen(false);
+    onDone?.();
     try {
       const file = await urlParaStickerFile(s.file_url);
       registrarRecente(s);
@@ -123,19 +97,21 @@ export default function StickerPickerButton({ onSendSticker, usuario, disabled }
     setStickers((prev) => prev.filter((x) => x.id !== s.id));
   };
 
-  const painel = isOpen ? ReactDOM.createPortal(
-    <div
-      id="sticker-picker-portal"
-      style={{ position: 'fixed', bottom: pos.bottom, left: pos.left, zIndex: 9999, width: 288 }}
-      className="bg-white rounded-lg shadow-2xl border border-slate-200">
+  return (
+    <>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={(e) => handleCriar(e.target.files?.[0])} />
 
-      <div className="flex items-center gap-1 p-1.5 border-b border-slate-200">
+      <div className="flex items-center gap-1 px-1.5 pt-1.5">
         {ABAS.map((a) =>
         <button
           key={a.key}
           type="button"
           onClick={() => setAba(a.key)}
-          title={a.label}
           className={cn('flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded text-[11px] text-slate-600 hover:bg-slate-100', aba === a.key && 'bg-slate-200 text-slate-900 font-semibold')}>
 
             <a.icon className="w-3.5 h-3.5" />
@@ -144,11 +120,11 @@ export default function StickerPickerButton({ onSendSticker, usuario, disabled }
         )}
       </div>
 
-      <div className="p-1.5 h-48 overflow-y-auto">
+      <div className="p-1.5 h-64 overflow-y-auto">
         {loading ?
         <div className="h-full flex items-center justify-center"><Loader2 className="w-4 h-4 animate-spin text-slate-400" /></div> :
 
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-5 gap-1">
             <button
             type="button"
             onClick={() => fileRef.current?.click()}
@@ -193,32 +169,6 @@ export default function StickerPickerButton({ onSendSticker, usuario, disabled }
         <span>Minhas {meus.length}/{LIMITE_PESSOAL}</span>
         <span>Equipe {equipe.length}/{LIMITE_EQUIPE}</span>
       </div>
-    </div>,
-    document.body
-  ) : null;
-
-  return (
-    <>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        style={{ display: 'none' }}
-        onChange={(e) => handleCriar(e.target.files?.[0])} />
-
-      <Button
-        ref={buttonRef}
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={() => setIsOpen((v) => !v)}
-        disabled={disabled}
-        className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0 rounded-full bg-gradient-to-b from-pink-500 to-fuchsia-600 hover:from-pink-600 hover:to-fuchsia-700 text-white hover:text-white shadow-lg shadow-fuchsia-500/40 transition-all"
-        title="Figurinhas">
-
-        <StickerIcon className="w-4 h-4 md:w-[18px] md:h-[18px]" />
-      </Button>
-      {painel}
     </>);
 
 }
