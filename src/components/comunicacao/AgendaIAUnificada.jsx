@@ -118,21 +118,18 @@ export default function AgendaIAUnificada({ open, onClose, usuario }) {
 
   const handleEnviarMensagemChat = async (textoComando) => {
     const texto = (typeof textoComando === 'string' ? textoComando : mensagemChat).trim();
-    if (!texto || !threadAgendaIA) return;
+    if (!texto) return;
 
     setEnviandoChat(true);
     try {
-      // Invocar processador de agenda
-      const result = await base44.functions.invoke('processScheduleIntent', {
-        thread_id: threadAgendaIA.id,
-        message_id: `chat-${Date.now()}`,
-        text: texto,
-        from_type: 'internal_user',
-        from_id: usuario.id
-      });
+      // Grava direto na agenda unificada (mesma função da tela Agenda)
+      const { data } = await base44.functions.invoke('agendarPorComando', { texto });
 
-      if (result.data?.message_to_send) {
-        toast.success('🤖 ' + result.data.message_to_send);
+      if (data?.success) {
+        toast.success(data.mensagem);
+        window.dispatchEvent(new CustomEvent('nexus:agendamento-criado'));
+      } else {
+        toast.error(data?.mensagem || '❌ Não consegui agendar');
       }
 
       setMensagemChat('');
@@ -238,7 +235,6 @@ export default function AgendaIAUnificada({ open, onClose, usuario }) {
 
                 {/* Input de comando: texto, voz ou imagem */}
                 <ComandoNaturalInput
-                  disabled={!threadAgendaIA}
                   enviando={enviandoChat}
                   onComando={(texto) => handleEnviarMensagemChat(texto)}
                 />

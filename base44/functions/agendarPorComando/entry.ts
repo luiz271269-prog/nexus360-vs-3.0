@@ -27,13 +27,20 @@ Deno.serve(async (req) => {
       timeZone: 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short'
     });
 
+    // Usuários internos para resolver destinatário ("para o Matheus")
+    const usuarios = await base44.asServiceRole.entities.User.list('', 200);
+    const listaNomes = usuarios.map(u => u.full_name).filter(Boolean).join(' | ');
+
     const intent = await base44.integrations.Core.InvokeLLM({
       prompt: `Você interpreta comandos de agenda em português. Agora é ${agora} (America/Sao_Paulo).
+Usuário que está falando: ${user.full_name}.
+Usuários internos disponíveis: ${listaNomes}
 
 COMANDO DO USUÁRIO:
 "${texto}"
 
 Extraia o item de agenda. Regras:
+- destinatario: se o comando for para outra pessoa da lista de usuários internos, coloque o nome EXATO dela. Se for para o próprio solicitante, use "self".
 - categoria: "agendamento" (reunião/compromisso com hora marcada), "tarefa" (algo a fazer), "lembrete" (só lembrar), "retorno" (retornar contato), "solicitacao".
 - tipo_atividade: "ligacao" se for ligar para alguém, "reuniao_preparacao" se for reunião, "visita", "cobranca", "orcamento", "documento", "follow_up" ou "tarefa".
 - prioridade: baixa | media | alta | critica (padrão media).
@@ -42,6 +49,7 @@ Extraia o item de agenda. Regras:
       response_json_schema: {
         type: 'object',
         properties: {
+          destinatario: { type: 'string' },
           categoria: { type: 'string', enum: ['solicitacao', 'tarefa', 'agendamento', 'lembrete', 'retorno'] },
           tipo_atividade: { type: 'string' },
           titulo: { type: 'string' },
@@ -58,8 +66,18 @@ Extraia o item de agenda. Regras:
     const tiposValidos = ['tarefa', 'follow_up', 'ligacao', 'reuniao_preparacao', 'visita', 'cobranca', 'orcamento', 'atendimento', 'documento', 'atividade_interna'];
     const tipoAtividade = tiposValidos.includes(intent.tipo_atividade) ? intent.tipo_atividade : 'tarefa';
 
-    // Agendamento/reunião → evento no calendário
-    if (intent.categoria === 'agendamento') {
+    // Destinatário: para outra pessoa → vira SOLICITAÇÃO no fluxo dela
+    const alvoNome = (intent.destinatario || 'self').trim();
+    const destinatario = alvoNome && alvoNome.toLowerCase() !== 'self'
+      ? usuarios.find(u => (u.full_name || '').toLowerCase() === alvoNome.toLowerCase())
+        || usuarios.find(u => (u.full_name || '').toLowerCase().includes(alvoNome.toLowerCase()))
+      : null;
+
+    const responsavelId = destinatario?.id || user.id;
+    const categoria = destinatario ? 'solicitacao' : (intent.categoria || 'tarefa');
+
+    // Agendamento/reunião para si mesmo → evento no calendário
+    if (categoria === 'agendamento') {
       const evento = await base44.asServiceRole.entities.ScheduleEvent.create({
         created_by_type: 'internal_user',
         created_by_id: user.id,
@@ -87,22 +105,24 @@ Extraia o item de agenda. Regras:
     const tarefa = await base44.asServiceRole.entities.ScheduleTask.create({
       titulo: intent.titulo,
       descricao: intent.descricao || '',
-      categoria: intent.categoria || 'tarefa',
+      categoria,
       status: 'pendente',
       prioridade: intent.prioridade || 'media',
       tipo_atividade: tipoAtividade,
       origem: 'ia',
-      responsavel_id: user.id,
+      responsavel_id: responsavelId,
+      participantes_ids: destinatario ? [user.id] : [],
       prazo_em: quando
     });
 
-    const rotulo = { tarefa: '✅ Tarefa', lembrete: '🔔 Lembrete', retorno: '↩️ Retorno', solicitacao: '📨 Solicitação' }[intent.categoria] || '✅ Tarefa';
+    const rotulo = { tarefa: '✅ Tarefa', lembrete: '🔔 Lembrete', retorno: '↩️ Retorno', solicitacao: '📨 Solicitação' }[categoria] || '✅ Tarefa';
+    const paraQuem = destinatario ? ` → ${destinatario.full_name}` : '';
 
     return Response.json({
       success: true,
       tipo: 'tarefa',
       id: tarefa.id,
-      mensagem: `${rotulo}: ${intent.titulo} — ${intent.data} às ${intent.hora}`
+      mensagem: `${rotulo}${paraQuem}: ${intent.titulo} — ${intent.data} às ${intent.hora}`
     });
 
   } catch (error) {
