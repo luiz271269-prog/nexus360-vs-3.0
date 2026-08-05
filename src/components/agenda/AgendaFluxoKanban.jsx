@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { CATEGORIAS, categoriaDoItem, etapaDoItem, etapasDaCategoria, etapasFinais, etapaInicial, ESPERA } from './agendaFluxos';
 import { ordenar, rotuloQuando } from './agendaModel';
 import AgendaResponsavelAvatar from './AgendaResponsavelAvatar';
+import AgendaOrigemBadge from './AgendaOrigemBadge';
 
 const BARRA = { critica: 'bg-rose-500', alta: 'bg-amber-500', media: 'bg-sky-500', baixa: 'bg-slate-300' };
 const responsavelDoItem = i => i.responsavelId || i.raw?.contexto_ia?.atendente_user_id || null;
@@ -86,6 +87,7 @@ export default function AgendaFluxoKanban({ itens, onAbrir, onAtualizado, usuari
                               <div className="min-w-0 flex-1 px-2.5 py-2">
                                 <p className="truncate text-sm font-semibold text-slate-900">{item.titulo}</p>
                                 {item.contexto && <p className="truncate text-xs text-slate-500">{item.contexto}</p>}
+                                <div className="mt-1"><AgendaOrigemBadge item={item} /></div>
                                 <div className="mt-0.5 flex items-center justify-between gap-2">
                                   <p className="text-[11px] text-slate-400">{rotuloQuando(item)}</p>
                                   <AgendaResponsavelAvatar usuario={usuariosMap[responsavelDoItem(item)] || (responsavelDoItem(item) === usuario?.id ? usuario : null)} />

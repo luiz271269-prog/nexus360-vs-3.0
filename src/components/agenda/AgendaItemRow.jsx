@@ -5,6 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Check, Clock, X, Mail, Loader2, Play, Hourglass, AlertTriangle } from 'lucide-react';
 import { rotuloQuando, diasDeAtraso, nivelUrgencia } from './agendaModel';
 import AgendaCategoriaBadge from './AgendaCategoriaBadge';
+import AgendaOrigemBadge from './AgendaOrigemBadge';
 import AgendaChatButton from './AgendaChatButton';
 
 const BARRA = { critica: 'bg-rose-500', alta: 'bg-amber-500', media: 'bg-sky-500', baixa: 'bg-slate-300' };
@@ -32,7 +33,10 @@ export default function AgendaItemRow({ item, ocupado, onIniciar, onAguardar, on
       </button>
 
       <div className="flex items-center justify-between gap-2">
-        <AgendaCategoriaBadge item={item} />
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <AgendaCategoriaBadge item={item} />
+          <AgendaOrigemBadge item={item} />
+        </div>
         <div className="flex flex-shrink-0 items-center gap-0.5">{ocupado ? <Loader2 className="mx-2 h-4 w-4 animate-spin text-slate-400" /> : <>
           {(item.threadId || item.raw?.contact_id || item.raw?.cliente_id) && <AgendaChatButton item={item} />}
           {email && <Button asChild size="icon" variant="ghost" className="h-8 w-8 text-slate-600 hover:bg-slate-100" title="Enviar e-mail"><Link to={`/Emails?to=${encodeURIComponent(email)}`} onClick={e => e.stopPropagation()}><Mail className="h-4 w-4" /></Link></Button>}
