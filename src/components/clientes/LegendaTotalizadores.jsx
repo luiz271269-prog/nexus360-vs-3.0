@@ -3,19 +3,24 @@ import React from 'react';
 const formatCurrency = (value) =>
   (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' });
 
-// Componente genérico de legenda/totalizadores (fonte única do markup).
-// Recebe as categorias e os totais já calculados pelo wrapper de cada domínio.
+// Componente generico de legenda/totalizadores (fonte unica do markup).
+// Recebe as categorias e os totais ja calculados pelo wrapper de cada dominio.
 export default function LegendaTotalizadores({ categorias = [], totais = {}, categoriaAtiva, onSelecionar }) {
   return (
     <div className="flex flex-wrap gap-2">
       {categorias.map((c) => {
         const t = totais[c.key] || { qtd: 0, valor: 0 };
         const isActive = categoriaAtiva === c.key;
+        const actionLabel = isActive
+          ? 'Clique para desfazer a priorizacao'
+          : `Priorizar ${c.label} no topo das colunas`;
+
         return (
           <button
             key={c.key}
+            type="button"
             onClick={() => onSelecionar?.(isActive ? null : c.key)}
-            title={isActive ? 'Clique para desfazer a priorização' : `Priorizar ${c.label} no topo das colunas`}
+            aria-label={actionLabel}
             className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-all ${c.bg} ${isActive ? c.active + ' shadow-md' : 'border-slate-200 hover:shadow-sm'}`}
           >
             <span className="text-sm leading-none">{c.emoji}</span>
