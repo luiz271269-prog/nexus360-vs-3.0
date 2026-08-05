@@ -458,7 +458,7 @@ Forneça insights sobre margem, oportunidades de bundling e estratégias de prec
           <TabsTrigger
             key={value}
             value={value}
-            className="flex flex-col items-center justify-center gap-2 h-full min-h-[92px] rounded-none whitespace-normal text-center font-normal text-[#E2E8F0]/70 bg-transparent shadow-none data-[state=active]:shadow-none data-[state=active]:text-[#F5C86B] data-[state=active]:bg-gradient-to-b data-[state=active]:from-[#0B1E4A] data-[state=active]:to-[#C79A3C]/70 text-xs pr-2 pl-2 pt-2 mx-1">
+            className="flex flex-col items-center justify-center gap-2 h-full min-h-[92px] rounded-none whitespace-normal text-center font-normal text-[#E2E8F0]/70 bg-transparent shadow-none data-[state=active]:shadow-none data-[state=active]:text-[#F5C86B] data-[state=active]:bg-gradient-to-b data-[state=active]:from-[#0B1E4A] data-[state=active]:to-[#C79A3C]/70 text-xs pr-2 pl-2 pt-2 mx-10">
             
               <Icon className="w-6 h-6" strokeWidth={1.5} />
               <span className="leading-tight">{label}</span>
