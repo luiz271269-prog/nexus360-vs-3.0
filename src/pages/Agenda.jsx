@@ -28,7 +28,7 @@ export default function Agenda() {
   const [usuario, setUsuario] = useState(null);
   const [filtro, setFiltro] = useState(null);
   const [configAberta, setConfigAberta] = useState(false);
-  const [modo, setModo] = useState('dia');
+  const [modo, setModo] = useState('fluxo');
   const [detalhe, setDetalhe] = useState(null);
   const [fluxosAberto, setFluxosAberto] = useState(false);
   const [versaoFluxos, setVersaoFluxos] = useState(0);
@@ -145,7 +145,7 @@ export default function Agenda() {
         )}
 
         {!carregando && !vazio && modo === 'fluxo' && (
-          <AgendaFluxoKanban key={versaoFluxos} itens={visiveis} onAbrir={setDetalhe} onAtualizado={recarregar} />
+          <AgendaFluxoKanban key={versaoFluxos} itens={visiveis} onAbrir={setDetalhe} onAtualizado={recarregar} usuario={usuario} />
         )}
 
         {!carregando && !vazio && modo === 'tipo' && (

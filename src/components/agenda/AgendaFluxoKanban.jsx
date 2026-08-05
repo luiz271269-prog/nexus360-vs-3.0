@@ -1,15 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { CATEGORIAS, categoriaDoItem, etapaDoItem, etapasDaCategoria, etapasFinais, etapaInicial, ESPERA } from './agendaFluxos';
 import { ordenar, rotuloQuando } from './agendaModel';
+import AgendaResponsavelAvatar from './AgendaResponsavelAvatar';
 
 const BARRA = { critica: 'bg-rose-500', alta: 'bg-amber-500', media: 'bg-sky-500', baixa: 'bg-slate-300' };
+const responsavelDoItem = i => i.responsavelId || i.raw?.contexto_ia?.atendente_user_id || null;
 
-export default function AgendaFluxoKanban({ itens, onAbrir, onAtualizado }) {
+export default function AgendaFluxoKanban({ itens, onAbrir, onAtualizado, usuario }) {
   const [categoria, setCategoria] = useState('todas');
   const [movendo, setMovendo] = useState(null);
+  const [usuariosMap, setUsuariosMap] = useState({});
+
+  useEffect(() => {
+    base44.functions.invoke('listarUsuariosParaAtribuicao', {})
+      .then(({ data }) => {
+        const lista = data?.usuarios || data || [];
+        setUsuariosMap(Object.fromEntries(lista.map(u => [u.id, u])));
+      })
+      .catch(() => {});
+  }, []);
+
+  const podeMover = item => {
+    if (!usuario) return false;
+    if (usuario.role === 'admin') return true;
+    return responsavelDoItem(item) === usuario.id || item.raw?.created_by_id === usuario.id;
+  };
   const porTipo = categoria === 'todas';
   const colunas = porTipo ? CATEGORIAS : etapasDaCategoria(categoria);
   const finais = porTipo ? [] : etapasFinais(categoria).map(([v]) => v);
@@ -20,6 +38,7 @@ export default function AgendaFluxoKanban({ itens, onAbrir, onAtualizado }) {
     if (!destination) return;
     const item = doFluxo.find(i => `${i.tipo}-${i.id}` === draggableId);
     if (!item || colunaDoItem(item) === destination.droppableId) return;
+    if (!podeMover(item)) { toast.error('Apenas o responsável ou um administrador pode mover este item'); return; }
     setMovendo(draggableId);
     try {
       const entidade = item.entidade === 'ScheduleEvent' ? 'ScheduleEvent' : 'ScheduleTask';
@@ -58,16 +77,19 @@ export default function AgendaFluxoKanban({ itens, onAbrir, onAtualizado }) {
                     </div>
                     <div className="flex-1 space-y-2 overflow-y-auto p-2">
                       {lista.map((item, index) => (
-                        <Draggable draggableId={`${item.tipo}-${item.id}`} index={index} key={`${item.tipo}-${item.id}`}>
+                        <Draggable draggableId={`${item.tipo}-${item.id}`} index={index} key={`${item.tipo}-${item.id}`} isDragDisabled={!podeMover(item)}>
                           {(p) => (
                             <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
                               onClick={() => onAbrir?.(item)}
                               className={`flex cursor-pointer items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm hover:border-violet-300 ${movendo === `${item.tipo}-${item.id}` ? 'opacity-50' : ''}`}>
                               <div className={`w-1.5 flex-shrink-0 ${BARRA[item.prioridade] || BARRA.media}`} />
-                              <div className="min-w-0 px-2.5 py-2">
+                              <div className="min-w-0 flex-1 px-2.5 py-2">
                                 <p className="truncate text-sm font-semibold text-slate-900">{item.titulo}</p>
                                 {item.contexto && <p className="truncate text-xs text-slate-500">{item.contexto}</p>}
-                                <p className="mt-0.5 text-[11px] text-slate-400">{rotuloQuando(item)}</p>
+                                <div className="mt-0.5 flex items-center justify-between gap-2">
+                                  <p className="text-[11px] text-slate-400">{rotuloQuando(item)}</p>
+                                  <AgendaResponsavelAvatar usuario={usuariosMap[responsavelDoItem(item)] || (responsavelDoItem(item) === usuario?.id ? usuario : null)} />
+                                </div>
                               </div>
                             </div>
                           )}
