@@ -10,7 +10,7 @@ import { toast } from 'sonner';
  * reusando o mesmo ClienteChatDrawer. Resolve o contato pelo contact_id
  * ou thread_id do item da agenda quando necessário.
  */
-export default function AgendaChatButton({ item }) {
+export default function AgendaChatButton({ item, className = 'h-8 w-8' }) {
   const [open, setOpen] = React.useState(false);
   const [carregando, setCarregando] = React.useState(false);
   const [cliente, setCliente] = React.useState(null);
@@ -38,7 +38,7 @@ export default function AgendaChatButton({ item }) {
   };
 
   return <>
-    <Button size="icon" variant="ghost" className="h-8 w-8 text-sky-600 hover:bg-sky-50" title="Abrir conversa" onClick={abrir} disabled={carregando}>
+    <Button size="icon" variant="ghost" className={`${className} text-sky-600 hover:bg-sky-50`} title="Abrir conversa" onClick={abrir} disabled={carregando}>
       {carregando ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
     </Button>
     {open && cliente && <ClienteChatDrawer cliente={cliente} isOpen={open} onClose={() => setOpen(false)} />}

@@ -6,6 +6,7 @@ import { CATEGORIAS, categoriaDoItem, etapaDoItem, etapasDaCategoria, etapasFina
 import { ordenar, rotuloQuando } from './agendaModel';
 import AgendaResponsavelAvatar from './AgendaResponsavelAvatar';
 import AgendaOrigemBadge from './AgendaOrigemBadge';
+import AgendaChatButton from './AgendaChatButton';
 
 const BARRA = { critica: 'bg-rose-500', alta: 'bg-amber-500', media: 'bg-sky-500', baixa: 'bg-slate-300' };
 const responsavelDoItem = i => i.responsavelId || i.raw?.contexto_ia?.atendente_user_id || null;
@@ -84,14 +85,17 @@ export default function AgendaFluxoKanban({ itens, onAbrir, onAtualizado, usuari
                               onClick={() => onAbrir?.(item)}
                               className={`flex cursor-pointer items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm hover:border-violet-300 ${movendo === `${item.tipo}-${item.id}` ? 'opacity-50' : ''}`}>
                               <div className={`w-1.5 flex-shrink-0 ${BARRA[item.prioridade] || BARRA.media}`} />
-                              <div className="min-w-0 flex-1 px-2.5 py-2">
-                                <p className="truncate text-sm font-semibold text-slate-900">{item.titulo}</p>
-                                {item.contexto && <p className="truncate text-xs text-slate-500">{item.contexto}</p>}
-                                <div className="mt-1"><AgendaOrigemBadge item={item} /></div>
-                                <div className="mt-0.5 flex items-center justify-between gap-2">
-                                  <p className="text-[11px] text-slate-400">{rotuloQuando(item)}</p>
-                                  <AgendaResponsavelAvatar usuario={usuariosMap[responsavelDoItem(item)] || (responsavelDoItem(item) === usuario?.id ? usuario : null)} />
+                              <div className="min-w-0 flex-1 px-2 py-1.5">
+                                <p className="truncate text-xs font-semibold leading-tight text-slate-900">{item.titulo}</p>
+                                {item.contexto && <p className="truncate text-[11px] leading-tight text-slate-500">{item.contexto}</p>}
+                                <div className="mt-1 flex items-center gap-1">
+                                  <AgendaOrigemBadge item={item} />
+                                  <span className="ml-auto flex items-center gap-0.5">
+                                    {(item.threadId || item.raw?.contact_id || item.raw?.cliente_id) && <AgendaChatButton item={item} className="h-6 w-6" />}
+                                    <AgendaResponsavelAvatar usuario={usuariosMap[responsavelDoItem(item)] || (responsavelDoItem(item) === usuario?.id ? usuario : null)} />
+                                  </span>
                                 </div>
+                                <p className="mt-0.5 text-[10px] leading-tight text-slate-400">{rotuloQuando(item)}</p>
                               </div>
                             </div>
                           )}
