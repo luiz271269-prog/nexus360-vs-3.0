@@ -10,10 +10,17 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
-const VERSION = 'v1.3.0';
-// 🔧 Vazão: 1 item/execução (6/hora com cron de 10min) não drenava o backlog —
-// perdas de ~128/dia ficavam permanentes. 15 esvazia 58 pendentes em ~4 execuções.
-const BATCH_LIMIT = 15;
+const VERSION = 'v1.4.0';
+// 🔧 Vazão vs tempo de execução: 15 itens/execução estourava o limite de tempo
+// (runs de 127s–303s → 502 no meio do lote, itens presos em 'processing' e
+// 'tentativas' inflando sem drenar). 6 é o maior lote que cabe com folga.
+const BATCH_LIMIT = 3;
+// Medição real: cada item custa ~16s (o fetch reprocessa o webhook inteiro —
+// contato, thread, mensagem, mídia). Com 6 itens e orçamento de 50s a execução
+// ainda morria em 96s, porque a checagem ocorre ENTRE itens: entrava no 4º aos
+// ~48s e gastava mais 16s dentro dele. O orçamento precisa deixar folga de um
+// item inteiro, por isso 20s.
+const TIME_BUDGET_MS = 20_000;
 const ORFAO_TIMEOUT_MS = 15 * 60_000;
 const MAX_DEFAULT = 5;
 const APP_BASE_URL = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions';
@@ -116,9 +123,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const resultados = { total: elegiveis.length, processed: 0, failed: 0, retry: 0, skipped: 0 };
+    const resultados = { total: elegiveis.length, processed: 0, failed: 0, retry: 0, skipped: 0, abortado_por_tempo: false };
 
     for (const wal of elegiveis) {
+      // Para antes de ser morto pela plataforma: o item não tocado permanece
+      // 'pending' e é retomado na próxima execução do cron.
+      if (Date.now() - agoraMs > TIME_BUDGET_MS) {
+        resultados.abortado_por_tempo = true;
+        console.log(`[WAL-WORKER ${VERSION}] ⏱️ orçamento de tempo atingido — encerrando lote`);
+        break;
+      }
+
       // Marcar como processing (otimista — se concorrente pegar, dedup do webhook protege)
       try {
         await base44.asServiceRole.entities.WebhookInboundWAL.update(wal.id, {
