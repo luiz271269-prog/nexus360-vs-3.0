@@ -15,7 +15,7 @@ export default function StickerRecebida({ mediaUrl }) {
     try {
       const user = await base44.auth.me();
       const minhas = await base44.entities.Sticker.filter({ owner_id: user.id, escopo: 'pessoal' });
-      if (minhas.some((s) => s.file_url === mediaUrl)) {
+      if (minhas.some((s) => s.file_url === mediaUrl || s.origem_url === mediaUrl)) {
         setSalva(true);
         return;
       }
@@ -23,11 +23,19 @@ export default function StickerRecebida({ mediaUrl }) {
         alert(`Limite de ${LIMITE_PESSOAL} figurinhas pessoais atingido. Apague alguma para salvar novas.`);
         return;
       }
+      // Re-upload para o storage próprio: URLs de provedor (Z-API/W-API/pps.whatsapp.net)
+      // expiram — sem isso a figurinha salva quebraria na aba "Minhas" depois de dias.
+      const resp = await fetch(mediaUrl);
+      const blob = await resp.blob();
+      const file = new File([blob], `sticker-${Date.now()}.webp`, { type: blob.type || 'image/webp' });
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
       await base44.entities.Sticker.create({
         nome: 'Recebida',
-        file_url: mediaUrl,
+        file_url,
+        origem_url: mediaUrl,
         escopo: 'pessoal',
-        owner_id: user.id
+        owner_id: user.id,
+        tamanho_kb: Math.round(blob.size / 1024)
       });
       setSalva(true);
     } finally {
