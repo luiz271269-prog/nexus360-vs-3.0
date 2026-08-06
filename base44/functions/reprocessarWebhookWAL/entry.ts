@@ -10,16 +10,15 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
-const VERSION = 'v1.4.0';
+const VERSION = 'v1.5.0';
 // 🔧 Vazão vs tempo de execução: 15 itens/execução estourava o limite de tempo
 // (runs de 127s–303s → 502 no meio do lote, itens presos em 'processing' e
-// 'tentativas' inflando sem drenar). 6 é o maior lote que cabe com folga.
+// 'tentativas' inflando sem drenar). 3 é o maior lote que cabe com folga.
 const BATCH_LIMIT = 3;
 // Medição real: cada item custa ~16s (o fetch reprocessa o webhook inteiro —
-// contato, thread, mensagem, mídia). Com 6 itens e orçamento de 50s a execução
-// ainda morria em 96s, porque a checagem ocorre ENTRE itens: entrava no 4º aos
-// ~48s e gastava mais 16s dentro dele. O orçamento precisa deixar folga de um
-// item inteiro, por isso 20s.
+// contato, thread, mensagem, mídia). A checagem de orçamento ocorre ENTRE itens,
+// então o orçamento precisa deixar folga de um item inteiro: com 20s, o worker
+// nunca entra num item novo depois dos 20s e encerra por volta dos 36s.
 const TIME_BUDGET_MS = 20_000;
 const ORFAO_TIMEOUT_MS = 15 * 60_000;
 const MAX_DEFAULT = 5;
@@ -31,10 +30,21 @@ function resolveWebhookBaseUrl(body) {
   return APP_BASE_URL;
 }
 
+// Provider desconhecido NÃO cai mais em ZAPI por omissão: retorna null e o item
+// é marcado 'failed' com motivo explícito, em vez de replay no endpoint errado.
 function getWebhookUrl(provider, webhookBaseUrl) {
   const p = String(provider || '').toLowerCase();
-  const fn = (p === 'w_api' || p === 'w_api_integrator') ? 'webhookWapi' : 'webhookFinalZapi';
-  return `${webhookBaseUrl}/${fn}`;
+  if (p === 'w_api' || p === 'w_api_integrator') return `${webhookBaseUrl}/webhookWapi`;
+  if (p === 'z_api') return `${webhookBaseUrl}/webhookFinalZapi`;
+  return null;
+}
+
+// Timestamps do Base44 chegam sem 'Z'. Date.parse os interpretaria como horário
+// LOCAL do runtime, deslocando comparações de backoff/órfão em horas.
+function parseBase44Date(value) {
+  if (!value) return NaN;
+  const s = String(value);
+  return Date.parse(/[zZ]|[+-]\d\d:\d\d$/.test(s) ? s : `${s}Z`);
 }
 
 function nextAttemptDate(tentativas) {
@@ -56,9 +66,14 @@ Deno.serve(async (req) => {
     }
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
-    const limit = Math.min(body.limit || BATCH_LIMIT, 100);
+    // Limite seguro: valores negativos/NaN faziam slice(0, -1) pegar quase todos
+    // os elegíveis e estourar o timeout. Sempre entre 1 e BATCH_LIMIT.
+    const rawLimit = Number.parseInt(String(body.limit ?? BATCH_LIMIT), 10);
+    const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : BATCH_LIMIT, 1), BATCH_LIMIT);
     const dryRun = body.dry_run === true;
-    const webhookBaseUrl = resolveWebhookBaseUrl(body);
+    // Override de destino do replay é privilégio de admin: caller anônimo não pode
+    // redirecionar payloads brutos para endpoint externo.
+    const webhookBaseUrl = user?.role === 'admin' ? resolveWebhookBaseUrl(body) : APP_BASE_URL;
 
     const agora = new Date().toISOString();
 
@@ -73,7 +88,7 @@ Deno.serve(async (req) => {
       );
       let resgatados = 0;
       for (const w of travados) {
-        const refMs = Date.parse(w.last_attempt_at || w.updated_date || '');
+        const refMs = parseBase44Date(w.last_attempt_at || w.updated_date);
         if (!Number.isFinite(refMs) || (agoraMs - refMs) <= ORFAO_TIMEOUT_MS) continue;
         await base44.asServiceRole.entities.WebhookInboundWAL.update(w.id, {
           status: 'pending',
@@ -101,7 +116,7 @@ Deno.serve(async (req) => {
     // Comparação NUMÉRICA (timestamps gravados sem 'Z' quebram comparação textual).
     const elegiveis = pendingTodos.filter(w => {
       if (!w.next_attempt_at) return true;
-      const t = Date.parse(w.next_attempt_at);
+      const t = parseBase44Date(w.next_attempt_at);
       return !Number.isFinite(t) || t <= agoraMs;
     }).slice(0, limit);
 
@@ -132,6 +147,17 @@ Deno.serve(async (req) => {
         resultados.abortado_por_tempo = true;
         console.log(`[WAL-WORKER ${VERSION}] ⏱️ orçamento de tempo atingido — encerrando lote`);
         break;
+      }
+
+      // Provider inválido/ausente: falha explícita, sem replay às cegas na ZAPI.
+      const webhookUrlValidado = getWebhookUrl(wal.provider, webhookBaseUrl);
+      if (!webhookUrlValidado) {
+        await base44.asServiceRole.entities.WebhookInboundWAL.update(wal.id, {
+          status: 'failed',
+          erro_ultimo: `provider_desconhecido: ${String(wal.provider || 'null')}`
+        });
+        resultados.failed++;
+        continue;
       }
 
       // Marcar como processing (otimista — se concorrente pegar, dedup do webhook protege)
@@ -169,7 +195,7 @@ Deno.serve(async (req) => {
 
       // Reenviar para endpoint HTTP do webhook correspondente (simula chamada real do provedor)
       // — evita o 403 que ocorre via base44.asServiceRole.functions.invoke() em contexto admin.
-      const webhookUrl = getWebhookUrl(wal.provider, webhookBaseUrl);
+      const webhookUrl = webhookUrlValidado;
       const novasTentativas = (wal.tentativas || 0) + 1;
       const maxT = wal.max_tentativas || MAX_DEFAULT;
 
