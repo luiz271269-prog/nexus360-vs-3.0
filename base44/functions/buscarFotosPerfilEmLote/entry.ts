@@ -24,8 +24,10 @@ Deno.serve(async (req) => {
       const candidatos = await base44.asServiceRole.entities.Contact.list('foto_perfil_atualizada_em', 100);
       ids = candidatos
         .filter((c) => {
+          // Só telefone canônico brasileiro plausível: 55 + DDD + 8/9 dígitos.
+          // Bloqueia JIDs de grupo e números contaminados (ex.: 260403917500667).
           const tel = String(c.telefone_canonico || c.telefone || '').replace(/\D/g, '');
-          if (tel.length < 10) return false;
+          if (!/^55\d{10,11}$/.test(tel)) return false;
           const foto = String(c.foto_perfil_url || '').trim();
           const permanente = /^https?:\/\//i.test(foto) && !foto.includes('pps.whatsapp.net') && !/w-api|z-api|whatsapp/i.test(foto);
           if (permanente) return false;
