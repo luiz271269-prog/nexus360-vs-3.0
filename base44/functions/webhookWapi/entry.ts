@@ -1,4 +1,4 @@
-// redeploy: 2026-05-22T18:00-WH3-CHIPS-SDK025
+// redeploy: 2026-08-06T14:50-FOTO-PERFIL-NAO-BLOQUEANTE
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // ╔════════════════════════════════════════════════════════════════════════╗
@@ -1104,8 +1104,12 @@ async function handleMessage(dados, payloadBruto, base44, requestHeaders) {
     }
   }
 
-  // A URL pps.whatsapp.net é temporária. Baixa e salva no storage antes de seguir.
-  contato = await persistirFotoPerfil(base44, contato, profilePicUrl, requestHeaders);
+  // ⚡ FOTO DE PERFIL — NÃO-BLOQUEANTE. Antes era awaited aqui e podia consumir
+  // até 52s (12s download + 25s upload + 15s PUT), matando a função ANTES do
+  // Message.create: o WAL ficava gravado e a mensagem nunca aparecia no chat.
+  // O job buscarFotosPerfilEmLote/resolverFotoPerfil cobre as fotos em background.
+  persistirFotoPerfil(base44, contato, profilePicUrl, requestHeaders)
+    .catch(e => console.warn('[WAPI-PROFILE] ⚠️ foto async falhou:', e?.message));
 
   // BUSCAR/CRIAR THREAD — com WH-2: re-eleição de canônica + double-check anti-race
   let thread = null;

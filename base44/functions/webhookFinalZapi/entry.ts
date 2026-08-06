@@ -1,4 +1,4 @@
-// redeploy: 2026-05-22T18:00-WH3-CHIPS-SDK025
+// redeploy: 2026-08-06T14:50-FOTO-PERFIL-NAO-BLOQUEANTE
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 // Fonte: functions/lib/phoneNormalizer.js (inlined — Deno não suporta imports locais)
@@ -1052,7 +1052,9 @@ async function handleMessage(dados, payloadBruto, base44) {
 
   // FOTO DE PERFIL — a URL da Z-API é temporária: baixa e salva permanente
   const profilePicUrlZapi = payloadBruto.senderPhoto || payloadBruto.photo || payloadBruto.profilePicture || null;
-  contato = await persistirFotoPerfilZapi(base44, contato, profilePicUrlZapi);
+  // ⚡ NÃO-BLOQUEANTE — mesmo motivo do webhookWapi (ver comentário lá).
+  persistirFotoPerfilZapi(base44, contato, profilePicUrlZapi)
+    .catch(e => console.warn('[ZAPI-PROFILE] ⚠️ foto async falhou:', e?.message));
 
   // 🔧 CAMADA 2: limparContatosDuplicados removido (carregava 2000 contatos por mensagem sem filtro — waste crítico)
 
