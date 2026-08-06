@@ -1206,6 +1206,15 @@ async function handleMessage(dados, payloadBruto, base44) {
           } catch { /* não-bloqueante */ }
         }
         marcarComoProcessado(dados.messageId);
+        // ✅ WAL — a Message já existe: encerrar o registro em vez de deixá-lo pending eterno
+        if (walId) {
+          base44.asServiceRole.entities.WebhookInboundWAL.update(walId, {
+            status: 'processed',
+            processed_message_id: recheckMsg[0].id,
+            integration_id: integracaoId,
+            erro_ultimo: 'duplicata_whatsapp_message_id'
+          }).catch(e => console.warn(`[${VERSION}] ⚠️ WAL update→processed (dup id) falhou:`, e.message));
+        }
         return jsonOk({
           success: true,
           ignored: true,
@@ -1241,6 +1250,15 @@ async function handleMessage(dados, payloadBruto, base44) {
       );
       if (duplicadaPorConteudo) {
         console.log(`[${VERSION}] ⏭️ DUPLICATA POR CONTEÚDO (60s, sem messageId): ${duplicadaPorConteudo.id}`);
+        // ✅ WAL — mesma mensagem já persistida: encerrar o registro
+        if (walId) {
+          base44.asServiceRole.entities.WebhookInboundWAL.update(walId, {
+            status: 'processed',
+            processed_message_id: duplicadaPorConteudo.id,
+            integration_id: integracaoId,
+            erro_ultimo: 'duplicata_conteudo'
+          }).catch(e => console.warn(`[${VERSION}] ⚠️ WAL update→processed (dup conteúdo) falhou:`, e.message));
+        }
         return jsonOk({ success: true, ignored: true, reason: 'duplicata_conteudo' });
       }
     } catch (err) {
