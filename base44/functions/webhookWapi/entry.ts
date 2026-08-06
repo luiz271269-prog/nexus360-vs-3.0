@@ -351,7 +351,10 @@ function classifyWapiEvent(payload) {
     return 'connection-status';
   }
 
+  // ✅ FIX: o espelho de mensagem enviada chega como webhookDelivery COM msgContent.
+  // Testar conteúdo ANTES do nome do evento, senão o sync outbound morre aqui.
   if (evento === 'webhookdelivery' || evento === 'webhookdelivered') {
+    if (payload.msgContent && payload.messageId) return 'user-message';
     return 'system-status-delivery';
   }
 
@@ -496,8 +499,10 @@ function normalizarPayload(payload) {
     const temConteudoMensagem = payload.text || payload.body || payload.msgContent || payload.message;
     const temIndicadoresMensagem = payload.pushName || payload.senderName;
     // ✅ fromMe=true COM msgContent também é mensagem real (sync WA Web)
+    // ✅ FIX: a W-API não envia payload.phone — o telefone vem em chat.id/sender.id
+    const _temTelefone = payload.phone || payload.from || payload.sender?.id || payload.chat?.id;
     const ehMensagemReal = payload.messageId &&
-                           payload.phone &&
+                           _temTelefone &&
                            (payload.fromMe === false || (payload.fromMe === true && payload.msgContent)) &&
                            (temConteudoMensagem || temIndicadoresMensagem);
 
@@ -1540,10 +1545,13 @@ Deno.serve(async (req) => {
 
   // Eventos sem necessidade de processamento (delivery/status/broadcast/ignore/conexão):
   // retorno imediato, SEM criar cliente nem auditoria. Conexão é tratada depois (precisa de DB).
+  // ✅ FIX: system-status-delivery COM messageId precisa do banco para atualizar
+  // o status da Message (entregue/lida) — não pode ser descartado aqui.
   const ehSomenteStatus = (
     classification === 'system-status' ||
-    classification === 'system-status-delivery' ||
-    classification === 'ignore'
+    classification === 'ignore' ||
+    (classification === 'system-status-delivery' &&
+      !(payload.messageId || payload.id || (Array.isArray(payload.ids) && payload.ids.length > 0)))
   );
   if (ehSomenteStatus || (motivoIgnorar && classification !== 'connection-status')) {
     console.log('[WAPI] ⏭️ Descartado antes do banco:', motivoIgnorar || classification);
