@@ -750,6 +750,40 @@ async function recuperarMidiaPendenteDup(base44, msgExistente, dados) {
   }
 }
 
+// Baixa a foto de perfil temporária do WhatsApp e salva no storage permanente.
+// Sem isso, o avatar do contato expira em ~24h e a UI cai para as iniciais.
+async function persistirFotoPerfilZapi(base44, contato, profilePicUrl) {
+  if (!contato?.id || !profilePicUrl) return contato;
+  const atual = String(contato.foto_perfil_url || '');
+  if (atual && !atual.includes('whatsapp.net')) return contato;
+
+  try {
+    const download = await fetch(profilePicUrl, { signal: AbortSignal.timeout(12000) });
+    if (!download.ok) throw new Error(`download_status_${download.status}`);
+    const contentType = (download.headers.get('content-type') || 'image/jpeg').split(';')[0];
+    if (!contentType.startsWith('image/')) throw new Error('conteudo_nao_imagem');
+    const bytes = await download.arrayBuffer();
+    if (!bytes.byteLength) throw new Error('imagem_vazia');
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+    const file = new File([bytes], `perfil_${contato.id}_${Date.now()}.${ext}`, { type: contentType });
+    const upload = await Promise.race([
+      base44.asServiceRole.integrations.Core.UploadFile({ file }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('upload_timeout_25s')), 25000))
+    ]);
+    if (!upload?.file_url) throw new Error('upload_sem_url');
+    const agora = new Date().toISOString();
+    await base44.asServiceRole.entities.Contact.update(contato.id, {
+      foto_perfil_url: upload.file_url,
+      foto_perfil_atualizada_em: agora
+    });
+    console.log(`[ZAPI-PROFILE] ✅ Foto permanente salva: ${contato.id}`);
+    return { ...contato, foto_perfil_url: upload.file_url, foto_perfil_atualizada_em: agora };
+  } catch (error) {
+    console.warn(`[ZAPI-PROFILE] ⚠️ Persistência falhou para ${contato.id}:`, error.message);
+    return contato;
+  }
+}
+
 async function handleMessage(dados, payloadBruto, base44) {
   const inicio = Date.now();
   const _tsInicio = Date.now();
@@ -1015,6 +1049,10 @@ async function handleMessage(dados, payloadBruto, base44) {
       return jsonServerError({ success: false, error: 'erro_contato' });
     }
   }
+
+  // FOTO DE PERFIL — a URL da Z-API é temporária: baixa e salva permanente
+  const profilePicUrlZapi = payloadBruto.senderPhoto || payloadBruto.photo || payloadBruto.profilePicture || null;
+  contato = await persistirFotoPerfilZapi(base44, contato, profilePicUrlZapi);
 
   // 🔧 CAMADA 2: limparContatosDuplicados removido (carregava 2000 contatos por mensagem sem filtro — waste crítico)
 
