@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
 // ==========================================================
 // RESOLVEDOR ÚNICO DE FOTO DE PERFIL — todos os provedores
+// v3.3: fallback ordenado por provider de origem + uso recente (máx. 2)
 // ==========================================================
 // Regra centralizada: a foto de um número é procurada em TODAS as instâncias
 // conectadas de TODOS os provedores (Z-API e W-API), em paralelo, porque cada
@@ -86,9 +87,21 @@ Deno.serve(async (req) => {
     const demais = utilizaveis.filter((i) => !ehPrioritaria(i));
 
     // 1º: consulta pela instância de origem da conversa; 2º: fallback nas demais
+    // Fallback ordenado por prioridade real (utilizaveis já são só status=conectado):
+    // 1) mesmo provider da integração de origem; 2) uso mais recente (lista vem
+    // ordenada por -updated_date). Limite de 2 fallbacks para caber no tempo de execução.
+    const providersOrigem = new Set(prioritarias.map((i) => i.api_provider));
+    const fallbackOrdenado = [...demais].sort((a, b) => {
+      const pesoA = providersOrigem.has(a.api_provider) ? 0 : 1;
+      const pesoB = providersOrigem.has(b.api_provider) ? 0 : 1;
+      if (pesoA !== pesoB) return pesoA - pesoB;
+      return new Date(b.updated_date || 0).getTime() - new Date(a.updated_date || 0).getTime();
+    });
+
     let resultados = prioritarias.length > 0 ? await Promise.all(prioritarias.map(consultar)) : [];
     if (!resultados.some((r) => r.link)) {
-      resultados = resultados.concat(await Promise.all(demais.map(consultar)));
+      const fallback = prioritarias.length > 0 ? fallbackOrdenado.slice(0, 2) : fallbackOrdenado;
+      resultados = resultados.concat(await Promise.all(fallback.map(consultar)));
     }
     const tentativas = resultados.map((r) => ({ instance: r.instance, provider: r.provider, resultado: r.resultado }));
 
@@ -112,7 +125,10 @@ Deno.serve(async (req) => {
     }
 
     // Persistência permanente: baixa a URL temporária e sobe para o storage
+    const t0 = Date.now();
+    console.log('[FOTO] inicio_download');
     const download = await fetch(link, { signal: AbortSignal.timeout(15000) });
+    console.log('[FOTO] download_ok em', Date.now() - t0, 'ms status', download.status);
     if (!download.ok) throw new Error(`download_status_${download.status}`);
     const contentType = (download.headers.get('content-type') || 'image/jpeg').split(';')[0];
     if (!contentType.startsWith('image/')) throw new Error('conteudo_nao_imagem');
@@ -120,18 +136,31 @@ Deno.serve(async (req) => {
     const extensao = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
     const file = new File([bytes], `perfil_${contactId}_${Date.now()}.${extensao}`, { type: contentType });
 
-    const enviar = () => Promise.race([
+    console.log('[FOTO] inicio_upload bytes', bytes.byteLength, 'em', Date.now() - t0, 'ms');
+    const upload = await Promise.race([
       base44.asServiceRole.integrations.Core.UploadFile({ file }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('upload_timeout_25s')), 25000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('upload_timeout_20s')), 20000))
     ]);
-    let upload = await enviar().catch(() => null);
-    if (!upload?.file_url) upload = await enviar();
+    console.log('[FOTO] upload_ok em', Date.now() - t0, 'ms');
     if (!upload?.file_url) throw new Error('upload_sem_url');
 
-    await base44.asServiceRole.entities.Contact.update(contactId, {
-      foto_perfil_url: upload.file_url,
-      foto_perfil_atualizada_em: new Date().toISOString()
+    // ✅ API REST DIRETA: o SDK trava pós-UploadFile (mesmo padrão do persistirMidiaWapi).
+    const appId = Deno.env.get('BASE44_APP_ID');
+    const rUpd = await fetch(`https://base44.app/api/apps/${appId}/entities/Contact/${contactId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': req.headers.get('authorization') || '',
+        'api_key': req.headers.get('api_key') || '',
+        'Content-Type': 'application/json'
+      },
+      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({
+        foto_perfil_url: upload.file_url,
+        foto_perfil_atualizada_em: new Date().toISOString()
+      })
     });
+    if (!rUpd.ok) throw new Error(`update_api_http_${rUpd.status}`);
+    console.log('[FOTO] update_ok em', Date.now() - t0, 'ms');
 
     return Response.json({
       success: true,

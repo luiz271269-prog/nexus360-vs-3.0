@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
 // Processador controlado por IDs explícitos. Nunca seleciona contatos por data.
 // dryRun aceita até 5 IDs; execução real é obrigatoriamente unitária.
+// Delega a resolução ao resolverFotoPerfil (v3.3).
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
