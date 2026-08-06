@@ -516,8 +516,7 @@ Deno.serve(async (req) => {
       return jsonBadRequest({ success: false, error: 'json_invalido' });
     }
 
-    console.log(`[${VERSION}] 📥 Payload recebido (1/2):`, JSON.stringify(payload).substring(0, 1000));
-    console.log(`[${VERSION}] 📥 Carga recebida (2/2):`, JSON.stringify(payload).substring(1000, 2000));
+    console.log(`[${VERSION}] 📥 Payload:`, JSON.stringify(payload).substring(0, 800));
 
     // ✅ FILTRO PRÉ-SDK: eventos de telemetria Z-API (presence/typing/delivery/call/etc)
     // são descartados ANTES de criar createClientFromRequest e ANTES de gravar

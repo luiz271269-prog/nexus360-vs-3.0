@@ -107,17 +107,9 @@ async function getChipsInternosWapi(base44) {
   return _cacheChipsPromise;
 }
 
-console.log('╔════════════════════════════════════════════════════════════════╗');
-console.log('║  🚀 W-API WEBHOOK v27 - RETRY+CACHE+DEDUP                     ║');
-console.log('╠════════════════════════════════════════════════════════════════╣');
-console.log(`║  📅 BUILD: ${BUILD_DATE}                          ║`);
-console.log(`║  🆔 DEPLOY: ${DEPLOYMENT_ID}             ║`);
-console.log('║  🔧 FIX: downloadSpec vazio nunca chega ao worker             ║');
-console.log('║  🔧 FIX: url||link (Auto Download) como fast-path             ║');
-console.log('║  🔧 FIX: failed_download imediato quando sem dados            ║');
-console.log('║  🔧 FIX: messageContextInfo não salva mais msg sem conteúdo   ║');
-console.log('║  🔧 FIX: reactionMessage/protocolMessage/editedMessage ignored ║');
-console.log('╚════════════════════════════════════════════════════════════════╝');
+// Stamp de boot — 1 linha por cold start (banner de 11 linhas removido:
+// cada request sobe um isolate novo, o banner enterrava os logs úteis).
+console.log(`[WAPI] boot ${VERSION} | ${DEPLOYMENT_ID} | BUILD=${BUILD_DATE}`);
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -147,7 +139,7 @@ function redigirPayloadParaLog(payload) {
     .replace(/"JPEGThumbnail":"[^"]*"/g, '"JPEGThumbnail":"[thumb]"')
     .replace(/"jpegThumbnail":"[^"]*"/g, '"jpegThumbnail":"[thumb]"')
     .replace(/"(profilePicture|profilePicThumbObj|eurl|URL|url|directPath|fileLink)":"https?:\/\/[^"]*"/g, '"$1":"[url]"')
-    .substring(0, 1500);
+    .substring(0, 800);
 }
 
 // phoneNormalizer v2.0 — canônica sincronizada em todos os arquivos
