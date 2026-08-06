@@ -111,10 +111,19 @@ Deno.serve(async (req) => {
     const instanciaUsada = vencedor?.instance || null;
 
     if (!link) {
+      // Sem foto pública: marca só a data da tentativa (cooldown). Não zera a foto
+      // existente e usa REST — o SDK é reservado a leituras nesta função.
       if (contactId && persistir) {
-        await base44.asServiceRole.entities.Contact.update(contactId, {
-          foto_perfil_url: '',
-          foto_perfil_atualizada_em: new Date().toISOString()
+        const appIdNeg = Deno.env.get('BASE44_APP_ID');
+        await fetch(`https://base44.app/api/apps/${appIdNeg}/entities/Contact/${contactId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': req.headers.get('authorization') || '',
+            'api_key': req.headers.get('api_key') || '',
+            'Content-Type': 'application/json'
+          },
+          signal: AbortSignal.timeout(15000),
+          body: JSON.stringify({ foto_perfil_atualizada_em: new Date().toISOString() })
         }).catch(() => null);
       }
       return Response.json({ success: true, link: null, file_url: null, tentativas });

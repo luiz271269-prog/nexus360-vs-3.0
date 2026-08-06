@@ -11,15 +11,39 @@ Deno.serve(async (req) => {
     if (user.role !== 'admin') return Response.json({ error: 'Acesso restrito a administradores' }, { status: 403 });
 
     const body = await req.json().catch(() => ({}));
-    const ids = [...new Set(Array.isArray(body?.ids) ? body.ids.map(String).filter(Boolean) : [])];
+    let ids = [...new Set(Array.isArray(body?.ids) ? body.ids.map(String).filter(Boolean) : [])];
+    const idsExplicitos = ids.length > 0;
     const dryRun = body?.dryRun !== false;
     const limiteSolicitado = Number(body?.limite) || (dryRun ? 3 : 1);
-    const limite = dryRun ? Math.max(1, Math.min(limiteSolicitado, 5)) : 1;
+    // Sem ids => modo automático (job noturno): seleciona candidatos, no máx. 2 por execução.
+    const limite = idsExplicitos ? (dryRun ? Math.max(1, Math.min(limiteSolicitado, 5)) : 1) : 2;
+
+    if (!idsExplicitos) {
+      const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+      const agora = Date.now();
+      const candidatos = await base44.asServiceRole.entities.Contact.list('foto_perfil_atualizada_em', 100);
+      ids = candidatos
+        .filter((c) => {
+          const tel = String(c.telefone_canonico || c.telefone || '').replace(/\D/g, '');
+          if (tel.length < 10) return false;
+          const foto = String(c.foto_perfil_url || '').trim();
+          const permanente = /^https?:\/\//i.test(foto) && !foto.includes('pps.whatsapp.net') && !/w-api|z-api|whatsapp/i.test(foto);
+          if (permanente) return false;
+          const tentadoEm = c.foto_perfil_atualizada_em ? new Date(c.foto_perfil_atualizada_em).getTime() : 0;
+          return agora - tentadoEm > COOLDOWN_MS;
+        })
+        .slice(0, limite)
+        .map((c) => c.id);
+
+      if (!ids.length) {
+        return Response.json({ success: true, dryRun, modo: 'automatico', processados: 0, resultados: [], motivo: 'sem_candidatos' });
+      }
+    }
 
     if (!ids.length) {
       return Response.json({ success: false, error: 'ids_obrigatorios', dryRun }, { status: 400 });
     }
-    if (!dryRun && ids.length > 1) {
+    if (idsExplicitos && !dryRun && ids.length > 1) {
       return Response.json({
         success: false,
         error: 'execucao_real_unitaria_obrigatoria',
