@@ -11,7 +11,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
 const VERSION = 'v1.2.0';
-const BATCH_LIMIT = 50;
+const BATCH_LIMIT = 1;
+const ORFAO_TIMEOUT_MS = 15 * 60_000;
 const MAX_DEFAULT = 5;
 const APP_BASE_URL = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions';
 
@@ -51,6 +52,31 @@ Deno.serve(async (req) => {
     const webhookBaseUrl = resolveWebhookBaseUrl(body);
 
     const agora = new Date().toISOString();
+
+    // 🔧 RESGATE DE ÓRFÃOS: execuções que morreram (502/timeout) deixam registros
+    // presos em 'processing' para sempre. Devolve para 'pending' os que não têm
+    // sinal de vida há mais de 15min. Comparação NUMÉRICA (timestamps sem 'Z'
+    // quebram comparação textual). 'tentativas' é preservado para auditoria.
+    const agoraMs = Date.now();
+    try {
+      const travados = await base44.asServiceRole.entities.WebhookInboundWAL.filter(
+        { status: 'processing' }, 'created_date', 100
+      );
+      let resgatados = 0;
+      for (const w of travados) {
+        const refMs = Date.parse(w.last_attempt_at || w.updated_date || '');
+        if (!Number.isFinite(refMs) || (agoraMs - refMs) <= ORFAO_TIMEOUT_MS) continue;
+        await base44.asServiceRole.entities.WebhookInboundWAL.update(w.id, {
+          status: 'pending',
+          next_attempt_at: new Date(agoraMs).toISOString(),
+          erro_ultimo: 'processing_orfao_resgatado'
+        });
+        resgatados++;
+      }
+      if (resgatados > 0) console.log(`[WAL-WORKER] ♻️ órfãos resgatados: ${resgatados}`);
+    } catch (e) {
+      console.warn(`[WAL-WORKER] resgate de órfãos falhou: ${e.message}`);
+    }
 
     // Buscar WALs elegíveis: pending + next_attempt_at <= agora (ou null)
     const pendingTodos = await base44.asServiceRole.entities.WebhookInboundWAL.filter(
