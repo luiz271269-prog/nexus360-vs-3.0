@@ -8,7 +8,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 // instância só "vê" a foto de quem tem aquele número salvo (privacidade
 // "Meus contatos"). A primeira instância que devolver link válido resolve.
 //
-// Entrada: { phone, contact_id?, persistir? } — v3.1
+// v3.2: PRIORIDADE para a instância por onde a conversa chegou (thread do
+// contato / conexao_origem) — consulta essa primeiro; só se ela não tiver a
+// foto, consulta as demais em paralelo como fallback.
+//
+// Entrada: { phone, contact_id?, persistir?, integration_id? }
 // Saída:   { success, link, file_url, provider, instance_id, tentativas }
 
 Deno.serve(async (req) => {
@@ -61,7 +65,31 @@ Deno.serve(async (req) => {
       }
     };
 
-    const resultados = await Promise.all(utilizaveis.map(consultar));
+    // ── Descobrir a(s) integração(ões) por onde a conversa/mensagem chegou ──
+    const idsPrioritarios = new Set();
+    if (body?.integration_id) idsPrioritarios.add(String(body.integration_id));
+    if (contactId) {
+      const [contato, threads] = await Promise.all([
+        base44.asServiceRole.entities.Contact.get(contactId).catch(() => null),
+        base44.asServiceRole.entities.MessageThread.filter({ contact_id: contactId }, '-last_message_at', 5).catch(() => [])
+      ]);
+      if (contato?.conexao_origem) idsPrioritarios.add(String(contato.conexao_origem));
+      for (const t of (threads || [])) {
+        if (t.whatsapp_integration_id) idsPrioritarios.add(String(t.whatsapp_integration_id));
+        for (const oid of (t.origin_integration_ids || [])) idsPrioritarios.add(String(oid));
+        if (t.conexao_id) idsPrioritarios.add(String(t.conexao_id));
+      }
+    }
+
+    const ehPrioritaria = (i) => idsPrioritarios.has(String(i.id)) || idsPrioritarios.has(String(i.instance_id_provider));
+    const prioritarias = utilizaveis.filter(ehPrioritaria);
+    const demais = utilizaveis.filter((i) => !ehPrioritaria(i));
+
+    // 1º: consulta pela instância de origem da conversa; 2º: fallback nas demais
+    let resultados = prioritarias.length > 0 ? await Promise.all(prioritarias.map(consultar)) : [];
+    if (!resultados.some((r) => r.link)) {
+      resultados = resultados.concat(await Promise.all(demais.map(consultar)));
+    }
     const tentativas = resultados.map((r) => ({ instance: r.instance, provider: r.provider, resultado: r.resultado }));
 
     const vencedor = resultados.find((r) => r.link);
