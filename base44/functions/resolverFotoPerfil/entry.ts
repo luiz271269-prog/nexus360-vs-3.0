@@ -17,6 +17,12 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 // Saída:   { success, link, file_url, provider, instance_id, tentativas }
 
 Deno.serve(async (req) => {
+  // 🔎 DIAGNÓSTICO NO CORPO DA RESPOSTA: console.log dentro do handler é
+  // descartado pela plataforma. 'etapa' + 'marcos' revelam exatamente onde
+  // o tempo é gasto e em qual passo a persistência falhou.
+  let etapa = 'init';
+  const marcos = {};
+  const tReq = Date.now();
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -25,11 +31,16 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const contactId = body?.contact_id || null;
     const persistir = body?.persistir !== false;
+    // Modo de isolamento: grava o link externo direto no Contact, sem
+    // download/UploadFile. Se passar rápido, o gargalo é o upload; se falhar,
+    // o gargalo é o Contact.update.
+    const skipUpload = body?.skipUpload === true;
     const phone = String(body?.phone || '').replace(/\D/g, '');
     if (phone.length < 10) {
       return Response.json({ success: false, error: 'telefone_invalido' }, { status: 400 });
     }
 
+    etapa = 'listar_integracoes';
     const integracoes = await base44.asServiceRole.entities.WhatsAppIntegration.list('-updated_date', 100);
     const utilizaveis = integracoes.filter((i) =>
       i.status === 'conectado' && i.instance_id_provider && i.api_key_provider
@@ -98,6 +109,7 @@ Deno.serve(async (req) => {
       return new Date(b.updated_date || 0).getTime() - new Date(a.updated_date || 0).getTime();
     });
 
+    etapa = 'consultar_provedores';
     let resultados = prioritarias.length > 0 ? await Promise.all(prioritarias.map(consultar)) : [];
     if (!resultados.some((r) => r.link)) {
       const fallback = prioritarias.length > 0 ? fallbackOrdenado.slice(0, 2) : fallbackOrdenado;
@@ -133,11 +145,38 @@ Deno.serve(async (req) => {
       return Response.json({ success: true, link, file_url: null, provider: providerUsado, instance_id: instanciaUsada, tentativas });
     }
 
+    marcos.link_ms = Date.now() - tReq;
+
+    // 🔎 MODO ISOLAMENTO: pula download+upload e grava o link externo direto.
+    if (skipUpload) {
+      etapa = 'skip_upload_contact_update';
+      const appIdSkip = Deno.env.get('BASE44_APP_ID');
+      const rSkip = await fetch(`https://base44.app/api/apps/${appIdSkip}/entities/Contact/${contactId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': req.headers.get('authorization') || '',
+          'api_key': req.headers.get('api_key') || '',
+          'Content-Type': 'application/json'
+        },
+        signal: AbortSignal.timeout(15000),
+        body: JSON.stringify({
+          foto_perfil_url: link,
+          foto_perfil_atualizada_em: new Date().toISOString()
+        })
+      });
+      marcos.update_ms = Date.now() - tReq;
+      return Response.json({
+        success: rSkip.ok, modo: 'skip_upload', http_update: rSkip.status,
+        link, file_url: null, provider: providerUsado, instance_id: instanciaUsada,
+        tentativas, marcos
+      });
+    }
+
     // Persistência permanente: baixa a URL temporária e sobe para o storage
-    const t0 = Date.now();
-    console.log('[FOTO] inicio_download');
+    etapa = 'download';
     const download = await fetch(link, { signal: AbortSignal.timeout(15000) });
-    console.log('[FOTO] download_ok em', Date.now() - t0, 'ms status', download.status);
+    marcos.download_ms = Date.now() - tReq;
+    marcos.download_status = download.status;
     if (!download.ok) throw new Error(`download_status_${download.status}`);
     const contentType = (download.headers.get('content-type') || 'image/jpeg').split(';')[0];
     if (!contentType.startsWith('image/')) throw new Error('conteudo_nao_imagem');
@@ -145,13 +184,15 @@ Deno.serve(async (req) => {
     const extensao = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
     const file = new File([bytes], `perfil_${contactId}_${Date.now()}.${extensao}`, { type: contentType });
 
-    console.log('[FOTO] inicio_upload bytes', bytes.byteLength, 'em', Date.now() - t0, 'ms');
+    marcos.bytes = bytes.byteLength;
+    etapa = 'upload';
     const upload = await Promise.race([
       base44.asServiceRole.integrations.Core.UploadFile({ file }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('upload_timeout_20s')), 20000))
     ]);
-    console.log('[FOTO] upload_ok em', Date.now() - t0, 'ms');
+    marcos.upload_ms = Date.now() - tReq;
     if (!upload?.file_url) throw new Error('upload_sem_url');
+    etapa = 'contact_update';
 
     // ✅ API REST DIRETA: o SDK trava pós-UploadFile (mesmo padrão do persistirMidiaWapi).
     const appId = Deno.env.get('BASE44_APP_ID');
@@ -168,8 +209,10 @@ Deno.serve(async (req) => {
         foto_perfil_atualizada_em: new Date().toISOString()
       })
     });
+    marcos.update_ms = Date.now() - tReq;
+    marcos.update_status = rUpd.status;
     if (!rUpd.ok) throw new Error(`update_api_http_${rUpd.status}`);
-    console.log('[FOTO] update_ok em', Date.now() - t0, 'ms');
+    etapa = 'done';
 
     return Response.json({
       success: true,
@@ -177,9 +220,13 @@ Deno.serve(async (req) => {
       file_url: upload.file_url,
       provider: providerUsado,
       instance_id: instanciaUsada,
-      tentativas
+      tentativas,
+      marcos
     });
   } catch (error) {
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json({
+      success: false, error: error.message, etapa_falha: etapa,
+      marcos, total_ms: Date.now() - tReq
+    }, { status: 500 });
   }
 });
