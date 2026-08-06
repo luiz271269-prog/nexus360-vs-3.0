@@ -1,9 +1,12 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
 // ==========================================
-// BUSCAR FOTO DE PERFIL DO WHATSAPP
+// BUSCAR FOTO DE PERFIL DO WHATSAPP (1 contato)
 // ==========================================
-// Busca a foto de perfil de um contato via Z-API
+// Delega para o resolvedor único (resolverFotoPerfil), que tenta todas as
+// instâncias conectadas de todos os provedores. Mantido para compatibilidade
+// com os chamadores existentes (integration_id é ignorado de propósito:
+// a regra agora é universal, não por instância).
 
 Deno.serve(async (req) => {
   const corsHeaders = {
@@ -20,88 +23,37 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    
     if (!user) {
       return Response.json({ error: 'Não autorizado' }, { status: 401, headers: corsHeaders });
     }
 
-    const { integration_id, phone } = await req.json();
-
-    if (!integration_id || !phone) {
-      return Response.json({ 
-        error: 'integration_id e phone são obrigatórios' 
-      }, { status: 400, headers: corsHeaders });
+    const body = await req.json().catch(() => ({}));
+    const phone = String(body?.phone || '').replace(/\D/g, '');
+    if (!phone) {
+      return Response.json({ error: 'phone é obrigatório' }, { status: 400, headers: corsHeaders });
     }
 
-    // Buscar integração
-    const integracao = await base44.asServiceRole.entities.WhatsAppIntegration.get(integration_id);
-    
-    if (!integracao) {
-      return Response.json({ 
-        error: 'Integração não encontrada' 
-      }, { status: 404, headers: corsHeaders });
+    let contactId = body?.contact_id || null;
+    if (!contactId) {
+      const achados = await base44.asServiceRole.entities.Contact.filter({ telefone_canonico: phone }, '-updated_date', 1);
+      contactId = achados?.[0]?.id || null;
     }
 
-    // Limpar número (remover +, espaços, etc)
-    const phoneClean = phone.replace(/\D/g, '');
-
-    // Montar URL da Z-API
-    const url = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/profile-picture?phone=${phoneClean}`;
-
-    // Fazer requisição
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Client-Token': integracao.security_client_token_header
-      }
+    const resp = await base44.functions.invoke('resolverFotoPerfil', {
+      phone,
+      contact_id: contactId,
+      persistir: true
     });
-
-    if (!response.ok) {
-      console.warn(`[PROFILE_PIC] Erro Z-API: ${response.status}`);
-      return Response.json({
-        success: false,
-        profilePictureUrl: null,
-        error: `Z-API Error: ${response.status}`
-      }, { status: 200, headers: corsHeaders });
-    }
-
-    const data = await response.json();
-
-    // Z-API retorna a foto na propriedade 'link'
-    const photoUrl = data.link || null;
-
-    // Salvar URL no contato se disponível
-    if (photoUrl) {
-      try {
-        // Buscar contato pelo telefone normalizado (com + ou sem)
-        const telefoneComPlus = phoneClean.startsWith('+') ? phoneClean : `+${phoneClean}`;
-        const contatos = await base44.asServiceRole.entities.Contact.filter({ 
-          telefone: telefoneComPlus 
-        }, '-created_date', 1);
-
-        if (contatos.length > 0) {
-          await base44.asServiceRole.entities.Contact.update(contatos[0].id, {
-            foto_perfil_url: photoUrl,
-            foto_perfil_atualizada_em: new Date().toISOString()
-          });
-        }
-      } catch (error) {
-        console.warn('Erro ao salvar foto no contato:', error);
-      }
-    }
-
-    console.log(`[PROFILE_PIC] Sucesso. URL encontrada: ${!!photoUrl}`);
+    const dados = resp?.data || resp;
 
     return Response.json({
       success: true,
-      profilePictureUrl: photoUrl
+      profilePictureUrl: dados?.file_url || dados?.link || null,
+      provider: dados?.provider || null,
+      instance_id: dados?.instance_id || null
     }, { status: 200, headers: corsHeaders });
-
   } catch (error) {
     console.error('Erro ao buscar foto de perfil:', error);
-    return Response.json({
-      success: false,
-      error: error.message
-    }, { status: 500, headers: corsHeaders });
+    return Response.json({ success: false, error: error.message }, { status: 500, headers: corsHeaders });
   }
 });
