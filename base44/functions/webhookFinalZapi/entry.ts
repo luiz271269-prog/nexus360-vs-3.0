@@ -40,9 +40,9 @@ function isSamePhone(a, b) {
 // ============================================================================
 // WEBHOOK WHATSAPP Z-API - v11.0.0 INGESTÃO PURA + CÉREBRO ISOLADO
 // ============================================================================
-const VERSION = 'v11.9.0-RETRY-RECUPERA-MIDIA';
-const BUILD_DATE = '2026-05-28';
-const CLASSIFIER_VERSION = 'v3-skip-system-pre-sdk'; // deveIgnorar roda antes do SDK; preserva MessageStatusCallback
+const VERSION = 'v12.0.0-ORDEM-MIDIA-POS-CHAT';
+const BUILD_DATE = '2026-08-06';
+const CLASSIFIER_VERSION = 'v4-status-antes-de-fromme'; // deveIgnorar roda antes do SDK; MessageStatusCallback é avaliado ANTES do descarte fromMe/fromApi
 
 // Stamp de boot — loga uma única vez por instância Deno (cold start)
 console.log(`[${VERSION}] 🟢 BOOT | BUILD=${BUILD_DATE} | CLASSIFIER=${CLASSIFIER_VERSION}`);
@@ -187,11 +187,6 @@ function deveIgnorar(payload) {
   const phone = String(payload.phone ?? payload.from ?? '').toLowerCase();
   const isGroup = payload.isGroup === true || String(payload.chatId ?? '').includes('@g.us');
 
-  // fromMe+fromApi = mensagem automática do sistema (URA, ACK)
-  if (payload.fromMe === true && payload.fromApi === true) {
-    return 'fromMe_fromApi_auto';
-  }
-
   if (
     payload.broadcast === true ||
     phone.includes('-broadcast') ||
@@ -214,17 +209,31 @@ function deveIgnorar(payload) {
     return 'delivery_callback';
   }
 
-  const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
-  const temMessageId = payload.messageId || payload.id;
-  if (!temMessageId && eventosLixo.some((e) => tipo.includes(e))) {
-    return 'evento_sistema';
-  }
-
+  // ⚠️ ORDEM IMPORTA: MessageStatusCallback é avaliado ANTES do descarte
+  // fromMe/fromApi. Status de mensagens que NÓS enviamos (URA/API) carrega
+  // fromMe=true + fromApi=true — na ordem anterior o ACK morria aqui e o
+  // status 'enviada/entregue/lida' nunca chegava ao chat.
   if (tipo.includes('messagestatuscallback') || tipo.includes('message-status')) {
     if (phone.includes('status@') || phone.includes('@broadcast')) {
       return 'status_broadcast';
     }
     return null;
+  }
+
+  // fromMe+fromApi = mensagem automática do sistema (URA, ACK) — descarta só
+  // depois de garantir que não era um callback de status.
+  if (payload.fromMe === true && payload.fromApi === true) {
+    return 'fromMe_fromApi_auto';
+  }
+
+  // ⚠️ 'call' casa por substring com 'messagestatusCALLback'. Este bloco fica
+  // DEPOIS do teste de status justamente por isso: a Z-API manda o status em
+  // 'ids' (sem messageId/id), então o status caía aqui como 'evento_sistema'
+  // e o ACK nunca chegava ao chat. CallReceivedCallback continua barrado.
+  const eventosLixo = ['presence', 'typing', 'composing', 'chat-update', 'call'];
+  const temMessageId = payload.messageId || payload.id;
+  if (!temMessageId && eventosLixo.some((e) => tipo.includes(e))) {
+    return 'evento_sistema';
   }
 
   const hasMsgId = payload.messageId || payload.id;
@@ -236,7 +245,11 @@ function deveIgnorar(payload) {
   }
 
   if (tipo.includes('receivedcallback')) {
-    if (!payload.phone && !payload.from) return 'sem_telefone';
+    // chatId entra aqui porque o normalizador o aceita como origem
+    // (payload.phone ?? payload.from ?? payload.chatId). Sem isso, mensagem
+    // real identificada só por @lid era descartada antes de normalizar.
+    // Grupos já foram barrados acima por 'jid_sistema'.
+    if (!payload.phone && !payload.from && !payload.chatId) return 'sem_telefone';
     return null;
   }
 
@@ -876,6 +889,15 @@ async function handleMessage(dados, payloadBruto, base44) {
       if (dup.length > 0) {
         console.log(`[${VERSION}] ⏭️ DUPLICATA por messageId: ${dados.messageId}`);
         await recuperarMidiaPendenteDup(base44, dup[0], dados);
+        // ✅ WAL — retry direto do provedor (sem passar pelo worker) deixava o
+        // registro antigo 'pending' para sempre. A Message já existe: encerrar.
+        if (walId) {
+          await base44.asServiceRole.entities.WebhookInboundWAL.update(walId, {
+            status: 'processed',
+            processed_message_id: dup[0].id,
+            erro_ultimo: 'duplicata_message_id_reconciliada'
+          }).catch(e => console.warn(`[${VERSION}] ⚠️ WAL update→processed (dup precoce) falhou:`, e.message));
+        }
         return jsonOk({ success: true, ignored: true, reason: 'duplicata_message_id' });
       }
     } catch (err) {
@@ -1346,41 +1368,9 @@ async function handleMessage(dados, payloadBruto, base44) {
     return jsonServerError({ success: false, error: 'erro_salvar_mensagem' });
   }
 
-  // WORKER DE MÍDIA — ✅ FIX pending_download eterno: AGUARDAR a persistência.
-  // Fire-and-forget matava o worker no teardown do webhook: o persistirMidiaZapi
-  // baixava e fazia upload com sucesso, mas era abortado ANTES do Message.update,
-  // deixando a mensagem travada em 'pending_download' para sempre.
-  // O download B2 da Z-API é rápido (~2s) e a URL temporária expira em minutos,
-  // então aguardar aqui é obrigatório. Erro no worker NÃO falha o webhook.
-  if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none' && !midiaPersistida) {
-    // ⛔ MÉTODO DIRETO INLINE REMOVIDO (jul/2026): o UploadFile dentro do webhook
-    // travava o cliente SDK no Message.update seguinte (lock pós-upload) — o runtime
-    // matava a função, a mídia ficava pending_download até o watchdog (5-15min) e
-    // etapas seguintes (thread/processInbound) eram perdidas. O worker
-    // persistirMidiaZapi agora baixa, faz upload E grava a URL via API REST direta
-    // (imune ao lock) — ele é o caminho imediato.
-    try {
-      const respWorker = await base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
-        file_id: dados.messageId || mensagem.id,
-        integration_id: integracaoId,
-        media_type: dados.mediaType,
-        media_url: dados.mediaUrl,
-        message_id: mensagem.id,
-        filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
-      });
-      const urlPermanente = respWorker?.data?.url;
-      if (!urlPermanente) {
-        throw new Error(respWorker?.data?.error || 'worker não retornou url permanente');
-      }
-      // ✅ O worker já gravou media_url + metadata via REST direto — nada a atualizar aqui.
-      console.log(`[${VERSION}] ✅ Worker mídia concluído (URL gravada pelo worker via REST): ${urlPermanente.substring(0, 60)}`);
-    } catch (e) {
-      console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message);
-      // Mantém pending_download: a URL B2 da Z-API fica válida por horas e o
-      // watchdog (a cada 10min) recupera via metadata.original_media_url.
-      // (Marcar failed_download aqui esconderia mídia recuperável da UI.)
-    }
-  }
+  // ⬇️ MÍDIA MOVIDA PARA O FIM (ver bloco "WORKER DE MÍDIA" após o WAL):
+  // a mensagem precisa aparecer no chat e a URA precisa rodar antes de
+  // gastarmos segundos baixando arquivo.
 
   // ATUALIZAR THREAD
   try {
@@ -1490,6 +1480,32 @@ async function handleMessage(dados, payloadBruto, base44) {
       integration_id: integracaoId,
       erro_ultimo: null
     }).catch(e => console.warn(`[${VERSION}] ⚠️ WAL update→processed falhou:`, e.message));
+  }
+
+  // WORKER DE MÍDIA — roda por ÚLTIMO, depois de thread/processInbound/WAL.
+  // Continua AGUARDADO de propósito: fire-and-forget já foi tentado e falhou
+  // (o runtime matava o worker no teardown e a mídia ficava 'pending_download'
+  // para sempre). O que mudou é a POSIÇÃO: se o download travar ou estourar,
+  // o chat já atualizou, a URA já rodou e o WAL já está 'processed' — a perda
+  // fica restrita à mídia, que o watchdog recupera via original_media_url.
+  if (dados.mediaUrl && dados.mediaType && dados.mediaType !== 'none' && !midiaPersistida) {
+    try {
+      const respWorker = await base44.asServiceRole.functions.invoke('persistirMidiaZapi', {
+        file_id: dados.messageId || mensagem.id,
+        integration_id: integracaoId,
+        media_type: dados.mediaType,
+        media_url: dados.mediaUrl,
+        message_id: mensagem.id,
+        filename: dados.content?.replace(/[\[\]]/g, '') || `${dados.mediaType}_${Date.now()}`
+      });
+      const urlPermanente = respWorker?.data?.url;
+      if (!urlPermanente) {
+        throw new Error(respWorker?.data?.error || 'worker não retornou url permanente');
+      }
+      console.log(`[${VERSION}] ✅ Worker mídia concluído (URL gravada pelo worker via REST): ${urlPermanente.substring(0, 60)}`);
+    } catch (e) {
+      console.error(`[${VERSION}] ⚠️ Worker mídia erro:`, e?.message);
+    }
   }
 
   const duracao = Date.now() - inicio;
