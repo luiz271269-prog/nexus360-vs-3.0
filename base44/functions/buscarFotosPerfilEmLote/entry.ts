@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
 // Processador controlado por IDs explícitos. Nunca seleciona contatos por data.
-// dryRun é true por padrão e o limite operacional conservador é de 3 a 5.
+// dryRun aceita até 5 IDs; execução real é obrigatoriamente unitária.
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -12,13 +12,21 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const ids = [...new Set(Array.isArray(body?.ids) ? body.ids.map(String).filter(Boolean) : [])];
     const dryRun = body?.dryRun !== false;
-    const limiteSolicitado = Number(body?.limite) || 3;
-    const limite = Math.max(3, Math.min(limiteSolicitado, 5));
+    const limiteSolicitado = Number(body?.limite) || (dryRun ? 3 : 1);
+    const limite = dryRun ? Math.max(1, Math.min(limiteSolicitado, 5)) : 1;
 
     if (!ids.length) {
       return Response.json({ success: false, error: 'ids_obrigatorios', dryRun }, { status: 400 });
     }
-    if (ids.length > limite || ids.length > 5) {
+    if (!dryRun && ids.length > 1) {
+      return Response.json({
+        success: false,
+        error: 'execucao_real_unitaria_obrigatoria',
+        detalhe: 'Envie exatamente 1 ID quando dryRun=false',
+        dryRun
+      }, { status: 400 });
+    }
+    if (dryRun && (ids.length > limite || ids.length > 5)) {
       return Response.json({
         success: false,
         error: 'micro_lote_excedido',
