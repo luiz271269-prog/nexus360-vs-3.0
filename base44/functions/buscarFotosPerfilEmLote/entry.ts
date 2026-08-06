@@ -49,8 +49,8 @@ Deno.serve(async (req) => {
     const inicioLote = Date.now();
     for (const contato of semFoto) {
       // Orçamento de tempo: evita estourar o limite da função no meio de um upload
-      if (Date.now() - inicioLote > 110000) {
-        console.log('[FOTOS-LOTE] ⏱️ Orçamento de 110s atingido — encerrando lote parcial');
+      if (Date.now() - inicioLote > 70000) {
+        console.log('[FOTOS-LOTE] ⏱️ Orçamento de 70s atingido — encerrando lote parcial');
         break;
       }
       const phoneClean = (contato.telefone_canonico || contato.telefone || '').replace(/\D/g, '');
@@ -89,10 +89,14 @@ Deno.serve(async (req) => {
           const bytes = await download.arrayBuffer();
           const extensao = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
           const file = new File([bytes], `perfil_${contato.id}_${Date.now()}.${extensao}`, { type: contentType });
-          const upload = await Promise.race([
+          const enviar = () => Promise.race([
             base44.asServiceRole.integrations.Core.UploadFile({ file }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('upload_timeout_45s')), 45000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('upload_timeout_25s')), 25000))
           ]);
+          // As imagens são pequenas (14–36 KB): timeout aqui é instabilidade do storage,
+          // não tamanho. Uma segunda tentativa curta resolve a maioria dos casos.
+          let upload = await enviar().catch(() => null);
+          if (!upload?.file_url) upload = await enviar();
           if (!upload?.file_url) throw new Error('upload_sem_url');
           const appId = Deno.env.get('BASE44_APP_ID');
           const update = await fetch(`https://base44.app/api/apps/${appId}/entities/Contact/${contato.id}`, {
@@ -112,6 +116,21 @@ Deno.serve(async (req) => {
           atualizados++;
         } else {
           semFotoNoWhats++;
+          // O WhatsApp não tem foto para este número (item-not-found / privacidade).
+          // Limpa a URL morta para o contato sair da fila e não ocupar o lote de amanhã.
+          if (String(contato.foto_perfil_url || '').includes('pps.whatsapp.net')) {
+            const appId = Deno.env.get('BASE44_APP_ID');
+            await fetch(`https://base44.app/api/apps/${appId}/entities/Contact/${contato.id}`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': req.headers.get('authorization') || '',
+                'api_key': req.headers.get('api_key') || '',
+                'Content-Type': 'application/json'
+              },
+              signal: AbortSignal.timeout(15000),
+              body: JSON.stringify({ foto_perfil_url: '', foto_perfil_atualizada_em: new Date().toISOString() })
+            });
+          }
         }
       } catch (e) {
         console.warn(`[FOTOS-LOTE] ${contato.id}: ${e.message}`);
