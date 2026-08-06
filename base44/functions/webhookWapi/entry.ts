@@ -10,9 +10,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 // ║  4. Log de telemetria para PTTs quebrados                             ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 
-const VERSION = 'v28.0.0-FILTRO-ANTES-DB';
-const BUILD_DATE = '2026-06-23T20:50:00';
-const DEPLOYMENT_ID = 'WAPI_FILTRO_ANTES_DB_2026_06_23';
+const VERSION = 'v29.0.0-SYNC-WAWEB-E-ACK';
+const BUILD_DATE = '2026-08-06T17:10:00';
+const DEPLOYMENT_ID = 'WAPI_SYNC_WAWEB_E_ACK_2026_08_06';
 const ARCHITECTURE = 'FILTRO-ANTES-DB+PORTEIRO-CEGO';
 
 // ════════════════════════════════════════════════════════════════
@@ -343,13 +343,19 @@ function classifyWapiEvent(payload) {
     return 'connection-status';
   }
 
+  // ⚠️ ORDEM IMPORTA: a mensagem enviada pelo WhatsApp Web/celular chega como
+  // webhookDelivery + fromMe + msgContent. O retorno de delivery ficava ANTES
+  // deste teste e matava a mensagem como status — ela nunca virava bolha.
+  if (payload.fromMe === true && payload.messageId && payload.msgContent) {
+    return 'user-message'; // sync WA Web / celular
+  }
+
   if (evento === 'webhookdelivery' || evento === 'webhookdelivered') {
     return 'system-status-delivery';
   }
 
-  // fromMe=true com msgContent = mensagem enviada via WA Web → processar como outbound sync
+  // fromMe sem conteúdo = ACK do próprio envio, não é mensagem.
   if (payload.fromMe === true && payload.messageId) {
-    if (payload.msgContent) return 'user-message'; // Sync WA Web
     return 'system-status-delivery';
   }
 
@@ -487,9 +493,19 @@ function normalizarPayload(payload) {
 
     const temConteudoMensagem = payload.text || payload.body || payload.msgContent || payload.message;
     const temIndicadoresMensagem = payload.pushName || payload.senderName;
-    // ✅ fromMe=true COM msgContent também é mensagem real (sync WA Web)
+
+    // Em fromMe, sender.id é o NOSSO chip — o interlocutor está em chat.id.
+    // Por isso a ordem de busca inverte quando a mensagem é própria; sem isso
+    // o sync do WA Web criaria contato do próprio número da empresa.
+    const candidatosTelefone = payload.fromMe === true
+      ? [payload.chat?.id, payload.phone, payload.from, payload.sender?.id]
+      : [payload.phone, payload.from, payload.sender?.id, payload.chat?.id];
+    const telefoneBruto = candidatosTelefone.find(c => c && !String(c).includes('@lid')) || '';
+
+    // ✅ fromMe=true COM msgContent também é mensagem real (sync WA Web).
+    // Exigir payload.phone descartava mensagem real que só traz chat.id/sender.id.
     const ehMensagemReal = payload.messageId &&
-                           payload.phone &&
+                           telefoneBruto &&
                            (payload.fromMe === false || (payload.fromMe === true && payload.msgContent)) &&
                            (temConteudoMensagem || temIndicadoresMensagem);
 
@@ -510,8 +526,7 @@ function normalizarPayload(payload) {
 
     // ✅ FIX @lid: pular campos com identidade anônima (@lid) na extração do
     // telefone — usar o primeiro campo com telefone real (caso Auanna).
-    const telefone = [payload.phone, payload.from, payload.sender?.id, payload.chat?.id]
-      .find(c => c && !String(c).includes('@lid')) || '';
+    const telefone = telefoneBruto;
     const numeroLimpo = normalizarTelefone(telefone);
 
     if (!numeroLimpo) return { type: 'unknown', error: 'telefone_invalido' };
@@ -1536,7 +1551,14 @@ Deno.serve(async (req) => {
 
   // Eventos sem necessidade de processamento (delivery/status/broadcast/ignore/conexão):
   // retorno imediato, SEM criar cliente nem auditoria. Conexão é tratada depois (precisa de DB).
-  const ehSomenteStatus = (
+  // Um delivery COM identificador é o ACK de entrega/leitura: precisa chegar ao
+  // handleMessageUpdate para virar 'entregue'/'lida'. Antes TODO delivery era
+  // descartado aqui e o status da bolha ficava congelado em 'enviada'.
+  const temIdParaStatus = !!(payload.messageId || payload.id ||
+    (Array.isArray(payload.ids) && payload.ids.length > 0));
+  const ehAckDeStatus = classification === 'system-status-delivery' && temIdParaStatus;
+
+  const ehSomenteStatus = !ehAckDeStatus && (
     classification === 'system-status' ||
     classification === 'system-status-delivery' ||
     classification === 'ignore'
@@ -1559,7 +1581,10 @@ Deno.serve(async (req) => {
   // ✅ WH-3: salvar payload bruto para replay — agora só para eventos reais.
   let auditPayloadId = null;
   try {
-    const _audit = await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
+    // ACK de status não gera auditoria: é o grosso do tráfego W-API e só
+    // atualiza um campo — auditar tudo reintroduziria a carga de banco que o
+    // filtro-antes-do-DB foi criado para eliminar.
+    const _audit = ehAckDeStatus ? null : await base44.asServiceRole.entities.ZapiPayloadNormalized.create({
       payload_bruto: payload,
       instance_identificado: payload.instanceId || payload.instance || 'unknown',
       message_id: payload.messageId || null,
@@ -1586,11 +1611,10 @@ Deno.serve(async (req) => {
     return jsonOk({ ignored: true, reason: dados.error });
   }
 
-  // ✅ GUARD: fromMe = mensagem enviada pelo próprio chip, não processar
-  if (dados.type === 'message' && dados.fromMe === true) {
-    console.log(`[WAPI] ⏭️ fromMe: mensagem própria do chip, ignorado`);
-    return jsonOk({ success: true, ignored: true, reason: 'fromMe_outbound' });
-  }
+  // GUARD fromMe removido: normalizarPayload nunca devolve o campo `fromMe` no
+  // objeto de mensagem, então `dados.fromMe` era sempre undefined e este bloco
+  // jamais executou. Quem trata mensagem própria é handleMessage, via
+  // payloadBruto.fromMe (sender_type='user' + processInbound pulado).
 
   if (classification === 'connection-status') {
     return await handleConnectionStatus(payload, base44);
