@@ -1,23 +1,5 @@
 {
-  "name": "Fotos de Perfil \u2014 Preenchimento Gradual",
-  "description": "Rede de seguran\u00e7a: 1x por dia, \u00e0s 03:10 (fora do hor\u00e1rio de uso), salva permanentemente a foto de um lote pequeno de contatos INATIVOS que nunca passaram pelo webhook. Contatos ativos j\u00e1 s\u00e3o resolvidos sob demanda no recebimento da mensagem.",
-  "trigger": {
-    "condition": null,
-    "config": {
-      "trigger_type": "scheduled",
-      "events": [],
-      "schedule_mode": "recurring",
-      "cron_expression": "10 3 * * *",
-      "one_time_date": null,
-      "timezone": "America/Sao_Paulo",
-      "interval_value": null,
-      "interval_unit": null,
-      "interval_anchor": null,
-      "ends_type": "never",
-      "ends_on_date": null,
-      "ends_after_count": null
-    }
-  },
+  "description": "Reparo noturno: roda de hora em hora entre 00:00 e 05:00 (fora do hor\u00e1rio de uso) e substitui as URLs mortas do WhatsApp (403) por imagens permanentes, em lotes pequenos. Contatos ativos j\u00e1 s\u00e3o resolvidos sob demanda no recebimento da mensagem.",
   "definition": {
     "document": {
       "dsl": "1.0.0",
@@ -32,16 +14,34 @@
           "with": {
             "function_name": "buscarFotosPerfilEmLote",
             "args": {
-              "limite": 20
+              "limite": 12
             }
           },
           "then": "end",
           "x-base44": {
-            "title": "Lote noturno de fotos",
-            "description": "20 contatos inativos \u00e0s 03:10"
+            "title": "Reparar fotos mortas",
+            "description": "Lotes de 12, madrugada"
           }
         }
       }
     ]
-  }
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 0-5 * * *",
+      "one_time_date": null,
+      "timezone": "America/Sao_Paulo",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Fotos de Perfil \u2014 Preenchimento Gradual"
 }

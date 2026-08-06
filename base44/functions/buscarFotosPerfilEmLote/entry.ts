@@ -49,8 +49,8 @@ Deno.serve(async (req) => {
     const inicioLote = Date.now();
     for (const contato of semFoto) {
       // Orçamento de tempo: evita estourar o limite da função no meio de um upload
-      if (Date.now() - inicioLote > 60000) {
-        console.log('[FOTOS-LOTE] ⏱️ Orçamento de 60s atingido — encerrando lote parcial');
+      if (Date.now() - inicioLote > 110000) {
+        console.log('[FOTOS-LOTE] ⏱️ Orçamento de 110s atingido — encerrando lote parcial');
         break;
       }
       const phoneClean = (contato.telefone_canonico || contato.telefone || '').replace(/\D/g, '');
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
           const file = new File([bytes], `perfil_${contato.id}_${Date.now()}.${extensao}`, { type: contentType });
           const upload = await Promise.race([
             base44.asServiceRole.integrations.Core.UploadFile({ file }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('upload_timeout_30s')), 30000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('upload_timeout_45s')), 45000))
           ]);
           if (!upload?.file_url) throw new Error('upload_sem_url');
           const appId = Deno.env.get('BASE44_APP_ID');
