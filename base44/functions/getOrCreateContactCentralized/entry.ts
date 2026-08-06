@@ -312,7 +312,8 @@ Deno.serve(async (req) => {
           const camposPrioritarios = [
             'nome', 'empresa', 'email', 'cargo', 'tipo_contato',
             'vendedor_responsavel', 'cliente_id', 'ramo_atividade',
-            'instagram_id', 'facebook_id'
+            'instagram_id', 'facebook_id', 'foto_perfil_url',
+            'foto_perfil_atualizada_em'
           ];
           const vazio = (v) => v === null || v === undefined || v === '';
           const mergeData = {};

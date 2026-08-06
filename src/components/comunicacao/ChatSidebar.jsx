@@ -70,6 +70,7 @@ import { canUserSeeThreadBase } from "../lib/threadVisibility";
 import { isThreadRealmenteNaoAtribuida } from "../lib/naoAtribuidasFilter";
 import { decidirVisibilidade } from "@/components/lib/decisionEngine";
 import MensagemReativacaoRapida from './MensagemReativacaoRapida';
+import ContactAvatar from './ContactAvatar';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🎯 GETTER UNIFICADO: Badge de não lidas (externo + interno)
@@ -796,23 +797,12 @@ export default function ChatSidebar({
 
               {/* Avatar */}
               <div className="relative flex-shrink-0">
-                <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden ring-2 ring-offset-1 ${canalStyle.ring} ${
-                hasUnread ?
-                'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' :
-                'bg-gradient-to-br from-slate-400 to-slate-500'}`
-                }>
-                  {/* Letra sempre no fundo — a foto (se existir) fica por cima e permanece após a leitura */}
-                  <span className="absolute inset-0 flex items-center justify-center">
-                    {nomeExibicao.charAt(0).toUpperCase()}
-                  </span>
-                  {contato.foto_perfil_url && contato.foto_perfil_url !== 'null' && contato.foto_perfil_url !== 'undefined' &&
-                  <img
-                    src={contato.foto_perfil_url}
-                    alt={nomeExibicao}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => {e.target.style.display = 'none';}} />
-                  }
-                </div>
+                <ContactAvatar
+                  src={contato.foto_perfil_url && !['null', 'undefined'].includes(contato.foto_perfil_url) ? contato.foto_perfil_url : null}
+                  alt={nomeExibicao}
+                  fallback={nomeExibicao.charAt(0).toUpperCase()}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-offset-1 ${canalStyle.ring} ${hasUnread ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'}`}
+                />
               </div>
 
               <div className="flex-1 min-w-0">

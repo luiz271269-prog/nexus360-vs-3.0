@@ -1,7 +1,7 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
 // ==========================================
-// BUSCAR FOTOS DE PERFIL EM LOTE
+// BUSCAR FOTOS DE PERFIL EM LOTE — persistência permanente v2
 // ==========================================
 // Percorre contatos externos sem foto_perfil_url e tenta buscar via Z-API.
 // Usa a integração WhatsApp conectada (Z-API) para resolver a foto.
@@ -30,40 +30,83 @@ Deno.serve(async (req) => {
     // pois o backend não suporta filtro "campo vazio" de forma confiável.
     const candidatos = await base44.asServiceRole.entities.Contact.list('-updated_date', 600);
     const semFoto = candidatos.filter((c) => {
-      const f = c.foto_perfil_url;
-      const temFoto = f && f !== 'null' && f !== 'undefined';
+      const f = String(c.foto_perfil_url || '');
+      const precisaPersistir = !f || f === 'null' || f === 'undefined' || f.includes('pps.whatsapp.net');
       const temTelefone = (c.telefone_canonico || c.telefone || '').replace(/\D/g, '').length >= 10;
-      return !temFoto && temTelefone;
+      return precisaPersistir && temTelefone;
+    }).sort((a, b) => {
+      const aTemporaria = String(a.foto_perfil_url || '').includes('pps.whatsapp.net') ? 1 : 0;
+      const bTemporaria = String(b.foto_perfil_url || '').includes('pps.whatsapp.net') ? 1 : 0;
+      if (bTemporaria !== aTemporaria) return bTemporaria - aTemporaria;
+      return new Date(b.foto_perfil_atualizada_em || 0).getTime() - new Date(a.foto_perfil_atualizada_em || 0).getTime();
     }).slice(0, limite);
 
     let atualizados = 0;
     let semFotoNoWhats = 0;
     let erros = 0;
+    const errosDetalhes = [];
 
     for (const contato of semFoto) {
       const phoneClean = (contato.telefone_canonico || contato.telefone || '').replace(/\D/g, '');
       try {
-        const url = `${integracao.base_url_provider}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/profile-picture?phone=${phoneClean}`;
-        const resp = await fetch(url, {
-          method: 'GET',
-          headers: { 'Client-Token': integracao.security_client_token_header }
-        });
+        let photoUrl = String(contato.foto_perfil_url || '').includes('pps.whatsapp.net')
+          ? contato.foto_perfil_url
+          : null;
 
-        if (!resp.ok) { erros++; continue; }
+        const buscarUrlAtual = async () => {
+          const providerBase = (integracao.base_url_provider && integracao.base_url_provider !== 'null')
+            ? integracao.base_url_provider.replace(/\/$/, '')
+            : 'https://api.z-api.io';
+          const url = `${providerBase}/instances/${integracao.instance_id_provider}/token/${integracao.api_key_provider}/profile-picture?phone=${phoneClean}`;
+          const resp = await fetch(url, {
+            method: 'GET',
+            headers: { 'Client-Token': integracao.security_client_token_header },
+            signal: AbortSignal.timeout(12000)
+          });
+          if (!resp.ok) return null;
+          const data = await resp.json();
+          const link = String(data.link || '');
+          return link.startsWith('http://') || link.startsWith('https://') ? link : null;
+        };
 
-        const data = await resp.json();
-        const photoUrl = data.link || null;
+        if (!photoUrl) photoUrl = await buscarUrlAtual();
 
         if (photoUrl) {
-          await base44.asServiceRole.entities.Contact.update(contato.id, {
-            foto_perfil_url: photoUrl,
-            foto_perfil_atualizada_em: new Date().toISOString()
+          let download = await fetch(photoUrl, { signal: AbortSignal.timeout(12000) });
+          if (!download.ok && String(contato.foto_perfil_url || '').includes('pps.whatsapp.net')) {
+            photoUrl = await buscarUrlAtual();
+            if (photoUrl) download = await fetch(photoUrl, { signal: AbortSignal.timeout(12000) });
+          }
+          if (!download.ok) throw new Error(`download_status_${download.status}`);
+          const contentType = (download.headers.get('content-type') || 'image/jpeg').split(';')[0];
+          if (!contentType.startsWith('image/')) throw new Error('conteudo_nao_imagem');
+          const bytes = await download.arrayBuffer();
+          const extensao = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+          const file = new File([bytes], `perfil_${contato.id}_${Date.now()}.${extensao}`, { type: contentType });
+          const upload = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+          if (!upload?.file_url) throw new Error('upload_sem_url');
+          const appId = Deno.env.get('BASE44_APP_ID');
+          const update = await fetch(`https://base44.app/api/apps/${appId}/entities/Contact/${contato.id}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': req.headers.get('authorization') || '',
+              'api_key': req.headers.get('api_key') || '',
+              'Content-Type': 'application/json'
+            },
+            signal: AbortSignal.timeout(15000),
+            body: JSON.stringify({
+              foto_perfil_url: upload.file_url,
+              foto_perfil_atualizada_em: new Date().toISOString()
+            })
           });
+          if (!update.ok) throw new Error(`update_api_http_${update.status}`);
           atualizados++;
         } else {
           semFotoNoWhats++;
         }
       } catch (e) {
+        console.warn(`[FOTOS-LOTE] ${contato.id}: ${e.message}`);
+        errosDetalhes.push({ contato_id: contato.id, erro: e.message });
         erros++;
       }
     }
@@ -74,6 +117,7 @@ Deno.serve(async (req) => {
       atualizados,
       sem_foto_no_whatsapp: semFotoNoWhats,
       erros,
+      erros_detalhes: errosDetalhes.slice(0, 10),
       integracao_usada: integracao.nome_instancia
     });
   } catch (error) {

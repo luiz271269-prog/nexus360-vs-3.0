@@ -179,6 +179,43 @@ function isSamePhone(a, b) {
   return !!(n1 && n2 && n1 === n2);
 }
 
+async function persistirFotoPerfil(base44, contato, profilePicUrl, requestHeaders) {
+  if (!contato?.id || !profilePicUrl) return contato;
+  const atual = String(contato.foto_perfil_url || '');
+  if (atual && !atual.includes('pps.whatsapp.net')) return contato;
+
+  try {
+    const download = await fetch(profilePicUrl, { signal: AbortSignal.timeout(12000) });
+    if (!download.ok) throw new Error(`download_status_${download.status}`);
+    const contentType = (download.headers.get('content-type') || 'image/jpeg').split(';')[0];
+    if (!contentType.startsWith('image/')) throw new Error('conteudo_nao_imagem');
+    const bytes = await download.arrayBuffer();
+    if (!bytes.byteLength) throw new Error('imagem_vazia');
+    const extensao = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+    const file = new File([bytes], `perfil_${contato.id}_${Date.now()}.${extensao}`, { type: contentType });
+    const upload = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+    if (!upload?.file_url) throw new Error('upload_sem_url');
+    const agora = new Date().toISOString();
+    const appId = Deno.env.get('BASE44_APP_ID');
+    const update = await fetch(`https://base44.app/api/apps/${appId}/entities/Contact/${contato.id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': requestHeaders?.get('authorization') || '',
+        'api_key': requestHeaders?.get('api_key') || '',
+        'Content-Type': 'application/json'
+      },
+      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({ foto_perfil_url: upload.file_url, foto_perfil_atualizada_em: agora })
+    });
+    if (!update.ok) throw new Error(`update_api_http_${update.status}`);
+    console.log(`[WAPI-PROFILE] ✅ Foto permanente salva: ${contato.id}`);
+    return { ...contato, foto_perfil_url: upload.file_url, foto_perfil_atualizada_em: agora };
+  } catch (error) {
+    console.warn(`[WAPI-PROFILE] ⚠️ Persistência falhou para ${contato.id}:`, error.message);
+    return contato;
+  }
+}
+
 // ============================================================================
 // ✅ HELPER: construir downloadSpec seguro
 // Garante que só cria spec se houver pelo menos 1 dado utilizável para download.
@@ -853,7 +890,7 @@ async function handleMessageUpdate(dados, base44) {
 // ============================================================================
 // HANDLE MESSAGE
 // ============================================================================
-async function handleMessage(dados, payloadBruto, base44) {
+async function handleMessage(dados, payloadBruto, base44, requestHeaders) {
   console.log('[WAPI] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[WAPI] INICIO handleMessage | De:', dados.from, '| Tipo:', dados.mediaType,
               '| downloadSpec:', dados.downloadSpec ? '✅ com dados' : '❌ sem dados');
@@ -1063,6 +1100,9 @@ async function handleMessage(dados, payloadBruto, base44) {
       return jsonErr('erro_contato', 500);
     }
   }
+
+  // A URL pps.whatsapp.net é temporária. Baixa e salva no storage antes de seguir.
+  contato = await persistirFotoPerfil(base44, contato, profilePicUrl, requestHeaders);
 
   // BUSCAR/CRIAR THREAD — com WH-2: re-eleição de canônica + double-check anti-race
   let thread = null;
@@ -1567,7 +1607,7 @@ Deno.serve(async (req) => {
       case 'qrcode':         return await handleQRCode(dados, base44);
       case 'connection':     return await handleConnection(dados, base44, payload);
       case 'message_update': return await handleMessageUpdate(dados, base44);
-      case 'message':        return await handleMessage(dados, payload, base44);
+      case 'message':        return await handleMessage(dados, payload, base44, req.headers);
       default:               return jsonOk({ ignored: true, reason: 'tipo_desconhecido', audit_id: auditPayloadId });
     }
   } catch (error) {

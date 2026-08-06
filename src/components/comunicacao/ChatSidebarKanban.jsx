@@ -18,6 +18,7 @@ import AtribuidorAtendenteRapido from "./AtribuidorAtendenteRapido";
 import { getAtendenteFidelizadoAtualizado } from "../lib/userMatcher";
 import { isThreadRealmenteNaoAtribuida } from "../lib/naoAtribuidasFilter";
 import { toast } from "sonner";
+import ContactAvatar from "./ContactAvatar";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -84,11 +85,12 @@ function ThreadRowSidebar({ thread, isAtiva, usuarioAtual, atendentes, integraco
         </div>
       )}
       <div className="relative flex-shrink-0">
-        <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md overflow-hidden ${hasUnread ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'}`}>
-          {contato?.foto_perfil_url && contato.foto_perfil_url !== 'null' ? (
-            <img src={contato.foto_perfil_url} alt={nomeExibicao} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
-          ) : nomeExibicao.charAt(0).toUpperCase()}
-        </div>
+        <ContactAvatar
+          src={contato?.foto_perfil_url && !['null', 'undefined'].includes(contato.foto_perfil_url) ? contato.foto_perfil_url : null}
+          alt={nomeExibicao}
+          fallback={nomeExibicao.charAt(0).toUpperCase()}
+          className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ${hasUnread ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500' : 'bg-gradient-to-br from-slate-400 to-slate-500'}`}
+        />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
