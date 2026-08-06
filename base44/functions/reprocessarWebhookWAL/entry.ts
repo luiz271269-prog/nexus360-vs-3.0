@@ -79,13 +79,22 @@ Deno.serve(async (req) => {
     }
 
     // Buscar WALs elegíveis: pending + next_attempt_at <= agora (ou null)
+    // 🔧 ANTI HEAD-OF-LINE BLOCKING: busca uma janela AMPLA e só depois aplica o
+    // limite. Antes buscava limit*2 ordenado por created_date ASC — a janela enchia
+    // de itens em backoff (next_attempt_at futuro) e o worker nunca alcançava os
+    // pendentes elegíveis mais novos, travando a fila indefinidamente.
     const pendingTodos = await base44.asServiceRole.entities.WebhookInboundWAL.filter(
       { status: 'pending' },
       'created_date',
-      limit * 2 // pega o dobro porque pode filtrar próximo passo
+      200
     );
 
-    const elegiveis = pendingTodos.filter(w => !w.next_attempt_at || w.next_attempt_at <= agora).slice(0, limit);
+    // Comparação NUMÉRICA (timestamps gravados sem 'Z' quebram comparação textual).
+    const elegiveis = pendingTodos.filter(w => {
+      if (!w.next_attempt_at) return true;
+      const t = Date.parse(w.next_attempt_at);
+      return !Number.isFinite(t) || t <= agoraMs;
+    }).slice(0, limit);
 
     console.log(`[WAL-WORKER ${VERSION}] 📊 pending=${pendingTodos.length} elegíveis=${elegiveis.length} dry_run=${dryRun}`);
 
