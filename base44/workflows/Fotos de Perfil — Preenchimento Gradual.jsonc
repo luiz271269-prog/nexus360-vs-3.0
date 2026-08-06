@@ -1,13 +1,13 @@
 {
   "name": "Fotos de Perfil \u2014 Preenchimento Gradual",
-  "description": "A cada hora, busca e salva permanentemente as fotos de perfil dos contatos que ainda n\u00e3o t\u00eam foto ou t\u00eam apenas URL tempor\u00e1ria do WhatsApp.",
+  "description": "Rede de seguran\u00e7a: 1x por dia, \u00e0s 03:10 (fora do hor\u00e1rio de uso), salva permanentemente a foto de um lote pequeno de contatos INATIVOS que nunca passaram pelo webhook. Contatos ativos j\u00e1 s\u00e3o resolvidos sob demanda no recebimento da mensagem.",
   "trigger": {
     "condition": null,
     "config": {
       "trigger_type": "scheduled",
       "events": [],
       "schedule_mode": "recurring",
-      "cron_expression": "0 * * * *",
+      "cron_expression": "10 3 * * *",
       "one_time_date": null,
       "timezone": "America/Sao_Paulo",
       "interval_value": null,
@@ -32,13 +32,13 @@
           "with": {
             "function_name": "buscarFotosPerfilEmLote",
             "args": {
-              "limite": 8
+              "limite": 20
             }
           },
           "then": "end",
           "x-base44": {
-            "title": "Buscar fotos pendentes",
-            "description": "Lote de 8 contatos por hora"
+            "title": "Lote noturno de fotos",
+            "description": "20 contatos inativos \u00e0s 03:10"
           }
         }
       }
