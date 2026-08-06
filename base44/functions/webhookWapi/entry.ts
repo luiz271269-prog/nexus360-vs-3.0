@@ -193,7 +193,10 @@ async function persistirFotoPerfil(base44, contato, profilePicUrl, requestHeader
     if (!bytes.byteLength) throw new Error('imagem_vazia');
     const extensao = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
     const file = new File([bytes], `perfil_${contato.id}_${Date.now()}.${extensao}`, { type: contentType });
-    const upload = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+    const upload = await Promise.race([
+      base44.asServiceRole.integrations.Core.UploadFile({ file }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('upload_timeout_25s')), 25000))
+    ]);
     if (!upload?.file_url) throw new Error('upload_sem_url');
     const agora = new Date().toISOString();
     const appId = Deno.env.get('BASE44_APP_ID');

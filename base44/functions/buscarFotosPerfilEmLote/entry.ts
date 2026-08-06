@@ -46,7 +46,13 @@ Deno.serve(async (req) => {
     let erros = 0;
     const errosDetalhes = [];
 
+    const inicioLote = Date.now();
     for (const contato of semFoto) {
+      // Orçamento de tempo: evita estourar o limite da função no meio de um upload
+      if (Date.now() - inicioLote > 60000) {
+        console.log('[FOTOS-LOTE] ⏱️ Orçamento de 60s atingido — encerrando lote parcial');
+        break;
+      }
       const phoneClean = (contato.telefone_canonico || contato.telefone || '').replace(/\D/g, '');
       try {
         let photoUrl = String(contato.foto_perfil_url || '').includes('pps.whatsapp.net')
@@ -83,7 +89,10 @@ Deno.serve(async (req) => {
           const bytes = await download.arrayBuffer();
           const extensao = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
           const file = new File([bytes], `perfil_${contato.id}_${Date.now()}.${extensao}`, { type: contentType });
-          const upload = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+          const upload = await Promise.race([
+            base44.asServiceRole.integrations.Core.UploadFile({ file }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('upload_timeout_30s')), 30000))
+          ]);
           if (!upload?.file_url) throw new Error('upload_sem_url');
           const appId = Deno.env.get('BASE44_APP_ID');
           const update = await fetch(`https://base44.app/api/apps/${appId}/entities/Contact/${contato.id}`, {
