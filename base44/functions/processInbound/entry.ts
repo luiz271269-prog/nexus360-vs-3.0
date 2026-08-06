@@ -170,15 +170,6 @@ Deno.serve(async (req) => {
     }
   }
 
-  // [FOTO OPORTUNISTA] Fire-and-forget: NÃO usar await. Todos os guards
-  // (telefone válido, foto ausente/temporária, cooldown 7d, lock) ficam
-  // dentro do reparoFotoPerfilOportunista. Falha nunca afeta o inbound.
-  if (contact?.id && message?.sender_type === 'contact') {
-    base44.asServiceRole.functions
-      .invoke('reparoFotoPerfilOportunista', { contact_id: contact.id })
-      .catch(() => {});
-  }
-
   // ════════════════════════════════════════════════════════════════
   // [FASE 6] OPT-OUT AUTOMÁTICO — Detectar PARE/REMOVER/CANCELAR
   // Se cliente responde com palavras de descadastro, marca opt-out
