@@ -10,8 +10,10 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.34';
 
-const VERSION = 'v1.2.0';
-const BATCH_LIMIT = 1;
+const VERSION = 'v1.3.0';
+// 🔧 Vazão: 1 item/execução (6/hora com cron de 10min) não drenava o backlog —
+// perdas de ~128/dia ficavam permanentes. 15 esvazia 58 pendentes em ~4 execuções.
+const BATCH_LIMIT = 15;
 const ORFAO_TIMEOUT_MS = 15 * 60_000;
 const MAX_DEFAULT = 5;
 const APP_BASE_URL = 'https://nexus360-pro.base44.app/api/apps/68a7d067890527304dbe8477/functions';

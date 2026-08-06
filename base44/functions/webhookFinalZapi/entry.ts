@@ -1066,7 +1066,7 @@ async function handleMessage(dados, payloadBruto, base44) {
       { contact_id: contato.id, is_canonical: true, status: 'aberta' },
       '-last_message_at',
       5
-    ), 5, 1500);
+    ), 2, 600);
 
     if (threads && threads.length > 1) {
       // ✅ WH-2: múltiplas canônicas detectadas — eleger vencedora (mesma regra de corrigirThreadsCanonicasDuplicadas)
@@ -1126,7 +1126,7 @@ async function handleMessage(dados, payloadBruto, base44) {
         { contact_id: contato.id, is_canonical: true, status: 'aberta' },
         '-last_message_at',
         1
-      ), 3, 1000);
+      ), 2, 500);
       if (recheck && recheck.length > 0) {
         thread = recheck[0];
         console.log(`[${VERSION}] ✅ WH-2: thread criada por webhook paralelo (recheck): ${thread.id}`);

@@ -970,7 +970,7 @@ async function handleMessage(dados, payloadBruto, base44, requestHeaders) {
     try {
       const dup = await retryOn429(() => base44.asServiceRole.entities.Message.filter(
         { whatsapp_message_id: dados.messageId }, '-created_date', 1
-      ), 5, 1500);
+      ), 2, 800);
       if (dup && dup.length > 0) {
         console.log(`[WAPI] ⏭️ DUPLICADA por messageId: ${dados.messageId}`);
         return jsonOk({ message_id: dup[0].id, ignored: true, reason: 'duplicata_message_id', duration_ms: Date.now() - inicio });
@@ -1110,7 +1110,7 @@ async function handleMessage(dados, payloadBruto, base44, requestHeaders) {
     // ✅ WH-2: limit=5 (era 1) — detecta múltiplas canônicas e re-elege
     const threads = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
       { contact_id: contato.id, is_canonical: true, status: 'aberta' }, '-last_message_at', 5
-    ), 5, 1500);
+    ), 2, 600);
     if (threads && threads.length > 1) {
       // ✅ WH-2: múltiplas canônicas — eleger vencedora
       console.warn(`[WAPI] ⚠️ WH-2: ${threads.length} canônicas detectadas para contact_id ${contato.id} — re-elegendo`);
@@ -1145,7 +1145,7 @@ async function handleMessage(dados, payloadBruto, base44, requestHeaders) {
       await new Promise(r => setTimeout(r, jitter));
       const recheck = await retryOn429(() => base44.asServiceRole.entities.MessageThread.filter(
         { contact_id: contato.id, is_canonical: true, status: 'aberta' }, '-last_message_at', 1
-      ), 3, 1000);
+      ), 2, 500);
       if (recheck && recheck.length > 0) {
         thread = recheck[0];
         console.log(`[WAPI] ✅ WH-2: thread criada por webhook paralelo (recheck): ${thread.id}`);
